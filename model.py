@@ -66,11 +66,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-import classifier
-from classifier import (
-    Classifier,
-    GenreData,
-)
 from util import (
     LanguageCodes,
     MetadataSimilarity,
@@ -2171,10 +2166,10 @@ class Work(Base):
         unmarked = audience_s[None]
         audience = Classifier.AUDIENCE_ADULT
 
-        if audience_s[Classifier.AUDIENCE_YOUNG_ADULT] > unmarked:
-            audience = Classifier.AUDIENCE_YOUNG_ADULT
-        elif audience_s[Classifier.AUDIENCE_CHILDREN] > unmarked:
-            audience = Classifier.AUDIENCE_CHILDREN
+        if audience_s[Classification.AUDIENCE_YOUNG_ADULT] > unmarked:
+            audience = Classification.AUDIENCE_YOUNG_ADULT
+        elif audience_s[Classification.AUDIENCE_CHILDREN] > unmarked:
+            audience = Classification.AUDIENCE_CHILDREN
 
         # Clear any previous genre assignments.
         for i in self.work_genres:
@@ -2668,64 +2663,16 @@ class Resource(Base):
             self.scaled = False
         return already_scaled
 
-class Genre(Base):
-    """A subject-matter classification for a book.
-
-    Much, much more general than Classification.
-    """
-    __tablename__ = 'genres'
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode)
-
-    # One Genre may have affinity with many Subjects.
-    subjects = relationship("Subject", backref="genre")
-
-    # One Genre may participate in many WorkGenre assignments.
-    works = association_proxy('work_genres', 'work')
-
-    work_genres = relationship("WorkGenre", backref="genre", 
-                               cascade="all, delete, delete-orphan")
-
-    def __repr__(self):
-        return "<Genre %s (%d subjects, %d works, %d subcategories)>" % (
-            self.name, len(self.subjects), len(self.works),
-            len(classifier.genres[self.name].subgenres))
-
-    @classmethod
-    def lookup(cls, _db, name, autocreate=False):
-        if autocreate:
-            m = get_one_or_create
-        else:
-            m = get_one
-        if isinstance(name, GenreData):
-            name = name.name
-        result = m(_db, Genre, name=name)
-        if isinstance(result, tuple):
-            return result
-        else:
-            return result, False
-
-    @property
-    def self_and_subgenres(self):
-        _db = Session.object_session(self)
-        genres = []
-        for genre_data in classifier.genres[self.name].self_and_subgenres:
-            genres.append(self.lookup(_db, genre_data.name)[0])
-        return genres
-
-    @property
-    def default_fiction(self):
-        return classifier.genres[self.name].is_fiction
 
 class Subject(Base):
     """A subject under which books might be classified."""
 
     # Types of subjects.
-    LCC = Classifier.LCC              # Library of Congress Classification
-    LCSH = Classifier.LCSH            # Library of Congress Subject Headings
-    FAST = Classifier.FAST
-    DDC = Classifier.DDC              # Dewey Decimal Classification
-    OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
+    LCC = "LCC"              # Library of Congress Classification
+    LCSH = "LCSH"            # Library of Congress Subject Headings
+    FAST = "FAST"
+    DDC = "DDC"              # Dewey Decimal Classification
+    OVERDRIVE = "Overdrive"  # Overdrive's classification system
     TAG = "tag"   # Folksonomic tags.
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
@@ -2822,59 +2769,6 @@ class Subject(Base):
             subject.name = name
         return subject, new
 
-    @classmethod
-    def common_but_not_assigned_to_genre(cls, _db, min_occurances=1000, 
-                                         type_restriction=None):
-        q = _db.query(Subject).join(Classification).filter(Subject.genre==None)
-
-        if type_restriction:
-            q = q.filter(Subject.type==type_restriction)
-        q = q.group_by(Subject.id).having(
-            func.count(Subject.id) > min_occurances).order_by(
-            func.count(Classification.id).desc())
-        return q
-
-    @classmethod
-    def assign_to_genres(cls, _db, type_restriction=None, force=False,
-                         batch_size=1000):
-        """Find subjects that have not been checked yet, assign each a
-        genre/audience/fiction status if possible, and mark each as
-        checked.
-
-        :param type_restriction: Only consider subjects of the given type.
-        :param force: Assign a genre to all subjects not just the ones that
-                      have been checked.
-        :param batch_size: Perform a database commit every time this many
-                           subjects have been checked.
-        """
-        q = _db.query(Subject).filter(Subject.locked==False)
-
-        if type_restriction:
-            q = q.filter(Subject.type==type_restriction)
-
-        if not force:
-            q = q.filter(Subject.checked==False)
-
-        counter = 0
-        for subject in q:
-            subject.checked = True
-            classifier = Classifier.classifiers.get(subject.type, None)
-            if not classifier:
-                continue
-            genredata, audience, fiction = classifier.classify(subject)
-            if genredata:
-                genre, was_new = Genre.lookup(_db, genredata.name, True)
-                subject.genre = genre
-            if audience:
-                subject.audience = audience
-            if fiction is not None:
-                subject.fiction = fiction
-            if genredata or audience or fiction:
-                print subject
-            counter += 1
-            if not counter % batch_size:
-                _db.commit()
-        _db.commit()
 
 class Classification(Base):
     """The assignment of a Identifier to a Subject."""
@@ -2887,6 +2781,10 @@ class Classification(Base):
 
     # How much weight the data source gives to this classification.
     weight = Column(Integer)
+
+    AUDIENCE_CHILDREN = "Children"
+    AUDIENCE_YOUNG_ADULT = "Young Adult"
+    AUDIENCE_ADULT = "Adult"
 
     @property
     def scaled_weight(self):
