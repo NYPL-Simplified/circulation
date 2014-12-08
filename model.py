@@ -2726,12 +2726,13 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    TAG = "tag"   # Folksonomic tags.
-    GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
-    TOPIC = "schema:Topic"
-    PLACE = "schema:Place"
-    PERSON = "schema:Person"
-    ORGANIZATION = "schema:Organization"
+    TAG = Classifier.TAG   # Folksonomic tags.
+    GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
+    TOPIC = Classifier.TOPIC
+    PLACE = Classifier.PLACE
+    PERSON = Classifier.PERSON
+    ORGANIZATION = Classifier.ORGANIZATION
+
 
     by_uri = {
         "http://purl.org/dc/terms/LCC" : LCC,
