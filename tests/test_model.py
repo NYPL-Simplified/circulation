@@ -37,7 +37,7 @@ from classifier import (
     Drama,
 )
 
-from db import (
+from testing import (
     DatabaseTest,
 )
 
