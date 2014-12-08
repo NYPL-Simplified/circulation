@@ -1950,8 +1950,8 @@ class Work(Base):
         else:
             print "MERGING %r into %r, similarity is %.3f." % (
                 self, target_work, similarity)
-            target_work.license_pools.extend(self.license_pools)
-            target_work.editions.extend(self.editions)
+            target_work.license_pools.extend(list(self.license_pools))
+            target_work.editions.extend(list(self.editions))
             target_work.calculate_presentation()
             print "The resulting work: %r" % target_work
             self.was_merged_into = target_work

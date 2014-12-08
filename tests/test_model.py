@@ -940,7 +940,6 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This attempt will succeed because we lower the similarity
         # threshold.
-        set_trace()
         work2.merge_into(work1, similarity_threshold=0)
         eq_(work1, work2.was_merged_into)
 
