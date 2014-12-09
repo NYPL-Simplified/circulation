@@ -131,3 +131,45 @@ class OverdriveAPI(object):
         query_string = query_string.replace("}", "%7D")
         parts[3] = query_string
         return urlparse.urlunsplit(tuple(parts))
+
+
+class OverdriveRepresentationExtractor(object):
+
+    """Extract useful information from Overdrive's JSON representations."""
+
+    @classmethod
+    def availability_link_list(self, book_list):
+        """:return: A list of dictionaries with keys `id`, `title`,
+        `availability_link`.
+        """
+        l = []
+        if not 'products' in book_list:
+            return []
+
+        products = book_list['products']
+        for product in products:
+            data = dict(id=product['id'],
+                        title=product['title'],
+                        author_name=None)
+            
+            if 'primaryCreator' in product:
+                creator = product['primaryCreator']
+                if creator.get('role') == 'Author':
+                    data['author_name'] = creator.get('name')
+            links = product.get('links', [])
+            if 'availability' in links:
+                link = links['availability']['href']
+                data['availability_link'] = OverdriveAPI.make_link_safe(link)
+            else:
+                log.warn("No availability link for %s" % book_id)
+            l.append(data)
+        return l
+
+    @classmethod
+    def link(self, page, rel):
+        if 'links' in page and rel in page['links']:
+            raw_link = page['links'][rel]['href']
+            link = OverdriveAPI.make_link_safe(raw_link)
+        else:
+            link = None
+        return link
