@@ -14,16 +14,16 @@ from testing import (
     _teardown,
 )
 
-
-class DBInfo(object):
+class CoreDBInfo(object):
     connection = None
     engine = None
     transaction = None
 
-DatabaseTest.DBInfo = DBInfo
+DatabaseTest.DBInfo = CoreDBInfo
 
 def setup():
-    _setup(DBInfo)
+    set_trace()
+    _setup(CoreDBInfo)
 
 def teardown():
     _teardown(DBInfo)

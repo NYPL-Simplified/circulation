@@ -11,6 +11,7 @@ import sys
 from model import (
     Credential,
     DataSource,
+    Representation,
 )
 
 class OverdriveAPI(object):
