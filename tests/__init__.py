@@ -1,27 +1,29 @@
 import sys, os
+from nose.tools import set_trace
 
 # Add the parent directory to the path so that import statements will work
 # the same in tests as in code.
-this_dir = os.path.abspath(os.path.dirname(__file__))
-parent = os.path.split(this_dir)[0]
-sys.path.insert(0, parent)
+# this_dir = os.path.abspath(os.path.dirname(__file__))
+# parent = os.path.split(this_dir)[0]
+# sys.path.insert(0, parent)
 
-from core.testing import (
+from ..core.testing import (
     DatabaseTest,
+#    DBInfo,
     _setup,
     _teardown,
 )
 
-class DBInfo(object):
+class CirculationDBInfo(object):
     connection = None
     engine = None
     transaction = None
 
-DatabaseTest.DBInfo = DBInfo
+DatabaseTest.DBInfo = CirculationDBInfo
 
 def setup():
-    _setup(DBInfo)
+    _setup(CirculationDBInfo)
 
 def teardown():
-    _teardown(DBInfo)
+    _teardown(CirculationDBInfo)
 

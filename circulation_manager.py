@@ -12,10 +12,10 @@ from sqlalchemy.orm.exc import (
 import flask
 from flask import Flask, url_for, redirect, Response
 
-from core.integration.circulation_exceptions import (
+from circulation_exceptions import (
     NoAvailableCopies,
 )
-from core.integration.overdrive import (
+from core.overdrive import (
     OverdriveAPI
 )
 

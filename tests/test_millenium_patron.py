@@ -1,7 +1,11 @@
 import pkgutil
-from nose.tools import eq_, set_trace
+import os
+from nose.tools import (
+    eq_,
+    set_trace,
+)
 
-from integration.millenium_patron import MilleniumPatronAPI
+from ..integration.millenium_patron import MilleniumPatronAPI
 
 class DummyResponse(object):
     def __init__(self, content):
@@ -12,11 +16,17 @@ class DummyAPI(MilleniumPatronAPI):
     def __init__(self):
         super(DummyAPI, self).__init__()
         self.queue = []
+        base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(
+            base_path, "files", "millenium_patron")
+
+    def sample_data(self, filename):
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data
 
     def enqueue(self, filename):
-        data = pkgutil.get_data(
-            "tests.integrate",
-            "files/millenium_patron/%s" % filename)
+        data = self.sample_data(filename)
         self.queue.append(data)
 
     def request(self, *args, **kwargs):

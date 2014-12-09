@@ -5,18 +5,18 @@ import base64
 import feedparser
 import json
 import os
-from integration.millenium_patron import DummyMilleniumPatronAPI
+from ..integration.millenium_patron import DummyMilleniumPatronAPI
 
 from nose.tools import (
     eq_,
     set_trace,
 )
 
-from core.testing import (
+from . import (
     DatabaseTest,
 )
 
-from core.model import (
+from ..core.model import (
     DataSource,
     LaneList,
     Loan,
@@ -26,7 +26,7 @@ from core.model import (
 
 from flask import url_for
 os.environ['TESTING'] = "True"
-import circulation_manager as circulation
+from .. import circulation_manager as circulation
 del os.environ['TESTING']
 
 class AuthenticationTest(DatabaseTest):
