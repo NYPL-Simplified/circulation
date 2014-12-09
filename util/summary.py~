@@ -1,0 +1,9 @@
+from textblob import TextBlob
+from collections import Counter
+
+
+class SummaryEvaluator(object):
+
+    def __init__(self):
+        self.summaries = []
+        self.noun_phrases = Counter()
