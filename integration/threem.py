@@ -5,7 +5,7 @@ from nose.tools import set_trace
 
 from sqlalchemy import or_
 
-from core.model import (
+from ..core.model import (
     CirculationEvent,
     Edition,
     Identifier,
@@ -14,7 +14,7 @@ from core.model import (
 )
 
 from ..core.monitor import Monitor
-from ..core.xmlparser import XMLParser
+from ..core.util.xmlparser import XMLParser
 from ..core.threem import ThreeMAPI as BaseThreeMAPI
 
 class ThreeMAPI(BaseThreeMAPI):
