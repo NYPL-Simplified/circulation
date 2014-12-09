@@ -34,8 +34,8 @@ from core.model import (
 from circulation_exceptions import (
     NoAvailableCopies,
 )
-from monitor import Monitor
-from util import LanguageCodes
+from ..monitor import Monitor
+from ..util import LanguageCodes
 
 class OverdriveAPI(object):
 
