@@ -1,12 +1,11 @@
 from textblob import TextBlob
 from collections import Counter
 from nose.tools import set_trace
-from util import (
+from . import (
     Bigrams,
     english_bigrams,
 )
 import re
-re_type = type(re.compile(""))
 
 class SummaryEvaluator(object):
 
