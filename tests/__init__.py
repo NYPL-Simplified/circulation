@@ -22,8 +22,7 @@ class CoreDBInfo(object):
 DatabaseTest.DBInfo = CoreDBInfo
 
 def setup():
-    set_trace()
     _setup(CoreDBInfo)
 
 def teardown():
-    _teardown(DBInfo)
+    _teardown(CoreDBInfo)
