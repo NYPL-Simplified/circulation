@@ -23,16 +23,15 @@ from model import (
     Edition,
     Work,
     )
-from flask import request, url_for
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
 app_ns = 'http://www.w3.org/2007/app'
 xhtml_ns = 'http://www.w3.org/1999/xhtml'
 dcterms_ns = 'http://purl.org/dc/terms/'
 opds_ns = 'http://opds-spec.org/2010/catalog'
-# TODO: This is a placeholder.
-opds_41_ns = 'http://opds-spec.org/2014/catalog'
 schema_ns = 'http://schema.org/'
+
+# This is a placeholder namespace for stuff we've invented.
 simplified_ns = 'http://library-simplified.com/'
 
 
@@ -41,7 +40,6 @@ nsmap = {
     'app': app_ns,
     'dcterms' : dcterms_ns,
     'opds' : opds_ns,
-    'opds41' : opds_41_ns,
     'schema' : schema_ns,
     'simplified' : simplified_ns,
 }
@@ -59,12 +57,81 @@ SCHEMA = builder.ElementMaker(
     typemap=default_typemap, nsmap=nsmap, namespace="http://schema.org/")
 
 
+class Annotator(object):
+    """The Annotator knows how to present an OPDS feed in a specific
+    application context.
+    """
+
+    @classmethod
+    def annotate_work_entry(cls, work, entry, links):
+        """Make any custom modifications necessary to integrate this
+        OPDS entry into the application's workflow.
+        """
+        return
+
+    @classmethod
+    def lane_id(cls, lane):
+        return "tag:%s" % (lane.name)
+
+    @classmethod
+    def _identifier_urn(cls, identifier):
+        return "urn:com:library-simplified:identifier:%s:%s" % (identifier.type, identifier.identifier)
+
+    @classmethod
+    def work_id(cls, work):
+        return cls._identifier_urn(work.primary_edition.primary_identifier)
+
+    @classmethod
+    def permalink_for(cls, license_pool):
+        """In the absence of any specific URLs, the best we can do
+        is a URN.
+        """
+        identifier = license_pool.identifier
+        return cls._identifier_urn(identifier)
+        
+
+    @classmethod
+    def navigation_feed_url(cls, lane, order=None):
+        raise NotImplementedError()
+
+    @classmethod
+    def featured_feed_url(cls, lane, order=None):
+        raise NotImplementedError()
+
+    @classmethod
+    def facet_url(cls, order):
+        return None
+
+    @classmethod
+    def active_licensepool_for(cls, work):
+        """Which license pool would be/has been used to issue a license for
+        this work?
+        """
+        # The active license pool is the one that *would* be associated
+        # with a loan, were a loan to be issued right now.
+        open_access_license_pool = None
+        active_license_pool = None
+        for p in work.license_pools:
+            if p.open_access:
+                # Make sure there's a usable link--it might be
+                # audio-only or something.
+                if p.edition().best_open_access_link:
+                    open_access_license_pool = p
+            else:
+                # TODO: It's OK to have a non-open-access license pool,
+                # but the pool needs to have copies available.
+                active_license_pool = p
+                break
+        if not active_license_pool:
+            active_license_pool = open_access_license_pool
+        return active_license_pool
+
+
 class URLRewriter(object):
 
     epub_id = re.compile("/([0-9]+)")
 
     GUTENBERG_ILLUSTRATED_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated"
-    GENERATED_COVER_HOST = "https://s3.amazonaws.com/gutenberg-corpus.nypl.org/Generated+covers"
     CONTENT_CAFE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/CC"
     SCALED_CONTENT_CAFE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/CC"
     ORIGINAL_OVERDRIVE_IMAGE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/Overdrive"
@@ -138,121 +205,83 @@ class OPDSFeed(AtomFeed):
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
 
-    @classmethod
-    def lane_url(cls, lane, order=None):
-        return url_for('feed', lane=lane.name, order=order, _external=True)
+    def __init__(self, title, url, annotator):
+        if not annotator:
+            annotator = Annotator()
+        self.annotator = annotator
+        super(OPDSFeed, self).__init__(title, url)
+
 
 class AcquisitionFeed(OPDSFeed):
 
-    def __init__(self, _db, title, url, works, facet_url_generator=None,
-                 active_facet=None, sublanes=[], active_loans_by_work={}):
-        super(AcquisitionFeed, self).__init__(title, url=url)
+    @classmethod
+    def featured(cls, languages, lane, annotator):
+        """The acquisition feed for 'featured' items from a given lane.
+        """
+        url = annotator.featured_feed_url(lane)
+        feed_size = 20
+        works = lane.quality_sample(languages, 0.65, 0.3, feed_size,
+                                    "currently_available")
+        return AcquisitionFeed(
+            lane._db, "%s: featured" % lane.name, url, works, annotator, 
+            sublanes=lane.sublanes)
+
+    def __init__(self, _db, title, url, works, annotator=None,
+                 active_facet=None, sublanes=[]):
+        super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         import time
         first_time = time.time()
         totals = []
         for work in works:
             a = time.time()
-            self.add_entry(work, lane_link, active_loans_by_work.get(work))
+            self.add_entry(work, lane_link)
             totals.append(time.time()-a)
 
         # import numpy
         # print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (
         #    time.time()-first_time, numpy.mean(totals), numpy.std(totals))
 
-        if facet_url_generator:
-            for title, order, facet_group, in [
-                    ('Title', 'title', 'Sort by'),
-                    ('Author', 'author', 'Sort by')]:
-                link = dict(href=facet_url_generator(order),
-                            title=title)
-                link['rel'] = "http://opds-spec.org/facet"
-                link['{%s}facetGroup' % opds_ns] = facet_group
-                if order==active_facet:
-                    link['{%s}activeFacet' % opds_ns] = "true"
-                self.add_link(**link)
+        for title, order, facet_group, in [
+                ('Title', 'title', 'Sort by'),
+                ('Author', 'author', 'Sort by')]:
+            url = self.annotator.facet_url(order)
+            if not url:
+                continue
+            link = dict(href=url, title=title)
+            link['rel'] = "http://opds-spec.org/facet"
+            link['{%s}facetGroup' % opds_ns] = facet_group
+            if order==active_facet:
+                link['{%s}activeFacet' % opds_ns] = "true"
+            self.add_link(**link)
 
-    @classmethod
-    def featured(cls, _db, languages, lane):
-        url = cls.lane_url(lane)
-        links = []
-        feed_size = 20
-        works = lane.quality_sample(languages, 0.65, 0.3, feed_size,
-                                    "currently_available")
-        return AcquisitionFeed(
-            _db, "%s: featured" % lane.name, url, works, sublanes=lane.sublanes)
-
-    @classmethod
-    def active_loans_for(cls, patron):
-        db = Session.object_session(patron)
-        url = url_for('active_loans', _external=True)
-        active_loans_by_work = {}
-        for loan in patron.loans:
-            active_loans_by_work[loan.license_pool.work] = loan
-        return AcquisitionFeed(db, "Active loans", url, patron.works_on_loan(),
-                               active_loans_by_work=active_loans_by_work)
-
-    def add_entry(self, work, lane_link, loan=None):
-        entry = self.create_entry(work, lane_link, loan)
+    def add_entry(self, work, lane_link):
+        entry = self.create_entry(work, lane_link)
         if entry is not None:
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link, loan=None):
+    def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         # Find the .epub link
         epub_href = None
         p = None
 
-        active_license_pool = None
-        if loan:
-            # The active license pool is the one associated with
-            # the loan.
-            active_license_pool = loan.license_pool
-        else:
-            # The active license pool is the one that *would* be associated
-            # with a loan, were a loan to be issued right now.
-            open_access_license_pool = None
-            for p in work.license_pools:
-                if p.open_access:
-                    # Make sure there's a usable link--it might be
-                    # audio-only or something.
-                    if p.edition().best_open_access_link:
-                        open_access_license_pool = p
-                else:
-                    # TODO: It's OK to have a non-open-access license pool,
-                    # but the pool needs to have copies available.
-                    active_license_pool = p
-                    break
-            if not active_license_pool:
-                active_license_pool = open_access_license_pool
-
+        active_license_pool = self.annotator.active_licensepool_for(work)
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool:
             return None
 
-        # TODO: If there's an active loan, the links and the license
-        # information should be much different. But we currently don't
-        # include license information at all, because OPDS For
-        # Libraries is still in flux. So for now we always put up an
-        # open access link that leads to the checkout URL.
         identifier = active_license_pool.identifier
-        checkout_url = url_for(
-            "checkout", data_source=active_license_pool.data_source.name,
-            identifier=identifier.identifier, _external=True)
 
-        if active_license_pool.open_access:
-            rel = self.OPEN_ACCESS_REL
-        else:
-            rel = self.BORROW_REL
-        links=[E.link(rel=rel, href=checkout_url)]
-
+        links = []
         cover_quality = 0
         qualities = [("Work quality", work.quality)]
         full_url = None
 
         active_edition = work.primary_edition
 
+        # TODO: This might not be necessary anymore.
         if not work.cover_full_url and active_edition.cover:
             active_edition.set_cover(active_edition.cover)
 
@@ -269,19 +298,15 @@ class AcquisitionFeed(OPDSFeed):
             elif active_edition.cover.data_source.name == DataSource.GUTENBERG_COVER_GENERATOR:
                 thumbnail_url = full_url
         elif identifier.type == Identifier.GUTENBERG_ID:
-            host = URLRewriter.GENERATED_COVER_HOST
-            thumbnail_url = host + urllib.quote(
-                "/Gutenberg ID/%s.png" % identifier.identifier)
-            full_url = thumbnail_url
+            # The client will generate a cover for this identifier.
+            full_url = None
         if full_url:
             links.append(E.link(rel=Resource.IMAGE, href=full_url))
 
         if thumbnail_url:
             thumbnail_url = URLRewriter.rewrite(thumbnail_url)
             links.append(E.link(rel=Resource.THUMBNAIL_IMAGE, href=thumbnail_url))
-        identifier = active_license_pool.identifier
-        tag = url_for("work", identifier_type=identifier.type,
-                      identifier=identifier.identifier, _external=True)
+        permalink = self.annotator.permalink_for(active_license_pool)
 
         if work.summary_text:
             summary = work.summary_text
@@ -302,7 +327,7 @@ class AcquisitionFeed(OPDSFeed):
         summary += "</ul>"
 
         entry = E.entry(
-            E.id(tag),
+            E.id(self.annotator.work_id(work)),
             E.title(work.title))
         if work.subtitle:
             entry.extend([E.alternativeHeadline(work.subtitle)])
@@ -310,7 +335,6 @@ class AcquisitionFeed(OPDSFeed):
         entry.extend([
             E.author(E.name(work.author or "")),
             E.summary(summary),
-            E.link(href=checkout_url),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
         entry.extend(links)
@@ -376,13 +400,7 @@ class AcquisitionFeed(OPDSFeed):
             audience_tag.extend([audience_name_tag])
             entry.extend([audience_tag])
 
-        loan_tag = self.loan_tag(loan)
-        if loan_tag is not None:
-            entry.extend([loan_tag])
-
-        license_tag = self.license_tag(active_license_pool)
-        if license_tag is not None:
-            entry.extend([license_tag])
+        self.annotator.annotate_work_entry(work, entry, links)
 
         return entry
 
@@ -405,7 +423,7 @@ class AcquisitionFeed(OPDSFeed):
             expires.text = loan.end.isoformat() + "Z"
         return loan_tag
 
-    def license_tag(self, license_pool):
+    def license_tags(self, license_pool):
         if license_pool.open_access:
             return None
 
@@ -429,28 +447,27 @@ class AcquisitionFeed(OPDSFeed):
 class NavigationFeed(OPDSFeed):
 
     @classmethod
-    def main_feed(self, lane):
+    def main_feed(self, lane, annotator):
+        """The main navigation feed for the given lane."""
         if lane.name:
             name = "Navigation feed for %s" % lane.name
         else:
             name = "Navigation feed"
         feed = NavigationFeed(
-            name,
-            url=url_for('navigation_feed', lane=lane.name, _external=True))
+            name, annotator.navigation_feed_url(lane), annotator)
 
         top_level_feed = feed.add_link(
             rel="start",
             type=self.NAVIGATION_FEED_TYPE,
-            href=url_for('navigation_feed', _external=True),
+            href=annotator.navigation_feed_url(None),
         )
 
         if lane.name:
             if lane.parent:
-                parent_name = lane.parent.name
+                parent = lane.parent
             else:
-                parent_name = None
-            parent_url = url_for(
-                'navigation_feed', lane=parent_name, _external=True)
+                parent = None
+            parent_url = annotator.navigation_feed_url(parent)
             feed.add_link(
                 rel="up",
                 href=parent_url,
@@ -465,7 +482,7 @@ class NavigationFeed(OPDSFeed):
             ]:
                 link = E.link(
                     type=self.ACQUISITION_FEED_TYPE,
-                    href=self.lane_url(lane, order),
+                    href=annotator.featured_feed_url(lane, order),
                     rel=rel,
                     title=title,
                 )
@@ -474,7 +491,7 @@ class NavigationFeed(OPDSFeed):
             if lane.sublanes.lanes:
                 navigation_link = E.link(
                     type=self.NAVIGATION_FEED_TYPE,
-                    href=url_for("navigation_feed", lane=lane.name, _external=True),
+                    href=annotator.navigation_feed_url(lane),
                     rel="subsection",
                     title="Look inside %s" % lane.name,
                 )
@@ -482,7 +499,7 @@ class NavigationFeed(OPDSFeed):
             else:
                 link = E.link(
                     type=self.ACQUISITION_FEED_TYPE,
-                    href=self.lane_url(lane, 'author'),
+                    href=annotator.featured_feed_url(lane, 'author'),
                     title="Look inside %s" % lane.name,
                 )
                 links.append(link)
@@ -490,9 +507,9 @@ class NavigationFeed(OPDSFeed):
 
             feed.feed.append(
                 E.entry(
-                    E.id("tag:%s" % (lane.name)),
+                    E.id(annotator.lane_id(lane)),
                     E.title(lane.name),
-                    E.link(href=self.lane_url(lane)),
+                    E.link(href=annotator.featured_feed_url(lane)),
                     E.updated(_strftime(datetime.datetime.utcnow())),
                     *links
                 )
