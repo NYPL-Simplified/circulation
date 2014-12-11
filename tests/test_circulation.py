@@ -200,6 +200,7 @@ class TestAcquisitionFeed(CirculationTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = circulation.active_loans()
             assert self.english_1.title in response
+            assert ">loan<" in response
 
 
 class TestCheckout(CirculationTest):

@@ -33,6 +33,7 @@ from core.model import (
     Edition,
     )
 from core.opensearch import OpenSearchDocument
+from opds import CirculationManagerAnnotator
 from core.opds import (
     E,
     AcquisitionFeed,
@@ -543,7 +544,7 @@ def navigation_feed(lane):
     if key in feed_cache:
         return feed_cache[key]
         
-    feed = NavigationFeed.main_feed(lane)
+    feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator())
 
     feed.add_link(
         rel="search", 
@@ -567,15 +568,21 @@ def active_loans():
     # First synchronize our local list of loans with all third-party
     # loan providers.
     header = flask.request.authorization
-    if not Conf.testing:
+    # TODO: this is a hack necessary so long as we use dummy auth,
+    # because Overdrive always asks the real ILS for the real barcode.
+    # If you use a test barcode, we want /loans to act like you have no
+    # Overdrive loans; we don't want it to crash.
+    try:
         overdrive = OverdriveAPI(Conf.db)
         overdrive_loans = overdrive.get_patron_checkouts(
             flask.request.patron, header.password)
         OverdriveAPI.sync_bookshelf(flask.request.patron, overdrive_loans)
         Conf.db.commit()
+    except Exception, e:
+        print e
 
     # Then make the feed.
-    feed = AcquisitionFeed.active_loans_for(flask.request.patron)
+    feed = CirculationManagerAnnotator.active_loans_for(flask.request.patron)
     return unicode(feed)
 
 @app.route('/feed/<lane>')
@@ -607,7 +614,8 @@ def feed(lane):
         href=url_for('lane_search', lane=lane.name, _external=True))
 
     if order == 'recommended':
-        opds_feed = AcquisitionFeed.featured(Conf.db, languages, lane)
+        opds_feed = AcquisitionFeed.featured(
+            languages, lane, CirculationManagerAnnotator())
         opds_feed.add_link(**search_link)
         work_feed = None
     elif order == 'title':
@@ -645,8 +653,9 @@ def feed(lane):
         url_generator = lambda x : url_for(
             'feed', lane=lane.name, order=x, _external=True)
 
-        opds_feed = AcquisitionFeed(Conf.db, title, this_url, page, 
-                                    url_generator, work_feed.active_facet)
+        opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
+                                    CirculationManagerAnnotator(),
+                                    work_feed.active_facet)
         # Add a 'next' link if appropriate.
         if page and len(page) >= size:
             after = page[-1].id
@@ -684,7 +693,7 @@ def lane_search(lane):
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query),
-        results)
+        results, CirculationManagerAnnotator())
     return unicode(opds_feed)
 
 @app.route('/works/<data_source>/<identifier>/checkout')
