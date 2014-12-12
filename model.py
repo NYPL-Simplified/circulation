@@ -2738,7 +2738,12 @@ class Subject(Base):
         "http://library-simplified.com/genres/" : SIMPLIFIED_GENRE,
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
+        "http://purl.org/dc/terms/DDC" : DDC,
     }
+
+    uri_lookup = dict()
+    for k, v in by_uri.items():
+        uri_lookup[v] = k
 
     __tablename__ = 'subjects'
     id = Column(Integer, primary_key=True)
