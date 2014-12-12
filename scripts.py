@@ -6,6 +6,7 @@ from model import (
     Edition,
     LicensePool,
     Work,
+    WorkGenre,
 )
 
 class Script(object):
@@ -94,3 +95,52 @@ class WorkConsolidationScript(Script):
         print "Consolidating works."
         LicensePool.consolidate_works(self.db)
         self.db.commit()
+
+class WorkPresentationScript(Script):
+    """Calculate the presentation for Work objects."""
+
+    def __init__(self, works_from_source=None, force=False,
+                 specific_identifier=None):
+        self.session = self._db
+        if specific_identifier:
+            self.specific_work = specific_identifier.work
+        else:
+            self.specific_work = None
+        self.force = force
+        if works_from_source:
+            self.works_from_source = DataSource.lookup(
+                self.session, works_from_source)
+        else:
+            self.works_from_source = None
+
+    def run(self):
+        if self.specific_work:
+            print "Recalculating presentation for %s" % self.specific_work
+            self.specific_work.calculate_presentation()
+            return
+
+        if self.works_from_source:
+            which_works = self.works_from_source.name
+        else:
+            which_works = "all"
+
+        print "Recalculating presentation for %s works, force=%r" % (
+            which_works, self.force)
+        i = 0
+        q = self.session.query(Work)
+        if self.works_from_source:
+            q = q.join(Edition).filter(
+                Edition.data_source==self.works_from_source)
+        if not self.force:
+            q = q.filter(Work.fiction==None).filter(Work.audience==None)
+
+        print "That's %d works." % q.count()
+        for work in q:
+            work.calculate_presentation(
+                choose_edition=True, classify=True, choose_summary=True,
+                calculate_quality=True)
+            i += 1
+            if not i % 10:
+                self.session.commit()
+        self.session.commit()
+
