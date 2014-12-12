@@ -3273,7 +3273,7 @@ class LicensePool(Base):
     availability_time = Column(DateTime, index=True)
 
     open_access = Column(Boolean)
-    last_checked = Column(DateTime)
+    last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
     licenses_available = Column(Integer,default=0)
     licenses_reserved = Column(Integer,default=0)
