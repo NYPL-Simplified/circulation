@@ -544,7 +544,7 @@ def navigation_feed(lane):
     if key in feed_cache:
         return feed_cache[key]
         
-    feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator())
+    feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
     feed.add_link(
         rel="search", 
@@ -613,9 +613,10 @@ def feed(lane):
         type="application/opensearchdescription+xml",
         href=url_for('lane_search', lane=lane.name, _external=True))
 
+    annotator = CirculationManagerAnnotator(lane)
     if order == 'recommended':
         opds_feed = AcquisitionFeed.featured(
-            languages, lane, CirculationManagerAnnotator())
+            languages, lane, annotator)
         opds_feed.add_link(**search_link)
         work_feed = None
     elif order == 'title':
@@ -650,12 +651,9 @@ def feed(lane):
 
         this_url = url_for('feed', lane=lane.name, order=order, _external=True)
         page = work_feed.page_query(Conf.db, last_work_seen, size).all()
-        url_generator = lambda x : url_for(
-            'feed', lane=lane.name, order=x, _external=True)
 
         opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                    CirculationManagerAnnotator(),
-                                    work_feed.active_facet)
+                                    annotator, work_feed.active_facet)
         # Add a 'next' link if appropriate.
         if page and len(page) >= size:
             after = page[-1].id
@@ -693,7 +691,7 @@ def lane_search(lane):
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query),
-        results, CirculationManagerAnnotator())
+        results, CirculationManagerAnnotator(lane))
     return unicode(opds_feed)
 
 @app.route('/works/<data_source>/<identifier>/checkout')

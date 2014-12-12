@@ -16,7 +16,10 @@ from ..core.classifier import (
 )
 
 from ..opds import CirculationManagerAnnotator
-from ..core.opds import AcquisitionFeed
+from ..core.opds import (
+    AcquisitionFeed,
+    OPDSFeed,
+)
 from ..circulation_manager import app
 
 class TestOPDS(DatabaseTest):
@@ -65,7 +68,7 @@ class TestOPDS(DatabaseTest):
 
         works = self._db.query(Work)
         feed = AcquisitionFeed(
-            self._db, "test", "url", works, CirculationManagerAnnotator())
+            self._db, "test", "url", works, CirculationManagerAnnotator(Fantasy))
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
@@ -114,11 +117,11 @@ class TestOPDS(DatabaseTest):
 
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works,
-                               CirculationManagerAnnotator())
+                               CirculationManagerAnnotator(Fantasy))
         u = unicode(feed)
         feed = feedparser.parse(u)
         [entry] = feed['entries']
-        eq_('100', entry['simplified_concurrent_lends'])
-        eq_('50', entry['simplified_available_lends'])
+        eq_('100', entry['simplified_total_licenses'])
+        eq_('50', entry['simplified_available_licenses'])
         eq_('25', entry['simplified_active_holds'])
 
