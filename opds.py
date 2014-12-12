@@ -63,7 +63,7 @@ class Annotator(object):
     """
 
     @classmethod
-    def annotate_work_entry(cls, work, entry, links):
+    def annotate_work_entry(cls, work, license_pool, feed, entry, links):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
@@ -189,6 +189,9 @@ class AtomFeed(object):
 
     def add_link(self, **kwargs):
         self.feed.append(E.link(**kwargs))
+
+    def add_link_to_entry(self, entry, **kwargs):
+        entry.append(E.link(**kwargs))
 
     def __unicode__(self):
         return etree.tostring(self.feed, pretty_print=True)
@@ -400,7 +403,8 @@ class AcquisitionFeed(OPDSFeed):
             audience_tag.extend([audience_name_tag])
             entry.extend([audience_tag])
 
-        self.annotator.annotate_work_entry(work, entry, links)
+        self.annotator.annotate_work_entry(
+            work, active_license_pool, self, entry, links)
 
         return entry
 
