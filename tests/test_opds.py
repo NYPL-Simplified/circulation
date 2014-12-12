@@ -359,3 +359,16 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
         feed = feedparser.parse(unicode(feed))
         eq_([good.title], [x['title'] for x in feed['entries']])
+
+    def test_acquisition_feed_includes_image_links(self):
+        lane=self.lanes.by_name['Fantasy']
+        work = self._work(genre=Fantasy, language="eng",
+                          with_open_access_download=True)
+        work.primary_edition.cover_thumbnail_url = "http://thumbnail/"
+        work.primary_edition.cover_full_url = "http://full/"
+        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+        feed = feedparser.parse(unicode(feed))
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
+                     'image' in x['rel']])
+        eq_(['http://full/', 'http://thumbnail/'], links)
+        

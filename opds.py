@@ -70,6 +70,30 @@ class Annotator(object):
         return
 
     @classmethod
+    def cover_links(cls, work):
+        """Return all links to be used as cover links for this work.
+
+        In a distribution application, each work will have only one
+        link. In a content server-type application, each work may have
+        a large number of links.
+
+        :return: A 2-tuple (thumbnail_links, full_links)
+
+        """
+        # TODO: This might not be necessary anymore.
+        if not work.cover_full_url and work.primary_edition.cover:
+            work.primary_edition.set_cover(work.primary_edition.cover)
+
+        thumbnails = []
+        if work.cover_thumbnail_url:
+            thumbnails = [work.cover_thumbnail_url]
+
+        full = []
+        if work.cover_full_url:
+            full = [work.cover_full_url]
+        return thumbnails, full
+
+    @classmethod
     def lane_id(cls, lane):
         return "tag:%s" % (lane.name)
 
@@ -284,31 +308,14 @@ class AcquisitionFeed(OPDSFeed):
 
         active_edition = work.primary_edition
 
-        # TODO: This might not be necessary anymore.
-        if not work.cover_full_url and active_edition.cover:
-            active_edition.set_cover(active_edition.cover)
-
-        thumbnail_url = work.cover_thumbnail_url
-        if work.cover_full_url:
-            full_url = URLRewriter.rewrite(work.cover_full_url)
-            #mirrored_url = URLRewriter.rewrite(work.cover.mirrored_path)
-            #if mirrored_url:
-            #    full_url = mirrored_url
-                
-            qualities.append(("Cover quality", active_edition.cover.quality))
-            if active_edition.cover.scaled_path:
-                thumbnail_url = URLRewriter.rewrite(active_edition.cover.scaled_path)
-            elif active_edition.cover.data_source.name == DataSource.GUTENBERG_COVER_GENERATOR:
-                thumbnail_url = full_url
-        elif identifier.type == Identifier.GUTENBERG_ID:
-            # The client will generate a cover for this identifier.
-            full_url = None
-        if full_url:
-            links.append(E.link(rel=Resource.IMAGE, href=full_url))
-
-        if thumbnail_url:
-            thumbnail_url = URLRewriter.rewrite(thumbnail_url)
-            links.append(E.link(rel=Resource.THUMBNAIL_IMAGE, href=thumbnail_url))
+        thumbnail_urls, full_urls = self.annotator.cover_links(work)
+        for rel, urls in (
+                (Resource.IMAGE, full_urls),
+                (Resource.THUMBNAIL_IMAGE, thumbnail_urls)):
+            for url in urls:
+                url = URLRewriter.rewrite(url)
+                links.append(E.link(rel=rel, href=url))
+           
         permalink = self.annotator.permalink_for(active_license_pool)
 
         if work.summary_text:
