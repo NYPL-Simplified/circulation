@@ -14,13 +14,12 @@ from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
 
-#d = os.path.split(__file__)[0]
-#site.addsitedir(os.path.join(d, ".."))
 from model import (
     DataSource,
     Resource,
     Identifier,
     Edition,
+    Subject,
     Work,
     )
 
@@ -92,6 +91,34 @@ class Annotator(object):
         if work.cover_full_url:
             full = [work.cover_full_url]
         return thumbnails, full
+
+    @classmethod
+    def categories(cls, work):
+        """Return all relevant classifications of this work.
+
+        :return: A dictionary mapping 'scheme' URLs to 'term' attributes.
+        """
+        simplified_genres = []
+        for wg in work.work_genres:
+            simplified_genres.append(wg.genre.name)
+        if not simplified_genres:
+            sole_genre = None
+            if work.fiction == True:
+                sole_genre = 'Fiction'
+            elif work.fiction == False:
+                sole_genre = 'Nonfiction'
+            if sole_genre:
+                simplified_genres.append(sole_genre)
+
+        categories = {}
+        if simplified_genres:
+            categories[Subject.SIMPLIFIED_GENRE] = simplified_genres
+
+        # Add the audience as a category of schema
+        # http://schema.org/audience
+        if work.audience:
+            categories[schema_ns + "audience"] = [work.audience]
+        return categories
 
     @classmethod
     def lane_id(cls, lane):
@@ -349,18 +376,13 @@ class AcquisitionFeed(OPDSFeed):
         ])
         entry.extend(links)
 
-        genre_tags = []
-        for wg in work.work_genres:
-            genre_tags.append(E.category(term=wg.genre.name))
-        if len(work.work_genres) == 0:
-            sole_genre = None
-            if work.fiction == True:
-                sole_genre = 'Fiction'
-            elif work.fiction == False:
-                sole_genre = 'Nonfiction'
-            if sole_genre:
-                genre_tags.append(E.category(term=sole_genre))
-        entry.extend(genre_tags)
+        categories_by_scheme = self.annotator.categories(work)
+        category_tags = []
+        for scheme, categories in categories_by_scheme.items():
+            for category in categories:
+                category_tags.append(
+                    E.category(scheme=scheme, term=category))
+        entry.extend(category_tags)
 
         # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
         language = work.language_code
@@ -402,13 +424,6 @@ class AcquisitionFeed(OPDSFeed):
             # TODO: convert to local timezone.
             issued_tag.text = issued.strftime("%Y-%m-%d")
             entry.extend([issued_tag])
-
-        if work.audience:
-            audience_tag = E._makeelement("{%s}audience" % schema_ns)
-            audience_name_tag = E._makeelement("{%s}name" % schema_ns)
-            audience_name_tag.text = work.audience
-            audience_tag.extend([audience_name_tag])
-            entry.extend([audience_tag])
 
         self.annotator.annotate_work_entry(
             work, active_license_pool, self, entry, links)

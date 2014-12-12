@@ -10,13 +10,14 @@ from . import (
 )
 
 from model import (
-    get_one_or_create,
     DataSource,
     Genre,
-    LaneList,
     Lane,
+    LaneList,
     Patron,
+    Subject,
     Work,
+    get_one_or_create,
 )
 
 from opds import (
@@ -285,7 +286,7 @@ class TestOPDS(DatabaseTest):
         eq_('The Publisher', entries[0]['dcterms_publisher'])
         assert 'publisher' not in entries[1]
 
-    def test_acquisition_feed_includes_audience_tag(self):
+    def test_acquisition_feed_includes_audience_as_category(self):
         work = self._work(with_open_access_download=True)
         work.audience = "Young Adult"
         work2 = self._work(with_open_access_download=True)
@@ -296,13 +297,22 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
 
         works = self._db.query(Work)
-        with_publisher = AcquisitionFeed(self._db, "test", "url", works)
-        u = unicode(with_publisher)
-        with_publisher = feedparser.parse(u)
-        entries = sorted(with_publisher['entries'], key = lambda x: int(x['title']))
-        eq_("Young Adult", entries[0]['schema_name'])
-        eq_("Children", entries[1]['schema_name'])
-        assert not 'schema_name' in entries[2]
+        with_audience = AcquisitionFeed(self._db, "test", "url", works)
+        u = unicode(with_audience)
+        with_audience = feedparser.parse(u)
+        entries = sorted(with_audience['entries'], key = lambda x: int(x['title']))
+        scheme = "http://schema.org/audience"
+        eq_(['Young Adult'],
+            [x['term'] for x in entries[0]['tags']
+             if x['scheme'] == scheme])
+
+        eq_(['Children'],
+            [x['term'] for x in entries[1]['tags']
+             if x['scheme'] == scheme])
+
+        eq_([],
+            [x['term'] for x in entries[2]['tags']
+             if x['scheme'] == scheme])
 
     def test_acquisition_feed_includes_category_tags_for_genres(self):
         work = self._work(with_open_access_download=True)
@@ -324,10 +334,14 @@ class TestOPDS(DatabaseTest):
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
+        scheme = Subject.SIMPLIFIED_GENRE
         eq_(['Romance', 'Science Fiction'], 
-            sorted([x['term'] for x in entries[0]['tags']]))
-        eq_(['Nonfiction'], [x['term'] for x in entries[1]['tags']])
-        eq_(['Fiction'], [x['term'] for x in entries[2]['tags']])
+            sorted([x['term'] for x in entries[0]['tags']
+                    if x['scheme'] == scheme]))
+        eq_(['Nonfiction'], [x['term'] for x in entries[1]['tags']
+                             if x['scheme'] == scheme])
+        eq_(['Fiction'], [x['term'] for x in entries[2]['tags']
+                          if x['scheme'] == scheme])
 
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):
         work = self._work(title="open access", with_open_access_download=True)

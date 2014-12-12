@@ -2732,9 +2732,10 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-
+    SIMPLIFIED_GENRE = "http://library-simplified.com/genres/"
 
     by_uri = {
+        "http://library-simplified.com/genres/" : SIMPLIFIED_GENRE,
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
     }
