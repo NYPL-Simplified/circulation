@@ -1820,6 +1820,28 @@ class Work(Base):
         if resource:
             self.summary_text = resource.content
 
+    CURRENTLY_AVAILABLE = "currently_available"
+    ALL = "all"
+
+    @classmethod
+    def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
+        """Return a query against Work suitable for using in OPDS feeds."""
+        q = _db.query(Work).join(Work.primary_edition).options(
+            joinedload('license_pools').joinedload('data_source'),
+            joinedload('work_genres')
+        )
+        if availability == cls.CURRENTLY_AVAILABLE:
+            q = q.join(Work.license_pools)
+            or_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_available > 0)
+            q = q.filter(or_clause)
+        q = q.filter(
+            Edition.language.in_(languages),
+            Work.was_merged_into == None,
+        )
+        return q
+
     @classmethod
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
@@ -3087,10 +3109,8 @@ class Lane(object):
                 quality_min = quality_min_rock_bottom
         return results
 
-    CURRENTLY_AVAILABLE = "currently_available"
-    ALL = "all"
 
-    def works(self, languages, fiction=None, availability=ALL):
+    def works(self, languages, fiction=None, availability=Work.ALL):
         """Find Works that will go together in this Lane.
 
         Works will:
@@ -3114,22 +3134,14 @@ class Lane(object):
         :param fiction: Override the fiction setting found in `self.fiction`.
 
         """
+        q = Work.feed_query(self._db, languages, availability)
+
         audience = self.audience
         if fiction is None:
             if self.fiction is not None:
                 fiction = self.fiction
             else:
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
-        q = self._db.query(Work).join(Work.primary_edition).options(
-            joinedload('license_pools').joinedload('data_source'),
-            joinedload('work_genres')
-        )
-        if availability == self.CURRENTLY_AVAILABLE:
-            q = q.join(Work.license_pools)
-            or_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0)
-            q = q.filter(or_clause)
 
         if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
             # No genre plus a boolean value for `fiction` means
@@ -3171,11 +3183,6 @@ class Lane(object):
             q = q.filter(Work.fiction==None)
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
-
-        q = q.filter(
-            Edition.language.in_(languages),
-            Work.was_merged_into == None,
-        )
         return q
 
 
@@ -3217,7 +3224,10 @@ class WorkFeed(object):
     def page_query(self, _db, last_edition_seen, page_size):
         """A page of works."""
 
-        query = self.lane.works(self.languages, availability=self.availability)
+        if self.lane:
+            query = self.lane.works(self.languages, availability=self.availability)
+        else:
+            query = Work.feed_query(_db, self.languages, self.availability)
 
         if last_edition_seen:
             # Only find records that show up after the last one seen.
