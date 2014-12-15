@@ -30,7 +30,7 @@ class Script(object):
 
 class WorkConsolidationScript(Script):
 
-    def __init__(self, data_source_name=None):
+    def __init__(self, data_source_name=None, force=False):
         self.db = self._db
         if data_source_name:
             # Consolidate works from a certain data source.
@@ -39,11 +39,20 @@ class WorkConsolidationScript(Script):
         else:
             # Consolidate works from any data source.
             self.identifier_type = None
+        self.force = force
 
     def run(self):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
 
+        if self.force:
+            self.clear_existing_works()
+
+        print "Consolidating works."
+        LicensePool.consolidate_works(self.db)
+        self.db.commit()
+
+    def clear_existing_works(self):
         # Locate works we want to consolidate.
         work_records = self.db.query(Edition)
         if self.identifier_type:
@@ -72,9 +81,9 @@ class WorkConsolidationScript(Script):
                 work_ids_to_delete.add(pool.work_id)
             pools = self.db.query(LicensePool).filter(
                 LicensePool.work_id.in_(work_ids_to_delete))
-            pools.update(unset_work_id, synchronize_session='fetch')
         else:
             pools = pools.filter(LicensePool.work_id!=None)
+        pools.update(unset_work_id, synchronize_session='fetch')
 
         # Delete all work-genre assignments for works that will be
         # reconsolidated.
@@ -92,9 +101,6 @@ class WorkConsolidationScript(Script):
             works.delete(synchronize_session='fetch')
             self.db.commit()
 
-        print "Consolidating works."
-        LicensePool.consolidate_works(self.db)
-        self.db.commit()
 
 class WorkPresentationScript(Script):
     """Calculate the presentation for Work objects."""
