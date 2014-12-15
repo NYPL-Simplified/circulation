@@ -6,6 +6,7 @@ from collections import (
     defaultdict,
 )
 import pkgutil
+import os
 import re
 
 def batch(iterable, size=1):
@@ -550,7 +551,8 @@ def languages_from_accept(accept_languages):
             languages.append(language)
             seen.add(language)
     if not languages:
-        languages = DEFAULT_LANGUAGES
+        languages = os.environ.get('DEFAULT_LANGUAGES', 'eng')
+        languages = languages.split(',')
     return languages
 
 

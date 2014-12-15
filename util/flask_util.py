@@ -1,7 +1,8 @@
 """Utilities for Flask applications."""
 import flask
 from flask import Response
-from util import (
+
+from . import (
     problem_detail,
     languages_from_accept
 )
