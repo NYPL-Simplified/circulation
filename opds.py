@@ -121,6 +121,19 @@ class Annotator(object):
         return categories
 
     @classmethod
+    def summary(cls, work):
+        """Return an HTML summary of this work."""
+        summary = ""
+        if work.summary_text:
+            summary = work.summary_text
+            if work.summary:
+                qualities.append(("Summary quality", work.summary.quality))
+        elif work.summary:
+            work.summary_text = work.summary.content
+            summary = work.summary_text
+        return summary
+
+    @classmethod
     def lane_id(cls, lane):
         return "tag:%s" % (lane.name)
 
@@ -344,24 +357,7 @@ class AcquisitionFeed(OPDSFeed):
                 links.append(E.link(rel=rel, href=url))
            
         permalink = self.annotator.permalink_for(active_license_pool)
-
-        if work.summary_text:
-            summary = work.summary_text
-            if work.summary:
-                qualities.append(("Summary quality", work.summary.quality))
-        elif work.summary:
-            work.summary_text = work.summary.content
-            summary = work.summary_text
-        else:
-            summary = ""
-        summary += "<ul>"
-        for name, value in qualities:
-            if isinstance(value, basestring):
-                summary += "<li>%s: %s</li>" % (name, value)
-            else:
-                summary += "<li>%s: %.1f</li>" % (name, value)
-        summary += "<li>License Source: %s</li>" % active_license_pool.data_source.name
-        summary += "</ul>"
+        summary = self.annotator.summary(work)
 
         entry = E.entry(
             E.id(self.annotator.work_id(work)),

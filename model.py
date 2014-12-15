@@ -1,4 +1,5 @@
 # encoding: utf-8
+import operator
 from collections import (
     Counter,
     defaultdict,
@@ -3201,6 +3202,7 @@ class WorkFeed(object):
     ALL = "all"
 
     def __init__(self, lane, languages, order_by=None,
+                 sort_ascending=True,
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
@@ -3211,14 +3213,19 @@ class WorkFeed(object):
         elif not isinstance(order_by, list):
             order_by = [order_by]
         self.order_by = order_by
+        self.sort_ascending = sort_ascending
+        if sort_ascending:
+            self.sort_operator = operator.__gt__
+        else:
+            self.sort_operator = operator.__lt__
         # In addition to the given order, we order by author,
         # then title, then work ID.
         for i in (Edition.sort_author, 
                   Edition.sort_title, 
                   Work.id):
-            if i not in self.order_by:
-                self.order_by.append(i)
+            self.order_by.append(i)
         self.active_facet = self.active_facet_for_field.get(order_by[0], None)
+
         self.availability = availability
 
     def page_query(self, _db, last_edition_seen, page_size):
@@ -3229,14 +3236,14 @@ class WorkFeed(object):
         else:
             query = Work.feed_query(_db, self.languages, self.availability)
 
+        primary_order_field = self.order_by[0]
         if last_edition_seen:
             # Only find records that show up after the last one seen.
-            primary_order_field = self.order_by[0]
             last_value = getattr(last_edition_seen, primary_order_field.name)
 
             # This means works where the primary ordering field has a
             # higher value.
-            clause = (primary_order_field > last_value)
+            clause = self.sort_operator(primary_order_field, last_value)
 
             base_and_clause = (primary_order_field == last_value)
             for next_order_field in self.order_by[1:]:
@@ -3247,12 +3254,17 @@ class WorkFeed(object):
                 if new_value != None:
                     clause = or_(clause,
                                  and_(base_and_clause, 
-                                      (next_order_field > new_value)))
+                                      self.sort_operator(next_order_field, new_value)))
                 base_and_clause = and_(base_and_clause,
                                        (next_order_field == new_value))
             query = query.filter(clause)
 
-        query = query.order_by(*self.order_by).limit(page_size)
+        if self.sort_ascending:
+            m = lambda x: x.asc()
+        else:
+            m = lambda x: x.desc()
+        order_by = [m(x) for x in self.order_by]
+        query = query.order_by(*order_by).limit(page_size)
         return query
 
 class LicensePool(Base):
