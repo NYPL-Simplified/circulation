@@ -380,8 +380,10 @@ class AcquisitionFeed(OPDSFeed):
         category_tags = []
         for scheme, categories in categories_by_scheme.items():
             for category in categories:
+                if isinstance(category, basestring):
+                    category = dict(term=category)
                 category_tags.append(
-                    E.category(scheme=scheme, term=category))
+                    E.category(scheme=scheme, **category))
         entry.extend(category_tags)
 
         # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)

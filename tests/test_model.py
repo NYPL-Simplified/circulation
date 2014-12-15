@@ -437,8 +437,7 @@ class TestLicensePool(DatabaseTest):
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
         eq_(Identifier.GUTENBERG_ID, pool.identifier.type)
-        eq_("541", pool.identifier.identifier)
-        
+        eq_("541", pool.identifier.identifier)        
 
     def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
         """OCLC doesn't offer licenses. It only provides metadata. We can get
@@ -477,6 +476,19 @@ class TestLicensePool(DatabaseTest):
 
         eq_([p2], LicensePool.with_no_work(self._db))
 
+    def test_update_availability(self):
+        work = self._work(with_license_pool=True)
+        work.last_update_time = None
+        [pool] = work.license_pools
+        pool.update_availability(30, 20, 2, 0)
+        eq_(30, pool.licenses_owned)
+        eq_(20, pool.licenses_available)
+        eq_(2, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+
+        # Updating availability also modified work.last_update_time.
+        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
@@ -514,6 +526,7 @@ class TestWork(DatabaseTest):
         for p in pool1, pool2, pool3:
             work.license_pools.append(p)
 
+        work.last_update_time = None
         work.calculate_presentation()
         # The title of the Work is the title of its primary work
         # record.
@@ -524,6 +537,11 @@ class TestWork(DatabaseTest):
         # record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+        # The last update time has been set.
+        # Updating availability also modified work.last_update_time.
+        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
 
 class TestLane(DatabaseTest):
 
