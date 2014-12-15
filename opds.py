@@ -74,6 +74,28 @@ class CirculationManagerAnnotator(Annotator):
                 identifier=identifier.identifier, _external=True)
             feed.add_link_to_entry(entry, rel=rel, href=checkout_url)
 
+    def summary(self, work):
+        """Return an HTML summary of this work."""
+        if work.summary_text:
+            summary = work.summary_text
+            if work.summary:
+                qualities.append(("Summary quality", work.summary.quality))
+        elif work.summary:
+            work.summary_text = work.summary.content
+            summary = work.summary_text
+        else:
+            summary = ""
+        summary += "<ul>"
+        for name, value in qualities:
+            if isinstance(value, basestring):
+                summary += "<li>%s: %s</li>" % (name, value)
+            else:
+                summary += "<li>%s: %.1f</li>" % (name, value)
+        summary += "<li>License Source: %s</li>" % active_license_pool.data_source.name
+        summary += "</ul>"
+        return summary
+
+
     @classmethod
     def active_loans_for(cls, patron):
         db = Session.object_session(patron)

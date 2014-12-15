@@ -610,7 +610,7 @@ def feed(lane):
         try:
             size = int(size)
         except ValueError:
-            return "Invalid size: %s" % size
+            return problem("Invalid size: %s" % size, 400)
         size = min(size, 100)
 
         last_work_seen = None
@@ -619,11 +619,11 @@ def feed(lane):
             try:
                 last_id = int(last_id)
             except ValueError:
-                return "Invalid work ID: %s" % last_id
+                return problem("Invalid work ID: %s" % last_id, 400)
             try:
                 last_work_seen = Conf.db.query(Work).filter(Work.id==last_id).one()
             except NoResultFound:
-                return "No such work id: %s" % last_id
+                return problem("No such work id: %s" % last_id, 400)
 
         this_url = url_for('feed', lane=lane.name, order=order, _external=True)
         page = work_feed.page_query(Conf.db, last_work_seen, size).all()
