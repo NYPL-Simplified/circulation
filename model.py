@@ -712,7 +712,7 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
         most_recent = get_one(
@@ -1748,6 +1748,9 @@ class Work(Base):
     appeal_setting = Column(Float, default=None, index=True)
     appeal_story = Column(Float, default=None, index=True)
 
+    # The last time the availability or metadata changed for this Work.
+    last_update_time = Column(DateTime, index=True)
+
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
@@ -2064,6 +2067,7 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
+        dirty = False
         if choose_edition or not self.primary_edition:
             self.set_primary_edition()
 
@@ -2110,6 +2114,8 @@ class Work(Base):
 
         if calculate_quality:
             self.calculate_quality(flattened_data)
+
+        self.last_update_time = datetime.datetime.utcnow()
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -3317,7 +3323,8 @@ class LicensePool(Base):
         license_pool, was_new = get_one_or_create(
             _db, LicensePool, data_source=data_source, identifier=identifier)
         if was_new and not license_pool.availability_time:
-            license_pool.availability_time = datetime.datetime.utcnow()
+            now = datetime.datetime.utcnow()
+            license_pool.availability_time = now
         return license_pool, was_new
 
     def edition(self):
@@ -3351,7 +3358,7 @@ class LicensePool(Base):
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         if not self.last_checked:
             # This pool has never had its circulation info checked.
             return True
@@ -3403,7 +3410,11 @@ class LicensePool(Base):
         self.licenses_reserved = new_licenses_reserved
         self.patrons_in_hold_queue = new_patrons_in_hold_queue
         self.last_checked = now
-            
+
+        # Update the last update time of the Work.
+        if self.work:
+            self.work.last_update_time = now
+
     def loan_to(self, patron, start=None, end=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
