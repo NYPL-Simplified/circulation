@@ -6,7 +6,7 @@ from nose.tools import (
 import os
 import pkgutil
 import json
-from ..integration.overdrive import (
+from ..overdrive import (
     OverdriveAPI,
 )
 

@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
 )
 
-from ..integration.millenium_patron import MilleniumPatronAPI
+from ..millenium_patron import MilleniumPatronAPI
 
 class DummyResponse(object):
     def __init__(self, content):

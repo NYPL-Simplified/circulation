@@ -162,13 +162,14 @@ class TestNavigationFeed(CirculationTest):
             assert u"Tr&#232;s Fran&#231;ais" not in response # Wrong language
 
         # Now change the default language.
-        old_default = circulation.DEFAULT_LANGUAGES
-        circulation.DEFAULT_LANGUAGES = ["fre"]
+        old_default = os.environ.get('DEFAULT_LANGUAGES', 'eng')
+        
+        os.environ['DEFAULT_LANGUAGES'] = "fre"
         with self.app.test_request_context("/"):
             response = circulation.feed('Nonfiction')
             assert "Totally American" not in response
             assert u"Tr&#232;s Fran&#231;ais" in response
-        circulation.DEFAULT_LANGUAGES = old_default
+        os.environ['DEFAULT_LANGUAGES'] = old_default
 
     def test_lane_with_language_preference(self):
         

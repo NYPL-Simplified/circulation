@@ -1,10 +1,10 @@
 import datetime
 
-from ..core.overdrive import (
+from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI
 )
 
-from ..core.model import (
+from core.model import (
     CirculationEvent,
     Credential,
     DataSource,
@@ -15,9 +15,9 @@ from ..core.model import (
     Session,
 )
 
-from ..core.monitor import Monitor
+from core.monitor import Monitor
 
-from ..circulation_exceptions import (
+from circulation_exceptions import (
     NoAvailableCopies,
 )
 

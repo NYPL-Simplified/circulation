@@ -4,11 +4,11 @@ from urlparse import urljoin
 from urllib import urlencode
 import datetime
 
-from ..core.util.xmlparser import XMLParser
+from core.util.xmlparser import XMLParser
 from authenticator import Authenticator
 import os
 import re
-from ..core.model import (
+from core.model import (
     get_one,
     get_one_or_create,
     Patron,

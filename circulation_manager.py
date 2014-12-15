@@ -41,9 +41,9 @@ from core.opds import (
     URLRewriter,
 )
 import urllib
-from core.util import (
-    LanguageCodes,
-    problem_detail,
+from core.util.flask_util import (
+    problem,
+    languages_for_request
 )
 from integration.millenium_patron import (
     DummyMilleniumPatronAPI as authenticator,
@@ -444,36 +444,12 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.debug = True
 
-DEFAULT_LANGUAGES = ['eng']
-
 INVALID_CREDENTIALS_PROBLEM = "http://library-simplified.com/problem/credentials-invalid"
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
 EXPIRED_CREDENTIALS_PROBLEM = "http://library-simplified.com/problem/credentials-expired"
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
 NO_AVAILABLE_LICENSE_PROBLEM = "http://library-simplified.com/problem/no-license"
 
-
-def problem(type, title, status, detail=None, instance=None, headers={}):
-    """Create a Response that includes a Problem Detail Document."""
-    data = problem_detail.json(type, title, status, detail, instance)
-    final_headers = { "Content-Type" : problem_detail.JSON_MEDIA_TYPE }
-    final_headers.update(headers)
-    return Response(data, status, headers)
-    
-def languages_for_request():
-    return languages_from_accept(flask.request.accept_languages)
-
-def languages_from_accept(accept_languages):
-    seen = set([])
-    languages = []
-    for locale, quality in accept_languages:
-        language = LanguageCodes.iso_639_2_for_locale(locale)
-        if language and language not in seen:
-            languages.append(language)
-            seen.add(language)
-    if not languages:
-        languages = DEFAULT_LANGUAGES
-    return languages
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
