@@ -204,17 +204,17 @@ class WorkIDCalculator(object):
             full_title = u''
         full_title = unicodedata.normalize("NFKD", full_title)
         # Remove any bracketed parts of the title
-        tmp_title = cls.bracketedCharacterStrip.sub("", title)
-        full_title = cls.specialCharacterStrip.sub(
+        tmp_title = cls.bracketedCharacterStrip.sub("", full_title)
+        tmp_title = cls.specialCharacterStrip.sub(
             "", full_title)
 
         if (num_non_filing_characters > 0
             and num_non_filing_characters < len(full_title)):
-            title = full_title[:num_non_filing_characters]
+            tmp_title = full_title[:num_non_filing_characters]
         else:
-            title = full_title
+            tmp_title = full_title
 
-        title = cls.make_value_sortable(title)
+        tmp_title = cls.make_value_sortable(tmp_title)
 
         # Make sure we don't strip the entire title
         if len(tmp_title) > 0:
@@ -224,7 +224,10 @@ class WorkIDCalculator(object):
         if len(tmp_title) > 0:
             title = tmp_title;
         else:
-            print "Just saved us from trimming %s to nothing" % title
+            print "Just saved us from trimming %s to nothing" % full_title
+            title = cls.specialCharacterStrip.sub(
+                "", full_title)
+
 
         # If the title includes a : in it, take the first part as the title and the second as the subtitle
         match = cls.subtitleIndicator.search(title)

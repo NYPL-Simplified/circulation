@@ -37,7 +37,7 @@ class DatabaseTest(object):
 
     @property
     def _str(self):
-        return str(self._id)
+        return unicode(self._id)
 
     @property
     def default_patron(self):
@@ -54,7 +54,7 @@ class DatabaseTest(object):
 
     def _contributor(self, name=None):
         name = name or self._str
-        return get_one_or_create(self._db, Contributor, name=name)
+        return get_one_or_create(self._db, Contributor, name=unicode(name))
 
     def _identifier(self, identifier_type=Identifier.GUTENBERG_ID):
         id = self._str
@@ -69,11 +69,11 @@ class DatabaseTest(object):
         wr = Edition.for_foreign_id(
             self._db, source, identifier_type, id)[0]
         if title:
-            wr.title = title
+            wr.title = unicode(title)
         if language:
             wr.language = language
         if authors:
-            wr.add_contributor(authors, Contributor.PRIMARY_AUTHOR_ROLE)
+            wr.add_contributor(unicode(authors), Contributor.PRIMARY_AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
@@ -88,7 +88,7 @@ class DatabaseTest(object):
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
-        title = title or self._str
+        title = unicode(title) or self._str
         genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
         if fiction is None:

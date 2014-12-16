@@ -77,6 +77,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
 
 #import logging
@@ -1287,6 +1288,11 @@ class Edition(Base):
     subtitle = Column(Unicode, index=True)
     series = Column(Unicode, index=True)
 
+    # This is not a foreign key per se; it's a calculated UUID-like
+    # identifier for this work based on its title and author, used to
+    # group together different editions of the same work.
+    permanent_work_id = Column(Unicode, index=True)
+
     # A string depiction of the authors' names.
     author = Column(Unicode, index=True)
     sort_author = Column(Unicode, index=True)
@@ -1630,7 +1636,23 @@ class Edition(Base):
             flattened_data = Identifier.flatten_identifier_ids(data)
 
         return Identifier.best_cover_for(_db, flattened_data)
-        
+
+    def calculate_permanent_work_id(self):
+        w = WorkIDCalculator
+        title = self.title
+        if self.subtitle:
+            title += (": " + self.subtitle)
+        authors = self.author_contributors
+        if authors:
+            # Only use the primary author.
+            author = authors[0].name
+        else:
+            author = None
+
+        title = w.normalize_title(title)
+        author = w.normalize_author(author)
+        self.permanent_work_id = WorkIDCalculator.permanent_id(
+            title, author, "ebook")
 
     def calculate_presentation(self, debug=False):
         if not self.sort_title:
@@ -1645,6 +1667,8 @@ class Edition(Base):
         self.author = ", ".join([x[1] for x in sorted(display_names)])
         self.sort_author = " ; ".join(sorted(sort_names))
 
+        self.calculate_permanent_work_id()
+
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
@@ -1656,8 +1680,8 @@ class Edition(Base):
 
         # Now that everything's calculated, print it out.
         if debug:
-            t = u"%s (by %s, pub=%s)" % (
-                self.title, self.author, self.publisher)
+            t = u"%s (by %s, pub=%s, pwid=%s)" % (
+                self.title, self.author, self.publisher, self.permanent_work_id)
             print t.encode("utf8")
             print " language=%s" % self.language
             if self.cover:
@@ -2095,7 +2119,7 @@ class Work(Base):
             self.set_primary_edition()
 
         if self.primary_edition:
-            self.primary_edition.calculate_presentation()
+            self.primary_edition.calculate_presentation(debug=debug)
 
         if not (classify or choose_summary or calculate_quality):
             return

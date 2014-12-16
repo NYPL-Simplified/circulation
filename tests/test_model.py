@@ -495,33 +495,33 @@ class TestWork(DatabaseTest):
 
         gutenberg_source = DataSource.GUTENBERG
 
-        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
-        wr1, pool1 = self._edition(
+        edition1, pool1 = self._edition(
             gutenberg_source, Identifier.GUTENBERG_ID, True)
-        wr1.title = "The 1st Title"
-        wr1.title = "The 1st Subtitle"
-        wr1.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition1.title = u"The 1st Title"
+        edition1.title = u"The 1st Subtitle"
+        edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
-        wr2, pool2 = self._edition(
+        edition2, pool2 = self._edition(
             gutenberg_source, Identifier.GUTENBERG_ID, True)
-        wr2.title = "The 2nd Title"
-        wr2.subtitle = "The 2nd Subtitle"
-        wr2.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
+        edition2.title = u"The 2nd Title"
+        edition2.subtitle = u"The 2nd Subtitle"
+        edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
         alice.family_name, alice.display_name = alice.default_names()
-        wr2.add_contributor(alice, Contributor.AUTHOR_ROLE)
+        edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        wr3, pool3 = self._edition(
+        edition3, pool3 = self._edition(
             gutenberg_source, Identifier.GUTENBERG_ID, True)
-        wr3.title = "The 2nd Title"
-        wr3.subtitle = "The 2nd Subtitle"
-        wr3.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        wr3.add_contributor(alice, Contributor.AUTHOR_ROLE)
+        edition3.title = u"The 2nd Title"
+        edition3.subtitle = u"The 2nd Subtitle"
+        edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        work = self._work(primary_edition=wr2)
-        for i in wr1, wr3:
+        work = self._work(primary_edition=edition2)
+        for i in edition1, edition3:
             work.editions.append(i)
         for p in pool1, pool2, pool3:
             work.license_pools.append(p)
@@ -723,10 +723,10 @@ class TestWorkQuality(DatabaseTest):
 
         gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
-        wr1_1, pool1 = self._edition(with_license_pool=True)
-        wr1_2 = self._edition(with_license_pool=False)
+        edition1_1, pool1 = self._edition(with_license_pool=True)
+        edition1_2 = self._edition(with_license_pool=False)
 
-        wr2_1, pool2 = self._edition(with_license_pool=True)
+        edition2_1, pool2 = self._edition(with_license_pool=True)
 
         wrs = []
         pools = []
@@ -736,11 +736,11 @@ class TestWorkQuality(DatabaseTest):
             pools.append(pool)
 
         work1 = Work()
-        work1.editions.extend([wr1_1, wr1_2] + wrs)
+        work1.editions.extend([edition1_1, edition1_2] + wrs)
         work1.license_pools.extend(pools + [pool1])
 
         work2 = Work()
-        work2.editions.append(wr2_1)
+        work2.editions.append(edition2_1)
         work2.license_pools.append(pool2)
 
         work1.calculate_presentation()
@@ -752,11 +752,11 @@ class TestWorkQuality(DatabaseTest):
 
         gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
-        wr1_1, pool1 = self._edition(with_license_pool=True)
-        wr1_2, pool2 = self._edition(with_license_pool=True)
+        edition1_1, pool1 = self._edition(with_license_pool=True)
+        edition1_2, pool2 = self._edition(with_license_pool=True)
 
-        wr2_1, pool3 = self._edition(with_license_pool=True)
-        wr2_2 = self._edition(with_license_pool=False)
+        edition2_1, pool3 = self._edition(with_license_pool=True)
+        edition2_2 = self._edition(with_license_pool=False)
 
         wrs = []
         pools = []
@@ -766,11 +766,11 @@ class TestWorkQuality(DatabaseTest):
             pools.append(pool)
 
         work1 = Work()
-        work1.editions.extend([wr1_1, wr1_2] + wrs)
+        work1.editions.extend([edition1_1, edition1_2] + wrs)
         work1.license_pools.extend([pool1, pool2] + pools)
 
         work2 = Work()
-        work2.editions.extend([wr2_1, wr2_2])
+        work2.editions.extend([edition2_1, edition2_2])
         work2.license_pools.extend([pool3])
 
         work1.calculate_presentation()
@@ -872,13 +872,13 @@ class TestWorkConsolidation(DatabaseTest):
     def test_calculate_work_for_licensepool_creates_new_work(self):
 
         # This work record is unique to the existing work.
-        wr1, ignore = Edition.for_foreign_id(
+        edition1, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
         preexisting_work = Work()
-        preexisting_work.editions = [wr1]
+        preexisting_work.editions = [edition1]
 
         # This work record is unique to the new LicensePool
-        wr2, ignore = Edition.for_foreign_id(
+        edition2, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
         pool, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
@@ -893,30 +893,30 @@ class TestWorkConsolidation(DatabaseTest):
         # be refactored.
 
         # This work record is unique to the existing work.
-        wr1, ignore = Edition.for_foreign_id(
+        edition1, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
 
         # This work record is shared by the existing work and the new
         # LicensePool.
-        wr2, ignore = Edition.for_foreign_id(
+        edition2, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2")
 
         # These work records are unique to the new LicensePool.
 
-        wr3, ignore = Edition.for_foreign_id(
+        edition3, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
 
-        wr4, ignore = Edition.for_foreign_id(
+        edition4, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
 
-        # Make wr4's primary identifier equivalent to wr3's and wr1's
+        # Make edition4's primary identifier equivalent to edition3's and edition1's
         # primaries.
         data_source = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        for make_equivalent in wr3, wr1:
-            wr4.primary_identifier.equivalent_to(
+        for make_equivalent in edition3, edition1:
+            edition4.primary_identifier.equivalent_to(
                 data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(primary_edition=wr1)
-        preexisting_work.editions.append(wr2)
+        preexisting_work = self._work(primary_edition=edition1)
+        preexisting_work.editions.append(edition2)
 
         pool, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
