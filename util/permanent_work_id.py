@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import md5
 import re
 import struct
@@ -129,10 +130,11 @@ class WorkIDCalculator(object):
         if author is None:
             author = u''
         author = unicodedata.normalize("NFKD", author)
+        author = cls.bracketedCharacterStrip.sub("", author)
+        author = cls.specialCharacterStrip.sub("", author)
+
         groupingAuthor = cls.initialsFix.sub(" ", author)
-        groupingAuthor = cls.bracketedCharacterStrip.sub("", groupingAuthor)
-        groupingAuthor = cls.specialCharacterStrip.sub(
-            " ", groupingAuthor).strip().lower();
+        groupingAuthor = groupingAuthor.strip().lower();
         groupingAuthor = cls.consecutiveCharacterStrip.sub(" ", groupingAuthor)
 
         # extract common additional info (especially for movie studios)
@@ -158,7 +160,7 @@ class WorkIDCalculator(object):
         # groupingAuthor = RecordGroupingProcessor.mapAuthorAuthority(groupingAuthor);
         return groupingAuthor
 
-    commonSubtitlesPattern = re.compile("^(.*?)((a|una)\\s(.*)novel(a|la)?|a(.*)memoir|a(.*)mystery|a(.*)thriller|by\\s(.+)|a novel of .*|stories|an autobiography|a biography|a memoir in books|\\d+.*ed(ition)?|\\d+.*update|1st\\s+ed.*|an? .* story|a .*\\s?book|poems|the movie|[\\w\\s]+series book \\d+|[\\w\\s]+trilogy book \\d+|large print|graphic novel|magazine|audio cd)$");
+    commonSubtitlesPattern = re.compile("^(.*?)((a|una)\\s(.*)novel(a|la)?|a(.*)memoir|a(.*)mystery|a(.*)thriller|by\\s(.+)|a novel of .*|stories|an autobiography|a biography|a memoir in books|\\d+\S*\s*ed(ition)?|\\d+.*update|1st\\s+ed.*|an? .* story|a .*\\s?book|poems|the movie|[\\w\\s]+series book \\d+|[\\w\\s]+trilogy book \\d+|large print|graphic novel|magazine|audio cd)$", re.U);
 
     numerics = []
     for find, replace in (
@@ -177,9 +179,9 @@ class WorkIDCalculator(object):
         subtitle = subtitle.replace("&", "and")
 
         # Remove any bracketed parts of the title
-        subtitle = cls.bracketedCharacterStrip.sub("", subtitle).replaceAll("")
+        subtitle = cls.bracketedCharacterStrip.sub("", subtitle)
         subtitle = cls.apostropheStrip.sub("s", subtitle)
-        subtitle = cls.specialCharacterStrip.sub(" ", subtitle)
+        subtitle = cls.specialCharacterStrip.sub("", subtitle)
         subtitle = subtitle.lower().strip()
 
         subtitle = cls.consecutiveCharacterStrip.sub(" ", subtitle)
@@ -188,7 +190,6 @@ class WorkIDCalculator(object):
         match = cls.commonSubtitlesPattern.search(subtitle)
         if match:
             subtitle = match.groups()[0]
-
         # Normalize numeric titles
         for find, replace in cls.numerics:
             subtitle = find.sub(replace, subtitle)
@@ -196,13 +197,17 @@ class WorkIDCalculator(object):
         subtitle = subtitle[:175].strip()
         return subtitle
 
-
     subtitleIndicator = re.compile("[:;/=]") ;
     @classmethod
     def normalize_title(cls, full_title, num_non_filing_characters=0):
         if full_title is None:
             full_title = u''
-        author = unicodedata.normalize("NFKD", full_title)
+        full_title = unicodedata.normalize("NFKD", full_title)
+        # Remove any bracketed parts of the title
+        tmp_title = cls.bracketedCharacterStrip.sub("", title)
+        full_title = cls.specialCharacterStrip.sub(
+            "", full_title)
+
         if (num_non_filing_characters > 0
             and num_non_filing_characters < len(full_title)):
             title = full_title[:num_non_filing_characters]
@@ -210,9 +215,6 @@ class WorkIDCalculator(object):
             title = full_title
 
         title = cls.make_value_sortable(title)
-
-        # Remove any bracketed parts of the title
-        tmp_title = cls.bracketedCharacterStrip.sub("", title)
 
         # Make sure we don't strip the entire title
         if len(tmp_title) > 0:
@@ -228,8 +230,8 @@ class WorkIDCalculator(object):
         match = cls.subtitleIndicator.search(title)
         if match:
             start = match.start()
-            subtitle = cls.normalizeSubtitle(title[start+1])
-            title = title.substring[:start]
+            subtitle = cls.normalize_subtitle(title[start+1])
+            title = title[:start]
 
             # Add the subtitle back
             if subtitle is not None and len(subtitle) > 0:
