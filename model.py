@@ -3261,7 +3261,8 @@ class WorkFeed(object):
         for i in (Edition.sort_author, 
                   Edition.sort_title, 
                   Work.id):
-            self.order_by.append(i)
+            if not i in self.order_by:
+                self.order_by.append(i)
         self.active_facet = self.active_facet_for_field.get(order_by[0], None)
 
         self.availability = availability
