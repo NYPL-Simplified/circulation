@@ -965,12 +965,17 @@ class TestWorkConsolidation(DatabaseTest):
         restricted3.calculate_work()
         restricted4.calculate_work()
 
+        assert open1.work != None
+        assert open2.work != None
+        assert restricted3.work != None
+        assert restricted4.work != None
+
         # The two open-access pools are grouped together.
-        eq_(({}, [ed1, ed2]), potential_open)
+        eq_(open1.work, open2.work)
 
         # Each restricted-access pool is completely isolated.
-        eq_(({}, [ed3]), potential_restricted_3)
-        eq_(({}, [ed4]), potential_restricted_4)
+        assert restricted3.work != restricted4.work
+        assert restricted3.work != open1.work
 
 
 class TestLoans(DatabaseTest):

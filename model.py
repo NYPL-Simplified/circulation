@@ -3508,7 +3508,6 @@ class LicensePool(Base):
             # Is there already an open-access Work which includes editions
             # with this edition's permanent work ID?
             work = None
-            set_trace()
             q = _db.query(Edition).filter(
                 Edition.permanent_work_id
                 ==primary_edition.permanent_work_id).filter(
