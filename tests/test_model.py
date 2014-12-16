@@ -823,6 +823,7 @@ class TestWorkConsolidation(DatabaseTest):
         edition.work = work
 
         eq_(None, license.work)
+        set_trace()
         license.calculate_work()
 
         # Now, the LicensePool has the same Work associated with it.
