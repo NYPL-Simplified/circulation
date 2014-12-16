@@ -1834,6 +1834,10 @@ class Work(Base):
     def cover_thumbnail_url(self):
         return self.primary_edition.cover_thumbnail_url
 
+    @property
+    def has_open_access_license(self):
+        return any(x.open_access for x in self.license_pools)
+
     def __repr__(self):
         return (u'%s "%s" (%s) %s %s (%s wr, %s lp)' % (
                 self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
@@ -3480,8 +3484,88 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
+    def calculate_work(self):
+        """Try to find an existing Work for this LicensePool.
+
+        If there are no Works for the permanent work ID associated
+        with this LicensePool's primary edition, create a new Work.
+
+        Pools that are not open-access will always have a new Work
+        created for them.
+        """
+        if self.work:
+            # The work has already been done.
+            return
+
+        primary_edition = self.edition()
+        if not primary_edition.permanent_work_id:
+            primary_edition.calculate_permanent_work_id()
+
+        _db = Session.object_session(self)
+
+        work = None
+        if self.open_access:
+            # Is there already an open-access Work which includes editions
+            # with this edition's permanent work ID?
+            work = None
+            set_trace()
+            q = _db.query(Edition).filter(
+                Edition.permanent_work_id
+                ==primary_edition.permanent_work_id).filter(
+                    Edition.work != None).filter(
+                        Edition.id != primary_edition.id)
+            for edition in q:
+                if edition.work.has_open_access_license:
+                    work = edition.work
+                    break
+
+        if work:
+            created = False
+        else:
+            # There is no better choice than creating a brand new Work.
+            created = True
+            # print "NEW WORK for %r" % primary_edition.title
+            work = Work()
+            _db = Session.object_session(self)
+            _db.add(work)
+            _db.flush()
+
+        # Associate this LicensePool and its Edition with the work we
+        # chose or created.
+        work.license_pools.append(self)
+        primary_edition.work = work
+
+        # Recalculate the display information for the Work, since the
+        # associated Editions have changed.
+        # work.calculate_presentation()
+        #if created:
+        #    print "Created %r" % work
+        # All done!
+        return work, created
+
+    def find_potential_works_for(self, edition):
+        """Find an existing Work suitable for this edition.
+        """
+
+        # Find all editions with this permanent work ID.
+        work = None
+        unclaimed_editions = []
+        for edition in q:
+            if edition.work:
+                if not work:
+                    # All editions will be associated with this work.
+                    # It doesn't matter which one we choose, and there
+                    # should be at most one anyway.
+                    work = edition.work
+            else:
+                unclaimed_editions.append(edition)
+
+
+
     def potential_works(self, initial_threshold=0.2, final_threshold=0.8):
-        """Find all existing works that have claimed this pool's 
+        """OBSOLETE.
+        
+        Find all existing works that have claimed this pool's 
         editions.
 
         :return: A 3-tuple ({Work: [Edition]}, [Edition])
@@ -3510,6 +3594,9 @@ class LicensePool(Base):
         # editions. We are very lenient about scooping up as many
         # editions as possible here, but we will be very strict when
         # we apply the similarity threshold.
+        if not primary_edition.permanent_work_id:
+            primary_edition.calculate_presentation()
+
         equivalent_editions = primary_edition.equivalent_editions(
             threshold=initial_threshold)
 
@@ -3535,7 +3622,7 @@ class LicensePool(Base):
                 l.append(e)
         return claimed_records_by_work, unclaimed_records
 
-    def calculate_work(self, record_similarity_threshold=0.4,
+    def calculate_work_probabalistically(self, record_similarity_threshold=0.4,
                        work_similarity_threshold=0.4):
         """Find or create a Work for this LicensePool."""
         try:

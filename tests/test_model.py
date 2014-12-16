@@ -784,47 +784,6 @@ class TestWorkSimilarity(DatabaseTest):
         wr = self._edition()
         eq_(1, wr.similarity_to(wr))
 
-class TestPotentialWorks(DatabaseTest):
-
-    def test_open_access_pools_grouped_together(self):
-
-        # We have four editions with exactly the same title and author.
-        title = "The Only Title"
-        author = "Single Author"
-        ed1 = self._edition(title=title, authors=author)
-        ed2 = self._edition(title=title, authors=author)
-        ed3 = self._edition(
-            title=title, authors=author, data_source_name=DataSource.OVERDRIVE)
-        ed4 = self._edition(
-            title=title, authors=author, data_source_name=DataSource.OVERDRIVE)
-
-        # Every identifier is equivalent to every other identifier.
-        s = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        ed1.primary_identifier.equivalent_to(s, ed2.primary_identifier, 1)
-        ed1.primary_identifier.equivalent_to(s, ed3.primary_identifier, 1)
-        ed1.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
-        ed2.primary_identifier.equivalent_to(s, ed3.primary_identifier, 1)
-        ed2.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
-        ed3.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
-
-        open1 = self._licensepool(ed1)
-        open2 = self._licensepool(ed2)
-        restricted3 = self._licensepool(
-            ed3, open_access=False, data_source_name=DataSource.OVERDRIVE)
-        restricted4 = self._licensepool(
-            ed4, open_access=False, data_source_name=DataSource.OVERDRIVE)
-
-        potential_open = open1.potential_works()
-        potential_restricted_3 = restricted3.potential_works()
-        potential_restricted_4 = restricted4.potential_works()
-
-        # The two open-access pools are grouped together.
-        eq_(({}, [ed1, ed2]), potential_open)
-
-        # Each restricted-access pool is completely isolated.
-        eq_(({}, [ed3]), potential_restricted_3)
-        eq_(({}, [ed4]), potential_restricted_4)
-
 class TestWorkConsolidation(DatabaseTest):
 
     # Versions of Work and Edition instrumented to bypass the
@@ -973,6 +932,45 @@ class TestWorkConsolidation(DatabaseTest):
         # It has all three work records.
         for w in edition_1a, edition_1b, edition_2a:
             assert w in work1.editions
+
+    def test_open_access_pools_grouped_together(self):
+
+        # We have four editions with exactly the same title and author.
+        # Two of them are open-access, two are not.
+        title = "The Only Title"
+        author = "Single Author"
+        ed1, open1 = self._edition(title=title, authors=author, with_license_pool=True)
+        ed2, open2 = self._edition(title=title, authors=author, with_license_pool=True)
+        ed3, restricted3 = self._edition(
+            title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
+        with_license_pool=True)
+        ed4, restricted4 = self._edition(
+            title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
+        with_license_pool=True)
+
+        restricted3.open_access = False
+        restricted4.open_access = False
+
+        # Every identifier is equivalent to every other identifier.
+        s = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
+        ed1.primary_identifier.equivalent_to(s, ed2.primary_identifier, 1)
+        ed1.primary_identifier.equivalent_to(s, ed3.primary_identifier, 1)
+        ed1.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
+        ed2.primary_identifier.equivalent_to(s, ed3.primary_identifier, 1)
+        ed2.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
+        ed3.primary_identifier.equivalent_to(s, ed4.primary_identifier, 1)
+
+        open1.calculate_work()
+        open2.calculate_work()
+        restricted3.calculate_work()
+        restricted4.calculate_work()
+
+        # The two open-access pools are grouped together.
+        eq_(({}, [ed1, ed2]), potential_open)
+
+        # Each restricted-access pool is completely isolated.
+        eq_(({}, [ed3]), potential_restricted_3)
+        eq_(({}, [ed4]), potential_restricted_4)
 
 
 class TestLoans(DatabaseTest):
