@@ -171,21 +171,35 @@ class Annotator(object):
         """Which license pool would be/has been used to issue a license for
         this work?
         """
-        # The active license pool is the one that *would* be associated
-        # with a loan, were a loan to be issued right now.
         open_access_license_pool = None
         active_license_pool = None
-        for p in work.license_pools:
-            if p.open_access:
-                # Make sure there's a usable link--it might be
-                # audio-only or something.
-                if p.edition().best_open_access_link:
-                    open_access_license_pool = p
-            else:
-                # TODO: It's OK to have a non-open-access license pool,
-                # but the pool needs to have copies available.
-                active_license_pool = p
-                break
+
+        if work.primary_edition.title == 'Moby Dick':
+            set_trace()
+        if work.has_open_access_license:
+            # All licenses are issued from the license pool associated with
+            # the work's primary edition.
+            edition = work.primary_edition
+
+            if edition.license_pool and edition.best_open_access_link:
+                # Looks good.
+                open_access_license_pool = edition.license_pool
+
+        if not open_access_license_pool:
+            # The active license pool is the one that *would* be
+            # associated with a loan, were a loan to be issued right
+            # now.
+            for p in work.license_pools:
+                if p.open_access:
+                    # Make sure there's a usable link--it might be
+                    # audio-only or something.
+                    if p.edition().best_open_access_link:
+                        open_access_license_pool = p
+                else:
+                    # TODO: It's OK to have a non-open-access license pool,
+                    # but the pool needs to have copies available.
+                    active_license_pool = p
+                    break
         if not active_license_pool:
             active_license_pool = open_access_license_pool
         return active_license_pool
@@ -346,7 +360,7 @@ class AcquisitionFeed(OPDSFeed):
         qualities = [("Work quality", work.quality)]
         full_url = None
 
-        active_edition = work.primary_edition
+        active_edition = active_license_pool.edition()
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (

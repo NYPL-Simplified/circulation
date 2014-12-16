@@ -1615,10 +1615,11 @@ class Edition(Base):
         """Find the best open-access Resource for this LicensePool."""
         open_access = Resource.OPEN_ACCESS_DOWNLOAD
 
+
+        _db = Session.object_session(self)
         best = None
-        for l in self.primary_identifier.resources:
-            if l.rel != open_access:
-                continue
+        for l in Identifier.resources_for_identifier_ids(
+                _db, [self.primary_identifier.id], open_access):
             if l.media_type.startswith("application/epub+zip"):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
@@ -2041,6 +2042,8 @@ class Work(Base):
         """
         old_primary = self.primary_edition
         champion = None
+        old_champion = None
+
         for wr in self.editions:
             # Something is better than nothing.
             if not champion:
@@ -2049,13 +2052,14 @@ class Work(Base):
 
             # A edition with no license pool will only be chosen if
             # there is no other alternatice.
-            if not wr.license_pool:
+            pool = wr.license_pool
+            if not pool:
                 continue
 
-            # Something with a license pool is better than something
-            # without.
-            if not champion.license_pool:
-                champion = wr
+            # An open-access edition with no usable download link will
+            # only be chosen if there is no alternative.
+            if pool.open_access and not wr.best_open_access_link:
+                continue
 
             # Open access is better than not.
             if (wr.license_pool.open_access
@@ -2066,8 +2070,10 @@ class Work(Base):
             # Higher Gutenberg numbers beat lower Gutenberg numbers.
             if (wr.data_source.name == DataSource.GUTENBERG
                 and champion.data_source.name == DataSource.GUTENBERG):
+
                 champion_id = int(champion.primary_identifier.identifier)
                 competitor_id = int(wr.primary_identifier.identifier)
+
                 if competitor_id > champion_id:
                     champion = wr
                     continue
@@ -2101,6 +2107,10 @@ class Work(Base):
             old_primary.is_primary_for_work = False
         if champion:
             champion.is_primary_for_work = True
+        for edition in self.editions:
+            # There can be only one.
+            if edition != champion:
+                edition.is_primary_for_work = False
         self.primary_edition = champion
 
 
@@ -3268,24 +3278,24 @@ class WorkFeed(object):
         if last_edition_seen:
             # Only find records that show up after the last one seen.
             last_value = getattr(last_edition_seen, primary_order_field.name)
+            if last_value:
+                # This means works where the primary ordering field has a
+                # higher value.
+                clause = self.sort_operator(primary_order_field, last_value)
 
-            # This means works where the primary ordering field has a
-            # higher value.
-            clause = self.sort_operator(primary_order_field, last_value)
-
-            base_and_clause = (primary_order_field == last_value)
-            for next_order_field in self.order_by[1:]:
-                # OR, it means works where all the previous ordering
-                # fields have the same value as the last work seen,
-                # and this next ordering field has a higher value.
-                new_value = getattr(last_edition_seen, next_order_field.name)
-                if new_value != None:
-                    clause = or_(clause,
-                                 and_(base_and_clause, 
-                                      self.sort_operator(next_order_field, new_value)))
-                base_and_clause = and_(base_and_clause,
-                                       (next_order_field == new_value))
-            query = query.filter(clause)
+                base_and_clause = (primary_order_field == last_value)
+                for next_order_field in self.order_by[1:]:
+                    # OR, it means works where all the previous ordering
+                    # fields have the same value as the last work seen,
+                    # and this next ordering field has a higher value.
+                    new_value = getattr(last_edition_seen, next_order_field.name)
+                    if new_value != None:
+                        clause = or_(clause,
+                                     and_(base_and_clause, 
+                                          self.sort_operator(next_order_field, new_value)))
+                    base_and_clause = and_(base_and_clause,
+                                           (next_order_field == new_value))
+                query = query.filter(clause)
 
         if self.sort_ascending:
             m = lambda x: x.asc()
@@ -3495,7 +3505,7 @@ class LicensePool(Base):
         """
         if self.work:
             # The work has already been done.
-            return
+            return self.work, False
 
         primary_edition = self.edition()
         if not primary_edition.permanent_work_id:
@@ -3536,7 +3546,7 @@ class LicensePool(Base):
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
-        # work.calculate_presentation()
+        work.calculate_presentation()
         #if created:
         #    print "Created %r" % work
         # All done!

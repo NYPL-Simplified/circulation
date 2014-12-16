@@ -50,10 +50,16 @@ class WorkConsolidationScript(Script):
 
         print "Consolidating works."
         LicensePool.consolidate_works(self.db)
+
+        print "Deleting works with no editions."
+        for i in self.db.query(Work).filter(Work.primary_edition==None):
+            self.db.delete(i)            
         self.db.commit()
 
     def clear_existing_works(self):
         # Locate works we want to consolidate.
+        unset_work_id = { Edition.work_id : None }
+        work_ids_to_delete = set()
         work_records = self.db.query(Edition)
         if self.identifier_type:
             work_records = work_records.join(
