@@ -3514,24 +3514,23 @@ class LicensePool(Base):
         if primary_edition.work:
             # This pool's primary edition is already associated with
             # a Work. Use that Work.
-            return primary_edition.work, False
+            work = primary_edition.work
 
-        _db = Session.object_session(self)
-
-        work = None
-        if self.open_access:
-            # Is there already an open-access Work which includes editions
-            # with this edition's permanent work ID?
+        else:
+            _db = Session.object_session(self)
             work = None
-            q = _db.query(Edition).filter(
-                Edition.permanent_work_id
-                ==primary_edition.permanent_work_id).filter(
-                    Edition.work != None).filter(
-                        Edition.id != primary_edition.id)
-            for edition in q:
-                if edition.work.has_open_access_license:
-                    work = edition.work
-                    break
+            if self.open_access:
+                # Is there already an open-access Work which includes editions
+                # with this edition's permanent work ID?
+                q = _db.query(Edition).filter(
+                    Edition.permanent_work_id
+                    ==primary_edition.permanent_work_id).filter(
+                        Edition.work != None).filter(
+                            Edition.id != primary_edition.id)
+                for edition in q:
+                    if edition.work.has_open_access_license:
+                        work = edition.work
+                        break
 
         if work:
             created = False
