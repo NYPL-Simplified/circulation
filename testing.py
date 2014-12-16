@@ -88,7 +88,7 @@ class DatabaseTest(object):
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
-        title = unicode(title) or self._str
+        title = unicode(title or self._str)
         genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
         if fiction is None:

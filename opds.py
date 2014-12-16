@@ -174,8 +174,6 @@ class Annotator(object):
         open_access_license_pool = None
         active_license_pool = None
 
-        if work.primary_edition.title == 'Moby Dick':
-            set_trace()
         if work.has_open_access_license:
             # All licenses are issued from the license pool associated with
             # the work's primary edition.
