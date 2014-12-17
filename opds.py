@@ -238,7 +238,7 @@ class VerboseAnnotator(Annotator):
         return by_scheme
 
     @classmethod
-    def author(cls, work):
+    def authors(cls, work):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
                 for author in work.primary_edition.author_contributors]
