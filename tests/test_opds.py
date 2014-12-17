@@ -191,6 +191,16 @@ class TestOPDS(DatabaseTest):
         u = unicode(feed)
         assert "<author>" in u
 
+    def test_acquisition_feed_includes_permanent_work_id(self):
+        work = self._work(with_open_access_download=True)
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               [work])
+        u = unicode(feed)
+        parsed = feedparser.parse(u)
+        entry = parsed['entries'][0]
+        eq_(work.primary_edition.permanent_work_id, 
+            entry['simplified_pwid'])
+
     def test_acquisition_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 

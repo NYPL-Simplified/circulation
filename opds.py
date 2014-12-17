@@ -31,7 +31,7 @@ opds_ns = 'http://opds-spec.org/2010/catalog'
 schema_ns = 'http://schema.org/'
 
 # This is a placeholder namespace for stuff we've invented.
-simplified_ns = 'http://library-simplified.com/'
+simplified_ns = 'http://library-simplified.com/terms/'
 
 
 nsmap = {
@@ -119,6 +119,11 @@ class Annotator(object):
         if work.audience:
             categories[schema_ns + "audience"] = [work.audience]
         return categories
+
+    @classmethod
+    def authors(cls, work):
+        """Create one or more <author> tags for the given work."""
+        return [E.author(E.name(work.author or ""))]
 
     @classmethod
     def summary(cls, work):
@@ -373,15 +378,24 @@ class AcquisitionFeed(OPDSFeed):
 
         entry = E.entry(
             E.id(self.annotator.work_id(work)),
-            E.title(work.title))
+            E.title(work.title),
+        )
         if work.subtitle:
             entry.extend([E.alternativeHeadline(work.subtitle)])
 
+        author_tags = self.annotator.authors(work)
+        entry.extend(author_tags)
+
         entry.extend([
-            E.author(E.name(work.author or "")),
             E.summary(summary),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
+
+        permanent_work_id_tag = E._makeelement("{%s}pwid" % simplified_ns)
+        permanent_work_id_tag.text = work.primary_edition.permanent_work_id
+        entry.append(permanent_work_id_tag)
+
+
         entry.extend(links)
 
         categories_by_scheme = self.annotator.categories(work)
