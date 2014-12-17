@@ -2802,7 +2802,8 @@ class Subject(Base):
     SIMPLIFIED_GENRE = "http://library-simplified.com/genres/"
 
     by_uri = {
-        "http://library-simplified.com/genres/" : SIMPLIFIED_GENRE,
+        SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
         "http://purl.org/dc/terms/DDC" : DDC,

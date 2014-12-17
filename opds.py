@@ -208,6 +208,75 @@ class Annotator(object):
         return active_license_pool
 
 
+class VerboseAnnotator(Annotator):
+    """The default Annotator for machine-to-machine integration.
+
+    This Annotator describes all categories and authors for the book
+    in great detail.
+    """
+
+    @classmethod
+    def categories(cls, work):
+        """Send out _all_ categories for the work.
+
+        (So long as the category type has a URI associated with it in
+        Subject.uri_lookup.)
+        """
+        _db = Session.object_session(work)
+        by_scheme = defaultdict(list)
+        identifier_ids = work.all_identifier_ids()
+        classifications = Identifier.classifications_for_identifier_ids(
+            _db, identifier_ids)
+        for c in classifications:
+            subject = c.subject
+            if subject.type in Subject.uri_lookup:
+                scheme = Subject.uri_lookup[subject.type]
+                value = dict(term=subject.identifier)
+                if subject.name:
+                    value['label'] = subject.name
+                by_scheme[scheme].append(value)
+        return by_scheme
+
+    @classmethod
+    def author(cls, work):
+        """Create a detailed <author> tag for each author."""
+        return [cls.detailed_author(author)
+                for author in work.primary_edition.author_contributors]
+
+    @classmethod
+    def detailed_author(cls, contributor):
+        """Turn a Contributor into a detailed <author> tag."""
+        children = []
+        children.append(E.name(contributor.display_name or ""))
+        sort_name = E._makeelement("{%s}sort_name" % simplified_ns)
+        sort_name.text = contributor.name
+        children.append(sort_name)
+
+        if contributor.family_name:
+            family_name = E._makeelement("{%s}family_name" % schema_ns)
+            family_name.text = contributor.family_name
+            children.append(family_name)
+
+        if contributor.wikipedia_name:
+            wikipedia_name = E._makeelement(
+                "{%s}wikipedia_name" % simplified_ns)
+            wikipedia_name.text = contributor.wikipedia_name
+            children.append(wikipedia_name)
+
+        if contributor.viaf:
+            viaf_tag = E._makeelement("{%s}sameas" % schema_ns)
+            viaf_tag.text = "http://viaf.org/viaf/%s" % contributor.viaf
+            children.append(viaf_tag)
+
+        if contributor.lc:
+            lc_tag = E._makeelement("{%s}sameas" % schema_ns)
+            lc_tag.text = "http://id.loc.gov/authorities/names/%s" % contributor.lc
+            children.append(lc_tag)
+
+
+        return E.author(*children)
+
+
 class URLRewriter(object):
 
     epub_id = re.compile("/([0-9]+)")

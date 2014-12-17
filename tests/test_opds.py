@@ -1,5 +1,6 @@
 import feedparser
 import datetime
+from lxml import etree
 from nose.tools import (
     eq_,
     set_trace,
@@ -10,6 +11,7 @@ from . import (
 )
 
 from model import (
+    Contributor,
     DataSource,
     Genre,
     Lane,
@@ -20,12 +22,13 @@ from model import (
     get_one_or_create,
 )
 
-from opds import (
+from opds import (    
     OPDSFeed,
     AcquisitionFeed,
     NavigationFeed,
     URLRewriter,
     Annotator,
+    VerboseAnnotator,
 )
 
 from classifier import (
@@ -68,6 +71,77 @@ class TestURLRewriter(object):
         u = URLRewriter.rewrite(
             "http://www.gutenberg.org/cache/epub/24270/pg24270.cover.medium.jpg")
         assert u.endswith("/24270/pg24270.cover.medium.jpg")
+
+class TestAnnotators(DatabaseTest):
+
+    def test_all_subjects(self):
+        work = self._work()
+        edition = work.primary_edition
+        identifier = edition.primary_identifier
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        subjects = [
+            (Subject.FAST, "fast1", "name1"),
+            (Subject.LCSH, "lcsh1", "name2"),
+            (Subject.LCSH, "lcsh2", "name3"),
+            (Subject.DDC, "300", "Social sciences, sociology & anthropology"),
+            (Subject.SIMPLIFIED_GENRE, "Fiction", None)
+        ]
+
+        for subject_type, subject, name in subjects:
+            identifier.classify(source, subject_type, subject, name)
+
+        category_tags = VerboseAnnotator.categories(work)
+
+        ddc_uri = Subject.uri_lookup[Subject.DDC]
+        eq_([{'term': u'300',
+              'label': u'Social sciences, sociology & anthropology'}],
+            category_tags[ddc_uri])
+
+        fast_uri = Subject.uri_lookup[Subject.FAST]
+        eq_([{'term': u'fast1', 'label': u'name1'}],
+            category_tags[fast_uri])
+
+        lcsh_uri = Subject.uri_lookup[Subject.LCSH]
+        eq_([{'term': u'lcsh1', 'label': u'name2'},
+             {'term': u'lcsh2', 'label': u'name3'}],
+            sorted(category_tags[lcsh_uri]))
+
+        genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
+        eq_([{'term': u'Fiction'}], category_tags[genre_uri])
+
+    def test_detailed_author(self):
+        c, ignore = self._contributor("Familyname, Givenname")
+        c.display_name = "Givenname Familyname"
+        c.family_name = "Familyname"
+        c.wikipedia_name = "Givenname Familyname (Author)"
+        c.viaf = "100"
+        c.lc = "n100"
+
+        author_tag = VerboseAnnotator.detailed_author(c)
+
+        tag_string = etree.tostring(author_tag)
+        assert "<name>Givenname Familyname</" in tag_string        
+        assert "<simplified:sort_name>Familyname, Givenname</" in tag_string        
+        assert "<simplified:wikipedia_name>Givenname Familyname (Author)</" in tag_string
+        assert "<schema:sameas>http://viaf.org/viaf/100</" in tag_string
+        assert "<schema:sameas>http://id.loc.gov/authorities/names/n100</"
+
+        work = self._work()
+        work.primary_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
+
+        [same_tag] = VerboseAnnotator.author(work)
+        eq_(tag_string, etree.tostring(same_tag))
+
+    def test_verbose_annotator_mentions_every_author(self):
+        work = self._work()
+        work.primary_edition.add_contributor(
+            self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
+        work.primary_edition.add_contributor(
+            self._contributor()[0], Contributor.AUTHOR_ROLE)
+        work.primary_edition.add_contributor(
+            self._contributor()[0], "Illustrator")
+        eq_(2, len(VerboseAnnotator.author(work)))
 
 class TestOPDS(DatabaseTest):
 
