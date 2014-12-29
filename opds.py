@@ -144,7 +144,7 @@ class Annotator(object):
 
     @classmethod
     def _identifier_urn(cls, identifier):
-        return "urn:com:library-simplified:identifier:%s:%s" % (identifier.type, identifier.identifier)
+        return identifier.urn
 
     @classmethod
     def work_id(cls, work):
@@ -241,7 +241,7 @@ class VerboseAnnotator(Annotator):
     def authors(cls, work):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
-                for author in work.primary_edition.author_contributors]
+                for author in work.primary_edition.author_contributors] * 2
 
     @classmethod
     def detailed_author(cls, contributor):
