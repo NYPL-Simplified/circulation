@@ -8,6 +8,7 @@ from model import (
     Work,
     WorkGenre,
 )
+from opds import OPDSImportMonitor
 
 class Script(object):
 
@@ -156,3 +157,12 @@ class WorkPresentationScript(Script):
                 self.session.commit()
         self.session.commit()
 
+
+class OPDSImportScript(Script):
+    """Import all books from an OPDS feed."""
+    def __init__(self, feed_url=None):
+        self.feed_url = feed_url
+
+    def run(self):
+        OPDSImportMonitor(self.feed_url).run(self._db)
+        
