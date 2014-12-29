@@ -411,6 +411,9 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
+    URN_SCHEME_PREFIX = "urn:com.library-simplified.identifier:"
+    ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
+
     __tablename__ = 'identifiers'
     id = Column(Integer, primary_key=True)
     type = Column(String(64), index=True)
@@ -492,6 +495,10 @@ class Identifier(Base):
             return result
         else:
             return result, False
+
+    @property
+    def urn(self):
+        return self.URN_SCHEME_PREFIX + "%s:%s" % (self.type, self.identifier)
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
