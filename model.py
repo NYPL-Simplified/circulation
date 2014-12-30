@@ -1371,6 +1371,12 @@ class Edition(Base):
     cover_full_url = Column(Unicode)
     cover_thumbnail_url = Column(Unicode)
 
+    # This is set to True if we know there just isn't a cover for this
+    # edition. That lets us know it's okay to set the corresponding
+    # work to presentation ready even in the absence of a cover for
+    # its primary edition.
+    no_known_cover = Column(Boolean, default=False)
+
     # Information kept in here probably won't be used.
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
@@ -1817,6 +1823,11 @@ class Work(Base):
     # The last time the availability or metadata changed for this Work.
     last_update_time = Column(DateTime, index=True)
 
+    # This is set to True once all metadata and availability
+    # information has been obtained for this Work. Until this is True,
+    # the work will not show up in feeds.
+    presentation_ready = Column(Boolean, default=False, index=True)
+
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
@@ -2217,6 +2228,7 @@ class Work(Base):
             self.calculate_quality(flattened_data)
 
         self.last_update_time = datetime.datetime.utcnow()
+        self.set_presentation_ready()
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2239,6 +2251,26 @@ class Work(Base):
                     self.summary.quality, self.summary.content[:100])
                 print d.encode("utf8")
             print
+
+    def set_presentation_ready(self):
+        """Set this work as presentation ready, if in fact it is
+        presentation ready.
+
+        Presentation ready means the book is ready to be shown to
+        patrons and (pending availability) checked out. It doesn't
+        necessarily mean the presentation is complete. A work with no
+        summary can still be presentation ready.
+        """
+        if (not self.primary_edition
+            or not self.license_pools
+            or not self.title
+            or not self.author
+            or not self.language
+            or (not self.cover_thumbnail_url
+                and not self.primary_edition.no_known_cover)):
+            self.presentation_ready = False
+        else:
+            self.presentation_ready = True
 
     def calculate_quality(self, flattened_data):
         _db = Session.object_session(self)
