@@ -5,9 +5,14 @@ import site
 import re
 
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     eq_,
     set_trace,
+)
+
+from sqlalchemy.orm.exc import (
+    NoResultFound,
 )
 
 from model import (
@@ -76,6 +81,17 @@ class TestDataSource(DatabaseTest):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
 
+    def test_license_source_for(self):
+        identifier = self._identifier()
+        source = DataSource.license_source_for(self._db, identifier)
+        eq_(DataSource.GUTENBERG, source.name)
+
+    def test_license_source_fails_if_identifier_type_does_not_provide_licenses(self):
+        identifier = self._identifier(DataSource.MANUAL)
+        assert_raises(
+            NoResultFound, DataSource.license_source_for, self._db, identifier)
+            
+
 class TestIdentifier(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -106,6 +122,52 @@ class TestIdentifier(DatabaseTest):
         eq_(None, identifier)
         eq_(False, was_new)
 
+    def test_urn(self):
+        # ISBN identifiers use the ISBN URN scheme.
+        identifier, ignore = Identifier.for_foreign_id(
+            self._db, Identifier.ISBN, "1449358063")
+        eq_("urn:isbn:1449358063", identifier.urn)
+
+        # URI identifiers don't need a URN scheme.
+        identifier, ignore = Identifier.for_foreign_id(
+            self._db, Identifier.URI, "http://example.com/")
+        eq_(identifier.identifier, identifier.urn)
+
+        # All other identifiers use our custom URN scheme.
+        identifier = self._identifier()
+        assert identifier.urn.startswith(Identifier.URN_SCHEME_PREFIX)
+
+    def test_parse_urn(self):
+
+        # We can parse our custom URNs back into identifiers.
+        identifier = self._identifier()
+        self._db.commit()
+        new_identifier, ignore = Identifier.parse_urn(self._db, identifier.urn)
+        eq_(identifier, new_identifier)
+
+        # We can parse urn:isbn URNs into ISBN identifiers.
+        identifier, ignore = Identifier.for_foreign_id(
+            self._db, Identifier.ISBN, "1449358063")
+        isbn_urn = "urn:isbn:1449358063"
+        isbn_identifier, ignore = Identifier.parse_urn(self._db, isbn_urn)
+        eq_(Identifier.ISBN, isbn_identifier.type)
+        eq_("1449358063", isbn_identifier.identifier)
+
+        # We can parse ordinary http: or https: URLs into URI
+        # identifiers.
+        http_identifier, ignore = Identifier.parse_urn(
+            self._db, "http://example.com")
+        eq_(Identifier.URI, http_identifier.type)
+        eq_("http://example.com", http_identifier.identifier)
+
+        https_identifier, ignore = Identifier.parse_urn(
+            self._db, "https://example.com")
+        eq_(Identifier.URI, https_identifier.type)
+        eq_("https://example.com", https_identifier.identifier)
+
+        # A URN we can't handle raises an exception.
+        ftp_urn = "ftp://example.com"
+        assert_raises(ValueError, Identifier.parse_urn, self._db, ftp_urn)
 
 class TestContributor(DatabaseTest):
 

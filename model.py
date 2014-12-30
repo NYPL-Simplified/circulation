@@ -289,6 +289,18 @@ class DataSource(Base):
             return None
 
     @classmethod
+    def license_source_for(cls, _db, identifier):
+        """Finds the DataSource that provide licenses for books identified
+        by the given identifier.
+
+        If there is no such DataSource, or there is more than one,
+        raises an exception.
+        """
+        q =_db.query(DataSource).filter(DataSource.offers_licenses==True).filter(
+            DataSource.primary_identifier_type==identifier.type)
+        return q.one()
+
+    @classmethod
     def well_known_sources(cls, _db):
         """Make sure all the well-known sources exist."""
 
@@ -498,7 +510,28 @@ class Identifier(Base):
 
     @property
     def urn(self):
-        return self.URN_SCHEME_PREFIX + "%s:%s" % (self.type, self.identifier)
+        if self.type == Identifier.ISBN:
+            return self.ISBN_URN_SCHEME_PREFIX + self.identifier
+        elif self.type == Identifier.URI:
+            return self.identifier
+        else:
+            return self.URN_SCHEME_PREFIX + "%s:%s" % (self.type, self.identifier)
+
+    @classmethod
+    def parse_urn(cls, _db, identifier_string):
+        if identifier_string.startswith("http:") or identifier_string.startswith("https:"):
+            type = Identifier.URI
+        elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
+            identifier_string = identifier_string[len(Identifier.URN_SCHEME_PREFIX):]
+            type, identifier_string = identifier_string.split(":", 1)
+        elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
+            type = Identifier.ISBN
+            identifier_string = identifier_string[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
+        else:
+            raise ValueError(
+                "Could not turn %s into a recognized identifier." %
+                identifier_string)
+        return cls.for_foreign_id(_db, type, identifier_string)
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
