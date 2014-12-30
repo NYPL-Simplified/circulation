@@ -827,7 +827,10 @@ class Identifier(Base):
         resources = _db.query(Resource).filter(
                 Resource.identifier_id.in_(identifier_ids))
         if rel:
-            resources = resources.filter(Resource.rel==rel)
+            if isinstance(rel, list):
+                resources = resources.filter(Resource.rel.in_(rel))
+            else:
+                resources = resources.filter(Resource.rel==rel)
         return resources
 
     @classmethod

@@ -160,9 +160,10 @@ class WorkPresentationScript(Script):
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
-    def __init__(self, feed_url=None):
+    def __init__(self, feed_url, importer_class):
         self.feed_url = feed_url
+        self.importer_class = importer_class
 
     def run(self):
-        OPDSImportMonitor(self.feed_url).run(self._db)
+        OPDSImportMonitor(self.feed_url, self.importer_class).run(self._db)
         
