@@ -65,7 +65,7 @@ class BaseOPDSImporter(object):
         """Turn a list of tags into a list of Subject objects."""
         
 
-class DetailedOPDSImporter(OPDSImporter):
+class DetailedOPDSImporter(BaseOPDSImporter):
 
     """An OPDS importer that imports authors as contributors and
     tags as subjects.
@@ -76,8 +76,7 @@ class DetailedOPDSImporter(OPDSImporter):
     """
     def import_from_feed(self, feed):
         lxml_parsed = etree.parse(feed)
-        authors_by_id = in self.authors_by_id(lxml_parsed):
-
+        authors_by_id = self.authors_by_id(lxml_parsed)
         subjects = self.process_tags(entry.get('tags', []))
 
 
