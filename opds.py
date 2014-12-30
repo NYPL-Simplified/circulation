@@ -239,7 +239,7 @@ class VerboseAnnotator(Annotator):
     def authors(cls, work):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
-                for author in work.primary_edition.author_contributors] * 2
+                for author in work.primary_edition.author_contributors]
 
     @classmethod
     def detailed_author(cls, contributor):
@@ -248,6 +248,7 @@ class VerboseAnnotator(Annotator):
         children.append(E.name(contributor.display_name or ""))
         sort_name = E._makeelement("{%s}sort_name" % simplified_ns)
         sort_name.text = contributor.name
+
         children.append(sort_name)
 
         if contributor.family_name:
