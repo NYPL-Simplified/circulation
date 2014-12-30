@@ -18,7 +18,7 @@ class BaseOPDSImporter(object):
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
 
-    def import(self):
+    def import_from_feed(self):
         imported = []
         for entry in self.feedparser_parsed['entries']:
             edition, opds_id = self.import_from_feedparser_entry(entry)
@@ -55,9 +55,11 @@ class BaseOPDSImporter(object):
         # Create or retrieve an Edition for this book.
         edition, edition_was_new = Edition.for_foreign_id(
             self._db, data_source, identifier.type, identifier.identifier)
+        edition.title = title
 
         # Associate the open access links and the covers with the
         # identifier.
+        
 
     def process_tags(self, tags):
         """Turn a list of tags into a list of Subject objects."""
