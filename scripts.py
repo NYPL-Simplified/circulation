@@ -8,7 +8,7 @@ from model import (
     Work,
     WorkGenre,
 )
-from opds import OPDSImportMonitor
+from opds_import import OPDSImportMonitor
 
 class Script(object):
 

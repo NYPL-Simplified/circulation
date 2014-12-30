@@ -16,8 +16,6 @@ import requests
 
 from lxml import builder, etree
 
-from monitor import Monitor
-
 from model import (
     DataSource,
     Resource,
@@ -634,79 +632,3 @@ class NavigationFeed(OPDSFeed):
             )
 
         return feed
-
-class OPDSImporter(object):
-    """Capable of importing editions from an OPDS feed."""
-    
-    def __init__(self, _db):
-        self._db = _db
-
-    def import_from_feed(self, feed):
-        imported = []
-        parsed = feedparser.parse(unicode(feed))
-        for entry in parsed['entries']:
-            e = self.import_from_entry(entry)
-        set_trace()
-        return imported, parsed
-
-    def parse_identifier(self, identifier_string):
-        if identifier_string.startswith("http:") or identifier_string.startswith("https:"):
-            type = Identifier.URL
-        elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
-            identifier.startswith(Identifier.URN_SCHEME_PREFIX)
-            type, identifier = identifier.split(":", 2)
-        elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
-            type = Identifier.ISBN
-            identifier = identifier[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
-        else:
-            raise ValueError(
-                "Could not turn %s into a recognized identifier." %
-                identifier_string)
-        return Identifier.for_foreign_id(type, identifier)
-
-    def import_from_entry(self, entry):
-        identifier = self.parse_identifier(entry.get('id'))
-        
-        title = entry.get('title', None)
-        updated = entry.get('updated_parsed', None)
-        publisher = entry.get('dcterms_publisher', None)
-        language = entry.get('dcterms_language', None)
-        subjects = entry.get('tags', [])
-        summary = entry.get('summary', '')
-        pwid = entry.get('simplified_pwid', None)
-
-        title_detail = entry.get('title_detail', None)
-        summary_detail = entry.get('summary_detail', None)
-
-        author_sort_name = entry.get('simplified_sort_name', None)
-        author_family_name = entry.get('simplified_family_name', None)
-        author_wikipedia_name = entry.get('simplified_wikipedia_name', None)        
-
-        links = entry.get('links', [])
-
-class OPDSImportMonitor(Monitor):
-    """Periodically monitor an OPDS archive feed and import every edition
-    it mentions.
-    """
-    
-    def __init__(self, feed_url, interval_seconds=3600):
-        self.feed_url = feed_url
-        super(OPDSImportMonitor, self).__init__(
-            "OPDS Import %s" % feed_url, interval_seconds)
-
-    def run_once(self, _db, start, cutoff):
-        importer = OPDSImporter(_db)
-        next_link = self.feed_url
-        while next_link:
-            imported, parsed = self.process_one_page(importer, next_link)
-            if len(imported) == 0:
-                # We did not see a single book on this page we haven't
-                # already seen. There's no need to keep going.
-                break
-            # TODO: get the proper next link.
-            set_trace()
-            next_link = True
-
-    def process_one_page(self, importer, url):
-        response = requests.get(self.feed_url)
-        return importer.import_from_feed(response.content)

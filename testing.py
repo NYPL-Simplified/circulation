@@ -115,6 +115,9 @@ class DatabaseTest(object):
         work.genres = [genre]
         if with_license_pool:
             work.license_pools.append(pool)
+            # This is probably going to be used in an OPDS feed, so
+            # fake that the work is presentation ready.
+            work.presentation_ready = True
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
         return work
