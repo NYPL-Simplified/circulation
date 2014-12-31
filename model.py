@@ -2232,7 +2232,6 @@ class Work(Base):
             self.calculate_quality(flattened_data)
 
         self.last_update_time = datetime.datetime.utcnow()
-        self.set_presentation_ready()
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2256,20 +2255,25 @@ class Work(Base):
                 print d.encode("utf8")
             print
 
-    def set_presentation_ready(self):
-        """Set this work as presentation ready, if in fact it is
-        presentation ready.
+    def set_presentation_ready_based_on_content(self):
+        """Set this work as presentation ready, if it appears to
+        be ready based on its data.
 
         Presentation ready means the book is ready to be shown to
         patrons and (pending availability) checked out. It doesn't
-        necessarily mean the presentation is complete. A work with no
-        summary can still be presentation ready.
+        necessarily mean the presentation is complete.
+
+        A work with no summary can still be presentation ready,
+        since many public domain books have no summary.
+
+        A work with no cover can be presentation ready 
         """
         if (not self.primary_edition
             or not self.license_pools
             or not self.title
-            or not self.author
+            or not self.primary_edition.author
             or not self.language
+            or not self.work_genres
             or (not self.cover_thumbnail_url
                 and not self.primary_edition.no_known_cover)):
             self.presentation_ready = False

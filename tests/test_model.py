@@ -608,38 +608,38 @@ class TestWork(DatabaseTest):
         work = self._work(with_license_pool=True)
         primary = work.primary_edition
         primary.author = "foo"
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)
         
         # This work is not presentation ready because it has no
         # cover. If we record the fact that we tried and failed to
         # find a cover, it will be considered presentation ready.
         work.primary_edition.no_known_cover = True
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)
 
         # It would also work to add a cover, of course.
         work.primary_edition.cover_thumbnail_url = "http://example.com/"
         work.primary_edition.no_known_cover = False
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)
 
         # Remove the title, and the work stops being presentation
         # ready.
         primary.title = None
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
         primary.title = "foo"
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
         # Remove the author's presentation string, and the work stops
         # being presentation ready.
         primary.author = None
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
         primary.author = "foo"
-        work.set_presentation_ready()
+        work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
         # TODO: there are some other things you can do to stop a work
