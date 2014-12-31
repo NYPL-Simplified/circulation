@@ -1701,14 +1701,27 @@ class Edition(Base):
 
         title = w.normalize_title(title)
         author = w.normalize_author(author)
+
+        if self.medium == Edition.BOOK_MEDIUM:
+            medium = "ebook"
+        elif self.medium == Edition.AUDIO_MEDIUM:
+            medium = "audio"
+        elif self.medium == Edition.MUSIC_MEDIUM:
+            medium = "music"
+        elif self.medium == Edition.PERIODICAL_MEIDUM:
+            medium = "ebook"
+        elif self.medium == Edition.VIDEO_MEDIUM:
+            medium = "movie"
+
         self.permanent_work_id = WorkIDCalculator.permanent_id(
-            title, author, "ebook")
+            title, author, medium)
 
     def calculate_presentation(self, debug=False):
         if not self.sort_title:
             self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []
         display_names = []
+        self.last_update_time = datetime.datetime.utcnow()
         for author in self.author_contributors:
             display_name = author.display_name or author.name
             family_name = author.family_name or author.name
