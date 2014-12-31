@@ -2171,16 +2171,12 @@ class Work(Base):
                 champion = wr
                 continue
 
-        if old_primary and old_primary != champion:
-            old_primary.is_primary_for_work = False
-        if champion:
-            champion.is_primary_for_work = True
         for edition in self.editions:
             # There can be only one.
             if edition != champion:
                 edition.is_primary_for_work = False
-        self.primary_edition = champion
-
+            else:
+                edition.is_primary_for_work = True
 
     def calculate_presentation(self, choose_edition=True,
                                classify=True, choose_summary=True,
@@ -3598,6 +3594,7 @@ class LicensePool(Base):
         Pools that are not open-access will always have a new Work
         created for them.
         """
+        
         if self.work:
             # The work has already been done.
             return self.work, False
@@ -3646,6 +3643,7 @@ class LicensePool(Base):
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
         work.calculate_presentation()
+
         #if created:
         #    print "Created %r" % work
         # All done!
