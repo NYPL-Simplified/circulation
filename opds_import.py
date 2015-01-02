@@ -45,8 +45,12 @@ class BaseOPDSImporter(object):
                     work.calculate_presentation()
         return imported
 
-    def links_by_rel(self, entry):
-        links = entry.get('links', [])
+    def links_by_rel(self, entry=None):
+        if entry:
+            source = entry
+        else:
+            source = self.feedparser_parsed['feed']
+        links = source.get('links', [])
         links_by_rel = defaultdict(list)
         for link in links:
             if 'rel' not in link or 'href' not in link:
@@ -152,16 +156,19 @@ class OPDSImportMonitor(Monitor):
     def run_once(self, _db, start, cutoff):
         next_link = self.feed_url
         while next_link:
-            imported = self.process_one_page(_db, next_link)
+            importer, imported = self.process_one_page(_db, next_link)
             if len(imported) == 0:
                 # We did not see a single book on this page we haven't
                 # already seen. There's no need to keep going.
                 break
-            # TODO: get the proper next link.
-            set_trace()
-            next_link = True
+            next_links = importer.links_by_rel()['next']
+            if not next_links:
+                # We're at the end of the list. There are no more books
+                # to import.
+                break
+            next_link = next_links[0]['href']
 
     def process_one_page(self, _db, url):
-        response = requests.get(self.feed_url)
+        response = requests.get(url)
         importer = self.import_class(_db, response.content)
-        return importer.import_from_feed()
+        return importer, importer.import_from_feed()
