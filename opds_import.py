@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from StringIO import StringIO
 from collections import defaultdict
 import feedparser
 import requests
@@ -7,13 +8,26 @@ from lxml import builder, etree
 
 from monitor import Monitor
 from util import LanguageCodes
+from util.xmlparser import XMLParser
 from model import (
+    Contributor,
     DataSource,
     Edition,
     Identifier,
     LicensePool,
     Resource,
+    Subject,
 )
+
+class OPDSXMLParser(XMLParser):
+
+    NAMESPACES = { "simplified": "http://library-simplified.com/terms/",
+                   "app" : "http://www.w3.org/2007/app",
+                   "dcterms" : "http://purl.org/dc/terms/",
+                   "opds": "http://opds-spec.org/2010/catalog",
+                   "schema" : "http://schema.org",
+                   "atom" : "http://www.w3.org/2005/Atom",
+    }
 
 class BaseOPDSImporter(object):
     """Capable of importing editions from an OPDS feed.
@@ -136,10 +150,74 @@ class DetailedOPDSImporter(BaseOPDSImporter):
     metadata wrangler, and by the metadata wrangler when talking to
     content servers.
     """
-    def import_from_feed(self, feed):
-        lxml_parsed = etree.parse(feed)
-        authors_by_id = self.authors_by_id(lxml_parsed)
-        subjects = self.process_tags(entry.get('tags', []))
+
+    def __init__(self, _db, feed):
+        super(DetailedOPDSImporter, self).__init__(_db, feed)
+        self.lxml_parsed = etree.parse(StringIO(self.raw_feed))
+        self.authors_by_id = self.authors_by_id(_db, self.lxml_parsed)
+
+    def import_from_feedparser_entry(self, entry):
+        identifier, edition, edition_was_new = super(
+            DetailedOPDSImporter, self).import_from_feedparser_entry(entry)
+
+        if edition_was_new:
+            for contributor in self.authors_by_id[entry.id]:
+                edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
+
+            data_source = DataSource.license_source_for(self._db, identifier)
+            for type, term, name in self.subjects_for(entry):
+                identifier.classify(
+                    data_source, type, term, name)
+
+        return identifier, edition, edition_was_new
+
+    @classmethod
+    def subjects_for(cls, feedparser_entry):
+        for i in feedparser_entry.get('tags'):
+            scheme = i.get('scheme')
+            subject_type = Subject.by_uri.get(scheme)
+            if not subject_type:
+                # We can't represent this subject because we don't
+                # know its scheme. Just treat it as a tag.
+                subject_type = Subject.TAG
+            identifier = i.get('term')
+            name = i.get('label')
+            yield subject_type, identifier, name
+
+    @classmethod
+    def authors_by_id(cls, _db, root):
+        parser = OPDSXMLParser()
+        by_id = defaultdict(list)
+        for entry in parser._xpath(root, '/atom:feed/atom:entry'):
+            identifier = parser._xpath1(entry, 'atom:id')
+            if identifier is None or not identifier.text:
+                continue
+            identifier = identifier.text
+            for author_tag in parser._xpath(entry, 'atom:author'):
+                subtag = parser.text_of_optional_subtag
+                sort_name = subtag(author_tag, 'simplified:sort_name')
+
+                # TODO: Also collect VIAF and LC numbers if present.
+
+                # Try to find a Contributor for this author.
+                contributor, is_new = Contributor.lookup(_db, sort_name)
+                contributor = contributor[0]
+
+                # Set additional information for this author, if present
+                # and not already set.
+                if not contributor.display_name:
+                    contributor.display_name = subtag(author_tag, 'atom:name')
+                if not contributor.family_name:
+                    contributor.family_name = subtag(
+                        author_tag, "simplified:family_name")
+                if not contributor.family_name:
+                    contributor.wiki_name = subtag(
+                        author_tag, "simplified:wikipedia_name")
+
+                # Note that the given contributor is an author of this
+                # entry.
+                by_id[identifier].append(contributor)
+        return by_id
 
 
 class OPDSImportMonitor(Monitor):

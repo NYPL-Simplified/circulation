@@ -817,68 +817,66 @@ class TestCirculationEvent(DatabaseTest):
         eq_(0, event.license_pool.licenses_owned)
 
 
-class TestWorkQuality(DatabaseTest):
+# class TestWorkQuality(DatabaseTest):
 
-    # TODO: More summaries and more covers gives you a higher rating.
+#     def test_better_known_work_gets_higher_rating(self):
 
-    def test_better_known_work_gets_higher_rating(self):
+#         gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
-        gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+#         edition1_1, pool1 = self._edition(with_license_pool=True)
+#         edition1_2 = self._edition(with_license_pool=False)
 
-        edition1_1, pool1 = self._edition(with_license_pool=True)
-        edition1_2 = self._edition(with_license_pool=False)
+#         edition2_1, pool2 = self._edition(with_license_pool=True)
 
-        edition2_1, pool2 = self._edition(with_license_pool=True)
+#         wrs = []
+#         pools = []
+#         for i in range(10):
+#             wr, pool = self._edition(with_license_pool=True)
+#             wrs.append(wr)
+#             pools.append(pool)
 
-        wrs = []
-        pools = []
-        for i in range(10):
-            wr, pool = self._edition(with_license_pool=True)
-            wrs.append(wr)
-            pools.append(pool)
+#         work1 = Work()
+#         work1.editions.extend([edition1_1, edition1_2] + wrs)
+#         work1.license_pools.extend(pools + [pool1])
 
-        work1 = Work()
-        work1.editions.extend([edition1_1, edition1_2] + wrs)
-        work1.license_pools.extend(pools + [pool1])
+#         work2 = Work()
+#         work2.editions.append(edition2_1)
+#         work2.license_pools.append(pool2)
 
-        work2 = Work()
-        work2.editions.append(edition2_1)
-        work2.license_pools.append(pool2)
+#         work1.calculate_presentation()
+#         work2.calculate_presentation()
 
-        work1.calculate_presentation()
-        work2.calculate_presentation()
+#         assert work1.quality > work2.quality
 
-        assert work1.quality > work2.quality
+#     def test_more_license_pools_gets_higher_rating(self):
 
-    def test_more_license_pools_gets_higher_rating(self):
+#         gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
-        gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+#         edition1_1, pool1 = self._edition(with_license_pool=True)
+#         edition1_2, pool2 = self._edition(with_license_pool=True)
 
-        edition1_1, pool1 = self._edition(with_license_pool=True)
-        edition1_2, pool2 = self._edition(with_license_pool=True)
+#         edition2_1, pool3 = self._edition(with_license_pool=True)
+#         edition2_2 = self._edition(with_license_pool=False)
 
-        edition2_1, pool3 = self._edition(with_license_pool=True)
-        edition2_2 = self._edition(with_license_pool=False)
+#         wrs = []
+#         pools = []
+#         for i in range(10):
+#             wr, pool = self._edition(with_license_pool=True)
+#             wrs.append(wr)
+#             pools.append(pool)
 
-        wrs = []
-        pools = []
-        for i in range(10):
-            wr, pool = self._edition(with_license_pool=True)
-            wrs.append(wr)
-            pools.append(pool)
+#         work1 = Work()
+#         work1.editions.extend([edition1_1, edition1_2] + wrs)
+#         work1.license_pools.extend([pool1, pool2] + pools)
 
-        work1 = Work()
-        work1.editions.extend([edition1_1, edition1_2] + wrs)
-        work1.license_pools.extend([pool1, pool2] + pools)
+#         work2 = Work()
+#         work2.editions.extend([edition2_1, edition2_2])
+#         work2.license_pools.extend([pool3])
 
-        work2 = Work()
-        work2.editions.extend([edition2_1, edition2_2])
-        work2.license_pools.extend([pool3])
+#         work1.calculate_presentation()
+#         work2.calculate_presentation()
 
-        work1.calculate_presentation()
-        work2.calculate_presentation()
-
-        assert work1.quality > work2.quality
+#         assert work1.quality > work2.quality
 
 class TestWorkSimilarity(DatabaseTest):
 

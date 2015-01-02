@@ -3,6 +3,7 @@ import sys
 from nose.tools import set_trace
 from model import (
     production_session,
+    DataSource,
     Edition,
     LicensePool,
     Work,
