@@ -139,6 +139,10 @@ class BaseOPDSImporter(object):
         edition.title = title
         edition.language = language
         edition.publisher = publisher
+
+        # Assign the LicensePool to a Work.
+        work = license_pool.calculate_work()
+
         return identifier, edition, edition_was_new
 
 class DetailedOPDSImporter(BaseOPDSImporter):
@@ -153,7 +157,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     def __init__(self, _db, feed):
         super(DetailedOPDSImporter, self).__init__(_db, feed)
-        self.lxml_parsed = etree.parse(StringIO(self.raw_feed))
+        self.lxml_parsed = etree.fromstring(self.raw_feed)
         self.authors_by_id = self.authors_by_id(_db, self.lxml_parsed)
 
     def import_from_feedparser_entry(self, entry):

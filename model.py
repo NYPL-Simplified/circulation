@@ -1847,7 +1847,7 @@ class Work(Base):
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt
     # will be made to make the Work presentation ready.
-    presentation_ready_exception = Column(Text, default=None, index=True)
+    presentation_ready_exception = Column(Unicode, default=None, index=True)
 
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)

@@ -129,6 +129,8 @@ class WorkIDCalculator(object):
     def normalize_author(cls, author):
         if author is None:
             author = u''
+        if isinstance(author, str):
+            set_trace()
         author = unicodedata.normalize("NFKD", author)
         author = cls.bracketedCharacterStrip.sub("", author)
         author = cls.specialCharacterStrip.sub("", author)

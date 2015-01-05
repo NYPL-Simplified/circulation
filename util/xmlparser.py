@@ -27,10 +27,10 @@ class XMLParser(object):
         if tag is None:
             return None
         else:
-            return tag.text
+            return unicode(tag.text)
       
     def text_of_subtag(self, tag, name):
-        return tag.xpath(name)[0].text
+        return unicode(tag.xpath(name)[0].text)
 
     def int_of_subtag(self, tag, name):
         return int(self.text_of_subtag(tag, name))
