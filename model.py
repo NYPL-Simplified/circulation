@@ -1844,6 +1844,11 @@ class Work(Base):
     # the work will not show up in feeds.
     presentation_ready = Column(Boolean, default=False, index=True)
 
+    # This is the error that occured while trying to make this Work
+    # presentation ready. Until this is cleared, no further attempt
+    # will be made to make the Work presentation ready.
+    presentation_ready_exception = Column(Text, default=None, index=True)
+
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
@@ -2264,6 +2269,10 @@ class Work(Base):
                 print d.encode("utf8")
             print
 
+    def set_presentation_ready(self):
+        self.presentation_ready = True
+        self.presentation_ready_exception = None
+
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
@@ -2287,7 +2296,7 @@ class Work(Base):
                 and not self.primary_edition.no_known_cover)):
             self.presentation_ready = False
         else:
-            self.presentation_ready = True
+            self.set_presentation_ready()
 
     def calculate_quality(self, flattened_data):
         _db = Session.object_session(self)
