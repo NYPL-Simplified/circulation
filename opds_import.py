@@ -173,7 +173,8 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     @classmethod
     def subjects_for(cls, feedparser_entry):
-        for i in feedparser_entry.get('tags'):
+        tags = feedparser_entry.get('tags', [])
+        for i in tags:
             scheme = i.get('scheme')
             subject_type = Subject.by_uri.get(scheme)
             if not subject_type:
@@ -186,6 +187,10 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     @classmethod
     def authors_by_id(cls, _db, root):
+        """Parse the OPDS as XML and extract all author information.
+
+        Feedparser can't handle this so we have to use lxml.
+        """
         parser = OPDSXMLParser()
         by_id = defaultdict(list)
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
@@ -198,12 +203,14 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 sort_name = subtag(author_tag, 'simplified:sort_name')
 
                 # TODO: Also collect VIAF and LC numbers if present.
+                # Only the metadata wrangler will provide this
+                # information.
 
-                # Try to find a Contributor for this author.
+                # Look up or create a Contributor for this person.
                 contributor, is_new = Contributor.lookup(_db, sort_name)
                 contributor = contributor[0]
 
-                # Set additional information for this author, if present
+                # Set additional information for this person, if present
                 # and not already set.
                 if not contributor.display_name:
                     contributor.display_name = subtag(author_tag, 'atom:name')
@@ -214,7 +221,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                     contributor.wiki_name = subtag(
                         author_tag, "simplified:wikipedia_name")
 
-                # Note that the given contributor is an author of this
+                # Record that the given Contributor is an author of this
                 # entry.
                 by_id[identifier].append(contributor)
         return by_id
