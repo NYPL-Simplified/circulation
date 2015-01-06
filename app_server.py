@@ -34,6 +34,9 @@ def work_lookup(_db, annotator):
                 INVALID_URN_PROBLEM % identifier_urn,
                 400
             )
+    # The commit is necessary because we may have discovered new
+    # Identifiers that we have to go check out.
+    _db.commit()
 
     works = _db.query(Work).join(Work.editions).filter(
             Edition.primary_identifier_id.in_(identifiers))
