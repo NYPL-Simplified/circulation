@@ -23,13 +23,14 @@ class XMLParser(object):
         return 'descendant-or-self::node()/%s[contains(concat(" ", normalize-space(@class), " "), " %s ")]' % (tag_name, class_name)
 
     def text_of_optional_subtag(self, tag, name):
-        tag = tag.xpath(name)
-        if tag:
-            return tag[0].text
-        return None
+        tag = self._xpath1(tag, name)
+        if tag is None:
+            return None
+        else:
+            return unicode(tag.text)
       
     def text_of_subtag(self, tag, name):
-        return tag.xpath(name)[0].text
+        return unicode(tag.xpath(name)[0].text)
 
     def int_of_subtag(self, tag, name):
         return int(self.text_of_subtag(tag, name))

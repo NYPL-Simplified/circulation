@@ -546,6 +546,7 @@ class Identifier(Base):
             input=self,
             output=identifier,
             create_method_kwargs=dict(strength=strength))
+        # print "%r==%r p=%.2f" % (self, identifier, strength)
         return eq
 
     @classmethod
@@ -797,8 +798,8 @@ class Identifier(Base):
         classifications = []
         subject, is_new = Subject.lookup(
             _db, subject_type, subject_identifier, subject_name)
-        if is_new:
-            print repr(subject)
+        #if is_new:
+        #    print repr(subject)
 
         # Use a Classification to connect the Identifier to the
         # Subject.
@@ -1490,7 +1491,10 @@ class Edition(Base):
         q = _db.query(Identifier).filter(
             Identifier.id.in_(identifier_ids))
         if type:
-            q = q.filter(Identifier.type==type)
+            if isinstance(type, list):
+                q = q.filter(Identifier.type.in_(type))
+            else:
+                q = q.filter(Identifier.type==type)
         return q
 
     def equivalent_editions(self, levels=5, threshold=0.5):
@@ -1826,7 +1830,7 @@ class Work(Base):
 
     appeal_type = Enum(CHARACTER_APPEAL, LANGUAGE_APPEAL, SETTING_APPEAL,
                        STORY_APPEAL, NOT_APPLICABLE_APPEAL, NO_APPEAL,
-                       name="appeal")
+                       UNKNOWN_APPEAL, name="appeal")
 
     primary_appeal = Column(appeal_type, default=None, index=True)
     secondary_appeal = Column(appeal_type, default=None, index=True)
@@ -1843,6 +1847,11 @@ class Work(Base):
     # information has been obtained for this Work. Until this is True,
     # the work will not show up in feeds.
     presentation_ready = Column(Boolean, default=False, index=True)
+
+    # This is the error that occured while trying to make this Work
+    # presentation ready. Until this is cleared, no further attempt
+    # will be made to make the Work presentation ready.
+    presentation_ready_exception = Column(Unicode, default=None, index=True)
 
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
@@ -2264,6 +2273,10 @@ class Work(Base):
                 print d.encode("utf8")
             print
 
+    def set_presentation_ready(self):
+        self.presentation_ready = True
+        self.presentation_ready_exception = None
+
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
@@ -2287,7 +2300,7 @@ class Work(Base):
                 and not self.primary_edition.no_known_cover)):
             self.presentation_ready = False
         else:
-            self.presentation_ready = True
+            self.set_presentation_ready()
 
     def calculate_quality(self, flattened_data):
         _db = Session.object_session(self)
@@ -3851,7 +3864,7 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None, data_source=None,
             identifier=None, license_pool=None, max_age=None, pause_before=0,
-            allow_redirects=True, debug=False):
+            allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -4047,6 +4060,28 @@ class CoverageProvider(object):
         # Now that we're done, update the timestamp
         Timestamp.stamp(self._db, self.service_name)
         self._db.commit()
+
+    def ensure_coverage(self, identifier):
+        if isinstance(identifier, Identifier):
+            identifier = identifier
+            # NOTE: This assumes that this particular coverage provider
+            # handles identifiers all the way through rather than editions.
+            edition = identifier
+        else:
+            edition = identifier
+            identifier = identifier.primary_identifier
+        coverage_record = get_one(
+            self._db, CoverageRecord,
+            identifier=identifier,
+            data_source=self.output_source,
+        )
+        if coverage_record is None:
+            if self.process_edition(edition):
+                coverage_record, ignore = self.add_coverage_record_for(
+                    identifier)
+            else:
+                raise Exception("process_edition() returned false")
+        return coverage_record
 
     def add_coverage_record_for(self, identifier):
         if isinstance(identifier, Identifier):

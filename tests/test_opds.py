@@ -130,7 +130,7 @@ class TestAnnotators(DatabaseTest):
         work = self._work()
         work.primary_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
-        [same_tag] = VerboseAnnotator.author(work)
+        [same_tag] = VerboseAnnotator.authors(work)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_verbose_annotator_mentions_every_author(self):
@@ -141,7 +141,7 @@ class TestAnnotators(DatabaseTest):
             self._contributor()[0], Contributor.AUTHOR_ROLE)
         work.primary_edition.add_contributor(
             self._contributor()[0], "Illustrator")
-        eq_(2, len(VerboseAnnotator.author(work)))
+        eq_(2, len(VerboseAnnotator.authors(work)))
 
 class TestOPDS(DatabaseTest):
 
