@@ -35,7 +35,7 @@ def work_lookup(_db, annotator):
                 400
             )
 
-    works = _db.query(Work).join(Work.primary_edition).filter(
+    works = _db.query(Work).join(Work.editions).filter(
             Edition.primary_identifier_id.in_(identifiers))
 
     opds_feed = AcquisitionFeed(
