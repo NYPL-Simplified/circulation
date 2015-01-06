@@ -1,6 +1,7 @@
 import os
 import sys
 from nose.tools import set_trace
+from sqlalchemy.sql.functions import func
 from model import (
     production_session,
     DataSource,
@@ -168,3 +169,43 @@ class OPDSImportScript(Script):
     def run(self):
         OPDSImportMonitor(self.feed_url, self.importer_class).run(self._db)
         
+
+class WorkReclassifierScript(Script):
+
+    def __init__(self, force=False, restrict_to_source=None):
+        self.force = force
+        self.db = self._db
+        if restrict_to_source:
+            restrict_to_source = DataSource.lookup(self.db, restrict_to_source)
+        self.restrict_to_source = restrict_to_source
+
+    def run(self):
+        if self.restrict_to_source:
+            which_works = works_from_source.name
+        else:
+            which_works = "all"
+
+        print "Reclassifying %s works." % (which_works)
+        i = 0
+        db = self.db
+        q = db.query(Work)
+        if self.restrict_to_source:
+            q = q.join(Edition).filter(Edition.data_source==self.restrict_to_source)
+        q = q.order_by(func.random())
+
+        print "That's %d works." % q.count()
+
+        q = q.limit(10)
+        while q.count():
+            for work in q:
+                # old_genres = work.genres
+                work.calculate_presentation(
+                    choose_edition=False, classify=True,
+                    choose_summary=False,
+                    calculate_quality=False, debug=True)
+                # new_genres = work.genres
+                # if new_genres != old_genres:
+                #     set_trace()
+            db.commit()
+        db.commit()
+
