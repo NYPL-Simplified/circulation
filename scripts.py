@@ -31,18 +31,66 @@ class Script(object):
     def run(self):
         pass
 
-class WorkConsolidationScript(Script):
+class WorkProcessingScript(Script):
 
-    def __init__(self, data_source_name=None, force=False):
+    def __init__(self, force=False, restrict_to_source=None, 
+                 specific_identifier=None, random_order=True,
+                 batch_size=10):
         self.db = self._db
-        if data_source_name:
-            # Consolidate works from a certain data source.
-            data_source = DataSource.lookup(self.db, data_source_name)
-            self.identifier_type = data_source.primary_identifier_type
+        if restrict_to_source:
+            # Process works from a certain data source.
+            data_source = DataSource.lookup(self.db, restrict_to_source)
+            self.restrict_to_source = data_source
         else:
-            # Consolidate works from any data source.
-            self.identifier_type = None
+            # Process works from any data source.
+            self.restrict_to_source = None
         self.force = force
+        self.specific_works = None
+        if specific_identifier:
+            # Look up the works for this identifier
+            q = self.db.query(Work).join(Edition).filter(
+                Edition.primary_identifier==specific_identifier)
+            self.specific_works = q
+
+        self.random_order=random_order
+        self.batch_size = batch_size
+
+    def run(self):
+        q = None
+        if self.specific_works:
+            print "Processing specific works: %r" % self.specific_works.all()
+            q = self.specific_works
+        elif self.restrict_to_source:
+            print "Processing %s works." % self.restrict_to_source.name
+        else:
+            print "Processing all works."
+
+        if not q:
+            q = self.db.query(Work)
+            if self.restrict_to_source:
+                q = q.join(Edition).filter(
+                    Edition.data_source==self.restrict_to_source)
+            q = self.query_hook(q)
+
+        if self.random_order:
+            q = q.order_by(func.random())
+        print "That's %d works." % q.count()
+
+        a = 0
+        for work in q:
+            self.process_work(work)
+            a += 1
+            if not a % self.batch_size:
+                self.db.commit()
+        self.db.commit()
+
+    def query_hook(self, q):
+        return q
+
+    def process_work(self, work):
+        raise NotImplementedError()      
+
+class WorkConsolidationScript(WorkProcessingScript):
 
     def run(self):
         work_ids_to_delete = set()
@@ -111,53 +159,13 @@ class WorkConsolidationScript(Script):
             self.db.commit()
 
 
-class WorkPresentationScript(Script):
+class WorkPresentationScript(WorkProcessingScript):
     """Calculate the presentation for Work objects."""
 
-    def __init__(self, works_from_source=None, force=False,
-                 specific_identifier=None):
-        self.session = self._db
-        if specific_identifier:
-            self.specific_work = specific_identifier.work
-        else:
-            self.specific_work = None
-        self.force = force
-        if works_from_source:
-            self.works_from_source = DataSource.lookup(
-                self.session, works_from_source)
-        else:
-            self.works_from_source = None
-
-    def run(self):
-        if self.specific_work:
-            print "Recalculating presentation for %s" % self.specific_work
-            self.specific_work.calculate_presentation()
-            return
-
-        if self.works_from_source:
-            which_works = self.works_from_source.name
-        else:
-            which_works = "all"
-
-        print "Recalculating presentation for %s works, force=%r" % (
-            which_works, self.force)
-        i = 0
-        q = self.session.query(Work)
-        if self.works_from_source:
-            q = q.join(Edition).filter(
-                Edition.data_source==self.works_from_source)
-        if not self.force:
-            q = q.filter(Work.fiction==None).filter(Work.audience==None)
-
-        print "That's %d works." % q.count()
-        for work in q:
-            work.calculate_presentation(
-                choose_edition=True, classify=True, choose_summary=True,
-                calculate_quality=True)
-            i += 1
-            if not i % 10:
-                self.session.commit()
-        self.session.commit()
+    def process_work(self, work):
+        work.calculate_presentation(
+            choose_edition=True, classify=True, choose_summary=True,
+            calculate_quality=True)
 
 
 class OPDSImportScript(Script):
@@ -170,7 +178,7 @@ class OPDSImportScript(Script):
         OPDSImportMonitor(self.feed_url, self.importer_class).run(self._db)
         
 
-class WorkReclassifierScript(Script):
+class WorkReclassifierScript(WorkProcessingScript):
 
     def __init__(self, force=False, restrict_to_source=None):
         self.force = force
