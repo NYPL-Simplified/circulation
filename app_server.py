@@ -6,6 +6,7 @@ from opds import AcquisitionFeed
 from model import (
     Edition,
     Identifier,
+    UnresolvedIdentifier,
     Work,
 )
 
@@ -52,7 +53,7 @@ class URNLookupController(object):
                 if work.presentation_ready:
                     # It's ready for use in an OPDS feed!
                     self.works.append(work)
-                    return None
+                    return None, None
                 else:
                     return (202, self.WORK_NOT_PRESENTATION_READY)
             else:
@@ -90,9 +91,9 @@ class URNLookupController(object):
 
         this_url = url_for('lookup', _external=True, urn=urns)
         for urn in urns:
-            message = self.process_urn(urn)
-            if message:
-                messages_by_urn[urn] = message
+            code, message = self.process_urn(urn)
+            if code:
+                messages_by_urn[urn] = (code, message)
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.

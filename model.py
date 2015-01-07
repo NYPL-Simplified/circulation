@@ -551,9 +551,12 @@ class Identifier(Base):
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
 
-        if (must_support_license_pools
-            and not DataSource.license_source_for(type)):
-            raise UnresolvableIdentifierException()
+
+        if must_support_license_pools:
+            try:
+                DataSource.license_source_for(_db, type)
+            except NoResultFound:
+                raise Identifier.UnresolvableIdentifierException()
             
         return cls.for_foreign_id(_db, type, identifier_string)
 

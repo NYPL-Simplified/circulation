@@ -131,8 +131,8 @@ class TestIdentifier(DatabaseTest):
     def test_urn(self):
         # ISBN identifiers use the ISBN URN scheme.
         identifier, ignore = Identifier.for_foreign_id(
-            self._db, Identifier.ISBN, "1449358063")
-        eq_("urn:isbn:1449358063", identifier.urn)
+            self._db, Identifier.ISBN, "9781449358068")
+        eq_("urn:isbn:9781449358068", identifier.urn)
 
         # URI identifiers don't need a URN scheme.
         identifier, ignore = Identifier.for_foreign_id(
