@@ -24,7 +24,6 @@ class URNLookupController(object):
         self._db = _db
         self.works = []
         self.unresolved_identifiers = []
-        self.messages_by_urn = dict()
         self.can_resolve_identifiers = can_resolve_identifiers
 
     def process_urn(self, urn):
@@ -89,6 +88,7 @@ class URNLookupController(object):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
+        messages_by_urn = dict()
         this_url = url_for('lookup', _external=True, urn=urns)
         for urn in urns:
             code, message = self.process_urn(urn)
@@ -97,10 +97,10 @@ class URNLookupController(object):
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
-        _db.commit()
+        self._db.commit()
 
         opds_feed = AcquisitionFeed(
-            _db, "Lookup results", this_url, self.works, annotator,
+            self._db, "Lookup results", this_url, self.works, annotator,
             messages_by_urn=messages_by_urn)
 
         return unicode(opds_feed)
