@@ -151,13 +151,14 @@ class TestIdentifier(DatabaseTest):
         new_identifier, ignore = Identifier.parse_urn(self._db, identifier.urn)
         eq_(identifier, new_identifier)
 
-        # We can parse urn:isbn URNs into ISBN identifiers.
+        # We can parse urn:isbn URNs into ISBN identifiers. ISBN-10s are
+        # converted to ISBN-13s.
         identifier, ignore = Identifier.for_foreign_id(
-            self._db, Identifier.ISBN, "1449358063")
+            self._db, Identifier.ISBN, "9781449358068")
         isbn_urn = "urn:isbn:1449358063"
         isbn_identifier, ignore = Identifier.parse_urn(self._db, isbn_urn)
         eq_(Identifier.ISBN, isbn_identifier.type)
-        eq_("1449358063", isbn_identifier.identifier)
+        eq_("9781449358068", isbn_identifier.identifier)
 
         # We can parse ordinary http: or https: URLs into URI
         # identifiers.
@@ -175,6 +176,18 @@ class TestIdentifier(DatabaseTest):
         ftp_urn = "ftp://example.com"
         assert_raises(ValueError, Identifier.parse_urn, self._db, ftp_urn)
 
+        # An invalid ISBN raises an exception.
+        assert_raises(ValueError, Identifier.parse_urn, self._db, "urn:isbn:notanisbn")
+
+    def parse_urn_must_support_license_pools(self):
+        # We have no way of associating ISBNs with license pools.
+        # If we try to parse an ISBN URN in a context that only accepts
+        # URNs that can have associated license pools, we get an exception.
+        isbn_urn = "urn:isbn:1449358063"
+        assert_raises(
+            Identifier.UnresolvableIdentifierException, 
+            Identifier.parse_urn, self._db, isbn_urn, 
+            must_support_license_pools=True)
 
 class TestUnresolvedIdentifier(DatabaseTest):
 

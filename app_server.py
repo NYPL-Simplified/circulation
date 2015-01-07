@@ -11,10 +11,10 @@ from model import (
 
 class URNLookupController(object):
 
-    INVALID_URN_PROBLEM = "%s is not a valid identifier."
+    INVALID_URN = "Could not parse identifier."
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
-    UNRESOLVABLE_URN_PROBLEM = 'I don\'t know how to resolve an identifier of type "%s" into an actual ebook.'
-    WORK_NOT_PRESENTATION_READY = "Work identified but not yet presentation-ready."
+    UNRESOLVABLE_URN = "I don't know how to resolve an identifier of this type into a work."
+    WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
@@ -26,7 +26,7 @@ class URNLookupController(object):
         self.messages_by_urn = dict()
         self.can_resolve_identifiers = can_resolve_identifiers
 
-    def process_urn(urn):
+    def process_urn(self, urn):
         """Turn a URN into a Work suitable for use in an OPDS feed.
 
         :return: If a Work is found, the return value is None.
@@ -35,11 +35,11 @@ class URNLookupController(object):
         """
         try:
             identifier, is_new = Identifier.parse_urn(
-                self._db, urn, must_support_license_pool=True)
+                self._db, urn, must_support_license_pools=True)
         except ValueError, e:
-            return (400, INVALID_URN_PROBLEM)
+            return (400, self.INVALID_URN)
         except Identifier.UnresolvableIdentifierException, e:
-            return (400, UNRESOLVABLE_URN_PROBLEM)
+            return (400, self.UNRESOLVABLE_URN)
 
         # We were able to parse the URN into an identifier, and it's
         # of a type that should in theory be resolvable into a
@@ -54,10 +54,10 @@ class URNLookupController(object):
                     self.works.append(work)
                     return None
                 else:
-                    return (202, WORK_NOT_PRESENTATION_READY)
+                    return (202, self.WORK_NOT_PRESENTATION_READY)
             else:
                 # There is a LicensePool but no Work. 
-                return (202, WORK_NOT_CREATED)
+                return (202, self.WORK_NOT_CREATED)
 
         # This identifier has yet to be resolved into a LicensePool.
         # If this application is capable of resolving identifiers, then
@@ -70,16 +70,16 @@ class URNLookupController(object):
                 # We just found out about this identifier, or rather,
                 # we just found out that someone expects it to be associated
                 # with a LicensePool.
-                return (201, IDENTIFIER_REGISTERED)
+                return (201, self.IDENTIFIER_REGISTERED)
             else:
                 # There is a pending attempt to resolve this identifier.
                 message = (unresolved_identifier.exception 
-                           or WORKING_TO_RESOLVE_IDENTIFIER)
+                           or self.WORKING_TO_RESOLVE_IDENTIFIER)
                 return (unresolved_identifier.status, message)
         else:
             # This app can't resolve identifiers, so the best thing to
             # do is to treat this identifier as a 404 error.
-            return (404, UNRECOGNIZED_IDENTIFIER)
+            return (404, self.UNRECOGNIZED_IDENTIFIER)
 
             # TODO: We should delete the original Identifier object as it
             # is not properly part of the dataset and never will be.

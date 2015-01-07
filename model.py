@@ -14,6 +14,7 @@ import random
 import re
 import requests
 import time
+import isbnlib
 
 from PIL import (
     Image,
@@ -540,6 +541,11 @@ class Identifier(Base):
         elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
             type = Identifier.ISBN
             identifier_string = identifier_string[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
+            # Make sure this is a valid ISBN, and convert it to an ISBN-13.
+            if not (isbnlib.is_isbn10(identifier_string) or
+                    isbnlib.is_isbn13(identifier_string)):
+                raise ValueError("%s is not a valid ISBN." % identifier_string)
+            identifier_string = isbnlib.to_isbn13(identifier_string)
         else:
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
