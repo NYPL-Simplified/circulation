@@ -27,6 +27,7 @@ from model import (
     LicensePool,
     Measurement,
     Timestamp,
+    UnresolvedIdentifier,
     Work,
     WorkFeed,
     Identifier,
@@ -173,6 +174,29 @@ class TestIdentifier(DatabaseTest):
         # A URN we can't handle raises an exception.
         ftp_urn = "ftp://example.com"
         assert_raises(ValueError, Identifier.parse_urn, self._db, ftp_urn)
+
+
+class TestUnresolvedIdentifier(DatabaseTest):
+
+    def test_successful_register(self):
+        identifier = self._identifier()
+        unresolved, is_new = UnresolvedIdentifier.register(self._db, identifier)
+        eq_(True, is_new)
+        eq_(identifier, unresolved.identifier)
+        eq_(202, unresolved.status)
+
+    def test_register_fails_for_already_resolved_identifier(self):
+        edition, pool = self._edition(with_license_pool=True)
+        assert_raises(
+            ValueError, UnresolvedIdentifier.register, self._db,
+            pool.identifier)
+    
+    def test_register_fails_for_unresolvable_identifier(self):
+        identifier = self._identifier(Identifier.ISBN)
+        assert_raises(
+            Identifier.UnresolvableIdentifierException,
+            UnresolvedIdentifier.register, self._db, identifier)
+            
 
 class TestContributor(DatabaseTest):
 

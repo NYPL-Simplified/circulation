@@ -1042,13 +1042,12 @@ class UnresolvedIdentifier(Base):
         try:
             datasource = DataSource.license_source_for(_db, identifier)
         except MultipleResultsFound:
-            # This is fine--we'll just try every source we know of.
+            # This is fine--we'll just try every source we know of until
+            # we find one.
             pass
         except NoResultFound:
             # This is not okay--we have no way of resolving this identifier.
-            raise ValueError(
-                "I don't know how to find a license pool for an identifier of type %s" % identifier.type
-            )
+            raise Identifier.UnresolvableIdentifierException()
 
         return get_one_or_create(
             _db, UnresolvedIdentifier, identifier=identifier,
