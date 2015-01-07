@@ -85,7 +85,7 @@ class URNLookupController(object):
             # TODO: We should delete the original Identifier object as it
             # is not properly part of the dataset and never will be.
 
-    def work_lookup(annotator):
+    def work_lookup(self, annotator):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
