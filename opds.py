@@ -377,7 +377,7 @@ class AcquisitionFeed(OPDSFeed):
             sublanes=lane.sublanes)
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[]):
+                 active_facet=None, sublanes=[], messages_by_urn={}):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         import time
@@ -387,6 +387,19 @@ class AcquisitionFeed(OPDSFeed):
             a = time.time()
             self.add_entry(work, lane_link)
             totals.append(time.time()-a)
+
+        # Add minimal entries for the messages.
+        for status, message in messages_by_urn:
+            entry = E.entry(
+                E.id(urn)
+            )
+            status_tag = E._makeelement("{%s}status_code" % simplified_ns)
+            status_tag.text = status
+            entry.append(status_tag)
+
+            message_tag = E._makeelement("{%s}message" % simplified_ns)
+            message_tag.text = message
+            entry.append(message_tag)
 
         # import numpy
         # print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (

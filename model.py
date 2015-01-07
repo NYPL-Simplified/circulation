@@ -296,8 +296,12 @@ class DataSource(Base):
         If there is no such DataSource, or there is more than one,
         raises an exception.
         """
+        if isinstance(identifier, string):
+            type = identifier
+        else:
+            type = identifier.type
         q =_db.query(DataSource).filter(DataSource.offers_licenses==True).filter(
-            DataSource.primary_identifier_type==identifier.type)
+            DataSource.primary_identifier_type==type)
         return q.one()
 
     @classmethod
@@ -521,8 +525,13 @@ class Identifier(Base):
         else:
             return self.URN_SCHEME_PREFIX + "%s:%s" % (self.type, self.identifier)
 
+    class UnresolvableIdentifierException(Exception):
+        # Raised when an identifier that can't be resolved into a LicensePool
+        # is provided in a context that requires a resolvable identifier
+        pass
+
     @classmethod
-    def parse_urn(cls, _db, identifier_string):
+    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
         if identifier_string.startswith("http:") or identifier_string.startswith("https:"):
             type = Identifier.URI
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
@@ -535,6 +544,11 @@ class Identifier(Base):
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
+
+        if (must_support_license_pools
+            and not DataSource.license_source_for(type)):
+            raise UnresolvableIdentifierException()
+            
         return cls.for_foreign_id(_db, type, identifier_string)
 
     def equivalent_to(self, data_source, identifier, strength):
@@ -993,8 +1007,8 @@ class Identifier(Base):
         return q2
 
 class UnresolvedIdentifier(Base):
-    """An identifier that we've heard of but haven't been able to connect
-    with an actual book being offered by someone.
+    """An identifier that the metadata wrangler has heard of but hasn't
+    yet been able to connect with a book being offered by someone.
     """
 
     __tablename__ = 'unresolvedidentifiers'
@@ -1002,6 +1016,11 @@ class UnresolvedIdentifier(Base):
 
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+
+    # A numeric status code, analogous to an HTTP status code,
+    # describing the status of the process of resolving this
+    # identifier.
+    status = Column(Integer, index=True)
 
     # Timestamp of the first time we tried to resolve this identifier.
     first_attempt = Column(DateTime, index=True)
@@ -1032,7 +1051,9 @@ class UnresolvedIdentifier(Base):
             )
 
         return get_one_or_create(
-            _db, UnresolvedIdentifier, identifier=identifier)
+            _db, UnresolvedIdentifier, identifier=identifier,
+            create_method_kwargs=dict(status=202),
+        )
 
 class Contributor(Base):
 

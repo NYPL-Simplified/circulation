@@ -9,38 +9,97 @@ from model import (
     Work,
 )
 
-INVALID_URN_PROBLEM = "%s is not a valid identifier."
+class URNLookupController(object):
 
-def work_lookup(_db, annotator):
-    """Generate an OPDS feed describing works identified by identifier."""
-    urns = flask.request.args.getlist('urn')
+    INVALID_URN_PROBLEM = "%s is not a valid identifier."
+    UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
+    UNRESOLVABLE_URN_PROBLEM = 'I don\'t know how to resolve an identifier of type "%s" into an actual ebook.'
+    WORK_NOT_PRESENTATION_READY = "Work identified but not yet presentation-ready."
+    WORK_NOT_CREATED = "Identifier resolved but work not yet created."
+    IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
+    WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
 
-    identifiers = []
-    works = []
+    def __init__(self, _db, can_resolve_identifiers=False):
+        self._db = _db
+        self.works = []
+        self.unresolved_identifiers = []
+        self.messages_by_urn = dict()
+        self.can_resolve_identifiers = can_resolve_identifiers
 
-    data_sources = {}
-    this_url = url_for('lookup', _external=True, urn=urns)
-    new_identifiers = []
+    def process_urn(urn):
+        """Turn a URN into a Work suitable for use in an OPDS feed.
 
-    for urn in urns:
+        :return: If a Work is found, the return value is None.
+        Otherwise a 2-tuple (status, message) is returned explaining why
+        no work was found.
+        """
         try:
-            identifier, is_new = Identifier.parse_urn(_db, urn)
-            if is_new:
-                new_identifiers.append(identifier)
-            else:
-                identifiers.append(identifier.id)
+            identifier, is_new = Identifier.parse_urn(
+                self._db, urn, must_support_license_pool=True)
         except ValueError, e:
-            return problem(
-                INVALID_URN_PROBLEM % identifier_urn,
-                400
-            )
-    # The commit is necessary because we may have discovered new
-    # Identifiers that we have to go check out.
-    _db.commit()
+            return (400, INVALID_URN_PROBLEM)
+        except Identifier.UnresolvableIdentifierException, e:
+            return (400, UNRESOLVABLE_URN_PROBLEM)
 
-    works = _db.query(Work).join(Work.editions).filter(
-            Edition.primary_identifier_id.in_(identifiers))
+        # We were able to parse the URN into an identifier, and it's
+        # of a type that should in theory be resolvable into a
+        # LicensePool.
+        if identifier.licensed_through:
+            # There is a LicensePool for this identifier!
+            work = identifier.licensed_through.work
+            if work:
+                # And there's a Work! Is it presentation ready?
+                if work.presentation_ready:
+                    # It's ready for use in an OPDS feed!
+                    self.works.append(work)
+                    return None
+                else:
+                    return (202, WORK_NOT_PRESENTATION_READY)
+            else:
+                # There is a LicensePool but no Work. 
+                return (202, WORK_NOT_CREATED)
 
-    opds_feed = AcquisitionFeed(
-        _db, "Lookup results", this_url, works, annotator)
-    return unicode(opds_feed)
+        # This identifier has yet to be resolved into a LicensePool.
+        # If this application is capable of resolving identifiers, then
+        # create or retrieve an UnresolvedIdentifier object for it.
+        if self.can_resolve_identifiers:
+            unresolved_identifier, is_new = UnresolvedIdentifier.register(
+                self._db, identifier)
+            self.unresolved_identifiers.append(unresolved_identifier)
+            if is_new:
+                # We just found out about this identifier, or rather,
+                # we just found out that someone expects it to be associated
+                # with a LicensePool.
+                return (201, IDENTIFIER_REGISTERED)
+            else:
+                # There is a pending attempt to resolve this identifier.
+                message = (unresolved_identifier.exception 
+                           or WORKING_TO_RESOLVE_IDENTIFIER)
+                return (unresolved_identifier.status, message)
+        else:
+            # This app can't resolve identifiers, so the best thing to
+            # do is to treat this identifier as a 404 error.
+            return (404, UNRECOGNIZED_IDENTIFIER)
+
+            # TODO: We should delete the original Identifier object as it
+            # is not properly part of the dataset and never will be.
+
+    def work_lookup(annotator):
+        """Generate an OPDS feed describing works identified by identifier."""
+        urns = flask.request.args.getlist('urn')
+
+        this_url = url_for('lookup', _external=True, urn=urns)
+        for urn in urns:
+            message = self.process_urn(urn)
+            if message:
+                messages_by_urn[urn] = message
+
+        # The commit is necessary because we may have registered new
+        # Identifier or UnresolvedIdentifier objects.
+        _db.commit()
+
+        opds_feed = AcquisitionFeed(
+            _db, "Lookup results", this_url, self.works, annotator,
+            messages_by_urn=messages_by_urn)
+
+        return unicode(opds_feed)
