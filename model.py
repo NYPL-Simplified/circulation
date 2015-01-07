@@ -443,6 +443,10 @@ class Identifier(Base):
         backref="output_identifiers",
     )
 
+    unresolved_identifier = relationship(
+        "UnresolvedIdentifier", backref="identifier", uselist=False
+    )
+
     # One Identifier may have many associated CoverageRecords.
     coverage_records = relationship("CoverageRecord", backref="identifier")
 
@@ -988,7 +992,50 @@ class Identifier(Base):
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 
+class UnresolvedIdentifier(Base):
+    """An identifier that we've heard of but haven't been able to connect
+    with an actual book being offered by someone.
+    """
+
+    __tablename__ = 'unresolvedidentifiers'
+    id = Column(Integer, primary_key=True)
+
+    identifier_id = Column(
+        Integer, ForeignKey('identifiers.id'), index=True)
+
+    # Timestamp of the first time we tried to resolve this identifier.
+    first_attempt = Column(DateTime, index=True)
+
+    # Timestamp of the most recent time we tried to resolve this identifier.
+    most_recent_attempt = Column(DateTime, index=True)
+
+    # The problem that's stopping this identifier from being resolved.
+    exception = column(Unicode, index=True)
+
+    @classmethod
+    def register(cls, _db, identifier):
+        if identifier.licensed_through:
+            # There's already a license pool for this identifier, and
+            # thus no need to do anything.
+            raise ValueError(
+                "%r has already been resolved. Not creating an UnresolvedIdentifier record for it." % identifier)
+
+        try:
+            datasource = DataSource.license_source_for(_db, identifier)
+        except MultipleResultsFound:
+            # This is fine--we'll just try every source we know of.
+            pass
+        except NoResultFound:
+            # This is not okay--we have no way of resolving this identifier.
+            raise ValueError(
+                "I don't know how to find a license pool for an identifier of type %s" % identifier.type
+            )
+
+        return get_one_or_create(
+            _db, UnresolvedIdentifier, identifier=identifier)
+
 class Contributor(Base):
+
     """Someone (usually human) who contributes to books."""
     __tablename__ = 'contributors'
     id = Column(Integer, primary_key=True)
