@@ -470,3 +470,22 @@ class TestOPDS(DatabaseTest):
                      'image' in x['rel']])
         eq_(['http://full/', 'http://thumbnail/'], links)
         
+
+    def test_messages(self):
+        """Test the ability to include messages (with HTTP-style status code)
+        for a given URI in lieu of a proper ODPS entry.
+        """
+        messages = { "urn:foo" : (400, "msg1"),
+                     "urn:bar" : (500, "msg2")}
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               [], messages_by_urn=messages)
+        parsed = feedparser.parse(unicode(feed))
+        bar, foo = sorted(parsed['entries'], key = lambda x: x['id'])
+        eq_("urn:foo", foo['id'])
+        eq_("msg1", foo['simplified_message'])
+        eq_("400", foo['simplified_status_code'])
+
+        eq_("urn:bar", bar['id'])
+        eq_("msg2", bar['simplified_message'])
+        eq_("500", bar['simplified_status_code'])
+

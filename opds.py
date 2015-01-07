@@ -389,17 +389,18 @@ class AcquisitionFeed(OPDSFeed):
             totals.append(time.time()-a)
 
         # Add minimal entries for the messages.
-        for status, message in messages_by_urn:
+        for urn, (status, message) in messages_by_urn.items():
             entry = E.entry(
                 E.id(urn)
             )
             status_tag = E._makeelement("{%s}status_code" % simplified_ns)
-            status_tag.text = status
+            status_tag.text = str(status)
             entry.append(status_tag)
 
             message_tag = E._makeelement("{%s}message" % simplified_ns)
             message_tag.text = message
             entry.append(message_tag)
+            self.feed.append(entry)
 
         # import numpy
         # print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (
