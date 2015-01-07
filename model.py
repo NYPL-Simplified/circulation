@@ -296,7 +296,7 @@ class DataSource(Base):
         If there is no such DataSource, or there is more than one,
         raises an exception.
         """
-        if isinstance(identifier, string):
+        if isinstance(identifier, basestring):
             type = identifier
         else:
             type = identifier.type
@@ -1029,7 +1029,7 @@ class UnresolvedIdentifier(Base):
     most_recent_attempt = Column(DateTime, index=True)
 
     # The problem that's stopping this identifier from being resolved.
-    exception = column(Unicode, index=True)
+    exception = Column(Unicode, index=True)
 
     @classmethod
     def register(cls, _db, identifier):

@@ -24,7 +24,7 @@ class XMLParser(object):
 
     def text_of_optional_subtag(self, tag, name):
         tag = self._xpath1(tag, name)
-        if tag is None:
+        if tag is None or tag.text is None:
             return None
         else:
             return unicode(tag.text)

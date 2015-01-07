@@ -86,6 +86,11 @@ class TestDataSource(DatabaseTest):
         source = DataSource.license_source_for(self._db, identifier)
         eq_(DataSource.GUTENBERG, source.name)
 
+    def test_license_source_for_string(self):
+        identifier = self._identifier()
+        source = DataSource.license_source_for(self._db, identifier.type)
+        eq_(DataSource.GUTENBERG, source.name)
+
     def test_license_source_fails_if_identifier_type_does_not_provide_licenses(self):
         identifier = self._identifier(DataSource.MANUAL)
         assert_raises(
