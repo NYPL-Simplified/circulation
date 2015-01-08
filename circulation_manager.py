@@ -450,7 +450,6 @@ EXPIRED_CREDENTIALS_PROBLEM = "http://library-simplified.com/problem/credentials
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
 NO_AVAILABLE_LICENSE_PROBLEM = "http://library-simplified.com/problem/no-license"
 
-
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
 
@@ -726,11 +725,6 @@ def checkout(data_source, identifier):
     pool.loan_to(flask.request.patron, end=content_expires)
     headers = { "Location" : content_link }
     return Response(data, 201, headers)
-
-@app.route('/work/<identifier_type>/<identifier>')
-def work(identifier_type, identifier):
-    """For now, a dummy address used solely as a permalink for a work."""
-    return ""
 
 print __name__
 if __name__ == '__main__':
