@@ -19,6 +19,23 @@ from model import (
     Subject,
 )
 
+class SimplifiedOPDSLookup(object):
+    """Tiny integration class for the Simplified 'lookup' protocol."""
+
+    LOOKUP_ENDPOINT = "lookup"
+
+    def __init__(self, base_url):
+        if not base_url.endswith('/'):
+            base_url += "/"
+        self.base_url = base_url
+
+    def lookup(self, identifiers):
+        """Retrieve an OPDS feed with metadata for the given identifiers."""
+        args = "&".join(["urn=%s" % i.urn for i in identifiers])
+        url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
+        return requests.get(url)
+
+
 class OPDSXMLParser(XMLParser):
 
     NAMESPACES = { "simplified": "http://library-simplified.com/terms/",
