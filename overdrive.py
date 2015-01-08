@@ -116,6 +116,69 @@ class OverdriveAPI(object):
             self._db, url, self.get, data_source=self.source)
         return json.loads(representation.content)
 
+    def all_ids(self):
+        """Get IDs for every book in the system, with (more or less) the most
+        recent ones at the front.
+        """
+        params = dict(collection_token=self.collection_token)
+        starting_link = self.make_link_safe(
+            self.ALL_PRODUCTS_ENDPOINT % params)
+
+        # Get the first page so we can find the 'last' link.
+        status_code, headers, content = self.get(starting_link, {})
+        try:
+            data = json.loads(content)
+        except Exception, e:
+            print "ERROR: %r %r %r" % (status_code, headers, content)
+            return
+        previous_link = OverdriveRepresentationExtractor.link(data, 'last')
+
+        while previous_link:
+            try:
+                page_inventory, previous_link = self._get_book_list_page(
+                    previous_link, 'prev')
+                for i in page_inventory:
+                    yield i
+            except Exception, e:
+                print e
+                sys.exit()
+
+
+    def recently_changed_ids(self, start, cutoff):
+        """Get IDs of books whose status has changed between the start time
+        and now.
+        """
+        # `cutoff` is not supported by Overdrive, so we ignore it. All
+        # we can do is get events between the start time and now.
+
+        last_update_time = start-self.EVENT_DELAY
+        print "Now: %s Asking for: %s" % (start, last_update_time)
+        params = dict(lastupdatetime=last_update_time,
+                      sort="popularity:desc",
+                      limit=self.PAGE_SIZE_LIMIT,
+                      collection_name=self.collection_name)
+        next_link = self.make_link_safe(self.EVENTS_ENDPOINT % params)
+        while next_link:
+            page_inventory, next_link = self._get_book_list_page(next_link)
+            # We won't be sending out any events for these books yet,
+            # because we don't know if anything changed, but we will
+            # be putting them on the list of inventory items to
+            # refresh. At that point we will send out events.
+            for i in page_inventory:
+                yield i
+
+    def metadata_lookup(self, identifier):
+        """Look up metadata for an Overdrive identifier.
+        """
+        url = self.METADATA_ENDPOINT % dict(
+            collection_token=self.collection_token,
+            item_id=identifier.identifier
+        )
+        representation, cached = Representation.get(
+            self._db, url, self.get, data_source=self.source,
+            identifier=identifier)
+        return json.loads(representation.content)
+
     @classmethod
     def make_link_safe(self, url):
         """Turn a server-provided link into a link the server will accept!
