@@ -45,6 +45,7 @@ class BaseOPDSImporter(object):
 
     def import_from_feed(self):
         imported = []
+        messages_by_id = dict()
         for entry in self.feedparser_parsed['entries']:
             opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
@@ -57,7 +58,9 @@ class BaseOPDSImporter(object):
                 if edition.sort_author:
                     work, ignore = license_pool.calculate_work()
                     work.calculate_presentation()
-        return imported
+            elif status_code:
+                messages_by_id[opds_id] = (status_code, message)
+        return imported, messages_by_id
 
     def links_by_rel(self, entry=None):
         if entry:
@@ -75,6 +78,20 @@ class BaseOPDSImporter(object):
     def import_from_feedparser_entry(self, entry):
         identifier, ignore = Identifier.parse_urn(self._db, entry.get('id'))
         data_source = DataSource.license_source_for(self._db, identifier)
+
+        status_code = entry.get('simplified_status_code' or 200)
+        message = entry.get('simplified_message' or 200)
+        try:
+            status_code = int(status_code)
+            success = (status_code / 100 ==2)
+        except ValueError, e:
+            # The status code isn't a number. Leave it alone.
+            success = False
+
+        if not success:
+            # There's a problem. Don't go through with the import,
+            # even if there is data in the entry.
+            return identifier, None, False, status_code, message
 
         title = entry.get('title', None)
         updated = entry.get('updated_parsed', None)
@@ -96,7 +113,7 @@ class BaseOPDSImporter(object):
             # TODO: Eventually we should be able to handle
             # non-open-access works, but that requires a strategy for
             # negotiating a checkout.
-            return identifier, None, False
+            return identifier, None, False, status_code, message
 
         # Create or retrieve a LicensePool for this book.
         license_pool, pool_was_new = LicensePool.for_foreign_id(
@@ -111,7 +128,7 @@ class BaseOPDSImporter(object):
         source_last_updated = entry['updated_parsed']
         if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated:
             # The metadata has not changed since last time
-            return identifier, edition, False
+            return identifier, edition, False, status_code, message
 
         # Remove all existing downloads and images, and descriptions
         # so as to avoid keeping old stuff around.
@@ -143,7 +160,7 @@ class BaseOPDSImporter(object):
         # Assign the LicensePool to a Work.
         work = license_pool.calculate_work()
 
-        return identifier, edition, edition_was_new
+        return identifier, edition, edition_was_new, status_code, message
 
 class DetailedOPDSImporter(BaseOPDSImporter):
 
