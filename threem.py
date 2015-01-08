@@ -6,6 +6,10 @@ import hashlib
 import os
 import requests
 
+from core.model import (
+    DataSource,
+)
+
 class ThreeMAPI(object):
 
     # TODO: %a and %b are localized per system, but 3M requires

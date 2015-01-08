@@ -79,8 +79,8 @@ class BaseOPDSImporter(object):
         identifier, ignore = Identifier.parse_urn(self._db, entry.get('id'))
         data_source = DataSource.license_source_for(self._db, identifier)
 
-        status_code = entry.get('simplified_status_code' or 200)
-        message = entry.get('simplified_message' or 200)
+        status_code = entry.get('simplified_status_code', 200)
+        message = entry.get('simplified_message', None)
         try:
             status_code = int(status_code)
             success = (status_code / 100 ==2)
