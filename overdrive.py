@@ -1,7 +1,10 @@
+from nose.tools import set_trace
 import datetime
+import json
 
 from core.overdrive import (
-    OverdriveAPI as BaseOverdriveAPI
+    OverdriveAPI as BaseOverdriveAPI,
+    OverdriveRepresentationExtractor,
 )
 
 from core.model import (
@@ -115,7 +118,6 @@ class OverdriveAPI(BaseOverdriveAPI):
                                             format_type, error_url):
 
         if not 'expires' in checkout_response_json:
-            set_trace()
             expires = None
         else:
             expires = datetime.datetime.strptime(
@@ -283,10 +285,11 @@ class OverdriveAPI(BaseOverdriveAPI):
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
+        set_trace()
         try:
             data = json.loads(content)
         except Exception, e:
-            print "ERROR: %r %r %r" % (status_code, headers, content)
+            print "ERROR: %r %r %r %r" % (status_code, headers, content, e)
             return [], None
 
         # Find the link to the next page of results, if any.
