@@ -428,7 +428,7 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
-    URN_SCHEME_PREFIX = "urn:com.library-simplified.identifier:"
+    URN_SCHEME_PREFIX = "urn:com.library-simplified/identifier/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
 
     __tablename__ = 'identifiers'
@@ -526,7 +526,7 @@ class Identifier(Base):
             return self.identifier
         else:
             identifier_type = urllib.quote(self.type)
-            return self.URN_SCHEME_PREFIX + "%s:%s" % (
+            return self.URN_SCHEME_PREFIX + "%s/%s" % (
                 identifier_type, identifier_text)
 
     class UnresolvableIdentifierException(Exception):
@@ -541,7 +541,7 @@ class Identifier(Base):
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
             identifier_string = identifier_string[len(Identifier.URN_SCHEME_PREFIX):]
             type, identifier_string = map(
-                urllib.unquote, identifier_string.split(":", 1))
+                urllib.unquote, identifier_string.split("/", 1))
         elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
             type = Identifier.ISBN
             identifier_string = identifier_string[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
