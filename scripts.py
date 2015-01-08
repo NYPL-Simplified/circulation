@@ -31,6 +31,16 @@ class Script(object):
     def run(self):
         pass
 
+class RunMonitorScript(Script):
+
+    def __init__(self, monitor):
+        if callable(monitor):
+            monitor = monitor()
+        self.monitor = monitor
+
+    def run(self):
+        self.monitor.run(self._db)
+
 class WorkProcessingScript(Script):
 
     def __init__(self, force=False, restrict_to_source=None, 
