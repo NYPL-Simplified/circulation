@@ -519,12 +519,15 @@ class Identifier(Base):
 
     @property
     def urn(self):
+        identifier_text = urllib.quote(self.identifier)
         if self.type == Identifier.ISBN:
-            return self.ISBN_URN_SCHEME_PREFIX + self.identifier
+            return self.ISBN_URN_SCHEME_PREFIX + identifier_text
         elif self.type == Identifier.URI:
             return self.identifier
         else:
-            return self.URN_SCHEME_PREFIX + "%s:%s" % (self.type, self.identifier)
+            identifier_type = urllib.quote(self.type)
+            return self.URN_SCHEME_PREFIX + "%s:%s" % (
+                identifier_type, identifier_text)
 
     class UnresolvableIdentifierException(Exception):
         # Raised when an identifier that can't be resolved into a LicensePool
@@ -537,10 +540,12 @@ class Identifier(Base):
             type = Identifier.URI
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
             identifier_string = identifier_string[len(Identifier.URN_SCHEME_PREFIX):]
-            type, identifier_string = identifier_string.split(":", 1)
+            type, identifier_string = map(
+                urllib.unquote, identifier_string.split(":", 1))
         elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
             type = Identifier.ISBN
             identifier_string = identifier_string[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
+            identifier_string = urllib.unquote(identifier_string)
             # Make sure this is a valid ISBN, and convert it to an ISBN-13.
             if not (isbnlib.is_isbn10(identifier_string) or
                     isbnlib.is_isbn13(identifier_string)):

@@ -5,7 +5,7 @@
   <link href="http://localhost:5000/"/>
   <link href="http://localhost:5000/" rel="self"/>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10441</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10441</id>
     <title>The Green Mouse</title>
     <author>
       <name></name>
@@ -26,7 +26,7 @@
     <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10557</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10557</id>
     <title>Johnny Crow's Party</title>
     <author>
       <name></name>
@@ -43,7 +43,7 @@
     <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10522</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10522</id>
     <title>Beacon Lights of History, Volume 04: Imperial Antiquity</title>
     <author>
       <name></name>
@@ -59,7 +59,7 @@
     <link href="http://www.gutenberg.org/ebooks/10522.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10596</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10596</id>
     <title>Cap and Gown</title>
     <alternativeHeadline>A Treasury of College Verse</alternativeHeadline>
     <summary></summary>
@@ -73,7 +73,7 @@
     <link href="http://www.gutenberg.org/ebooks/10596.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10219</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10219</id>
     <title>The Poetical Works of William Wordsworth &#8212; Volume 1</title>
     <author>
       <name></name>
@@ -90,7 +90,7 @@
     <link href="http://www.gutenberg.org/ebooks/10219.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10631</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10631</id>
     <title>Halleck's New English Literature</title>
     <author>
       <name></name>
@@ -106,7 +106,7 @@
     <link href="http://www.gutenberg.org/ebooks/10631.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10394</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10394</id>
     <title>Stolen Treasure</title>
     <author>
       <name></name>
@@ -123,7 +123,7 @@
     <link href="http://www.gutenberg.org/ebooks/10394.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10058</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10058</id>
     <title>The Divine Office</title>
     <alternativeHeadline>A Study of the Roman Breviary</alternativeHeadline>
     <author>
@@ -141,7 +141,7 @@
     <link href="http://www.gutenberg.org/ebooks/10058.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10100</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10100</id>
     <title>Byron</title>
     <author>
       <name></name>
@@ -157,7 +157,7 @@
     <link href="http://www.gutenberg.org/ebooks/10100.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10647</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10647</id>
     <title>Beacon Lights of History, Volume 12: American Leaders</title>
     <author>
       <name></name>
@@ -175,7 +175,7 @@
     <link href="http://www.gutenberg.org/ebooks/10647.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10341</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10341</id>
     <title>The Great Events by Famous Historians, Volume 21</title>
     <alternativeHeadline>The Recent Days (1910-1914)</alternativeHeadline>
     <summary></summary>
@@ -196,7 +196,7 @@
     <link href="http://www.gutenberg.org/ebooks/10341.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10029</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10029</id>
     <title>The Hunt Ball Mystery</title>
     <author>
       <name></name>
@@ -212,7 +212,7 @@
     <link href="http://www.gutenberg.org/ebooks/10029.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10656</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10656</id>
     <title>A Collection of Old English Plays, Volume 2</title>
     <summary></summary>
     <updated>2015-01-02T16:56:40Z</updated>
@@ -224,7 +224,7 @@
     <link href="http://www.gutenberg.org/ebooks/10656.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10321</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10321</id>
     <title>Dragon's blood</title>
     <author>
       <name></name>
@@ -240,7 +240,7 @@
     <link href="http://www.gutenberg.org/ebooks/10321.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10338</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10338</id>
     <title>With the Turks in Palestine</title>
     <author>
       <name></name>
@@ -259,7 +259,7 @@
     <link href="http://www.gutenberg.org/ebooks/10338.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1057</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1057</id>
     <title>Poems, with The Ballad of Reading Gaol</title>
     <author>
       <name></name>
@@ -276,7 +276,7 @@
     <link href="http://www.gutenberg.org/ebooks/1057.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1055</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1055</id>
     <title>'Twixt Land &amp; Sea: Tales</title>
     <author>
       <name></name>
@@ -293,7 +293,7 @@
     <link href="http://www.gutenberg.org/ebooks/1055.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10064</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10064</id>
     <title>Beltane the Smith</title>
     <author>
       <name></name>
@@ -309,7 +309,7 @@
     <link href="http://www.gutenberg.org/ebooks/10064.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10567</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10567</id>
     <title>The Guardian Angel</title>
     <alternativeHeadline>Ship's Company, Part 7.</alternativeHeadline>
     <author>
@@ -327,7 +327,7 @@
     <link href="http://www.gutenberg.org/ebooks/10567.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10427</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10427</id>
     <title>Scientific Essays and Lectures</title>
     <author>
       <name></name>
@@ -343,7 +343,7 @@
     <link href="http://www.gutenberg.org/ebooks/10427.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10134</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10134</id>
     <title>John Wesley, Jr.</title>
     <alternativeHeadline>The Story of an Experiment</alternativeHeadline>
     <author>
@@ -361,7 +361,7 @@
     <link href="http://www.gutenberg.org/ebooks/10134.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10551</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10551</id>
     <title>Affair in Araby</title>
     <author>
       <name></name>
@@ -380,7 +380,7 @@
     <link href="http://www.gutenberg.org/ebooks/10551.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10534</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10534</id>
     <title>The Double Traitor</title>
     <author>
       <name></name>
@@ -396,7 +396,7 @@
     <link href="http://www.gutenberg.org/ebooks/10534.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10435</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10435</id>
     <title>The Atlantic Monthly, Volume 02, No. 12, October, 1858</title>
     <alternativeHeadline>A Magazine of Literature, Art, and Politics</alternativeHeadline>
     <author>
@@ -413,7 +413,7 @@
     <link href="http://www.gutenberg.org/ebooks/10435.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1022</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1022</id>
     <title>Walking</title>
     <author>
       <name></name>
@@ -431,7 +431,7 @@
     <link href="http://www.gutenberg.org/ebooks/1022.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10453</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10453</id>
     <title>A Practical Physiology: A Text-Book for Higher Schools</title>
     <author>
       <name></name>
@@ -448,7 +448,7 @@
     <link href="http://www.gutenberg.org/ebooks/10453.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10572</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10572</id>
     <title>Manners Makyth Man</title>
     <alternativeHeadline>Ship's Company, Part 12.</alternativeHeadline>
     <author>
@@ -466,7 +466,7 @@
     <link href="http://www.gutenberg.org/ebooks/10572.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1065</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1065</id>
     <title>The Raven</title>
     <author>
       <name></name>
@@ -482,7 +482,7 @@
     <link href="http://www.gutenberg.org/ebooks/1065.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10690</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10690</id>
     <title>A Desperate Chance; Or, The Wizard Tramp's Revelation, a Thrilling Narrative</title>
     <author>
       <name></name>
@@ -500,7 +500,7 @@
     <link href="http://www.gutenberg.org/ebooks/10690.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10467</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10467</id>
     <title>A Select Collection of Old English Plays, Volume 8</title>
     <summary></summary>
     <updated>2015-01-02T16:56:41Z</updated>
@@ -512,7 +512,7 @@
     <link href="http://www.gutenberg.org/ebooks/10467.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10595</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10595</id>
     <title>Punch, or the London Charivari, Volume 153, September 19, 1917</title>
     <author>
       <name></name>
@@ -528,7 +528,7 @@
     <link href="http://www.gutenberg.org/ebooks/10595.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10122</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10122</id>
     <title>Fairies and Fusiliers</title>
     <author>
       <name></name>
@@ -545,7 +545,7 @@
     <link href="http://www.gutenberg.org/ebooks/10122.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10133</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10133</id>
     <title>The Vigil of Venus and Other Poems by "Q"</title>
     <author>
       <name></name>
@@ -561,7 +561,7 @@
     <link href="http://www.gutenberg.org/ebooks/10133.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10210</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10210</id>
     <title>Wolves of the Sea</title>
     <alternativeHeadline>Being a Tale of the Colonies from the Manuscript of One Geoffry Carlyle, Seaman, Narrating Certain Strange Adventures Which Befell Him Aboard the Pirate Craft "Namur"</alternativeHeadline>
     <author>
@@ -579,7 +579,7 @@
     <link href="http://www.gutenberg.org/ebooks/10210.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10217</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10217</id>
     <title>The Land of Little Rain</title>
     <author>
       <name></name>
@@ -599,7 +599,7 @@
     <link href="http://www.gutenberg.org/ebooks/10217.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10495</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10495</id>
     <title>Under King Constantine</title>
     <author>
       <name></name>
@@ -615,7 +615,7 @@
     <link href="http://www.gutenberg.org/ebooks/10495.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10086</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10086</id>
     <title>The Minute Boys of the Mohawk Valley</title>
     <author>
       <name></name>
@@ -631,7 +631,7 @@
     <link href="http://www.gutenberg.org/ebooks/10086.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10606</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10606</id>
     <title>The Tragedie of Hamlet, Prince of Denmark</title>
     <alternativeHeadline>A Study with the Text of the Folio of 1623</alternativeHeadline>
     <author>
@@ -655,7 +655,7 @@
     <link href="http://www.gutenberg.org/ebooks/10606.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10609</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10609</id>
     <title>English Literature</title>
     <alternativeHeadline>Its History and Its Significance for the Life of the English-Speaking World</alternativeHeadline>
     <author>
@@ -672,7 +672,7 @@
     <link href="http://www.gutenberg.org/ebooks/10609.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10111</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10111</id>
     <title>Boys and Girls from Thackeray</title>
     <author>
       <name></name>
@@ -688,7 +688,7 @@
     <link href="http://www.gutenberg.org/ebooks/10111.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10478</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10478</id>
     <title>Beacon Lights of History, Volume 02: Jewish Heroes and Prophets</title>
     <author>
       <name></name>
@@ -705,7 +705,7 @@
     <link href="http://www.gutenberg.org/ebooks/10478.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10532</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10532</id>
     <title>Beacon Lights of History, Volume 06: Renaissance and Reformation</title>
     <author>
       <name></name>
@@ -721,7 +721,7 @@
     <link href="http://www.gutenberg.org/ebooks/10532.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10037</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10037</id>
     <title>A Beautiful Possibility</title>
     <author>
       <name></name>
@@ -738,7 +738,7 @@
     <link href="http://www.gutenberg.org/ebooks/10037.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10212</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10212</id>
     <title>Peck's Bad Boy with the Circus</title>
     <author>
       <name></name>
@@ -755,7 +755,7 @@
     <link href="http://www.gutenberg.org/ebooks/10212.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10556</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10556</id>
     <title>The Old Man in the Corner</title>
     <author>
       <name></name>
@@ -771,7 +771,7 @@
     <link href="http://www.gutenberg.org/ebooks/10556.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10421</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10421</id>
     <title>The Life of Lord Byron</title>
     <author>
       <name></name>
@@ -788,7 +788,7 @@
     <link href="http://www.gutenberg.org/ebooks/10421.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10624</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10624</id>
     <title>Three John Silence Stories</title>
     <author>
       <name></name>
@@ -810,7 +810,7 @@
     <link href="http://www.gutenberg.org/ebooks/10624.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10131</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10131</id>
     <title>Required Poems for Reading and Memorizing</title>
     <alternativeHeadline>Third and Fourth Grades, Prescribed by State Courses of Study</alternativeHeadline>
     <author>
@@ -827,7 +827,7 @@
     <link href="http://www.gutenberg.org/ebooks/10131.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10540</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10540</id>
     <title>Mother Carey's Chickens</title>
     <author>
       <name></name>
@@ -844,7 +844,7 @@
     <link href="http://www.gutenberg.org/ebooks/10540.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10325</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10325</id>
     <title>The Gospel of the Pentateuch: A Set of Parish Sermons</title>
     <author>
       <name></name>
@@ -863,7 +863,7 @@
     <link href="http://www.gutenberg.org/ebooks/10325.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10367</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10367</id>
     <title>Poems</title>
     <author>
       <name></name>
@@ -879,7 +879,7 @@
     <link href="http://www.gutenberg.org/ebooks/10367.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10121</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10121</id>
     <title>The Literature of Arabia</title>
     <alternativeHeadline>With Critical and Biographical Sketches by Epiphanius Wilson</alternativeHeadline>
     <summary></summary>
@@ -892,7 +892,7 @@
     <link href="http://www.gutenberg.org/ebooks/10121.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10623</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10623</id>
     <title>Plays</title>
     <author>
       <name></name>
@@ -908,7 +908,7 @@
     <link href="http://www.gutenberg.org/ebooks/10623.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10251</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10251</id>
     <title>Town Geology</title>
     <author>
       <name></name>
@@ -924,7 +924,7 @@
     <link href="http://www.gutenberg.org/ebooks/10251.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10546</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10546</id>
     <title>So Runs the World</title>
     <author>
       <name></name>
@@ -940,7 +940,7 @@
     <link href="http://www.gutenberg.org/ebooks/10546.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10565</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10565</id>
     <title>Watch-Dogs</title>
     <alternativeHeadline>Ship's Company, Part 5.</alternativeHeadline>
     <author>
@@ -958,7 +958,7 @@
     <link href="http://www.gutenberg.org/ebooks/10565.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10036</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10036</id>
     <title>Punchinello, Volume 2, No. 28, October 8, 1870</title>
     <author>
       <name></name>
@@ -976,7 +976,7 @@
     <link href="http://www.gutenberg.org/ebooks/10036.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1063</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1063</id>
     <title>The Cask of Amontillado</title>
     <author>
       <name></name>
@@ -993,7 +993,7 @@
     <link href="http://www.gutenberg.org/ebooks/1063.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10517</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10517</id>
     <title>Government and Rebellion</title>
     <alternativeHeadline>A Sermon Delivered in the North Broad Street Presbyterian Church, Sunday Morning, April 28, 1861</alternativeHeadline>
     <author>
@@ -1013,7 +1013,7 @@
     <link href="http://www.gutenberg.org/ebooks/10517.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10102</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10102</id>
     <title>The Czar's Spy: The Mystery of a Silent Love</title>
     <author>
       <name></name>
@@ -1029,7 +1029,7 @@
     <link href="http://www.gutenberg.org/ebooks/10102.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10583</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10583</id>
     <title>Holland: The History of the Netherlands</title>
     <author>
       <name></name>
@@ -1045,7 +1045,7 @@
     <link href="http://www.gutenberg.org/ebooks/10583.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10409</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10409</id>
     <title>The Crisis of the Naval War</title>
     <author>
       <name></name>
@@ -1062,7 +1062,7 @@
     <link href="http://www.gutenberg.org/ebooks/10409.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10518</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10518</id>
     <title>Poems</title>
     <author>
       <name></name>
@@ -1078,7 +1078,7 @@
     <link href="http://www.gutenberg.org/ebooks/10518.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10328</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10328</id>
     <title>Poems</title>
     <author>
       <name></name>
@@ -1094,7 +1094,7 @@
     <link href="http://www.gutenberg.org/ebooks/10328.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10452</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10452</id>
     <title>Peter's Mother</title>
     <author>
       <name></name>
@@ -1115,7 +1115,7 @@
     <link href="http://www.gutenberg.org/ebooks/10452.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10560</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10560</id>
     <title>The Last of the Foresters</title>
     <alternativeHeadline>Or, Humors on the Border; A story of the Old Virginia Frontier</alternativeHeadline>
     <author>
@@ -1133,7 +1133,7 @@
     <link href="http://www.gutenberg.org/ebooks/10560.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10135</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10135</id>
     <title>The Great English Short-Story Writers, Volume 1</title>
     <summary></summary>
     <updated>2015-01-02T16:56:43Z</updated>
@@ -1145,7 +1145,7 @@
     <link href="http://www.gutenberg.org/ebooks/10135.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10015</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10015</id>
     <title>Punchinello, Volume 1, No. 19, August 6, 1870</title>
     <author>
       <name></name>
@@ -1163,7 +1163,7 @@
     <link href="http://www.gutenberg.org/ebooks/10015.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10520</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10520</id>
     <title>The Compleat Cook</title>
     <alternativeHeadline>Expertly Prescribing the Most Ready Wayes, Whether Italian,
 Spanish or French, for Dressing of Flesh and Fish, Ordering
@@ -1183,7 +1183,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/10520.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10357</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10357</id>
     <title>Life of Johnson, Volume 4</title>
     <alternativeHeadline>1780-1784</alternativeHeadline>
     <author>
@@ -1203,7 +1203,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/10357.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10509</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10509</id>
     <title>The Bars of Iron</title>
     <author>
       <name></name>
@@ -1219,7 +1219,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/10509.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10446</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10446</id>
     <title>The Green Flag, and Other Stories of War and Sport</title>
     <author>
       <name></name>
@@ -1237,7 +1237,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/10446.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1044</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1044</id>
     <title>Extract from Captain Stormfield's Visit to Heaven</title>
     <author>
       <name></name>
@@ -1257,7 +1257,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/1044.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:1003</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:1003</id>
     <title>Divine Comedy, Longfellow's Translation, Paradise</title>
     <author>
       <name></name>
@@ -1274,7 +1274,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/1003.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10381</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10381</id>
     <title>The History of a Crime</title>
     <alternativeHeadline>The Testimony of an Eye-Witness</alternativeHeadline>
     <author>
@@ -1291,7 +1291,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
     <link href="http://www.gutenberg.org/ebooks/10381.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry>
-    <id>urn:com.library-simplified.identifier:Gutenberg ID:10095</id>
+    <id>urn:com.library-simplified.identifier:Gutenberg%20ID:10095</id>
     <title>The Twilight of the Gods, and Other Tales</title>
     <author>
       <name></name>

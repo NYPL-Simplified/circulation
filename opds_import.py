@@ -46,7 +46,7 @@ class BaseOPDSImporter(object):
     def import_from_feed(self):
         imported = []
         for entry in self.feedparser_parsed['entries']:
-            opds_id, edition, edition_was_new = self.import_from_feedparser_entry(
+            opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
             if edition:
                 imported.append(edition)
@@ -161,7 +161,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         self.authors_by_id = self.authors_by_id(_db, self.lxml_parsed)
 
     def import_from_feedparser_entry(self, entry):
-        identifier, edition, edition_was_new = super(
+        identifier, edition, edition_was_new, status_code, message = super(
             DetailedOPDSImporter, self).import_from_feedparser_entry(entry)
 
         if edition_was_new:
@@ -173,7 +173,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 identifier.classify(
                     data_source, type, term, name)
 
-        return identifier, edition, edition_was_new
+        return identifier, edition, edition_was_new, status_code, message
 
     @classmethod
     def subjects_for(cls, feedparser_entry):
