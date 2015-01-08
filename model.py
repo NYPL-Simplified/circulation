@@ -15,6 +15,7 @@ import re
 import requests
 import time
 import isbnlib
+import urllib
 
 from PIL import (
     Image,
@@ -428,7 +429,7 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
-    URN_SCHEME_PREFIX = "urn:com.library-simplified/identifier/"
+    URN_SCHEME_PREFIX = "urn:library-simplified.com/identifier/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
 
     __tablename__ = 'identifiers'

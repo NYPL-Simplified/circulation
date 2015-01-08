@@ -88,7 +88,7 @@ class TestURNLookupController(DatabaseTest):
 
         # Give it an identifier it doesn't recognize.
         code, message = controller.process_urn(
-            Identifier.URN_SCHEME_PREFIX + 'Gutenberg ID:30000000')
+            Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000')
 
         # Instead of creating a resolution task, it simply rejects the
         # input.
