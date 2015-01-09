@@ -1,14 +1,26 @@
 """Implement logic common to more than one of the Simplified applications."""
 import flask
-from flask import url_for
+from flask import url_for, make_response
 from util.flask_util import problem
-from opds import AcquisitionFeed
+from opds import (
+    AcquisitionFeed,
+    OPDSFeed,
+)
 from model import (
     Edition,
     Identifier,
     UnresolvedIdentifier,
     Work,
 )
+
+def feed_response(feed, acquisition=True):
+    if not isinstance(feed, basestring):
+        feed = unicode(feed)
+    if acquisition:
+        content_type = OPDSFeed.ACQUISITION_FEED_TYPE
+    else:
+        content_type = OPDSFeed.NAVIGATION_FEED_TYPE
+    return make_response(feed, 200, {"Content-Type": content_type})
 
 class URNLookupController(object):
 
@@ -103,4 +115,4 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, self.works, annotator,
             messages_by_urn=messages_by_urn)
 
-        return unicode(opds_feed)
+        return feed_response(opds_feed)
