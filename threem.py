@@ -8,6 +8,7 @@ import requests
 
 from core.model import (
     DataSource,
+    Representation,
 )
 
 class ThreeMAPI(object):

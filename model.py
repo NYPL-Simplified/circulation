@@ -4143,7 +4143,7 @@ class CoverageProvider(object):
         Timestamp.stamp(self._db, self.service_name)
         self._db.commit()
 
-    def ensure_coverage(self, identifier):
+    def ensure_coverage(self, identifier, force=False):
         if isinstance(identifier, Identifier):
             identifier = identifier
             # NOTE: This assumes that this particular coverage provider
@@ -4157,7 +4157,7 @@ class CoverageProvider(object):
             identifier=identifier,
             data_source=self.output_source,
         )
-        if coverage_record is None:
+        if force or coverage_record is None:
             if self.process_edition(edition):
                 coverage_record, ignore = self.add_coverage_record_for(
                     identifier)
