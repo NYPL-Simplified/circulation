@@ -285,7 +285,6 @@ class OverdriveAPI(BaseOverdriveAPI):
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
-        set_trace()
         try:
             data = json.loads(content)
         except Exception, e:

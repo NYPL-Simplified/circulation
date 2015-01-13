@@ -65,7 +65,7 @@ class PresentationReadyMonitor(Monitor):
 
         importer = DetailedOPDSImporter(_db, response.text)
         imported, messages_by_id = importer.import_from_feed()
-         for edition in imported:
+        for edition in imported:
             # We don't hear about a work until the metadata wrangler
             # is confident it has decent data, so at this point the
             # work is ready.
