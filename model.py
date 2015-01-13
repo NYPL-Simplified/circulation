@@ -94,6 +94,7 @@ from sqlalchemy.dialects.postgresql import (
     JSON,
 )
 from sqlalchemy.orm import sessionmaker
+from s3 import S3Uploader
 
 DEBUG = False
 
@@ -4183,66 +4184,6 @@ class CoverageProvider(object):
         raise NotImplementedError()
 
     def commit_workset(self):
-        self._db.commit()
-
-class ImageScaler(object):
-
-    def __init__(self, db, data_directory, mirrors):
-        self._db = db
-        self.original_expansions = {}
-        self.scaled_expansions = {}
-        self.original_variable_to_scaled_variable = {}
-        self.data_source_ids = []
-
-        for mirror in mirrors:
-            original = mirror.ORIGINAL_PATH_VARIABLE
-            scaled = mirror.SCALED_PATH_VARIABLE
-            data_source_name = mirror.DATA_SOURCE
-            data_source = DataSource.lookup(self._db, data_source_name)
-            self.data_source_ids.append(data_source.id)
-            self.original_expansions[original] = mirror.data_directory(
-                data_directory)
-            self.scaled_expansions[scaled] = mirror.scaled_image_directory(data_directory)
-            self.original_variable_to_scaled_variable[original] = "%(" + scaled + ")s"
-
-    def run(self, destination_width, destination_height, force,
-            batch_size=100, upload=True):
-        q = self._db.query(Resource).filter(
-            Resource.rel==Resource.IMAGE).filter(
-                Resource.mirrored==True).filter(
-                    Resource.data_source_id.in_(self.data_source_ids))
-
-        if not force:
-            q = q.filter(Resource.scaled==False)
-        if upload:
-            from integration.s3 import S3Uploader
-            uploader = S3Uploader()
-        print "Scaling %d images." % q.count()
-        resultset = q.limit(batch_size).all()
-        while resultset:
-            total = 0
-            a = time.time()
-            to_upload = []
-            for r in resultset:
-                already_scaled = r.scale(destination_width, destination_height, self.original_expansions, self.scaled_expansions, self.original_variable_to_scaled_variable, force)
-                if not r.scaled_path:
-                    print "Could not scale %s" % r.href
-                elif already_scaled:
-                    pass
-                else:
-                    local_path = r.local_scaled_path(self.scaled_expansions)
-                    #print "%dx%d %s" % (r.scaled_height, r.scaled_width,
-                    #                    local_path)
-                    to_upload.append((local_path, r.scaled_url))
-                    total += 1
-            print "%.2f sec to scale %d" % ((time.time()-a), total)
-            a = time.time()
-            if upload:
-                uploader.upload_resources(to_upload)
-            self._db.commit()
-            print "%.2f sec to upload %d" % ((time.time()-a), total)
-            a = time.time()
-            resultset = q.limit(batch_size).all()
         self._db.commit()
 
 from sqlalchemy.sql import compiler
