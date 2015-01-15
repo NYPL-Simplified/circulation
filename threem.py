@@ -6,7 +6,7 @@ import hashlib
 import os
 import requests
 
-from core.model import (
+from model import (
     DataSource,
     Representation,
 )
