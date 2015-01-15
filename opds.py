@@ -128,13 +128,11 @@ class Annotator(object):
         return [E.author(E.name(work.author or ""))]
 
     @classmethod
-    def summary(cls, work):
+    def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
         if work.summary_text:
             summary = work.summary_text
-            if work.summary:
-                qualities.append(("Summary quality", work.summary.quality))
         elif work.summary:
             work.summary_text = work.summary.content
             summary = work.summary_text
@@ -454,7 +452,7 @@ class AcquisitionFeed(OPDSFeed):
                 links.append(E.link(rel=rel, href=url))
            
         permalink = self.annotator.permalink_for(active_license_pool)
-        summary = self.annotator.summary(work)
+        summary = self.annotator.content(work)
 
         entry = E.entry(
             E.id(self.annotator.work_id(work)),
@@ -467,7 +465,7 @@ class AcquisitionFeed(OPDSFeed):
         entry.extend(author_tags)
 
         entry.extend([
-            E.summary(summary),
+            E.content(summary, type="text/html"),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
 
