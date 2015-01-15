@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from StringIO import StringIO
 from collections import defaultdict
+import datetime
 import feedparser
 import requests
 
@@ -10,6 +11,7 @@ from monitor import Monitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
 from model import (
+    get_one,
     Contributor,
     DataSource,
     Edition,
@@ -54,6 +56,8 @@ class BaseOPDSImporter(object):
     information, under the assumption that it will get better author
     and subject information from the metadata wrangler.
     """
+    COULD_NOT_CREATE_LICENSE_POOL = (
+        "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, feed):
         self._db = _db
@@ -100,14 +104,15 @@ class BaseOPDSImporter(object):
         message = entry.get('simplified_message', None)
         try:
             status_code = int(status_code)
-            success = (status_code / 100 ==2)
+            success = (status_code == 200)
         except ValueError, e:
             # The status code isn't a number. Leave it alone.
             success = False
 
         if not success:
-            # There's a problem. Don't go through with the import,
-            # even if there is data in the entry.
+            # There was an error or the data is not complete. Don't go
+            # through with the import, even if there is data in the
+            # entry.
             return identifier, None, False, status_code, message
 
         title = entry.get('title', None)
@@ -122,19 +127,27 @@ class BaseOPDSImporter(object):
         title_detail = entry.get('title_detail', None)
         summary_detail = entry.get('summary_detail', None)
 
-        links_by_rel = self.links_by_rel(entry)
-        if not links_by_rel[Resource.OPEN_ACCESS_DOWNLOAD]:
-            # If there's no open-access link, we can't create a
-            # LicensePool.
-            #
-            # TODO: Eventually we should be able to handle
-            # non-open-access works, but that requires a strategy for
-            # negotiating a checkout.
-            return identifier, None, False, status_code, message
+        # Get an existing LicensePool for this book.
+        pool = get_one(
+            self._db, LicensePool, data_source=data_source,
+            identifier=identifier)
 
-        # Create or retrieve a LicensePool for this book.
-        license_pool, pool_was_new = LicensePool.for_foreign_id(
-            self._db, data_source, identifier.type, identifier.identifier)
+        links_by_rel = self.links_by_rel(entry)
+        if pool:
+            pool_was_new = False
+        else:
+            # There is no existing license pool for this book. Can we
+            # just create one?
+            if links_by_rel[Resource.OPEN_ACCESS_DOWNLOAD]:
+                # Yes. This is an open-access book and we know where
+                # you can download it.
+                license_pool, pool_was_new = LicensePool.for_foreign_id(
+                    self._db, data_source, identifier.type, identifier.identifier)
+            else:
+                # No, we can't. This most likely indicates a problem.
+                message = message or self.COULD_NOT_CREATE_LICENSE_POOL
+                return (identifier, None, False, status_code, message)
+
         if pool_was_new:
             license_pool.open_access = True
 
@@ -142,7 +155,13 @@ class BaseOPDSImporter(object):
         edition, edition_was_new = Edition.for_foreign_id(
             self._db, data_source, identifier.type, identifier.identifier)
 
-        source_last_updated = entry['updated_parsed']
+        source_last_updated = entry.get('updated_parsed')
+        if not source_last_updated:
+            set_trace()
+        # TODO: I'm not really happy with this but it will work as long
+        # as the times are in UTC, possibly as long as the times are in
+        # the same timezone.
+        source_last_updated = datetime.datetime(*source_last_updated[:6])
         if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated:
             # The metadata has not changed since last time
             return identifier, edition, False, status_code, message
@@ -156,26 +175,35 @@ class BaseOPDSImporter(object):
             self._db.delete(resource)
 
         # Associate covers and downloads with the identifier.
-        for rel in [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE]:
+        for rel in [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
+                    Resource.THUMBNAIL_IMAGE]:
             for link in links_by_rel[rel]:
+                type = link.get('type', None)
+                if type == 'text/html':
+                    # Feedparser fills this in and it's just wrong.
+                    type = None
                 identifier.add_resource(
                     rel, link['href'], data_source, 
-                    license_pool, link.get('type', None))
+                    pool, type)
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
         if 'value' in summary and summary['value']:
             identifier.add_resource(
-                Resource.SUMMARY, None, data_source, license_pool,
-                summary['value'])
-       
-        print title
+                Resource.DESCRIPTION, None, data_source, pool,
+                summary.get('type', 'text/plain'), summary['value'])
+        for content in entry.get('content', []):
+            identifier.add_resource(
+                Resource.DESCRIPTION, None, data_source, pool,
+                summary.get('type', 'text/html'), content['value'])
+            
+
         edition.title = title
         edition.language = language
         edition.publisher = publisher
 
         # Assign the LicensePool to a Work.
-        work = license_pool.calculate_work()
+        work = pool.calculate_work()
 
         return identifier, edition, edition_was_new, status_code, message
 
