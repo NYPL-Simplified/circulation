@@ -453,11 +453,13 @@ class AcquisitionFeed(OPDSFeed):
                 url = URLRewriter.rewrite(url)
                 links.append(E.link(rel=rel, href=url))
            
+
         permalink = self.annotator.permalink_for(active_license_pool)
+
         summary = self.annotator.summary(work)
 
         entry = E.entry(
-            E.id(self.annotator.work_id(work)),
+            E.id(permalink),
             E.title(work.title),
         )
         if work.subtitle:

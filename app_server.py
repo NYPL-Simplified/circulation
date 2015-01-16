@@ -116,3 +116,23 @@ class URNLookupController(object):
             messages_by_urn=messages_by_urn)
 
         return feed_response(opds_feed)
+
+    def permalink(urn):
+        """Generate an OPDS feed for looking up a single work by identifier."""
+        this_url = url_for('work', _external=True, urn=urn)
+        messages_by_urn = dict()
+        code, message = self.process_urn(urn)
+        if code:
+            messages_by_urn[urn] = (code, message)
+
+        # The commit is necessary because we may have registered new
+        # Identifier or UnresolvedIdentifier objects.
+        self._db.commit()
+
+        opds_feed = AcquisitionFeed(
+            self._db, urn, this_url, self.works, annotator,
+            messages_by_urn=messages_by_urn)
+
+        return feed_response(opds_feed)
+
+    
