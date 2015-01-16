@@ -69,6 +69,7 @@ class PresentationReadyMonitor(Monitor):
             # We don't hear about a work until the metadata wrangler
             # is confident it has decent data, so at this point the
             # work is ready.
+            print "%s READY" % edition.work.title
             edition.work.set_presentation_ready()
         for identifier, (status_code, message) in messages_by_id.items():
             print identifier, status_code, message
@@ -78,4 +79,4 @@ class PresentationReadyMonitor(Monitor):
                 # this work. We need to record the problem and work
                 # through it manually.
                 edition.work.presentation_ready_exception = message
-            
+        _db.commit()
