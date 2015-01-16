@@ -15,6 +15,7 @@ from flask import Flask, url_for, redirect, Response
 from circulation_exceptions import (
     NoAvailableCopies,
 )
+from core.app_server import URNLookupController
 from core.overdrive import (
     OverdriveAPI
 )
@@ -63,11 +64,13 @@ class Conf:
     sublanes = None
     name = None
     parent = None
+    urn_lookup_controller = None
 
     @classmethod
     def initialize(cls, _db, lanes):
         cls.db = _db
         cls.sublanes = lanes
+        cls.urn_lookup_controller = URNLookupController(cls.db)
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -668,6 +671,10 @@ def lane_search(lane):
         this_url + "?q=" + urllib.quote(query),
         results, CirculationManagerAnnotator(lane))
     return unicode(opds_feed)
+
+@app.route('/works/<urn>')
+def work(urn):
+    Conf.urn_lookup_controller.permalink(urn)
 
 @app.route('/works/<data_source>/<identifier>/checkout')
 @requires_auth

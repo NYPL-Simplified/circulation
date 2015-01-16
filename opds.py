@@ -23,9 +23,7 @@ class CirculationManagerAnnotator(Annotator):
             'feed', lane=self.lane.name, order=order, _external=True)
 
     def permalink_for(self, license_pool):
-        identifier = license_pool.identifier
-        return url_for("work", identifier_type=identifier.type,
-                       identifier=identifier.identifier, _external=True)
+        return url_for('work', urn=license_pool.identifier.urn, _external=True)
 
     def featured_feed_url(cls, lane, order=None):
         return url_for('feed', lane=lane.name, order=order, _external=True)
@@ -85,14 +83,14 @@ class CirculationManagerAnnotator(Annotator):
             summary = work.summary_text
         else:
             summary = ""
-        summary += "<ul>"
-        for name, value in qualities:
-            if isinstance(value, basestring):
-                summary += "<li>%s: %s</li>" % (name, value)
-            else:
-                summary += "<li>%s: %.1f</li>" % (name, value)
-        summary += "<li>License Source: %s</li>" % active_license_pool.data_source.name
-        summary += "</ul>"
+        # summary += "<ul>"
+        # for name, value in qualities:
+        #     if isinstance(value, basestring):
+        #         summary += "<li>%s: %s</li>" % (name, value)
+        #     else:
+        #         summary += "<li>%s: %.1f</li>" % (name, value)
+        # summary += "<li>License Source: %s</li>" % active_license_pool.data_source.name
+        # summary += "</ul>"
         return summary
 
 

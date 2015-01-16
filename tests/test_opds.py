@@ -59,6 +59,18 @@ class TestOPDS(DatabaseTest):
         self.conf = FakeConf()
         self.conf.sublanes = self.lanes
 
+    def test_id_is_permalink(self):
+        w1 = self._work(with_open_access_download=True)
+        self._db.commit()
+
+        works = self._db.query(Work)
+        annotator = CirculationManagerAnnotator(Fantasy)
+        feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        permalink = annotator.permalink_for(annotator.active_licensepool_for(w1))
+        eq_(entry['id'], permalink)
+
     def test_acquisition_feed_includes_open_access_or_borrow_link(self):
         w1 = self._work(with_open_access_download=True)
         w2 = self._work(with_open_access_download=True)
