@@ -141,7 +141,7 @@ class BaseOPDSImporter(object):
             if links_by_rel[Resource.OPEN_ACCESS_DOWNLOAD]:
                 # Yes. This is an open-access book and we know where
                 # you can download it.
-                license_pool, pool_was_new = LicensePool.for_foreign_id(
+                pool, pool_was_new = LicensePool.for_foreign_id(
                     self._db, data_source, identifier.type, identifier.identifier)
             else:
                 # No, we can't. This most likely indicates a problem.
@@ -149,7 +149,7 @@ class BaseOPDSImporter(object):
                 return (identifier, None, False, status_code, message)
 
         if pool_was_new:
-            license_pool.open_access = True
+            pool.open_access = True
 
         # Create or retrieve an Edition for this book.
         edition, edition_was_new = Edition.for_foreign_id(
