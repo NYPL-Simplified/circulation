@@ -3453,7 +3453,7 @@ class WorkFeed(object):
 
         self.availability = availability
 
-    def page_query(self, _db, last_edition_seen, page_size):
+    def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
         """A page of works."""
 
         if self.lane:
@@ -3484,10 +3484,14 @@ class WorkFeed(object):
                                            (next_order_field == new_value))
                 query = query.filter(clause)
 
+        if extra_filter is not None:
+            query = query.filter(extra_filter)
+
         if self.sort_ascending:
             m = lambda x: x.asc()
         else:
             m = lambda x: x.desc()
+
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
         return query

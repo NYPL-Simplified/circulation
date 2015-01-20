@@ -1331,6 +1331,16 @@ class TestWorkFeed(DatabaseTest):
 
         eq_([], feed.page_query(self._db, w4, 10).all())
 
+    def test_page_query_custom_filter(self):
+        work = self._work()
+        lane = self.fantasy_lane
+        language = "eng"
+        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        # Let's exclude the only work.
+        q = feed.page_query(self._db, None, 10, Work.title != work.title)
+        
+        # The feed is empty.
+        eq_([], q.all())
 
 class TestCoverageProvider(DatabaseTest):
 
