@@ -46,7 +46,7 @@ from core.util.flask_util import (
     problem,
     languages_for_request
 )
-from integration.millenium_patron import (
+from millenium_patron import (
     DummyMilleniumPatronAPI as authenticator,
 )
 import core.classifier as genres
