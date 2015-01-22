@@ -39,7 +39,7 @@ class RunMonitorScript(Script):
         self.monitor = monitor
 
     def run(self):
-        self.monitor.run(self._db)
+        self.monitor.run()
 
 class WorkProcessingScript(Script):
 
