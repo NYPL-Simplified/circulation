@@ -14,7 +14,7 @@ from core.opds_import import (
 class HTTPIntegrationException(Exception):
     pass
 
-class PresentationReadyMonitor(Monitor):
+class CirculationPresentationReadyMonitor(Monitor):
     """Make works presentation-ready by asking the metadata wrangler about
     them.
     """
@@ -25,7 +25,7 @@ class PresentationReadyMonitor(Monitor):
         metadata_wrangler_url = (
             metadata_wrangler_url or os.environ['METADATA_WRANGLER_URL'])
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
-        super(PresentationReadyMonitor, self).__init__(
+        super(CirculationPresentationReadyMonitor, self).__init__(
             "Presentation ready monitor", interval_seconds)
 
     def run_once(self, _db, start, cutoff):

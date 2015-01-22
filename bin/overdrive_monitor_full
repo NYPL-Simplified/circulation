@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 """Monitor the Overdrive collection by going through the whole thing."""
 import os
 import sys
