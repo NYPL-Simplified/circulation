@@ -51,3 +51,14 @@ class Monitor(object):
     def cleanup(self):
         pass
         
+
+class PresentationReadyMonitor(self):
+    """A monitor that makes works presentation ready.
+
+    This works by having a big list of CoverageProviders, and calling
+    ensure_coverage() on each for the currently active edition of each
+    work. If all the ensure_coverage() calls succeed, presentation of
+    the work is calculated and the work is marked presentation ready.
+    """
+    # TODO after finishing refactoring
+    pass
