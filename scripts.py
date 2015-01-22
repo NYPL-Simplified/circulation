@@ -41,6 +41,16 @@ class RunMonitorScript(Script):
     def run(self):
         self.monitor.run()
 
+class RunCoverageProviderScript(Script):
+
+    def __init__(self, provider):
+        if callable(provider):
+            provider = provider(self._db)
+        self.provider = provider
+
+    def run(self):
+        self.provider.run()
+
 class WorkProcessingScript(Script):
 
     def __init__(self, force=False, restrict_to_source=None, 
