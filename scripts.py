@@ -35,7 +35,7 @@ class RunMonitorScript(Script):
 
     def __init__(self, monitor):
         if callable(monitor):
-            monitor = monitor()
+            monitor = monitor(self._db)
         self.monitor = monitor
 
     def run(self):
