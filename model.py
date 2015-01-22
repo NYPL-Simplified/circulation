@@ -245,6 +245,7 @@ class DataSource(Base):
     CONTENT_CAFE = "Content Cafe"
     VIAF = "Content Cafe"
     GUTENBERG_COVER_GENERATOR = "Project Gutenberg eBook Cover Generator"
+    GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
 
@@ -321,6 +322,7 @@ class DataSource(Base):
                 (cls.AMAZON, False, Identifier.ASIN, None),
                 (cls.OPEN_LIBRARY, False, Identifier.OPEN_LIBRARY_ID, None),
                 (cls.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID, None),
+                (cls.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID, None),
                 (cls.WEB, True, Identifier.URI, None),
                 (cls.VIAF, False, None, None),
                 (cls.CONTENT_CAFE, False, None, None),

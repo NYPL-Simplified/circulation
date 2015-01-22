@@ -132,7 +132,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
         work_records = self.db.query(Edition)
-        if self.identifier_type:
+        if getattr(self, 'identifier_type', None):
             work_records = work_records.join(
                 Identifier).filter(
                     Identifier.type==self.identifier_type)
@@ -147,7 +147,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         work_records.update(unset_work_id, synchronize_session='fetch')
 
         pools = self.db.query(LicensePool)
-        if self.identifier_type:
+        if getattr(self, 'identifier_type', None):
             # Unset the work IDs for those works' LicensePools.
             pools = pools.join(Identifier).filter(
                 Identifier.type==self.identifier_type)
