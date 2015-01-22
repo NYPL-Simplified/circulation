@@ -16,6 +16,7 @@ from model import (
     get_one_or_create
 )
 from classifier import Classifier
+from coverage import CoverageProvider
 
 class DatabaseTest(object):
 
@@ -153,6 +154,26 @@ class DatabaseTest(object):
 
         return pool
 
+class InstrumentedCoverageProvider(CoverageProvider):
+    """A CoverageProvider that keeps track of every edition it tried
+    to cover.
+    """
+    def __init__(self, *args, **kwargs):
+        super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
+        self.attempts = []
+
+    def process_edition(self, edition):
+        self.attempts.append(edition)
+        return True
+
+class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
+    """A CoverageProvider that does nothing and always succeeds."""
+    pass
+
+class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
+    def process_edition(self, edition):
+        super(NeverSuccessfulCoverageProvider, self).process_edition(edition)
+        return False
 
 from nose.tools import set_trace
 import os

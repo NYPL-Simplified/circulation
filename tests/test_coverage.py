@@ -2,8 +2,11 @@ from nose.tools import (
     set_trace,
     eq_,
 )
-from testing import DatabaseTest
-from coverage import CoverageProvider
+from testing import (
+    DatabaseTest,
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
 from model import (
     CoverageRecord,
     DataSource,
@@ -11,14 +14,6 @@ from model import (
 )
 
 class TestCoverageProvider(DatabaseTest):
-
-    class AlwaysSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return True
-
-    class NeverSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return False
 
     def setup(self):
         super(TestCoverageProvider, self).setup()
@@ -28,7 +23,7 @@ class TestCoverageProvider(DatabaseTest):
 
     def test_ensure_coverage(self):
 
-        provider = self.AlwaysSuccessful(
+        provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_source, self.output_source)
         result = provider.ensure_coverage(self.edition)
 
@@ -44,7 +39,7 @@ class TestCoverageProvider(DatabaseTest):
 
     def test_ensure_coverage_failure_returns_none(self):
 
-        provider = self.NeverSuccessful(
+        provider = NeverSuccessfulCoverageProvider(
             "Never successful", self.input_source, self.output_source)
         result = provider.ensure_coverage(self.edition)
         eq_(None, result)
@@ -61,7 +56,7 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(CoverageRecord).all())
         eq_([], self._db.query(Timestamp).all())
 
-        provider = self.AlwaysSuccessful(
+        provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_source, self.output_source)
         provider.run()
 
@@ -81,7 +76,7 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(CoverageRecord).all())
         eq_([], self._db.query(Timestamp).all())
 
-        provider = self.NeverSuccessful(
+        provider = NeverSuccessfulCoverageProvider(
             "Never successful", self.input_source, self.output_source)
         provider.run()
 

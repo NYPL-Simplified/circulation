@@ -23,6 +23,8 @@ class CoverageProvider(object):
                  workset_size=100):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
+        if not isinstance(input_sources, list):
+            input_sources = [input_sources]
         self.input_sources = input_sources
         self.output_source = output_source
         self.workset_size = workset_size

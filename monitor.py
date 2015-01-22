@@ -5,6 +5,7 @@ import time
 from model import (
     get_one_or_create,
     Timestamp,
+    Work,
 )
 
 class Monitor(object):
@@ -52,13 +53,66 @@ class Monitor(object):
         pass
         
 
-class PresentationReadyMonitor(self):
+class PresentationReadyMonitor(Monitor):
     """A monitor that makes works presentation ready.
 
-    This works by having a big list of CoverageProviders, and calling
-    ensure_coverage() on each for the currently active edition of each
-    work. If all the ensure_coverage() calls succeed, presentation of
-    the work is calculated and the work is marked presentation ready.
+    By default this works by passing the work's active edition into
+    ensure_coverage() for each of a list of CoverageProviders. If all
+    the ensure_coverage() calls succeed, presentation of the work is
+    calculated and the work is marked presentation ready.
     """
-    # TODO after finishing refactoring
-    pass
+    def __init__(self, _db, coverage_providers):
+        super(PresentationReadyMonitor, self).__init__(
+            _db, "Make Works Presentation Ready")
+        self.coverage_providers = coverage_providers
+
+    def run_once(self, start, cutoff):
+        # Consolidate works.
+        LicensePool.consolidate_works(self._db)
+
+        unready_works = _db.query(Work).filter(
+            Work.presentation_ready==False).filter(
+                Work.presentation_ready_exception==None).order_by(
+                    Work.last_update_time.desc()).limit(10)
+        # Work in batches of 10 works. This lets us consolidate and
+        # parallelize IO-bound activities like uploading assets to S3.
+        while unready_works.count():
+            self.make_batch_presentation_ready(unready_works.all())
+
+    def make_batch_presentation_ready(self, batch):
+        for work in batch:
+            failures = None
+            exception = None
+            try:
+                failures = self.prepare(work)
+            except Exception, e:
+                exception = str(e)
+            if failures:
+                if isinstance(failures, list):
+                    # This is a list of providers that failed.
+                    provider_names = ", ".join(
+                        [x.service_name for x in failures])
+                    exception = "Provider(s) failed: %s" % provider_names
+                else:
+                    exception = str(failures)
+            if exception:
+                work.presentation_ready_exception = exception
+            else:
+                work.calculate_presentation(choose_edition=False)
+                work.set_presentation_ready()                    
+        self.finalize_batch()
+
+    def prepare(self, work):
+        edition = work.primary_edition
+        identifier = edition.primary_identifier
+        overall_success = True
+        failures = []
+        for provider in self.coverage_providers:
+            if edition.data_source in provider.input_sources:
+                coverage_record = provider.ensure_coverage(edition)
+                if not coverage_record:
+                    failures.append(provider)
+        return failures
+
+    def finalize_batch(self):
+        self._db.commit()
