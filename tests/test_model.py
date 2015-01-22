@@ -18,7 +18,6 @@ from sqlalchemy.orm.exc import (
 from model import (
     CirculationEvent,
     Contributor,
-    CoverageProvider,
     CoverageRecord,
     DataSource,
     Genre,
@@ -1341,56 +1340,3 @@ class TestWorkFeed(DatabaseTest):
         
         # The feed is empty.
         eq_([], q.all())
-
-class TestCoverageProvider(DatabaseTest):
-
-    class AlwaysSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return True
-
-    class NeverSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return False
-
-    def setup(self):
-        super(TestCoverageProvider, self).setup()
-        self.input_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        self.output_source = DataSource.lookup(self._db, DataSource.OCLC)
-        self.edition = self._edition(self.input_source.name)
-
-    def test_always_successful(self):
-
-        # We start with no CoverageRecords and no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
-
-        provider = self.AlwaysSuccessful(
-            "Always successful", self.input_source, self.output_source)
-        provider.run()
-
-        # There is now one CoverageRecord
-        [record] = self._db.query(CoverageRecord).all()
-        eq_(self.edition.primary_identifier, record.identifier)
-        eq_(self.output_source, self.output_source)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
-
-
-    def test_never_successful(self):
-
-        # We start with no CoverageRecords and no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
-
-        provider = self.NeverSuccessful(
-            "Never successful", self.input_source, self.output_source)
-        provider.run()
-
-        # There is still no CoverageRecord
-        eq_([], self._db.query(CoverageRecord).all())
-
-        # But the coverage provider did run, and the timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful", timestamp.service)
