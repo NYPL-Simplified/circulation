@@ -5,7 +5,7 @@ import base64
 import feedparser
 import json
 import os
-from ..integration.millenium_patron import DummyMilleniumPatronAPI
+from ..millenium_patron import DummyMilleniumPatronAPI
 
 from nose.tools import (
     eq_,
