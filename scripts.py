@@ -16,7 +16,9 @@ class Script(object):
 
     @property
     def _db(self):
-        return production_session()
+        if not hasattr(self, "_session"):
+            self._session = production_session()
+        return self._session
 
     @property
     def data_directory(self):
