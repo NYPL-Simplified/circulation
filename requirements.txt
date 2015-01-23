@@ -3,11 +3,11 @@ pillow
 psycopg2
 requests
 sqlalchemy
-nose
 lxml
 flask
 isbnlib
 tinys3
+nose
 
 # TODO: This is only used for summary evaluation, which I think should
 # only happen in the metadata wrangler, so it should be possible to move

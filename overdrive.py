@@ -352,23 +352,22 @@ class OverdriveCirculationMonitor(Monitor):
     Bibliographic data isn't inserted into new LicensePools until
     we hear from the metadata wrangler.
     """
-    def __init__(self, name="Overdrive Circulation Monitor",
+    def __init__(self, _db, name="Overdrive Circulation Monitor",
                  interval_seconds=500,
                  maximum_consecutive_unchanged_books=None):
         super(OverdriveCirculationMonitor, self).__init__(
-            name, interval_seconds=interval_seconds)
+            _db, name, interval_seconds=interval_seconds)
         self.maximum_consecutive_unchanged_books = (
             maximum_consecutive_unchanged_books)
 
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
 
-    def run(self, _db):
-        self._db = _db
+    def run(self):
         self.api = OverdriveAPI(self._db)
-        super(OverdriveCirculationMonitor, self).run(_db)
+        super(OverdriveCirculationMonitor, self).run()
 
-    def run_once(self, _db, start, cutoff):
+    def run_once(self, start, cutoff):
         _db = self._db
         added_books = 0
         overdrive_data_source = DataSource.lookup(
@@ -422,9 +421,9 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
 class RecentOverdriveCollectionMonitor(FullOverdriveCollectionMonitor):
     """Monitor recently changed books in the Overdrive collection."""
 
-    def __init__(self, interval_seconds=60,
+    def __init__(self, _db, interval_seconds=60,
                  maximum_consecutive_unchanged_books=100):
         super(FullOverdriveCollectionMonitor, self).__init__(
-            "Reverse Chronological Overdrive Collection Monitor",
+            _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
 
