@@ -1790,13 +1790,13 @@ class Edition(Base):
         author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.AUDIO_MEDIUM:
-            medium = "audio"
+            medium = "music"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
         elif self.medium == Edition.PERIODICAL_MEIDUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
