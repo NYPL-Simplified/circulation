@@ -1109,6 +1109,7 @@ class Contributor(Base):
     # Types of roles
     AUTHOR_ROLE = "Author"
     PRIMARY_AUTHOR_ROLE = "Primary Author"
+    PERFORMER_ROLE = "Performer"
     UNKNOWN_ROLE = 'Unknown'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
