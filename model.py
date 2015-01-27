@@ -1759,7 +1759,7 @@ class Edition(Base):
         best = None
         for l in Identifier.resources_for_identifier_ids(
                 _db, [self.primary_identifier.id], open_access):
-            if l.media_type.startswith("application/epub+zip"):
+            if l.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
                 # we'll keep looking in hopes of finding a better one.
@@ -1793,13 +1793,13 @@ class Edition(Base):
         author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.AUDIO_MEDIUM:
-            medium = "audio"
+            medium = "music"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
         elif self.medium == Edition.PERIODICAL_MEIDUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
@@ -2660,6 +2660,8 @@ class Resource(Base):
     # How many votes is the initial quality estimate worth?
     ESTIMATED_QUALITY_WEIGHT = 5
 
+    EPUB_MEDIA_TYPE = "application/epub+zip"
+
     id = Column(Integer, primary_key=True)
 
     # A Resource is always associated with some Identifier.
@@ -2753,7 +2755,8 @@ class Resource(Base):
         scaled_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/Overdrive",
         original_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/3M",
         scaled_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/3M",
-        gutenberg_illustrated_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated"
+        gutenberg_illustrated_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated",
+        open_access_books="https://s3.amazonaws.com/oabooks.nypl.org",
     )
 
     @property

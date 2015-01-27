@@ -4,6 +4,7 @@ import time
 
 from model import (
     get_one_or_create,
+    LicensePool,
     Timestamp,
     Work,
 )
@@ -70,7 +71,7 @@ class PresentationReadyMonitor(Monitor):
         # Consolidate works.
         LicensePool.consolidate_works(self._db)
 
-        unready_works = _db.query(Work).filter(
+        unready_works = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
                 Work.presentation_ready_exception==None).order_by(
                     Work.last_update_time.desc()).limit(10)
