@@ -284,6 +284,9 @@ class DataSource(Base):
     # One DataSource can have many associated Credentials.
     credentials = relationship("Credential", backref="data_source")
 
+    # One DataSource can generate many CustomLists.
+    custom_lists = relationship("CustomList", backref="data_source")
+
     @classmethod
     def lookup(cls, _db, name):
         try:
@@ -1412,6 +1415,9 @@ class Edition(Base):
     # A Edition may be the primary identifier associated with its
     # Work, or it may not be.
     is_primary_for_work = Column(Boolean, index=True, default=False)
+
+    # An Edition may show up in many CustomListEntries.
+    custom_list_entries = relationship("CustomListEntry", backref="edition")
 
     title = Column(Unicode, index=True)
     sort_title = Column(Unicode, index=True)
@@ -3568,7 +3574,6 @@ class LicensePool(Base):
                     foreign_id_type
                 )
             )
-
  
         # Get the Identifier.
         identifier, ignore = Identifier.for_foreign_id(
@@ -4099,6 +4104,55 @@ class Representation(Base):
         headers = dict(headers)
         headers['User-Agent'] = cls.BROWSER_USER_AGENT
         return cls.simple_http_get(url, headers, **kwargs)
+
+
+class CustomList(Base):
+    """A custom grouping of Editions."""
+
+    __tablename__ = 'customlists'
+    id = Column(Integer, primary_key=True)
+    primary_language = Column(Unicode, index=True)
+    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
+    foreign_identifier = Column(Unicode, index=True)
+    name = Column(Unicode)
+    description = Column(Unicode)
+    created = Column(DateTime, index=True)
+    updated = Column(DateTime, index=True)
+    responsible_party = Column(Unicode)
+
+    entries = relationship(
+        "CustomListEntry", backref="customlist", lazy="joined")
+
+    # TODO: It should be possible to associate a CustomList with an
+    # audience, fiction status, and subject, but there is no planned
+    # interface for managing this.
+
+    def add_entry(self, edition, annotation=None, added=None):
+        added = added or datetime.datetime.utcnow()
+        _db = Session.object_session(self)
+        entry, was_new = get_one_or_create(
+            _db, CustomListEntry,
+            customlist=self, edition=edition,
+            create_method_kwargs=dict(added=added)
+        )
+        entry.annotation = annotation
+        entry.removed = None
+        return entry, was_new
+
+class CustomListEntry(Base):
+
+    __tablename__ = 'customlistentries'
+    id = Column(Integer, primary_key=True)    
+    
+    list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
+    edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+    annotation = Column(Unicode)
+
+    # These two fields are for best-seller lists. Even after a book
+    # drops off the list, the fact that it once was on the list is
+    # still relevant.
+    added = Column(DateTime, index=True)
+    removed = Column(DateTime, index=True)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
