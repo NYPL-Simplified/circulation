@@ -13,7 +13,7 @@ from ..bibliocommons import (
     BibliocommonsListItem,
     BibliocommonsTitle
 )
-from ..model import (
+from ..core.model import (
     Contributor,
     Edition,
     Identifier,

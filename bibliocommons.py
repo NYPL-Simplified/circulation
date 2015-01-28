@@ -10,7 +10,7 @@ import urlparse
 import isbnlib
 from sqlalchemy.orm.session import Session
 
-from model import (
+from core.model import (
     get_one_or_create,
     Contributor,
     CustomList,
