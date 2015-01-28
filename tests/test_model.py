@@ -66,9 +66,11 @@ class TestDataSource(DatabaseTest):
             (DataSource.WEB, True, Identifier.URI),
             (DataSource.AMAZON, False, Identifier.ASIN),
             (DataSource.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID),
+            (DataSource.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID),
             (DataSource.CONTENT_CAFE, False, None),
             (DataSource.MANUAL, False, None),
-            (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID)
+            (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
+            (DataSource.NYT, False, Identifier.ISBN),
         ]
         eq_(set(sources), set(expect))
 

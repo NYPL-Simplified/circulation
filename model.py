@@ -248,6 +248,7 @@ class DataSource(Base):
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
+    NYT = "New York Times"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -331,6 +332,7 @@ class DataSource(Base):
                 (cls.CONTENT_CAFE, False, None, None),
                 (cls.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID, None),
                 (cls.MANUAL, False, None, None),
+                (cls.NYT, False, Identifier.ISBN, None),
         ):
 
             extra = dict()
