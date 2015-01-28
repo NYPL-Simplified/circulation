@@ -1794,7 +1794,7 @@ class Edition(Base):
         if self.medium == Edition.BOOK_MEDIUM:
             medium = "book"
         elif self.medium == Edition.AUDIO_MEDIUM:
-            medium = "music"
+            medium = "book"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
         elif self.medium == Edition.PERIODICAL_MEIDUM:
