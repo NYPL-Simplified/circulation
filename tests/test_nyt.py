@@ -29,10 +29,8 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
     def list_of_lists(self):
         return self.sample_json("bestseller_list_list.json")
 
-    def get_list(self, list_name):
-        data = self.sample_json("list_%s.json" % list_id)
-        return self._make_list(data)
-
+    def best_seller_list(self, list_name):
+        return self._make_list(self.sample_json("list_%s.json" % list_name))
 
 class TestNYTBestSellerAPI(DatabaseTest):
     
@@ -45,4 +43,9 @@ class TestNYTBestSellerAPI(DatabaseTest):
         all_lists = self.api.list_of_lists()
         eq_([u'copyright', u'num_results', u'results', u'status'],
             sorted(all_lists.keys()))
+        eq_(47, len(all_lists['results']))
 
+    def test_best_seller_list(self):
+        
+        l = self.api.best_seller_list("combined-print-and-e-book-fiction")
+        
