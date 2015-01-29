@@ -8,12 +8,12 @@ import datetime
 import json
 
 from . import DatabaseTest
-from ..bibliocommons import (
+from bibliocommons import (
     BibliocommonsAPI,
     BibliocommonsListItem,
     BibliocommonsTitle
 )
-from ..core.model import (
+from model import (
     Contributor,
     Edition,
     Identifier,

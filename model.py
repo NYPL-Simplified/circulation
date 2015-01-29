@@ -1815,6 +1815,12 @@ class Edition(Base):
             title, author, medium)
 
     def calculate_presentation(self, debug=False):
+
+        # Calling calculate_presentation() on NYT data will actually
+        # destroy the presentation, so don't do anything.
+        if self.data_source.name == DataSource.NYT:
+            return
+            
         if not self.sort_title:
             self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []

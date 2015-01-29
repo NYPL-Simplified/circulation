@@ -3,10 +3,22 @@ from nose.tools import set_trace
 from datetime import datetime, timedelta
 import os
 import json
+from sqlalchemy.orm.session import Session
+from sqlalchemy.orm.exc import (
+    NoResultFound,
+)
+
 from model import (
+    get_one_or_create,
+    CustomList,
+    CustomListEntry,
+    Contributor,
     DataSource,
+    Edition,
+    Identifier,
     Representation,
 )
+from util.personal_names import display_name_to_sort_name
 
 class NYTAPI(object):
 
@@ -53,20 +65,25 @@ class NYTBestSellerAPI(NYTAPI):
     def list_of_lists(self, max_age=LIST_OF_LISTS_MAX_AGE):
         return self.request(self.LIST_NAMES_URL, max_age=max_age)
 
-    def best_seller_list(self, name):
-        if isinstance(name, dict):
-            name = name['list_name_encoded']
+    def best_seller_list(self, list_info):
+        name = list_info['list_name_encoded']
         data = self.request(
             self.LIST_URL % name, max_age=self.LIST_MAX_AGE)
-        return self._make_list(data)
+        return self._make_list(list_info, data)
 
-    def _make_list(self, data):
-        return NYTBestSellerList(data)
+    def _make_list(self, list_info, data):
+        return NYTBestSellerList(list_info, data)
 
 
 class NYTBestSellerList(list):
 
-    def __init__(self, json_data):
+    def __init__(self, list_info, json_data):
+        self.name = list_info['display_name']
+        self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
+        self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
+        self.foreign_identifier = list_info['list_name_encoded']
+        print "I expect %s results and find %s" % (
+            json_data['num_results'], len(json_data['results']))
         for li_data in json_data.get('results', []):
             try:
                 item = NYTBestSellerListTitle(li_data)
@@ -77,9 +94,6 @@ class NYTBestSellerList(list):
             if item:
                 self.append(item)
 
-    def __iter__(self):
-        return self.items.__iter__()
-
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""
         data_source = DataSource.lookup(_db, DataSource.BIBLIOCOMMONS)
@@ -87,14 +101,12 @@ class NYTBestSellerList(list):
             _db, 
             CustomList,
             data_source=data_source,
-            foreign_identifier=self.id,
+            foreign_identifier=self.foreign_identifier,
             create_method_kwargs = dict(
-                created=self.created
+                created=self.created,
             )
         )
         l.name = self.name
-        l.description = self.description
-        l.responsible_party = self.creator.get('name')
         l.updated = self.updated
         self.update_custom_list(l)
         return l
@@ -110,7 +122,7 @@ class NYTBestSellerList(list):
             previous_contents[entry.edition.id] = entry
     
         # Add new items to the list.
-        for i in self.items:
+        for i in self:
             list_item, was_new = i.to_custom_list_item(custom_list)
             if list_item.edition.id in previous_contents:
                 del previous_contents[edition.id]
@@ -149,11 +161,28 @@ class NYTBestSellerListTitle(object):
         edition = self.to_edition(_db)
         return custom_list.add_entry(edition, added=self.bestsellers_date)
 
+    def primary_author_name(self, author_name):
+        """From a NYT name that may contain multiple people, extract just the
+        first author name.
+
+        TODO: VIAF recognizes "D.H. Lawrence" but not "DH Lawrence".
+        NYT commonly formats names like "DH Lawrence".
+
+        TODO: When the author is "Ryan and Josh Shook" I really have no clue
+        what to do.
+        """
+        for splitter in (' with ', ' and '):
+            if splitter in author_name:
+                author_name = author_name.split(splitter)[0]
+        author_name = author_name.split(", ")[0]
+
+        return author_name
+        
     def to_edition(self, _db):
         """Create or update a Simplified Edition object for this NYTBestSeller
         title.
        """
-        if not self['id']:
+        if not self.primary_isbn13:
             return None
         data_source = DataSource.lookup(_db, DataSource.NYT)
         edition, was_new = Edition.for_foreign_id(
@@ -173,28 +202,59 @@ class NYTBestSellerListTitle(object):
         if self.published_date:
             edition.published = self.published_date
 
-        # Big TODO:
-        # self.author is a name like "Paula Hawkins".
-        # We need "Hawkins, Paula".
+        # self.author is a name like "Paula Hawkins". That's fine for
+        # edition.author, but to calculate permanent work ID we need
+        # to set edition.sort_author to "Hawkins, Paula".
         #
-        # We want to set sort_author so we can calculate permanent
-        # work ID, but we don't want to call calculate_presentation(),
-        # because we don't have confidence that we can find the
-        # *right* "Paula Hawkins".
+        # We don't want to call calculate_presentation(), because we
+        # don't have confidence that we can find the *right* person
+        # named "Paula Hawkins".
         #
-        # If we just set sort_author, it doesn't matter if we find the
-        # right Paula Hawkins, just so long as we get the correct
-        # canonicalized name.
+        # But all people with the same name have the same
+        # canonicalized name, so if we can find *someone* with this
+        # name we can set edition.sort_author directly and not bother with
+        # calculate_presentation().
         #
-        # If we can find an existing Contributor with "Paula Hawkins"
-        # as their display_name, we will use their name.
-        #
-        # Otherwise we will ask VIAF about "Paula Hawkins" and find the
-        # name it gives us that looks the most like what we expect.
+        edition.author = self.author
 
-        #
-        # Smaller TODO: stop calculate_presentation() from doing
-        # anything to Editions whose data source is DataSource.NYT.
+        working_display_name = self.primary_author_name(edition.author)
 
+        contributors = _db.query(Contributor).filter(
+            Contributor.display_name==working_display_name).filter(
+                Contributor.name != None).all()
+        if contributors:
+            # We already have a Contributor with this display name and
+            # a canonicalized name. Use that name.
+            edition.sort_author = contributors[0].name
+        else:
+            # Nope. Let's ask OCLC Linked Data about this ISBN and see if
+            # it gives us an author.
+
+            # Nope. Let's ask VIAF about "Paula Hawkins" see what it
+            # says.
+            #viaf_client = VIAFClient(_db)
+            #viaf, display_name, family_name, sort_name, wikipedia_name = (
+            #    viaf_client.lookup_by_name(None, working_display_name))
+
+            # That didn't work either. Let's just convert the display
+            # name to a sort name and hope for the best.
+            sort_name = None
+            if sort_name is None:
+                sort_name = display_name_to_sort_name(working_display_name)
+                print "Failure on %s, going with %s" % (
+                    working_display_name, sort_name)
+            edition.sort_author = sort_name
+
+        print "%s - %s" % (edition.title, edition.sort_author)
         edition.calculate_permanent_work_id()
         return edition
+
+from model import production_session
+db = production_session()
+api = NYTBestSellerAPI(db)
+names = api.list_of_lists()
+for l in names['results']:
+    best = api.best_seller_list(l)
+    best.to_customlist(db)
+    for item in best:
+        item.to_edition(db)
