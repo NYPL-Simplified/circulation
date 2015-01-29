@@ -195,6 +195,109 @@ class NYTBestSellerListTitle(object):
         author_name = author_name.split(", ")[0]
 
         return author_name
+
+    def find_sort_name(self, _db):
+        """Do whatever it takes to find a sortable author name for this book.
+        
+        self.author is a name like "Paula Hawkins". That's fine for
+        edition.author, but to calculate permanent work ID we need
+        to set edition.sort_author to "Hawkins, Paula".
+        
+        We don't want to call calculate_presentation(), because we
+        don't have confidence that we can find the *right* person
+        named "Paula Hawkins".
+
+        But all people with the same name have the same
+        canonicalized name, so if we can find *someone* with this
+        name we can set edition.sort_author directly and not bother with
+        calculate_presentation().
+        """
+
+        working_display_name = self.primary_author_name(self.author)
+
+        contributors = _db.query(Contributor).filter(
+            Contributor.display_name==working_display_name).filter(
+                Contributor.name != None).all()
+        sort_name = None
+        if contributors:
+            # We already have a Contributor with this display name and
+            # a canonicalized name. Use that name.
+            sort_name = contributors[0].name
+
+        if not sort_name:
+            # Looking in the database didn't work. Let's ask OCLC
+            # Linked Data about this ISBN and see if it gives us an
+            # author.
+            oclc_client = OCLCLinkedData(_db)
+            sort_name = self.sort_name_from_oclc_linked_data(
+                _db, oclc_client, working_display_name,
+                self.primary_identifier_type, self.primary_isbn13)
+
+        if not sort_name:
+            # Nope. Let's ask VIAF about "Paula Hawkins" see what it
+            # says.
+            #viaf_client = VIAFClient(_db)
+            viaf_client = None
+            #sort_name = self.sort_name_from_viaf(
+            #    _db, viaf_client, working_display_name)
+            
+        if not sort_name:
+            # That didn't work either. Let's just convert the display
+            # name to a sort name and hope for the best.
+            sort_name = None
+            if sort_name is None:
+                sort_name = display_name_to_sort_name(working_display_name)
+                print "FAILURE on %s, going with %s" % (
+                    working_display_name, sort_name)
+        return sort_name
+
+    @classmethod
+    def sort_name_from_oclc_linked_data(
+            self, _db, oclc_client, display_name, primary_identifier_type,
+            primary_identifier):
+        """Try to find an author sort name for this book from
+        OCLC Linked Data.
+        """
+        def comparable_name(s):
+            return s.replace(",", "").replace(".", "")
+
+        test_working_display_name = comparable_name(display_name)
+
+        if primary_identifier_type != Identifier.ISBN:
+            # We have no way of telling OCLC Linked Data which book
+            # we're talking about. Don't bother.
+            return None
+
+        identifier, ignore = Identifier.for_foreign_id(
+            _db, primary_identifier_type, primary_identifier)
+        try:
+            works = list(oclc_client.oclc_works_for_isbn(identifier))
+        except IOError, e:
+            works = []
+        shortest_candidate = None
+        for work in works:
+            graph = oclc_client.graph(work)
+            # TODO: Sometimes the creator graph includes VIAF
+            # numbers. We should store these and use them
+            # in preference to doing a name-based lookup.
+            for field_name in ('creator', 'contributor'):
+                for name in oclc_client.creator_names(graph, field_name):
+                    if name.endswith(','):
+                        name = name[:-1]
+                    test_name = comparable_name(name)
+                    sim = MetadataSimilarity.title_similarity(
+                        test_name, test_working_display_name)
+                    if sim > 0.6:
+                        if (not shortest_candidate 
+                            or len(name) < len(shortest_candidate)):
+                            shortest_candidate = name
+        return shortest_candidate
+
+    def sort_name_from_viaf(self, viaf_client, display_name):
+        #viaf, display_name, family_name, sort_name, wikipedia_name = (
+        #        viaf_client.lookup_by_name(None, display_name))
+        #return sort_name
+        return None
         
     def to_edition(self, _db):
         """Create or update a Simplified Edition object for this NYTBestSeller
@@ -221,86 +324,8 @@ class NYTBestSellerListTitle(object):
         if self.published_date:
             edition.published = self.published_date
 
-        # self.author is a name like "Paula Hawkins". That's fine for
-        # edition.author, but to calculate permanent work ID we need
-        # to set edition.sort_author to "Hawkins, Paula".
-        #
-        # We don't want to call calculate_presentation(), because we
-        # don't have confidence that we can find the *right* person
-        # named "Paula Hawkins".
-        #
-        # But all people with the same name have the same
-        # canonicalized name, so if we can find *someone* with this
-        # name we can set edition.sort_author directly and not bother with
-        # calculate_presentation().
-        #
         edition.author = self.author
-
-        working_display_name = self.primary_author_name(edition.author)
-        test_working_display_name = working_display_name.replace(",", "").replace(".", "")
-
-        contributors = _db.query(Contributor).filter(
-            Contributor.display_name==working_display_name).filter(
-                Contributor.name != None).all()
-        sort_name = None
-        if contributors and False:
-            # We already have a Contributor with this display name and
-            # a canonicalized name. Use that name.
-            sort_name = contributors[0].name
-
-        if not sort_name:
-            # Nope. Let's ask OCLC Linked Data about this ISBN and see if
-            # it gives us an author.
-            print edition.title
-            sort_name = None
-            if self.primary_identifier_type == Identifier.ISBN:
-                author_names = Counter()
-                oclc_client = OCLCLinkedData(_db)
-                identifier, ignore = Identifier.for_foreign_id(
-                    _db, self.primary_identifier_type, self.primary_isbn13)
-                try:
-                    works = list(oclc_client.oclc_works_for_isbn(identifier))
-                except IOError, e:
-                    works = []
-                shortest_candidate = None
-                for work in works:
-                    graph = oclc_client.graph(work)
-                    # TODO: Sometimes the creator graph includes VIAF
-                    # numbers. We should store these and use them
-                    # in preference to doing a name-based lookup.
-                    for field_name in ('creator', 'contributor'):
-                        for name in oclc_client.creator_names(graph, field_name):
-                            if name.endswith(','):
-                                name = name[:-1]
-                            test_name = name.replace(",", "").replace(".", "")
-                            sim = MetadataSimilarity.title_similarity(
-                                test_name, test_working_display_name)
-                            if sim > 0.6:
-                                if (not shortest_candidate 
-                                    or len(name) < len(shortest_candidate)):
-                                    shortest_candidate = name
-                            else:
-                                print "%s not similar enough to %s: %.2f" % (test_name, test_working_display_name, sim)
-                        if shortest_candidate:
-                            break
-
-                if shortest_candidate:
-                    sort_name = shortest_candidate
-
-        if not sort_name:
-            # Nope. Let's ask VIAF about "Paula Hawkins" see what it
-            # says.
-            #viaf_client = VIAFClient(_db)
-            #viaf, display_name, family_name, sort_name, wikipedia_name = (
-            #    viaf_client.lookup_by_name(None, working_display_name))
-
-            # That didn't work either. Let's just convert the display
-            # name to a sort name and hope for the best.
-            sort_name = None
-            if sort_name is None:
-                sort_name = display_name_to_sort_name(working_display_name)
-                print "FAILURE on %s, going with %s" % (
-                    working_display_name, sort_name)
+        sort_name = self.find_sort_name(_db)
         edition.sort_author = sort_name
 
         print "%s - %s" % (edition.title, edition.sort_author)
