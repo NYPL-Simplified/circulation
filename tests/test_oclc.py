@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+import json
 import StringIO
 import os
 from nose.tools import set_trace, eq_
@@ -13,19 +14,23 @@ from model import (
 
 from oclc import (
     OCLCXMLParser,
+    OCLCLinkedData,
 )
 
 from . import (
     DatabaseTest,
 )
 
-class TestParser(DatabaseTest):
+class TestOCLC(DatabaseTest):
 
     def sample_data(self, filename):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "oclc")
         path = os.path.join(resource_path, filename)
         return open(path).read()
+
+
+class TestParser(TestOCLC):
 
     def test_extract_multiple_works(self):
         """We can turn a multi-work response into a list of SWIDs."""
@@ -337,3 +342,13 @@ class TestAuthorParser(DatabaseTest):
 
         s = u"杜格孫 (Dodgson, Charles Lutwidge,1832-1896)"
         self.assert_parse(s, s, Contributor.PRIMARY_AUTHOR_ROLE)
+
+class TestOCLCLinkedData(TestOCLC):
+
+    def test_creator_names_picks_up_contributors(self):
+        graph = json.loads(
+            self.sample_data("no_author_only_contributor.jsonld"))['@graph']
+        
+        eq_([], list(OCLCLinkedData.creator_names(graph)))
+        eq_(['Thug Kitchen LLC.'],
+            list(OCLCLinkedData.creator_names(graph, 'contributor')))

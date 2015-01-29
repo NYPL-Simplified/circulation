@@ -1,6 +1,8 @@
 """Interface to the New York Times APIs."""
+import isbnlib
 from nose.tools import set_trace
 from datetime import datetime, timedelta
+from collections import Counter
 import os
 import json
 from sqlalchemy.orm.session import Session
@@ -18,7 +20,9 @@ from model import (
     Identifier,
     Representation,
 )
+from util import MetadataSimilarity
 from util.personal_names import display_name_to_sort_name
+from oclc import OCLCLinkedData
 
 class NYTAPI(object):
 
@@ -149,12 +153,26 @@ class NYTBestSellerListTitle(object):
             for i in (
                     'publisher', 'description', 'primary_isbn10',
                     'primary_isbn13', 'title', 'author'):
-                setattr(self, i, details[0].get(i, None))
-        
-        if not self.primary_isbn13:
-            if not self.primary_isbn10:
-                raise ValueError("No ISBN for book")
-            self.primary_isbn13 = isbnlib.to_isbn13(self.primary_isbn10)
+                value = details[0].get(i, None)
+                if value == 'None':
+                    value = None
+                setattr(self, i, value)
+    
+        if self.primary_isbn13:
+            if isbnlib.is_isbn13(self.primary_isbn13):
+                self.primary_identifier_type = Identifier.ISBN
+            else:
+                self.primary_identifier_type = Identifier.ASIN
+        else:
+                if not self.primary_isbn10:
+                    raise ValueError("No ISBN for book")
+                if isbnlib.is_isbn10(self.primary_isbn10):
+                    self.primary_isbn13 = isbnlib.to_isbn13(self.primary_isbn10)
+                    self.primary_identifier_type = Identifier.ISBN
+                else:
+                    self.primary_isbn13 = self.primary_isbn10
+                    self.primary_identifier_type = Identifier.ASIN
+
 
     def to_custom_list_item(self, custom_list):
         _db = Session.object_session(custom_list)        
@@ -185,6 +203,7 @@ class NYTBestSellerListTitle(object):
         if not self.primary_isbn13:
             return None
         data_source = DataSource.lookup(_db, DataSource.NYT)
+
         edition, was_new = Edition.for_foreign_id(
             _db, data_source, Identifier.ISBN, self.primary_isbn13)
 
@@ -218,18 +237,57 @@ class NYTBestSellerListTitle(object):
         edition.author = self.author
 
         working_display_name = self.primary_author_name(edition.author)
+        test_working_display_name = working_display_name.replace(",", "").replace(".", "")
 
         contributors = _db.query(Contributor).filter(
             Contributor.display_name==working_display_name).filter(
                 Contributor.name != None).all()
-        if contributors:
+        sort_name = None
+        if contributors and False:
             # We already have a Contributor with this display name and
             # a canonicalized name. Use that name.
-            edition.sort_author = contributors[0].name
-        else:
+            sort_name = contributors[0].name
+
+        if not sort_name:
             # Nope. Let's ask OCLC Linked Data about this ISBN and see if
             # it gives us an author.
+            print edition.title
+            sort_name = None
+            if self.primary_identifier_type == Identifier.ISBN:
+                author_names = Counter()
+                oclc_client = OCLCLinkedData(_db)
+                identifier, ignore = Identifier.for_foreign_id(
+                    _db, self.primary_identifier_type, self.primary_isbn13)
+                try:
+                    works = list(oclc_client.oclc_works_for_isbn(identifier))
+                except IOError, e:
+                    works = []
+                shortest_candidate = None
+                for work in works:
+                    graph = oclc_client.graph(work)
+                    # TODO: Sometimes the creator graph includes VIAF
+                    # numbers. We should store these and use them
+                    # in preference to doing a name-based lookup.
+                    for field_name in ('creator', 'contributor'):
+                        for name in oclc_client.creator_names(graph, field_name):
+                            if name.endswith(','):
+                                name = name[:-1]
+                            test_name = name.replace(",", "").replace(".", "")
+                            sim = MetadataSimilarity.title_similarity(
+                                test_name, test_working_display_name)
+                            if sim > 0.6:
+                                if (not shortest_candidate 
+                                    or len(name) < len(shortest_candidate)):
+                                    shortest_candidate = name
+                            else:
+                                print "%s not similar enough to %s: %.2f" % (test_name, test_working_display_name, sim)
+                        if shortest_candidate:
+                            break
 
+                if shortest_candidate:
+                    sort_name = shortest_candidate
+
+        if not sort_name:
             # Nope. Let's ask VIAF about "Paula Hawkins" see what it
             # says.
             #viaf_client = VIAFClient(_db)
@@ -241,20 +299,22 @@ class NYTBestSellerListTitle(object):
             sort_name = None
             if sort_name is None:
                 sort_name = display_name_to_sort_name(working_display_name)
-                print "Failure on %s, going with %s" % (
+                print "FAILURE on %s, going with %s" % (
                     working_display_name, sort_name)
-            edition.sort_author = sort_name
+        edition.sort_author = sort_name
 
         print "%s - %s" % (edition.title, edition.sort_author)
+        print "-" * 80
         edition.calculate_permanent_work_id()
         return edition
 
-# from model import production_session
-# db = production_session()
-# api = NYTBestSellerAPI(db)
-# names = api.list_of_lists()
-# for l in names['results']:
-#     best = api.best_seller_list(l)
-#     best.to_customlist(db)
-#     for item in best:
-#         item.to_edition(db)
+if __name__ == '__main__':
+    from model import production_session
+    db = production_session()
+    api = NYTBestSellerAPI(db)
+    names = api.list_of_lists()
+    for l in names['results']:
+        best = api.best_seller_list(l)
+        best.to_customlist(db)
+        for item in best:
+            item.to_edition(db)

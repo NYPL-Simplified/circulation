@@ -1,0 +1,81 @@
+{
+  "@graph" : [ {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455#Organization/thug_kitchen_llc",
+    "@type" : "schema:Organization",
+    "name" : "Thug Kitchen LLC."
+  }, {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/cooking_vegetables",
+    "@type" : "schema:Topic",
+    "name" : "Cooking (Vegetables)"
+  }, {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/cooking_vegetarian_&_vegan",
+    "@type" : "schema:Topic",
+    "name" : "COOKING / Vegetarian & Vegan."
+  }, {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/restaurants_california_los_angeles",
+    "@type" : "schema:Topic",
+    "name" : "Restaurants California Los Angeles."
+  }, {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/vegetarian_cooking",
+    "@type" : "schema:Topic",
+    "name" : "Vegetarian cooking."
+  }, {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/2239716455.jsonld",
+    "inDataset" : "http://purl.oclc.org/dataset/WorldCat/Works",
+    "about" : "http://worldcat.org/entity/work/id/2239716455"
+  }, {
+    "@id" : "http://worldcat.org/entity/work/id/2239716455",
+    "@type" : [ "schema:CreativeWork", "schema:Book" ],
+    "inDataset" : "http://purl.oclc.org/dataset/xwc",
+    "about" : [ "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/restaurants_california_los_angeles", "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/vegetarian_cooking", "http://experiment.worldcat.org/entity/work/data/2239716455#Organization/thug_kitchen_llc", "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/cooking_vegetarian_&_vegan", "http://experiment.worldcat.org/entity/work/data/2239716455#Topic/cooking_vegetables" ],
+    "alternateName" : {
+      "@language" : "en",
+      "@value" : "Thug Kitchen"
+    },
+    "contributor" : "http://experiment.worldcat.org/entity/work/data/2239716455#Organization/thug_kitchen_llc",
+    "description" : {
+      "@language" : "en",
+      "@value" : "Thug Kitchen started their wildly popular web site to inspire people to eat some Goddamn vegetables and adopt a healthier lifestyle. Beloved by Gwyneth Paltrow (\"This might be my favorite thing ever\") and named Saveur's Best New Food blog of 2013 -- with half a million Facebook fans and counting -- Thug Kitchen wants to show everyone how to take charge of their plates and cook up some real fucking food. Yeah, plenty of blogs and cookbooks preach about how to eat more kale, why ginger fights inflammation, and how to cook with microgreens and nettles. But they are dull or pretentious as hell -- and most people can't afford the hype. Thug Kitchen lives in the real world. In their first cookbook, they're throwing down more than 100 recipes for their best-loved meals, snacks, and sides for beginning cooks to home chefs. (Roasted Beer and Lime Cauliflower Tacos? Pumpkin Chili? Grilled Peach Salsa? Believe that shit.) Plus they're going to arm you with all the info and techniques you need to shop on a budget and go and kick a bunch of ass on your own.This book is an invitation to everyone who wants to do better to elevate their kitchen game. No more ketchup and pizza counting as vegetables. No more drive-thru lines. No more avoiding the produce corner of the supermarket. Shit is about to get real."
+    },
+    "genre" : [ {
+      "@language" : "en",
+      "@value" : "Electronic books"
+    }, {
+      "@language" : "en",
+      "@value" : "Cookbooks"
+    } ],
+    "name" : {
+      "@language" : "en",
+      "@value" : "Thug Kitchen : eat like you give a f*ck : the official cookbook"
+    },
+    "workExample" : "http://www.worldcat.org/oclc/897468170"
+  } ],
+  "@context" : {
+    "name" : "http://schema.org/name",
+    "about" : {
+      "@id" : "http://schema.org/about",
+      "@type" : "@id"
+    },
+    "genre" : "http://schema.org/genre",
+    "contributor" : {
+      "@id" : "http://schema.org/contributor",
+      "@type" : "@id"
+    },
+    "workExample" : {
+      "@id" : "http://schema.org/workExample",
+      "@type" : "@id"
+    },
+    "description" : "http://schema.org/description",
+    "alternateName" : "http://schema.org/alternateName",
+    "inDataset" : {
+      "@id" : "http://rdfs.org/ns/void#inDataset",
+      "@type" : "@id"
+    },
+    "schema" : "http://schema.org/",
+    "library" : "http://purl.org/library/",
+    "void" : "http://rdfs.org/ns/void#",
+    "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "pto" : "http://www.productontology.org/id/",
+    "dcte" : "http://purl.org/dc/terms/"
+  }
+}
