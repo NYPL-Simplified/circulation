@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classify xmlns="http://classify.oclc.org">
+  <response code="2"/>
+  <!--Classify is a product of OCLC Online Computer Library Center: http://classify.oclc.org-->
+  <work editions="4" format="Book" holdings="30" itemtype="itemtype-book" pswid="1809357047" title="The Book. The King James version of the Bible for the modern reader">365938177</work>
+  <orderBy>hold desc</orderBy>
+  <input type="swid">365938177</input>
+  <start>0</start>
+  <maxRecs>25</maxRecs>
+  <editions>
+    <edition format="Book" holdings="15" itemtype="itemtype-book" language="eng" oclc="826161" title="The Book. The King James version of the Bible for the modern reader">
+      <classifications>
+        <class ind1=" " ind2=" " sfa="220.5" tag="092"/>
+        <class ind1="1" ind2="4" sfa="BS186 1972" tag="050"/>
+      </classifications>
+    </edition>
+    <edition format="Book" holdings="11" itemtype="itemtype-book" language="eng" oclc="5357473" title="The Book; the King James version of the Bible for the modern reader.">
+      <classifications>
+        <class ind1="1" ind2="4" sfa="BS185" tag="050"/>
+        <class ind1=" " ind2=" " sfa="220.5203" tag="092"/>
+      </classifications>
+    </edition>
+    <edition format="Book" holdings="3" itemtype="itemtype-book" language="eng" oclc="365938177" title="The book : the King James version of the Bible for the modern reader :complete and unabridged."/>
+    <edition format="Book" holdings="1" itemtype="itemtype-book" language="eng" oclc="744601559" title="The Book : The King James version of the Bible for the modern reader ">
+      <classifications>
+        <class ind1=" " ind2=" " sfa="BS186 1970" tag="090"/>
+      </classifications>
+    </edition>
+  </editions>
+  <recommendations>
+    <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=350x200&amp;chd=t:90.0,10.0&amp;chtt=All+Editions&amp;chdl=Classified (90.00%)|Unclassified (10.00%)</graph>
+    <fast>
+      <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=475x175&amp;chd=t:3.3333335&amp;chdl=Bible</graph>
+      <headings>
+        <heading heldby="1" ident="1356024" src="fast">Bible</heading>
+      </headings>
+    </fast>
+    <ddc>
+      <mostPopular holdings="15" nsfa="220.5" sfa="220.5"/>
+      <mostRecent holdings="11" sfa="220.5203"/>
+      <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=350x200&amp;chd=t:50.0,36.666668,13.333334&amp;chtt=DDC&amp;chdl=220.5|220.5203|Unclassified</graph>
+    </ddc>
+    <lcc>
+      <mostPopular holdings="15" nsfa="BS186 1972" sfa="BS186 1972"/>
+      <mostRecent holdings="1" sfa="BS186 1970"/>
+      <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=350x200&amp;chd=t:50.0,36.666668,3.3333335,10.0&amp;chtt=LCC&amp;chdl=BS186 1972|BS185|BS186 1970|Unclassified</graph>
+    </lcc>
+  </recommendations>
+</classify>

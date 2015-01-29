@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classify xmlns="http://classify.oclc.org">
+  <response code="4"/>
+  <!--Classify is a product of OCLC Online Computer Library Center: http://classify.oclc.org-->
+  <workCount>231</workCount>
+  <start>0</start>
+  <maxRecs>25</maxRecs>
+  <orderBy>hold desc</orderBy>
+  <input type="title/author">Moby+Dick|Herman+Melville</input>
+  <works>
+    <work author="Melville, Herman, 1819-1891 | Hayford, Harrison [Associated name; Editor] | Parker, Hershel [Editor] | Tanner, Tony [Editor; Commentator for written text; Author of introduction; Author] | Cliffs Notes, Inc. | Kent, Rockwell, 1882-1971 [Illustrator]" editions="2781" format="eBook" holdings="46983" hyr="2014" itemtype="itemtype-book-digital" lyr="1800" swid="10106023" title="Moby Dick"/>
+    <work author="Melville, Herman, 1819-1891 | Beaver, Harold Lowther [Editor] | Hayford, Harrison [Editor] | Tanselle, G. Thomas 1934- [Editor] | Parker, Hershel [Editor] | Merrill, Frank T., 1848-" editions="153" format="Book" holdings="4521" hyr="2012" itemtype="itemtype-book" lyr="1849" swid="10360105" title="Redburn, his first voyage; being the sailor-boy confessions and reminiscences of the son-of-a-gentleman, in the merchant service."/>
+    <work author="Melville, Herman, 1819-1891 | Muller, Frank, 1951- [Narrator] | Recorded Books, Inc. | Hootkins, William, 1948-2005 [Narrator] | Morgan, Adams [Narrator] | Boehmer, Paul [Narrator]" editions="171" format="eAudiobook" holdings="4518" hyr="2012" itemtype="itemtype-audiobook-digital" lyr="1963" swid="10190890" title="Moby Dick"/>
+    <work author="Huston, John, 1906-1987 | Peck, Gregory, 1916-2003 [Actor; Author; Performer] | Basehart, Richard, 1914-1984 [Actor; Author; Performer] | Welles, Orson, 1915-1985 [Actor; Performer] | Moulin Productions [Producer] | Huston, John, 1906-1987 [Author; Scenarist; Performer; Director]" editions="141" format="DVD video" holdings="3631" hyr="2011" itemtype="itemtype-video-dvd" lyr="1956" swid="10798812" title="Moby Dick"/>
+    <work author="Bloom, Harold [Editor] | Melville, Herman, 1819-1891 [Associated name]" editions="16" format="Book" holdings="3038" hyr="2009" itemtype="itemtype-book" lyr="1986" swid="13424036" title="Herman Melville's Moby-Dick"/>
+    <work author="Melville, Herman, 1819-1891 | Tanselle, G. Thomas 1934- [Editor] | Melville, Herman, 1819-1891" editions="25" format="Book" holdings="2969" hyr="2008" itemtype="itemtype-book" lyr="1983" swid="12468538" title="Redburn, his first voyage ; White-jacket, or, The world in a man-of-war ; Moby-Dick, or, The whale"/>
+    <work author="McSweeney, Kerry, 1941- | Melville, Herman, 1819-1891" editions="8" format="Book" holdings="1508" hyr="1986" itemtype="itemtype-book" lyr="1986" swid="13358012" title="Moby-Dick : Ishmael's mighty book"/>
+    <work author="Melville, Herman, 1819-1891 | Hayford, Harrison [Editor] | Parker, Hershel [Editor]" editions="3" format="Book" holdings="1446" hyr="1967" itemtype="itemtype-book" lyr="1967" swid="652035540" title="Moby-Dick : An authoritative text"/>
+    <work author="Vincent, Howard Paton, 1904- | Melville, Herman, 1819-1891 [Associated name]" editions="27" format="Book" holdings="1433" hyr="1980" itemtype="itemtype-book" lyr="1949" swid="22658644" title="The trying-out of Moby-Dick"/>
+    <work author="Gleim, William S | Melville, Herman, 1819-1891 [Associated name]" editions="13" format="Book" holdings="997" hyr="2007" itemtype="itemtype-book" lyr="1938" swid="250604212" title="The meaning of Moby Dick."/>
+    <work author="Brodtkorb, Paul | Melville, Herman, 1819-1891" editions="17" format="Book" holdings="961" hyr="1980" itemtype="itemtype-book" lyr="1965" swid="153927888" title="Ishmael's white world : a phenomenological reading of Moby Dick."/>
+    <work author="Stanzel, F. K. (Franz Karl), 1923- | Pusack, James P. | Fielding, Henry, 1707-1754 | James, Henry, 1843-1916 | Joyce, James, 1882-1941 | Melville, Herman, 1819-1891" editions="13" format="Book" holdings="708" hyr="1980" itemtype="itemtype-book" lyr="1971" swid="13206523" title="Narrative situations in the novel; Tom Jones, Moby-Dick, The ambassadors, Ulysses"/>
+    <work author="Cowan, Bainard | Melville, Herman, 1819-1891 [Associated name]" editions="5" format="Book" holdings="628" hyr="1982" itemtype="itemtype-book" lyr="1982" swid="474972877" title="Exiled waters : Moby-Dick and the crisis of allegory"/>
+    <work author="Eisner, Will | Melville, Herman, 1819-1891" editions="4" format="Book" holdings="560" hyr="2001" itemtype="itemtype-book" lyr="1998" swid="46935692" title="Moby Dick"/>
+    <work author="Melville, Herman, 1819-1891" editions="6" format="Book" holdings="522" hyr="1931" itemtype="itemtype-book" lyr="1928" swid="1413894" title="Romances of Herman Melville: Typee, Omoo, Mardi, Moby-Dick, White-Jacket, Israel Potter, Redburn."/>
+    <work author="Frank, Stuart M. | Frank, Stuart M. | Melville, Herman, 1819-1891" editions="6" format="Book" holdings="498" hyr="1986" itemtype="itemtype-book" lyr="1986" swid="14135019" title="Herman Melville's picture gallery : sources and types of the "pictorial" chapters of Moby-Dick"/>
+    <work author="Schwartz, Lew Sayre | Giordano, Dick | Melville, Herman, 1819-1891" editions="4" format="Book" holdings="379" hyr="2002" itemtype="itemtype-book" lyr="2001" swid="51088077" title="Moby Dick : based on the novel by Herman Melville"/>
+    <work author="Melville, Herman, 1819-1891 | Melville, Herman, 1819-1891 | Deng, Xinyang | Ou, Yangyu | Ye, Jinyong | Fei, Li | Ferri, Giuliano | Meier, Weier | Yu, Zhi-ying | Yuzhiying | Zhu Li An Nuo" editions="104" format="Book" holdings="368" hyr="2010" itemtype="itemtype-book" lyr="1969" swid="122280617" title="Bai jing ji" title_alt="白鯨記"/>
+    <work author="Melville, Herman, 1819-1891" editions="3" format="Book" holdings="329" hyr="1964" itemtype="itemtype-book" lyr="1964" swid="1836574" title="Melville: the best of Moby Dick and Typee; also Billy Budd complete."/>
+    <work author="Espinosa, Rod | Melville, Herman, 1819-1891" editions="3" format="Book" holdings="283" hyr="2008" itemtype="itemtype-book" lyr="2008" swid="105446800" title="Herman Melville's Moby Dick"/>
+    <work author="Melville, Herman, 1819-1891 | Queue, Inc." editions="6" format="Book" holdings="266" hyr="1993" itemtype="itemtype-book" lyr="1983" swid="11065951" title="The best of Herman Melville : Moby Dick : Omoo : Typee : Israel Potter."/>
+    <work author="Stanzel, F. K. (Franz Karl), 1923- | Stanzel, F. K. 1923- | Fielding, Henry, 1707-1754 | James, Henry, 1843-1916 | Joyce, James, 1882-1941 | Melville, Herman, 1819-1891" editions="28" format="Book" holdings="223" hyr="1969" itemtype="itemtype-book" lyr="1955" swid="164732682" title="Die typischen Erzählsituationen im Roman, dargestellt an Tom Jones, Moby-Dick, The Ambassadors, Ulysses, u. a."/>
+    <work author="Melville, Herman, 1819-1891 | Hayford, Harrison [Editor] | Parker, Hershel [Editor] | Putnam, John B., [Illustrator] | Moser, Barry" editions="13" format="Book" holdings="199" hyr="1978" itemtype="itemtype-book" lyr="1967" swid="34644035" title="Moby-Dick : an Authoritative Text, Reviews and Letters by Melville, Analogues and Sources, Criticism"/>
+    <work author="Friedrich, Gerhard, 1916- | Melville, Herman, 1819-1891 [Author]" editions="13" format="Book" holdings="194" hyr="1982" itemtype="itemtype-book" lyr="1958" swid="26863225" title="In Pursuit of Moby Dick; Melville's image of man."/>
+    <work author="Melville, Herman, 1819-1891" editions="2" format="Book" holdings="163" hyr="2000" itemtype="itemtype-book" lyr="2000" swid="247734888" title="Moby-Dick, Billy Budd, and other writings"/>
+  </works>
+  <navigation>
+    <pages>
+      <page>
+        <label>1</label>
+      </page>
+      <page>
+        <label>2</label>
+        <link>25</link>
+      </page>
+      <page>
+        <label>3</label>
+        <link>50</link>
+      </page>
+    </pages>
+    <next>25</next>
+    <last>225</last>
+  </navigation>
+</classify>

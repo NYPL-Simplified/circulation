@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classify xmlns="http://classify.oclc.org">
+  <response code="2"/>
+  <!--Classify is a product of OCLC Online Computer Library Center: http://classify.oclc.org-->
+  <work author="James, Henry, 1843-1916 | Edel, Leon, 1907-1997 [Author of introduction]" editions="9" format="Book" holdings="82" itemtype="itemtype-book" pswid="NONE" title="The Europeans. Washington Square.">1192064</work>
+  <authors>
+    <author lc="n79018725" viaf="108589496">Edel, Leon, 1907-1997 [Author of introduction]</author>
+    <author lc="n78091982" viaf="36920030">James, Henry, 1843-1916</author>
+  </authors>
+  <orderBy>hold desc</orderBy>
+  <input type="swid">1192064</input>
+  <start>0</start>
+  <maxRecs>25</maxRecs>
+  <editions>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="54" itemtype="itemtype-book" language="eng" oclc="1192064" title="The Europeans. Washington Square.">
+      <classifications>
+        <class ind1=" " ind2="4" sfa="PS2116" tag="050"/>
+      </classifications>
+    </edition>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="9" itemtype="itemtype-book" language="eng" oclc="163377424" title="The Bodley Head Henry James."/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="8" itemtype="itemtype-book" language="eng" oclc="490107555" title="The Europeans Washington square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="6" itemtype="itemtype-book" language="eng" oclc="246082558" title="The Europeans. Washington Square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="1" itemtype="itemtype-book" language="eng" oclc="490292186" title="The Europeans Washington square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="1" itemtype="itemtype-book" language="eng" oclc="600705701" title="The Europeans. Washington Square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="1" itemtype="itemtype-book" language="eng" oclc="757186273" title="The europeans Washington square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="1" itemtype="itemtype-book" language="eng" oclc="438963264" title="The Europeans ; Washington Square"/>
+    <edition author="James, Henry, 1843-1916" format="Book" holdings="1" itemtype="itemtype-book" language="und" oclc="833001350" title="The Europeans : Washington Square"/>
+  </editions>
+  <recommendations>
+    <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=350x200&amp;chd=t:65.85366,34.146343&amp;chtt=All+Editions&amp;chdl=Classified (65.85%)|Unclassified (34.15%)</graph>
+    <lcc>
+      <mostPopular holdings="54" nsfa="PS2116" sfa="PS2116"/>
+      <mostRecent holdings="54" sfa="PS2116"/>
+      <graph>http://chart.apis.google.com/chart?cht=p&amp;chs=350x200&amp;chd=t:65.85366,34.146343&amp;chtt=LCC&amp;chdl=PS2116|Unclassified</graph>
+    </lcc>
+  </recommendations>
+</classify>

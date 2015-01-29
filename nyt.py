@@ -249,12 +249,12 @@ class NYTBestSellerListTitle(object):
         edition.calculate_permanent_work_id()
         return edition
 
-from model import production_session
-db = production_session()
-api = NYTBestSellerAPI(db)
-names = api.list_of_lists()
-for l in names['results']:
-    best = api.best_seller_list(l)
-    best.to_customlist(db)
-    for item in best:
-        item.to_edition(db)
+# from model import production_session
+# db = production_session()
+# api = NYTBestSellerAPI(db)
+# names = api.list_of_lists()
+# for l in names['results']:
+#     best = api.best_seller_list(l)
+#     best.to_customlist(db)
+#     for item in best:
+#         item.to_edition(db)

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classify xmlns="http://classify.oclc.org">
+  <response code="2"/>
+  <!--Classify is a product of OCLC Online Computer Library Center: http://classify.oclc.org-->
+  <work author="Melville, Herman, 1819-1891 | Hayford, Harrison [Associated name; Editor] | Parker, Hershel [Editor] | Tanner, Tony [Editor; Commentator for written text; Author of introduction; Author] | Cliffs Notes, Inc. | Kent, Rockwell, 1882-1971 [Illustrator]" editions="2781" format="eBook" holdings="46983" itemtype="itemtype-book-digital" pswid="4687" title="Moby Dick">10106023</work>
+  <authors>
+    <author lc="n50050335" viaf="4947338">Parker, Hershel [Editor]</author>
+    <author lc="n79059764" viaf="51716047">Tanner, Tony [Editor; Commentator for written text; Author of introduction; Author]</author>
+    <author lc="n50025038" viaf="34482742">Hayford, Harrison [Associated name; Editor]</author>
+    <author lc="n79006936" viaf="27068555">Melville, Herman, 1819-1891</author>
+  </authors>
+  <orderBy>hold desc</orderBy>
+  <input type="swid">10106023</input>
+  <start>0</start>
+  <maxRecs>25</maxRecs>
+  <editions>
+    <edition author="Melville, Herman, 1819-1891" format="eBook" holdings="1224" itemtype="itemtype-book-digital" language="eng" oclc="47010459" title="Moby Dick">
+      <classifications>
+        <class ind1=" " ind2="4" sfa="PS2384" tag="050"/>
+        <class edition="21" ind1="0" ind2="4" sf2="21" sfa="813.3" tag="082"/>
+      </classifications>
+    </edition>
+    <edition author="Melville, Herman, 1819-1891" format="eBook" holdings="1160" itemtype="itemtype-book-digital" language="eng" oclc="44955177" title="Moby Dick or the whale">
+      <classifications>
+        <class edition="21" ind1="0" ind2="4" sf2="21" sfa="813" tag="082"/>
+        <class ind1=" " ind2="4" sfa="PS2384" tag="050"/>
+      </classifications>
+    </edition>
+    <edition author="Melville, Herman, 1819-1891" format="eBook" holdings="1160" itemtype="itemtype-book-digital" language="spa" oclc="44955178" title="A fake Spanish edition which will not be picked up because the book we're trying to get info for is in English.">
+      <classifications>
+        <class edition="21" ind1="0" ind2="4" sf2="21" sfa="813" tag="082"/>
+        <class ind1=" " ind2="4" sfa="PS2384" tag="050"/>
+      </classifications>
+    </edition>
+  </editions>
+  <recommendations>
+    <graph>http://chart.apis.google.com/chart?cht=p&chs=350x200&chd=t:92.18653,7.813464&chtt=All+Editions&chdl=Classified (92.19%)|Unclassified (7.81%)</graph>
+    <fast>
+      <graph>http://chart.apis.google.com/chart?cht=p&chs=475x175&chd=t:68.23319,67.00722,63.710278,40.623203,40.254986,36.80906,14.671265,9.603474&chdl=Whaling|Whales|Ahab, Captain (Fictitious character)|Ship captains|Whaling ships|Mentally ill|Sea stories|Moby Dick (Melville, Herman)</graph>
+      <headings>
+        <heading heldby="32058" ident="1174284" src="fast">Whaling</heading>
+        <heading heldby="31482" ident="1174266" src="fast">Whales</heading>
+        <heading heldby="29933" ident="801923" src="fast">Ahab, Captain (Fictitious character)</heading>
+        <heading heldby="19086" ident="1116147" src="fast">Ship captains</heading>
+        <heading heldby="18913" ident="1174307" src="fast">Whaling ships</heading>
+        <heading heldby="17294" ident="1016699" src="fast">Mentally ill</heading>
+        <heading heldby="6893" ident="1110122" src="fast">Sea stories</heading>
+        <heading heldby="4512" ident="1356235" src="fast">Moby Dick (Melville, Herman)</heading>
+      </headings>
+    </fast>
+    <ddc>
+      <mostPopular holdings="21183" nsfa="813.3" sfa="813.3"/>
+      <mostRecent holdings="567" sfa="741.5"/>
+      <latestEdition holdings="1" sf2="23" sfa="428.64"/>
+      <latestEdition holdings="2" sf2="23" sfa="428.6"/>
+      <latestEdition holdings="573" sf2="23" sfa="813.3"/>
+      <latestEdition holdings="18" sf2="23" sfa="FIC"/>
+      <latestEdition holdings="3" sf2="23" sfa="839.363"/>
+      <latestEdition holdings="1" sf2="23" sfa="005.72"/>
+      <latestEdition holdings="5" sf2="23" sfa="741.5"/>
+      <latestEdition holdings="28" sf2="14" sfa="741.5"/>
+      <latestEdition holdings="3" sf2="14" sfa="813.36"/>
+      <graph>http://chart.apis.google.com/chart?cht=p&chs=350x200&chd=t:45.08652,13.734755,8.901092,5.3317156,2.603069,2.1667411,16.910372,5.265734&chtt=DDC&chdl=813.3|FIC|813.36|813|810|810.9|Unclassified|Other</graph>
+    </ddc>
+    <lcc>
+      <mostPopular holdings="22460" nsfa="PS2384" sfa="PS2384"/>
+      <mostRecent holdings="1" sfa="PZ7.7.M498"/>
+      <graph>http://chart.apis.google.com/chart?cht=p&chs=350x200&chd=t:47.804527,13.53894,11.287061,4.6761594,2.345529,2.2923183,12.823788,5.2316794&chtt=LCC&chdl=PS2384|PZ3.M498|PS2384.M6|AC1|PZ1|PS2380|Unclassified|Other</graph>
+    </lcc>
+  </recommendations>
+  <navigation>
+    <pages>
+      <page>
+        <label>1</label>
+      </page>
+      <page>
+        <label>2</label>
+        <link>25</link>
+      </page>
+      <page>
+        <label>3</label>
+        <link>50</link>
+      </page>
+    </pages>
+    <next>25</next>
+    <last>2775</last>
+  </navigation>
+</classify>
