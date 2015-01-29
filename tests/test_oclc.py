@@ -349,6 +349,20 @@ class TestOCLCLinkedData(TestOCLC):
         graph = json.loads(
             self.sample_data("no_author_only_contributor.jsonld"))['@graph']
         
-        eq_([], list(OCLCLinkedData.creator_names(graph)))
-        eq_(['Thug Kitchen LLC.'],
-            list(OCLCLinkedData.creator_names(graph, 'contributor')))
+        eq_(([], []), OCLCLinkedData.creator_names(graph))
+        eq_((['Thug Kitchen LLC.'], []),
+            OCLCLinkedData.creator_names(graph, 'contributor'))
+
+    def test_creator_names_gathers_external_uris(self):
+        graph = json.loads(
+            self.sample_data("creator_includes_viaf_uris.jsonld"))['@graph']
+
+        names, uris = OCLCLinkedData.creator_names(graph)
+        eq_([], names)
+        eq_(set(["http://id.loc.gov/authorities/names/n2013058227", 
+                 "http://viaf.org/viaf/221233754", 
+                 "http://viaf.org/viaf/305306689"]),
+            set(uris))
+
+
+    

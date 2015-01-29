@@ -196,14 +196,21 @@ class OCLCLinkedData(object):
 
     @classmethod
     def creator_names(cls, graph, field_name='creator'):
+        names = []
+        uris = []
         for book in cls.books(graph):
             values = book.get(field_name, [])
             for creator_uri in ldq.values(
                 ldq.restrict_to_language(values, 'en')):
-                for obj in cls.internal_lookup(graph, creator_uri):
-                    for fieldname in ('name', 'schema:name'):
-                        for name in ldq.values(obj.get(fieldname, [])):
-                            yield name
+                internal_results = cls.internal_lookup(graph, creator_uri)
+                if internal_results:
+                    for obj in internal_results:
+                        for fieldname in ('name', 'schema:name'):
+                            for name in ldq.values(obj.get(fieldname, [])):
+                                names.append(name)
+                else:
+                    uris.append(creator_uri)
+        return names, uris
                
     @classmethod
     def graph(cls, raw_data):

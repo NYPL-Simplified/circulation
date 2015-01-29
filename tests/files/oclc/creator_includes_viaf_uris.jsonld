@@ -1,0 +1,59 @@
+{
+  "@graph" : [ {
+    "@id" : "http://experiment.worldcat.org/entity/work/data/1401160532.jsonld",
+    "inDataset" : "http://purl.oclc.org/dataset/WorldCat/Works",
+    "about" : "http://worldcat.org/entity/work/id/1401160532"
+  }, {
+    "@id" : "http://worldcat.org/entity/work/id/1401160532",
+    "@type" : [ "schema:CreativeWork", "schema:Book" ],
+    "inDataset" : "http://purl.oclc.org/dataset/xwc",
+    "about" : [ "http://id.loc.gov/authorities/subjects/sh85089141", "http://id.worldcat.org/fast/952743", "http://id.loc.gov/authorities/subjects/sh85029047", "http://id.loc.gov/authorities/subjects/sh85029114", "http://id.worldcat.org/fast/1031172", "http://id.worldcat.org/fast/870088", "http://id.worldcat.org/fast/1424936", "http://viaf.org/viaf/305306689", "http://id.loc.gov/authorities/names/n2013058227", "http://id.loc.gov/authorities/subjects/sh85029113", "http://id.worldcat.org/fast/1204616" ],
+    "creator" : [ "http://id.loc.gov/authorities/names/n2013058227", "http://viaf.org/viaf/221233754", "http://viaf.org/viaf/305306689" ],
+    "description" : [ {
+      "@language" : "en",
+      "@value" : "January 1988. Martin Pistorius, aged twelve, fell inexplicably sick. First he lost his voice and stopped eating. Then he slept constantly and shunned human contact. Doctors were mystified. Within eighteen months he was mute and wheelchair-bound. Martin's parents were told an unknown degenerative disease left him with the mind of a baby and less than two years to live. Martin was moved to care centers for severely disabled children. The stress and heartache shook his parents' marriage and their family to the core. Their boy was gone. Or so they thought. \"Ghost Boy \"is the heart-wrenching story of one boy's return to life through the power of love and faith. In these pages, readers see a parent's resilience, the consequences of misdiagnosis, abuse at the hands of cruel caretakers, and the unthinkable duration of Martin's mental alertness betrayed by his lifeless body. We also see a life reclaimed, a business created, and a new love kindled."
+    }, "January 1988. Martin Pistorius, aged twelve, fell inexplicably sick. First he lost his voice and stopped eating. Then he slept constantly and shunned human contact. Doctors were mystified. Within eighteen months he was mute and wheelchair-bound. Martin's parents were told an unknown degenerative disease left him with the mind of a baby and less than two years to live. Martin was moved to care centers for severely disabled children. The stress and heartache shook his parents' marriage and their family to the core. Their boy was gone. Or so they thought. \"Ghost Boy \"is the heart-wrenching story of one boy's return to life through the power of love and faith. In these pages, readers see a parent's resilience, the consequences of misdiagnosis, abuse at the hands of cruel caretakers, and the unthinkable duration of Martin's mental alertness betrayed by his lifeless body. We also see a life reclaimed, a business created, and a new love kindled." ],
+    "genre" : [ {
+      "@language" : "en",
+      "@value" : "Electronic books"
+    }, {
+      "@language" : "en",
+      "@value" : "Anecdotes"
+    }, "Anecdotes", {
+      "@language" : "en",
+      "@value" : "Biography"
+    }, "Biography" ],
+    "name" : [ {
+      "@language" : "en",
+      "@value" : "Ghost boy : the miraculous escape of a misdiagnosed boy trapped inside his own body"
+    }, "Ghost boy : the miraculous escape of a misdiagnosed boy trapped inside his own body" ],
+    "workExample" : [ "http://www.worldcat.org/oclc/858975348", "http://www.worldcat.org/oclc/861754852" ]
+  } ],
+  "@context" : {
+    "inDataset" : {
+      "@id" : "http://rdfs.org/ns/void#inDataset",
+      "@type" : "@id"
+    },
+    "about" : {
+      "@id" : "http://schema.org/about",
+      "@type" : "@id"
+    },
+    "creator" : {
+      "@id" : "http://schema.org/creator",
+      "@type" : "@id"
+    },
+    "name" : "http://schema.org/name",
+    "description" : "http://schema.org/description",
+    "genre" : "http://schema.org/genre",
+    "workExample" : {
+      "@id" : "http://schema.org/workExample",
+      "@type" : "@id"
+    },
+    "schema" : "http://schema.org/",
+    "library" : "http://purl.org/library/",
+    "void" : "http://rdfs.org/ns/void#",
+    "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "pto" : "http://www.productontology.org/id/",
+    "dcte" : "http://purl.org/dc/terms/"
+  }
+}
