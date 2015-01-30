@@ -179,23 +179,6 @@ class NYTBestSellerListTitle(object):
         edition = self.to_edition(_db)
         return custom_list.add_entry(edition, added=self.bestsellers_date)
 
-    def primary_author_name(self, author_name):
-        """From a NYT name that may contain multiple people, extract just the
-        first author name.
-
-        TODO: VIAF recognizes "D.H. Lawrence" but not "DH Lawrence".
-        NYT commonly formats names like "DH Lawrence".
-
-        TODO: When the author is "Ryan and Josh Shook" I really have no clue
-        what to do.
-        """
-        for splitter in (' with ', ' and '):
-            if splitter in author_name:
-                author_name = author_name.split(splitter)[0]
-        author_name = author_name.split(", ")[0]
-
-        return author_name
-
     def find_sort_name(self, _db):
         """Do whatever it takes to find a sortable author name for this book.
         
@@ -213,43 +196,6 @@ class NYTBestSellerListTitle(object):
         calculate_presentation().
         """
 
-        working_display_name = self.primary_author_name(self.author)
-
-        contributors = _db.query(Contributor).filter(
-            Contributor.display_name==working_display_name).filter(
-                Contributor.name != None).all()
-        sort_name = None
-        if contributors:
-            # We already have a Contributor with this display name and
-            # a canonicalized name. Use that name.
-            sort_name = contributors[0].name
-
-        if not sort_name:
-            # Looking in the database didn't work. Let's ask OCLC
-            # Linked Data about this ISBN and see if it gives us an
-            # author.
-            oclc_client = OCLCLinkedData(_db)
-            sort_name = self.sort_name_from_oclc_linked_data(
-                _db, oclc_client, working_display_name,
-                self.primary_identifier_type, self.primary_isbn13)
-
-        if not sort_name:
-            # Nope. Let's ask VIAF about "Paula Hawkins" see what it
-            # says.
-            #viaf_client = VIAFClient(_db)
-            viaf_client = None
-            #sort_name = self.sort_name_from_viaf(
-            #    _db, viaf_client, working_display_name)
-            
-        if not sort_name:
-            # That didn't work either. Let's just convert the display
-            # name to a sort name and hope for the best.
-            sort_name = None
-            if sort_name is None:
-                sort_name = display_name_to_sort_name(working_display_name)
-                print "FAILURE on %s, going with %s" % (
-                    working_display_name, sort_name)
-        return sort_name
 
     @classmethod
     def sort_name_from_oclc_linked_data(
