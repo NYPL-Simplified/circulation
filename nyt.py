@@ -19,6 +19,7 @@ from model import (
     Edition,
     Identifier,
     Representation,
+    Resource,
 )
 
 class NYTAPI(object):
@@ -66,7 +67,17 @@ class NYTBestSellerAPI(NYTAPI):
     def list_of_lists(self, max_age=LIST_OF_LISTS_MAX_AGE):
         return self.request(self.LIST_NAMES_URL, max_age=max_age)
 
+    def list_info(self, list_name):
+        list_of_lists = self.list_of_lists()
+        list_info = [x for x in list_of_lists['results']
+                     if x['list_name_encoded'] == list_name]
+        if not list_info:
+            raise ValueError("No such list: %s" % list_name)
+        return list_info[0]
+
     def best_seller_list(self, list_info):
+        if isinstance(list_info, basestring):
+            list_info = self.list_info(list_info)
         name = list_info['list_name_encoded']
         data = self.request(
             self.LIST_URL % name, max_age=self.LIST_MAX_AGE)
@@ -87,9 +98,9 @@ class NYTBestSellerList(list):
             try:
                 item = NYTBestSellerListTitle(li_data)
             except ValueError, e:
-                # Should only happen when the book has no ISBN, which...
+                # Should only happen when the book has no identifier, which...
                 # should never happen.
-                print "ERROR: No ISBN in %r" % li_data
+                print "ERROR: No identifier for %r" % li_data
                 item = None
             if item:
                 self.append(item)
@@ -148,27 +159,18 @@ class NYTBestSellerListTitle(object):
         if len(details) > 0:
             for i in (
                     'publisher', 'description', 'primary_isbn10',
-                    'primary_isbn13', 'title', 'author'):
+                    'primary_isbn13', 'title'):
                 value = details[0].get(i, None)
                 if value == 'None':
                     value = None
                 setattr(self, i, value)
 
+        # Don't call the display name of the author 'author'; it's
+        # confusing.
+        self.display_author = details[0].get('author', None)
+
         if not self.primary_isbn10 and not self.primary_isbn13:
             raise ValueError("Book has no identifier")
-    
-        if self.primary_isbn13:
-            if isbnlib.is_isbn13(self.primary_isbn13):
-                self.primary_identifier_type = Identifier.ISBN
-            else:
-                self.primary_identifier_type = Identifier.ASIN
-        else:
-            if isbnlib.is_isbn10(self.primary_isbn10):
-                self.primary_isbn13 = isbnlib.to_isbn13(self.primary_isbn10)
-                self.primary_identifier_type = Identifier.ISBN
-            else:
-                self.primary_isbn13 = self.primary_isbn10
-                self.primary_identifier_type = Identifier.ASIN
 
     def to_custom_list_item(self, custom_list):
         _db = Session.object_session(custom_list)        
@@ -190,7 +192,7 @@ class NYTBestSellerListTitle(object):
 
         """
         contributors = _db.query(Contributor).filter(
-            Contributor.display_name==self.author).filter(
+            Contributor.display_name==self.display_author).filter(
                 Contributor.name != None).all()
         if contributors:
             return contributors[0].name
@@ -203,7 +205,7 @@ class NYTBestSellerListTitle(object):
         identifier = self.primary_isbn13 or self.primary_isbn10
         if not identifier:
             return None
-        self.primary_identifier = Identifier.from_asin(_db, identifier)
+        self.primary_identifier, ignore = Identifier.from_asin(_db, identifier)
         data_source = DataSource.lookup(_db, DataSource.NYT)
 
         edition, was_new = Edition.for_foreign_id(
@@ -225,9 +227,10 @@ class NYTBestSellerListTitle(object):
         if self.published_date:
             edition.published = self.published_date
 
-        if edition.author != self.author:
+        if edition.author != self.display_author:
             edition.permanent_work_id = None
-            edition.author = self.author
+            edition.author = self.display_author
+        if not edition.sort_author:
             edition.sort_author = self.find_sort_name(_db)
         # If find_sort_name returned a sort_name, we can calculate a
         # permanent work ID for this Edition, and be done with it.
@@ -236,6 +239,14 @@ class NYTBestSellerListTitle(object):
         # the canonicalized author name for this book.
         if edition.sort_author:
             edition.calculate_permanent_work_id()
+
+        # Set or update the description.
+        description, ignore = get_one_or_create(
+            _db, Resource, rel=Resource.DESCRIPTION,
+            data_source=data_source,
+            identifier=self.primary_identifier)
+        description.content = self.description
+        description.media_type = "text/plain"
 
         print "%s - %s - %s" % (edition.title, edition.author, edition.sort_author)
         return edition

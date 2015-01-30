@@ -650,7 +650,7 @@ class Identifier(Base):
             equivalents = defaultdict(lambda : defaultdict(list))
             for id in original_working_set:
                 # Every identifier is unshakeably equivalent to itself.
-                equivalents[id][id].append((1, 1000000))
+                equivalents[id][id] = (1, 1000000)
             return (working_set, set(), set(), equivalents)
 
         if not working_set:
@@ -752,7 +752,10 @@ class Identifier(Base):
         if not equivalents[input_id][output_id]:
             equivalents[input_id][output_id] = (strength, votes)
         else:
-            old_strength, old_votes = equivalents[input_id][output_id]
+            try:
+                old_strength, old_votes = equivalents[input_id][output_id]
+            except Exception, e:
+                set_trace()
             total_strength = (old_strength * old_votes) + (strength * votes)
             total_votes = (old_votes + votes)
             new_strength = total_strength / total_votes
