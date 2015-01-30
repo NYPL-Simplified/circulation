@@ -20,9 +20,6 @@ from model import (
     Identifier,
     Representation,
 )
-from util import MetadataSimilarity
-from util.personal_names import display_name_to_sort_name
-from oclc import OCLCLinkedData
 
 class NYTAPI(object):
 
@@ -86,14 +83,13 @@ class NYTBestSellerList(list):
         self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
         self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
         self.foreign_identifier = list_info['list_name_encoded']
-        print "I expect %s results and find %s" % (
-            json_data['num_results'], len(json_data['results']))
         for li_data in json_data.get('results', []):
             try:
                 item = NYTBestSellerListTitle(li_data)
             except ValueError, e:
                 # Should only happen when the book has no ISBN, which...
                 # should never happen.
+                print "ERROR: No ISBN in %r" % li_data
                 item = None
             if item:
                 self.append(item)
@@ -157,6 +153,9 @@ class NYTBestSellerListTitle(object):
                 if value == 'None':
                     value = None
                 setattr(self, i, value)
+
+        if not self.primary_isbn10 and not self.primary_isbn13:
+            raise ValueError("Book has no identifier")
     
         if self.primary_isbn13:
             if isbnlib.is_isbn13(self.primary_isbn13):
@@ -164,15 +163,12 @@ class NYTBestSellerListTitle(object):
             else:
                 self.primary_identifier_type = Identifier.ASIN
         else:
-                if not self.primary_isbn10:
-                    raise ValueError("No ISBN for book")
-                if isbnlib.is_isbn10(self.primary_isbn10):
-                    self.primary_isbn13 = isbnlib.to_isbn13(self.primary_isbn10)
-                    self.primary_identifier_type = Identifier.ISBN
-                else:
-                    self.primary_isbn13 = self.primary_isbn10
-                    self.primary_identifier_type = Identifier.ASIN
-
+            if isbnlib.is_isbn10(self.primary_isbn10):
+                self.primary_isbn13 = isbnlib.to_isbn13(self.primary_isbn10)
+                self.primary_identifier_type = Identifier.ISBN
+            else:
+                self.primary_isbn13 = self.primary_isbn10
+                self.primary_identifier_type = Identifier.ASIN
 
     def to_custom_list_item(self, custom_list):
         _db = Session.object_session(custom_list)        
@@ -180,71 +176,26 @@ class NYTBestSellerListTitle(object):
         return custom_list.add_entry(edition, added=self.bestsellers_date)
 
     def find_sort_name(self, _db):
-        """Do whatever it takes to find a sortable author name for this book.
+        """Find the sort name for this book's author, assuming it's easy.
+
+        'Easy' means we already have an established sort name for a
+        Contributor with this exact display name.
         
-        self.author is a name like "Paula Hawkins". That's fine for
-        edition.author, but to calculate permanent work ID we need
-        to set edition.sort_author to "Hawkins, Paula".
-        
-        We don't want to call calculate_presentation(), because we
-        don't have confidence that we can find the *right* person
-        named "Paula Hawkins".
+        If it's not easy, this will be taken care of later with a call to
+        the metadata wrangler's author canonicalization service.
 
-        But all people with the same name have the same
-        canonicalized name, so if we can find *someone* with this
-        name we can set edition.sort_author directly and not bother with
-        calculate_presentation().
+        If we have a copy of this book in our collection (the only
+        time a NYT bestseller list item is relevant), this will
+        probably be easy.
+
         """
-
-
-    @classmethod
-    def sort_name_from_oclc_linked_data(
-            self, _db, oclc_client, display_name, primary_identifier_type,
-            primary_identifier):
-        """Try to find an author sort name for this book from
-        OCLC Linked Data.
-        """
-        def comparable_name(s):
-            return s.replace(",", "").replace(".", "")
-
-        test_working_display_name = comparable_name(display_name)
-
-        if primary_identifier_type != Identifier.ISBN:
-            # We have no way of telling OCLC Linked Data which book
-            # we're talking about. Don't bother.
-            return None
-
-        identifier, ignore = Identifier.for_foreign_id(
-            _db, primary_identifier_type, primary_identifier)
-        try:
-            works = list(oclc_client.oclc_works_for_isbn(identifier))
-        except IOError, e:
-            works = []
-        shortest_candidate = None
-        for work in works:
-            graph = oclc_client.graph(work)
-            # TODO: Sometimes the creator graph includes VIAF
-            # numbers. We should store these and use them
-            # in preference to doing a name-based lookup.
-            for field_name in ('creator', 'contributor'):
-                for name in oclc_client.creator_names(graph, field_name):
-                    if name.endswith(','):
-                        name = name[:-1]
-                    test_name = comparable_name(name)
-                    sim = MetadataSimilarity.title_similarity(
-                        test_name, test_working_display_name)
-                    if sim > 0.6:
-                        if (not shortest_candidate 
-                            or len(name) < len(shortest_candidate)):
-                            shortest_candidate = name
-        return shortest_candidate
-
-    def sort_name_from_viaf(self, viaf_client, display_name):
-        #viaf, display_name, family_name, sort_name, wikipedia_name = (
-        #        viaf_client.lookup_by_name(None, display_name))
-        #return sort_name
+        contributors = _db.query(Contributor).filter(
+            Contributor.display_name==self.author).filter(
+                Contributor.name != None).all()
+        if contributors:
+            return contributors[0].name
         return None
-        
+       
     def to_edition(self, _db):
         """Create or update a Simplified Edition object for this NYTBestSeller
         title.
@@ -271,12 +222,16 @@ class NYTBestSellerListTitle(object):
             edition.published = self.published_date
 
         edition.author = self.author
-        sort_name = self.find_sort_name(_db)
-        edition.sort_author = sort_name
+        edition.sort_author = self.find_sort_name(_db)
+        # If find_sort_name returned a sort_name, we can calculate a
+        # permanent work ID for this Edition, and be done with it.
+        #
+        # Otherwise, we'll have to ask the metadata wrangler to find
+        # the canonicalized author name for this book.
+        if edition.sort_author:
+            edition.calculate_permanent_work_id()
 
-        print "%s - %s" % (edition.title, edition.sort_author)
-        print "-" * 80
-        edition.calculate_permanent_work_id()
+        print "%s - %s - %s" % (edition.title, edition.author, edition.sort_author)
         return edition
 
 if __name__ == '__main__':
