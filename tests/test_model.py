@@ -129,6 +129,26 @@ class TestIdentifier(DatabaseTest):
         eq_(None, identifier)
         eq_(False, was_new)
 
+    def test_from_asin(self):
+        isbn10 = '1449358063'
+        isbn13 = '9781449358068'
+        asin = 'B0088IYM3C'
+        
+        i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
+        i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
+        i_asin, new3 = Identifier.from_asin(self._db, asin)
+
+        # The two ISBNs are equivalent, so they got turned into the same
+        # Identifier, using the ISBN13.
+        eq_(i_isbn10, i_isbn13)
+        eq_(Identifier.ISBN, i_isbn10.type)
+        eq_(isbn13, i_isbn10.identifier)
+        eq_(True, new1)
+        eq_(False, new2)
+
+        eq_(Identifier.ASIN, i_asin.type)
+        eq_(asin, i_asin.identifier)
+
     def test_urn(self):
         # ISBN identifiers use the ISBN URN scheme.
         identifier, ignore = Identifier.for_foreign_id(

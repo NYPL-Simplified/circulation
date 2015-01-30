@@ -509,6 +509,24 @@ class Identifier(Base):
     )
 
     @classmethod
+    def from_asin(cls, _db, asin, autocreate=True):
+        """Turn an ASIN-like string into an Identifier.
+
+        If the string is an ISBN10 or ISBN13, the Identifier will be
+        of type ISBN and the value will be the equivalent ISBN13.
+
+        Otherwise the Identifier will be of type ASIN and the value will
+        be the value of `asin`.
+        """
+        if isbnlib.is_isbn10(asin):
+            asin = isbnlib.to_isbn13(asin)
+        if isbnlib.is_isbn13(asin):
+            type = cls.ISBN
+        else:
+            type = cls.ASIN
+        return cls.for_foreign_id(_db, type, asin, autocreate)
+
+    @classmethod
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""

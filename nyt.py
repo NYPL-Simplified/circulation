@@ -200,29 +200,35 @@ class NYTBestSellerListTitle(object):
         """Create or update a Simplified Edition object for this NYTBestSeller
         title.
        """
-        if not self.primary_isbn13:
+        identifier = self.primary_isbn13 or self.primary_isbn10
+        if not identifier:
             return None
+        self.primary_identifier = Identifier.from_asin(_db, identifier)
         data_source = DataSource.lookup(_db, DataSource.NYT)
 
         edition, was_new = Edition.for_foreign_id(
-            _db, data_source, Identifier.ISBN, self.primary_isbn13)
+            _db, data_source, self.primary_identifier.type,
+            self.primary_identifier.identifier)
 
-        edition.title = self.title
+        if edition.title != self.title:
+            edition.title = self.title
+            edition.permanent_work_id = None
         edition.publisher = self.publisher
         edition.medium = Edition.BOOK_MEDIUM
         edition.language = 'eng'
 
         for i in self.isbns:
-            other_identifier, ignore = Identifier.for_foreign_id(
-                _db, Identifier.ISBN, i)
+            other_identifier, ignore = Identifier.from_asin(_db, i)
             edition.primary_identifier.equivalent_to(
                 data_source, other_identifier, 1)
 
         if self.published_date:
             edition.published = self.published_date
 
-        edition.author = self.author
-        edition.sort_author = self.find_sort_name(_db)
+        if edition.author != self.author:
+            edition.permanent_work_id = None
+            edition.author = self.author
+            edition.sort_author = self.find_sort_name(_db)
         # If find_sort_name returned a sort_name, we can calculate a
         # permanent work ID for this Edition, and be done with it.
         #
