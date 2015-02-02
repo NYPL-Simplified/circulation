@@ -10,7 +10,7 @@ import urlparse
 import isbnlib
 from sqlalchemy.orm.session import Session
 
-from core.model import (
+from model import (
     get_one_or_create,
     Contributor,
     CustomList,
@@ -51,10 +51,11 @@ class BibliocommonsAPI(BibliocommonsBase):
 
     def request(self, path, max_age=LIST_MAX_AGE, identifier=None,
                 do_get=None):
-        if not path.startswith("/"):
-            path = "/" + path
         if not path.startswith(self.BASE_URL):
+            if not path.startswith("/"):
+                path = "/" + path
             url = self.BASE_URL + path
+
         joiner = '?'
         if '?' in url:
             joiner = '&'

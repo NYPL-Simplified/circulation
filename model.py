@@ -248,6 +248,7 @@ class DataSource(Base):
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
+    NYT = "New York Times"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -331,6 +332,7 @@ class DataSource(Base):
                 (cls.CONTENT_CAFE, False, None, None),
                 (cls.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID, None),
                 (cls.MANUAL, False, None, None),
+                (cls.NYT, False, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -507,6 +509,25 @@ class Identifier(Base):
     )
 
     @classmethod
+    def from_asin(cls, _db, asin, autocreate=True):
+        """Turn an ASIN-like string into an Identifier.
+
+        If the string is an ISBN10 or ISBN13, the Identifier will be
+        of type ISBN and the value will be the equivalent ISBN13.
+
+        Otherwise the Identifier will be of type ASIN and the value will
+        be the value of `asin`.
+        """
+        asin = asin.strip()
+        if isbnlib.is_isbn10(asin):
+            asin = isbnlib.to_isbn13(asin)
+        if isbnlib.is_isbn13(asin):
+            type = cls.ISBN
+        else:
+            type = cls.ASIN
+        return cls.for_foreign_id(_db, type, asin, autocreate)
+
+    @classmethod
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
@@ -630,7 +651,7 @@ class Identifier(Base):
             equivalents = defaultdict(lambda : defaultdict(list))
             for id in original_working_set:
                 # Every identifier is unshakeably equivalent to itself.
-                equivalents[id][id].append((1, 1000000))
+                equivalents[id][id] = (1, 1000000)
             return (working_set, set(), set(), equivalents)
 
         if not working_set:
@@ -732,7 +753,10 @@ class Identifier(Base):
         if not equivalents[input_id][output_id]:
             equivalents[input_id][output_id] = (strength, votes)
         else:
-            old_strength, old_votes = equivalents[input_id][output_id]
+            try:
+                old_strength, old_votes = equivalents[input_id][output_id]
+            except Exception, e:
+                set_trace()
             total_strength = (old_strength * old_votes) + (strength * votes)
             total_votes = (old_votes + votes)
             new_strength = total_strength / total_votes
@@ -1813,6 +1837,12 @@ class Edition(Base):
             title, author, medium)
 
     def calculate_presentation(self, debug=False):
+
+        # Calling calculate_presentation() on NYT data will actually
+        # destroy the presentation, so don't do anything.
+        if self.data_source.name == DataSource.NYT:
+            return
+            
         if not self.sort_title:
             self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []
@@ -3437,13 +3467,12 @@ class WorkFeed(object):
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"
 
-    def __init__(self, lane, languages, order_by=None,
+    def __init__(self, languages, order_by=None,
                  sort_ascending=True,
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
         self.languages = languages
-        self.lane = lane
         if not order_by:
             order_by = []
         elif not isinstance(order_by, list):
@@ -3465,14 +3494,22 @@ class WorkFeed(object):
 
         self.availability = availability
 
+    def base_query(self, _db):
+        """A query that will return every work that should go in this feed.
+
+        Subject to language and availability settings.
+
+        This may be filtered down further.
+        """
+        # By default, return every Work in the entire database.
+        query = Work.feed_query(_db, self.languages, self.availability)
+
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
-        """A page of works."""
+        """Turn the base query into a query that retrieves a particular page 
+        of works.
+        """
 
-        if self.lane:
-            query = self.lane.works(self.languages, availability=self.availability)
-        else:
-            query = Work.feed_query(_db, self.languages, self.availability)
-
+        query = self.base_query(_db)
         primary_order_field = self.order_by[0]
         if last_edition_seen:
             # Only find records that show up after the last one seen.
@@ -3507,6 +3544,63 @@ class WorkFeed(object):
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
         return query
+
+class LaneFeed(WorkFeed):
+
+    """A WorkFeed where all the works come from a predefined lane."""
+
+    def __init__(self, lane, *args, **kwargs):
+        self.lane = lane
+        super(LaneFeed, self).__init__(*args, **kwargs)
+
+    def base_query(self, _db):
+        return self.lane.works(self.languages, availability=self.availability)
+
+
+class CustomListFeed(WorkFeed):
+
+    """A WorkFeed where all the works come from one or more custom lists."""
+
+    def __init__(self, custom_lists, languages, on_list_as_of=None, 
+                 **kwargs):
+        self.custom_lists = custom_lists
+        self.on_list_as_of = on_list_as_of
+        super(CustomListFeed, self).__init__(languages, **kwargs)
+
+    def base_query(self, _db):
+
+        # TODO: The simplest way to do this is two queries, but it can
+        # be optimized to one if it becomes a problem.
+
+        # First, find all works in one of the given lists which also
+        # have a permanent work ID.
+        custom_list_ids = [x.id for x in self.custom_lists]
+        q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
+            CustomListEntry.list_id.in_(custom_list_ids)).filter(
+                Edition.permanent_work_id != None)
+        q = q.options(joinedload(CustomListEntry.edition))
+
+        # By default, we only consider books currently on the list.
+        on_list_clause = CustomListEntry.removed == None
+
+        if self.on_list_as_of:
+            # In this case, it's okay for the list to have been
+            # removed from the list, so long as it was removed after
+            # the given point. This is for e.g. recent best-sellers.
+            on_list_clause = or_(
+                on_list_clause,
+                CustomListEntry.removed >= self.on_list_as_of)
+
+        q = q.filter(on_list_clause)
+        permanent_work_ids = set([x.edition.permanent_work_id for x in q])
+
+        # Now the second query. Find all works where the primary edition's
+        # permanent work ID is in the big list of IDs we got earlier.
+        q = Work.feed_query(_db, self.languages, self.availability)
+        q = q.join(Work.primary_edition).filter(
+            Edition.permanent_work_id.in_(permanent_work_ids))
+        return q
+
 
 class LicensePool(Base):
 

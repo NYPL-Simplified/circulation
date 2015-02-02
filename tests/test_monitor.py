@@ -79,8 +79,8 @@ class TestPresentationReadyMonitor(DatabaseTest):
             "Provider 1", self.gutenberg, self.oclc)
         monitor = PresentationReadyMonitor(self._db, [success])
         monitor.make_batch_presentation_ready([self.work])
-        eq_(True, self.work.presentation_ready)
         eq_(None, self.work.presentation_ready_exception)
+        eq_(True, self.work.presentation_ready)
 
     def test_make_batch_presentation_ready_sets_exception_on_failure(self):
         success = AlwaysSuccessfulCoverageProvider(

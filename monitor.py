@@ -88,12 +88,17 @@ class PresentationReadyMonitor(Monitor):
                 failures = self.prepare(work)
             except Exception, e:
                 exception = str(e)
-            if failures not in (None, True):
+            if failures and failures not in (None, True):
                 if isinstance(failures, list):
                     # This is a list of providers that failed.
-                    provider_names = ", ".join(
-                        [x.service_name for x in failures])
-                    exception = "Provider(s) failed: %s" % provider_names
+                    if len(failures):
+                        provider_names = ", ".join(
+                            [x.service_name for x in failures])
+                        exception = "Provider(s) failed: %s" % provider_names
+                    else:
+                        # Just kidding, the list is empty, there were
+                        # no failures.
+                        pass
                 else:
                     exception = str(failures)
             if exception:
