@@ -154,6 +154,29 @@ class DatabaseTest(object):
 
         return pool
 
+    def _customlist(self, foreign_identifier=None, 
+                    name=None,
+                    data_source_name=DataSource.NYT, num_items=1):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        foreign_identifier = foreign_identifier or self._str
+        now = datetime.utcnow()
+        customlist, ignore = get_one_or_create(
+            self._db, CustomList,
+            create_method_kwargs=dict(
+                created=now,
+                updated=now,
+                name=name or self._str,
+                description=self._str,
+                ),
+            data_source=data_source,
+            foreign_identifier=foreign_identifier
+        )
+        for i in range(num_items):
+            edition, ignore = self._edition(
+                data_source_name, title="Item %s" % i, author="Author %s" % i)
+            edition.permanent_work_id="Permanent work ID %s" % i
+        customlist.add_entry(edition, "Annotation %s" % i, added=now)
+
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every edition it tried
     to cover.
