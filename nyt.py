@@ -248,7 +248,6 @@ class NYTBestSellerListTitle(object):
         description.content = self.description
         description.media_type = "text/plain"
 
-        print "%s - %s - %s" % (edition.title, edition.author, edition.sort_author)
         return edition
 
 if __name__ == '__main__':
@@ -258,6 +257,8 @@ if __name__ == '__main__':
     names = api.list_of_lists()
     for l in names['results']:
         best = api.best_seller_list(l)
-        best.to_customlist(db)
         for item in best:
-            item.to_edition(db)
+            data = [item.title.encode("utf8"),
+                    item.display_author.encode("utf8"),
+                    item.primary_isbn13.encode("utf8")]
+            print "\t".join(data)

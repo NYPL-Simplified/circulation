@@ -518,6 +518,7 @@ class Identifier(Base):
         Otherwise the Identifier will be of type ASIN and the value will
         be the value of `asin`.
         """
+        asin = asin.strip()
         if isbnlib.is_isbn10(asin):
             asin = isbnlib.to_isbn13(asin)
         if isbnlib.is_isbn13(asin):
