@@ -5,6 +5,7 @@ from model import (
     Base,
     Contributor,
     CoverageRecord,
+    CustomList,
     DataSource,
     Genre,
     LicensePool,
@@ -64,7 +65,7 @@ class DatabaseTest(object):
     def _edition(self, data_source_name=DataSource.GUTENBERG,
                     identifier_type=Identifier.GUTENBERG_ID,
                     with_license_pool=False, with_open_access_download=False,
-                    title=None, language=None, authors=None):
+                    title=None, language="eng", authors=None):
         id = self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
@@ -156,7 +157,7 @@ class DatabaseTest(object):
 
     def _customlist(self, foreign_identifier=None, 
                     name=None,
-                    data_source_name=DataSource.NYT, num_items=1):
+                    data_source_name=DataSource.NYT, num_entries=1):
         data_source = DataSource.lookup(self._db, data_source_name)
         foreign_identifier = foreign_identifier or self._str
         now = datetime.utcnow()
@@ -171,11 +172,14 @@ class DatabaseTest(object):
             data_source=data_source,
             foreign_identifier=foreign_identifier
         )
-        for i in range(num_items):
-            edition, ignore = self._edition(
-                data_source_name, title="Item %s" % i, author="Author %s" % i)
+        editions = []
+        for i in range(num_entries):
+            edition = self._edition(
+                data_source_name, title="Item %s" % i)
             edition.permanent_work_id="Permanent work ID %s" % i
-        customlist.add_entry(edition, "Annotation %s" % i, added=now)
+            customlist.add_entry(edition, "Annotation %s" % i, added=now)
+            editions.append(edition)
+        return customlist, editions
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every edition it tried

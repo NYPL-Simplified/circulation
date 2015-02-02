@@ -19,6 +19,7 @@ from model import (
     CirculationEvent,
     Contributor,
     CoverageRecord,
+    CustomListFeed,
     DataSource,
     Genre,
     Lane,
@@ -1363,3 +1364,77 @@ class TestWorkFeed(DatabaseTest):
         
         # The feed is empty.
         eq_([], q.all())
+
+class TestCustomList(DatabaseTest):
+
+    def test_only_matching_work_ids_are_included(self):
+
+        # Two works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+
+        # A custom list.
+        custom_list, editions = self._customlist(num_entries=2)
+        
+        # One of the works has the same permanent work ID as one of the
+        # editions on the list.
+        w1.primary_edition.permanent_work_id = editions[0].permanent_work_id
+
+        # The other work has a totally different permanent work ID.
+        w2.primary_edition.permanent_work_id = "totally different work id"
+
+        # Now create a custom list feed.
+        feed = CustomListFeed([custom_list], ["eng"])
+
+        # There is one match -- the work whose permament work ID overlaps
+        # with a permanent work ID on the custom list.
+        [match] = feed.base_query(self._db).all()
+        eq_(w1, match)
+
+
+    def test_feed_consolidates_multiple_lists(self):
+
+        # Two works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+
+        # Two custom lists.
+        customlist1, [edition1] = self._customlist(num_entries=1)
+        customlist2, [edition2] = self._customlist(num_entries=1)
+        
+        # Each work is on one list.
+        w1.primary_edition.permanent_work_id = edition1.permanent_work_id
+        w2.primary_edition.permanent_work_id = edition2.permanent_work_id
+
+        # Now create a custom list feed with both lists.
+        feed = CustomListFeed([customlist1, customlist2], ["eng"])
+
+        # Both works match.
+        matches = set(feed.base_query(self._db).all())
+        eq_(matches, set([w1, w2]))
+
+    def test_feed_excludes_works_no_longer_on_list(self):
+        # One work.
+        work = self._work(with_license_pool=True)
+
+        # One custom list.
+        customlist, [edition] = self._customlist(num_entries=1)
+
+        # When the work is on the list, it shows up.
+        work.primary_edition.permanent_work_id = edition.permanent_work_id
+        feed = CustomListFeed([customlist], ["eng"])
+        eq_([work], feed.base_query(self._db).all())
+
+        # ... But let's say the work was removed yesterday.
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        [list_entry] = customlist.entries
+        list_entry.removed = yesterday
+
+        # Now it no longer shows up.
+        eq_([], feed.base_query(self._db).all())
+
+        # But if we restrict the list to items present on the list in
+        # the past 3 days, it shows up again.
+        three_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=3)
+        feed = CustomListFeed([customlist], ["eng"], three_days_ago)
+        eq_([work], feed.base_query(self._db).all())

@@ -3561,39 +3561,42 @@ class CustomListFeed(WorkFeed):
 
     """A WorkFeed where all the works come from one or more custom lists."""
 
-    def __init__(self, custom_lists, removed_after=None):
+    def __init__(self, custom_lists, languages, removed_from_list_after=None, 
+                 **kwargs):
         self.custom_lists = custom_lists
-        self.removed_from_list_after = self.removed_after
+        self.removed_from_list_after = removed_from_list_after
+        super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
 
         # TODO: The simplest way to do this is two queries, but it can
-        # be optimized to one. As long as the lists don't get huge, it
-        # should be okay.
+        # be optimized to one if it becomes a problem.
 
         # First, find all appropriate works in this list. They must
         # be in the given list and they must have a permanent work ID.
         custom_list_ids = [x.id for x in self.custom_lists]
-        q = self._db.query(CustomListEntry).filter(
-            CustomListEntry.customlist_id.in_(custom_list_ids)).filter(
-                CustomListEntry.permanent_work_id != None)
+        q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
+            CustomListEntry.list_id.in_(custom_list_ids)).filter(
+                Edition.permanent_work_id != None)
+        q = q.options(joinedload(CustomListEntry.edition))
 
         # By default, we only consider books currently on the list.
         on_list_clause = CustomListEntry.removed == None
 
-        if self.removed_after:
+        if self.removed_from_list_after:
             # In this case, it's okay for the list to have been
             # removed from the list, so long as it was removed after
             # the given point. This is for e.g. recent best-sellers.
             on_list_clause = or_(
-                on_list_clause, CustomListEntry.removed > self.removed_after)
+                on_list_clause,
+                CustomListEntry.removed > self.removed_from_list_after)
 
         q = q.filter(on_list_clause)
-        permanent_work_ids = set([x.permanent_work_id for x in q])
+        permanent_work_ids = set([x.edition.permanent_work_id for x in q])
 
         # Now the second query. Find all works where the primary edition's
         # permanent work ID is in this list.
-        q = Work.feed_query(self._db, languages, availability)
+        q = Work.feed_query(_db, self.languages, self.availability)
         q = q.join(Work.primary_edition).filter(
             Edition.permanent_work_id.in_(permanent_work_ids))
         return q
