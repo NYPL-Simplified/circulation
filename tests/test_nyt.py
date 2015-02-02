@@ -40,6 +40,7 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
         list_data = self.sample_json("list_%s.json" % name)
         return self._make_list(list_info, list_data)
 
+
 class NYTBestSellerAPITest(DatabaseTest):
 
     def setup(self):
@@ -108,6 +109,23 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
                      if x.edition.title=='THE GIRL ON THE TRAIN'][0]
         eq_(datetime.datetime(2015, 1, 17), list_entry.added)
 
+        eq_(False, any([x.removed for x in custom.entries]))
+        eq_(20, len(custom.entries))
+
+        # Now replace this list's entries with the entries from a
+        # different list. We wouldn't do this in real life, but it's
+        # a convenient way to change the contents of a list.
+        other_nyt_list = l = self.api.best_seller_list('hardcover-fiction')
+        other_nyt_list.update_custom_list(custom)
+
+        # The CustomList now contains elements from both NYT lists.
+        eq_(40, len(custom.entries))
+
+        # But all the old entries have had their 'removed' dates set
+        # to the date the other list was updated.
+        removed_dates = [x.removed for x in custom.entries if x.removed]
+        eq_(20, len(removed_dates))
+        eq_(True, all([x == other_nyt_list.updated for x in removed_dates]))
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 

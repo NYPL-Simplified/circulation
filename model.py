@@ -3467,13 +3467,12 @@ class WorkFeed(object):
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"
 
-    def __init__(self, lane, languages, order_by=None,
+    def __init__(self, languages, order_by=None,
                  sort_ascending=True,
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
         self.languages = languages
-        self.lane = lane
         if not order_by:
             order_by = []
         elif not isinstance(order_by, list):
@@ -3495,14 +3494,22 @@ class WorkFeed(object):
 
         self.availability = availability
 
+    def base_query(self):
+        """A query that will return every work that should go in this feed.
+
+        Subject to language and availability settings.
+
+        This may be filtered down further.
+        """
+        # By default, return every Work in the entire database.
+        query = Work.feed_query(_db, self.languages, self.availability)
+
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
-        """A page of works."""
+        """Turn the base query into a query that retrieves a particular page 
+        of works.
+        """
 
-        if self.lane:
-            query = self.lane.works(self.languages, availability=self.availability)
-        else:
-            query = Work.feed_query(_db, self.languages, self.availability)
-
+        query = self.base_query()
         primary_order_field = self.order_by[0]
         if last_edition_seen:
             # Only find records that show up after the last one seen.
@@ -3537,6 +3544,18 @@ class WorkFeed(object):
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
         return query
+
+class LaneFeed(WorkFeed):
+
+    """A WorkFeed where all the works come from a predefined lane."""
+
+    def __init__(self, lane, *args, **kwargs):
+        self.lane = lane
+        super(LaneFeed, self).__init__(*args, **kwargs)
+
+    def base_query(self):
+        return self.lane.works(self.languages, availability=self.availability)
+
 
 class LicensePool(Base):
 

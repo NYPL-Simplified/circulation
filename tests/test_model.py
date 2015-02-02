@@ -28,6 +28,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    LaneFeed,
     WorkFeed,
     Identifier,
     Edition,
@@ -1244,7 +1245,7 @@ class TestWorkFeed(DatabaseTest):
             Classifier.AUDIENCE_ADULT)
 
     def test_setup(self):
-        by_author = WorkFeed(self.fantasy_lane, "eng",
+        by_author = LaneFeed(self.fantasy_lane, "eng",
                              order_by=Edition.sort_author)
 
         eq_(["eng"], by_author.languages)
@@ -1252,7 +1253,7 @@ class TestWorkFeed(DatabaseTest):
         eq_([Edition.sort_author, Edition.sort_title, Work.id],
             by_author.order_by)
 
-        by_title = WorkFeed(self.fantasy_lane, ["eng", "spa"],
+        by_title = LaneFeed(self.fantasy_lane, ["eng", "spa"],
                             order_by=[Edition.sort_title])
         eq_(["eng", "spa"], by_title.languages)
         eq_([Edition.sort_title, Edition.sort_author, Work.id],
@@ -1281,13 +1282,13 @@ class TestWorkFeed(DatabaseTest):
         eq_("Author, Another", w4.sort_author)
 
         # Order them by title, and everything's fine.
-        feed = WorkFeed(self.fantasy_lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(self.fantasy_lane, language, order_by=Edition.sort_title)
         eq_("title", feed.active_facet)
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
         eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
 
         # Order them by author, and they're secondarily ordered by title.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         eq_("author", feed.active_facet)
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
         eq_([w3], feed.page_query(self._db, w1, 10).all())
@@ -1313,12 +1314,12 @@ class TestWorkFeed(DatabaseTest):
                         with_license_pool=True)
 
         # Order them by author, and everything's fine.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
         eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
 
         # Order them by title, and they're secondarily ordered by author.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_title)
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
         eq_([w3], feed.page_query(self._db, w1, 10).all())
 
@@ -1341,7 +1342,7 @@ class TestWorkFeed(DatabaseTest):
             for i in range(4)]
 
         # WorkFeed orders them by the ID of their Editions.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         query = feed.page_query(self._db, None, 10)
         eq_([w1, w2, w3, w4], query.all())
 
@@ -1356,7 +1357,7 @@ class TestWorkFeed(DatabaseTest):
         work = self._work()
         lane = self.fantasy_lane
         language = "eng"
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         # Let's exclude the only work.
         q = feed.page_query(self._db, None, 10, Work.title != work.title)
         
