@@ -3561,10 +3561,10 @@ class CustomListFeed(WorkFeed):
 
     """A WorkFeed where all the works come from one or more custom lists."""
 
-    def __init__(self, custom_lists, languages, removed_from_list_after=None, 
+    def __init__(self, custom_lists, languages, on_list_as_of=None, 
                  **kwargs):
         self.custom_lists = custom_lists
-        self.removed_from_list_after = removed_from_list_after
+        self.on_list_as_of = on_list_as_of
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
@@ -3572,8 +3572,8 @@ class CustomListFeed(WorkFeed):
         # TODO: The simplest way to do this is two queries, but it can
         # be optimized to one if it becomes a problem.
 
-        # First, find all appropriate works in this list. They must
-        # be in the given list and they must have a permanent work ID.
+        # First, find all works in one of the given lists which also
+        # have a permanent work ID.
         custom_list_ids = [x.id for x in self.custom_lists]
         q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
             CustomListEntry.list_id.in_(custom_list_ids)).filter(
@@ -3583,13 +3583,13 @@ class CustomListFeed(WorkFeed):
         # By default, we only consider books currently on the list.
         on_list_clause = CustomListEntry.removed == None
 
-        if self.removed_from_list_after:
+        if self.on_list_as_of:
             # In this case, it's okay for the list to have been
             # removed from the list, so long as it was removed after
             # the given point. This is for e.g. recent best-sellers.
             on_list_clause = or_(
                 on_list_clause,
-                CustomListEntry.removed > self.removed_from_list_after)
+                CustomListEntry.removed >= self.on_list_as_of)
 
         q = q.filter(on_list_clause)
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
