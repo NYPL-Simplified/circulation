@@ -3595,7 +3595,7 @@ class CustomListFeed(WorkFeed):
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
 
         # Now the second query. Find all works where the primary edition's
-        # permanent work ID is in this list.
+        # permanent work ID is in the big list of IDs we got earlier.
         q = Work.feed_query(_db, self.languages, self.availability)
         q = q.join(Work.primary_edition).filter(
             Edition.permanent_work_id.in_(permanent_work_ids))
