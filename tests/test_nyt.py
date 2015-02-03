@@ -35,7 +35,7 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
     def update(self, list, date=None):
         if date:
-            filename = "list_%s_%s.json" % (list.foreign_identifier, date)
+            filename = "list_%s_%s.json" % (list.foreign_identifier, self.date_string(date))
         else:
             filename = "list_%s.json" % list.foreign_identifier
         list.update(self.sample_json(filename))
@@ -126,6 +126,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         january_17 = datetime.datetime(2015, 1, 17)
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
+
         eq_(True,
             all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
@@ -138,6 +139,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         # The CustomList now contains elements from both NYT lists.
         eq_(40, len(custom.entries))
+
+    def test_fill_in_history(self):
+        list_name = "espionage"
+        l = self.api.best_seller_list(list_name)
+        self.api.fill_in_history(l)
+        set_trace()
+        
+        # Each 'espionage' best-seller list contains 15 items. Since
+        # we picked two, from consecutive months, there's quite a bit
+        # of overlap, and we end up with 20.
+        eq_(20, len(l))
 
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):

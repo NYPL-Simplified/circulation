@@ -87,17 +87,18 @@ class NYTBestSellerAPI(NYTAPI):
 
     def update(self, list, date=None):
         """Update the given list with data from the given date."""
-        name = list_info['list_name_encoded']    
+        name = list.foreign_identifier
         url = self.LIST_URL % name
         if date:
-            url += "?bestsellers-date=%s" % self.date_string(date)
+            url += "&published-date=%s" % self.date_string(date)
 
         data = self.request(url, max_age=self.LIST_MAX_AGE)
+        json.dump(data, open("list_%s_%s.json" % (name, self.date_string(date)), "w"))
         list.update(data)
 
     def fill_in_history(self, list):
         """Update the given list with current and historical data."""
-        for date in list.all_dates():
+        for date in list.all_dates:
             self.update(list, date)
 
 class NYTBestSellerList(list):
@@ -123,7 +124,10 @@ class NYTBestSellerList(list):
         end = self.created
         while date >= end:
             yield date
-            date = date - self.frequency  
+            if date > end:
+                date = date - self.frequency  
+                if date < end:
+                    yield end
 
     def update(self, json_data):
         """Update the list with information from the given JSON structure."""
@@ -134,10 +138,12 @@ class NYTBestSellerList(list):
                     book.get('primary_isbn13') or book.get('primary_isbn10'))
                 if key in self.items_by_isbn:
                     item = self.items_by_isbn[key]
+                    print "Found: %r" % key
                 else:
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
+                    print "New: %r" % key
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
@@ -145,7 +151,7 @@ class NYTBestSellerList(list):
                 item = None
                 continue
 
-            list_date = NYTAPI.parse_date(li_data['bestsellers_date'])
+            list_date = NYTAPI.parse_date(li_data['published_date'])
             if not item.first_appearance or list_date < item.first_appearance:
                 item.first_appearance = list_date 
             if (not item.most_recent_appearance 
@@ -314,10 +320,11 @@ if __name__ == '__main__':
     db = production_session()
     api = NYTBestSellerAPI(db)
     names = api.list_of_lists()
+    shortest_list = None
     for l in names['results']:
-        best = api.best_seller_list(l)
         for item in best:
             data = [item.title.encode("utf8"),
                     item.display_author.encode("utf8"),
                     item.primary_isbn13.encode("utf8")]
             print "\t".join(data)
+
