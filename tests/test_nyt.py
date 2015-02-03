@@ -101,16 +101,13 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(len(l), len(custom.entries))
         eq_(True, all([isinstance(x, CustomListEntry) 
                        for x in custom.entries]))
-        eq_(True, all([x.removed is None for x in custom.entries]))
 
-        # Do a spot check to verify the date an item was added to
-        # the list.
-        list_entry = [x for x in custom.entries
-                     if x.edition.title=='THE GIRL ON THE TRAIN'][0]
-        eq_(datetime.datetime(2015, 1, 17), list_entry.added)
-
-        eq_(False, any([x.removed for x in custom.entries]))
         eq_(20, len(custom.entries))
+        january_17 = datetime.datetime(2015, 1, 17)
+        eq_(True,
+            all([x.first_appearance == january_17 for x in custom.entries]))
+        eq_(True,
+            all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
@@ -121,11 +118,6 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         # The CustomList now contains elements from both NYT lists.
         eq_(40, len(custom.entries))
 
-        # But all the old entries have had their 'removed' dates set
-        # to the date the other list was updated.
-        removed_dates = [x.removed for x in custom.entries if x.removed]
-        eq_(20, len(removed_dates))
-        eq_(True, all([x == other_nyt_list.updated for x in removed_dates]))
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 

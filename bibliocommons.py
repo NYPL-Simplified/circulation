@@ -160,12 +160,14 @@ class BibliocommonsList(BibliocommonsBase):
         # Add new items to the list.
         for i in self.items:
             list_item, was_new = i.to_custom_list_item(custom_list)
+            list_item.most_recent_apperance = custom_list.updated
             if list_item.edition.id in previous_contents:
                 del previous_contents[edition.id]
 
-        # Mark items no longer on the list as removed.
+        # Remove items no longer on the list.
         for entry in previous_contents.values():
-            entry.removed = self.updated
+            db.delete(entry)
+            custom_list.entries.remove(entry)
 
 class BibliocommonsListItem(BibliocommonsBase):
 

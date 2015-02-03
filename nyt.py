@@ -30,6 +30,10 @@ class NYTAPI(object):
     def parse_date(self, d):
         return datetime.strptime(d, self.DATE_FORMAT)
 
+    @classmethod
+    def date_string(self, d):
+        return d.strftime(self.DATE_FORMAT)
+
 
 class NYTBestSellerAPI(NYTAPI):
     
@@ -75,12 +79,16 @@ class NYTBestSellerAPI(NYTAPI):
             raise ValueError("No such list: %s" % list_name)
         return list_info[0]
 
-    def best_seller_list(self, list_info):
+    def best_seller_list(self, list_info, date=None):
         if isinstance(list_info, basestring):
             list_info = self.list_info(list_info)
         name = list_info['list_name_encoded']
-        data = self.request(
-            self.LIST_URL % name, max_age=self.LIST_MAX_AGE)
+    
+        url = self.LIST_URL % name
+        if date:
+            url += "?bestsellers-date=%s" % self.date_string(date)
+
+        data = self.request(url, max_age=self.LIST_MAX_AGE)
         return self._make_list(list_info, data)
 
     def _make_list(self, list_info, data):
@@ -134,7 +142,7 @@ class NYTBestSellerList(list):
     
         # Add new items to the list.
         for i in self:
-            list_item, was_new = i.to_custom_list_item(custom_list)
+            list_item, was_new = i.to_custom_list_entry(custom_list)
             if list_item.edition.id in previous_contents:
                 del previous_contents[list_item.edition.id]
 
@@ -172,10 +180,11 @@ class NYTBestSellerListTitle(object):
         if not self.primary_isbn10 and not self.primary_isbn13:
             raise ValueError("Book has no identifier")
 
-    def to_custom_list_item(self, custom_list):
+    def to_custom_list_entry(self, custom_list):
         _db = Session.object_session(custom_list)        
         edition = self.to_edition(_db)
-        return custom_list.add_entry(edition, added=self.bestsellers_date)
+        return custom_list.add_entry(
+            edition, first_appearance=self.bestsellers_date)
 
     def find_sort_name(self, _db):
         """Find the sort name for this book's author, assuming it's easy.

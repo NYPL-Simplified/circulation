@@ -3580,18 +3580,12 @@ class CustomListFeed(WorkFeed):
                 Edition.permanent_work_id != None)
         q = q.options(joinedload(CustomListEntry.edition))
 
-        # By default, we only consider books currently on the list.
-        on_list_clause = CustomListEntry.removed == None
-
         if self.on_list_as_of:
-            # In this case, it's okay for the list to have been
-            # removed from the list, so long as it was removed after
-            # the given point. This is for e.g. recent best-sellers.
-            on_list_clause = or_(
-                on_list_clause,
-                CustomListEntry.removed >= self.on_list_as_of)
-
-        q = q.filter(on_list_clause)
+            # The work must have been seen on the given list as
+            # recently as the given date.
+            on_list_clause = (
+                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
+            q = q.filter(on_list_clause)
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
 
         # Now the second query. Find all works where the primary edition's
@@ -4225,16 +4219,18 @@ class CustomList(Base):
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
 
-    def add_entry(self, edition, annotation=None, added=None):
-        added = added or datetime.datetime.utcnow()
+    def add_entry(self, edition, annotation=None, first_appearance=None):
+        first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
         entry, was_new = get_one_or_create(
             _db, CustomListEntry,
             customlist=self, edition=edition,
-            create_method_kwargs=dict(added=added)
+            create_method_kwargs=dict(first_appearance=first_appearance)
         )
+        if (not entry.most_recent_appearance 
+            or entry.most_recent_appearance < first_appearance):
+            entry.most_recent_appearance = first_appearance
         entry.annotation = annotation
-        entry.removed = None
         return entry, was_new
 
 class CustomListEntry(Base):
@@ -4249,8 +4245,8 @@ class CustomListEntry(Base):
     # These two fields are for best-seller lists. Even after a book
     # drops off the list, the fact that it once was on the list is
     # still relevant.
-    added = Column(DateTime, index=True)
-    removed = Column(DateTime, index=True)
+    first_appearance = Column(DateTime, index=True)
+    most_recent_appearance = Column(DateTime, index=True)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
