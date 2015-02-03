@@ -91,6 +91,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(datetime.datetime(2015, 1, 17), title.bestsellers_date)
         eq_(datetime.datetime(2015, 2, 01), title.published_date)
 
+    def test_historical_dates(self):
+        """This list was published 208 times since the start of the API,
+        and we can figure out when.
+        """
+        list_name = "combined-print-and-e-book-fiction"
+        l = self.api.best_seller_list(list_name)
+        dates = list(l.all_dates)
+        eq_(208, len(dates))
+        eq_(l.updated, dates[0])
+        eq_(l.created, dates[-1])
+
     def test_to_customlist(self):
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)

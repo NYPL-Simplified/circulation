@@ -102,6 +102,12 @@ class NYTBestSellerList(list):
         self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
         self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
         self.foreign_identifier = list_info['list_name_encoded']
+        if list_info['updated'] == 'WEEKLY':
+            frequency = 7
+        elif list_info['updated'] == 'MONTHLY':
+            frequency = 30
+        self.frequency = timedelta(frequency)
+
         for li_data in json_data.get('results', []):
             try:
                 item = NYTBestSellerListTitle(li_data)
@@ -112,6 +118,17 @@ class NYTBestSellerList(list):
                 item = None
             if item:
                 self.append(item)
+
+    @property
+    def all_dates(self):
+        """Yield a list of estimated dates when new editions of this list were
+        probably published.
+        """
+        date = self.updated
+        end = self.created
+        while date >= end:
+            yield date
+            date = date - self.frequency
 
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""
