@@ -3784,6 +3784,10 @@ class LicensePool(Base):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         for unassigned in cls.with_no_work(_db):
+            if not unassigned.edition:
+                print "WARN: NO EDITION for %s, cowardly refusing to create work." % (
+                    unassigned.identifier)
+                continue
             etext, new = unassigned.calculate_work()
             a += 1
             print "Created %r" % etext

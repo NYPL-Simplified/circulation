@@ -120,7 +120,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         unset_work_id = dict(work_id=None)
 
         if self.force:
-            self.clear_existing_works()
+            self.clear_existing_works()                  
 
         print "Consolidating works."
         LicensePool.consolidate_works(self.db)
