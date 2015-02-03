@@ -11,6 +11,7 @@ from model import (
     WorkGenre,
 )
 from opds_import import OPDSImportMonitor
+from nyt import NYTBestSellerAPI
 
 class Script(object):
 
@@ -255,6 +256,7 @@ class UpdateNYTBestSellerListsScript(Script):
             # Turn it into a CustomList with entries.
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
+            self._db.commit()
 
         # TODO: If appropriate, call out to the name canonicalization
         # service.

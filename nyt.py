@@ -136,7 +136,7 @@ class NYTBestSellerList(list):
         for i in self:
             list_item, was_new = i.to_custom_list_item(custom_list)
             if list_item.edition.id in previous_contents:
-                del previous_contents[edition.id]
+                del previous_contents[list_item.edition.id]
 
         # Mark items no longer on the list as removed.
         for entry in previous_contents.values():
