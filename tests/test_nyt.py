@@ -126,14 +126,14 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         january_17 = datetime.datetime(2015, 1, 17)
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
-        set_trace()
         eq_(True,
             all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
         # a convenient way to change the contents of a list.
-        other_nyt_list = l = self.api.best_seller_list('hardcover-fiction')
+        other_nyt_list = self.api.best_seller_list('hardcover-fiction')
+        self.api.update(other_nyt_list)
         other_nyt_list.update_custom_list(custom)
 
         # The CustomList now contains elements from both NYT lists.

@@ -175,20 +175,10 @@ class NYTBestSellerList(list):
         the current state of the NYTBestSeller list.
         """
         db = Session.object_session(custom_list)
-
-        previous_contents = {}
-        for entry in custom_list.entries:
-            previous_contents[entry.edition.id] = entry
     
         # Add new items to the list.
         for i in self:
             list_item, was_new = i.to_custom_list_entry(custom_list)
-            if list_item.edition.id in previous_contents:
-                del previous_contents[list_item.edition.id]
-
-        # Mark items no longer on the list as removed.
-        for entry in previous_contents.values():
-            entry.removed = self.updated
 
 class NYTBestSellerListTitle(object):
 
