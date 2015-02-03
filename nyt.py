@@ -100,6 +100,7 @@ class NYTBestSellerAPI(NYTAPI):
         """Update the given list with current and historical data."""
         for date in list.all_dates:
             self.update(list, date)
+            self._db.commit()
 
 class NYTBestSellerList(list):
 
@@ -124,10 +125,11 @@ class NYTBestSellerList(list):
         end = self.created
         while date >= end:
             yield date
-            if date > end:
-                date = date - self.frequency  
-                if date < end:
-                    yield end
+            old_date = date
+            date = date - self.frequency  
+            if old_date > end and date < end:
+                # We overshot the end date.
+                yield end
 
     def update(self, json_data):
         """Update the list with information from the given JSON structure."""
@@ -143,7 +145,7 @@ class NYTBestSellerList(list):
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    print "New: %r" % key
+                    print "New: %r, %s" % (key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
@@ -322,9 +324,10 @@ if __name__ == '__main__':
     names = api.list_of_lists()
     shortest_list = None
     for l in names['results']:
-        for item in best:
-            data = [item.title.encode("utf8"),
-                    item.display_author.encode("utf8"),
-                    item.primary_isbn13.encode("utf8")]
-            print "\t".join(data)
+        apilist = api.best_seller_list(l['list_name_encoded'])
+        api.fill_in_history(apilist)
+        print "Making custom list."
+        apilist.to_customlist(db)
+        print "Done."
+        db.commit()
 
