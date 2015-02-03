@@ -21,37 +21,36 @@ class CirculationPresentationReadyMonitor(Monitor):
 
     BATCH_SIZE = 100
 
-    def __init__(self, metadata_wrangler_url=None, interval_seconds=10*60):
+    def __init__(self, _db, metadata_wrangler_url=None, interval_seconds=10*60):
         metadata_wrangler_url = (
             metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
         super(CirculationPresentationReadyMonitor, self).__init__(
-            "Presentation ready monitor", interval_seconds)
+            _db, "Presentation ready monitor", interval_seconds)
 
-    def run_once(self, _db, start, cutoff):
+    def run_once(self, start, cutoff):
         # First make Works out of any Editions that were created since
         # the last time this monitor ran.
-        LicensePool.consolidate_works(_db)
+        LicensePool.consolidate_works(self._db)
 
         # Now go through the Works that are not presentation ready
         # and ask the metadata wrangler about them.
         batch = []
-        q = _db.query(Work).filter(
+        q = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
             Work.presentation_ready_exception==None).order_by(
                 Work.last_update_time.asc())
         for work in q:
             batch.append(work.primary_edition.primary_identifier)
             if len(batch) >= self.BATCH_SIZE:
-                self.process_batch(_db, batch)
+                self.process_batch(batch)
                 batch = []
 
         if batch:
-            self.process_batch(_db, batch)
+            self.process_batch(batch)
         print "All done."
 
-    def process_batch(self, _db, batch):
-
+    def process_batch(self, batch):
         print "%d batch" % len(batch)
         response = self.lookup.lookup(batch)
         print "Response!"
@@ -63,7 +62,7 @@ class CirculationPresentationReadyMonitor(Monitor):
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise HTTPIntegrationException("Wrong media type: %s" % content_type)
 
-        importer = DetailedOPDSImporter(_db, response.text)
+        importer = DetailedOPDSImporter(self._db, response.text)
         imported, messages_by_id = importer.import_from_feed()
         for edition in imported:
             # We don't hear about a work until the metadata wrangler
@@ -79,4 +78,4 @@ class CirculationPresentationReadyMonitor(Monitor):
                 # this work. We need to record the problem and work
                 # through it manually.
                 edition.work.presentation_ready_exception = message
-        _db.commit()
+        self._db.commit()
