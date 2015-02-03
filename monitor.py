@@ -23,7 +23,7 @@ class CirculationPresentationReadyMonitor(Monitor):
 
     def __init__(self, metadata_wrangler_url=None, interval_seconds=10*60):
         metadata_wrangler_url = (
-            metadata_wrangler_url or os.environ['METADATA_WRANGLER_URL'])
+            metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
         super(CirculationPresentationReadyMonitor, self).__init__(
             "Presentation ready monitor", interval_seconds)

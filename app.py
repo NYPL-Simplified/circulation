@@ -369,6 +369,8 @@ def checkout(data_source, identifier):
 print __name__
 if __name__ == '__main__':
 
+
     debug = True
     host = "0.0.0.0"
-    app.run(debug=debug, host=host)
+    port = int(os.environ['CIRCULATION_WEB_APP_PORT'])
+    app.run(debug=debug, host=host, port=port)
