@@ -80,24 +80,29 @@ class NYTBestSellerAPI(NYTAPI):
         return list_info[0]
 
     def best_seller_list(self, list_info, date=None):
+        """Create (but don't update) a NYTBestSellerList object."""
         if isinstance(list_info, basestring):
             list_info = self.list_info(list_info)
-        name = list_info['list_name_encoded']
-    
+        return NYTBestSellerList(list_info)
+
+    def update(self, list, date=None):
+        """Update the given list with data from the given date."""
+        name = list_info['list_name_encoded']    
         url = self.LIST_URL % name
         if date:
             url += "?bestsellers-date=%s" % self.date_string(date)
 
         data = self.request(url, max_age=self.LIST_MAX_AGE)
-        return self._make_list(list_info, data)
+        list.update(data)
 
-    def _make_list(self, list_info, data):
-        return NYTBestSellerList(list_info, data)
-
+    def fill_in_history(self, list):
+        """Update the given list with current and historical data."""
+        for date in list.all_dates():
+            self.update(list, date)
 
 class NYTBestSellerList(list):
 
-    def __init__(self, list_info, json_data):
+    def __init__(self, list_info):
         self.name = list_info['display_name']
         self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
         self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
@@ -107,17 +112,7 @@ class NYTBestSellerList(list):
         elif list_info['updated'] == 'MONTHLY':
             frequency = 30
         self.frequency = timedelta(frequency)
-
-        for li_data in json_data.get('results', []):
-            try:
-                item = NYTBestSellerListTitle(li_data)
-            except ValueError, e:
-                # Should only happen when the book has no identifier, which...
-                # should never happen.
-                print "ERROR: No identifier for %r" % li_data
-                item = None
-            if item:
-                self.append(item)
+        self.items_by_isbn = dict()
 
     @property
     def all_dates(self):
@@ -128,7 +123,35 @@ class NYTBestSellerList(list):
         end = self.created
         while date >= end:
             yield date
-            date = date - self.frequency
+            date = date - self.frequency  
+
+    def update(self, json_data):
+        """Update the list with information from the given JSON structure."""
+        for li_data in json_data.get('results', []):
+            try:
+                book = li_data['book_details'][0]
+                key = (
+                    book.get('primary_isbn13') or book.get('primary_isbn10'))
+                if key in self.items_by_isbn:
+                    item = self.items_by_isbn[key]
+                else:
+                    item = NYTBestSellerListTitle(li_data)
+                    self.items_by_isbn[key] = item
+                    self.append(item)
+            except ValueError, e:
+                # Should only happen when the book has no identifier, which...
+                # should never happen.
+                print "ERROR: No identifier for %r" % li_data
+                item = None
+                continue
+
+            list_date = NYTAPI.parse_date(li_data['bestsellers_date'])
+            if not item.first_appearance or list_date < item.first_appearance:
+                item.first_appearance = list_date 
+            if (not item.most_recent_appearance 
+                or list_date > item.most_recent_appearance):
+                item.most_recent_appearance = list_date
+
 
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""
@@ -178,6 +201,13 @@ class NYTBestSellerListTitle(object):
                 value = None
             setattr(self, i, value)
 
+        if hasattr(self, 'bestsellers_date'):
+            self.first_appearance = self.bestsellers_date
+            self.most_recent_appearance = self.bestsellers_date
+        else:
+            self.first_appearance = None
+            self.most_recent_appearance = None
+
         self.isbns = [x['isbn13'] for x in data['isbns'] if 'isbn13' in x]
 
         details = data['book_details']
@@ -200,8 +230,21 @@ class NYTBestSellerListTitle(object):
     def to_custom_list_entry(self, custom_list):
         _db = Session.object_session(custom_list)        
         edition = self.to_edition(_db)
-        return custom_list.add_entry(
-            edition, first_appearance=self.bestsellers_date)
+
+        list_entry, is_new = get_one_or_create(
+            _db, CustomListEntry, edition=edition, customlist=custom_list
+        )
+
+        if (not list_entry.first_appearance 
+            or list_entry.first_appearance > self.first_appearance):
+            list_entry.first_appearance = self.first_appearance
+
+        if (not list_entry.most_recent_appearance 
+            or list_entry.most_recent_appearance < list_date):
+            list_entry.most_recent_appearance = self.most_recent_appearance
+        list_entry.annotation = self.description
+
+        return list_entry, is_new
 
     def find_sort_name(self, _db):
         """Find the sort name for this book's author, assuming it's easy.
@@ -223,7 +266,7 @@ class NYTBestSellerListTitle(object):
         if contributors:
             return contributors[0].name
         return None
-       
+
     def to_edition(self, _db):
         """Create or update a Simplified Edition object for this NYTBestSeller
         title.

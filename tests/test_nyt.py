@@ -33,12 +33,12 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
     def list_of_lists(self):
         return self.sample_json("bestseller_list_list.json")
 
-    def best_seller_list(self, list_info):
-        if isinstance(list_info, basestring):
-            list_info = self.list_info(list_info)
-        name = list_info['list_name_encoded']
-        list_data = self.sample_json("list_%s.json" % name)
-        return self._make_list(list_info, list_data)
+    def update(self, list, date=None):
+        if date:
+            filename = "list_%s_%s.json" % (list.foreign_identifier, date)
+        else:
+            filename = "list_%s.json" % list.foreign_identifier
+        list.update(self.sample_json(filename))
 
 
 class NYTBestSellerAPITest(DatabaseTest):
@@ -69,9 +69,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
     """
 
     def test_creation(self):
+        """Just creating a list doesn't add any items to it."""
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         eq_(True, isinstance(l, NYTBestSellerList))
+        eq_(0, len(l))
+
+    def test_update(self):
+        list_name = "combined-print-and-e-book-fiction"
+        l = self.api.best_seller_list(list_name)
+        self.api.update(l)
+
         eq_(20, len(l))
         eq_(True, all([isinstance(x, NYTBestSellerListTitle) for x in l]))
         eq_(datetime.datetime(2011, 2, 13), l.created)
@@ -105,6 +113,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
     def test_to_customlist(self):
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
+        self.api.update(l)
         custom = l.to_customlist(self._db)
         eq_(custom.created, l.created)
         eq_(custom.updated, l.updated)
@@ -117,6 +126,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         january_17 = datetime.datetime(2015, 1, 17)
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
+        set_trace()
         eq_(True,
             all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
