@@ -4,12 +4,14 @@ from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
 from model import (
     production_session,
+    CustomList,
     DataSource,
     Edition,
     LicensePool,
     Work,
     WorkGenre,
 )
+from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from nyt import NYTBestSellerAPI
 
