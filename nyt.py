@@ -234,11 +234,16 @@ class NYTBestSellerListTitle(object):
 
         if (not list_entry.first_appearance 
             or list_entry.first_appearance > self.first_appearance):
+            if list_entry.first_appearance:
+                print "I thought %s first showed up at %s, but then I saw it earlier, at %s!" % (self.title, list_entry.first_appearance, self.first_appearance)
             list_entry.first_appearance = self.first_appearance
 
         if (not list_entry.most_recent_appearance 
-            or list_entry.most_recent_appearance < list_date):
+            or list_entry.most_recent_appearance < self.most_recent_appearance):
+            if list_entry.most_recent_appearance:
+                print "I thought %s most recently showed up at %s, but then I saw it later, at %s!" % (self.title, list_entry.most_recent_appearance, self.most_recent_appearance)
             list_entry.most_recent_appearance = self.most_recent_appearance
+            
         list_entry.annotation = self.description
 
         return list_entry, is_new

@@ -242,10 +242,10 @@ class WorkReclassifierScript(WorkProcessingScript):
             db.commit()
         db.commit()
 
-class NYTBestSellerListScript(Script):
+class NYTBestSellerListsScript(Script):
 
     def __init__(self, include_history=False):
-        super(NYTBestSellerListScript, self).__init__()
+        super(NYTBestSellerListsScript, self).__init__()
         self.include_history = include_history
     
     def run(self):
@@ -255,7 +255,7 @@ class NYTBestSellerListScript(Script):
         names = self.api.list_of_lists()
         for l in names['results']:
             print "Handling list %s" % l['list_name_encoded']
-            best = api.best_seller_list(l)
+            best = self.api.best_seller_list(l)
 
             if self.include_history:
                 self.api.fill_in_history(best)
