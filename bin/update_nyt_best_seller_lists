@@ -11,4 +11,4 @@ from core.scripts import (
 
 include_history = ('history' in sys.argv)
 
-UpdateNYTBestSellerScript(include_history).run()
+UpdateNYTBestSellerListsScript(include_history).run()
