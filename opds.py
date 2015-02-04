@@ -449,7 +449,12 @@ class AcquisitionFeed(OPDSFeed):
                 (Resource.THUMBNAIL_IMAGE, thumbnail_urls)):
             for url in urls:
                 url = URLRewriter.rewrite(url)
-                links.append(E.link(rel=rel, href=url))
+                image_type = "image/png"
+                if url.endswith(".jpeg") or url.endswith(".jpg"):
+                    image_type = "image/jpeg"
+                elif url.endswith(".gif"):
+                    image_type = "image/gif"
+                links.append(E.link(rel=rel, href=url, type=image_type))
            
 
         permalink = self.annotator.permalink_for(active_license_pool)
