@@ -64,7 +64,7 @@ class NYTBestSellerAPI(NYTAPI):
         url += joiner + "api-key=" + self.api_key
         representation, cached = Representation.get(
             self._db, url, data_source=self.source, identifier=identifier,
-            do_get=self.do_get, max_age=max_age, debug=True)
+            do_get=self.do_get, max_age=max_age, debug=True, pause_before=0.1)
         content = json.loads(representation.content)
         return content
 
