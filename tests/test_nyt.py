@@ -33,12 +33,12 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
     def list_of_lists(self):
         return self.sample_json("bestseller_list_list.json")
 
-    def best_seller_list(self, list_info):
-        if isinstance(list_info, basestring):
-            list_info = self.list_info(list_info)
-        name = list_info['list_name_encoded']
-        list_data = self.sample_json("list_%s.json" % name)
-        return self._make_list(list_info, list_data)
+    def update(self, list, date=None):
+        if date:
+            filename = "list_%s_%s.json" % (list.foreign_identifier, self.date_string(date))
+        else:
+            filename = "list_%s.json" % list.foreign_identifier
+        list.update(self.sample_json(filename))
 
 
 class NYTBestSellerAPITest(DatabaseTest):
@@ -69,9 +69,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
     """
 
     def test_creation(self):
+        """Just creating a list doesn't add any items to it."""
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         eq_(True, isinstance(l, NYTBestSellerList))
+        eq_(0, len(l))
+
+    def test_update(self):
+        list_name = "combined-print-and-e-book-fiction"
+        l = self.api.best_seller_list(list_name)
+        self.api.update(l)
+
         eq_(20, len(l))
         eq_(True, all([isinstance(x, NYTBestSellerListTitle) for x in l]))
         eq_(datetime.datetime(2011, 2, 13), l.created)
@@ -91,9 +99,21 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(datetime.datetime(2015, 1, 17), title.bestsellers_date)
         eq_(datetime.datetime(2015, 2, 01), title.published_date)
 
+    def test_historical_dates(self):
+        """This list was published 208 times since the start of the API,
+        and we can figure out when.
+        """
+        list_name = "combined-print-and-e-book-fiction"
+        l = self.api.best_seller_list(list_name)
+        dates = list(l.all_dates)
+        eq_(208, len(dates))
+        eq_(l.updated, dates[0])
+        eq_(l.created, dates[-1])
+
     def test_to_customlist(self):
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
+        self.api.update(l)
         custom = l.to_customlist(self._db)
         eq_(custom.created, l.created)
         eq_(custom.updated, l.updated)
@@ -101,31 +121,36 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(len(l), len(custom.entries))
         eq_(True, all([isinstance(x, CustomListEntry) 
                        for x in custom.entries]))
-        eq_(True, all([x.removed is None for x in custom.entries]))
 
-        # Do a spot check to verify the date an item was added to
-        # the list.
-        list_entry = [x for x in custom.entries
-                     if x.edition.title=='THE GIRL ON THE TRAIN'][0]
-        eq_(datetime.datetime(2015, 1, 17), list_entry.added)
-
-        eq_(False, any([x.removed for x in custom.entries]))
         eq_(20, len(custom.entries))
+        january_17 = datetime.datetime(2015, 1, 17)
+        eq_(True,
+            all([x.first_appearance == january_17 for x in custom.entries]))
+
+        eq_(True,
+            all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
         # a convenient way to change the contents of a list.
-        other_nyt_list = l = self.api.best_seller_list('hardcover-fiction')
+        other_nyt_list = self.api.best_seller_list('hardcover-fiction')
+        self.api.update(other_nyt_list)
         other_nyt_list.update_custom_list(custom)
 
         # The CustomList now contains elements from both NYT lists.
         eq_(40, len(custom.entries))
 
-        # But all the old entries have had their 'removed' dates set
-        # to the date the other list was updated.
-        removed_dates = [x.removed for x in custom.entries if x.removed]
-        eq_(20, len(removed_dates))
-        eq_(True, all([x == other_nyt_list.updated for x in removed_dates]))
+    def test_fill_in_history(self):
+        list_name = "espionage"
+        l = self.api.best_seller_list(list_name)
+        self.api.fill_in_history(l)
+        set_trace()
+        
+        # Each 'espionage' best-seller list contains 15 items. Since
+        # we picked two, from consecutive months, there's quite a bit
+        # of overlap, and we end up with 20.
+        eq_(20, len(l))
+
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 

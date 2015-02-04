@@ -1413,28 +1413,27 @@ class TestCustomList(DatabaseTest):
         matches = set(feed.base_query(self._db).all())
         eq_(matches, set([w1, w2]))
 
-    def test_feed_excludes_works_no_longer_on_list(self):
+    def test_feed_excludes_works_not_seen_on_list_recently(self):
         # One work.
         work = self._work(with_license_pool=True)
 
         # One custom list.
         customlist, [edition] = self._customlist(num_entries=1)
 
-        # When the work is on the list, it shows up.
         work.primary_edition.permanent_work_id = edition.permanent_work_id
-        feed = CustomListFeed([customlist], ["eng"])
+
+        # Create a feed for works whose last appearance on the list
+        # was no more than one day ago.
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        feed = CustomListFeed([customlist], ["eng"],  one_day_ago)
+
+        # The work shows up.
         eq_([work], feed.base_query(self._db).all())
 
-        # ... But let's say the work was removed yesterday.
-        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        # ... But let's say the work was last seen on the list a week ago.
+        one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
         [list_entry] = customlist.entries
-        list_entry.removed = yesterday
+        list_entry.most_recent_appearance = one_week_ago
 
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
-
-        # But if we restrict the list to items present on the list in
-        # the past 3 days, it shows up again.
-        three_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=3)
-        feed = CustomListFeed([customlist], ["eng"], three_days_ago)
-        eq_([work], feed.base_query(self._db).all())

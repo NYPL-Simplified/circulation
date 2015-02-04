@@ -128,8 +128,8 @@ class TestBibliocommonsAPI(DatabaseTest):
         bib_annotations = sorted([x.annotation for x in bib_list])
         custom_annotations = sorted([x.annotation for x in initial_entry_list])
         eq_(bib_annotations, custom_annotations)
-        eq_(True, all([x.added == custom_list.updated for x in initial_entry_list]))
-        eq_(True, all([x.removed is None for x in initial_entry_list]))
+        eq_(True, all([x.first_appearance == custom_list.updated for x in initial_entry_list]))
+        eq_(True, all([x.most_recent_appearance == custom_list.updated for x in initial_entry_list]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
@@ -137,13 +137,11 @@ class TestBibliocommonsAPI(DatabaseTest):
         other_bibliocommons_list = self.api.get_list("379257178")
         other_bibliocommons_list.update_custom_list(custom_list)
 
-        # The CustomList now contains elements from both Bibliocommons lists.
+        # The CustomList now contains only elements from the second list.
         new_entries = list(custom_list.entries)
-        assert (len(new_entries) == len(initial_entry_list)
-                + len(other_bibliocommons_list.items))
+        eq_(len(new_entries), len(other_bibliocommons_list.items))
 
-        # But all the old entries have had their 'removed' dates set
-        # to the date the other list was updated.
-        eq_(True, all([x.removed == other_bibliocommons_list.updated
-                       for x in initial_entry_list]))
+        # All the original entries have been deleted.
+        assert all([x in self._db.deleted for x in initial_entry_list])
+
 

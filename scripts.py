@@ -13,6 +13,7 @@ from model import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from nyt import NYTBestSellerAPI
 
 class Script(object):
 
@@ -121,7 +122,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         unset_work_id = dict(work_id=None)
 
         if self.force:
-            self.clear_existing_works()
+            self.clear_existing_works()                  
 
         print "Consolidating works."
         LicensePool.consolidate_works(self.db)
@@ -241,7 +242,6 @@ class WorkReclassifierScript(WorkProcessingScript):
             db.commit()
         db.commit()
 
-
 class UpdateNYTBestSellerListsScript(Script):
 
     def run(self):
@@ -258,6 +258,7 @@ class UpdateNYTBestSellerListsScript(Script):
             # Turn it into a CustomList with entries.
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
+            self._db.commit()
 
         # TODO: If appropriate, call out to the name canonicalization
         # service.
