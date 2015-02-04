@@ -77,7 +77,7 @@ class BaseOPDSImporter(object):
                 # presentation-ready--it depends on whether we've
                 # talked to the metadata wrangler.
                 if edition.sort_author:
-                    work, ignore = license_pool.calculate_work()
+                    work, ignore = edition.license_pool.calculate_work()
                     work.calculate_presentation()
             elif status_code:
                 messages_by_id[opds_id] = (status_code, message)

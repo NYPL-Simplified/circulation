@@ -93,7 +93,6 @@ class NYTBestSellerAPI(NYTAPI):
             url += "&published-date=%s" % self.date_string(date)
 
         data = self.request(url, max_age=self.LIST_MAX_AGE)
-        json.dump(data, open("list_%s_%s.json" % (name, self.date_string(date)), "w"))
         list.update(data)
 
     def fill_in_history(self, list):
