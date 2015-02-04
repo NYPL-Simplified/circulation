@@ -320,18 +320,3 @@ class NYTBestSellerListTitle(object):
         description.media_type = "text/plain"
 
         return edition
-
-if __name__ == '__main__':
-    from model import production_session
-    db = production_session()
-    api = NYTBestSellerAPI(db)
-    names = api.list_of_lists()
-    shortest_list = None
-    for l in names['results']:
-        apilist = api.best_seller_list(l['list_name_encoded'])
-        api.fill_in_history(apilist)
-        print "Making custom list."
-        apilist.to_customlist(db)
-        print "Done."
-        db.commit()
-

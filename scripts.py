@@ -253,7 +253,7 @@ class NYTBestSellerListsScript(Script):
         self.data_source = DataSource.lookup(self._db, DataSource.NYT)
         # For every best-seller list...
         names = self.api.list_of_lists()
-        for l in names['results']:
+        for l in sorted(names['results']):
             print "Handling list %s" % l['list_name_encoded']
             best = self.api.best_seller_list(l)
 
