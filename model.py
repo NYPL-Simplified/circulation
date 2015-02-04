@@ -1864,6 +1864,8 @@ class Edition(Base):
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
+                if not best_cover.mirrored and not best_cover.scaled:
+                    print "WARN: Best cover for %s (%s) was never mirrored or scaled!" % (self.primary_identifier, best_cover.href)
                 self.set_cover(best_cover)
                 break
 

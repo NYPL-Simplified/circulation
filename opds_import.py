@@ -166,25 +166,12 @@ class BaseOPDSImporter(object):
             # The metadata has not changed since last time
             return identifier, edition, False, status_code, message
 
-        # Remove all existing downloads and images, and descriptions
-        # so as to avoid keeping old stuff around.
         rels = [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
                 Resource.DESCRIPTION]
-        for resource in Identifier.resources_for_identifier_ids(
-                self._db, [identifier.id], rels):
-            self._db.delete(resource)
+        self.destroy_resources(identifier, rels)
 
-        # Associate covers and downloads with the identifier.
-        for rel in [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
-                    Resource.THUMBNAIL_IMAGE]:
-            for link in links_by_rel[rel]:
-                type = link.get('type', None)
-                if type == 'text/html':
-                    # Feedparser fills this in and it's just wrong.
-                    type = None
-                identifier.add_resource(
-                    rel, link['href'], data_source, 
-                    pool, type)
+        download_resources, image_resource = self.set_resources(
+            data_source, identifier, pool, links_by_rel)
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
@@ -206,6 +193,57 @@ class BaseOPDSImporter(object):
         work = pool.calculate_work()
 
         return identifier, edition, edition_was_new, status_code, message
+
+    def destroy_resources(self, identifier, rels):
+        # Remove all existing downloads and images, and descriptions
+        # so as to avoid keeping old stuff around.
+        for resource in Identifier.resources_for_identifier_ids(
+                self._db, [identifier.id], rels):
+            self._db.delete(resource)
+
+    def set_resources(self, data_source, identifier, pool, links):
+        # Associate covers and downloads with the identifier.
+        #
+        # If there is both a full image and a thumbnail, we need
+        # to make sure they're put into the same resource.
+        download_resources = []
+        image_resource = None
+
+        for rel in [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
+                    Resource.THUMBNAIL_IMAGE]:
+            for link in links[rel]:
+                type = link.get('type', None)
+                if type == 'text/html':
+                    # Feedparser fills this in and it's just wrong.
+                    type = None
+                url = link['href']
+                if rel == Resource.OPEN_ACCESS_DOWNLOAD or not image_resource:
+                    resource, was_new = identifier.add_resource(
+                        rel, url, data_source, pool, type)
+                if rel == Resource.OPEN_ACCESS_DOWNLOAD:
+                    download_resources.append(resource)
+                else:
+                    image_resource = resource
+
+                # TODO: Metadata wrangler should include width and
+                # height if possible, and we should pick it up here.
+
+                # The metadata wrangler handles scaling and mirroring
+                # resources, and we will trust what it says.
+                if rel == Resource.IMAGE:
+                    print "Resource %s was mirrored." % url
+                    image_resource.href = url
+                    image_resource.mirrored = True
+                    image_resource.mirrored_path = url
+                    image_resource.mirrored_date = datetime.datetime.utcnow()
+                    image_resource.mirrored_status = 200
+                elif rel == Resource.THUMBNAIL_IMAGE:
+                    print "Resource %s was scaled." % url
+                    image_resource.scaled = True
+                    image_resource.scaled_path = url
+                else:
+                    print "Resource %s was neither scaled nor mirrored." % url
+        return download_resources, image_resource
 
 class DetailedOPDSImporter(BaseOPDSImporter):
 
