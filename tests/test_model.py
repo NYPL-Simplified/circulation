@@ -18,8 +18,8 @@ from sqlalchemy.orm.exc import (
 from model import (
     CirculationEvent,
     Contributor,
-    CoverageProvider,
     CoverageRecord,
+    CustomListFeed,
     DataSource,
     Genre,
     Lane,
@@ -29,6 +29,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    LaneFeed,
     WorkFeed,
     Identifier,
     Edition,
@@ -67,9 +68,11 @@ class TestDataSource(DatabaseTest):
             (DataSource.WEB, True, Identifier.URI),
             (DataSource.AMAZON, False, Identifier.ASIN),
             (DataSource.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID),
+            (DataSource.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID),
             (DataSource.CONTENT_CAFE, False, None),
             (DataSource.MANUAL, False, None),
-            (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID)
+            (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
+            (DataSource.NYT, False, Identifier.ISBN),
         ]
         eq_(set(sources), set(expect))
 
@@ -127,6 +130,26 @@ class TestIdentifier(DatabaseTest):
             self._db, identifier_type, isbn, autocreate=False)
         eq_(None, identifier)
         eq_(False, was_new)
+
+    def test_from_asin(self):
+        isbn10 = '1449358063'
+        isbn13 = '9781449358068'
+        asin = 'B0088IYM3C'
+        
+        i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
+        i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
+        i_asin, new3 = Identifier.from_asin(self._db, asin)
+
+        # The two ISBNs are equivalent, so they got turned into the same
+        # Identifier, using the ISBN13.
+        eq_(i_isbn10, i_isbn13)
+        eq_(Identifier.ISBN, i_isbn10.type)
+        eq_(isbn13, i_isbn10.identifier)
+        eq_(True, new1)
+        eq_(False, new2)
+
+        eq_(Identifier.ASIN, i_asin.type)
+        eq_(asin, i_asin.identifier)
 
     def test_urn(self):
         # ISBN identifiers use the ISBN URN scheme.
@@ -1223,7 +1246,7 @@ class TestWorkFeed(DatabaseTest):
             Classifier.AUDIENCE_ADULT)
 
     def test_setup(self):
-        by_author = WorkFeed(self.fantasy_lane, "eng",
+        by_author = LaneFeed(self.fantasy_lane, "eng",
                              order_by=Edition.sort_author)
 
         eq_(["eng"], by_author.languages)
@@ -1231,7 +1254,7 @@ class TestWorkFeed(DatabaseTest):
         eq_([Edition.sort_author, Edition.sort_title, Work.id],
             by_author.order_by)
 
-        by_title = WorkFeed(self.fantasy_lane, ["eng", "spa"],
+        by_title = LaneFeed(self.fantasy_lane, ["eng", "spa"],
                             order_by=[Edition.sort_title])
         eq_(["eng", "spa"], by_title.languages)
         eq_([Edition.sort_title, Edition.sort_author, Work.id],
@@ -1260,13 +1283,13 @@ class TestWorkFeed(DatabaseTest):
         eq_("Author, Another", w4.sort_author)
 
         # Order them by title, and everything's fine.
-        feed = WorkFeed(self.fantasy_lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(self.fantasy_lane, language, order_by=Edition.sort_title)
         eq_("title", feed.active_facet)
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
         eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
 
         # Order them by author, and they're secondarily ordered by title.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         eq_("author", feed.active_facet)
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
         eq_([w3], feed.page_query(self._db, w1, 10).all())
@@ -1292,12 +1315,12 @@ class TestWorkFeed(DatabaseTest):
                         with_license_pool=True)
 
         # Order them by author, and everything's fine.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
         eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
 
         # Order them by title, and they're secondarily ordered by author.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_title)
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
         eq_([w3], feed.page_query(self._db, w1, 10).all())
 
@@ -1320,7 +1343,7 @@ class TestWorkFeed(DatabaseTest):
             for i in range(4)]
 
         # WorkFeed orders them by the ID of their Editions.
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         query = feed.page_query(self._db, None, 10)
         eq_([w1, w2, w3, w4], query.all())
 
@@ -1335,62 +1358,82 @@ class TestWorkFeed(DatabaseTest):
         work = self._work()
         lane = self.fantasy_lane
         language = "eng"
-        feed = WorkFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
         # Let's exclude the only work.
         q = feed.page_query(self._db, None, 10, Work.title != work.title)
         
         # The feed is empty.
         eq_([], q.all())
 
-class TestCoverageProvider(DatabaseTest):
+class TestCustomList(DatabaseTest):
 
-    class AlwaysSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return True
+    def test_only_matching_work_ids_are_included(self):
 
-    class NeverSuccessful(CoverageProvider):
-        def process_edition(self, edition):
-            return False
+        # Two works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
 
-    def setup(self):
-        super(TestCoverageProvider, self).setup()
-        self.input_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        self.output_source = DataSource.lookup(self._db, DataSource.OCLC)
-        self.edition = self._edition(self.input_source.name)
+        # A custom list.
+        custom_list, editions = self._customlist(num_entries=2)
+        
+        # One of the works has the same permanent work ID as one of the
+        # editions on the list.
+        w1.primary_edition.permanent_work_id = editions[0].permanent_work_id
 
-    def test_always_successful(self):
+        # The other work has a totally different permanent work ID.
+        w2.primary_edition.permanent_work_id = "totally different work id"
 
-        # We start with no CoverageRecords and no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        # Now create a custom list feed.
+        feed = CustomListFeed([custom_list], ["eng"])
 
-        provider = self.AlwaysSuccessful(
-            "Always successful", self.input_source, self.output_source)
-        provider.run()
-
-        # There is now one CoverageRecord
-        [record] = self._db.query(CoverageRecord).all()
-        eq_(self.edition.primary_identifier, record.identifier)
-        eq_(self.output_source, self.output_source)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
+        # There is one match -- the work whose permament work ID overlaps
+        # with a permanent work ID on the custom list.
+        [match] = feed.base_query(self._db).all()
+        eq_(w1, match)
 
 
-    def test_never_successful(self):
+    def test_feed_consolidates_multiple_lists(self):
 
-        # We start with no CoverageRecords and no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        # Two works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
 
-        provider = self.NeverSuccessful(
-            "Never successful", self.input_source, self.output_source)
-        provider.run()
+        # Two custom lists.
+        customlist1, [edition1] = self._customlist(num_entries=1)
+        customlist2, [edition2] = self._customlist(num_entries=1)
+        
+        # Each work is on one list.
+        w1.primary_edition.permanent_work_id = edition1.permanent_work_id
+        w2.primary_edition.permanent_work_id = edition2.permanent_work_id
 
-        # There is still no CoverageRecord
-        eq_([], self._db.query(CoverageRecord).all())
+        # Now create a custom list feed with both lists.
+        feed = CustomListFeed([customlist1, customlist2], ["eng"])
 
-        # But the coverage provider did run, and the timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful", timestamp.service)
+        # Both works match.
+        matches = set(feed.base_query(self._db).all())
+        eq_(matches, set([w1, w2]))
+
+    def test_feed_excludes_works_not_seen_on_list_recently(self):
+        # One work.
+        work = self._work(with_license_pool=True)
+
+        # One custom list.
+        customlist, [edition] = self._customlist(num_entries=1)
+
+        work.primary_edition.permanent_work_id = edition.permanent_work_id
+
+        # Create a feed for works whose last appearance on the list
+        # was no more than one day ago.
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        feed = CustomListFeed([customlist], ["eng"],  one_day_ago)
+
+        # The work shows up.
+        eq_([work], feed.base_query(self._db).all())
+
+        # ... But let's say the work was last seen on the list a week ago.
+        one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+        [list_entry] = customlist.entries
+        list_entry.most_recent_appearance = one_week_ago
+
+        # Now it no longer shows up.
+        eq_([], feed.base_query(self._db).all())

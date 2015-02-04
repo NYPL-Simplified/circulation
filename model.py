@@ -245,8 +245,10 @@ class DataSource(Base):
     CONTENT_CAFE = "Content Cafe"
     VIAF = "Content Cafe"
     GUTENBERG_COVER_GENERATOR = "Project Gutenberg eBook Cover Generator"
+    GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
+    NYT = "New York Times"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -282,6 +284,9 @@ class DataSource(Base):
 
     # One DataSource can have many associated Credentials.
     credentials = relationship("Credential", backref="data_source")
+
+    # One DataSource can generate many CustomLists.
+    custom_lists = relationship("CustomList", backref="data_source")
 
     @classmethod
     def lookup(cls, _db, name):
@@ -321,11 +326,13 @@ class DataSource(Base):
                 (cls.AMAZON, False, Identifier.ASIN, None),
                 (cls.OPEN_LIBRARY, False, Identifier.OPEN_LIBRARY_ID, None),
                 (cls.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID, None),
+                (cls.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID, None),
                 (cls.WEB, True, Identifier.URI, None),
                 (cls.VIAF, False, None, None),
                 (cls.CONTENT_CAFE, False, None, None),
                 (cls.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID, None),
                 (cls.MANUAL, False, None, None),
+                (cls.NYT, False, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -502,6 +509,25 @@ class Identifier(Base):
     )
 
     @classmethod
+    def from_asin(cls, _db, asin, autocreate=True):
+        """Turn an ASIN-like string into an Identifier.
+
+        If the string is an ISBN10 or ISBN13, the Identifier will be
+        of type ISBN and the value will be the equivalent ISBN13.
+
+        Otherwise the Identifier will be of type ASIN and the value will
+        be the value of `asin`.
+        """
+        asin = asin.strip()
+        if isbnlib.is_isbn10(asin):
+            asin = isbnlib.to_isbn13(asin)
+        if isbnlib.is_isbn13(asin):
+            type = cls.ISBN
+        else:
+            type = cls.ASIN
+        return cls.for_foreign_id(_db, type, asin, autocreate)
+
+    @classmethod
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
@@ -625,7 +651,7 @@ class Identifier(Base):
             equivalents = defaultdict(lambda : defaultdict(list))
             for id in original_working_set:
                 # Every identifier is unshakeably equivalent to itself.
-                equivalents[id][id].append((1, 1000000))
+                equivalents[id][id] = (1, 1000000)
             return (working_set, set(), set(), equivalents)
 
         if not working_set:
@@ -727,7 +753,10 @@ class Identifier(Base):
         if not equivalents[input_id][output_id]:
             equivalents[input_id][output_id] = (strength, votes)
         else:
-            old_strength, old_votes = equivalents[input_id][output_id]
+            try:
+                old_strength, old_votes = equivalents[input_id][output_id]
+            except Exception, e:
+                set_trace()
             total_strength = (old_strength * old_votes) + (strength * votes)
             total_votes = (old_votes + votes)
             new_strength = total_strength / total_votes
@@ -1107,6 +1136,7 @@ class Contributor(Base):
     # Types of roles
     AUTHOR_ROLE = "Author"
     PRIMARY_AUTHOR_ROLE = "Primary Author"
+    PERFORMER_ROLE = "Performer"
     UNKNOWN_ROLE = 'Unknown'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
@@ -1409,6 +1439,9 @@ class Edition(Base):
     # A Edition may be the primary identifier associated with its
     # Work, or it may not be.
     is_primary_for_work = Column(Boolean, index=True, default=False)
+
+    # An Edition may show up in many CustomListEntries.
+    custom_list_entries = relationship("CustomListEntry", backref="edition")
 
     title = Column(Unicode, index=True)
     sort_title = Column(Unicode, index=True)
@@ -1756,7 +1789,7 @@ class Edition(Base):
         best = None
         for l in Identifier.resources_for_identifier_ids(
                 _db, [self.primary_identifier.id], open_access):
-            if l.media_type.startswith("application/epub+zip"):
+            if l.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
                 # we'll keep looking in hopes of finding a better one.
@@ -1790,13 +1823,13 @@ class Edition(Base):
         author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.AUDIO_MEDIUM:
-            medium = "audio"
+            medium = "book"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
         elif self.medium == Edition.PERIODICAL_MEIDUM:
-            medium = "ebook"
+            medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
@@ -1804,6 +1837,12 @@ class Edition(Base):
             title, author, medium)
 
     def calculate_presentation(self, debug=False):
+
+        # Calling calculate_presentation() on NYT data will actually
+        # destroy the presentation, so don't do anything.
+        if self.data_source.name == DataSource.NYT:
+            return
+            
         if not self.sort_title:
             self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []
@@ -1825,6 +1864,8 @@ class Edition(Base):
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
+                if not best_cover.mirrored and not best_cover.scaled:
+                    print "WARN: Best cover for %s (%s) was never mirrored or scaled!" % (self.primary_identifier, best_cover.href)
                 self.set_cover(best_cover)
                 break
 
@@ -2657,6 +2698,8 @@ class Resource(Base):
     # How many votes is the initial quality estimate worth?
     ESTIMATED_QUALITY_WEIGHT = 5
 
+    EPUB_MEDIA_TYPE = "application/epub+zip"
+
     id = Column(Integer, primary_key=True)
 
     # A Resource is always associated with some Identifier.
@@ -2750,7 +2793,8 @@ class Resource(Base):
         scaled_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/Overdrive",
         original_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/3M",
         scaled_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/3M",
-        gutenberg_illustrated_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated"
+        gutenberg_illustrated_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated",
+        open_access_books="https://s3.amazonaws.com/oabooks.nypl.org",
     )
 
     @property
@@ -3425,13 +3469,12 @@ class WorkFeed(object):
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"
 
-    def __init__(self, lane, languages, order_by=None,
+    def __init__(self, languages, order_by=None,
                  sort_ascending=True,
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
         self.languages = languages
-        self.lane = lane
         if not order_by:
             order_by = []
         elif not isinstance(order_by, list):
@@ -3453,14 +3496,22 @@ class WorkFeed(object):
 
         self.availability = availability
 
+    def base_query(self, _db):
+        """A query that will return every work that should go in this feed.
+
+        Subject to language and availability settings.
+
+        This may be filtered down further.
+        """
+        # By default, return every Work in the entire database.
+        query = Work.feed_query(_db, self.languages, self.availability)
+
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
-        """A page of works."""
+        """Turn the base query into a query that retrieves a particular page 
+        of works.
+        """
 
-        if self.lane:
-            query = self.lane.works(self.languages, availability=self.availability)
-        else:
-            query = Work.feed_query(_db, self.languages, self.availability)
-
+        query = self.base_query(_db)
         primary_order_field = self.order_by[0]
         if last_edition_seen:
             # Only find records that show up after the last one seen.
@@ -3495,6 +3546,57 @@ class WorkFeed(object):
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
         return query
+
+class LaneFeed(WorkFeed):
+
+    """A WorkFeed where all the works come from a predefined lane."""
+
+    def __init__(self, lane, *args, **kwargs):
+        self.lane = lane
+        super(LaneFeed, self).__init__(*args, **kwargs)
+
+    def base_query(self, _db):
+        return self.lane.works(self.languages, availability=self.availability)
+
+
+class CustomListFeed(WorkFeed):
+
+    """A WorkFeed where all the works come from one or more custom lists."""
+
+    def __init__(self, custom_lists, languages, on_list_as_of=None, 
+                 **kwargs):
+        self.custom_lists = custom_lists
+        self.on_list_as_of = on_list_as_of
+        super(CustomListFeed, self).__init__(languages, **kwargs)
+
+    def base_query(self, _db):
+
+        # TODO: The simplest way to do this is two queries, but it can
+        # be optimized to one if it becomes a problem.
+
+        # First, find all works in one of the given lists which also
+        # have a permanent work ID.
+        custom_list_ids = [x.id for x in self.custom_lists]
+        q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
+            CustomListEntry.list_id.in_(custom_list_ids)).filter(
+                Edition.permanent_work_id != None)
+        q = q.options(joinedload(CustomListEntry.edition))
+
+        if self.on_list_as_of:
+            # The work must have been seen on the given list as
+            # recently as the given date.
+            on_list_clause = (
+                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
+            q = q.filter(on_list_clause)
+        permanent_work_ids = set([x.edition.permanent_work_id for x in q])
+
+        # Now the second query. Find all works where the primary edition's
+        # permanent work ID is in the big list of IDs we got earlier.
+        q = Work.feed_query(_db, self.languages, self.availability)
+        q = q.join(Work.primary_edition).filter(
+            Edition.permanent_work_id.in_(permanent_work_ids))
+        return q
+
 
 class LicensePool(Base):
 
@@ -3562,7 +3664,6 @@ class LicensePool(Base):
                     foreign_id_type
                 )
             )
-
  
         # Get the Identifier.
         identifier, ignore = Identifier.for_foreign_id(
@@ -3679,6 +3780,10 @@ class LicensePool(Base):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         for unassigned in cls.with_no_work(_db):
+            if not unassigned.edition:
+                print "WARN: NO EDITION for %s, cowardly refusing to create work." % (
+                    unassigned.identifier)
+                continue
             etext, new = unassigned.calculate_work()
             a += 1
             print "Created %r" % etext
@@ -4095,100 +4200,55 @@ class Representation(Base):
         return cls.simple_http_get(url, headers, **kwargs)
 
 
-class CoverageProvider(object):
+class CustomList(Base):
+    """A custom grouping of Editions."""
 
-    """Run Editions from one DataSource (the input DataSource) through
-    code associated with another DataSource (the output
-    DataSource). If the code returns success, add a CoverageRecord for
-    the Edition and the output DataSource, so that the record
-    doesn't get processed next time.
-    """
+    __tablename__ = 'customlists'
+    id = Column(Integer, primary_key=True)
+    primary_language = Column(Unicode, index=True)
+    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
+    foreign_identifier = Column(Unicode, index=True)
+    name = Column(Unicode)
+    description = Column(Unicode)
+    created = Column(DateTime, index=True)
+    updated = Column(DateTime, index=True)
+    responsible_party = Column(Unicode)
 
-    def __init__(self, service_name, input_sources, output_source,
-                 workset_size=100):
-        self._db = Session.object_session(output_source)
-        self.service_name = service_name
-        self.input_sources = input_sources
-        self.output_source = output_source
-        self.workset_size = workset_size
+    entries = relationship(
+        "CustomListEntry", backref="customlist", lazy="joined")
 
-    @property
-    def editions_that_need_coverage(self):
-        return Edition.missing_coverage_from(
-            self._db, self.input_sources, self.output_source).order_by(func.random())
+    # TODO: It should be possible to associate a CustomList with an
+    # audience, fiction status, and subject, but there is no planned
+    # interface for managing this.
 
-    def run(self):
-        remaining = True
-        failures = set([])
-        print "%d records need coverage." % (self.editions_that_need_coverage.count())
-        while remaining:
-            successes = 0
-            if len(failures) >= self.workset_size:
-                raise Exception(
-                    "Number of failures equals workset size, cannot continue.")
-            workset = self.editions_that_need_coverage.limit(
-                self.workset_size)
-            remaining = False
-            for record in workset:
-                if record in failures:
-                    continue
-                remaining = True
-                if self.process_edition(record):
-                    # Success! Now there's coverage! Add a CoverageRecord.
-                    successes += 1
-                    self.add_coverage_record_for(record)
-                else:
-                    failures.add(record)
-            # Commit this workset before moving on to the next one.
-            self.commit_workset()
-            print "Workset processed with %d successes, %d failures." % (
-                successes, len(failures))            
-
-        # Now that we're done, update the timestamp
-        Timestamp.stamp(self._db, self.service_name)
-        self._db.commit()
-
-    def ensure_coverage(self, identifier, force=False):
-        if isinstance(identifier, Identifier):
-            identifier = identifier
-            # NOTE: This assumes that this particular coverage provider
-            # handles identifiers all the way through rather than editions.
-            edition = identifier
-        else:
-            edition = identifier
-            identifier = identifier.primary_identifier
-        coverage_record = get_one(
-            self._db, CoverageRecord,
-            identifier=identifier,
-            data_source=self.output_source,
+    def add_entry(self, edition, annotation=None, first_appearance=None):
+        first_appearance = first_appearance or datetime.datetime.utcnow()
+        _db = Session.object_session(self)
+        entry, was_new = get_one_or_create(
+            _db, CustomListEntry,
+            customlist=self, edition=edition,
+            create_method_kwargs=dict(first_appearance=first_appearance)
         )
-        if force or coverage_record is None:
-            if self.process_edition(edition):
-                coverage_record, ignore = self.add_coverage_record_for(
-                    identifier)
-            else:
-                raise Exception("process_edition() returned false")
-        return coverage_record
+        if (not entry.most_recent_appearance 
+            or entry.most_recent_appearance < first_appearance):
+            entry.most_recent_appearance = first_appearance
+        entry.annotation = annotation
+        return entry, was_new
 
-    def add_coverage_record_for(self, identifier):
-        if isinstance(identifier, Identifier):
-            identifier = identifier
-        else:
-            identifier = identifier.primary_identifier
-        now = datetime.datetime.utcnow()
-        coverage_record, is_new = get_one_or_create(
-            self._db, CoverageRecord,
-            identifier=identifier,
-            data_source=self.output_source,
-        )
-        coverage_record.date = now
-        return coverage_record, is_new
+class CustomListEntry(Base):
 
-    def process_edition(self, edition):
-        raise NotImplementedError()
+    __tablename__ = 'customlistentries'
+    id = Column(Integer, primary_key=True)    
+    
+    list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
+    edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+    annotation = Column(Unicode)
 
-    def commit_workset(self):
-        self._db.commit()
+    # These two fields are for best-seller lists. Even after a book
+    # drops off the list, the fact that it once was on the list is
+    # still relevant.
+    first_appearance = Column(DateTime, index=True)
+    most_recent_appearance = Column(DateTime, index=True)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

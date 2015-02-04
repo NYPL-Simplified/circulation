@@ -11,12 +11,15 @@ from model import (
     WorkGenre,
 )
 from opds_import import OPDSImportMonitor
+from nyt import NYTBestSellerAPI
 
 class Script(object):
 
     @property
     def _db(self):
-        return production_session()
+        if not hasattr(self, "_session"):
+            self._session = production_session()
+        return self._session
 
     @property
     def data_directory(self):
@@ -35,11 +38,21 @@ class RunMonitorScript(Script):
 
     def __init__(self, monitor):
         if callable(monitor):
-            monitor = monitor()
+            monitor = monitor(self._db)
         self.monitor = monitor
 
     def run(self):
-        self.monitor.run(self._db)
+        self.monitor.run()
+
+class RunCoverageProviderScript(Script):
+
+    def __init__(self, provider):
+        if callable(provider):
+            provider = provider(self._db)
+        self.provider = provider
+
+    def run(self):
+        self.provider.run()
 
 class WorkProcessingScript(Script):
 
@@ -107,7 +120,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         unset_work_id = dict(work_id=None)
 
         if self.force:
-            self.clear_existing_works()
+            self.clear_existing_works()                  
 
         print "Consolidating works."
         LicensePool.consolidate_works(self.db)
@@ -122,7 +135,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
         work_records = self.db.query(Edition)
-        if self.identifier_type:
+        if getattr(self, 'identifier_type', None):
             work_records = work_records.join(
                 Identifier).filter(
                     Identifier.type==self.identifier_type)
@@ -137,7 +150,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         work_records.update(unset_work_id, synchronize_session='fetch')
 
         pools = self.db.query(LicensePool)
-        if self.identifier_type:
+        if getattr(self, 'identifier_type', None):
             # Unset the work IDs for those works' LicensePools.
             pools = pools.join(Identifier).filter(
                 Identifier.type==self.identifier_type)
@@ -227,3 +240,23 @@ class WorkReclassifierScript(WorkProcessingScript):
             db.commit()
         db.commit()
 
+class UpdateNYTBestSellerListsScript(Script):
+
+    def run(self):
+        api = NYTBestSellerAPI(self._db)
+
+        data_source = DataSource.lookup(self._db, DataSource.NYT)
+
+        # For every best-seller list...
+        names = api.list_of_lists()
+        for l in names['results']:
+            # Fetch the items in the list.
+            print "Handling list %s" % l['list_name_encoded']
+            best = api.best_seller_list(l)
+            # Turn it into a CustomList with entries.
+            customlist = best.to_customlist(self._db)
+            print "Now %s entries in the list." % len(customlist.entries)
+            self._db.commit()
+
+        # TODO: If appropriate, call out to the name canonicalization
+        # service.
