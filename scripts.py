@@ -4,12 +4,14 @@ from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
 from model import (
     production_session,
+    CustomList,
     DataSource,
     Edition,
     LicensePool,
     Work,
     WorkGenre,
 )
+from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 
 class Script(object):
@@ -239,3 +241,23 @@ class WorkReclassifierScript(WorkProcessingScript):
             db.commit()
         db.commit()
 
+
+class UpdateNYTBestSellerListsScript(Script):
+
+    def run(self):
+        api = NYTBestSellerAPI(self._db)
+
+        data_source = DataSource.lookup(self._db, DataSource.NYT)
+
+        # For every best-seller list...
+        names = api.list_of_lists()
+        for l in names['results']:
+            # Fetch the items in the list.
+            print "Handling list %s" % l['list_name_encoded']
+            best = api.best_seller_list(l)
+            # Turn it into a CustomList with entries.
+            customlist = best.to_customlist(self._db)
+            print "Now %s entries in the list." % len(customlist.entries)
+
+        # TODO: If appropriate, call out to the name canonicalization
+        # service.
