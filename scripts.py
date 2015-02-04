@@ -15,8 +15,8 @@ class CreateWorksForIdentifiersScript(Script):
     with title and author, so that we can calculate a permanent work
     ID.
     """
-    to_check = [Identifier.OVERDRIVE_ID, Identifier.THREEM_ID]
-#                Identifier.GUTENBERG_ID]
+    to_check = [Identifier.OVERDRIVE_ID, Identifier.THREEM_ID,
+                Identifier.GUTENBERG_ID]
     BATCH_SIZE = 1000
 
     def __init__(self, metadata_web_app_url=None):
