@@ -140,9 +140,20 @@ class SessionManager(object):
             Genre.lookup(session, g, autocreate=True)
         session.commit()
 
-def get_one(db, model, **kwargs):
+def get_one(db, model, on_multiple='error', **kwargs):
+    q = db.query(model).filter_by(**kwargs)
     try:
-        return db.query(model).filter_by(**kwargs).one()
+        return q.one()
+    except MultipleResultsFound, e:
+        if on_multiple == 'error':
+            raise e
+        elif on_multiple == 'interchangeable':
+            # These records are interchangeable so we can use
+            # whichever one we want.
+            #
+            # TODO: This may be a sign of a problem somewhere else.
+            q = q.limit(1)
+            return q.one()
     except NoResultFound:
         return None
 

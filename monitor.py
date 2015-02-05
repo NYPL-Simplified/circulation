@@ -44,6 +44,7 @@ class Monitor(object):
             self.timestamp.timestamp = new_timestamp
             self._db.commit()
             if to_sleep > 0:
+                print "Sleeping for %.1f" % to_sleep
                 time.sleep(to_sleep)
             start = new_timestamp
 

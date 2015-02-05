@@ -185,8 +185,16 @@ class NYTBestSellerList(list):
         db = Session.object_session(custom_list)
     
         # Add new items to the list.
+        c = 0
+        import time
+        before = time.time()
         for i in self:
             list_item, was_new = i.to_custom_list_entry(custom_list)
+            c += 1
+            if not c % 100:
+                after = time.time()
+                print "%s %.2f" % (c, after-before)
+                before = after
 
 class NYTBestSellerListTitle(object):
 
@@ -287,6 +295,9 @@ class NYTBestSellerListTitle(object):
         edition.language = 'eng'
 
         for i in self.isbns:
+            if i == identifier:
+                # We already did this one.
+                continue
             other_identifier, ignore = Identifier.from_asin(_db, i)
             edition.primary_identifier.equivalent_to(
                 data_source, other_identifier, 1)
