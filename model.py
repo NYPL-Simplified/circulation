@@ -589,7 +589,8 @@ class Identifier(Base):
             if not (isbnlib.is_isbn10(identifier_string) or
                     isbnlib.is_isbn13(identifier_string)):
                 raise ValueError("%s is not a valid ISBN." % identifier_string)
-            identifier_string = isbnlib.to_isbn13(identifier_string)
+            if isbnlib.is_isbn10(identifier_string):
+                identifier_string = isbnlib.to_isbn13(identifier_string)
         else:
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
@@ -3697,9 +3698,9 @@ class LicensePool(Base):
         hosts the licenses.
         """
         _db = Session.object_session(self)
-        return _db.query(Edition).filter_by(
+        return get_one(_db, Edition,
             data_source=self.data_source,
-            primary_identifier=self.identifier).one()
+            primary_identifier=self.identifier)
 
     @classmethod
     def with_no_work(cls, _db):
@@ -3791,11 +3792,12 @@ class LicensePool(Base):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         for unassigned in cls.with_no_work(_db):
-            if not unassigned.edition:
-                print "WARN: NO EDITION for %s, cowardly refusing to create work." % (
-                    unassigned.identifier)
-                continue
             etext, new = unassigned.calculate_work()
+            if not etext:
+                # We could not create a work for this LicensePool,
+                # most likely because it does not yet have any
+                # associated Edition.
+                continue
             a += 1
             print "Created %r" % etext
             if a and not a % 100:
@@ -3816,6 +3818,23 @@ class LicensePool(Base):
             return self.work, False
 
         primary_edition = self.edition()
+        if not primary_edition:
+            # We don't have any information about the identifier
+            # associated with this LicensePool, so we can't create a work.
+            print "WARN: NO EDITION for %s, cowardly refusing to create work." % (
+                self.identifier)
+
+            return None, False
+
+        if not primary_edition.title or not primary_edition.author:
+            primary_edition.calculate_presentation()
+
+        if not primary_edition.title or not primary_edition.author:
+            print "WARN: NO TITLE/AUTHOR for %s (%s/%s), cowardly refusing to create work." % (
+                self.identifier, primary_edition.title, primary_edition.author)
+            return None, False
+
+        set_trace()
         if not primary_edition.permanent_work_id:
             primary_edition.calculate_permanent_work_id()
 
@@ -3860,8 +3879,8 @@ class LicensePool(Base):
         # associated Editions have changed.
         work.calculate_presentation()
 
-        #if created:
-        #    print "Created %r" % work
+        if created:
+            print "Created %r" % work
         # All done!
         return work, created
 

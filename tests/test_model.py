@@ -183,6 +183,10 @@ class TestIdentifier(DatabaseTest):
         eq_(Identifier.ISBN, isbn_identifier.type)
         eq_("9781449358068", isbn_identifier.identifier)
 
+        isbn_urn = "urn:isbn:9781449358068"
+        isbn_identifier2, ignore = Identifier.parse_urn(self._db, isbn_urn)
+        eq_(isbn_identifier2, isbn_identifier)
+
         # We can parse ordinary http: or https: URLs into URI
         # identifiers.
         http_identifier, ignore = Identifier.parse_urn(

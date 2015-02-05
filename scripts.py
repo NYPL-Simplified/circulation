@@ -242,23 +242,30 @@ class WorkReclassifierScript(WorkProcessingScript):
             db.commit()
         db.commit()
 
-class UpdateNYTBestSellerListsScript(Script):
+class NYTBestSellerListsScript(Script):
 
+    def __init__(self, include_history=False):
+        super(NYTBestSellerListsScript, self).__init__()
+        self.include_history = include_history
+    
     def run(self):
-        api = NYTBestSellerAPI(self._db)
-
-        data_source = DataSource.lookup(self._db, DataSource.NYT)
-
+        self.api = NYTBestSellerAPI(self._db)
+        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
         # For every best-seller list...
-        names = api.list_of_lists()
-        for l in names['results']:
-            # Fetch the items in the list.
+        names = self.api.list_of_lists()
+        for l in sorted(names['results']):
             print "Handling list %s" % l['list_name_encoded']
-            best = api.best_seller_list(l)
-            # Turn it into a CustomList with entries.
+            best = self.api.best_seller_list(l)
+
+            if self.include_history:
+                self.api.fill_in_history(best)
+            else:
+                self.api.update(best)
+
+            # TODO: If appropriate, call out to the name canonicalization
+            # service for any unrecognized author names.
+
+            # Mirror the list to the database.
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
             self._db.commit()
-
-        # TODO: If appropriate, call out to the name canonicalization
-        # service.

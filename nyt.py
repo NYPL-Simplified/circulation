@@ -64,7 +64,7 @@ class NYTBestSellerAPI(NYTAPI):
         url += joiner + "api-key=" + self.api_key
         representation, cached = Representation.get(
             self._db, url, data_source=self.source, identifier=identifier,
-            do_get=self.do_get, max_age=max_age, debug=True)
+            do_get=self.do_get, max_age=max_age, debug=True, pause_before=0.1)
         content = json.loads(representation.content)
         return content
 
@@ -93,7 +93,6 @@ class NYTBestSellerAPI(NYTAPI):
             url += "&published-date=%s" % self.date_string(date)
 
         data = self.request(url, max_age=self.LIST_MAX_AGE)
-        json.dump(data, open("list_%s_%s.json" % (name, self.date_string(date)), "w"))
         list.update(data)
 
     def fill_in_history(self, list):
@@ -243,11 +242,16 @@ class NYTBestSellerListTitle(object):
 
         if (not list_entry.first_appearance 
             or list_entry.first_appearance > self.first_appearance):
+            if list_entry.first_appearance:
+                print "I thought %s first showed up at %s, but then I saw it earlier, at %s!" % (self.title, list_entry.first_appearance, self.first_appearance)
             list_entry.first_appearance = self.first_appearance
 
         if (not list_entry.most_recent_appearance 
-            or list_entry.most_recent_appearance < list_date):
+            or list_entry.most_recent_appearance < self.most_recent_appearance):
+            if list_entry.most_recent_appearance:
+                print "I thought %s most recently showed up at %s, but then I saw it later, at %s!" % (self.title, list_entry.most_recent_appearance, self.most_recent_appearance)
             list_entry.most_recent_appearance = self.most_recent_appearance
+            
         list_entry.annotation = self.description
 
         return list_entry, is_new
@@ -327,18 +331,3 @@ class NYTBestSellerListTitle(object):
         description.media_type = "text/plain"
 
         return edition
-
-if __name__ == '__main__':
-    from model import production_session
-    db = production_session()
-    api = NYTBestSellerAPI(db)
-    names = api.list_of_lists()
-    shortest_list = None
-    for l in names['results']:
-        apilist = api.best_seller_list(l['list_name_encoded'])
-        api.fill_in_history(apilist)
-        print "Making custom list."
-        apilist.to_customlist(db)
-        print "Done."
-        db.commit()
-
