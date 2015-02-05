@@ -1,5 +1,8 @@
 import os
+from sqlalchemy import or_
 from core.model import (
+    Contribution,
+    Edition,
     Identifier,
 )
 from core.scripts import Script
@@ -17,7 +20,7 @@ class CreateWorksForIdentifiersScript(Script):
     """
     to_check = [Identifier.OVERDRIVE_ID, Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID]
-    BATCH_SIZE = 1000
+    BATCH_SIZE = 10
 
     def __init__(self, metadata_web_app_url=None):
         self.metadata_url = (metadata_web_app_url
@@ -25,16 +28,33 @@ class CreateWorksForIdentifiersScript(Script):
         self.lookup = SimplifiedOPDSLookup(self.metadata_url)
 
     def run(self):
-        q = self._db.query(Identifier).filter(
+
+        # We will try to fill in Editions that are missing
+        # title/author and as such have no permanent work ID.
+        #
+        # We will also try to create Editions for Identifiers that
+        # have no Edition.
+
+        either_title_or_author_missing = or_(
+            Edition.title == None,
+            Edition.sort_author == None,
+        )
+        edition_missing_title_or_author = self._db.query(Identifier).join(
+            Identifier.primarily_identifies).filter(
+                either_title_or_author_missing)
+
+        no_edition = self._db.query(Identifier).filter(
             Identifier.primarily_identifies==None).filter(
                 Identifier.type.in_(self.to_check))
-        batch = []
-        print "%d total." % q.count()
-        for i in q:
-            batch.append(i)
-            if len(batch) >= self.BATCH_SIZE:
-                self.process_batch(batch)
-                batch = []
+
+        for q in (edition_missing_title_or_author, no_edition):
+            batch = []
+            print "%d total." % q.count()
+            for i in q:
+                batch.append(i)
+                if len(batch) >= self.BATCH_SIZE:
+                    self.process_batch(batch)
+                    batch = []
 
     def process_batch(self, batch):
         print "%d batch" % len(batch)
@@ -52,3 +72,63 @@ class CreateWorksForIdentifiersScript(Script):
         imported, messages_by_id = importer.import_from_feed()
         print "%d successes, %d failures." % (len(imported), len(messages_by_id))
         self._db.commit()
+
+class MetadataCalculationScript(Script):
+
+    """Force calculate_presentation() to be called on some set of Editions.
+
+    This assumes that the metadata is in already in the database and
+    will fall into place if we just call
+    Edition.calculate_presentation() and Edition.calculate_work() and
+    Work.calculate_presentation().
+
+    Most of these will be data repair scripts that do not need to be run
+    regularly.
+
+    """
+
+    def q(self):
+        raise NotImplementedError()
+
+    def run(self):
+        q = self.q()
+        print "Attempting to repair %d" % q.count()
+
+        success = 0
+        failure = 0
+        also_created_work = 0
+
+        def checkpoint():
+            self._db.commit()
+            print "%d successes, %d failures, %d new works." % (
+                success, failure, also_created_work)
+
+        i = 0
+        for edition in q:
+            edition.calculate_presentation()
+            if edition.sort_author:
+                success += 1
+                work, is_new = edition.license_pool.calculate_work()
+                if work:
+                    work.calculate_presentation()
+                    if is_new:
+                        also_created_work += 1
+            else:
+                failure += 1
+            i += 1
+            if not i % 1000:
+                checkpoint()
+        checkpoint()
+
+class FillInAuthorScript(MetadataCalculationScript):
+    """Fill in Edition.sort_author for Editions that have a list of
+    Contributors, but no .sort_author.
+
+    This is a data repair script that should not need to be run
+    regularly.
+    """
+
+    def q(self):
+        return self._db.query(Edition).join(
+            Edition.contributions).join(Contribution.contributor).filter(
+                Edition.sort_author==None)
