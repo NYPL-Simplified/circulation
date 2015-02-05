@@ -578,7 +578,8 @@ class Identifier(Base):
             if not (isbnlib.is_isbn10(identifier_string) or
                     isbnlib.is_isbn13(identifier_string)):
                 raise ValueError("%s is not a valid ISBN." % identifier_string)
-            identifier_string = isbnlib.to_isbn13(identifier_string)
+            if isbnlib.is_isbn10(identifier_string):
+                identifier_string = isbnlib.to_isbn13(identifier_string)
         else:
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
