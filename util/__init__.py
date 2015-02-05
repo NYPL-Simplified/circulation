@@ -685,6 +685,8 @@ class MetadataSimilarity(object):
     def title_similarity(cls, title1, title2):
         if title1 == title2:
             return 1
+        if title1 == None or title2 == None:
+            return 0
         b1, b2, proportion = cls._word_match_proportion(
             title1, title2, set(['a', 'the', 'an']))
         if not b1.union(b2) in (b1, b2):

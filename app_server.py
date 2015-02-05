@@ -1,4 +1,5 @@
 """Implement logic common to more than one of the Simplified applications."""
+from nose.tools import set_trace
 import flask
 from flask import url_for, make_response
 from util.flask_util import problem
@@ -32,11 +33,26 @@ class URNLookupController(object):
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
 
+    COULD_NOT_PARSE_URN_TYPE = "http://library-simplified.com/problem/could-not-parse-urn"
+
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
         self.works = []
         self.unresolved_identifiers = []
         self.can_resolve_identifiers = can_resolve_identifiers
+
+    @classmethod
+    def parse_urn(self, _db, urn, must_support_license_pools=True):
+        try:
+            set_trace()
+            identifier, is_new = Identifier.parse_urn(
+                _db, urn,
+                must_support_license_pools=must_support_license_pools)
+        except ValueError, e:
+            return (400, self.INVALID_URN)
+        except Identifier.UnresolvableIdentifierException, e:
+            return (400, self.UNRESOLVABLE_URN)
+        return identifier
 
     def process_urn(self, urn):
         """Turn a URN into a Work suitable for use in an OPDS feed.
@@ -45,13 +61,10 @@ class URNLookupController(object):
         Otherwise a 2-tuple (status, message) is returned explaining why
         no work was found.
         """
-        try:
-            identifier, is_new = Identifier.parse_urn(
-                self._db, urn, must_support_license_pools=True)
-        except ValueError, e:
-            return (400, self.INVALID_URN)
-        except Identifier.UnresolvableIdentifierException, e:
-            return (400, self.UNRESOLVABLE_URN)
+        identifier = self.parse_urn(self._db, urn, True)
+        if len(identifier) == 2:
+            # Error:
+            return identifier
 
         # We were able to parse the URN into an identifier, and it's
         # of a type that should in theory be resolvable into a

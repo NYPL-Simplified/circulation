@@ -308,6 +308,9 @@ class NYTBestSellerListTitle(object):
         edition.language = 'eng'
 
         for i in self.isbns:
+            if i == identifier:
+                # We already did this one.
+                continue
             other_identifier, ignore = Identifier.from_asin(_db, i)
             edition.primary_identifier.equivalent_to(
                 data_source, other_identifier, 1)

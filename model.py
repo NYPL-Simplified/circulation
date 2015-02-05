@@ -140,9 +140,20 @@ class SessionManager(object):
             Genre.lookup(session, g, autocreate=True)
         session.commit()
 
-def get_one(db, model, **kwargs):
+def get_one(db, model, on_multiple='error', **kwargs):
+    q = db.query(model).filter_by(**kwargs)
     try:
-        return db.query(model).filter_by(**kwargs).one()
+        return q.one()
+    except MultipleResultsFound, e:
+        if on_multiple == 'error':
+            raise e
+        elif on_multiple == 'interchangeable':
+            # These records are interchangeable so we can use
+            # whichever one we want.
+            #
+            # TODO: This may be a sign of a problem somewhere else.
+            q = q.limit(1)
+            return q.one()
     except NoResultFound:
         return None
 
@@ -578,7 +589,8 @@ class Identifier(Base):
             if not (isbnlib.is_isbn10(identifier_string) or
                     isbnlib.is_isbn13(identifier_string)):
                 raise ValueError("%s is not a valid ISBN." % identifier_string)
-            identifier_string = isbnlib.to_isbn13(identifier_string)
+            if isbnlib.is_isbn10(identifier_string):
+                identifier_string = isbnlib.to_isbn13(identifier_string)
         else:
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
