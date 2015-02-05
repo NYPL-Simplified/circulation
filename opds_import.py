@@ -4,6 +4,7 @@ from collections import defaultdict
 import datetime
 import feedparser
 import requests
+import urllib
 
 from lxml import builder, etree
 
@@ -25,6 +26,7 @@ class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
+    CANONICALIZE_ENDPOINT = "canonical-author-name"
 
     def __init__(self, base_url):
         if not base_url.endswith('/'):
@@ -37,6 +39,19 @@ class SimplifiedOPDSLookup(object):
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         return requests.get(url)
 
+    def canonicalize_author_name(self, identifier, working_display_name):
+        """Attempt to find the canonical name for the author of a book.
+
+        :param identifier: an ISBN-type Identifier.
+
+        :param working_display_name: The display name of the author
+        (i.e. the name format human being used as opposed to the name
+        that goes into library records).
+        """
+        args = "urn=%s&display_name=%s" % (
+            urllib.quote(identifier.urn), urllib.quote(working_display_name.encode("utf8")))
+        url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
+        return requests.get(url)
 
 class OPDSXMLParser(XMLParser):
 
@@ -49,6 +64,7 @@ class OPDSXMLParser(XMLParser):
     }
 
 class BaseOPDSImporter(object):
+
     """Capable of importing editions from an OPDS feed.
 
     This importer should be used when a circulation server
