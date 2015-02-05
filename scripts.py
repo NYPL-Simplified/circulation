@@ -256,8 +256,6 @@ class NYTBestSellerListsScript(Script):
         for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
 
             name = l['list_name_encoded']
-            if name <= "combined-print-and-e-book-nonfiction":
-                continue
             print "Handling list %s" % name
             best = self.api.best_seller_list(l)
 
@@ -265,9 +263,6 @@ class NYTBestSellerListsScript(Script):
                 self.api.fill_in_history(best)
             else:
                 self.api.update(best)
-
-            # TODO: If appropriate, call out to the name canonicalization
-            # service for any unrecognized author names.
 
             # Mirror the list to the database.
             customlist = best.to_customlist(self._db)

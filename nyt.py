@@ -275,6 +275,15 @@ class NYTBestSellerListTitle(object):
                 Contributor.name != None).all()
         if contributors:
             return contributors[0].name
+
+        # Maybe there's an Edition (e.g. from another NYT best-seller
+        # list) that has a sort name for this author?
+        editions = _db.query(Edition).filter(
+            Edition.author==self.display_author).filter(
+                Edition.sort_author != None).all()
+        if editions:
+            return editions[0].author
+
         return None
 
     def to_edition(self, _db, metadata_client):
@@ -311,6 +320,8 @@ class NYTBestSellerListTitle(object):
             edition.author = self.display_author
         if not edition.sort_author:
             edition.sort_author = self.find_sort_name(_db)
+            if edition.sort_author:
+                "IT WAS EASY TO FIND %s!" % edition.sort_author
         # If find_sort_name returned a sort_name, we can calculate a
         # permanent work ID for this Edition, and be done with it.
         #

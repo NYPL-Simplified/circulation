@@ -49,7 +49,8 @@ class SimplifiedOPDSLookup(object):
         that goes into library records).
         """
         args = "urn=%s&display_name=%s" % (
-            urllib.quote(identifier.urn), urllib.quote(working_display_name.encode("utf8")))
+            urllib.quote(identifier.urn), urllib.quote(
+                working_display_name.encode("utf8")))
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         return requests.get(url)
 
