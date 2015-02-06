@@ -1877,7 +1877,7 @@ class Edition(Base):
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
                 if not best_cover.mirrored and not best_cover.scaled:
-                    print "WARN: Best cover for %s (%s) was never mirrored or scaled!" % (self.primary_identifier, best_cover.href)
+                    print "WARN: Best cover for %s/%s (%s) was never mirrored or scaled!" % (self.primary_identifier.type, self.primary_identifier.identifier, best_cover.href)
                 self.set_cover(best_cover)
                 break
 
@@ -3834,7 +3834,6 @@ class LicensePool(Base):
                 self.identifier, primary_edition.title, primary_edition.author)
             return None, False
 
-        set_trace()
         if not primary_edition.permanent_work_id:
             primary_edition.calculate_permanent_work_id()
 

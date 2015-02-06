@@ -44,7 +44,6 @@ class URNLookupController(object):
     @classmethod
     def parse_urn(self, _db, urn, must_support_license_pools=True):
         try:
-            set_trace()
             identifier, is_new = Identifier.parse_urn(
                 _db, urn,
                 must_support_license_pools=must_support_license_pools)
@@ -62,7 +61,7 @@ class URNLookupController(object):
         no work was found.
         """
         identifier = self.parse_urn(self._db, urn, True)
-        if len(identifier) == 2:
+        if not isinstance(identifier, Identifier):
             # Error:
             return identifier
 
