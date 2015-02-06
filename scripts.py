@@ -20,7 +20,7 @@ class CreateWorksForIdentifiersScript(Script):
     """
     to_check = [Identifier.OVERDRIVE_ID, Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID]
-    BATCH_SIZE = 10
+    BATCH_SIZE = 100
 
     def __init__(self, metadata_web_app_url=None):
         self.metadata_url = (metadata_web_app_url

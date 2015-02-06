@@ -2,6 +2,8 @@ from nose.tools import set_trace
 import os
 from core.monitor import Monitor
 from core.model import (
+    Edition,
+    Identifier,
     LicensePool,
     Work,
 )
@@ -29,8 +31,23 @@ class CirculationPresentationReadyMonitor(Monitor):
             _db, "Presentation ready monitor", interval_seconds)
 
     def run_once(self, start, cutoff):
-        # First make Works out of any Editions that were created since
-        # the last time this monitor ran.
+        # First look up any Identifiers that don't have associated
+        # Editions.
+        q = self._db.query(Identifier).outerjoin(
+            Edition, Edition.primary_identifier_id==Identifier.id).filter(
+                Edition.id == None).filter(
+                    Identifier.type.in_(
+                        [Identifier.GUTENBERG_ID, Identifier.OVERDRIVE_ID,
+                         Identifier.THREEM_ID]))
+        print "Asking metadata wrangler about %d identifiers." % q.count()
+        batch = []
+        for identifier in q:
+            batch.append(identifier)
+            if len(batch) >= self.BATCH_SIZE:
+                self.process_batch(batch)
+                batch = []
+
+        # Next make sure any newly created Editions have Works.
         LicensePool.consolidate_works(self._db)
 
         # Now go through the Works that are not presentation ready
@@ -68,7 +85,9 @@ class CirculationPresentationReadyMonitor(Monitor):
             # We don't hear about a work until the metadata wrangler
             # is confident it has decent data, so at this point the
             # work is ready.
-            print "%s READY" % edition.work.title
+            if not edition.work.title:
+                set_trace()
+            print "%s READY" % edition.work.title.encode("utf8")
             edition.work.set_presentation_ready()
         for identifier, (status_code, message) in messages_by_id.items():
             print identifier, status_code, message
