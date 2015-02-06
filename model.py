@@ -151,7 +151,8 @@ def get_one(db, model, on_multiple='error', **kwargs):
             # These records are interchangeable so we can use
             # whichever one we want.
             #
-            # TODO: This may be a sign of a problem somewhere else.
+            # TODO: This may be a sign of a problem somewhere else. We
+            # should institute a database-level constraint.
             q = q.limit(1)
             return q.one()
     except NoResultFound:
@@ -3830,11 +3831,12 @@ class LicensePool(Base):
             primary_edition.calculate_presentation()
 
         if not primary_edition.title or not primary_edition.author:
-            print "WARN: NO TITLE/AUTHOR for %s (%s/%s), cowardly refusing to create work." % (
-                self.identifier, primary_edition.title, primary_edition.author)
+            msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
+                self.identifier.type, self.identifier.identifier,
+                primary_edition.title, primary_edition.author)
+            print msg.encode("utf8")
             return None, False
 
-        set_trace()
         if not primary_edition.permanent_work_id:
             primary_edition.calculate_permanent_work_id()
 

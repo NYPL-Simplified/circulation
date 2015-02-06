@@ -62,7 +62,7 @@ class URNLookupController(object):
         no work was found.
         """
         identifier = self.parse_urn(self._db, urn, True)
-        if len(identifier) == 2:
+        if not isinstance(identifier, Identifier):
             # Error:
             return identifier
 
