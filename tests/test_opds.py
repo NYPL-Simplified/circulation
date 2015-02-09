@@ -78,17 +78,19 @@ class TestAnnotators(DatabaseTest):
         work = self._work()
         edition = work.primary_edition
         identifier = edition.primary_identifier
-        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        source1 = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        source2 = DataSource.lookup(self._db, DataSource.OCLC)
 
         subjects = [
-            (Subject.FAST, "fast1", "name1", 1),
-            (Subject.LCSH, "lcsh1", "name2", 1),
-            (Subject.LCSH, "lcsh2", "name3", 3),
-            (Subject.DDC, "300", "Social sciences, sociology & anthropology", 1),
-            (Subject.SIMPLIFIED_GENRE, "Fiction", None, 1)
+            (source1, Subject.FAST, "fast1", "name1", 1),
+            (source1, Subject.LCSH, "lcsh1", "name2", 1),
+            (source2, Subject.LCSH, "lcsh1", "name2", 1),
+            (source1, Subject.LCSH, "lcsh2", "name3", 3),
+            (source1, Subject.DDC, "300", "Social sciences, sociology & anthropology", 1),
+            (source1, Subject.SIMPLIFIED_GENRE, "Fiction", None, 1)
         ]
 
-        for subject_type, subject, name, weight in subjects:
+        for source, subject_type, subject, name, weight in subjects:
             identifier.classify(source, subject_type, subject, name, weight=weight)
 
         category_tags = VerboseAnnotator.categories(work)
@@ -105,7 +107,7 @@ class TestAnnotators(DatabaseTest):
             category_tags[fast_uri])
 
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
-        eq_([{'term': u'lcsh1', 'label': u'name2', rating_value: 1},
+        eq_([{'term': u'lcsh1', 'label': u'name2', rating_value: 2},
              {'term': u'lcsh2', 'label': u'name3', rating_value: 3}],
             sorted(category_tags[lcsh_uri]))
 

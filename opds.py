@@ -220,7 +220,7 @@ class VerboseAnnotator(Annotator):
         Subject.uri_lookup.)
         """
         _db = Session.object_session(work)
-        by_scheme = defaultdict(list)
+        by_scheme_and_term = dict()
         identifier_ids = work.all_identifier_ids()
         classifications = Identifier.classifications_for_identifier_ids(
             _db, identifier_ids)
@@ -228,15 +228,23 @@ class VerboseAnnotator(Annotator):
             subject = c.subject
             if subject.type in Subject.uri_lookup:
                 scheme = Subject.uri_lookup[subject.type]
-                value = dict(term=subject.identifier)
-                if subject.name:
-                    value['label'] = subject.name
-
+                term = subject.identifier
                 weight_field = "{%s}ratingValue" % schema_ns
-                if not weight_field in value:
+                key = (scheme, term)
+                print key
+                if not key in by_scheme_and_term:
+                    value = dict(term=subject.identifier)
+                    if subject.name:
+                        value['label'] = subject.name
                     value[weight_field] = 0
-                value[weight_field] += c.weight
-                by_scheme[scheme].append(value)
+                    by_scheme_and_term[key] = value
+                by_scheme_and_term[key][weight_field] += c.weight
+
+        # Collapse by_scheme_and_term to by_scheme
+        set_trace()
+        by_scheme = defaultdict(list)
+        for (scheme, term), value in by_scheme_and_term.items():
+            by_scheme[scheme].append(value)
         return by_scheme
 
     @classmethod
