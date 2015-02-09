@@ -3517,7 +3517,7 @@ class WorkFeed(object):
         This may be filtered down further.
         """
         # By default, return every Work in the entire database.
-        query = Work.feed_query(_db, self.languages, self.availability)
+        return Work.feed_query(_db, self.languages, self.availability)
 
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
         """Turn the base query into a query that retrieves a particular page 
