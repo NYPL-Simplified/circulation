@@ -47,7 +47,7 @@ class CirculationManagerAnnotator(Annotator):
             return super(
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
 
-    def annotate_work_entry(self, work, active_license_pool, feed, entry, links):
+    def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, links):
         active_loan = self.active_loans_by_work.get(work)
         identifier = active_license_pool.identifier
         if active_loan:
