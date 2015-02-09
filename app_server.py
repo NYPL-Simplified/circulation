@@ -44,7 +44,6 @@ class URNLookupController(object):
     @classmethod
     def parse_urn(self, _db, urn, must_support_license_pools=True):
         try:
-            set_trace()
             identifier, is_new = Identifier.parse_urn(
                 _db, urn,
                 must_support_license_pools=must_support_license_pools)

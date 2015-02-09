@@ -1,4 +1,7 @@
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    Counter,
+)
 from nose.tools import set_trace
 import feedparser
 import re
@@ -228,6 +231,11 @@ class VerboseAnnotator(Annotator):
                 value = dict(term=subject.identifier)
                 if subject.name:
                     value['label'] = subject.name
+
+                weight_field = "{%s}ratingValue" % schema_ns
+                if not weight_field in value:
+                    value[weight_field] = 0
+                value[weight_field] += c.weight
                 by_scheme[scheme].append(value)
         return by_scheme
 
@@ -496,8 +504,9 @@ class AcquisitionFeed(OPDSFeed):
             for category in categories:
                 if isinstance(category, basestring):
                     category = dict(term=category)
-                category_tags.append(
-                    E.category(scheme=scheme, **category))
+                category = dict(map(str, (k, v)) for k, v in category.items())
+                category_tag = E.category(scheme=scheme, **category)
+                category_tags.append(category_tag)
         entry.extend(category_tags)
 
         # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
