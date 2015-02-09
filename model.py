@@ -1090,8 +1090,8 @@ class UnresolvedIdentifier(Base):
     exception = Column(Unicode, index=True)
 
     @classmethod
-    def register(cls, _db, identifier):
-        if identifier.licensed_through:
+    def register(cls, _db, identifier, force=False):
+        if identifier.licensed_through and not force:
             # There's already a license pool for this identifier, and
             # thus no need to do anything.
             raise ValueError(

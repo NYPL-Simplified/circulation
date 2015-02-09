@@ -305,7 +305,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 subject_type = Subject.TAG
             identifier = i.get('term')
             name = i.get('label')
-            yield subject_type, identifier, name
+            yield subject_type, identifier, name, weight
 
     @classmethod
     def authors_by_id(cls, _db, root):
