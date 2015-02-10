@@ -3633,9 +3633,9 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
-    # One LicensePool may be associated with one CopyrightStatus.
-    copyrightstatus_id = Column(
-        Integer, ForeignKey('copyrightstatus.id'), index=True)
+    # One LicensePool may be associated with one RightsStatus.
+    rightsstatus_id = Column(
+        Integer, ForeignKey('rightsstatus.id'), index=True)
 
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
@@ -3789,10 +3789,10 @@ class LicensePool(Base):
         if self.work:
             self.work.last_update_time = now
 
-    def set_copyright_status(self, uri, name=None):
+    def set_rights_status(self, uri, name=None):
         _db = Session.object_session(self)
         terms, ignore = get_one_or_create(
-            _db, CopyrightStatus, uri=uri,
+            _db, RightsStatus, uri=uri,
             create_method_kwargs=dict(name=name))
         return terms
 
@@ -3933,22 +3933,28 @@ class LicensePool(Base):
         return self, None
 
 
-class CopyrightStatus(Base):
+class RightsStatus(Base):
 
     """The terms under which a book has been made available to the general
     public.
 
-    This will normally be 'copyright', or 'public domain', or a
+    This will normally be 'in copyright', or 'public domain', or a
     Creative Commons license.
     """
 
-    # 'Normal' copyright, all rights reserved.
-    ALL_RIGHTS_RESERVED = "http://librarysimplified.org/licenses/all-rights-reserved"
+    # Currently in copyright.
+    IN_COPYRIGHT = "http://librarysimplified.org/rights-status/in-copyright"
 
-    # Public domain.
-    PUBLIC_DOMAIN_URL = "http://librarysimplified.org/licenses/public-domain"
+    # Public domain in the USA.
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/rights-status/public-domain-usa"
 
-    __tablename__ = 'copyrightstatus'
+    # Public domain in some unknown territory
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/rights-status/public-domain-unknown"
+
+    # Unknown copyright status.
+    UNKNOWN = "http://librarysimplified.org/rights-status/unknown"
+
+    __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
 
     # A URI unique to the license. This may be a URL (e.g. Creative
@@ -3958,8 +3964,8 @@ class CopyrightStatus(Base):
     # Human-readable name of the license.
     name = Column(String, index=True)
 
-    # One set of CopyrightTerms may apply to many LicensePools.
-    licensepools = relationship("LicensePool", backref="copyright_terms")
+    # One RightsStatus may apply to many LicensePools.
+    licensepools = relationship("LicensePool", backref="rights_status")
 
 class CirculationEvent(Base):
 
