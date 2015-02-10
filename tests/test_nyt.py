@@ -37,7 +37,7 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
     def list_of_lists(self):
         return self.sample_json("bestseller_list_list.json")
 
-    def update(self, list, date=None):
+    def update(self, list, date=None, max_age=None):
         if date:
             filename = "list_%s_%s.json" % (list.foreign_identifier, self.date_string(date))
         else:
@@ -49,15 +49,16 @@ class DummyCanonicalizeLookupResponse(object):
     @classmethod
     def success(cls, result):
         r = cls()
-        r.status = 200
-        r.headers = { "Content-Type: text/plain" }
+        r.status_code = 200
+        r.headers = { "Content-Type" : "text/plain" }
         r.content = result
+        return r
 
     @classmethod
     def failure(cls):
         r = cls()
-        r.status = 404
-
+        r.status_code = 404
+        return r
 
 class DummyMetadataClient(object):
 
@@ -65,9 +66,11 @@ class DummyMetadataClient(object):
         self.lookups = {}
 
     def canonicalize_author_name(self, primary_identifier, display_author):
-        result = self.lookups[display_author]
         if display_author in self.lookups:
-            return DummyCanonicalizeLookupResponse.success()
+            return DummyCanonicalizeLookupResponse.success(
+                self.lookups[display_author])
+        else:
+            return DummyCanonicalizeLookupResponse.failure()
 
 class NYTBestSellerAPITest(DatabaseTest):
 
@@ -172,7 +175,6 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         list_name = "espionage"
         l = self.api.best_seller_list(list_name)
         self.api.fill_in_history(l)
-        set_trace()
         
         # Each 'espionage' best-seller list contains 15 items. Since
         # we picked two, from consecutive months, there's quite a bit
@@ -223,9 +225,9 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
     def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
         
         # Set the metadata client up for success.
-        self.metadata_client["Paula Hawkins"] = "Hawkins, Paula"
+        self.metadata_client.lookups["Paula Hawkins"] = "Hawkins, Paula Z."
 
         title = NYTBestSellerListTitle(self.one_list_title)
         edition = title.to_edition(self._db, self.metadata_client)
-        eq_("Hawkins, Paula", edition.sort_author)
+        eq_("Hawkins, Paula Z.", edition.sort_author)
         assert edition.permanent_work_id is not None
