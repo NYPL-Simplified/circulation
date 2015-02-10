@@ -4,7 +4,7 @@ import flask
 from flask import url_for, make_response
 from util.flask_util import problem
 from opds import (
-    AcquisitionFeed,
+    LookupAcquisitionFeed,
     OPDSFeed,
 )
 from model import (
@@ -44,7 +44,6 @@ class URNLookupController(object):
     @classmethod
     def parse_urn(self, _db, urn, must_support_license_pools=True):
         try:
-            set_trace()
             identifier, is_new = Identifier.parse_urn(
                 _db, urn,
                 must_support_license_pools=must_support_license_pools)
@@ -76,7 +75,7 @@ class URNLookupController(object):
                 # And there's a Work! Is it presentation ready?
                 if work.presentation_ready:
                     # It's ready for use in an OPDS feed!
-                    self.works.append(work)
+                    self.works.append((identifier, work))
                     return None, None
                 else:
                     return (202, self.WORK_NOT_PRESENTATION_READY)
@@ -124,7 +123,7 @@ class URNLookupController(object):
         # Identifier or UnresolvedIdentifier objects.
         self._db.commit()
 
-        opds_feed = AcquisitionFeed(
+        opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, self.works, annotator,
             messages_by_urn=messages_by_urn)
 

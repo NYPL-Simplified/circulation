@@ -325,7 +325,8 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     @classmethod
     def authors_and_subjects_by_id(cls, _db, root):
-        """Parse the OPDS as XML and extract all author information.
+        """Parse the OPDS as XML and extract all author and subject
+        information.
 
         Feedparser can't handle this so we have to use lxml.
         """

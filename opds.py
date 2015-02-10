@@ -1,4 +1,7 @@
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    Counter,
+)
 from nose.tools import set_trace
 import feedparser
 import re
@@ -64,7 +67,8 @@ class Annotator(object):
     """
 
     @classmethod
-    def annotate_work_entry(cls, work, license_pool, feed, entry, links):
+    def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
+                            entry, links):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
@@ -147,11 +151,11 @@ class Annotator(object):
         return work.primary_edition.primary_identifier.urn
 
     @classmethod
-    def permalink_for(cls, license_pool):
+    def permalink_for(cls, identifier):
         """In the absence of any specific URLs, the best we can do
         is a URN.
         """
-        return license_pool.identifier.urn
+        return identifier.urn
 
     @classmethod
     def navigation_feed_url(cls, lane, order=None):
@@ -217,7 +221,7 @@ class VerboseAnnotator(Annotator):
         Subject.uri_lookup.)
         """
         _db = Session.object_session(work)
-        by_scheme = defaultdict(list)
+        by_scheme_and_term = dict()
         identifier_ids = work.all_identifier_ids()
         classifications = Identifier.classifications_for_identifier_ids(
             _db, identifier_ids)
@@ -225,10 +229,21 @@ class VerboseAnnotator(Annotator):
             subject = c.subject
             if subject.type in Subject.uri_lookup:
                 scheme = Subject.uri_lookup[subject.type]
-                value = dict(term=subject.identifier)
-                if subject.name:
-                    value['label'] = subject.name
-                by_scheme[scheme].append(value)
+                term = subject.identifier
+                weight_field = "{%s}ratingValue" % schema_ns
+                key = (scheme, term)
+                if not key in by_scheme_and_term:
+                    value = dict(term=subject.identifier)
+                    if subject.name:
+                        value['label'] = subject.name
+                    value[weight_field] = 0
+                    by_scheme_and_term[key] = value
+                by_scheme_and_term[key][weight_field] += c.weight
+
+        # Collapse by_scheme_and_term to by_scheme
+        by_scheme = defaultdict(list)
+        for (scheme, term), value in by_scheme_and_term.items():
+            by_scheme[scheme].append(value)
         return by_scheme
 
     @classmethod
@@ -425,23 +440,26 @@ class AcquisitionFeed(OPDSFeed):
 
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
-        # Find the .epub link
-        epub_href = None
-        p = None
-
         active_license_pool = self.annotator.active_licensepool_for(work)
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool:
             return None
 
         identifier = active_license_pool.identifier
+        active_edition = active_license_pool.edition()
+        self._create_entry(work, active_license_pool, edition, identifier,
+                           lane_link)
+
+    def _create_entry(self, work, license_pool, edition, identifier, lane_link):
+
+        # Find the .epub link
+        epub_href = None
+        p = None
 
         links = []
         cover_quality = 0
         qualities = [("Work quality", work.quality)]
         full_url = None
-
-        active_edition = active_license_pool.edition()
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (
@@ -457,7 +475,7 @@ class AcquisitionFeed(OPDSFeed):
                 links.append(E.link(rel=rel, href=url, type=image_type))
            
 
-        permalink = self.annotator.permalink_for(active_license_pool)
+        permalink = self.annotator.permalink_for(identifier)
         content = self.annotator.content(work)
 
         # TODO: This is a super cheesy way of estimating whether the
@@ -470,10 +488,10 @@ class AcquisitionFeed(OPDSFeed):
 
         entry = E.entry(
             E.id(permalink),
-            E.title(work.title),
+            E.title(edition.title),
         )
         if work.subtitle:
-            entry.extend([E.alternativeHeadline(work.subtitle)])
+            entry.extend([E.alternativeHeadline(edition.subtitle)])
 
         author_tags = self.annotator.authors(work)
         entry.extend(author_tags)
@@ -484,9 +502,8 @@ class AcquisitionFeed(OPDSFeed):
         ])
 
         permanent_work_id_tag = E._makeelement("{%s}pwid" % simplified_ns)
-        permanent_work_id_tag.text = work.primary_edition.permanent_work_id
+        permanent_work_id_tag.text = edition.permanent_work_id
         entry.append(permanent_work_id_tag)
-
 
         entry.extend(links)
 
@@ -496,31 +513,32 @@ class AcquisitionFeed(OPDSFeed):
             for category in categories:
                 if isinstance(category, basestring):
                     category = dict(term=category)
-                category_tags.append(
-                    E.category(scheme=scheme, **category))
+                category = dict(map(unicode, (k, v)) for k, v in category.items())
+                category_tag = E.category(scheme=scheme, **category)
+                category_tags.append(category_tag)
         entry.extend(category_tags)
 
         # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
-        language = work.language_code
+        language = edition.language_code
         if language:
             language_tag = E._makeelement("{%s}language" % dcterms_ns)
             language_tag.text = language
             entry.append(language_tag)
 
-        if active_edition.publisher:
+        if edition.publisher:
             publisher_tag = E._makeelement("{%s}publisher" % dcterms_ns)
-            publisher_tag.text = active_edition.publisher
+            publisher_tag.text = edition.publisher
             entry.extend([publisher_tag])
 
         # We use Atom 'published' for the date the book first became
         # available to people using this application.
         now = datetime.datetime.utcnow()
         today = datetime.date.today()
-        if (active_license_pool.availability_time and
-            active_license_pool.availability_time <= now):
+        if (license_pool.availability_time and
+            license_pool.availability_time <= now):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.
-            availability_tag.text = active_license_pool.availability_time.strftime(
+            availability_tag.text = license_pool.availability_time.strftime(
                 "%Y-%m-%d")
             entry.extend([availability_tag])
 
@@ -534,7 +552,7 @@ class AcquisitionFeed(OPDSFeed):
         # to our database' we use Entry.issued if we have it and
         # Entry.published if not. In general this means we use issued
         # date for Gutenberg and published date for other sources.
-        issued = active_edition.published
+        issued = edition.published
         if (issued and issued <= today):
             issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
             # TODO: convert to local timezone.
@@ -542,7 +560,7 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([issued_tag])
 
         self.annotator.annotate_work_entry(
-            work, active_license_pool, self, entry, links)
+            work, license_pool, edition, identifier, self, entry, links)
 
         return entry
 
@@ -585,6 +603,24 @@ class AcquisitionFeed(OPDSFeed):
         active_holds.text = str(license_pool.patrons_in_hold_queue)
 
         return license
+
+class LookupAcquisitionFeed(AcquisitionFeed):
+    """Used when the work's primary identifier may be different
+    from the identifier we should use in the feed.
+    """
+
+    def create_entry(self, work, lane_link):
+        """Turn a work into an entry for an acquisition feed."""
+        identifier, work = work
+        active_license_pool = self.annotator.active_licensepool_for(work)
+        # There's no reason to present a book that has no active license pool.
+        if not active_license_pool:
+            return None
+
+        active_edition = active_license_pool.edition()
+        return self._create_entry(
+            work, active_license_pool, work.primary_edition, 
+            identifier, lane_link)
 
 class NavigationFeed(OPDSFeed):
 

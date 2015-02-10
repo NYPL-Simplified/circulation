@@ -1090,8 +1090,8 @@ class UnresolvedIdentifier(Base):
     exception = Column(Unicode, index=True)
 
     @classmethod
-    def register(cls, _db, identifier):
-        if identifier.licensed_through:
+    def register(cls, _db, identifier, force=False):
+        if identifier.licensed_through and not force:
             # There's already a license pool for this identifier, and
             # thus no need to do anything.
             raise ValueError(
@@ -1878,7 +1878,7 @@ class Edition(Base):
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
                 if not best_cover.mirrored and not best_cover.scaled:
-                    print "WARN: Best cover for %s (%s) was never mirrored or scaled!" % (self.primary_identifier, best_cover.href)
+                    print "WARN: Best cover for %s/%s (%s) was never mirrored or scaled!" % (self.primary_identifier.type, self.primary_identifier.identifier, best_cover.href)
                 self.set_cover(best_cover)
                 break
 
@@ -3522,7 +3522,7 @@ class WorkFeed(object):
         This may be filtered down further.
         """
         # By default, return every Work in the entire database.
-        query = Work.feed_query(_db, self.languages, self.availability)
+        return Work.feed_query(_db, self.languages, self.availability)
 
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
         """Turn the base query into a query that retrieves a particular page 
