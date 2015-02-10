@@ -3791,10 +3791,11 @@ class LicensePool(Base):
 
     def set_rights_status(self, uri, name=None):
         _db = Session.object_session(self)
-        terms, ignore = get_one_or_create(
+        status, ignore = get_one_or_create(
             _db, RightsStatus, uri=uri,
             create_method_kwargs=dict(name=name))
-        return terms
+        self.rights_status = status
+        return status
 
     def loan_to(self, patron, start=None, end=None):
         _db = Session.object_session(patron)

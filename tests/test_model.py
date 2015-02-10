@@ -625,6 +625,7 @@ class TestLicensePool(DatabaseTest):
         uri = "http://foo"
         name = "bar"
         status = pool.set_rights_status(uri, name)
+        eq_(status, pool.rights_status)
         eq_(uri, status.uri)
         eq_(name, status.name)
 
