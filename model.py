@@ -3792,7 +3792,7 @@ class LicensePool(Base):
     def set_copyright_status(self, uri, name=None):
         _db = Session.object_session(self)
         terms, ignore = get_one_or_create(
-            CopyrightStatus, uri=uri,
+            _db, CopyrightStatus, uri=uri,
             create_method_kwargs=dict(name=name))
         return terms
 

@@ -25,6 +25,7 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
     def __init__(self, _db):
         self._db = _db
+        self.metadata_client = DummyMetadataClient()
 
     def sample_json(self, filename):
         base_path = os.path.split(__file__)[0]
@@ -43,13 +44,37 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
             filename = "list_%s.json" % list.foreign_identifier
         list.update(self.sample_json(filename))
 
+class DummyCanonicalizeLookupResponse(object):
+
+    @classmethod
+    def success(cls, result):
+        r = cls()
+        r.status = 200
+        r.headers = { "Content-Type: text/plain" }
+        r.content = result
+
+    @classmethod
+    def failure(cls):
+        r = cls()
+        r.status = 404
+
+
+class DummyMetadataClient(object):
+
+    def __init__(self):
+        self.lookups = {}
+
+    def canonicalize_author_name(self, primary_identifier, display_author):
+        result = self.lookups[display_author]
+        if display_author in self.lookups:
+            return DummyCanonicalizeLookupResponse.success()
 
 class NYTBestSellerAPITest(DatabaseTest):
 
     def setup(self):
         super(NYTBestSellerAPITest, self).setup()
         self.api = DummyNYTBestSellerAPI(self._db)
-
+        self.metadata_client = DummyMetadataClient()
 
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
     
@@ -162,7 +187,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
     def test_creation(self):
         title = NYTBestSellerListTitle(self.one_list_title)
 
-        edition = title.to_edition(self._db)
+        edition = title.to_edition(self._db, self.metadata_client)
         eq_("9780698185395", edition.primary_identifier.identifier)
 
         equivalent_identifiers = [
@@ -191,6 +216,16 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         contributor.display_name = "Paula Hawkins"
 
         title = NYTBestSellerListTitle(self.one_list_title)
-        edition = title.to_edition(self._db)
+        edition = title.to_edition(self._db, self.metadata_client)
         eq_(contributor.name, edition.sort_author)
+        assert edition.permanent_work_id is not None
+
+    def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
+        
+        # Set the metadata client up for success.
+        self.metadata_client["Paula Hawkins"] = "Hawkins, Paula"
+
+        title = NYTBestSellerListTitle(self.one_list_title)
+        edition = title.to_edition(self._db, self.metadata_client)
+        eq_("Hawkins, Paula", edition.sort_author)
         assert edition.permanent_work_id is not None
