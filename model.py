@@ -2817,7 +2817,10 @@ class Resource(Base):
         This link will be served to the client.
         """
         if self.mirrored_path:
-            url = self.mirrored_path % self.URL_ROOTS
+            if '%(' in self.mirrored_path:
+                url = self.mirrored_path % self.URL_ROOTS
+            else:
+                url = self.mirrored_path
         else:
             url = self.href
         return url
@@ -2830,7 +2833,9 @@ class Resource(Base):
         """
         if not self.scaled_path:
             return self.final_url
-        return self.scaled_path % self.URL_ROOTS
+        if '%(' in self.scaled_path:
+            return self.scaled_path % self.URL_ROOTS
+        return self.scaled_path
 
     def local_path(self, expansions):
         """Path to the original representation on disk."""
@@ -3804,7 +3809,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self):
+    def calculate_work(self, even_if_no_author=False):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -3830,11 +3835,12 @@ class LicensePool(Base):
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()
 
-        if not primary_edition.title or not primary_edition.author:
-            msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
-                self.identifier.type, self.identifier.identifier,
-                primary_edition.title, primary_edition.author)
-            print msg.encode("utf8")
+        if not primary_edition.title or (
+                not primary_edition.author and not even_if_no_author):
+            # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
+            #    self.identifier.type, self.identifier.identifier,
+            #    primary_edition.title, primary_edition.author)
+            #print msg.encode("utf8")
             return None, False
 
         if not primary_edition.permanent_work_id:

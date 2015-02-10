@@ -84,6 +84,7 @@ class TestAnnotators(DatabaseTest):
             (Subject.FAST, "fast1", "name1"),
             (Subject.LCSH, "lcsh1", "name2"),
             (Subject.LCSH, "lcsh2", "name3"),
+            (Subject.LCSH, "lcsh2", "name3"),
             (Subject.DDC, "300", "Social sciences, sociology & anthropology"),
             (Subject.SIMPLIFIED_GENRE, "Fiction", None)
         ]
@@ -92,23 +93,27 @@ class TestAnnotators(DatabaseTest):
             identifier.classify(source, subject_type, subject, name)
 
         category_tags = VerboseAnnotator.categories(work)
+        set_trace()
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
+        rating_value = '{http://schema.org/}ratingValue'
         eq_([{'term': u'300',
+              rating_value: 1,
               'label': u'Social sciences, sociology & anthropology'}],
             category_tags[ddc_uri])
 
         fast_uri = Subject.uri_lookup[Subject.FAST]
-        eq_([{'term': u'fast1', 'label': u'name1'}],
+        eq_([{'term': u'fast1', 'label': u'name1', rating_value: 1}],
             category_tags[fast_uri])
 
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
-        eq_([{'term': u'lcsh1', 'label': u'name2'},
-             {'term': u'lcsh2', 'label': u'name3'}],
+        eq_([{'term': u'lcsh1', 'label': u'name2', rating_value: 1},
+             {'term': u'lcsh2', 'label': u'name3', rating_value: 1}],
             sorted(category_tags[lcsh_uri]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
-        eq_([{'term': u'Fiction'}], category_tags[genre_uri])
+        eq_([{'term': u'Fiction', rating_value: 1}], category_tags[genre_uri])
+
 
     def test_detailed_author(self):
         c, ignore = self._contributor("Familyname, Givenname")
@@ -488,4 +493,3 @@ class TestOPDS(DatabaseTest):
         eq_("urn:bar", bar['id'])
         eq_("msg2", bar['simplified_message'])
         eq_("500", bar['simplified_status_code'])
-
