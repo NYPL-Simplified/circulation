@@ -3628,6 +3628,10 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
+    # One LicensePool may be associated with one CopyrightStatus.
+    copyrightstatus_id = Column(
+        Integer, ForeignKey('copyrightstatus.id'), index=True)
+
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
@@ -3780,6 +3784,13 @@ class LicensePool(Base):
         if self.work:
             self.work.last_update_time = now
 
+    def set_copyright_status(self, uri, name=None):
+        _db = Session.object_session(self)
+        terms, ignore = get_one_or_create(
+            CopyrightStatus, uri=uri,
+            create_method_kwargs=dict(name=name))
+        return terms
+
     def loan_to(self, patron, start=None, end=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
@@ -3906,6 +3917,34 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
+class CopyrightStatus(Base):
+
+    """The terms under which a book has been made available to the general
+    public.
+
+    This will normally be 'copyright', or 'public domain', or a
+    Creative Commons license.
+    """
+
+    # 'Normal' copyright, all rights reserved.
+    ALL_RIGHTS_RESERVED = "http://librarysimplified.org/licenses/all-rights-reserved"
+
+    # Public domain.
+    PUBLIC_DOMAIN_URL = "http://librarysimplified.org/licenses/public-domain"
+
+    __tablename__ = 'copyrightstatus'
+    id = Column(Integer, primary_key=True)
+
+    # A URI unique to the license. This may be a URL (e.g. Creative
+    # Commons)
+    uri = Column(String, index=True)
+
+    # Human-readable name of the license.
+    name = Column(String, index=True)
+
+    # One set of CopyrightTerms may apply to many LicensePools.
+    licensepools = relationship("LicensePool", backref="copyright_terms")
 
 class CirculationEvent(Base):
 

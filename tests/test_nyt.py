@@ -23,6 +23,9 @@ from model import (
 
 class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
+    def __init__(self, _db):
+        self._db = _db
+
     def sample_json(self, filename):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "nyt")

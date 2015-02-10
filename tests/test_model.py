@@ -620,6 +620,23 @@ class TestLicensePool(DatabaseTest):
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
+    def test_set_copyright_status(self):
+        edition, pool = self._edition(with_license_pool=True)
+        uri = "http://foo"
+        name = "bar"
+        status = pool.set_copyright_status(uri, name)
+        eq_(uri, status.uri)
+        eq_(name, status.name)
+
+        status2 = pool.set_copyright_status(uri)
+        eq_(status, status2)
+
+        uri2 = "http://baz"
+        status3 = pool.set_copyright_status(uri2)
+        assert status != status3
+        eq_(uri2, status3.uri)
+        eq_(None, status3.name)
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
