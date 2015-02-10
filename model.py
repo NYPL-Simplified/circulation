@@ -3828,6 +3828,12 @@ class LicensePool(Base):
 
         Pools that are not open-access will always have a new Work
         created for them.
+
+        :param even_if_no_author: Ordinarily this method will refuse
+        to create a Work for a LicensePool whose Edition has no title
+        or author. But sometimes a book just has no known author. If
+        that's really the case, pass in even_if_no_author=True and the
+        Work will be created.
         """
         
         if self.work:
@@ -3846,8 +3852,11 @@ class LicensePool(Base):
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()
 
-        if not primary_edition.title or (
-                not primary_edition.author and not even_if_no_author):
+
+
+        if not primary_edition.work and (
+                not primary_edition.title or (
+                    not primary_edition.author and not even_if_no_author)):
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)

@@ -1014,23 +1014,76 @@ class TestWorkConsolidation(DatabaseTest):
         # Now, the LicensePool has the same Work associated with it.
         eq_(work, license.work)
 
+        # Note that this works even though the Edition somehow got a
+        # Work without having a title or author.
+
     def test_calculate_work_for_licensepool_creates_new_work(self):
 
         # This work record is unique to the existing work.
         edition1, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        edition1.title = self._str
+        edition1.author = self._str
         preexisting_work = Work()
         preexisting_work.editions = [edition1]
 
         # This work record is unique to the new LicensePool
         edition2, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+        edition2.title = self._str
+        edition2.author = self._str
         pool, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
 
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
+
+    def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+        edition, ignore = Edition.for_foreign_id(
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        pool, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        work, created = pool.calculate_work()
+        eq_(None, work)
+
+        edition.title = u"foo"
+        work, created = pool.calculate_work()
+        eq_(None, work)
+
+        edition.author = u"bar"
+        work, created = pool.calculate_work()
+        eq_(True, created)
+
+        # Even before the forthcoming commit, the edition is clearly
+        # the primary for the work.
+        eq_(work, edition.work)
+        eq_(True, edition.is_primary_for_work)
+
+        # But without this commit, the join for the .primary_edition
+        # won't succeed and work.title won't work.
+        self._db.commit()
+
+        # Ta-da!
+        eq_(edition, work.primary_edition)
+        eq_(u"foo", work.title)
+        eq_(u"bar", work.author)
+
+    def test_calculate_work_can_be_forced_to_work_with_no_author(self):
+        edition, ignore = Edition.for_foreign_id(
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        pool, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        work, created = pool.calculate_work()
+        eq_(None, work)
+
+        edition.title = u"foo"
+        work, created = pool.calculate_work(even_if_no_author=True)
+        eq_(True, created)
+        self._db.commit()
+        eq_(edition, work.primary_edition)
+        eq_(u"foo", work.title)
+        eq_(u"", work.author)
 
     def test_calculate_work_for_new_work(self):
         # TODO: This test doesn't actually test
