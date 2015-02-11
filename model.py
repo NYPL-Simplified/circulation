@@ -1985,6 +1985,9 @@ class Work(Base):
     # the work will not show up in feeds.
     presentation_ready = Column(Boolean, default=False, index=True)
 
+    # This is the last time we tried to make this work presentation ready.
+    presentation_ready_attempt = Column(DateTime, default=None, index=True)
+
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt
     # will be made to make the Work presentation ready.
@@ -2410,9 +2413,11 @@ class Work(Base):
                 print d.encode("utf8")
             print
 
-    def set_presentation_ready(self):
+    def set_presentation_ready(self, as_of=None):
+        as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
+        self.presentation_ready_attempt = as_of
 
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
