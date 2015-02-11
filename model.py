@@ -1841,7 +1841,7 @@ class Edition(Base):
             medium = "book"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
-        elif self.medium == Edition.PERIODICAL_MEIDUM:
+        elif self.medium == Edition.PERIODICAL_MEDIUM:
             medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
@@ -3638,6 +3638,10 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
+    # One LicensePool may be associated with one RightsStatus.
+    rightsstatus_id = Column(
+        Integer, ForeignKey('rightsstatus.id'), index=True)
+
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
@@ -3790,6 +3794,14 @@ class LicensePool(Base):
         if self.work:
             self.work.last_update_time = now
 
+    def set_rights_status(self, uri, name=None):
+        _db = Session.object_session(self)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=dict(name=name))
+        self.rights_status = status
+        return status
+
     def loan_to(self, patron, start=None, end=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
@@ -3822,6 +3834,12 @@ class LicensePool(Base):
 
         Pools that are not open-access will always have a new Work
         created for them.
+
+        :param even_if_no_author: Ordinarily this method will refuse
+        to create a Work for a LicensePool whose Edition has no title
+        or author. But sometimes a book just has no known author. If
+        that's really the case, pass in even_if_no_author=True and the
+        Work will be created.
         """
         
         if self.work:
@@ -3840,8 +3858,11 @@ class LicensePool(Base):
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()
 
-        if not primary_edition.title or (
-                not primary_edition.author and not even_if_no_author):
+
+
+        if not primary_edition.work and (
+                not primary_edition.title or (
+                    not primary_edition.author and not even_if_no_author)):
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)
@@ -3917,6 +3938,40 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
+class RightsStatus(Base):
+
+    """The terms under which a book has been made available to the general
+    public.
+
+    This will normally be 'in copyright', or 'public domain', or a
+    Creative Commons license.
+    """
+
+    # Currently in copyright.
+    IN_COPYRIGHT = "http://librarysimplified.org/rights-status/in-copyright"
+
+    # Public domain in the USA.
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/rights-status/public-domain-usa"
+
+    # Public domain in some unknown territory
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/rights-status/public-domain-unknown"
+
+    # Unknown copyright status.
+    UNKNOWN = "http://librarysimplified.org/rights-status/unknown"
+
+    __tablename__ = 'rightsstatus'
+    id = Column(Integer, primary_key=True)
+
+    # A URI unique to the license. This may be a URL (e.g. Creative
+    # Commons)
+    uri = Column(String, index=True)
+
+    # Human-readable name of the license.
+    name = Column(String, index=True)
+
+    # One RightsStatus may apply to many LicensePools.
+    licensepools = relationship("LicensePool", backref="rights_status")
 
 class CirculationEvent(Base):
 

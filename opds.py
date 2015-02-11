@@ -445,9 +445,9 @@ class AcquisitionFeed(OPDSFeed):
         if not active_license_pool:
             return None
 
-        identifier = active_license_pool.identifier
         active_edition = active_license_pool.edition()
-        self._create_entry(work, active_license_pool, edition, identifier,
+        identifier = active_license_pool.identifier
+        return self._create_entry(work, active_license_pool, active_edition, identifier,
                            lane_link)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link):
