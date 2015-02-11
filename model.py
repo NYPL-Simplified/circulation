@@ -1841,7 +1841,7 @@ class Edition(Base):
             medium = "book"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
-        elif self.medium == Edition.PERIODICAL_MEIDUM:
+        elif self.medium == Edition.PERIODICAL_MEDIUM:
             medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
