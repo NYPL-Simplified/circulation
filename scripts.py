@@ -192,6 +192,18 @@ class WorkPresentationScript(WorkProcessingScript):
             choose_edition=True, classify=True, choose_summary=True,
             calculate_quality=True)
 
+class PermanentWorkIDCalculationScript(Script):
+    """Calculate the permanent work ID for all Editions."""
+
+    def run(self):
+        counter = 0
+        for edition in self._db.query(Edition):
+            edition.calculate_permanent_work_id()
+            counter += 1
+            if not counter % 1000:
+                print counter
+        self._db.commit()
+
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
