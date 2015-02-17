@@ -144,7 +144,6 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         list_name = "espionage"
         l = self.api.best_seller_list(list_name)
         self.api.fill_in_history(l)
-        set_trace()
         
         # Each 'espionage' best-seller list contains 15 items. Since
         # we picked two, from consecutive months, there's quite a bit

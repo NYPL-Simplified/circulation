@@ -244,7 +244,7 @@ class DataSource(Base):
     OPEN_LIBRARY = "Open Library"
     CONTENT_CAFE = "Content Cafe"
     VIAF = "Content Cafe"
-    GUTENBERG_COVER_GENERATOR = "Project Gutenberg eBook Cover Generator"
+    GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
@@ -2788,8 +2788,6 @@ class Resource(Base):
     quality = Column(Float, index=True)
 
     URL_ROOTS = dict(
-        content_cafe_mirror="https://s3.amazonaws.com/book-covers.nypl.org/CC",
-        scaled_content_cafe_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/CC",
         original_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Overdrive",
         scaled_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/Overdrive",
         original_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/3M",
@@ -3823,7 +3821,6 @@ class LicensePool(Base):
                 self.identifier, primary_edition.title, primary_edition.author)
             return None, False
 
-        set_trace()
         if not primary_edition.permanent_work_id:
             primary_edition.calculate_permanent_work_id()
 

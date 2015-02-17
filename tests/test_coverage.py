@@ -86,3 +86,43 @@ class TestCoverageProvider(DatabaseTest):
         # But the coverage provider did run, and the timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Never successful", timestamp.service)
+
+
+from s3 import S3Uploader
+import os
+class TestS3URLGeneration(DatabaseTest):
+
+    def setup(self):
+        super(TestS3URLGeneration, self).setup()
+        self.c = "test-book-covers-s3-bucket"
+        self.o = "test-open-access-s3-bucket"
+        self.old_book_covers = os.environ.get('BOOK_COVERS_S3_BUCKET')
+        self.old_open_access = os.environ.get('OPEN_ACCESS_CONTENT_S3_BUCKET')
+        os.environ['BOOK_COVERS_S3_BUCKET'] = self.c
+        os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET'] = self.o
+
+    def teardown(self):
+        if self.old_book_covers:
+            os.environ['BOOK_COVERS_S3_BUCKET'] = self.old_book_covers
+        else:
+            del os.environ['BOOK_COVERS_S3_BUCKET']
+        if self.old_open_access:
+            os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET'] = self.old_open_access
+        else:
+            del os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET']
+
+    def test_content_root(self):
+        eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
+            S3Uploader.content_root())
+
+    def test_cover_image_root(self):
+        gutenberg_illustrated = DataSource.lookup(
+            self._db, DataSource.GUTENBERG_COVER_GENERATOR)
+        overdrive = DataSource.lookup(
+            self._db, DataSource.OVERDRIVE)
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
+            S3Uploader.cover_image_root(gutenberg_illustrated))
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
+            S3Uploader.cover_image_root(overdrive))
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/", 
+            S3Uploader.cover_image_root(overdrive, 300))

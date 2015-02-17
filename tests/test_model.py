@@ -1441,3 +1441,4 @@ class TestCustomList(DatabaseTest):
 
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
+
