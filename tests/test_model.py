@@ -44,7 +44,7 @@ from classifier import (
     Drama,
 )
 
-from testing import (
+from . import (
     DatabaseTest,
 )
 
