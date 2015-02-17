@@ -88,8 +88,13 @@ class TestCoverageProvider(DatabaseTest):
         eq_("Never successful", timestamp.service)
 
 
-from s3 import S3Uploader
+# TODO: This really should be in another file, but for some reason
+# database tests in new files fail, and I'm tired of trying to find
+# the reason.
+
 import os
+from s3 import S3Uploader
+
 class TestS3URLGeneration(DatabaseTest):
 
     def setup(self):
