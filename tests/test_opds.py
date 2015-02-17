@@ -127,14 +127,14 @@ class TestAnnotators(DatabaseTest):
         assert "<schema:sameas>http://viaf.org/viaf/100</" in tag_string
         assert "<schema:sameas>http://id.loc.gov/authorities/names/n100</"
 
-        work = self._work()
+        work = self._work(authors=[])
         work.primary_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
         [same_tag] = VerboseAnnotator.authors(work)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_verbose_annotator_mentions_every_author(self):
-        work = self._work()
+        work = self._work(authors=[])
         work.primary_edition.add_contributor(
             self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
         work.primary_edition.add_contributor(

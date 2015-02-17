@@ -530,8 +530,7 @@ class TestEdition(DatabaseTest):
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(name="Bitshifter, Bob")
-        wr = self._edition()
-        wr.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        wr = self._edition(authors=bob.name)
         wr.calculate_presentation()
         eq_("Bitshifter, Bob", wr.author)
         eq_("Bitshifter, Bob", wr.sort_author)
@@ -630,13 +629,13 @@ class TestWork(DatabaseTest):
         bob.family_name, bob.display_name = bob.default_names()
 
         edition1, pool1 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True)
+            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
         edition1.title = u"The 1st Title"
         edition1.title = u"The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition2, pool2 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True)
+            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
         edition2.title = u"The 2nd Title"
         edition2.subtitle = u"The 2nd Subtitle"
         edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
@@ -645,7 +644,7 @@ class TestWork(DatabaseTest):
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         edition3, pool3 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True)
+            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
         edition3.title = u"The 2nd Title"
         edition3.subtitle = u"The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
@@ -676,7 +675,6 @@ class TestWork(DatabaseTest):
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
         primary = work.primary_edition
-        primary.author = "foo"
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)
         
@@ -698,7 +696,7 @@ class TestWork(DatabaseTest):
         primary.title = None
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
-        primary.title = "foo"
+        primary.title = u"foo"
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
@@ -707,7 +705,7 @@ class TestWork(DatabaseTest):
         primary.author = None
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
-        primary.author = "foo"
+        primary.author = u"foo"
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
@@ -977,43 +975,43 @@ class TestWorkConsolidation(DatabaseTest):
         Edition.similarity_to = self.old_wr
         super(TestWorkConsolidation, self).teardown()
 
-    def test_calculate_work_for_licensepool_where_primary_edition_has_work(self):
-        # This is the easy case.
-        args = [self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID,
-                "1"]
-        # Here's a LicensePool for a book from Gutenberg.
-        license, ignore = LicensePool.for_foreign_id(*args)
+    def test_calculate_work_matches_based_on_permanent_work_id(self):
+        # Here are two Editions with the same permanent work ID, 
+        # since they have the same title/author.
+        edition1, ignore = self._edition(with_license_pool=True)
+        edition2, ignore = self._edition(
+            title=edition1.title, authors=edition1.author,
+            with_license_pool=True)
 
-        # Here's a Edition for the same Gutenberg book.
-        edition, ignore = Edition.for_foreign_id(*args)
+        # Calling calculate_work() on the first edition creates a Work.
+        work1, created = edition1.license_pool.calculate_work()
+        eq_(created, True)
 
-        # The Edition has a Work associated with it.
-        work = Work()
-        edition.work = work
+        # Calling calculate_work() on the second edition associated
+        # the second edition with the first work.
+        work2, created = edition2.license_pool.calculate_work()
+        eq_(created, False)
 
-        eq_(None, license.work)
-        license.calculate_work()
+        eq_(work1, work2)
 
-        # Now, the LicensePool has the same Work associated with it.
-        eq_(work, license.work)
+        eq_(set([edition1, edition2]), set(work1.editions))
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
 
-        # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
-        preexisting_work = Work()
-        preexisting_work.editions = [edition1]
+        # Here's a work.
+        preexisting_work = self._work(with_license_pool=True)
 
-        # This work record is unique to the new LicensePool
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+        # Here's an edition associated with a LicensePool that's totally
+        # distinct from the preexisting work.
+        edition, pool = self._edition(
+            DataSource.GUTENBERG, Identifier.GUTENBERG_ID,
+            with_license_pool=True)
 
+        # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
+        eq_(edition, pool.edition())
 
     def test_calculate_work_for_new_work(self):
         # TODO: This test doesn't actually test

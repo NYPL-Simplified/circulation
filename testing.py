@@ -65,17 +65,21 @@ class DatabaseTest(object):
     def _edition(self, data_source_name=DataSource.GUTENBERG,
                     identifier_type=Identifier.GUTENBERG_ID,
                     with_license_pool=False, with_open_access_download=False,
-                    title=None, language="eng", authors=None):
-        id = self._str
+                    title=None, language="eng", authors=None, identifier_id=None):
+        id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
             self._db, source, identifier_type, id)[0]
-        if title:
-            wr.title = unicode(title)
+        if not title:
+            title = self._str
+        wr.title = unicode(title)
         if language:
             wr.language = language
-        if authors:
+        if authors is None:
+            authors = self._str
+        if authors != []:
             wr.add_contributor(unicode(authors), Contributor.PRIMARY_AUTHOR_ROLE)
+            wr.author = unicode(authors)
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
