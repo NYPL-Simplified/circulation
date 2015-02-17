@@ -23,6 +23,10 @@ from model import (
 
 class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
+    def __init__(self, _db):
+        self._db = _db
+        self.metadata_client = DummyMetadataClient()
+
     def sample_json(self, filename):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "nyt")
@@ -33,20 +37,47 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
     def list_of_lists(self):
         return self.sample_json("bestseller_list_list.json")
 
-    def update(self, list, date=None):
+    def update(self, list, date=None, max_age=None):
         if date:
             filename = "list_%s_%s.json" % (list.foreign_identifier, self.date_string(date))
         else:
             filename = "list_%s.json" % list.foreign_identifier
         list.update(self.sample_json(filename))
 
+class DummyCanonicalizeLookupResponse(object):
+
+    @classmethod
+    def success(cls, result):
+        r = cls()
+        r.status_code = 200
+        r.headers = { "Content-Type" : "text/plain" }
+        r.content = result
+        return r
+
+    @classmethod
+    def failure(cls):
+        r = cls()
+        r.status_code = 404
+        return r
+
+class DummyMetadataClient(object):
+
+    def __init__(self):
+        self.lookups = {}
+
+    def canonicalize_author_name(self, primary_identifier, display_author):
+        if display_author in self.lookups:
+            return DummyCanonicalizeLookupResponse.success(
+                self.lookups[display_author])
+        else:
+            return DummyCanonicalizeLookupResponse.failure()
 
 class NYTBestSellerAPITest(DatabaseTest):
 
     def setup(self):
         super(NYTBestSellerAPITest, self).setup()
         self.api = DummyNYTBestSellerAPI(self._db)
-
+        self.metadata_client = DummyMetadataClient()
 
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
     
@@ -127,9 +158,9 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
 
-        february_1 = datetime.datetime(2015,2,1)
+        february_2 = datetime.datetime(2015,2,1)
         eq_(True,
-            all([x.most_recent_appearance == february_1 for x in custom.entries]))
+            all([x.most_recent_appearance == february_2 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
@@ -159,7 +190,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
     def test_creation(self):
         title = NYTBestSellerListTitle(self.one_list_title)
 
-        edition = title.to_edition(self._db)
+        edition = title.to_edition(self._db, self.metadata_client)
         eq_("9780698185395", edition.primary_identifier.identifier)
 
         equivalent_identifiers = [
@@ -188,6 +219,16 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         contributor.display_name = "Paula Hawkins"
 
         title = NYTBestSellerListTitle(self.one_list_title)
-        edition = title.to_edition(self._db)
+        edition = title.to_edition(self._db, self.metadata_client)
         eq_(contributor.name, edition.sort_author)
+        assert edition.permanent_work_id is not None
+
+    def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
+        
+        # Set the metadata client up for success.
+        self.metadata_client.lookups["Paula Hawkins"] = "Hawkins, Paula Z."
+
+        title = NYTBestSellerListTitle(self.one_list_title)
+        edition = title.to_edition(self._db, self.metadata_client)
+        eq_("Hawkins, Paula Z.", edition.sort_author)
         assert edition.permanent_work_id is not None

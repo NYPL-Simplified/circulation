@@ -1,9 +1,13 @@
 from nose.tools import set_trace
 from StringIO import StringIO
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    Counter,
+)
 import datetime
 import feedparser
 import requests
+import urllib
 
 from lxml import builder, etree
 
@@ -25,6 +29,7 @@ class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
+    CANONICALIZE_ENDPOINT = "canonical-author-name"
 
     def __init__(self, base_url):
         if not base_url.endswith('/'):
@@ -37,6 +42,20 @@ class SimplifiedOPDSLookup(object):
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         return requests.get(url)
 
+    def canonicalize_author_name(self, identifier, working_display_name):
+        """Attempt to find the canonical name for the author of a book.
+
+        :param identifier: an ISBN-type Identifier.
+
+        :param working_display_name: The display name of the author
+        (i.e. the name format human being used as opposed to the name
+        that goes into library records).
+        """
+        args = "urn=%s&display_name=%s" % (
+            urllib.quote(identifier.urn), urllib.quote(
+                working_display_name.encode("utf8")))
+        url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
+        return requests.get(url)
 
 class OPDSXMLParser(XMLParser):
 
@@ -49,6 +68,7 @@ class OPDSXMLParser(XMLParser):
     }
 
 class BaseOPDSImporter(object):
+
     """Capable of importing editions from an OPDS feed.
 
     This importer should be used when a circulation server
@@ -70,6 +90,8 @@ class BaseOPDSImporter(object):
         for entry in self.feedparser_parsed['entries']:
             opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
+            if not edition and status_code == 200:
+                set_trace()
             if edition:
                 imported.append(edition)
 
@@ -157,8 +179,6 @@ class BaseOPDSImporter(object):
             self._db, data_source, identifier.type, identifier.identifier)
 
         source_last_updated = entry.get('updated_parsed')
-        if not source_last_updated:
-            set_trace()
         # TODO: I'm not really happy with this but it will work as long
         # as the times are in UTC, possibly as long as the times are in
         # the same timezone.
@@ -232,14 +252,14 @@ class BaseOPDSImporter(object):
                 # The metadata wrangler handles scaling and mirroring
                 # resources, and we will trust what it says.
                 if rel == Resource.IMAGE:
-                    print "Resource %s was mirrored." % url
+                    # print "Resource %s was mirrored." % url
                     image_resource.href = url
                     image_resource.mirrored = True
                     image_resource.mirrored_path = url
                     image_resource.mirrored_date = datetime.datetime.utcnow()
                     image_resource.mirrored_status = 200
                 elif rel == Resource.THUMBNAIL_IMAGE:
-                    print "Resource %s was scaled." % url
+                    # print "Resource %s was scaled." % url
                     image_resource.scaled = True
                     image_resource.scaled_path = url
                 else:
@@ -259,45 +279,61 @@ class DetailedOPDSImporter(BaseOPDSImporter):
     def __init__(self, _db, feed):
         super(DetailedOPDSImporter, self).__init__(_db, feed)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
-        self.authors_by_id = self.authors_by_id(_db, self.lxml_parsed)
+        self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id = self.authors_and_subjects_by_id(
+            _db, self.lxml_parsed)
+
 
     def import_from_feedparser_entry(self, entry):
         identifier, edition, edition_was_new, status_code, message = super(
             DetailedOPDSImporter, self).import_from_feedparser_entry(entry)
 
+        if not edition:
+            # No edition was created. Nothing to do.
+            return identifier, edition, edition_was_new, status_code, message
+
+        # Remove any old contributors and subjects.
+        removed_contributions = 0
+        for contribution in edition.contributions:
+            self._db.delete(contribution)
+            removed_contributions += 1
+
+        removed_classifications = 0
+        data_source = DataSource.license_source_for(self._db, identifier)
+        for classification in identifier.classifications:
+            if classification.data_source == data_source:
+                self._db.delete(classification)
+                removed_classifications += 1
+
+        print "Deleted %d contributions and %d classifications." % (
+            removed_contributions, removed_classifications)
+
         if edition_was_new:
-            for contributor in self.authors_by_id[entry.id]:
+            for contributor in self.authors_by_id.get(entry.id, []):
                 edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
 
-            data_source = DataSource.license_source_for(self._db, identifier)
-            for type, term, name in self.subjects_for(entry):
+            weights = self.subject_weights_by_id.get(entry.id, {})
+            for key, weight in weights.items():
+                type, term = key
+                name = self.subject_names_by_id.get(key, None)
                 identifier.classify(
-                    data_source, type, term, name)
+                    data_source, type, term, name, weight=weight)
 
+        print "Added %d contributions and %d classifications." % (
+            len(edition.contributors), len(identifier.classifications)
+        )
         return identifier, edition, edition_was_new, status_code, message
 
     @classmethod
-    def subjects_for(cls, feedparser_entry):
-        tags = feedparser_entry.get('tags', [])
-        for i in tags:
-            scheme = i.get('scheme')
-            subject_type = Subject.by_uri.get(scheme)
-            if not subject_type:
-                # We can't represent this subject because we don't
-                # know its scheme. Just treat it as a tag.
-                subject_type = Subject.TAG
-            identifier = i.get('term')
-            name = i.get('label')
-            yield subject_type, identifier, name
-
-    @classmethod
-    def authors_by_id(cls, _db, root):
-        """Parse the OPDS as XML and extract all author information.
+    def authors_and_subjects_by_id(cls, _db, root):
+        """Parse the OPDS as XML and extract all author and subject
+        information.
 
         Feedparser can't handle this so we have to use lxml.
         """
         parser = OPDSXMLParser()
-        by_id = defaultdict(list)
+        authors_by_id = defaultdict(list)
+        subject_names_by_id = defaultdict(dict)
+        subject_weights_by_id = defaultdict(Counter)
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier = parser._xpath1(entry, 'atom:id')
             if identifier is None or not identifier.text:
@@ -328,8 +364,29 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
                 # Record that the given Contributor is an author of this
                 # entry.
-                by_id[identifier].append(contributor)
-        return by_id
+                authors_by_id[identifier].append(contributor)
+
+            for subject_tag in parser._xpath(entry, 'atom:category'):
+                a = subject_tag.attrib
+                scheme = a.get('scheme')
+                subject_type = Subject.by_uri.get(scheme)
+                if not subject_type:
+                    # We can't represent this subject because we don't
+                    # know its scheme. Just treat it as a tag.
+                    subject_type = Subject.TAG
+
+                term = a.get('term')
+                name = a.get('label')
+                weight = a.get('{http://schema.org/}ratingValue', 1)
+                try:
+                    weight = int(weight)
+                except ValueError, e:
+                    weight = 1
+                key = (subject_type, term)
+                subject_names_by_id[identifier][key] = name
+                subject_weights_by_id[identifier][key] += weight
+
+        return authors_by_id, subject_names_by_id, subject_weights_by_id
 
 
 class OPDSImportMonitor(Monitor):

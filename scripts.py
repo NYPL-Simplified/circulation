@@ -192,6 +192,18 @@ class WorkPresentationScript(WorkProcessingScript):
             choose_edition=True, classify=True, choose_summary=True,
             calculate_quality=True)
 
+class PermanentWorkIDCalculationScript(Script):
+    """Calculate the permanent work ID for all Editions."""
+
+    def run(self):
+        counter = 0
+        for edition in self._db.query(Edition):
+            edition.calculate_permanent_work_id()
+            counter += 1
+            if not counter % 1000:
+                print counter
+        self._db.commit()
+
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
@@ -253,17 +265,16 @@ class NYTBestSellerListsScript(Script):
         self.data_source = DataSource.lookup(self._db, DataSource.NYT)
         # For every best-seller list...
         names = self.api.list_of_lists()
-        for l in sorted(names['results']):
-            print "Handling list %s" % l['list_name_encoded']
+        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
+
+            name = l['list_name_encoded']
+            print "Handling list %s" % name
             best = self.api.best_seller_list(l)
 
             if self.include_history:
                 self.api.fill_in_history(best)
             else:
                 self.api.update(best)
-
-            # TODO: If appropriate, call out to the name canonicalization
-            # service for any unrecognized author names.
 
             # Mirror the list to the database.
             customlist = best.to_customlist(self._db)

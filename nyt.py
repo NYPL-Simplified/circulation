@@ -9,6 +9,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from opds_import import SimplifiedOPDSLookup
 
 from model import (
     get_one_or_create,
@@ -44,12 +45,17 @@ class NYTBestSellerAPI(NYTAPI):
     
     LIST_OF_LISTS_MAX_AGE = timedelta(days=1)
     LIST_MAX_AGE = timedelta(days=1)
+    HISTORICAL_LIST_MAX_AGE = timedelta(days=365)
 
-    def __init__(self, _db, api_key=None, do_get=None):
+    def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
         self._db = _db
         self.api_key = api_key or os.environ['NYT_BEST_SELLERS_API_KEY']
         self.do_get = do_get or Representation.simple_http_get
         self.source = DataSource.lookup(_db, DataSource.NYT)
+        if not metadata_client:
+            metadata_url = os.environ['METADATA_WEB_APP_URL']
+            metadata_client = SimplifiedOPDSLookup(metadata_url)
+        self.metadata_client = metadata_client
 
     def request(self, path, identifier=None, max_age=LIST_MAX_AGE):
         if not path.startswith(self.BASE_URL):
@@ -83,27 +89,27 @@ class NYTBestSellerAPI(NYTAPI):
         """Create (but don't update) a NYTBestSellerList object."""
         if isinstance(list_info, basestring):
             list_info = self.list_info(list_info)
-        return NYTBestSellerList(list_info)
+        return NYTBestSellerList(list_info, self.metadata_client)
 
-    def update(self, list, date=None):
+    def update(self, list, date=None, max_age=LIST_MAX_AGE):
         """Update the given list with data from the given date."""
         name = list.foreign_identifier
         url = self.LIST_URL % name
         if date:
             url += "&published-date=%s" % self.date_string(date)
 
-        data = self.request(url, max_age=self.LIST_MAX_AGE)
+        data = self.request(url, max_age=max_age)
         list.update(data)
 
     def fill_in_history(self, list):
         """Update the given list with current and historical data."""
         for date in list.all_dates:
-            self.update(list, date)
+            self.update(list, date, self.HISTORICAL_LIST_MAX_AGE)
             self._db.commit()
 
 class NYTBestSellerList(list):
 
-    def __init__(self, list_info):
+    def __init__(self, list_info, metadata_client):
         self.name = list_info['display_name']
         self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
         self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
@@ -114,6 +120,7 @@ class NYTBestSellerList(list):
             frequency = 30
         self.frequency = timedelta(frequency)
         self.items_by_isbn = dict()
+        self.metadata_client = metadata_client
 
     @property
     def all_dates(self):
@@ -185,7 +192,8 @@ class NYTBestSellerList(list):
     
         # Add new items to the list.
         for i in self:
-            list_item, was_new = i.to_custom_list_entry(custom_list)
+            list_item, was_new = i.to_custom_list_entry(
+                custom_list, self.metadata_client)
 
 class NYTBestSellerListTitle(object):
 
@@ -224,9 +232,9 @@ class NYTBestSellerListTitle(object):
         if not self.primary_isbn10 and not self.primary_isbn13:
             raise ValueError("Book has no identifier")
 
-    def to_custom_list_entry(self, custom_list):
+    def to_custom_list_entry(self, custom_list, metadata_client):
         _db = Session.object_session(custom_list)        
-        edition = self.to_edition(_db)
+        edition = self.to_edition(_db, metadata_client)
 
         list_entry, is_new = get_one_or_create(
             _db, CustomListEntry, edition=edition, customlist=custom_list
@@ -267,9 +275,18 @@ class NYTBestSellerListTitle(object):
                 Contributor.name != None).all()
         if contributors:
             return contributors[0].name
+
+        # Maybe there's an Edition (e.g. from another NYT best-seller
+        # list) that has a sort name for this author?
+        editions = _db.query(Edition).filter(
+            Edition.author==self.display_author).filter(
+                Edition.sort_author != None).all()
+        if editions:
+            return editions[0].author
+
         return None
 
-    def to_edition(self, _db):
+    def to_edition(self, _db, metadata_client):
         """Create or update a Simplified Edition object for this NYTBestSeller
         title.
        """
@@ -291,6 +308,9 @@ class NYTBestSellerListTitle(object):
         edition.language = 'eng'
 
         for i in self.isbns:
+            if i == identifier:
+                # We already did this one.
+                continue
             other_identifier, ignore = Identifier.from_asin(_db, i)
             edition.primary_identifier.equivalent_to(
                 data_source, other_identifier, 1)
@@ -303,6 +323,8 @@ class NYTBestSellerListTitle(object):
             edition.author = self.display_author
         if not edition.sort_author:
             edition.sort_author = self.find_sort_name(_db)
+            if edition.sort_author:
+                "IT WAS EASY TO FIND %s!" % edition.sort_author
         # If find_sort_name returned a sort_name, we can calculate a
         # permanent work ID for this Edition, and be done with it.
         #
@@ -310,6 +332,20 @@ class NYTBestSellerListTitle(object):
         # the canonicalized author name for this book.
         if edition.sort_author:
             edition.calculate_permanent_work_id()
+        else:
+            response = metadata_client.canonicalize_author_name(
+                self.primary_identifier, self.display_author)
+            a = u"Trying to canonicalize %s, %s" % (
+                self.primary_identifier.identifier, self.display_author)
+            print a.encode("utf8")
+            if (response.status_code == 200 
+                and response.headers['Content-Type'].startswith('text/plain')):
+                edition.sort_author = response.content.decode("utf8")
+                print "CANONICALIZER TO THE RESCUE: %s" % edition.sort_author
+                edition.calculate_permanent_work_id()
+            else:
+                print "CANONICALIZER FAILED ME."
+
 
         # Set or update the description.
         description, ignore = get_one_or_create(

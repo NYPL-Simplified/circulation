@@ -100,6 +100,7 @@ class CoverageProvider(object):
             self._db, CoverageRecord,
             identifier=identifier,
             data_source=self.output_source,
+            on_multiple='interchangeable',
         )
         if force or coverage_record is None:
             if self.process_edition(edition):

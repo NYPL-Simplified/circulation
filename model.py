@@ -140,9 +140,21 @@ class SessionManager(object):
             Genre.lookup(session, g, autocreate=True)
         session.commit()
 
-def get_one(db, model, **kwargs):
+def get_one(db, model, on_multiple='error', **kwargs):
+    q = db.query(model).filter_by(**kwargs)
     try:
-        return db.query(model).filter_by(**kwargs).one()
+        return q.one()
+    except MultipleResultsFound, e:
+        if on_multiple == 'error':
+            raise e
+        elif on_multiple == 'interchangeable':
+            # These records are interchangeable so we can use
+            # whichever one we want.
+            #
+            # TODO: This may be a sign of a problem somewhere else. We
+            # should institute a database-level constraint.
+            q = q.limit(1)
+            return q.one()
     except NoResultFound:
         return None
 
@@ -1078,8 +1090,8 @@ class UnresolvedIdentifier(Base):
     exception = Column(Unicode, index=True)
 
     @classmethod
-    def register(cls, _db, identifier):
-        if identifier.licensed_through:
+    def register(cls, _db, identifier, force=False):
+        if identifier.licensed_through and not force:
             # There's already a license pool for this identifier, and
             # thus no need to do anything.
             raise ValueError(
@@ -1829,7 +1841,7 @@ class Edition(Base):
             medium = "book"
         elif self.medium == Edition.MUSIC_MEDIUM:
             medium = "music"
-        elif self.medium == Edition.PERIODICAL_MEIDUM:
+        elif self.medium == Edition.PERIODICAL_MEDIUM:
             medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
@@ -1866,7 +1878,7 @@ class Edition(Base):
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
                 if not best_cover.mirrored and not best_cover.scaled:
-                    print "WARN: Best cover for %s (%s) was never mirrored or scaled!" % (self.primary_identifier, best_cover.href)
+                    print "WARN: Best cover for %s/%s (%s) was never mirrored or scaled!" % (self.primary_identifier.type, self.primary_identifier.identifier, best_cover.href)
                 self.set_cover(best_cover)
                 break
 
@@ -1972,6 +1984,9 @@ class Work(Base):
     # information has been obtained for this Work. Until this is True,
     # the work will not show up in feeds.
     presentation_ready = Column(Boolean, default=False, index=True)
+
+    # This is the last time we tried to make this work presentation ready.
+    presentation_ready_attempt = Column(DateTime, default=None, index=True)
 
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt
@@ -2398,9 +2413,11 @@ class Work(Base):
                 print d.encode("utf8")
             print
 
-    def set_presentation_ready(self):
+    def set_presentation_ready(self, as_of=None):
+        as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
+        self.presentation_ready_attempt = as_of
 
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
@@ -2803,7 +2820,10 @@ class Resource(Base):
         This link will be served to the client.
         """
         if self.mirrored_path:
-            url = self.mirrored_path % self.URL_ROOTS
+            if '%(' in self.mirrored_path:
+                url = self.mirrored_path % self.URL_ROOTS
+            else:
+                url = self.mirrored_path
         else:
             url = self.href
         return url
@@ -2816,7 +2836,9 @@ class Resource(Base):
         """
         if not self.scaled_path:
             return self.final_url
-        return self.scaled_path % self.URL_ROOTS
+        if '%(' in self.scaled_path:
+            return self.scaled_path % self.URL_ROOTS
+        return self.scaled_path
 
     def local_path(self, expansions):
         """Path to the original representation on disk."""
@@ -3503,7 +3525,7 @@ class WorkFeed(object):
         This may be filtered down further.
         """
         # By default, return every Work in the entire database.
-        query = Work.feed_query(_db, self.languages, self.availability)
+        return Work.feed_query(_db, self.languages, self.availability)
 
     def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
         """Turn the base query into a query that retrieves a particular page 
@@ -3613,6 +3635,10 @@ class LicensePool(Base):
     # Identifier, and therefore with one original Edition.
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+
+    # One LicensePool may be associated with one RightsStatus.
+    rightsstatus_id = Column(
+        Integer, ForeignKey('rightsstatus.id'), index=True)
 
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
@@ -3766,6 +3792,14 @@ class LicensePool(Base):
         if self.work:
             self.work.last_update_time = now
 
+    def set_rights_status(self, uri, name=None):
+        _db = Session.object_session(self)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=dict(name=name))
+        self.rights_status = status
+        return status
+
     def loan_to(self, patron, start=None, end=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
@@ -3790,7 +3824,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self):
+    def calculate_work(self, even_if_no_author=False):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -3798,6 +3832,12 @@ class LicensePool(Base):
 
         Pools that are not open-access will always have a new Work
         created for them.
+
+        :param even_if_no_author: Ordinarily this method will refuse
+        to create a Work for a LicensePool whose Edition has no title
+        or author. But sometimes a book just has no known author. If
+        that's really the case, pass in even_if_no_author=True and the
+        Work will be created.
         """
         
         if self.work:
@@ -3816,9 +3856,15 @@ class LicensePool(Base):
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()
 
-        if not primary_edition.title or not primary_edition.author:
-            print "WARN: NO TITLE/AUTHOR for %s (%s/%s), cowardly refusing to create work." % (
-                self.identifier, primary_edition.title, primary_edition.author)
+
+
+        if not primary_edition.work and (
+                not primary_edition.title or (
+                    not primary_edition.author and not even_if_no_author)):
+            # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
+            #    self.identifier.type, self.identifier.identifier,
+            #    primary_edition.title, primary_edition.author)
+            #print msg.encode("utf8")
             return None, False
 
         if not primary_edition.permanent_work_id:
@@ -3890,6 +3936,40 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
+class RightsStatus(Base):
+
+    """The terms under which a book has been made available to the general
+    public.
+
+    This will normally be 'in copyright', or 'public domain', or a
+    Creative Commons license.
+    """
+
+    # Currently in copyright.
+    IN_COPYRIGHT = "http://librarysimplified.org/rights-status/in-copyright"
+
+    # Public domain in the USA.
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/rights-status/public-domain-usa"
+
+    # Public domain in some unknown territory
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/rights-status/public-domain-unknown"
+
+    # Unknown copyright status.
+    UNKNOWN = "http://librarysimplified.org/rights-status/unknown"
+
+    __tablename__ = 'rightsstatus'
+    id = Column(Integer, primary_key=True)
+
+    # A URI unique to the license. This may be a URL (e.g. Creative
+    # Commons)
+    uri = Column(String, index=True)
+
+    # Human-readable name of the license.
+    name = Column(String, index=True)
+
+    # One RightsStatus may apply to many LicensePools.
+    licensepools = relationship("LicensePool", backref="rights_status")
 
 class CirculationEvent(Base):
 
