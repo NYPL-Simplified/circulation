@@ -2746,20 +2746,23 @@ class Resource(Base):
     # The actual URL to the resource.
     href = Column(Unicode)
 
-    # Whether or not we have a local copy of the representation.
+    # Do we have our own copy of the representation?
     mirrored = Column(Boolean, default=False, index=True)
 
-    # The path to our mirrored representation. This can be converted
-    # into a URL for serving to a client.
+    # The local path to our private copy of the representation.
     mirrored_path = Column(Unicode)
 
-    # Whether or not we have a local scaled copy of the
-    # representation.
+    # The public URL for our own copy of the representation.
+    mirrored_url = Column(Unicode)
+
+    # Do we have our own scaled version of the (image) resource?
     scaled = Column(Boolean, default=False, index=True)
 
-    # The path to our scaled-down representation. This can be converted
-    # into a URL for serving to a client.
+    # The local path to our own scaled version of the (image) resource.
     scaled_path = Column(Unicode)
+
+    # The public URL for our own scaled version of the (image) resource.
+    scaled_url = Column(Unicode)
 
     # The last time we tried to update the mirror.
     mirror_date = Column(DateTime, index=True)
@@ -2804,49 +2807,23 @@ class Resource(Base):
     # human-entered quality value.
     quality = Column(Float, index=True)
 
-    URL_ROOTS = dict(
-        original_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Overdrive",
-        scaled_overdrive_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/Overdrive",
-        original_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/3M",
-        scaled_threem_covers_mirror="https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/3M",
-        gutenberg_illustrated_mirror="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated",
-        open_access_books="https://s3.amazonaws.com/oabooks.nypl.org",
-    )
-
     @property
     def final_url(self):        
         """URL to the full version of this resource.
         
         This link will be served to the client.
         """
-        if self.mirrored_path:
-            if '%(' in self.mirrored_path:
-                url = self.mirrored_path % self.URL_ROOTS
-            else:
-                url = self.mirrored_path
-        else:
-            url = self.href
-        return url
-
-    @property
-    def scaled_url(self):        
-        """URL to the scaled-down version of this resource.
-
-        This link will be served to the client.
-        """
-        if not self.scaled_path:
-            return self.final_url
-        if '%(' in self.scaled_path:
-            return self.scaled_path % self.URL_ROOTS
-        return self.scaled_path
+        if self.mirrored_url:
+            return self.mirrored_url
+        return self.href
 
     def local_path(self, expansions):
         """Path to the original representation on disk."""
-        return self.mirrored_path % expansions
+        return self.mirrored_path
 
     def local_scaled_path(self, expansions):
         """Path to the scaled representation on disk."""
-        return self.scaled_path % expansions
+        return self.scaled_path
 
     @property
     def is_image(self):
