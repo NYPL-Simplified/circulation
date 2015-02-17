@@ -1,8 +1,9 @@
 from nose.tools import eq_, set_trace
 import datetime
 
+from . import DatabaseTest
+
 from testing import (
-    DatabaseTest,
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )

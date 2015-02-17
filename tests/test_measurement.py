@@ -12,7 +12,7 @@ from model import (
     get_one_or_create
 )
 
-from testing import (
+from . import (
     DatabaseTest,
 )
 

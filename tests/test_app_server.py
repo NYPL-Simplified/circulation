@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
 )
 
-from testing import (
+from . import (
     DatabaseTest,
 )
 
