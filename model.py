@@ -3980,6 +3980,8 @@ class Representation(Base):
     # The media type of the representation.
     media_type = Column(Unicode)
 
+    resource = relationship("Resource", backref="representation")
+
     ### Records of things we tried to do with this representation.
 
     # When the representation was last fetched from `url`.
@@ -4010,23 +4012,6 @@ class Representation(Base):
     scale_exception = Column(Unicode, index=True)
 
     ### End records of things we tried to do with this representation.
-
-    # The representation was obtained from a particular data source.
-    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
-
-    # The representation may be the data source's representation of a
-    # particular book.
-    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
-
-    # Or the representation may be associated with a specific Resource
-    # (which has a certain relationship with a specific book).
-    representation_of = relationship(
-        "Resource", backref="representation", uselist=False
-    )
-
-    # Or the representation may be the data source's representation of
-    # a particular license pool.
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
 
     # An image Representation may be a scaled-down version of another
     # Representation.
@@ -4084,9 +4069,8 @@ class Representation(Base):
                 and self.content is not None)
 
     @classmethod
-    def get(cls, _db, url, do_get=None, extra_request_headers=None, data_source=None,
-            identifier=None, license_pool=None, max_age=None, pause_before=0,
-            allow_redirects=True, debug=True):
+    def get(cls, _db, url, do_get=None, extra_request_headers=None,
+            max_age=None, pause_before=0, allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -4114,6 +4098,7 @@ class Representation(Base):
         # have cached). Fortunately this isn't an issue with any of
         # the data sources we currently use, so for now we can treat
         # different representations of a URL as interchangeable.
+
         representation = get_one(
             _db, Representation, 'interchangeable',
             url=url
@@ -4158,9 +4143,14 @@ class Representation(Base):
         fetched_at = datetime.datetime.utcnow()
         if pause_before:
             time.sleep(pause_before)
+        media_type = None
         try:
             status_code, headers, content = do_get(url, headers)
             exception = None
+            if 'content-type' in headers:
+                media_type = headers['content-type'].lower()
+            else:
+                media_type = None
         except Exception, e:
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
@@ -4169,14 +4159,13 @@ class Representation(Base):
             status_code = None
             headers = None
             content = None
+            media_type = None
 
         # At this point we can create a Representation object if there
         # isn't one already.
         if not usable_representation:
             representation = get_one_or_create(
-                _db, Representation,
-                url=url, data_source=data_source, identifier=identifier,
-                license_pool=license_pool)
+                _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
@@ -4194,11 +4183,7 @@ class Representation(Base):
             # Representation object and return it as fresh.
             representation.status_code = status_code
             representation.content = content
-
-            if 'content-type' in headers:
-                self.media_type = headers['content-type'].lower()
-            else:
-                self.media_type = None
+            representation.media_type = media_type
 
             for header, field in (
                     ('etag', 'etag'),
@@ -4303,10 +4288,11 @@ class Representation(Base):
         """Return a Representation that's a scaled-down version of this
         Representation, creating it if necessary.
 
-        :param destiation_url: The URL the scaled-down resource will be
-        uploaded to.
+        :param destination_url: The URL the scaled-down resource will
+        (eventually) be uploaded to.
 
         :return: A 2-tuple (Representation, is_new)
+
         """
         _db = Session.object_session(self)
 
@@ -4317,15 +4303,11 @@ class Representation(Base):
 
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
-            Representation, url=destination_url, 
+            _db, Representation, url=destination_url, 
             media_type=destination_media_type,
             create_method_kwargs=dict(
-                scaled_down_version_of=self,
-                data_source=self.data_source,
-                representation_of=self.representation_of,
-                identifier=self.identifier,
-                license_pool=self.license_pool,
                 mirror_url=destination_url,
+                scaled_down_version_of=self,
             ))
 
         if not is_new and not force:

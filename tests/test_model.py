@@ -1514,3 +1514,12 @@ class TestCustomList(DatabaseTest):
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
 
+
+class TestScaleRepresentation(DatabaseTest):
+
+    def test_cannot_scale_non_image(self):
+        rep, ignore = self._representation(media_type="text/plain", content="foo")
+        rep.scale(300, 300, self._url, "image/png")
+        set_trace()
+        pass
+        

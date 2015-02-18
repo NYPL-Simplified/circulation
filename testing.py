@@ -44,6 +44,10 @@ class DatabaseTest(object):
         return unicode(self._id)
 
     @property
+    def _url(self):
+        return "http://foo.com/" + self._str
+
+    @property
     def default_patron(self):
         """The patron automatically created for the test dataset and 
         used by default when authenticating.
@@ -161,16 +165,24 @@ class DatabaseTest(object):
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
                 source, pool)
 
-            representation, is_new = get_one_or_create(
-                self._db, Representation, url=url, media_type=media_type)
-
-            # Simulate a file that's been mirrored to a server
-            # we control.
+            representation, is_new = self._representation(
+                url, media_type, "Dummy content", mirrored=True)
             link.resource.representation = representation
-            representation.mirror_url = "http://mirrored.foo.com/"
-            representation.mirrored_at = datetime.utcnow()
-
         return pool
+
+    def _representation(self, url=None, media_type=None, content=None,
+                        mirrored=False):
+        url = url or "http://foo.com/" + self._str
+        repr, is_new = get_one_or_create(
+            self._db, Representation, url=url)
+        if media_type and content:
+            repr.media_type=media_type
+            repr.content = content
+            repr.fetched_at = datetime.utcnow()
+            if mirrored:
+                repr.mirror_url = "http://foo.com/" + self._str
+                repr.mirrored_at = datetime.utcnow()            
+        return repr, is_new
 
     def _customlist(self, foreign_identifier=None, 
                     name=None,
