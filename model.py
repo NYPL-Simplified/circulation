@@ -4282,6 +4282,12 @@ class Representation(Base):
             raise ValueError("Image representation has no content.")
         return Image.open(StringIO(self.content))
 
+    pil_format_for_media_type = {
+        "image/gif": "gif",
+        "image/png": "png",
+        "image/jpeg": "jpeg",
+    }
+
     def scale(self, destination_width, destination_height,
               destination_url, destination_media_type, force=False):
         """Return a Representation that's a scaled-down version of this
@@ -4293,6 +4299,11 @@ class Representation(Base):
         :return: A 2-tuple (Representation, is_new)
         """
         _db = Session.object_session(self)
+
+        if not destination_media_type in self.pil_format_for_media_type:
+            raise ValueError(
+                "Unsupported media type: %s" % destination_media_type)
+        pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
