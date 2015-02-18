@@ -4352,7 +4352,7 @@ class Representation(Base):
         # Save the thumbnail image to the database under
         # thumbnail.content.
         output = StringIO()
-        scaled_image.save(output)
+        scaled_image.save(output, 'jpeg')
         thumbnail.content = output.getvalue()
         output.close()
         thumbnail.scaled_exception = None
