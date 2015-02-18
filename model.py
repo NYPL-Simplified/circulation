@@ -891,6 +891,7 @@ class Identifier(Base):
                 resources = resources.filter(Hyperlink.rel.in_(rel))
             else:
                 resources = resources.filter(Hyperlink.rel==rel)
+        resources = resources.options(joinedload('representation'))
         return resources
 
     @classmethod
@@ -1788,13 +1789,12 @@ class Edition(Base):
         best = None
         q = Identifier.resources_for_identifier_ids(
             _db, [self.primary_identifier.id], open_access)
-        q = q.join(Resource.representation)
         for l in q:
-            if l.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
+            if l.representation.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
                 # we'll keep looking in hopes of finding a better one.
-                if not 'noimages' in best.href:
+                if not 'noimages' in best.representation.mirror_url:
                     break
         return best
 
@@ -2807,9 +2807,9 @@ class Resource(Base):
         """
         if not self.representation:
             return None
-        if not self.representation.mirrored_url:
+        if not self.representation.mirror_url:
             return None
-        return self.representation.mirrored_url
+        return self.representation.mirror_url
 
     def set_fetched_content(self, media_type, content):
         """Simulate a successful HTTP request for a representation of this

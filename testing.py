@@ -10,6 +10,7 @@ from model import (
     Genre,
     LicensePool,
     Patron,
+    Representation,
     Resource,
     Identifier,
     Edition,
@@ -153,9 +154,20 @@ class DatabaseTest(object):
 
         if with_open_access_download:
             pool.open_access = True
-            pool.identifier.add_link(
-                Resource.OPEN_ACCESS_DOWNLOAD, "http://foo.com/" + self._str,
-                source, pool, "application/epub+zip")
+            url = "http://foo.com/" + self._str
+            media_type = Resource.EPUB_MEDIA_TYPE
+            link, new = pool.identifier.add_link(
+                Resource.OPEN_ACCESS_DOWNLOAD, url,
+                source, pool)
+
+            representation, is_new = get_one_or_create(
+                self._db, Representation, url=url, media_type=media_type)
+
+            # Simulate a file that's been mirrored to a server
+            # we control.
+            link.resource.representation = representation
+            representation.mirror_url = "http://mirrored.foo.com/"
+            representation.mirrored_at = datetime.utcnow()
 
         return pool
 
