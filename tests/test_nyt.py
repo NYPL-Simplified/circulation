@@ -206,10 +206,10 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         eq_(None, edition.permanent_work_id)
         eq_("Riverhead", edition.publisher)
 
-        [description] = self._db.query(Resource).filter(
-            Resource.data_source==edition.data_source).filter(
-                Resource.identifier==edition.primary_identifier).filter(
-                    Resource.rel==Resource.DESCRIPTION)
+        [description] = self._db.query(Resource).join(Resource.hyperlink).filter(
+            Hyperlink.data_source==edition.data_source).filter(
+                Hyperlink.identifier==edition.primary_identifier).filter(
+                    Hyperlink.rel==Resource.DESCRIPTION)
         eq_("A psychological thriller set in London is full of complications and betrayals.", description.content)
         eq_("text/plain", description.media_type)
         
