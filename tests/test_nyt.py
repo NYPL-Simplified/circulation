@@ -16,6 +16,7 @@ from nyt import (
 from model import (
     Contributor,
     Edition,
+    Hyperlink,
     Identifier,
     Resource,
     CustomListEntry,
@@ -206,11 +207,11 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         eq_(None, edition.permanent_work_id)
         eq_("Riverhead", edition.publisher)
 
-        [description] = self._db.query(Resource).join(Resource.hyperlink).filter(
+        [description] = self._db.query(Resource).join(Resource.links).filter(
             Hyperlink.data_source==edition.data_source).filter(
                 Hyperlink.identifier==edition.primary_identifier).filter(
                     Hyperlink.rel==Resource.DESCRIPTION)
-        eq_("A psychological thriller set in London is full of complications and betrayals.", description.content)
+        eq_("A psychological thriller set in London is full of complications and betrayals.", description.representation.content)
         eq_("text/plain", description.media_type)
         
     def test_to_edition_sets_sort_author_name_if_obvious(self):

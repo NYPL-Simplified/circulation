@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import datetime
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
@@ -113,8 +114,11 @@ class CoverageProvider(object):
     def add_coverage_record_for(self, edition):
         if isinstance(edition, Identifier):
             identifier = edition
-        else:
+        elif isinstance(edition, Edition):
             identifier = edition.primary_identifier
+        else:
+            raise ValueError(
+                "Cannot create a coverage record for %r." % edition) 
         now = datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
             self._db, CoverageRecord,
