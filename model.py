@@ -151,8 +151,8 @@ def get_one(db, model, on_multiple='error', **kwargs):
             # These records are interchangeable so we can use
             # whichever one we want.
             #
-            # TODO: This may be a sign of a problem somewhere else. We
-            # should institute a database-level constraint.
+            # This may be a sign of a problem somewhere else. A
+            # database-level constraint might be useful.
             q = q.limit(1)
             return q.one()
     except NoResultFound:
@@ -2743,52 +2743,13 @@ class Resource(Base):
     # and the resource.
     rel = Column(Unicode, index=True)
 
-    # The actual URL to the resource.
-    href = Column(Unicode)
-
-    # Do we have our own copy of the representation?
-    mirrored = Column(Boolean, default=False, index=True)
-
-    # The local path to our private copy of the representation.
-    mirrored_path = Column(Unicode)
-
-    # The public URL for our own copy of the representation.
-    mirrored_url = Column(Unicode)
-
-    # Do we have our own scaled version of the (image) resource?
-    scaled = Column(Boolean, default=False, index=True)
-
-    # The local path to our own scaled version of the (image) resource.
-    scaled_path = Column(Unicode)
-
-    # The public URL for our own scaled version of the (image) resource.
-    scaled_url = Column(Unicode)
-
-    # The last time we tried to update the mirror.
-    mirror_date = Column(DateTime, index=True)
-
-    # The HTTP status code the last time we updated the mirror
-    mirror_status = Column(Unicode)
-
-    # A human-readable description of what happened the last time
-    # we updated the mirror.
-    mirror_exception = Column(Unicode)
-
-    # Sometimes the content of a resource can just be stuck into the
-    # database.
-    content = Column(Unicode)
-
-    # We need this information to determine the appropriateness of this
-    # resource without neccessarily having access to the file.
-    media_type = Column(Unicode, index=True)
+    # The primary human language of the resource.
+    # TODO: May not be necessary.
     language = Column(Unicode, index=True)
-    file_size = Column(Integer)
-    image_height = Column(Integer, index=True)
-    image_width = Column(Integer, index=True)
 
-    scaled_size = Column(Integer)
-    scaled_height = Column(Integer, index=True)
-    scaled_width = Column(Integer, index=True)
+    # An archived Representation of this Resource.
+    representation_id = Column(
+        Integer, ForeignKey('representations.id'), index=True)
 
     # A calculated value for the quality of this resource, based on an
     # algorithmic treatment of its content.
@@ -2824,10 +2785,6 @@ class Resource(Base):
     def local_scaled_path(self, expansions):
         """Path to the scaled representation on disk."""
         return self.scaled_path
-
-    @property
-    def is_image(self):
-        return self.media_type and self.media_type.startswith("image/")
 
     def could_not_mirror(self):
         """We tried to mirror this resource and failed."""
@@ -2901,66 +2858,6 @@ class Resource(Base):
                          ((self.voted_quality or 0) * votes_for_quality))
         self.quality = total_quality / float(total_weight)
 
-    def scale(self, destination_width, destination_height,
-              original_path_expansions, 
-              scaled_path_expansions, original_variable_to_scaled_variable,
-              force=False):
-        """Create a scaled-down version of this resource."""
-        if not self.is_image:
-            raise ValueError(
-                "Cannot scale down non-image resource: type %s." 
-                % self.media_type)
-        if not self.mirrored:
-            raise ValueError(
-                "Cannot scale down an image that has not been mirrored.")
-
-        scaled_path_template = self.mirrored_path % (
-            original_variable_to_scaled_variable)
-        scaled_path = scaled_path_template % scaled_path_expansions
-
-        already_scaled = False
-        if os.path.exists(scaled_path) and not force:
-            scaled_image = Image.open(scaled_path)
-            already_scaled = True
-        else:
-            path = self.local_path(original_path_expansions)
-            try:
-                image = Image.open(path)
-                width, height = image.size
-
-                if height <= destination_height:
-                    # The image doesn't need to be scaled; just save it.
-                    scaled_image = image
-                else:
-                    proportion = float(destination_height) / height
-                    destination_width = int(width * proportion)
-                    try:
-                        scaled_image = image.resize(
-                            (destination_width, destination_height), 
-                            Image.ANTIALIAS)
-                    except IOError, e:
-                        # I'm not sure why, but sometimes just trying
-                        # it again works.
-                        scaled_image = image.resize(
-                            (destination_width, destination_height), 
-                            Image.ANTIALIAS)
-            except IOError, e:
-                scaled_image = None
-
-        # Save the scaled image.
-        if scaled_image:
-            if not already_scaled:
-                d, f = os.path.split(scaled_path)
-                if not os.path.exists(d):
-                    os.makedirs(d)
-                scaled_image.save(scaled_path)
-            self.scaled = True
-            self.scaled_path = scaled_path_template
-            self.scaled_width, self.scaled_height = scaled_image.size
-        else:
-            self.scaled_path = None
-            self.scaled = False
-        return already_scaled
 
 class Genre(Base):
     """A subject-matter classification for a book.
@@ -4065,41 +3962,88 @@ class Timestamp(Base):
         return stamp
 
 class Representation(Base):
-    """A cached document from the Web at large."""
+    """A cached document obtained from (and possibly mirrored to) the Web
+    at large.
 
+    Sometimes this is a DataSource's representation of a specific
+    book.
+
+    Sometimes it's associated with a database Resource (which has a
+    well-defined relationship to one specific book).
+
+    Sometimes it's just a web page that we need a cached local copy
+    of.
+    """
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
 
     # URL from which the representation was fetched.
     url = Column(Unicode, index=True)
 
-    # The representation is probably obtained from a particular data source.
-    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
+    # The media type of the representation.
+    media_type = Column(Unicode)
 
-    # The representation may be the data source's representation of a
-    # particular identifier.
-    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+    ### Records of things we tried to do with this representation.
 
-    # Or (less likely) the representation may be the data source's
-    # representation of a particular license pool.
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
-
-    # When the representation was fetched.
+    # When the representation was last fetched from `url`.
     fetched_at = Column(DateTime, index=True)
-
-    # The HTTP status code from the last representation.
-    status_code = Column(Integer)
 
     # A textual description of the error encountered the last time
     # we tried to fetch the representation
-    exception = Column(Unicode, index=True)
+    fetch_exception = Column(Unicode, index=True)
+
+    # A URL under our control to which this representation will be
+    # mirrored.
+    mirror_url = Column(Unicode, index=True)
+
+    # When the representation was last pushed to `mirror_url`.
+    mirrored_at = Column(DateTime, index=True)
+    
+    # An exception that happened while pushing this representation
+    # to `mirror_url.
+    mirror_exception = Column(Unicode, index=True)
+
+    # If this image is a scaled-down version of some other image,
+    # `scaled_at` is the time it was last generated.
+    scaled_at = Column(DateTime, index=True)
+
+    # If this image is a scaled-down version of some other image,
+    # this is the exception that happened the last time we tried
+    # to scale it down.
+    scale_exception = Column(Unicode, index=True)
+
+    ### End records of things we tried to do with this representation.
+
+    # The representation was obtained from a particular data source.
+    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
+
+    # The representation may be the data source's representation of a
+    # particular book.
+    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+
+    # Or the representation may be associated with a specific Resource
+    # (which has a certain relationship with a specific book).
+    representation_of = relationship(
+        "Resource", backref="representation", uselist=False
+    )
+
+    # Or the representation may be the data source's representation of
+    # a particular license pool.
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+
+    # An image Representation may be a scaled-down version of another
+    # Representation.
+    scaled_down_version_of_id = Column(
+        Integer, ForeignKey('representations.id'), index=True)
+    scaled_down_versions = relationship(
+        "Representation", backref="scaled_down_version_of")
+
+    # The HTTP status code from the last fetch.
+    status_code = Column(Integer)
 
     # A textual representation of the HTTP headers sent along with the
     # representation.
     headers = Column(Unicode)
-
-    # The Content-Type header from the last representation.
-    content_type = Column(Unicode)
 
     # The Location header from the last representation.
     location = Column(Unicode)
@@ -4110,9 +4054,25 @@ class Representation(Base):
     # The Etag header from the last representation.
     etag = Column(Unicode)
 
-    # The representation itself.
+    # The size of the representation, in bytes.
+    file_size = Column(Integer)
+    
+    # If this representation is an image, the height of the image.
+    image_height = Column(Integer, index=True)
+
+    # If this representation is an image, the width of the image.
+    image_width = Column(Integer, index=True)
+
+    # The content of the representation itself.
     content = Column(Binary)
 
+    # At any given time, we will have a single representation for a
+    # given URL and media type.
+    __table_args__ = (
+        UniqueConstraint('url', 'media_type'),
+    )
+
+    # A User-Agent to use when acting like a web browser.
     BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36 (Simplified)"
 
     @property
@@ -4140,8 +4100,8 @@ class Representation(Base):
 
         :param max_age: A timedelta object representing the maximum
         time to consider a cached representation fresh. (We ignore the
-        caching directives from the server because they're usually far
-        too conservative for our purposes.)
+        caching directives from web servers because they're usually
+        far too conservative for our purposes.)
 
         :return: A 2-tuple (representation, obtained_from_cache)
 
@@ -4149,39 +4109,55 @@ class Representation(Base):
         do_get = do_get or cls.simple_http_get
 
         representation = None
-        q = _db.query(Representation).filter(
-            Representation.url==url).filter(
-                Representation.data_source==data_source).order_by(
-                    Representation.fetched_at.desc()).limit(1)
-        try:
-            representation = q.one()
-        except NoResultFound, e:
-            representation = None
+
+        # TODO: We allow representations of the same URL in different
+        # media types, but we don't have a good solution here for
+        # doing content negotiation (letting the caller ask for a
+        # specific set of media types and matching against what we
+        # have cached). Fortunately this isn't an issue with any of
+        # the data sources we currently use, so for now we can treat
+        # different representations of a URL as interchangeable.
+        representation = get_one(
+            _db, Representation, 'interchangeable',
+            url=url
+        )
+
+        # Convert a max_age timedelta to a number of seconds.
+        if isinstance(max_age, datetime.timedelta):
+            max_age = max_age.total_seconds()
 
         # Do we already have a usable representation?
         usable_representation = (
             representation and not representation.exception)
 
-        if isinstance(max_age, datetime.timedelta):
-            max_age = max_age.total_seconds()
-        if usable_representation and (
-                max_age is None or max_age > representation.age):
+        # Assuming we have a usable representation, is it
+        # fresh?
+        fresh_representation = (
+            usable_representation and (
+                max_age is None or max_age > representation.age))
+
+        if fresh_representation:
             if debug:
                 print "Cached %s" % url
             return representation, True
 
+        # We have a representation that is either not fresh or not usable.
+        # We must make an HTTP request.
         if debug:
             print "Fetching %s" % url
         headers = {}
         if extra_request_headers:
             headers.update(extra_request_headers)
+
         if usable_representation:
+            # We have a representation but it's not fresh. We will
+            # be making a conditional HTTP request to see if there's
+            # a new version.
             if representation.last_modified:
                 headers['If-Modified-Since'] = representation.last_modified
             if representation.etag:
                 headers['If-None-Match'] = representation.etag
-        # Either the representation was not cached, or the cache is stale.
-        # We need to get a new representation.
+
         fetched_at = datetime.datetime.utcnow()
         if pause_before:
             time.sleep(pause_before)
@@ -4189,54 +4165,74 @@ class Representation(Base):
             status_code, headers, content = do_get(url, headers)
             exception = None
         except Exception, e:
+            # This indicates there was a problem with making the HTTP
+            # request, not that the HTTP request returned an error
+            # condition.
             exception = str(e)
             status_code = None
             headers = None
             content = None
 
-        if exception:
-            print "EXCEPTION: %s" % exception
-        
-        if not status_code:
-            raise IOError("No status code!")
-
-        if status_code / 100 == 4 and status_code != 404:
-            raise IOError("%s status code" % status_code)
-
-        if status_code / 100 == 5:
-            raise IOError("%s status code" % status_code)
-
-        if usable_representation and status_code == 304:
-            # The representation has not been modified since the last
-            # time we retrieved it. Return the cached version.
-            representation.fetched_at = fetched_at
-            return representation, True
-
-        if not representation:
-            # This is our first time retrieving a representation of
-            # this url.
-            representation = Representation(
+        # At this point we can create a Representation object if there
+        # isn't one already.
+        if not usable_representation:
+            representation = get_one_or_create(
+                _db, Representation,
                 url=url, data_source=data_source, identifier=identifier,
                 license_pool=license_pool)
 
-        if exception:
-            representation.exception = exception
-        else:
-            representation.exception = None
+        representation.exception = exception
+        representation.fetched_at = fetched_at
 
+        if status_code == 304:
+            # The representation hasn't changed since we last checked.
+            # Set its fetched_at property and return the cached
+            # version as though it were new.
+            representation.fetched_at = fetched_at
+            return representation, False
+
+        status_code_series = status_code / 100
+        if status_code_series in (2,3):
+            # We have a new, good representation. Update the
+            # Representation object and return it as fresh.
+            representation.status_code = status_code
+            representation.content = content
+
+            if 'content-type' in headers:
+                self.media_type = headers['content-type'].lower()
+            else:
+                self.media_type = None
+
+            for header, field in (
+                    ('etag', 'etag'),
+                    ('last-modified', 'last_modified'),
+                    ('location', 'location')):
+                if header in headers:
+                    value = headers[header]
+                else:
+                    value = None
+                setattr(representation, field, value)
+
+            representation.headers = cls.headers_to_string(headers)
+            representation.content = content          
+            return representation, False
+
+        # Okay, things didn't go so well.
+        date_string = fetched_at.strptime("%Y-%m-%d %H:%M:%S")
+        representation.exception = representation.exception or (
+            "Most recent fetch attempt (at %s) got status code %d" % (
+                date_string, status_code))
+        if usable_representation:
+            # If we have a usable (but stale) representation, we'd
+            # rather return the cached data than destroy the information.
+            return representation, True
+
+        # We didn't have a usable representation before, and we still don't.
+        # At this point we're just logging an error.
         representation.status_code = status_code
-        if 'content-type' in headers:
-            representation.content_type = headers['content-type']
-        if 'etag' in headers:
-            representation.etag = headers['etag']
-        if 'last-modified' in headers:
-            representation.last_modified = headers['last-modified']
-        if 'location' in headers:
-            representation.location = headers['location']
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
-        representation.fetched_at = fetched_at
-        return representation, False
+        return None, False
 
     @classmethod
     def headers_to_string(cls, d):
@@ -4272,6 +4268,103 @@ class Representation(Base):
         headers['User-Agent'] = cls.BROWSER_USER_AGENT
         return cls.simple_http_get(url, headers, **kwargs)
 
+    @property
+    def is_image(self):
+        return self.media_type and self.media_type.startswith("image/")
+
+    def as_image(self):
+        """Load this Representation's contents as a PIL image."""
+        if not self.is_image:
+            raise ValueError(
+                "Cannot load non-image representation as image: type %s." 
+                % self.media_type)
+        if not self.content:
+            raise ValueError("Image representation has no content.")
+        return Image.open(StringIO(self.content))
+
+    def scale(self, destination_width, destination_height,
+              destination_url, destination_media_type, force=False):
+        """Return a Representation that's a scaled-down version of this
+        Representation, creating it if necessary.
+
+        :param destiation_url: The URL the scaled-down resource will be
+        uploaded to.
+
+        :return: A 2-tuple (Representation, is_new)
+        """
+        _db = Session.object_session(self)
+
+        # Do we already have a representation for the given URL?
+        thumbnail, is_new = get_one_or_create(
+            Representation, url=destination_url, 
+            media_type=destination_media_type,
+            create_method_kwargs=dict(
+                scaled_down_version_of=self,
+                data_source=self.data_source,
+                representation_of=self.representation_of,
+                identifier=self.identifier,
+                license_pool=self.license_pool,
+                mirror_url=destination_url,
+            ))
+
+        if not is_new and not force:
+            # We found a preexisting thumbnail and we're allowed to
+            # use it.
+            return thumbnail, is_new
+
+        # At this point we have a parent Representation (self), we
+        # have a Representation that will contain a thumbnail
+        # (thumbnail), and we know we need to actually thumbnail the
+        # parent into the thumbnail.
+        now = datetime.datetime.utcnow()
+
+        # How big will the image be once it's scaled down?
+        image = self.as_image()
+        if not self.image_width or not self.image_height:
+            self.image_width, self.image_height = image.size
+
+        proportion = min(1, float(destination_height) / self.image_height)
+        thumbnail.width = int(self.image_width * proportion)
+        thumbnail.height = int(self.image_height * proportion)
+
+        thumbnail.scaled_at = now
+        if self.height <= thumbnail.height:
+            # The image doesn't need to be scaled at all; just save a
+            # copy.
+            thumbnail.content = self.content
+            thumbnail.scaled_exception = None
+            return thumbnail, True
+
+        args = [(destination_width, destination_height),
+                Image.ANTIALIAS]
+        try:
+            scaled_image = image.resize(*args)
+        except IOError, e:
+            # I'm not sure why, but sometimes just trying
+            # it again works.
+            try:
+                scaled_image = image.resize(*args)
+            except IOError, e:
+                thumbnail.content = None
+                thumbnail.scaled_exception = str(e)
+                return thumbnail, True
+
+        # Save the thumbnail image to the database under
+        # thumbnail.content.
+        output = StringIO()
+        scaled_image.save(output)
+        thumbnail.content = output.getvalue()
+        output.close()
+        thumbnail.scaled_exception = None
+        return thumbnail, True
+
+    def mirror(self, uploader):
+        """Mirror this Representation using the given uploader."""
+        now = datetime.datetime.utcnow()
+        exception = uploader.upload(self)
+        self.mirrored_at = now
+        self.mirror_exception = exception
+        
 
 class CustomList(Base):
     """A custom grouping of Editions."""
