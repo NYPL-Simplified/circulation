@@ -18,6 +18,7 @@ from model import (
     Contributor,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     Representation,
     Resource,
@@ -348,11 +349,10 @@ class NYTBestSellerListTitle(object):
 
 
         # Set or update the description.
-        description, ignore = get_one_or_create(
-            _db, Resource, rel=Resource.DESCRIPTION,
-            data_source=data_source,
-            identifier=self.primary_identifier)
-        description.content = self.description
-        description.media_type = "text/plain"
+        rel = Resource.DESCRIPTION
+        href = Hyperlink.generic_uri(data_source, self.primary_identifier, rel)
+        description, is_new = self.primary_identifier.add_link(
+            Resource.DESCRIPTION, href, data_source, media_type="text/plain",
+            content=self.description)
 
         return edition

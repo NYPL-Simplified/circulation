@@ -282,11 +282,8 @@ class DataSource(Base):
     license_pools = relationship(
         "LicensePool", backref=backref("data_source", lazy='joined'))
 
-    # One DataSource can provide many Resources.
-    resources = relationship("Resource", backref="data_source")
-
-    # One DataSource can provide many Representations.
-    representations = relationship("Representation", backref="data_source")
+    # One DataSource can provide many Hyperlinks.
+    links = relationship("Hyperlink", backref="data_source")
 
     # One DataSource can generate many Measurements.
     measurements = relationship("Measurement", backref="data_source")
@@ -476,9 +473,6 @@ class Identifier(Base):
     # One Identifier may have many associated CoverageRecords.
     coverage_records = relationship("CoverageRecord", backref="identifier")
 
-    # One Identifier can have many Representations.
-    representations = relationship("Representation", backref="identifier")
-
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
@@ -500,9 +494,9 @@ class Identifier(Base):
         "LicensePool", backref="identifier", uselist=False, lazy='joined',
     )
 
-    # One Identifier may serve to identify many Resources.
-    resources = relationship(
-        "Resource", backref="identifier"
+    # One Identifier may have many Links.
+    links = relationship(
+        "Hyperlink", backref="identifier"
     )
 
     # One Identifier may be the subject of many Measurements.
@@ -794,37 +788,26 @@ class Identifier(Base):
         return Identifier.recursively_equivalent_identifier_ids_flat(
             _db, [self.id], levels, threshold)
 
-    def add_resource(self, rel, href, data_source, license_pool=None,
+    def add_link(self, rel, href, data_source, license_pool=None,
                      media_type=None, content=None):
-        """Associated a resource with this Identifier."""
+        """Create a link between this Identifier and a (potentially new)
+        Resource."""
         _db = Session.object_session(self)
-        try:
-            resource, new = get_one_or_create(
-                _db, Resource, identifier=self,
-                rel=rel,
-                href=href,
-                media_type=media_type,
-                content=content,
-                create_method_kwargs=dict(
-                    data_source=data_source,
-                    license_pool=license_pool))
-        except MultipleResultsFound, e:
-            # TODO: This is a hack.
-            all_resources = _db.query(Resource).filter(
-                Resource.identifier==self,
-                Resource.rel==rel,
-                Resource.href==href,
-                Resource.media_type==media_type,
-                Resource.content==content)
-            all_resources = all_resources.all()
-            resource = all_resources[0]
-            new = False
-            for i in all_resources[1:]:
-                _db.delete(i)
+        
+        # Find or create the Resource.
+        resource, new_resource = get_one_or_create(
+            _db, Resource, url=href)
+
+        # Find or create the Hyperlink.
+        link, new_link = get_one_or_create(
+            _db, Hyperlink, rel=rel, data_source=data_source,
+            identifier=self, resource=resource,
+            create_method_kwargs=dict(license_pool=license_pool)
+        )
 
         if content:
-            resource.set_content(content, media_type)
-        return resource, new
+            resource.set_fetched_content(media_type, content)
+        return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
                         weight=1, taken_at=None):
@@ -901,13 +884,13 @@ class Identifier(Base):
 
     @classmethod
     def resources_for_identifier_ids(self, _db, identifier_ids, rel=None):
-        resources = _db.query(Resource).filter(
-                Resource.identifier_id.in_(identifier_ids))
+        resources = _db.query(Resource).join(Resource.links).filter(
+                Hyperlink.identifier_id.in_(identifier_ids))
         if rel:
             if isinstance(rel, list):
-                resources = resources.filter(Resource.rel.in_(rel))
+                resources = resources.filter(Hyperlink.rel.in_(rel))
             else:
-                resources = resources.filter(Resource.rel==rel)
+                resources = resources.filter(Hyperlink.rel==rel)
         return resources
 
     @classmethod
@@ -930,16 +913,10 @@ class Identifier(Base):
         # these identifiers.
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, Resource.IMAGE)
-        images = images.join(Resource.data_source)
-        licensed_sources = (
-            DataSource.OVERDRIVE, DataSource.THREEM,
-            DataSource.AXIS_360)
-        mirrored_or_embeddable = or_(
-            Resource.mirrored==True,
-            DataSource.name.in_(licensed_sources)
-            )
-
-        images = images.filter(mirrored_or_embeddable).all()
+        images = images.join(Resource.representation)
+        images = images.filter(Representation.mirrored_at != None).filter(
+            Representation.mirror_url != None)
+        images = images.all()
 
         champion = None
         champions = []
@@ -1023,7 +1000,8 @@ class Identifier(Base):
         # these records.
         summaries = cls.resources_for_identifier_ids(
             _db, identifier_ids, Resource.DESCRIPTION)
-        summaries = summaries.filter(Resource.content != None).all()
+        summaries = summaries.join(Resource.representation).filter(
+            Representation.content != None).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
@@ -1800,8 +1778,10 @@ class Edition(Base):
 
         _db = Session.object_session(self)
         best = None
-        for l in Identifier.resources_for_identifier_ids(
-                _db, [self.primary_identifier.id], open_access):
+        q = Identifier.resources_for_identifier_ids(
+            _db, [self.primary_identifier.id], open_access)
+        q = q.join(Resource.representation)
+        for l in q:
             if l.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
@@ -2694,6 +2674,54 @@ class Measurement(Base):
         return self._normalized_value
 
 
+class Hyperlink(Base):
+    """A link between an Identifier and a Resource."""
+
+    __tablename__ = 'hyperlinks'
+
+    # TODO: Move in link relation constants from Resource.
+
+    id = Column(Integer, primary_key=True)
+
+    # A Hyperlink is always associated with some Identifier.
+    identifier_id = Column(
+        Integer, ForeignKey('identifiers.id'), index=True, nullable=False)
+
+    # The DataSource through which this link was discovered.
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, nullable=False)
+
+    # A Resource may also be associated with some LicensePool which
+    # controls scarce access to it.
+    license_pool_id = Column(
+        Integer, ForeignKey('licensepools.id'), index=True)
+
+    # The link relation between the Identifier and the Resource.
+    rel = Column(Unicode, index=True, nullable=False)
+
+    # The Resource on the other end of the link.
+    resource_id = Column(
+        Integer, ForeignKey('resources.id'), index=True, nullable=False)
+
+    @classmethod
+    def generic_uri(cls, data_source, identifier, rel):
+        """Create a generic URI for the other end of this hyperlink.
+
+        This is useful for resources that are obtained through means
+        other than fetching a single URL via HTTP. It lets us get a
+        URI that's most likely uniquem, so we can create a Resource
+        object without violating the uniqueness constraint.
+
+        If the output of this method isn't unique in your situation
+        (because the data source provides more than one link with a
+        given link relation for a given identifier), you'll need some
+        other way of coming up with generic URIs.
+
+        """
+        return ":".join([identifier.urn, urllib.quote(data_source.name),
+                         urllib.quote(rel)])
+
+
 class Resource(Base):
     """An external resource that may be mirrored locally."""
 
@@ -2720,32 +2748,20 @@ class Resource(Base):
 
     id = Column(Integer, primary_key=True)
 
-    # A Resource is always associated with some Identifier.
-    identifier_id = Column(
-        Integer, ForeignKey('identifiers.id'), index=True)
+    # A URI that uniquely identifies this resource. Most of the time
+    # this will be an HTTP URL, which is why we're calling it 'url',
+    # but it may also be a made-up URI.
+    url = Column(Unicode, index=True)
 
-    # A Resource may also be associated with some LicensePool which
-    # controls scarce access to it.
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True)
-
-    # Who provides this resource?
-    data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True)
-
-    # Many Editions may use this resource as their cover image.
+    # Many Editions may choose this resource (as opposed to other
+    # resources linked to them with rel="image") as their cover image.
     cover_editions = relationship("Edition", backref="cover", foreign_keys=[Edition.cover_id])
 
-    # Many Works may use this resource as their summary.
+    # Many Works may use this resource (as opposed to other resources
+    # linked to them with rel="description") as their summary.
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
 
-    # The relation between the book identified by the Identifier
-    # and the resource.
-    rel = Column(Unicode, index=True)
-
-    # The primary human language of the resource.
-    # TODO: May not be necessary.
-    language = Column(Unicode, index=True)
+    links = relationship("Hyperlink", backref="resource")
 
     # An archived Representation of this Resource.
     representation_id = Column(
@@ -2768,71 +2784,37 @@ class Resource(Base):
     # human-entered quality value.
     quality = Column(Float, index=True)
 
+    # URL must be unique.
+    __table_args__ = (
+        UniqueConstraint('url'),
+    )
+
     @property
     def final_url(self):        
-        """URL to the full version of this resource.
-        
-        This link will be served to the client.
+        """URL to the final, mirrored version of this resource, suitable
+        for serving to the client.
+
+        :return: A URL, or None if the resource has no mirrored
+        representation.
         """
-        if self.mirrored_url:
-            return self.mirrored_url
-        return self.href
+        if not self.representation:
+            return None
+        if not self.representation.mirrored_url:
+            return None
+        return self.representation.mirrored_url
 
-    def local_path(self, expansions):
-        """Path to the original representation on disk."""
-        return self.mirrored_path
+    def set_fetched_content(self, media_type, content):
+        """Simulate a successful HTTP request for a representation of this
+        resource.
 
-    def local_scaled_path(self, expansions):
-        """Path to the scaled representation on disk."""
-        return self.scaled_path
-
-    def could_not_mirror(self):
-        """We tried to mirror this resource and failed."""
-        if self.mirrored:
-            # We already have a mirrored copy, so just leave it alone.
-            return
-        self.mirrored = False
-        self.mirror_date = datetime.datetime.utcnow()
-        self.mirrored_path = None
-        self.mirror_status = 404
-        self.media_type = None
-        self.file_size = None
-        self.image_height = None
-        self.image_width = None
-
-    def set_content(self, content, media_type):
-        """Store the content directly in the database."""
-        self.content = content
-        self.mirrored = True
-        self.mirror_status = 200
-        if media_type:
-            media_type = media_type.lower()
-        self.media_type = media_type
-        self.file_size = len(content)
-
-    def mirrored_to(self, path, media_type, content=None):
-        """We successfully mirrored this resource to disk."""
-        self.mirrored = True
-        self.mirrored_path = path
-        self.mirror_status = 200
-        self.mirror_date = datetime.datetime.utcnow()
-        if media_type:
-            self.media_type = media_type
-
-        # If we were provided with the content, make sure the
-        # metadata reflects the content.
-        #
-        # TODO: We don't check the actual file because it's got a
-        # variable expansion in it at this point.
-        if content is not None:
-            self.file_size = len(content)
-        if content and self.is_image:
-            # Try to load it into PIL and determine height and width.
-            try:
-                image = Image.open(StringIO(content))
-                self.image_width, self.image_height = image.size
-            except IOError, e:
-                self.mirror_exception = "Content is not an image."
+        This is used when the content of the representation is obtained
+        through some other means.
+        """
+        _db = Session.object_session(self)
+        representation, is_new = get_one_or_create(
+            _db, Representation, url=self.url, media_type=media_type)
+        self.representation = representation
+        representation.set_fetched_content(content)
 
     def set_estimated_quality(self, estimated_quality):
         """Update the estimated quality."""
@@ -2858,6 +2840,15 @@ class Resource(Base):
                          ((self.voted_quality or 0) * votes_for_quality))
         self.quality = total_quality / float(total_weight)
 
+    def set_representation(self, content, media_type, uri=None):
+
+        if not uri:
+            uri = self.generic_uri
+        representation, ignore = get_one_or_create(
+            _db, Representation, url=uri, media_type=media_type)
+        representation.set_fetched_content(content)
+        self.reprsentation = representation
+        
 
 class Genre(Base):
     """A subject-matter classification for a book.
@@ -3517,15 +3508,12 @@ class LicensePool(Base):
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
-    # One LicensePool can have many Representations.
-    representations = relationship("Representation", backref="license_pool")
-
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
 
-    # One LicensePool can control access to many Resources.
-    resources = relationship("Resource", backref="license_pool")
+    # One LicensePool may have many associated Hyperlinks.
+    links = relationship("Hyperlink", backref="license_pool")
 
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
@@ -3595,16 +3583,19 @@ class LicensePool(Base):
         return _db.query(LicensePool).outerjoin(Work).filter(
             Work.id==None).all()
 
-    def add_resource(self, rel, href, data_source, media_type=None,
-                     content=None):
-        """Associate a Resource with this LicensePool.
+    def add_link(self, rel, href, data_source, media_type=None,
+                 content=None):
+        """Add a link between this LicensePool and a Resource.
 
-        `rel`: The relationship between a LicensePool and the resource
+        :param rel: The relationship between this LicensePooland the resource
                on the other end of the link.
-        `media_type`: Media type of the representation available at the
-                      other end of the link.
+        :param href: The URI of the resource on the other end of the link.
+        :param media_type: Media type of the representation associated
+               with the resource.
+        :param content: Content of the representation associated with the
+               resource.
         """
-        return self.identifier.add_resource(
+        return self.identifier.add_link(
             rel, href, data_source, self, media_type, content)
 
     def needs_update(self):
@@ -4036,7 +4027,7 @@ class Representation(Base):
     scaled_down_version_of_id = Column(
         Integer, ForeignKey('representations.id'), index=True)
     scaled_down_versions = relationship(
-        "Representation", backref="scaled_down_version_of")
+        "Representation", backref="scaled_down_version_of", remote_side = [id])
 
     # The HTTP status code from the last fetch.
     status_code = Column(Integer)
@@ -4181,7 +4172,7 @@ class Representation(Base):
                 url=url, data_source=data_source, identifier=identifier,
                 license_pool=license_pool)
 
-        representation.exception = exception
+        representation.fetch_exception = exception
         representation.fetched_at = fetched_at
 
         if status_code == 304:
@@ -4233,6 +4224,19 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return None, False
+
+    def set_fetched_content(self, content):
+        """Simulate a successful HTTP request for this representation.
+
+        This is used when the content of the representation is obtained
+        through some other means.
+        """
+        if isinstance(content, unicode):
+            content = content.encode("utf8")
+        self.content = content
+        self.status_code = 200
+        self.fetched_at = datetime.datetime.utcnow()
+        self.fetch_exception = None
 
     @classmethod
     def headers_to_string(cls, d):
@@ -4338,12 +4342,12 @@ class Representation(Base):
         thumbnail.width = int(self.image_width * proportion)
         thumbnail.height = int(self.image_height * proportion)
 
-        thumbnail.scaled_at = now
         if self.height <= thumbnail.height:
             # The image doesn't need to be scaled at all; just save a
             # copy.
             thumbnail.content = self.content
             thumbnail.scaled_exception = None
+            thumbnail.scaled_at = now
             return thumbnail, True
 
         args = [(destination_width, destination_height),
@@ -4367,15 +4371,16 @@ class Representation(Base):
         thumbnail.content = output.getvalue()
         output.close()
         thumbnail.scaled_exception = None
+        thumbnail.scaled_at = now
         return thumbnail, True
 
     def mirror(self, uploader):
         """Mirror this Representation using the given uploader."""
         now = datetime.datetime.utcnow()
         exception = uploader.upload(self)
-        self.mirrored_at = now
         self.mirror_exception = exception
-        
+        if not exception:
+            self.mirrored_at = now        
 
 class CustomList(Base):
     """A custom grouping of Editions."""

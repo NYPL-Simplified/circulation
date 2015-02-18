@@ -153,7 +153,7 @@ class DatabaseTest(object):
 
         if with_open_access_download:
             pool.open_access = True
-            pool.identifier.add_resource(
+            pool.identifier.add_link(
                 Resource.OPEN_ACCESS_DOWNLOAD, "http://foo.com/" + self._str,
                 source, pool, "application/epub+zip")
 
