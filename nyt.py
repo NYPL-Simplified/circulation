@@ -349,10 +349,10 @@ class NYTBestSellerListTitle(object):
 
 
         # Set or update the description.
-        rel = Resource.DESCRIPTION
+        rel = Hyperlink.DESCRIPTION
         href = Hyperlink.generic_uri(data_source, self.primary_identifier, rel)
         description, is_new = self.primary_identifier.add_link(
-            Resource.DESCRIPTION, href, data_source, media_type="text/plain",
+            rel, href, data_source, media_type="text/plain",
             content=self.description)
 
         return edition

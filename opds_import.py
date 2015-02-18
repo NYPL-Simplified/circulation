@@ -161,7 +161,7 @@ class BaseOPDSImporter(object):
         else:
             # There is no existing license pool for this book. Can we
             # just create one?
-            if links_by_rel[Resource.OPEN_ACCESS_DOWNLOAD]:
+            if links_by_rel[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
                 # Yes. This is an open-access book and we know where
                 # you can download it.
                 pool, pool_was_new = LicensePool.for_foreign_id(
@@ -187,8 +187,8 @@ class BaseOPDSImporter(object):
             # The metadata has not changed since last time
             return identifier, edition, False, status_code, message
 
-        rels = [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
-                Resource.DESCRIPTION]
+        rels = [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
+                Hyperlink.DESCRIPTION]
         self.destroy_resources(identifier, rels)
 
         download_resources, image_resource = self.set_resources(
@@ -198,11 +198,11 @@ class BaseOPDSImporter(object):
         summary = entry.get('summary_detail', {})
         if 'value' in summary and summary['value']:
             identifier.add_resource(
-                Resource.DESCRIPTION, None, data_source, pool,
+                Hyperlink.DESCRIPTION, None, data_source, pool,
                 summary.get('type', 'text/plain'), summary['value'])
         for content in entry.get('content', []):
             identifier.add_resource(
-                Resource.DESCRIPTION, None, data_source, pool,
+                Hyperlink.DESCRIPTION, None, data_source, pool,
                 summary.get('type', 'text/html'), content['value'])
             
 
@@ -230,18 +230,18 @@ class BaseOPDSImporter(object):
         download_resources = []
         image_resource = None
 
-        for rel in [Resource.OPEN_ACCESS_DOWNLOAD, Resource.IMAGE,
-                    Resource.THUMBNAIL_IMAGE]:
+        for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
+                    Hyperlink.THUMBNAIL_IMAGE]:
             for link in links[rel]:
                 type = link.get('type', None)
                 if type == 'text/html':
                     # Feedparser fills this in and it's just wrong.
                     type = None
                 url = link['href']
-                if rel == Resource.OPEN_ACCESS_DOWNLOAD or not image_resource:
+                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD or not image_resource:
                     resource, was_new = identifier.add_resource(
                         rel, url, data_source, pool, type)
-                if rel == Resource.OPEN_ACCESS_DOWNLOAD:
+                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                     download_resources.append(resource)
                 else:
                     image_resource = resource
@@ -251,14 +251,14 @@ class BaseOPDSImporter(object):
 
                 # The metadata wrangler handles scaling and mirroring
                 # resources, and we will trust what it says.
-                if rel == Resource.IMAGE:
+                if rel == Hyperlink.IMAGE:
                     # print "Resource %s was mirrored." % url
                     image_resource.href = url
                     image_resource.mirrored = True
                     image_resource.mirrored_path = url
                     image_resource.mirrored_date = datetime.datetime.utcnow()
                     image_resource.mirrored_status = 200
-                elif rel == Resource.THUMBNAIL_IMAGE:
+                elif rel == Hyperlink.THUMBNAIL_IMAGE:
                     # print "Resource %s was scaled." % url
                     image_resource.scaled = True
                     image_resource.scaled_path = url

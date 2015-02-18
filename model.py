@@ -913,7 +913,7 @@ class Identifier(Base):
         # Find all image resources associated with any of
         # these identifiers.
         images = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Resource.IMAGE)
+            _db, identifier_ids, Hyperlink.IMAGE)
         images = images.join(Resource.representation)
         images = images.filter(Representation.mirrored_at != None).filter(
             Representation.mirror_url != None)
@@ -1000,7 +1000,7 @@ class Identifier(Base):
         # Find all rel="description" resources associated with any of
         # these records.
         summaries = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Resource.DESCRIPTION)
+            _db, identifier_ids, Hyperlink.DESCRIPTION)
         summaries = summaries.join(Resource.representation).filter(
             Representation.content != None).all()
 
@@ -1782,15 +1782,14 @@ class Edition(Base):
     @property
     def best_open_access_link(self):
         """Find the best open-access Resource for this LicensePool."""
-        open_access = Resource.OPEN_ACCESS_DOWNLOAD
-
+        open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
 
         _db = Session.object_session(self)
         best = None
         q = Identifier.resources_for_identifier_ids(
             _db, [self.primary_identifier.id], open_access)
         for l in q:
-            if l.representation.media_type.startswith(Resource.EPUB_MEDIA_TYPE):
+            if l.representation.media_type.startswith(Representation.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
                 # we'll keep looking in hopes of finding a better one.
@@ -2226,7 +2225,7 @@ class Work(Base):
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Resource.IMAGE).filter(
+            _db, flattened_data, Hyperlink.IMAGE).filter(
                 Resource.mirrored==True).filter(Resource.scaled==True).order_by(
                 Resource.quality.desc())
 
@@ -2238,7 +2237,7 @@ class Work(Base):
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Resource.DESCRIPTION).filter(
+            _db, flattened_data, Hyperlink.DESCRIPTION).filter(
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 
@@ -2687,7 +2686,19 @@ class Hyperlink(Base):
 
     __tablename__ = 'hyperlinks'
 
-    # TODO: Move in link relation constants from Resource.
+    # Some common link relations.
+    CANONICAL = "canonical"
+    OPEN_ACCESS_DOWNLOAD = "http://opds-spec.org/acquisition/open-access"
+    IMAGE = "http://opds-spec.org/image"
+    THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
+    SAMPLE = "http://opds-spec.org/acquisition/sample"
+    ILLUSTRATION = "http://library-simplified.com/rel/illustration"
+    REVIEW = "http://schema.org/Review"
+    DESCRIPTION = "http://schema.org/description"
+    AUTHOR = "http://schema.org/author"
+
+    # TODO: Is this the appropriate relation?
+    DRM_ENCRYPTED_DOWNLOAD = "http://opds-spec.org/acquisition/"
 
     id = Column(Integer, primary_key=True)
 
@@ -2735,24 +2746,8 @@ class Resource(Base):
 
     __tablename__ = 'resources'
 
-    # Some common link relations.
-    CANONICAL = "canonical"
-    OPEN_ACCESS_DOWNLOAD = "http://opds-spec.org/acquisition/open-access"
-    IMAGE = "http://opds-spec.org/image"
-    THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
-    SAMPLE = "http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = "http://library-simplified.com/rel/illustration"
-    REVIEW = "http://schema.org/Review"
-    DESCRIPTION = "http://schema.org/description"
-    AUTHOR = "http://schema.org/author"
-
-    # TODO: Is this the appropriate relation?
-    DRM_ENCRYPTED_DOWNLOAD = "http://opds-spec.org/acquisition/"
-
     # How many votes is the initial quality estimate worth?
     ESTIMATED_QUALITY_WEIGHT = 5
-
-    EPUB_MEDIA_TYPE = "application/epub+zip"
 
     id = Column(Integer, primary_key=True)
 
@@ -3973,6 +3968,9 @@ class Representation(Base):
     Sometimes it's just a web page that we need a cached local copy
     of.
     """
+
+    EPUB_MEDIA_TYPE = "application/epub+zip"
+
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
 

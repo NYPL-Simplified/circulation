@@ -8,6 +8,7 @@ from model import (
     CustomList,
     DataSource,
     Genre,
+    Hyperlink,
     LicensePool,
     Patron,
     Representation,
@@ -155,9 +156,9 @@ class DatabaseTest(object):
         if with_open_access_download:
             pool.open_access = True
             url = "http://foo.com/" + self._str
-            media_type = Resource.EPUB_MEDIA_TYPE
+            media_type = Representation.EPUB_MEDIA_TYPE
             link, new = pool.identifier.add_link(
-                Resource.OPEN_ACCESS_DOWNLOAD, url,
+                Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
                 source, pool)
 
             representation, is_new = get_one_or_create(

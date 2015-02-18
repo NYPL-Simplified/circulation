@@ -21,6 +21,7 @@ from lxml import builder, etree
 
 from model import (
     DataSource,
+    Hyperlink,
     Resource,
     Identifier,
     Edition,
@@ -414,8 +415,8 @@ class AcquisitionFeed(OPDSFeed):
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (
-                (Resource.IMAGE, full_urls),
-                (Resource.THUMBNAIL_IMAGE, thumbnail_urls)):
+                (Hyperlink.IMAGE, full_urls),
+                (Hyperlink.THUMBNAIL_IMAGE, thumbnail_urls)):
             for url in urls:
                 image_type = "image/png"
                 if url.endswith(".jpeg") or url.endswith(".jpg"):

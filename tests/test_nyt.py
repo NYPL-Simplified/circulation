@@ -210,7 +210,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         [description] = self._db.query(Resource).join(Resource.links).filter(
             Hyperlink.data_source==edition.data_source).filter(
                 Hyperlink.identifier==edition.primary_identifier).filter(
-                    Hyperlink.rel==Resource.DESCRIPTION)
+                    Hyperlink.rel==Hyperlink.DESCRIPTION)
         representation = description.representation
         eq_("A psychological thriller set in London is full of complications and betrayals.", representation.content)
         eq_("text/plain", representation.media_type)
