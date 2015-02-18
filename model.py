@@ -1663,8 +1663,16 @@ class Edition(Base):
 
     def set_cover(self, resource):
         self.cover = resource
-        self.cover_full_url = resource.final_url
-        self.cover_thumbnail_url = resource.scaled_url
+        self.cover_full_url = resource.representation.mirrored_url
+
+        # TODO: In theory there could be multiple scaled-down
+        # versions of this representation and we need some way of
+        # choosing between them. Right now we just pick the first one
+        # that works.
+        for scaled_down in resource.representation.scaled_down_versions:
+            if scaled_down.mirror_url and scaled_down.mirrored_at:
+                self.cover_thumbnail_url = scaled_down.mirror_url
+                break
         print self.cover_full_url, self.cover_thumbnail_url
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,

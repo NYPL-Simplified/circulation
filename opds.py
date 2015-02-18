@@ -287,55 +287,6 @@ class VerboseAnnotator(Annotator):
         return E.author(*children)
 
 
-class URLRewriter(object):
-
-    epub_id = re.compile("/([0-9]+)")
-
-    GUTENBERG_ILLUSTRATED_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated"
-    CONTENT_CAFE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/CC"
-    SCALED_CONTENT_CAFE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/CC"
-    ORIGINAL_OVERDRIVE_IMAGE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/Overdrive"
-    SCALED_OVERDRIVE_IMAGE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/Overdrive"
-    ORIGINAL_THREEM_IMAGE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/3M"
-    SCALED_THREEM_IMAGE_MIRROR_HOST = "https://s3.amazonaws.com/book-covers.nypl.org/scaled/300/3M"
-    GUTENBERG_MIRROR_HOST = "http://s3.amazonaws.com/gutenberg-corpus.nypl.org/gutenberg-epub"
-
-    @classmethod
-    def rewrite(cls, url):
-        if not url or '%(original_overdrive_covers_mirror)s' in url:
-            # This is not mirrored; use the Content Reserve version.
-            return None
-        parsed = urlparse(url)
-        if parsed.hostname in ('www.gutenberg.org', 'gutenberg.org'):
-            return cls._rewrite_gutenberg(parsed)
-        elif "%(" in url:
-            return url % dict(content_cafe_mirror=cls.CONTENT_CAFE_MIRROR_HOST,
-                              scaled_content_cafe_mirror=cls.SCALED_CONTENT_CAFE_MIRROR_HOST,
-                              gutenberg_illustrated_mirror=cls.GUTENBERG_ILLUSTRATED_HOST,
-                              original_overdrive_covers_mirror=cls.ORIGINAL_OVERDRIVE_IMAGE_MIRROR_HOST,
-                              scaled_overdrive_covers_mirror=cls.SCALED_OVERDRIVE_IMAGE_MIRROR_HOST,
-                              original_threem_covers_mirror=cls.ORIGINAL_THREEM_IMAGE_MIRROR_HOST,
-                              scaled_threem_covers_mirror=cls.SCALED_THREEM_IMAGE_MIRROR_HOST,
-            )
-        else:
-            return url
-
-    @classmethod
-    def _rewrite_gutenberg(cls, parsed):
-        if parsed.path.startswith('/cache/epub/'):
-            new_path = parsed.path.replace('/cache/epub/', '', 1)
-        elif '.epub' in parsed.path:
-            text_id = cls.epub_id.search(parsed.path).groups()[0]
-            if 'noimages' in parsed.path:
-                new_path = "%(pub_id)s/pg%(pub_id)s.epub" 
-            else:
-                new_path = "%(pub_id)s/pg%(pub_id)s-images.epub"
-            new_path = new_path % dict(pub_id=text_id)
-        else:
-            new_path = parsed_path
-        return cls.GUTENBERG_MIRROR_HOST + '/' + new_path
-
-
 class AtomFeed(object):
 
     def __init__(self, title, url):
@@ -466,7 +417,6 @@ class AcquisitionFeed(OPDSFeed):
                 (Resource.IMAGE, full_urls),
                 (Resource.THUMBNAIL_IMAGE, thumbnail_urls)):
             for url in urls:
-                url = URLRewriter.rewrite(url)
                 image_type = "image/png"
                 if url.endswith(".jpeg") or url.endswith(".jpg"):
                     image_type = "image/jpeg"

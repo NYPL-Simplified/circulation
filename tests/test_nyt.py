@@ -211,8 +211,9 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
             Hyperlink.data_source==edition.data_source).filter(
                 Hyperlink.identifier==edition.primary_identifier).filter(
                     Hyperlink.rel==Resource.DESCRIPTION)
-        eq_("A psychological thriller set in London is full of complications and betrayals.", description.representation.content)
-        eq_("text/plain", description.media_type)
+        representation = description.representation
+        eq_("A psychological thriller set in London is full of complications and betrayals.", representation.content)
+        eq_("text/plain", representation.media_type)
         
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
