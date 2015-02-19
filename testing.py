@@ -1,4 +1,6 @@
 from datetime import datetime
+import shutil
+import tempfile
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from model import (
@@ -263,8 +265,23 @@ def _setup(dbinfo):
     print "Connection is now %r" % dbinfo.connection
     print "Transaction is now %r" % dbinfo.transaction
 
+    dbinfo.old_data_dir = os.environ.get('DATA_DIRECTORY')
+    dbinfo.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
+    os.environ['DATA_DIRECTORY'] = dbinfo.tmp_data_dir
+
 def _teardown(dbinfo):
     # Roll back the top level transaction and disconnect from the database
     dbinfo.transaction.rollback()
     dbinfo.connection.close()
     dbinfo.engine.dispose()
+
+    if dbinfo.tmp_data_dir.startswith("/tmp"):
+        print "Removing temporary directory %s" % dbinfo.tmp_data_dir
+        shutil.rmtree(dbinfo.tmp_data_dir)
+    else:
+        print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
+
+    if dbinfo.tmp_data_dir:
+        os.environ['DATA_DIRECTORY'] = dbinfo.old_data_dir
+    else:
+        del os.environ['DATA_DIRECTORY']

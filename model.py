@@ -789,12 +789,14 @@ class Identifier(Base):
             _db, [self.id], levels, threshold)
 
     def add_link(self, rel, href, data_source, license_pool=None,
-                     media_type=None, content=None):
+                     media_type=None, content=None, content_path=None):
         """Create a link between this Identifier and a (potentially new)
         Resource."""
         _db = Session.object_session(self)
         
         # Find or create the Resource.
+        if not href:
+            href = Hyperlink.generic_url(data_source, self, rel)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href)
 
@@ -805,8 +807,8 @@ class Identifier(Base):
             create_method_kwargs=dict(license_pool=license_pool)
         )
 
-        if content:
-            resource.set_fetched_content(media_type, content)
+        if content or content_path:
+            resource.set_fetched_content(media_type, content, content_path)
         return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
@@ -2806,7 +2808,23 @@ class Resource(Base):
             return None
         return self.representation.mirror_url
 
-    def set_fetched_content(self, media_type, content):
+    def set_as_mirrored(self, media_type):
+        """Record the fact that a representation of this resource
+        has been mirrored.
+
+        The content of the representation is not being kept in the
+        database--it's probably located on disk. The media type of the
+        representation is being kept in the database.
+        """
+        _db = Session.object_session(self)
+        representation, is_new = get_one_or_create(
+            _db, Representation, url=self.url, media_type=media_type)
+        self.representation = representation
+        self.representation.media_type = media_type
+        self.representation.mirror_url = self.url
+        self.set_as_mirrored()
+
+    def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation of this
         resource.
 
@@ -2817,7 +2835,7 @@ class Resource(Base):
         representation, is_new = get_one_or_create(
             _db, Representation, url=self.url, media_type=media_type)
         self.representation = representation
-        representation.set_fetched_content(content)
+        representation.set_fetched_content(content, content_path)
 
     def set_estimated_quality(self, estimated_quality):
         """Update the estimated quality."""
@@ -2843,14 +2861,15 @@ class Resource(Base):
                          ((self.voted_quality or 0) * votes_for_quality))
         self.quality = total_quality / float(total_weight)
 
-    def set_representation(self, content, media_type, uri=None):
+    def set_representation(self, media_type, content, uri=None,
+                           content_path=None):
 
         if not uri:
             uri = self.generic_uri
         representation, ignore = get_one_or_create(
             _db, Representation, url=uri, media_type=media_type)
-        representation.set_fetched_content(content)
-        self.reprsentation = representation
+        representation.set_fetched_content(content, content_path)
+        self.representation = representation
         
 
 class Genre(Base):
@@ -4051,6 +4070,11 @@ class Representation(Base):
     # The content of the representation itself.
     content = Column(Binary)
 
+    # Instead of being stored in the database, the content of the
+    # representation may be stored on a local file relative to the
+    # data root.
+    local_content_path = Column(Unicode)
+
     # At any given time, we will have a single representation for a
     # given URL and media type.
     __table_args__ = (
@@ -4068,8 +4092,11 @@ class Representation(Base):
 
     @property
     def has_content(self):
-        return (self.status_code == 200 and self.exception == None
-                and self.content is not None)
+        if self.content and self.status_code == 200 and self.exception is not None:
+            return True
+        if self.local_content_path and os.path.exists(self.local_content_path):
+            return True
+        return False
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
@@ -4219,7 +4246,18 @@ class Representation(Base):
         representation.content = content
         return None, False
 
-    def set_fetched_content(self, content):
+    @classmethod
+    def normalize_content_path(cls, content_path):
+        if not content_path:
+            return None
+        base = os.environ['DATA_DIRECTORY']
+        if content_path.startswith(base):
+            content_path = content_path[len(base)]
+            if content_path.startswith('/'):
+                content_path = content_path[1:]
+        return content_path
+
+    def set_fetched_content(self, content, content_path=None):
         """Simulate a successful HTTP request for this representation.
 
         This is used when the content of the representation is obtained
@@ -4228,9 +4266,17 @@ class Representation(Base):
         if isinstance(content, unicode):
             content = content.encode("utf8")
         self.content = content
+        self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
+
+    def set_as_mirrored(self):
+        """Record the fact that the representation has been mirrored
+        to its .mirror_url.
+        """
+        self.mirrored_at = datetime.datetime.utcnow()
+        self.mirror_exception = None
 
     @classmethod
     def headers_to_string(cls, d):
@@ -4270,6 +4316,26 @@ class Representation(Base):
     def is_image(self):
         return self.media_type and self.media_type.startswith("image/")
 
+    @property
+    def local_path(self):
+        """Return the full local path to the representation on disk."""
+        if not self.local_content_path:
+            return None
+        return os.path.join(os.environ['DATA_DIRECTORY'],
+                            self.local_content_path)
+
+    def content_fh(self):
+        """Return an open filehandle to the representation's contents.
+
+        This works whether the representation is kept in the database
+        or in a file on disk.
+        """
+        if self.content:
+            return StringIO(self.content)
+        else:
+            return open(self.local_path)
+            
+
     def as_image(self):
         """Load this Representation's contents as a PIL image."""
         if not self.is_image:
@@ -4278,7 +4344,7 @@ class Representation(Base):
                 % self.media_type)
         if not self.content:
             raise ValueError("Image representation has no content.")
-        return Image.open(StringIO(self.content))
+        return Image.open(self.content_fh())
 
     pil_format_for_media_type = {
         "image/gif": "gif",

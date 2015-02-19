@@ -37,7 +37,10 @@ class S3Uploader(MirrorUploader):
             path = "/"
         data_source_name = urllib.quote(data_source.name)
         path += data_source_name + "/"
-        return cls.url(bucket, path)
+        url = cls.url(bucket, path)
+        if not url.endswith('/'):
+            url += '/'
+        return url
 
     @classmethod
     def content_root(cls, open_access=True):
@@ -48,6 +51,22 @@ class S3Uploader(MirrorUploader):
             raise NotImplementedError()
         bucket = os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET']
         return cls.url(bucket, '/')
+
+    @classmethod
+    def book_url(cls, identifier, extension='epub', open_access=True):
+        """The path to the hosted EPUB file for the given identifier."""
+        root = cls.content_root(open_access)
+        args = [identifier_obj.type, identifier_obj.identifier]
+        args = [urllib.quote(x) for x in args]
+        return root + "%s/%s.%s" % tuple(args + [extension])
+
+    @classmethod
+    def cover_image_url(cls, data_source, identifier, filename, scaled_size=None):
+        """The path to the hosted cover image for the given identifier."""
+        root = cls.cover_image_root(data_source, scaled_size)
+        args = [identifier.identifier, filename]
+        args = [urllib.quote(x) for x in args]
+        return root + "%s/%s" % tuple(args)
 
     @classmethod
     def bucket_and_filename(cls, url):
@@ -69,7 +88,7 @@ class S3Uploader(MirrorUploader):
         for representation in representations:
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            fh = StringIO(representation.content)
+            fh = representation.content_fh()
             filehandles.append(fh)
             request = self.pool.upload(remote_filename, fh, bucket=bucket)
             requests[request] = representation
@@ -84,6 +103,9 @@ class S3Uploader(MirrorUploader):
             representation.mirrored_exception = None
             del requests[r]
 
+        # Close the filehandles
+        for i in filehandles:
+            i.close()
 
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""

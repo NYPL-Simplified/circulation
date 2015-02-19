@@ -3,6 +3,7 @@ import os
 import sys
 import site
 import re
+import tempfile
 
 from nose.tools import (
     assert_raises,
@@ -1514,6 +1515,23 @@ class TestCustomList(DatabaseTest):
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
 
+
+class TestRepresentation(DatabaseTest):
+
+    def test_set_fetched_content(self):
+        representation, ignore = self._representation(self._url, "text/plain")
+        representation.set_fetched_content("some text")
+        eq_("some text", representation.content_fh().read())
+
+    def test_set_fetched_content_file_on_disk(self):
+        filename = "set_fetched_content_file_on_disk.txt"
+        path = os.path.join(self.DBInfo.tmp_data_dir, filename)
+        open(path, "w").write("some text")
+
+        representation, ignore = self._representation(self._url, "text/plain")
+        representation.set_fetched_content(None, filename)
+        fh = representation.content_fh()
+        eq_("some text", fh.read())
 
 class TestScaleRepresentation(DatabaseTest):
 
