@@ -1519,7 +1519,15 @@ class TestScaleRepresentation(DatabaseTest):
 
     def test_cannot_scale_non_image(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
-        rep.scale(300, 300, self._url, "image/png")
-        set_trace()
-        pass
+        assert_raises_regexp(
+            ValueError, 
+            "Cannot load non-image representation as image: type text/plain",
+            rep.scale, 300, 300, self._url, "image/png")
+        
+    def test_cannot_scale_to_non_image(self):
+        rep, ignore = self._representation(media_type="image/png", content="foo")
+        assert_raises_regexp(
+            ValueError, 
+            "Unsupported destination media type: text/plain",
+            rep.scale, 300, 300, self._url, "text/plain")
         

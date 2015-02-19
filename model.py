@@ -4013,12 +4013,15 @@ class Representation(Base):
 
     ### End records of things we tried to do with this representation.
 
-    # An image Representation may be a scaled-down version of another
+    # An image Representation may be a thumbnail version of another
     # Representation.
-    scaled_down_version_of_id = Column(
+    thumbnail_of_id = Column(
         Integer, ForeignKey('representations.id'), index=True)
-    scaled_down_versions = relationship(
-        "Representation", backref="scaled_down_version_of", remote_side = [id])
+
+    thumbnails = relationship(
+        "Representation",
+        backref=backref("thumbnail_of", remote_side = [id]),
+        lazy="joined")
 
     # The HTTP status code from the last fetch.
     status_code = Column(Integer)
@@ -4298,8 +4301,11 @@ class Representation(Base):
 
         if not destination_media_type in self.pil_format_for_media_type:
             raise ValueError(
-                "Unsupported media type: %s" % destination_media_type)
+                "Unsupported destination media type: %s" % destination_media_type)
         pil_format = self.pil_format_for_media_type[destination_media_type]
+
+        # Make sure we actually have an image to scale.
+        image = self.as_image()
 
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
@@ -4307,8 +4313,8 @@ class Representation(Base):
             media_type=destination_media_type,
             create_method_kwargs=dict(
                 mirror_url=destination_url,
-                scaled_down_version_of=self,
             ))
+        self.thumbnails.append(thumbnail)
 
         if not is_new and not force:
             # We found a preexisting thumbnail and we're allowed to
@@ -4322,7 +4328,6 @@ class Representation(Base):
         now = datetime.datetime.utcnow()
 
         # How big will the image be once it's scaled down?
-        image = self.as_image()
         if not self.image_width or not self.image_height:
             self.image_width, self.image_height = image.size
 
