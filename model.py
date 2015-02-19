@@ -4334,7 +4334,7 @@ class Representation(Base):
         now = datetime.datetime.utcnow()
         thumbnail.mirror_url = thumbnail.url
         thumbnail.mirrored_at = None
-        thumbnail.mirrored_exception = None
+        thumbnail.mirror_exception = None
 
         args = [(max_width, max_height),
                 Image.ANTIALIAS]
@@ -4362,13 +4362,6 @@ class Representation(Base):
         thumbnail.scaled_at = now
         return thumbnail, True
 
-    def mirror(self, uploader):
-        """Mirror this Representation using the given uploader."""
-        now = datetime.datetime.utcnow()
-        exception = uploader.upload(self)
-        self.mirror_exception = exception
-        if not exception:
-            self.mirrored_at = now        
 
 class CustomList(Base):
     """A custom grouping of Editions."""

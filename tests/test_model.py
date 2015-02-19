@@ -1606,4 +1606,3 @@ class TestScaleRepresentation(DatabaseTest):
         # The thumbnail is the same size as the original.
         eq_(200, thumbnail.image_height)
         eq_(200, thumbnail.image_width)
-

@@ -1,10 +1,12 @@
 from nose.tools import set_trace
+from cStringIO import StringIO
 import tinys3
 import os
 from urlparse import urlsplit
 import urllib
+from util.mirror import MirrorUploader
 
-class S3Uploader(object):
+class S3Uploader(MirrorUploader):
 
     def __init__(self, access_key=None, secret_key=None):
         access_key = access_key or os.environ['AWS_ACCESS_KEY_ID']
@@ -55,27 +57,38 @@ class S3Uploader(object):
         bucket, filename = path.split("/", 1)
         return bucket, filename
 
-    def upload_resources(self, paths):
-        """Upload a batch of resources in bulk."""
-        requests = []
+    def mirror_one(self, representation):
+        """Mirror a single representation."""
+        return self.upload_resources([representation])
+
+    def mirror_batch(self, representations):
+        """Mirror a bunch of Representations at once."""
+        requests = {}
         filehandles = []
-        for local_path, final_url in paths:
-            bucket, remote_filename = self.bucket_and_filename(final_url)
-            fh = open(local_path, 'rb')
+        
+        for representation in representations:
+            bucket, remote_filename = self.bucket_and_filename(
+                representation.mirror_url)
+            fh = StringIO(representation.content)
             filehandles.append(fh)
-            requests.append(self.pool.upload(remote_filename, fh, bucket=bucket))
+            request = self.pool.upload(remote_filename, fh, bucket=bucket)
+            requests[request] = representation
+            requests.append(request)
         # Do the upload.
-        for r in self.pool.as_completed(requests):
-            print r.url
-            pass
-        # Close the filehandles.
-        for i in filehandles:
-            fh.close()
+        for response in self.pool.as_completed(requests.keys()):
+            set_trace()
+            # TODO: We need some way of matching the response to 
+            # the original request.
+            representation = requests[r]
+            representation.mirrored_at = datetime.datetime.utcnow()
+            representation.mirrored_exception = None
+            del requests[r]
+
 
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
     def __init__(self, *args, **kwargs):
         self.uploaded = []
 
-    def upload_resources(self, resources):
-        self.uploaded.extend(resources)
+    def mirror_batch(self, representations):
+        self.uploaded.extend(representations)
