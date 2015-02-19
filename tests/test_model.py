@@ -1517,17 +1517,93 @@ class TestCustomList(DatabaseTest):
 
 class TestScaleRepresentation(DatabaseTest):
 
+    def sample_cover_representation(self, name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return self._representation(
+            media_type="image/png", content=open(sample_cover_path).read())[0]
+
     def test_cannot_scale_non_image(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
         assert_raises_regexp(
             ValueError, 
             "Cannot load non-image representation as image: type text/plain",
-            rep.scale, 300, 300, self._url, "image/png")
+            rep.scale, 300, 600, self._url, "image/png")
         
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
         assert_raises_regexp(
             ValueError, 
             "Unsupported destination media type: text/plain",
-            rep.scale, 300, 300, self._url, "text/plain")
+            rep.scale, 300, 600, self._url, "text/plain")
         
+
+    def test_success(self):
+        cover = self.sample_cover_representation("test-book-cover.png")
+        url = self._url
+        thumbnail, is_new = cover.scale(300, 600, url, "image/png")
+        eq_(True, is_new)
+        eq_(url, thumbnail.url)
+        eq_(url, thumbnail.mirror_url)
+        eq_(None, thumbnail.mirrored_at)
+        eq_(cover, thumbnail.thumbnail_of)
+        eq_("image/png", thumbnail.media_type)
+        eq_(300, thumbnail.image_height)
+        eq_(200, thumbnail.image_width)
+
+        # Try to scale the image to the same URL, and nothing will
+        # happen, even though the proposed image size is
+        # different.
+        thumbnail2, is_new = cover.scale(400, 700, url, "image/png")
+        eq_(thumbnail2, thumbnail)
+        eq_(False, is_new)
+
+        # Let's say the thumbnail has been mirrored.
+        thumbnail.mirrored_at = datetime.datetime.utcnow()
+
+        old_content = thumbnail.content
+        # With the force argument we can forcibly re-scale an image,
+        # changing its size.
+        eq_([thumbnail], cover.thumbnails)
+        thumbnail2, is_new = cover.scale(
+            400, 700, url, "image/png", force=True)
+        eq_(True, is_new)
+        eq_([thumbnail2], cover.thumbnails)
+        eq_(cover, thumbnail2.thumbnail_of)
+
+        # The same Representation, but now its data is different.
+        eq_(thumbnail, thumbnail2)
+        assert thumbnail2.content != old_content
+        eq_(400, thumbnail.image_height)
+        eq_(266, thumbnail.image_width)
+
+        # The thumbnail has been regenerated, so it needs to be mirrored again.
+        eq_(None, thumbnail.mirrored_at)
+
+    def test_book_with_odd_aspect_ratio(self):
+        # This book is 1200x600.
+        cover = self.sample_cover_representation("childrens-book-cover.png")
+        url = self._url
+        thumbnail, is_new = cover.scale(300, 400, url, "image/png")
+        eq_(True, is_new)
+        eq_(url, thumbnail.url)
+        eq_(cover, thumbnail.thumbnail_of)
+        # The width was reduced to max_width, a reduction of a factor of three
+        eq_(400, thumbnail.image_width)
+        # The height was also reduced by a factory of three, even
+        # though this takes it below max_height.
+        eq_(200, thumbnail.image_height)
+
+    def test_book_smaller_than_thumbnail_size(self):
+        # This book is 200x200
+        cover = self.sample_cover_representation("tiny-image-cover.png")
+        url = self._url
+        thumbnail, is_new = cover.scale(300, 600, url, "image/png")
+        eq_(True, is_new)
+        eq_(url, thumbnail.url)
+        eq_(cover, thumbnail.thumbnail_of)
+        # The thumbnail is the same size as the original.
+        eq_(200, thumbnail.image_height)
+        eq_(200, thumbnail.image_width)
+

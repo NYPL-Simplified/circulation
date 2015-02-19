@@ -4286,7 +4286,7 @@ class Representation(Base):
         "image/jpeg": "jpeg",
     }
 
-    def scale(self, destination_width, destination_height,
+    def scale(self, max_height, max_width,
               destination_url, destination_media_type, force=False):
         """Return a Representation that's a scaled-down version of this
         Representation, creating it if necessary.
@@ -4307,14 +4307,17 @@ class Representation(Base):
         # Make sure we actually have an image to scale.
         image = self.as_image()
 
+        # Now that we've loaded the image, take the opportunity to set
+        # the image size of the original representation.
+        self.image_width, self.image_height = image.size
+
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
             _db, Representation, url=destination_url, 
-            media_type=destination_media_type,
-            create_method_kwargs=dict(
-                mirror_url=destination_url,
-            ))
-        self.thumbnails.append(thumbnail)
+            media_type=destination_media_type
+        )
+        if thumbnail not in self.thumbnails:
+            self.thumbnails.append(thumbnail)
 
         if not is_new and not force:
             # We found a preexisting thumbnail and we're allowed to
@@ -4325,43 +4328,35 @@ class Representation(Base):
         # have a Representation that will contain a thumbnail
         # (thumbnail), and we know we need to actually thumbnail the
         # parent into the thumbnail.
+        #
+        # Because the representation of this image is being
+        # changed, it will need to be mirrored later on.
         now = datetime.datetime.utcnow()
+        thumbnail.mirror_url = thumbnail.url
+        thumbnail.mirrored_at = None
+        thumbnail.mirrored_exception = None
 
-        # How big will the image be once it's scaled down?
-        if not self.image_width or not self.image_height:
-            self.image_width, self.image_height = image.size
-
-        proportion = min(1, float(destination_height) / self.image_height)
-        thumbnail.width = int(self.image_width * proportion)
-        thumbnail.height = int(self.image_height * proportion)
-
-        if self.height <= thumbnail.height:
-            # The image doesn't need to be scaled at all; just save a
-            # copy.
-            thumbnail.content = self.content
-            thumbnail.scaled_exception = None
-            thumbnail.scaled_at = now
-            return thumbnail, True
-
-        args = [(destination_width, destination_height),
+        args = [(max_width, max_height),
                 Image.ANTIALIAS]
         try:
-            scaled_image = image.resize(*args)
+            image.thumbnail(*args)
         except IOError, e:
             # I'm not sure why, but sometimes just trying
             # it again works.
+            original_exception = str(e)
             try:
-                scaled_image = image.resize(*args)
+                image.thumbnail(*args)
             except IOError, e:
                 thumbnail.content = None
-                thumbnail.scaled_exception = str(e)
+                thumbnail.scaled_exception = original_exception
                 return thumbnail, True
 
         # Save the thumbnail image to the database under
         # thumbnail.content.
         output = StringIO()
-        scaled_image.save(output, 'jpeg')
+        image.save(output, pil_format)
         thumbnail.content = output.getvalue()
+        thumbnail.image_width, thumbnail.image_height = image.size
         output.close()
         thumbnail.scaled_exception = None
         thumbnail.scaled_at = now
