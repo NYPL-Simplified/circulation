@@ -1018,6 +1018,9 @@ class Identifier(Base):
         evaluator = SummaryEvaluator()
         # Find all rel="description" resources associated with any of
         # these records.
+        #
+        # TODO: This does not find short descriptions, which have a different
+        # relation.
         summaries = cls.resources_for_identifier_ids(
             _db, identifier_ids, Hyperlink.DESCRIPTION)
         summaries = summaries.join(Resource.representation).filter(
@@ -1036,14 +1039,11 @@ class Identifier(Base):
                 break
 
         for r in summaries:
-            if not has_full_description or r.href != "tag:short":
-                evaluator.add(r.content)
+            evaluator.add(r.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
         for r in summaries:
-            if has_full_description and r.href == "tag:short":
-                continue
             quality = evaluator.score(r.content)
             r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
@@ -1683,13 +1683,13 @@ class Edition(Base):
 
     def set_cover(self, resource):
         self.cover = resource
-        self.cover_full_url = resource.representation.mirrored_url
+        self.cover_full_url = resource.representation.mirror_url
 
         # TODO: In theory there could be multiple scaled-down
         # versions of this representation and we need some way of
         # choosing between them. Right now we just pick the first one
         # that works.
-        for scaled_down in resource.representation.scaled_down_versions:
+        for scaled_down in resource.representation.thumbnails:
             if scaled_down.mirror_url and scaled_down.mirrored_at:
                 self.cover_thumbnail_url = scaled_down.mirror_url
                 break
@@ -1883,8 +1883,12 @@ class Edition(Base):
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
-                if not best_cover.mirrored and not best_cover.scaled:
-                    print "WARN: Best cover for %s/%s (%s) was never mirrored or scaled!" % (self.primary_identifier.type, self.primary_identifier.identifier, best_cover.href)
+                if not best_cover.representation:
+                    print "WARN: Best cover for %s/%s has no representation!" % (self.primary_identifier.type, self.primary_identifier.identifier)
+                else:
+                    rep = best_cover.representation
+                    if not rep.mirrored_at and not rep.thumbnails:
+                        print "WARN: Best cover for %s/%s (%s) was never mirrored or thumbnailed!" % (self.primary_identifier.type, self.primary_identifier.identifier, rep.url)
                 self.set_cover(best_cover)
                 break
 
@@ -4396,7 +4400,7 @@ class Representation(Base):
             media_type=destination_media_type
         )
         if thumbnail not in self.thumbnails:
-            self.thumbnails.append(thumbnail)
+            thumbnail.thumbnail_of = self
 
         if not is_new and not force:
             # We found a preexisting thumbnail and we're allowed to
