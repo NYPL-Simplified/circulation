@@ -285,6 +285,9 @@ class DataSource(Base):
     # One DataSource can provide many Hyperlinks.
     links = relationship("Hyperlink", backref="data_source")
 
+    # One DataSource can provide many Resources.
+    resources = relationship("Resource", backref="data_source")
+
     # One DataSource can generate many Measurements.
     measurements = relationship("Measurement", backref="data_source")
 
@@ -789,16 +792,23 @@ class Identifier(Base):
             _db, [self.id], levels, threshold)
 
     def add_link(self, rel, href, data_source, license_pool=None,
-                     media_type=None, content=None, content_path=None):
+                 media_type=None, content=None, content_path=None):
         """Create a link between this Identifier and a (potentially new)
         Resource."""
         _db = Session.object_session(self)
+
+        if license_pool and license_pool.identifier != self:
+            raise ValueError(
+                "License pool is associated with %r, not %r!" % (
+                    license_pool.identifier, self))
         
         # Find or create the Resource.
         if not href:
             href = Hyperlink.generic_url(data_source, self, rel)
         resource, new_resource = get_one_or_create(
-            _db, Resource, url=href)
+            _db, Resource, url=href,
+            create_method_kwargs=dict(data_source=data_source)
+        )
 
         # Find or create the Hyperlink.
         link, new_link = get_one_or_create(
@@ -928,33 +938,40 @@ class Identifier(Base):
         # aspect ratio, and by its deviation (in the "too small"
         # direction only) from the ideal resolution.
         for r in images:
-            if r.data_source.name in licensed_sources:
-                # For licensed works, always present the cover
-                # provided by the licensing authority.
-                r.quality = 1
-                champion = r
+            for link in r.links:
+                if not link.license_pool.open_access:
+                    # For licensed works, always present the cover
+                    # provided by the licensing authority.
+                    r.quality = 1
+                    champion = r
+                    break
+
+            if champion and champion.quality == 1:
+                # No need to look further
+                break
+
+            rep = r.representation
+            if not rep:
                 continue
-            if not r.image_width or not r.image_height:
+            if not rep.image_width or not rep.image_height:
                 continue
-            aspect_ratio = r.image_width / float(r.image_height)
+            aspect_ratio = rep.image_width / float(rep.image_height)
             aspect_difference = abs(aspect_ratio-cls.IDEAL_COVER_ASPECT_RATIO)
             quality = 1 - aspect_difference
             width_difference = (
-                float(r.image_width - cls.IDEAL_IMAGE_WIDTH) / cls.IDEAL_IMAGE_WIDTH)
+                float(rep.image_width - cls.IDEAL_IMAGE_WIDTH) / cls.IDEAL_IMAGE_WIDTH)
             if width_difference < 0:
                 # Image is not wide enough.
                 quality = quality * (1+width_difference)
             height_difference = (
-                float(r.image_height - cls.IDEAL_IMAGE_HEIGHT) / cls.IDEAL_IMAGE_HEIGHT)
+                float(rep.image_height - cls.IDEAL_IMAGE_HEIGHT) / cls.IDEAL_IMAGE_HEIGHT)
             if height_difference < 0:
                 # Image is not tall enough.
                 quality = quality * (1+height_difference)
 
             # Scale the estimated quality by the source of the image.
             source_name = r.data_source.name
-            if source_name==DataSource.CONTENT_CAFE:
-                quality = quality * 0.70
-            elif source_name==DataSource.GUTENBERG_COVER_GENERATOR:
+            if source_name==DataSource.GUTENBERG_COVER_GENERATOR:
                 quality = quality * 0.60
             elif source_name==DataSource.GUTENBERG:
                 quality = quality * 0.50
@@ -978,7 +995,7 @@ class Identifier(Base):
             elif r.quality == champion_score:
                 champions.append(r)
         if champions and not champion:
-                champion = random.choice(champions)
+            champion = random.choice(champions)
             
         return champion, images
 
@@ -2767,6 +2784,9 @@ class Resource(Base):
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
 
     links = relationship("Hyperlink", backref="resource")
+
+    # The DataSource that is the controlling authority for this Resource.
+    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
 
     # An archived Representation of this Resource.
     representation_id = Column(

@@ -90,32 +90,43 @@ class S3Uploader(MirrorUploader):
 
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
-        requests = {}
         filehandles = []
+        requests = []
+        representations_by_mirror_url = dict()
         
         for representation in representations:
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
+            representations_by_mirror_url[representation.mirror_url] = (
+                representation)
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
             fh = representation.content_fh()
             filehandles.append(fh)
-            self.do_upload(remote_filename, fh, bucket)
             request = self.pool.upload(remote_filename, fh, bucket=bucket)
-            requests[request] = representation
             requests.append(request)
         # Do the upload.
-        for response in self.pool.as_completed(requests.keys()):
-            set_trace()
-            # TODO: We need some way of matching the response to 
-            # the original request.
-            representation = requests[r]
-            representation.set_as_mirrored()
-            del requests[r]
+        for response in self.pool.as_completed(requests):
+            representation = representations_by_mirror_url[response.url]
+            if response.status_code == 200:
+                source = representation.local_content_path
+                if representation.url != representation.mirror_url:
+                    source = representation.url
+                if source:
+                    print "MIRRORED %s => %s" % (
+                        source, representation.mirror_url)
+                else:
+                    print "MIRRORED %s" % representation.mirror_url
+                representation.set_as_mirrored()
+            else:
+                representation.mirrored_at = None
+                representation.mirror_exception = "Status code %d: %s" % (
+                    response.status_code, response.content)
+                set_trace()
 
         # Close the filehandles
-        for i in filehandles:
-            i.close()
+        for fh in filehandles:
+            fh.close()
 
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""

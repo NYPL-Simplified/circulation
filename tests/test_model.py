@@ -23,6 +23,7 @@ from model import (
     CustomListFeed,
     DataSource,
     Genre,
+    Hyperlink,
     Lane,
     LaneList,
     LicensePool,
@@ -1516,6 +1517,33 @@ class TestCustomList(DatabaseTest):
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
 
+class TestHyperlink(DatabaseTest):
+
+    def test_add_link(self):
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = edition.primary_identifier
+        data_source = pool.data_source
+        hyperlink, is_new = pool.add_link(
+            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
+            "text/plain", "The content")
+        eq_(True, is_new)
+        rep = hyperlink.resource.representation
+        eq_("text/plain", rep.media_type)
+        eq_("The content", rep.content)
+        eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
+        eq_(pool, hyperlink.license_pool)
+        eq_(identifier, hyperlink.identifier)
+
+    def test_add_link_fails_if_license_pool_and_identifier_dont_match(self):
+        edition, pool = self._edition(with_license_pool=True)
+        data_source = pool.data_source
+        identifier = self._identifier()
+        assert_raises_regexp(
+            ValueError, re.compile("License pool is associated with .*, not .*!"),
+            identifier.add_link,
+            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
+            pool, "text/plain", "The content")
+        
 
 class TestRepresentation(DatabaseTest):
 
