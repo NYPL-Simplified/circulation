@@ -2808,27 +2808,9 @@ class Resource(Base):
             return None
         return self.representation.mirror_url
 
-    def set_as_mirrored(self, media_type):
-        """Record the fact that a representation of this resource
-        has been mirrored.
-
-        The content of the representation is not being kept in the
-        database--it's probably located on disk. The media type of the
-        representation is being kept in the database.
-
-        TODO: I believe this method is unnecessary and unused.
-        """
-        _db = Session.object_session(self)
-        representation, is_new = get_one_or_create(
-            _db, Representation, url=self.url, media_type=media_type)
-        self.representation = representation
-        self.representation.media_type = media_type
-        self.representation.mirror_url = self.url
-        self.representation.set_as_mirrored(mirror_url)
-
     def set_fetched_content(self, media_type, content, content_path):
-        """Simulate a successful HTTP request for a representation of this
-        resource.
+        """Simulate a successful HTTP request for a representation
+        of this resource.
 
         This is used when the content of the representation is obtained
         through some other means.
