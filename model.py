@@ -2815,6 +2815,8 @@ class Resource(Base):
         The content of the representation is not being kept in the
         database--it's probably located on disk. The media type of the
         representation is being kept in the database.
+
+        TODO: I believe this method is unnecessary and unused.
         """
         _db = Session.object_session(self)
         representation, is_new = get_one_or_create(
@@ -2822,7 +2824,7 @@ class Resource(Base):
         self.representation = representation
         self.representation.media_type = media_type
         self.representation.mirror_url = self.url
-        self.set_as_mirrored()
+        self.representation.set_as_mirrored(mirror_url)
 
     def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation of this
@@ -2832,6 +2834,13 @@ class Resource(Base):
         through some other means.
         """
         _db = Session.object_session(self)
+
+        if not (content or content_path):
+            raise ValueError(
+                "One of content and content_path must be specified.")
+        if content and content_path:
+            raise ValueError(
+                "Only one of content and content_path may be specified.")
         representation, is_new = get_one_or_create(
             _db, Representation, url=self.url, media_type=media_type)
         self.representation = representation
@@ -3606,7 +3615,7 @@ class LicensePool(Base):
             Work.id==None).all()
 
     def add_link(self, rel, href, data_source, media_type=None,
-                 content=None):
+                 content=None, content_path=None):
         """Add a link between this LicensePool and a Resource.
 
         :param rel: The relationship between this LicensePooland the resource
@@ -3616,9 +3625,11 @@ class LicensePool(Base):
                with the resource.
         :param content: Content of the representation associated with the
                resource.
+        :param content_path: Path (relative to DATA_DIRECTORY) of the
+               representation associated with the resource.
         """
         return self.identifier.add_link(
-            rel, href, data_source, self, media_type, content)
+            rel, href, data_source, self, media_type, content, content_path)
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
@@ -4247,12 +4258,12 @@ class Representation(Base):
         return None, False
 
     @classmethod
-    def normalize_content_path(cls, content_path):
+    def normalize_content_path(cls, content_path, base=None):
         if not content_path:
             return None
-        base = os.environ['DATA_DIRECTORY']
+        base = base or os.environ['DATA_DIRECTORY']
         if content_path.startswith(base):
-            content_path = content_path[len(base)]
+            content_path = content_path[len(base):]
             if content_path.startswith('/'):
                 content_path = content_path[1:]
         return content_path

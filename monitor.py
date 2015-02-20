@@ -89,6 +89,7 @@ class PresentationReadyMonitor(Monitor):
                 failures = self.prepare(work)
             except Exception, e:
                 exception = str(e)
+                print "[PRESENTATION READY MONITOR] Caught exception %s" % exception
             if failures and failures not in (None, True):
                 if isinstance(failures, list):
                     # This is a list of providers that failed.

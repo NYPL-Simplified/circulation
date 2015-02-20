@@ -31,6 +31,10 @@ class S3Uploader(MirrorUploader):
         the given data source.
         """
         bucket = os.environ['BOOK_COVERS_S3_BUCKET']
+        return cls._cover_image_root(bucket, data_source, scaled_size)
+
+    @classmethod
+    def _cover_image_root(cls, bucket, data_source, scaled_size):
         if scaled_size:
             path = "/scaled/%d/" % scaled_size
         else:
@@ -47,16 +51,20 @@ class S3Uploader(MirrorUploader):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
+        bucket = os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET']
+        return cls._content_root(bucket, open_access)
+
+    @classmethod
+    def _content_root(cls, bucket, open_access):
         if not open_access:
             raise NotImplementedError()
-        bucket = os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET']
         return cls.url(bucket, '/')
 
     @classmethod
     def book_url(cls, identifier, extension='epub', open_access=True):
         """The path to the hosted EPUB file for the given identifier."""
         root = cls.content_root(open_access)
-        args = [identifier_obj.type, identifier_obj.identifier]
+        args = [identifier.type, identifier.identifier]
         args = [urllib.quote(x) for x in args]
         return root + "%s/%s.%s" % tuple(args + [extension])
 
@@ -78,7 +86,7 @@ class S3Uploader(MirrorUploader):
 
     def mirror_one(self, representation):
         """Mirror a single representation."""
-        return self.upload_resources([representation])
+        return self.mirror_batch([representation])
 
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
@@ -86,10 +94,13 @@ class S3Uploader(MirrorUploader):
         filehandles = []
         
         for representation in representations:
+            if not representation.mirror_url:
+                representation.mirror_url = representation.url
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
             fh = representation.content_fh()
             filehandles.append(fh)
+            self.do_upload(remote_filename, fh, bucket)
             request = self.pool.upload(remote_filename, fh, bucket=bucket)
             requests[request] = representation
             requests.append(request)
@@ -99,8 +110,7 @@ class S3Uploader(MirrorUploader):
             # TODO: We need some way of matching the response to 
             # the original request.
             representation = requests[r]
-            representation.mirrored_at = datetime.datetime.utcnow()
-            representation.mirrored_exception = None
+            representation.set_as_mirrored()
             del requests[r]
 
         # Close the filehandles
@@ -112,5 +122,19 @@ class DummyS3Uploader(S3Uploader):
     def __init__(self, *args, **kwargs):
         self.uploaded = []
 
+    @classmethod
+    def cover_image_root(cls, data_source, scaled_size=None):
+        return cls._cover_image_root(
+            'test.cover.bucket', data_source, scaled_size)
+
+    @classmethod
+    def content_root(cls, open_access=True):
+        """The root URL to the S3 location of hosted content of
+        the given type.
+        """
+        return cls._content_root('test.content.bucket', open_access)
+
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)
+        for r in representations:
+            r.set_as_mirrored()

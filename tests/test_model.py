@@ -27,6 +27,7 @@ from model import (
     LaneList,
     LicensePool,
     Measurement,
+    Representation,
     Timestamp,
     UnresolvedIdentifier,
     Work,
@@ -1517,6 +1518,16 @@ class TestCustomList(DatabaseTest):
 
 
 class TestRepresentation(DatabaseTest):
+
+    def test_normalized_content_path(self):
+        eq_("baz", Representation.normalize_content_path(
+            "/foo/bar/baz", "/foo/bar"))
+
+        eq_("baz", Representation.normalize_content_path(
+            "/foo/bar/baz", "/foo/bar/"))
+
+        eq_("/foo/bar/baz", Representation.normalize_content_path(
+            "/foo/bar/baz", "/blah/blah/"))
 
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
