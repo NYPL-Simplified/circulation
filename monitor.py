@@ -63,14 +63,18 @@ class PresentationReadyMonitor(Monitor):
     the ensure_coverage() calls succeed, presentation of the work is
     calculated and the work is marked presentation ready.
     """
-    def __init__(self, _db, coverage_providers):
+    def __init__(self, _db, coverage_providers,
+                 calculate_work_even_if_no_author=False):
         super(PresentationReadyMonitor, self).__init__(
             _db, "Make Works Presentation Ready")
         self.coverage_providers = coverage_providers
+        self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
 
     def run_once(self, start, cutoff):
         # Consolidate works.
-        LicensePool.consolidate_works(self._db)
+        LicensePool.consolidate_works(
+            self._db,
+            calculate_work_even_if_no_author=self.calculate_work_even_if_no_author)
 
         unready_works = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(

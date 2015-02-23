@@ -3713,11 +3713,12 @@ class LicensePool(Base):
             create_method_kwargs=kwargs)
 
     @classmethod
-    def consolidate_works(cls, _db):
+    def consolidate_works(cls, _db, calculate_work_even_if_no_author=False):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         for unassigned in cls.with_no_work(_db):
-            etext, new = unassigned.calculate_work()
+            etext, new = unassigned.calculate_work(
+                even_if_no_author=calculate_work_even_if_no_author)
             if not etext:
                 # We could not create a work for this LicensePool,
                 # most likely because it does not yet have any
@@ -3744,8 +3745,10 @@ class LicensePool(Base):
         Work will be created.
         """
         
+        print "Calculating work for %r" % self.edition()
         if self.work:
             # The work has already been done.
+            print " Already got one."
             return self.work, False
 
         primary_edition = self.edition()
@@ -3758,6 +3761,7 @@ class LicensePool(Base):
             return None, False
 
         if not primary_edition.title or not primary_edition.author:
+            print " Calculating presentation."
             primary_edition.calculate_presentation()
 
 
@@ -3765,6 +3769,7 @@ class LicensePool(Base):
         if not primary_edition.work and (
                 not primary_edition.title or (
                     not primary_edition.author and not even_if_no_author)):
+            print " No author or title, giving up."
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)
@@ -3800,7 +3805,7 @@ class LicensePool(Base):
         else:
             # There is no better choice than creating a brand new Work.
             created = True
-            # print "NEW WORK for %r" % primary_edition.title
+            print " NEW WORK for %r" % primary_edition.title
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
@@ -3816,7 +3821,7 @@ class LicensePool(Base):
         work.calculate_presentation()
 
         if created:
-            print "Created %r" % work
+            print " Created %r" % work
         # All done!
         return work, created
 
