@@ -72,7 +72,6 @@ class ThreeMAPI(object):
         if cache_result and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
-                data_source=self.source, identifier=identifier,
                 do_get=Representation.http_get_no_timeout)
             content = representation.content
         else:

@@ -1,5 +1,6 @@
 # encoding: utf-8
 import operator
+import md5
 from collections import (
     Counter,
     defaultdict,
@@ -804,7 +805,7 @@ class Identifier(Base):
         
         # Find or create the Resource.
         if not href:
-            href = Hyperlink.generic_url(data_source, self, rel)
+            href = Hyperlink.generic_uri(data_source, self, rel)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
             create_method_kwargs=dict(data_source=data_source)
@@ -2746,12 +2747,12 @@ class Hyperlink(Base):
         Integer, ForeignKey('resources.id'), index=True, nullable=False)
 
     @classmethod
-    def generic_uri(cls, data_source, identifier, rel):
+    def generic_uri(cls, data_source, identifier, rel, content=None):
         """Create a generic URI for the other end of this hyperlink.
 
         This is useful for resources that are obtained through means
         other than fetching a single URL via HTTP. It lets us get a
-        URI that's most likely uniquem, so we can create a Resource
+        URI that's most likely unique, so we can create a Resource
         object without violating the uniqueness constraint.
 
         If the output of this method isn't unique in your situation
@@ -2760,8 +2761,10 @@ class Hyperlink(Base):
         other way of coming up with generic URIs.
 
         """
-        return ":".join([identifier.urn, urllib.quote(data_source.name),
-                         urllib.quote(rel)])
+        l = [identifier.urn, urllib.quote(data_source.name), urllib.quote(rel)]
+        if content:
+            l.append(md5.new(content).hexdigest())
+        return ":".join(l)
 
 
 class Resource(Base):
@@ -4011,6 +4014,9 @@ class Representation(Base):
     """
 
     EPUB_MEDIA_TYPE = "application/epub+zip"
+    TEXT_XML_MEDIA_TYPE = "text/xml"
+    APPLICATION_XML_MEDIA_TYPE = "application/xml"
+    JPEG_MEDIA_TYPE = "image/jpeg"
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -4122,6 +4128,7 @@ class Representation(Base):
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
+            accept=None,
             max_age=None, pause_before=0, allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
@@ -4151,10 +4158,10 @@ class Representation(Base):
         # the data sources we currently use, so for now we can treat
         # different representations of a URL as interchangeable.
 
-        representation = get_one(
-            _db, Representation, 'interchangeable',
-            url=url
-        )
+        a = dict(url=url)
+        if accept:
+            a['media_type'] = accept
+        representation = get_one(_db, Representation, 'interchangeable', **a)
 
         # Convert a max_age timedelta to a number of seconds.
         if isinstance(max_age, datetime.timedelta):
@@ -4162,7 +4169,7 @@ class Representation(Base):
 
         # Do we already have a usable representation?
         usable_representation = (
-            representation and not representation.exception)
+            representation and not representation.fetch_exception)
 
         # Assuming we have a usable representation, is it
         # fresh?
@@ -4182,6 +4189,8 @@ class Representation(Base):
         headers = {}
         if extra_request_headers:
             headers.update(extra_request_headers)
+        if accept:
+            headers['Accept'] = accept
 
         if usable_representation:
             # We have a representation but it's not fresh. We will
@@ -4216,7 +4225,7 @@ class Representation(Base):
         # At this point we can create a Representation object if there
         # isn't one already.
         if not usable_representation:
-            representation = get_one_or_create(
+            representation, ignore = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
@@ -4388,8 +4397,8 @@ class Representation(Base):
         _db = Session.object_session(self)
 
         if not destination_media_type in self.pil_format_for_media_type:
-            raise ValueError(
-                "Unsupported destination media type: %s" % destination_media_type)
+            raise ValueError("Unsupported destination media type: %s" % destination_media_type)
+                
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
