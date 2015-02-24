@@ -4164,7 +4164,7 @@ class Representation(Base):
 
         # Do we already have a usable representation?
         usable_representation = (
-            representation and not representation.exception)
+            representation and not representation.fetch_exception)
 
         # Assuming we have a usable representation, is it
         # fresh?
