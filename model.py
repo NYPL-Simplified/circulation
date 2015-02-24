@@ -4218,7 +4218,7 @@ class Representation(Base):
         # At this point we can create a Representation object if there
         # isn't one already.
         if not usable_representation:
-            representation = get_one_or_create(
+            representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
@@ -4251,7 +4251,7 @@ class Representation(Base):
 
             representation.headers = cls.headers_to_string(headers)
             representation.content = content          
-            self.update_image_size()
+            representation.update_image_size()
             return representation, False
 
         # Okay, things didn't go so well.
