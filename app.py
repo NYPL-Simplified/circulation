@@ -4,6 +4,7 @@ import random
 import time
 import os
 import sys
+import urlparse
 
 from sqlalchemy.orm.exc import (
     NoResultFound
@@ -39,7 +40,6 @@ from core.opds import (
     E,
     AcquisitionFeed,
     NavigationFeed,
-    URLRewriter,
 )
 import urllib
 from core.util.flask_util import (
@@ -339,7 +339,7 @@ def checkout(data_source, identifier):
                 NO_AVAILABLE_LICENSE_PROBLEM,
                 "Sorry, couldn't find an available license.", 404)
         best_pool.loan_to(flask.request.patron)
-        return redirect(URLRewriter.rewrite(best_link.href))
+        return redirect(best_link.representation.mirror_url)
 
     # This is not an open-access pool.
     if pool.licenses_available < 1:
@@ -368,9 +368,13 @@ def checkout(data_source, identifier):
 
 print __name__
 if __name__ == '__main__':
-
-
     debug = True
-    host = "0.0.0.0"
-    port = int(os.environ['CIRCULATION_WEB_APP_PORT'])
+    url = os.environ['CIRCULATION_WEB_APP_URL']
+    scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+    if ':' in netloc:
+        host, port = netloc.split(':')
+        port = int(port)
+    else:
+        host = netloc
+        port = 80
     app.run(debug=debug, host=host, port=port)
