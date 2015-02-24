@@ -268,7 +268,7 @@ class OverdriveAPI(BaseOverdriveAPI):
                    or pool.patrons_in_hold_queue != new_number_of_holds)
             
         if changed:
-            print '%s "%s" %s' % (edition.medium, edition.title, edition.author)
+            print '%s "%s" %s (%s)' % (edition.medium, edition.title, edition.author, edition.primary_identifier.identifier)
         #print " Owned: %s => %s" % (pool.licenses_owned, new_licenses_owned)
         #print " Available: %s => %s" % (pool.licenses_available, new_licenses_available)
         #print " Holds: %s => %s" % (pool.patrons_in_hold_queue, new_number_of_holds)
