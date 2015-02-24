@@ -4280,7 +4280,7 @@ class Representation(Base):
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
             self.image_width, self.image_height = image.size
-            print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
+            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
         else:
             self.image_width = self.image_height = None
 
