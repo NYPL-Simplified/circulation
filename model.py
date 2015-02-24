@@ -4251,6 +4251,7 @@ class Representation(Base):
 
             representation.headers = cls.headers_to_string(headers)
             representation.content = content          
+            self.update_image_size()
             return representation, False
 
         # Okay, things didn't go so well.
@@ -4269,6 +4270,19 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return None, False
+
+    def update_image_size(self):
+        """Make sure .image_height and .image_width are up to date.
+       
+        Clears .image_height and .image_width if the representation
+        is not an image.
+        """
+        if self.media_type and self.media_type.startswith('image/'):
+            image = self.as_image()
+            self.image_width, self.image_height = image.size
+            print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
+        else:
+            self.image_width = self.image_height = None
 
     @classmethod
     def normalize_content_path(cls, content_path, base=None):
@@ -4290,10 +4304,13 @@ class Representation(Base):
         if isinstance(content, unicode):
             content = content.encode("utf8")
         self.content = content
+
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
+        self.update_image_size()
+
 
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored
@@ -4357,6 +4374,8 @@ class Representation(Base):
         if self.content:
             return StringIO(self.content)
         else:
+            if not os.path.exists(self.local_path):
+                raise ValueError("%s does not exist." % local_path)
             return open(self.local_path)
             
 
@@ -4366,7 +4385,7 @@ class Representation(Base):
             raise ValueError(
                 "Cannot load non-image representation as image: type %s." 
                 % self.media_type)
-        if not self.content:
+        if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
         return Image.open(self.content_fh())
 

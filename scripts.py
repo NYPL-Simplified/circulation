@@ -58,10 +58,10 @@ class RunCoverageProviderScript(Script):
 
 class WorkProcessingScript(Script):
 
-    def __init__(self, force=False, restrict_to_source=None, 
+    def __init__(self, _db=None, force=False, restrict_to_source=None, 
                  specific_identifier=None, random_order=True,
                  batch_size=10):
-        self.db = self._db
+        self.db = _db or self._db
         if restrict_to_source:
             # Process works from a certain data source.
             data_source = DataSource.lookup(self.db, restrict_to_source)
