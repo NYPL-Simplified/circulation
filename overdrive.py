@@ -90,6 +90,7 @@ class OverdriveAPI(object):
                 raise Exception("Something's wrong with the OAuth Bearer Token!")
             else:
                 # Refresh the token and try again.
+                self.check_creds(True)
                 return self.get(url, extra_headers, True)
         else:
             return status_code, headers, content
