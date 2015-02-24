@@ -113,7 +113,7 @@ class OverdriveAPI(object):
     def get_library(self):
         url = self.LIBRARY_ENDPOINT % dict(library_id=self.library_id)
         representation, cached = Representation.get(
-            self._db, url, self.get, data_source=self.source)
+            self._db, url, self.get)
         return json.loads(representation.content)
 
     def all_ids(self):
@@ -175,8 +175,7 @@ class OverdriveAPI(object):
             item_id=identifier.identifier
         )
         representation, cached = Representation.get(
-            self._db, url, self.get, data_source=self.source,
-            identifier=identifier)
+            self._db, url, self.get)
         return json.loads(representation.content)
 
     @classmethod
