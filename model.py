@@ -1899,7 +1899,7 @@ class Edition(Base):
             print t.encode("utf8")
             print " language=%s" % self.language
             if self.cover:
-                print " cover=" + self.cover.mirrored_path
+                print " cover=" + self.cover.representation.mirror_url
             print
 
 
@@ -2248,8 +2248,10 @@ class Work(Base):
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Hyperlink.IMAGE).filter(
-                Resource.mirrored==True).filter(Resource.scaled==True).order_by(
+            _db, flattened_data, Hyperlink.IMAGE).join(
+            Resource.representation).filter(
+                Representation.mirrored_at!=None).filter(
+                Representation.scaled_at!=None).order_by(
                 Resource.quality.desc())
 
     def all_descriptions(self):
