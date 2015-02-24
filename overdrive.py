@@ -409,9 +409,9 @@ class OverdriveCirculationMonitor(Monitor):
 class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor every single book in the Overdrive collection."""
 
-    def __init__(self, interval_seconds=3600*4):
+    def __init__(self, _db, interval_seconds=3600*4):
         super(FullOverdriveCollectionMonitor, self).__init__(
-            "Overdrive Collection Overview", interval_seconds)
+            _db, "Overdrive Collection Overview", interval_seconds)
 
     def recently_changed_ids(self, start, cutoff):
         """Ignore the dates and return all IDs."""

@@ -148,19 +148,15 @@ class ThreeMEventMonitor(Monitor):
     associated with it until the ThreeMCirculationMonitor runs.
     """
 
-    def __init__(self, default_start_time=None,
+    def __init__(self, _db, default_start_time=None,
                  account_id=None, library_id=None, account_key=None):
         super(ThreeMEventMonitor, self).__init__(
-            "3M Event Monitor", default_start_time=default_start_time)
+            _db, "3M Event Monitor", default_start_time=default_start_time)
         self.account_id = account_id
         self.library_id = library_id
         self.account_key = account_key
-
-    def run(self, _db):
-        self._db = _db
-        self.api = ThreeMAPI(_db, self.account_id, self.library_id,
+        self.api = ThreeMAPI(self._db, self.account_id, self.library_id,
                              self.account_key)
-        super(ThreeMEventMonitor, self).run(_db)
 
     def slice_timespan(self, start, cutoff, increment):
         slice_start = start
@@ -173,8 +169,7 @@ class ThreeMEventMonitor(Monitor):
             yield slice_start, slice_cutoff, full_slice
             slice_start = slice_start + increment
 
-    def run_once(self, _db, start, cutoff):
-        _db = self._db
+    def run_once(self, start, cutoff):
         added_books = 0
         i = 0
         one_day = datetime.timedelta(days=1)
@@ -191,8 +186,8 @@ class ThreeMEventMonitor(Monitor):
                 i += 1
                 if not i % 1000:
                     print i
-                    _db.commit()
-            _db.commit()
+                    self._db.commit()
+            self._db.commit()
             self.timestamp.timestamp = most_recent_timestamp
         print "Handled %d events total" % i
         return most_recent_timestamp
