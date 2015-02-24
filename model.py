@@ -4458,6 +4458,7 @@ class Representation(Base):
             except IOError, e:
                 thumbnail.content = None
                 thumbnail.scaled_exception = original_exception
+                thumbnail.image_height = thumbnail.image_width = None
                 return thumbnail, True
 
         # Save the thumbnail image to the database under
