@@ -1,3 +1,4 @@
+from pdb import set_trace
 import base64
 import urlparse
 import time
@@ -24,8 +25,8 @@ class ThreeMAPI(object):
     VERSION_HEADER = "3mcl-APIVersion"
 
     def __init__(self, _db, account_id=None, library_id=None, account_key=None,
-                 base_url = "http://cloudlibraryapi.3m.com/",
-                 version="1.0"):
+                 base_url = "https://cloudlibraryapi.3m.com/",
+                 version="2.0"):
         self._db = _db
         self.version = version
         self.library_id = library_id or os.environ['THREEM_LIBRARY_ID']
@@ -66,17 +67,18 @@ class ThreeMAPI(object):
         if not path.startswith("/cirrus"):
             path = "/cirrus/library/%s%s" % (self.library_id, path)
         url = urlparse.urljoin(self.base_url, path)
-        headers = {}
+        headers = {"Accept" : "application/xml"}
         self.sign(method, headers, path)
-
+        print headers
         if cache_result and method=='GET':
+            print "%s %s" % (method, url)
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
                 do_get=Representation.http_get_no_timeout)
             content = representation.content
         else:
             response = requests.request(
-                method, url, data=body, headers=headers)
+                method, url, data=body, headers=headers, allow_redirects=False)
             content = response.text
         return content
 
