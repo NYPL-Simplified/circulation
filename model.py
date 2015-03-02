@@ -1018,6 +1018,9 @@ class Identifier(Base):
         evaluator = SummaryEvaluator()
         # Find all rel="description" resources associated with any of
         # these records.
+        #
+        # TODO: This does not find short descriptions, which have a different
+        # relation.
         summaries = cls.resources_for_identifier_ids(
             _db, identifier_ids, Hyperlink.DESCRIPTION)
         summaries = summaries.join(Resource.representation).filter(
@@ -1036,14 +1039,11 @@ class Identifier(Base):
                 break
 
         for r in summaries:
-            if not has_full_description or r.href != "tag:short":
-                evaluator.add(r.content)
+            evaluator.add(r.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
         for r in summaries:
-            if has_full_description and r.href == "tag:short":
-                continue
             quality = evaluator.score(r.content)
             r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
@@ -1683,13 +1683,13 @@ class Edition(Base):
 
     def set_cover(self, resource):
         self.cover = resource
-        self.cover_full_url = resource.representation.mirrored_url
+        self.cover_full_url = resource.representation.mirror_url
 
         # TODO: In theory there could be multiple scaled-down
         # versions of this representation and we need some way of
         # choosing between them. Right now we just pick the first one
         # that works.
-        for scaled_down in resource.representation.scaled_down_versions:
+        for scaled_down in resource.representation.thumbnails:
             if scaled_down.mirror_url and scaled_down.mirrored_at:
                 self.cover_thumbnail_url = scaled_down.mirror_url
                 break
@@ -1883,8 +1883,12 @@ class Edition(Base):
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
-                if not best_cover.mirrored and not best_cover.scaled:
-                    print "WARN: Best cover for %s/%s (%s) was never mirrored or scaled!" % (self.primary_identifier.type, self.primary_identifier.identifier, best_cover.href)
+                if not best_cover.representation:
+                    print "WARN: Best cover for %s/%s has no representation!" % (self.primary_identifier.type, self.primary_identifier.identifier)
+                else:
+                    rep = best_cover.representation
+                    if not rep.mirrored_at and not rep.thumbnails:
+                        print "WARN: Best cover for %s/%s (%s) was never mirrored or thumbnailed!" % (self.primary_identifier.type, self.primary_identifier.identifier, rep.url)
                 self.set_cover(best_cover)
                 break
 
@@ -1895,7 +1899,7 @@ class Edition(Base):
             print t.encode("utf8")
             print " language=%s" % self.language
             if self.cover:
-                print " cover=" + self.cover.mirrored_path
+                print " cover=" + self.cover.representation.mirror_url
             print
 
 
@@ -2244,8 +2248,10 @@ class Work(Base):
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Hyperlink.IMAGE).filter(
-                Resource.mirrored==True).filter(Resource.scaled==True).order_by(
+            _db, flattened_data, Hyperlink.IMAGE).join(
+            Resource.representation).filter(
+                Representation.mirrored_at!=None).filter(
+                Representation.scaled_at!=None).order_by(
                 Resource.quality.desc())
 
     def all_descriptions(self):
@@ -3710,11 +3716,12 @@ class LicensePool(Base):
             create_method_kwargs=kwargs)
 
     @classmethod
-    def consolidate_works(cls, _db):
+    def consolidate_works(cls, _db, calculate_work_even_if_no_author=False):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         for unassigned in cls.with_no_work(_db):
-            etext, new = unassigned.calculate_work()
+            etext, new = unassigned.calculate_work(
+                even_if_no_author=calculate_work_even_if_no_author)
             if not etext:
                 # We could not create a work for this LicensePool,
                 # most likely because it does not yet have any
@@ -3741,8 +3748,10 @@ class LicensePool(Base):
         Work will be created.
         """
         
+        print "Calculating work for %r" % self.edition()
         if self.work:
             # The work has already been done.
+            print " Already got one."
             return self.work, False
 
         primary_edition = self.edition()
@@ -3755,6 +3764,7 @@ class LicensePool(Base):
             return None, False
 
         if not primary_edition.title or not primary_edition.author:
+            print " Calculating presentation."
             primary_edition.calculate_presentation()
 
 
@@ -3762,6 +3772,7 @@ class LicensePool(Base):
         if not primary_edition.work and (
                 not primary_edition.title or (
                     not primary_edition.author and not even_if_no_author)):
+            print " No author or title, giving up."
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)
@@ -3797,7 +3808,7 @@ class LicensePool(Base):
         else:
             # There is no better choice than creating a brand new Work.
             created = True
-            # print "NEW WORK for %r" % primary_edition.title
+            print " NEW WORK for %r" % primary_edition.title
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
@@ -3813,7 +3824,7 @@ class LicensePool(Base):
         work.calculate_presentation()
 
         if created:
-            print "Created %r" % work
+            print " Created %r" % work
         # All done!
         return work, created
 
@@ -4154,7 +4165,7 @@ class Representation(Base):
 
         # Do we already have a usable representation?
         usable_representation = (
-            representation and not representation.exception)
+            representation and not representation.fetch_exception)
 
         # Assuming we have a usable representation, is it
         # fresh?
@@ -4208,7 +4219,7 @@ class Representation(Base):
         # At this point we can create a Representation object if there
         # isn't one already.
         if not usable_representation:
-            representation = get_one_or_create(
+            representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
@@ -4241,6 +4252,7 @@ class Representation(Base):
 
             representation.headers = cls.headers_to_string(headers)
             representation.content = content          
+            representation.update_image_size()
             return representation, False
 
         # Okay, things didn't go so well.
@@ -4259,6 +4271,19 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return None, False
+
+    def update_image_size(self):
+        """Make sure .image_height and .image_width are up to date.
+       
+        Clears .image_height and .image_width if the representation
+        is not an image.
+        """
+        if self.media_type and self.media_type.startswith('image/'):
+            image = self.as_image()
+            self.image_width, self.image_height = image.size
+            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
+        else:
+            self.image_width = self.image_height = None
 
     @classmethod
     def normalize_content_path(cls, content_path, base=None):
@@ -4280,10 +4305,13 @@ class Representation(Base):
         if isinstance(content, unicode):
             content = content.encode("utf8")
         self.content = content
+
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
+        self.update_image_size()
+
 
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored
@@ -4347,6 +4375,8 @@ class Representation(Base):
         if self.content:
             return StringIO(self.content)
         else:
+            if not os.path.exists(self.local_path):
+                raise ValueError("%s does not exist." % local_path)
             return open(self.local_path)
             
 
@@ -4356,7 +4386,7 @@ class Representation(Base):
             raise ValueError(
                 "Cannot load non-image representation as image: type %s." 
                 % self.media_type)
-        if not self.content:
+        if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
         return Image.open(self.content_fh())
 
@@ -4397,7 +4427,7 @@ class Representation(Base):
             media_type=destination_media_type
         )
         if thumbnail not in self.thumbnails:
-            self.thumbnails.append(thumbnail)
+            thumbnail.thumbnail_of = self
 
         if not is_new and not force:
             # We found a preexisting thumbnail and we're allowed to
@@ -4429,6 +4459,7 @@ class Representation(Base):
             except IOError, e:
                 thumbnail.content = None
                 thumbnail.scaled_exception = original_exception
+                thumbnail.image_height = thumbnail.image_width = None
                 return thumbnail, True
 
         # Save the thumbnail image to the database under

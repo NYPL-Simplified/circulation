@@ -23,6 +23,12 @@ def feed_response(feed, acquisition=True):
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
     return make_response(feed, 200, {"Content-Type": content_type})
 
+class HeartbeatController(object):
+
+    def heartbeat(self):
+        return make_response("", 200, {"Content-Type": "text/plain"})
+
+
 class URNLookupController(object):
 
     INVALID_URN = "Could not parse identifier."

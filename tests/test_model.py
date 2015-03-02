@@ -1574,6 +1574,32 @@ class TestRepresentation(DatabaseTest):
 
 class TestScaleRepresentation(DatabaseTest):
 
+    def test_set_cover(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        thumbnail_mirror = self._url
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            "fake content")
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
+
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(None, edition.cover_thumbnail_url)
+
+        # Now scale the cover.
+        thumbnail, ignore = self._representation()
+        thumbnail.thumbnail_of = full_rep
+        thumbnail.mirror_url = thumbnail_mirror
+        thumbnail.set_as_mirrored()
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(thumbnail_mirror, edition.cover_thumbnail_url)
+
+
     def sample_cover_representation(self, name):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "covers")
