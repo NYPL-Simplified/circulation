@@ -2720,6 +2720,7 @@ class Hyperlink(Base):
     ILLUSTRATION = "http://library-simplified.com/rel/illustration"
     REVIEW = "http://schema.org/Review"
     DESCRIPTION = "http://schema.org/description"
+    SHORT_DESCRIPTION = "http://library-simplified.com/rel/short-description"
     AUTHOR = "http://schema.org/author"
 
     # TODO: Is this the appropriate relation?
