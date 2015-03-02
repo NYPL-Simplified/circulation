@@ -804,7 +804,7 @@ class Identifier(Base):
         
         # Find or create the Resource.
         if not href:
-            href = Hyperlink.generic_url(data_source, self, rel)
+            href = Hyperlink.generic_uri(data_source, self, rel)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
             create_method_kwargs=dict(data_source=data_source)
