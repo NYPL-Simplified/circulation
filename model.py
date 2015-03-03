@@ -10,6 +10,7 @@ import datetime
 import json
 import os
 from nose.tools import set_trace
+import md5
 import random
 import re
 import requests
@@ -2745,7 +2746,7 @@ class Hyperlink(Base):
         Integer, ForeignKey('resources.id'), index=True, nullable=False)
 
     @classmethod
-    def generic_uri(cls, data_source, identifier, rel):
+    def generic_uri(cls, data_source, identifier, rel, content=None):
         """Create a generic URI for the other end of this hyperlink.
 
         This is useful for resources that are obtained through means
@@ -2759,8 +2760,14 @@ class Hyperlink(Base):
         other way of coming up with generic URIs.
 
         """
-        return ":".join([identifier.urn, urllib.quote(data_source.name),
-                         urllib.quote(rel)])
+        l = [identifier.urn, urllib.quote(data_source.name), urllib.quote(rel)]
+        if content:
+            m = md5.new()
+            if isinstance(content, unicode):
+                content = content.encode("utf8")
+            m.update(content)
+            l.append(m.hexdigest())
+        return ":".join(l)
 
 
 class Resource(Base):
@@ -4114,7 +4121,7 @@ class Representation(Base):
 
     @property
     def has_content(self):
-        if self.content and self.status_code == 200 and self.exception is not None:
+        if self.content and self.status_code == 200 and self.fetch_exception is not None:
             return True
         if self.local_content_path and os.path.exists(self.local_content_path):
             return True

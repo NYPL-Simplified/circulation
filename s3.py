@@ -69,7 +69,7 @@ class S3Uploader(MirrorUploader):
         return root + "%s/%s.%s" % tuple(args + [extension])
 
     @classmethod
-    def cover_image_url(cls, data_source, identifier, filename, scaled_size=None):
+    def cover_image_url(cls, data_source, identifier, filename=None, scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
         root = cls.cover_image_root(data_source, scaled_size)
         args = [identifier.identifier, filename]
