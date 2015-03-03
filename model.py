@@ -1018,36 +1018,32 @@ class Identifier(Base):
         evaluator = SummaryEvaluator()
         # Find all rel="description" resources associated with any of
         # these records.
-        #
-        # TODO: This does not find short descriptions, which have a different
-        # relation.
-        summaries = cls.resources_for_identifier_ids(
+        long_descriptions = cls.resources_for_identifier_ids(
             _db, identifier_ids, Hyperlink.DESCRIPTION)
-        summaries = summaries.join(Resource.representation).filter(
+        long_descriptions = long_descriptions.join(Resource.representation).filter(
             Representation.content != None).all()
+
+        short_descriptions = cls.resources_for_identifier_ids(
+            _db, identifier_ids, Hyperlink.SHORT_DESCRIPTION)
+        short_descriptions = short_descriptions.join(Resource.representation).filter(
+            Representation.content != None).all()
+
+        summaries = [long_descriptions + short_descriptions]
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
-        has_short_description = False
-        has_full_description = False
-        for r in summaries:
-            if r.href=="tag:short":
-                has_short_description = True
-            elif r.href=="tag:full":
-                has_full_description = True
-            if has_full_description and has_short_description:
-                break
-
-        for r in summaries:
-            evaluator.add(r.content)
+        for l in [long_descriptions, short_descriptions]:
+            for r in l:
+                evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
-        for r in summaries:
-            quality = evaluator.score(r.content)
-            r.set_estimated_quality(quality)
-            if not champion or r.quality > champion.quality:
-                champion = r
+        for l in [long_descriptions, short_descriptions]:
+            for r in l:
+                quality = evaluator.score(r.representation.content)
+                r.set_estimated_quality(quality)
+                if not champion or r.quality > champion.quality:
+                    champion = r
         return champion, summaries
 
     @classmethod
@@ -2074,7 +2070,7 @@ class Work(Base):
         self.summary = resource
         # TODO: clean up the content
         if resource:
-            self.summary_text = resource.content
+            self.summary_text = resource.representation.content
 
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
@@ -2421,7 +2417,7 @@ class Work(Base):
             print " " + ", ".join(repr(wg) for wg in self.work_genres)
             if self.summary:
                 d = " Description (%.2f) %s" % (
-                    self.summary.quality, self.summary.content[:100])
+                    self.summary.quality, self.summary.representation.content[:100])
                 print d.encode("utf8")
             print
 
