@@ -64,6 +64,8 @@ class SummaryEvaluator(object):
         self.top_noun_phrases = None
 
     def add(self, summary):
+        if isinstance(summary, str):
+            summary = summary.decode("utf8")
         if summary in self.blobs:
             # We already evaluated this summary. Don't count it more than once
             return
@@ -95,6 +97,8 @@ class SummaryEvaluator(object):
 
     def score(self, summary, apply_language_penalty=True):
         """Score a summary relative to our current view of the dataset."""
+        if isinstance(summary, str):
+            summary = summary.decode("utf8")
         if summary in self.scores:
             return self.scores[summary]
         score = 1
