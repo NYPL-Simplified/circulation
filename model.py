@@ -4121,9 +4121,9 @@ class Representation(Base):
 
     @property
     def has_content(self):
-        if self.content and self.status_code == 200 and self.fetch_exception is not None:
+        if self.content and self.status_code == 200 and self.fetch_exception is None:
             return True
-        if self.local_content_path and os.path.exists(self.local_content_path):
+        if self.local_content_path and os.path.exists(self.local_content_path) and self.fetch_exception is None:
             return True
         return False
 
@@ -4260,8 +4260,8 @@ class Representation(Base):
             return representation, False
 
         # Okay, things didn't go so well.
-        date_string = fetched_at.strptime("%Y-%m-%d %H:%M:%S")
-        representation.exception = representation.exception or (
+        date_string = fetched_at.strftime("%Y-%m-%d %H:%M:%S")
+        representation.exception = representation.fetch_exception or (
             "Most recent fetch attempt (at %s) got status code %d" % (
                 date_string, status_code))
         if usable_representation:
@@ -4274,7 +4274,7 @@ class Representation(Base):
         representation.status_code = status_code
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
-        return None, False
+        return representation, False
 
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
