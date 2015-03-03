@@ -8,6 +8,7 @@ import datetime
 import feedparser
 import requests
 import urllib
+from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
 
@@ -16,12 +17,14 @@ from util import LanguageCodes
 from util.xmlparser import XMLParser
 from model import (
     get_one,
+    get_one_or_create,
     Contributor,
     DataSource,
     Edition,
     Hyperlink,
     Identifier,
     LicensePool,
+    Representation,
     Resource,
     Subject,
 )
@@ -242,7 +245,8 @@ class BaseOPDSImporter(object):
         download_links = []
         image_link = None
 
-        set_trace()
+        _db = Session.object_session(data_source)
+
         for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
             type = link.get('type', None)
             if type == 'text/html':
@@ -276,14 +280,18 @@ class BaseOPDSImporter(object):
                     # Feedparser fills this in and it's just wrong.
                     type = None
                 url = link['href']
+                if url == image_link.resource.url:
+                    # We can't assign a resource to be its own
+                    # thumbnail.  We'll just not assign a thumbnail
+                    # and let the recorded sizes do the work.
+                    continue
                 thumbnail, is_new = get_one_or_create(
                     _db, Representation, url=url,
                     media_type=type
                     )
-                thumbnail.mirror_url = mirror_url
+                thumbnail.mirror_url = url
                 thumbnail.set_as_mirrored()
-                image_hyperlink.resource.representation.thumbnails.append(
-                    thumbnail)
+                thumbnail.thumbnail_of = image_link.resource.representation
 
         return download_links, image_link
 
