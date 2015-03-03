@@ -6,6 +6,7 @@ import hmac
 import hashlib
 import os
 import requests
+from datetime import timedelta
 
 from model import (
     DataSource,
@@ -23,6 +24,8 @@ class ThreeMAPI(object):
     DATETIME_HEADER = "3mcl-Datetime"
     AUTHORIZATION_HEADER = "3mcl-Authorization"
     VERSION_HEADER = "3mcl-Version"
+
+    MAX_METADATA_AGE = timedelta(days=180)
 
     def __init__(self, _db, account_id=None, library_id=None, account_key=None,
                  base_url = "https://cloudlibraryapi.3m.com/",
@@ -61,7 +64,7 @@ class ThreeMAPI(object):
         return signature, now
 
     def request(self, path, body=None, method="GET", identifier=None,
-                cache_result=True):
+                max_age=None):
         if not path.startswith("/"):
             path = "/" + path
         if not path.startswith("/cirrus"):
@@ -73,11 +76,11 @@ class ThreeMAPI(object):
             headers = {"Content-Type" : "application/xml"}
         self.sign(method, headers, path)
         print headers
-        if cache_result and method=='GET':
+        if max_age and method=='GET':
             print "%s %s" % (method, url)
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
-                do_get=Representation.http_get_no_timeout)
+                do_get=Representation.http_get_no_timeout, max_age=max_age)
             content = representation.content
         else:
             response = requests.request(
