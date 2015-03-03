@@ -328,16 +328,15 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         print "Deleted %d contributions and %d classifications." % (
             removed_contributions, removed_classifications)
 
-        if edition_was_new:
-            for contributor in self.authors_by_id.get(entry.id, []):
-                edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
+        for contributor in self.authors_by_id.get(entry.id, []):
+            edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
 
-            weights = self.subject_weights_by_id.get(entry.id, {})
-            for key, weight in weights.items():
-                type, term = key
-                name = self.subject_names_by_id.get(key, None)
-                identifier.classify(
-                    data_source, type, term, name, weight=weight)
+        weights = self.subject_weights_by_id.get(entry.id, {})
+        for key, weight in weights.items():
+            type, term = key
+            name = self.subject_names_by_id.get(key, None)
+            identifier.classify(
+                data_source, type, term, name, weight=weight)
 
         print "Added %d contributions and %d classifications." % (
             len(edition.contributors), len(identifier.classifications)
