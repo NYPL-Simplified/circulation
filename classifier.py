@@ -295,6 +295,7 @@ class Classifier(object):
     LCSH = "LCSH"
     FAST = "FAST"
     OVERDRIVE = "Overdrive"
+    THREEM = "3M"
     TAG = "tag"   # Folksonomic tags.
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
