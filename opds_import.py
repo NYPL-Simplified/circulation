@@ -19,6 +19,7 @@ from model import (
     Contributor,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
     Resource,
@@ -38,7 +39,7 @@ class SimplifiedOPDSLookup(object):
 
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
-        args = "&".join(["urn=%s" % i.urn for i in identifiers])
+        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         return requests.get(url)
 
@@ -196,14 +197,23 @@ class BaseOPDSImporter(object):
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
+        rel = Hyperlink.DESCRIPTION
         if 'value' in summary and summary['value']:
-            identifier.add_resource(
-                Hyperlink.DESCRIPTION, None, data_source, pool,
-                summary.get('type', 'text/plain'), summary['value'])
+            value = summary['value']
+            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+                                        value)
+            pool.add_link(
+                rel, uri, data_source,
+                summary.get('type', 'text/plain'), value)
         for content in entry.get('content', []):
-            identifier.add_resource(
-                Hyperlink.DESCRIPTION, None, data_source, pool,
-                summary.get('type', 'text/html'), content['value'])
+            value = content['value']
+            if not value:
+                continue
+            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+                                        value)
+            pool.add_link(
+                rel, uri, data_source,
+                summary.get('type', 'text/html'), value)
             
 
         edition.title = title
@@ -220,51 +230,62 @@ class BaseOPDSImporter(object):
         # so as to avoid keeping old stuff around.
         for resource in Identifier.resources_for_identifier_ids(
                 self._db, [identifier.id], rels):
+            for l in resource.links:
+                self._db.delete(l)
             self._db.delete(resource)
 
     def set_resources(self, data_source, identifier, pool, links):
         # Associate covers and downloads with the identifier.
         #
         # If there is both a full image and a thumbnail, we need
-        # to make sure they're put into the same resource.
-        download_resources = []
-        image_resource = None
+        # to make sure they're put into the same representation.
+        download_links = []
+        image_link = None
 
-        for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-                    Hyperlink.THUMBNAIL_IMAGE]:
-            for link in links[rel]:
+        set_trace()
+        for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
+            type = link.get('type', None)
+            if type == 'text/html':
+                # Feedparser fills this in and it's just wrong.
+                type = None
+            url = link['href']
+            hyperlink, was_new = pool.add_link(
+                Hyperlink.OPEN_ACCESS_DOWNLOAD, url, data_source, type)
+            hyperlink.resource.set_mirrored_elsewhere(type)
+            download_links.append(hyperlink)
+
+        for link in links[Hyperlink.IMAGE]:
+            type = link.get('type', None)
+            if type == 'text/html':
+                # Feedparser fills this in and it's just wrong.
+                type = None
+            url = link['href']
+            hyperlink, was_new = pool.add_link(
+                Hyperlink.IMAGE, url, data_source, type)
+            hyperlink.resource.set_mirrored_elsewhere(type)
+            image_link = hyperlink
+            # TODO: Metadata wrangler should include width and
+            # height if possible, and we should pick it up here.
+
+        if image_link:
+            for link in links[Hyperlink.THUMBNAIL_IMAGE]:
+                # The metadata wrangler handles scaling and mirroring
+                # resources, and we will trust what it says.
                 type = link.get('type', None)
                 if type == 'text/html':
                     # Feedparser fills this in and it's just wrong.
                     type = None
                 url = link['href']
-                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD or not image_resource:
-                    resource, was_new = identifier.add_resource(
-                        rel, url, data_source, pool, type)
-                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    download_resources.append(resource)
-                else:
-                    image_resource = resource
+                thumbnail, is_new = get_one_or_create(
+                    _db, Representation, url=url,
+                    media_type=type
+                    )
+                thumbnail.mirror_url = mirror_url
+                thumbnail.set_as_mirrored()
+                image_hyperlink.resource.representation.thumbnails.append(
+                    thumbnail)
 
-                # TODO: Metadata wrangler should include width and
-                # height if possible, and we should pick it up here.
-
-                # The metadata wrangler handles scaling and mirroring
-                # resources, and we will trust what it says.
-                if rel == Hyperlink.IMAGE:
-                    # print "Resource %s was mirrored." % url
-                    image_resource.href = url
-                    image_resource.mirrored = True
-                    image_resource.mirrored_path = url
-                    image_resource.mirrored_date = datetime.datetime.utcnow()
-                    image_resource.mirrored_status = 200
-                elif rel == Hyperlink.THUMBNAIL_IMAGE:
-                    # print "Resource %s was scaled." % url
-                    image_resource.scaled = True
-                    image_resource.scaled_path = url
-                else:
-                    print "Resource %s was neither scaled nor mirrored." % url
-        return download_resources, image_resource
+        return download_links, image_link
 
 class DetailedOPDSImporter(BaseOPDSImporter):
 

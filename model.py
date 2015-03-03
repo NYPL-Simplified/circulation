@@ -1805,6 +1805,7 @@ class Edition(Base):
         q = Identifier.resources_for_identifier_ids(
             _db, [self.primary_identifier.id], open_access)
         for l in q:
+            
             if l.representation.media_type.startswith(Representation.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
@@ -2837,6 +2838,17 @@ class Resource(Base):
         if not self.representation.mirror_url:
             return None
         return self.representation.mirror_url
+
+    def set_mirrored_elsewhere(self, media_type):
+        """We don't need our own copy of this resource's representation--
+        a copy of it has been mirrored already.
+        """
+        _db = Session.object_session(self)
+        if not self.representation:
+            self.representation, is_new = get_one_or_create(
+                _db, Representation, url=self.url, media_type=media_type)
+        self.representation.mirror_url = self.url
+        self.representation.set_as_mirrored()
 
     def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation
