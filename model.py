@@ -450,7 +450,7 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
-    URN_SCHEME_PREFIX = "urn:librarysimplified.org/identifier/"
+    URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
 
     __tablename__ = 'identifiers'
@@ -2568,12 +2568,12 @@ class Measurement(Base):
     __tablename__ = 'measurements'
 
     # Some common measurement types
-    POPULARITY = "http://librarysimplified.org/rel/popularity"
+    POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
 
-    GUTENBERG_FAVORITE = "http://librarysimplified.org/rel/lists/gutenberg-favorite"
+    GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
     # If a book's popularity measurement is found between index n and
     # index n+1 on this list, it is in the nth percentile for
@@ -2724,10 +2724,10 @@ class Hyperlink(Base):
     IMAGE = "http://opds-spec.org/image"
     THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
     SAMPLE = "http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = "http://librarysimplified.org/rel/illustration"
+    ILLUSTRATION = "http://librarysimplified.org/terms/rel/illustration"
     REVIEW = "http://schema.org/Review"
     DESCRIPTION = "http://schema.org/description"
-    SHORT_DESCRIPTION = "http://librarysimplified.org/rel/short-description"
+    SHORT_DESCRIPTION = "http://librarysimplified.org/terms/rel/short-description"
     AUTHOR = "http://schema.org/author"
 
     # TODO: Is this the appropriate relation?
