@@ -2434,7 +2434,9 @@ class Work(Base):
             if self.summary:
                 d = " Description (%.2f) %s" % (
                     self.summary.quality, self.summary.representation.content[:100])
-                print d.encode("utf8")
+                if isinstance(d, unicode):
+                    d = d.encode("utf8")
+                print d
             print
 
     def set_presentation_ready(self, as_of=None):
