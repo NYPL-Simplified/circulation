@@ -123,7 +123,7 @@ class Annotator(object):
 
         # Add the appeals as a category of schema
         # http://librarysimplified.org/terms/appeal
-        schema_url = simplified_ns + "/appeals/"
+        schema_url = simplified_ns + "appeals/"
         appeals = []
         categories[schema_url] = appeals
         for name, value in (
@@ -133,11 +133,10 @@ class Annotator(object):
                 (Work.STORY_APPEAL, work.appeal_story),
         ):
             if value:
-                appeals[name] = dict(term=name)
+                appeal = dict(term=name)
+                appeals.append(appeal)
                 weight_field = "{%s}ratingValue" % schema_ns
-                appeals.append(value)
-        if appeals:
-            set_trace()
+                appeal[weight_field] = value
 
         # Add the audience as a category of schema
         # http://schema.org/audience
@@ -263,6 +262,7 @@ class VerboseAnnotator(Annotator):
         by_scheme = defaultdict(list)
         for (scheme, term), value in by_scheme_and_term.items():
             by_scheme[scheme].append(value)
+        by_scheme.update(super(VerboseAnnotator, cls).categories(work))
         return by_scheme
 
     @classmethod

@@ -1929,6 +1929,8 @@ class WorkGenre(Base):
 
 class Work(Base):
 
+    APPEALS_URI = "http://librarysimplified.org/terms/appeals/"
+
     CHARACTER_APPEAL = "Character"
     LANGUAGE_APPEAL = "Language"
     SETTING_APPEAL = "Setting"
