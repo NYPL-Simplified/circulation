@@ -83,11 +83,11 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.debug = True
 
-INVALID_CREDENTIALS_PROBLEM = "http://library-simplified.com/problem/credentials-invalid"
+INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
-EXPIRED_CREDENTIALS_PROBLEM = "http://library-simplified.com/problem/credentials-expired"
+EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-expired"
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
-NO_AVAILABLE_LICENSE_PROBLEM = "http://library-simplified.com/problem/no-license"
+NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-license"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
