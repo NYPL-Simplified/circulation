@@ -1678,6 +1678,8 @@ class Edition(Base):
             type = "text"
         return dict(type=type, value=content)
 
+    THUMBNAIL_HEIGHT = 300
+
     def set_cover(self, resource):
         self.cover = resource
         self.cover_full_url = resource.representation.mirror_url
@@ -1686,10 +1688,15 @@ class Edition(Base):
         # versions of this representation and we need some way of
         # choosing between them. Right now we just pick the first one
         # that works.
-        for scaled_down in resource.representation.thumbnails:
-            if scaled_down.mirror_url and scaled_down.mirrored_at:
-                self.cover_thumbnail_url = scaled_down.mirror_url
-                break
+        if (resource.representation.image_height
+            and resource.representation.image_height <= self.THUMBNAIL_HEIGHT):
+            # This image doesn't need a thumbnail.
+            self.cover_thumbnail_url = resource.representation.mirror_url
+        else:
+            for scaled_down in resource.representation.thumbnails:
+                if scaled_down.mirror_url and scaled_down.mirrored_at:
+                    self.cover_thumbnail_url = scaled_down.mirror_url
+                    break
         print self.cover_full_url, self.cover_thumbnail_url
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,

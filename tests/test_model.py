@@ -1579,9 +1579,10 @@ class TestScaleRepresentation(DatabaseTest):
         original = self._url
         mirror = self._url
         thumbnail_mirror = self._url
+        sample_cover_path = self.sample_cover_path("test-book-cover.png")
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
-            "fake content")
+            content=open(sample_cover_path).read())
         full_rep = hyperlink.resource.representation
         full_rep.mirror_url = mirror
         full_rep.set_as_mirrored()
@@ -1599,11 +1600,30 @@ class TestScaleRepresentation(DatabaseTest):
         eq_(mirror, edition.cover_full_url)
         eq_(thumbnail_mirror, edition.cover_thumbnail_url)
 
+    def test_set_cover_for_very_small_image(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            open(sample_cover_path).read())
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
 
-    def sample_cover_representation(self, name):
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(mirror, edition.cover_thumbnail_url)
+
+    def sample_cover_path(self, name):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "covers")
         sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        sample_cover_path = self.sample_cover_path(name)
         return self._representation(
             media_type="image/png", content=open(sample_cover_path).read())[0]
 
