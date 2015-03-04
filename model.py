@@ -954,6 +954,11 @@ class Identifier(Base):
             rep = r.representation
             if not rep:
                 continue
+
+            if not champion:
+                champion = r
+                continue
+
             if not rep.image_width or not rep.image_height:
                 continue
             aspect_ratio = rep.image_width / float(rep.image_height)
@@ -1434,6 +1439,8 @@ class Edition(Base):
 
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
 
+    MAX_THUMBNAIL_HEIGHT = 300
+
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
     # it. Through the Equivalency class, it is associated with a
@@ -1678,8 +1685,6 @@ class Edition(Base):
             type = "text"
         return dict(type=type, value=content)
 
-    THUMBNAIL_HEIGHT = 300
-
     def set_cover(self, resource):
         self.cover = resource
         self.cover_full_url = resource.representation.mirror_url
@@ -1689,7 +1694,7 @@ class Edition(Base):
         # choosing between them. Right now we just pick the first one
         # that works.
         if (resource.representation.image_height
-            and resource.representation.image_height <= self.THUMBNAIL_HEIGHT):
+            and resource.representation.image_height <= self.MAX_THUMBNAIL_HEIGHT):
             # This image doesn't need a thumbnail.
             self.cover_thumbnail_url = resource.representation.mirror_url
         else:

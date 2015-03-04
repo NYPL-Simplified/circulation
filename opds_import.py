@@ -195,7 +195,7 @@ class BaseOPDSImporter(object):
                 Hyperlink.DESCRIPTION]
         self.destroy_resources(identifier, rels)
 
-        download_resources, image_resource = self.set_resources(
+        download_links, image_link, thumbnail_link = self.set_resources(
             data_source, identifier, pool, links_by_rel)
 
         # If there's a summary, add it to the identifier.
@@ -244,9 +244,10 @@ class BaseOPDSImporter(object):
         # to make sure they're put into the same representation.
         download_links = []
         image_link = None
+        thumbnail_link = None
 
         _db = Session.object_session(data_source)
-
+        
         for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
             type = link.get('type', None)
             if type == 'text/html':
@@ -258,42 +259,28 @@ class BaseOPDSImporter(object):
             hyperlink.resource.set_mirrored_elsewhere(type)
             download_links.append(hyperlink)
 
-        for link in links[Hyperlink.IMAGE]:
-            type = link.get('type', None)
-            if type == 'text/html':
-                # Feedparser fills this in and it's just wrong.
-                type = None
-            url = link['href']
-            hyperlink, was_new = pool.add_link(
-                Hyperlink.IMAGE, url, data_source, type)
-            hyperlink.resource.set_mirrored_elsewhere(type)
-            image_link = hyperlink
-            # TODO: Metadata wrangler should include width and
-            # height if possible, and we should pick it up here.
-
-        if image_link:
-            for link in links[Hyperlink.THUMBNAIL_IMAGE]:
-                # The metadata wrangler handles scaling and mirroring
-                # resources, and we will trust what it says.
+        for rel in (Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE):
+            for link in links[rel]:
                 type = link.get('type', None)
                 if type == 'text/html':
                     # Feedparser fills this in and it's just wrong.
                     type = None
                 url = link['href']
-                if url == image_link.resource.url:
-                    # We can't assign a resource to be its own
-                    # thumbnail.  We'll just not assign a thumbnail
-                    # and let the recorded sizes do the work.
-                    continue
-                thumbnail, is_new = get_one_or_create(
-                    _db, Representation, url=url,
-                    media_type=type
-                    )
-                thumbnail.mirror_url = url
-                thumbnail.set_as_mirrored()
-                thumbnail.thumbnail_of = image_link.resource.representation
+                hyperlink, was_new = pool.add_link(
+                    rel, url, data_source, type)
+                hyperlink.resource.set_mirrored_elsewhere(type)
+                if rel == Hyperlink.IMAGE:
+                    image_link = hyperlink
+                else:
+                    thumbnail_link = hyperlink
 
-        return download_links, image_link
+        if (image_link and thumbnail_link and image_link.resource
+            and image_link.resource == thumbnail_link.resource):
+            # TODO: This is hacky. We can't represent an image as a thumbnail
+            # of itself, so we make sure the height is set so that
+            # we'll know that it doesn't need a thumbnail.
+            image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+        return download_links, image_link, thumbnail_link
 
 class DetailedOPDSImporter(BaseOPDSImporter):
 
