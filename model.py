@@ -450,7 +450,7 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
-    URN_SCHEME_PREFIX = "urn:library-simplified.com/identifier/"
+    URN_SCHEME_PREFIX = "urn:librarysimplified.org/identifier/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
 
     __tablename__ = 'identifiers'
@@ -2566,12 +2566,12 @@ class Measurement(Base):
     __tablename__ = 'measurements'
 
     # Some common measurement types
-    POPULARITY = "http://library-simplified.com/rel/popularity"
+    POPULARITY = "http://librarysimplified.org/rel/popularity"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
 
-    GUTENBERG_FAVORITE = "http://library-simplified.com/rel/lists/gutenberg-favorite"
+    GUTENBERG_FAVORITE = "http://librarysimplified.org/rel/lists/gutenberg-favorite"
 
     # If a book's popularity measurement is found between index n and
     # index n+1 on this list, it is in the nth percentile for
@@ -2722,10 +2722,10 @@ class Hyperlink(Base):
     IMAGE = "http://opds-spec.org/image"
     THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
     SAMPLE = "http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = "http://library-simplified.com/rel/illustration"
+    ILLUSTRATION = "http://librarysimplified.org/rel/illustration"
     REVIEW = "http://schema.org/Review"
     DESCRIPTION = "http://schema.org/description"
-    SHORT_DESCRIPTION = "http://library-simplified.com/rel/short-description"
+    SHORT_DESCRIPTION = "http://librarysimplified.org/rel/short-description"
     AUTHOR = "http://schema.org/author"
 
     # TODO: Is this the appropriate relation?
@@ -2977,7 +2977,7 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://library-simplified.com/genres/"
+    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
@@ -3882,16 +3882,16 @@ class RightsStatus(Base):
     """
 
     # Currently in copyright.
-    IN_COPYRIGHT = "http://librarysimplified.org/rights-status/in-copyright"
+    IN_COPYRIGHT = "http://librarysimplified.org/terms/rights-status/in-copyright"
 
     # Public domain in the USA.
-    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/rights-status/public-domain-usa"
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/terms/rights-status/public-domain-usa"
 
     # Public domain in some unknown territory
-    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/rights-status/public-domain-unknown"
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
     # Unknown copyright status.
-    UNKNOWN = "http://librarysimplified.org/rights-status/unknown"
+    UNKNOWN = "http://librarysimplified.org/terms/rights-status/unknown"
 
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)

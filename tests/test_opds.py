@@ -387,6 +387,22 @@ class TestOPDS(DatabaseTest):
             [x['term'] for x in entries[2]['tags']
              if x['scheme'] == scheme])
 
+    def test_acquisition_feed_includes_category_tags_for_appeals(self):
+        work = self._work(with_open_access_download=True)
+        work.appeal_language = 0.1
+        work.appeal_character = 0.2
+        work.appeal_story = 0.3
+        work.appeal_setting = 0.4
+
+        work2 = self._work(with_open_access_download=True)
+
+        self._db.commit()
+        works = self._db.query(Work)
+        feed = AcquisitionFeed(self._db, "test", "url", works)
+        feed = feedparser.parse(unicode(feed))
+        entries = sorted(feed['entries'], key = lambda x: int(x['title']))
+        set_trace()
+
     def test_acquisition_feed_includes_category_tags_for_genres(self):
         work = self._work(with_open_access_download=True)
         g1, ignore = Genre.lookup(self._db, "Science Fiction")

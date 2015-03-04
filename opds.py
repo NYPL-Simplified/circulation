@@ -37,7 +37,7 @@ opds_ns = 'http://opds-spec.org/2010/catalog'
 schema_ns = 'http://schema.org/'
 
 # This is a placeholder namespace for stuff we've invented.
-simplified_ns = 'http://library-simplified.com/terms/'
+simplified_ns = 'http://librarysimplified.org/terms/'
 
 
 nsmap = {
@@ -120,6 +120,24 @@ class Annotator(object):
         categories = {}
         if simplified_genres:
             categories[Subject.SIMPLIFIED_GENRE] = simplified_genres
+
+        # Add the appeals as a category of schema
+        # http://librarysimplified.org/terms/appeal
+        schema_url = simplified_ns + "/appeals/"
+        appeals = []
+        categories[schema_url] = appeals
+        for name, value in (
+                (Work.CHARACTER_APPEAL, work.appeal_character),
+                (Work.LANGUAGE_APPEAL, work.appeal_language),
+                (Work.SETTING_APPEAL, work.appeal_setting),
+                (Work.STORY_APPEAL, work.appeal_story),
+        ):
+            if value:
+                appeals[name] = dict(term=name)
+                weight_field = "{%s}ratingValue" % schema_ns
+                appeals.append(value)
+        if appeals:
+            set_trace()
 
         # Add the audience as a category of schema
         # http://schema.org/audience

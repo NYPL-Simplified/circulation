@@ -63,7 +63,7 @@ class SimplifiedOPDSLookup(object):
 
 class OPDSXMLParser(XMLParser):
 
-    NAMESPACES = { "simplified": "http://library-simplified.com/terms/",
+    NAMESPACES = { "simplified": "http://librarysimplified.org/terms/",
                    "app" : "http://www.w3.org/2007/app",
                    "dcterms" : "http://purl.org/dc/terms/",
                    "opds": "http://opds-spec.org/2010/catalog",

@@ -39,7 +39,7 @@ class URNLookupController(object):
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
 
-    COULD_NOT_PARSE_URN_TYPE = "http://library-simplified.com/problem/could-not-parse-urn"
+    COULD_NOT_PARSE_URN_TYPE = "http://librarysimplified.org/terms/problem/could-not-parse-urn"
 
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
