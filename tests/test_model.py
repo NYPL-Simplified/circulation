@@ -1699,13 +1699,13 @@ class TestScaleRepresentation(DatabaseTest):
         eq_(200, thumbnail.image_height)
 
     def test_book_smaller_than_thumbnail_size(self):
-        # This book is 200x200
+        # This book is 200x200. No thumbnail will be created.
         cover = self.sample_cover_representation("tiny-image-cover.png")
         url = self._url
         thumbnail, is_new = cover.scale(300, 600, url, "image/png")
-        eq_(True, is_new)
-        eq_(url, thumbnail.url)
-        eq_(cover, thumbnail.thumbnail_of)
-        # The thumbnail is the same size as the original.
-        eq_(200, thumbnail.image_height)
-        eq_(200, thumbnail.image_width)
+        eq_(False, is_new)
+        eq_(thumbnail, cover)
+        eq_([], cover.thumbnails)
+        eq_(None, thumbnail.thumbnail_of)
+        assert thumbnail.url != url
+

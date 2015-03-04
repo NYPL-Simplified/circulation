@@ -4444,6 +4444,11 @@ class Representation(Base):
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
 
+        # If the image is already thumbnail-size, don't bother.
+        if self.image_height <= max_height and self.image_width <= max_width:
+            self.thumbnails = []
+            return self, False
+
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
             _db, Representation, url=destination_url, 
