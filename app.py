@@ -16,7 +16,10 @@ from flask import Flask, url_for, redirect, Response
 from circulation_exceptions import (
     NoAvailableCopies,
 )
-from core.app_server import URNLookupController
+from core.app_server import (
+    HeartbeatController,
+    URNLookupController,
+)
 from core.overdrive import (
     OverdriveAPI
 )
@@ -138,6 +141,10 @@ def requires_auth(f):
 @app.route('/')
 def index():    
     return redirect(url_for('.navigation_feed'))
+
+@app.route('/heartbeat')
+def hearbeat():
+    return HeartbeatController().heartbeat()
 
 @app.route('/lanes', defaults=dict(lane=None))
 @app.route('/lanes/', defaults=dict(lane=None))
@@ -377,4 +384,5 @@ if __name__ == '__main__':
     else:
         host = netloc
         port = 80
+    print host, port
     app.run(debug=debug, host=host, port=port)
