@@ -3338,6 +3338,9 @@ class Lane(object):
                and len(results) < target_size):
             remaining = target_size - len(results)
             query = self.works(languages=languages, availability=availability)
+            if quality_min < 0.01:
+                quality_min = 0
+
             query = query.filter(
                 Work.quality >= quality_min,
             )
@@ -3352,9 +3355,6 @@ class Lane(object):
             print "Quality %.1f got %d results for %s in %.2fsec" % (
                 quality_min, len(results), self.name, time.time()-start
                 )
-
-            if quality_min < 0.01:
-                quality_min = 0
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
