@@ -2510,9 +2510,9 @@ class Work(Base):
         genre_s = Counter()
         audience_s = Counter()
         for classification in classifications:
+            subject = classification.subject
             if not subject.checked:
                 subject.assign_to_genre()
-            subject = classification.subject
             if (not subject.fiction and not subject.genre
                 and not subject.audience):
                 continue
@@ -3149,12 +3149,13 @@ class Subject(Base):
 
     def assign_to_genre(self):
         """Assign this subject to a genre."""
-        classifier = Classifier.classifiers.get(subject.type, None)
+        classifier = Classifier.classifiers.get(self.type, None)
         if not classifier:
             return
         self.checked = True
         genredata, audience, fiction = classifier.classify(self)
         if genredata:
+            _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)
             self.genre = genre
         if audience:
@@ -3459,6 +3460,8 @@ class WorkFeed(object):
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
+        elif not isinstance(languages, list):
+            raise ValueError("Invalid value for languages: %r" % languages)
         self.languages = languages
         if not order_by:
             order_by = []

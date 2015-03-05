@@ -240,18 +240,21 @@ class WorkReclassifierScript(WorkProcessingScript):
 
         print "That's %d works." % q.count()
 
-        q = q.limit(10)
-        while q.count():
-            for work in q:
-                # old_genres = work.genres
-                work.calculate_presentation(
-                    choose_edition=False, classify=True,
-                    choose_summary=False,
-                    calculate_quality=False, debug=True)
+        #q = q.limit(batch_size)
+        #while q.count():
+        a = 0
+        for work in q:
+            # old_genres = work.genres
+            work.calculate_presentation(
+                choose_edition=False, classify=True,
+                choose_summary=False,
+                calculate_quality=False, debug=True)
                 # new_genres = work.genres
                 # if new_genres != old_genres:
                 #     set_trace()
-            db.commit()
+            a += 1
+            if not a % 100:
+                db.commit()
         db.commit()
 
 class NYTBestSellerListsScript(Script):
