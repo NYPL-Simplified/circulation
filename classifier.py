@@ -322,11 +322,11 @@ class Classifier(object):
         #    print "", genre, weight
 
         # Convert Genre objects to GenreData.
-        consolidated = dict()
+        consolidated = Counter()
         for genre, weight in weights.items():
             if not isinstance(genre, GenreData):
                 genre = genres[genre.name]
-            consolidated[genre] = weight
+            consolidated[genre] += weight
 
         heaviest_child = dict()
         for genre, weight in consolidated.items():
@@ -430,7 +430,7 @@ class Classifier(object):
         elif 'young adult' in n or "YA" in name:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
-
+    
 
 class OverdriveClassifier(Classifier):
 

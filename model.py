@@ -805,7 +805,7 @@ class Identifier(Base):
         
         # Find or create the Resource.
         if not href:
-            href = Hyperlink.generic_uri(data_source, self, rel)
+            href = Hyperlink.generic_uri(data_source, self, rel, content)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
             create_method_kwargs=dict(data_source=data_source)
@@ -896,9 +896,12 @@ class Identifier(Base):
         return classification
 
     @classmethod
-    def resources_for_identifier_ids(self, _db, identifier_ids, rel=None):
+    def resources_for_identifier_ids(self, _db, identifier_ids, rel=None,
+                                     data_source=None):
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
+        if data_source:
+            resources = resources.filter(Hyperlink.data_source==data_source)
         if rel:
             if isinstance(rel, list):
                 resources = resources.filter(Hyperlink.rel.in_(rel))
@@ -1006,7 +1009,8 @@ class Identifier(Base):
         return champion, images
 
     @classmethod
-    def evaluate_summary_quality(cls, _db, identifier_ids):
+    def evaluate_summary_quality(cls, _db, identifier_ids, 
+                                 privileged_data_source=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
         This is an automatic evaluation based solely on the content of
@@ -1018,39 +1022,43 @@ class Identifier(Base):
         need to see which noun phrases are most frequently used to
         describe the underlying work.
 
+        :param privileged_data_source: If present, a summary from this
+        data source will be instantly chosen, short-circuiting the
+        decision process.
+
         :return: The single highest-rated summary Resource.
 
         """
         evaluator = SummaryEvaluator()
+
         # Find all rel="description" resources associated with any of
         # these records.
-        long_descriptions = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.DESCRIPTION)
-        long_descriptions = long_descriptions.join(Resource.representation).filter(
-            Representation.content != None).all()
-
-        short_descriptions = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.SHORT_DESCRIPTION)
-        short_descriptions = short_descriptions.join(Resource.representation).filter(
-            Representation.content != None).all()
-
-        summaries = [long_descriptions + short_descriptions]
+        rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
+        descriptions = cls.resources_for_identifier_ids(
+            _db, identifier_ids, rels, privileged_data_source)
+        descriptions = descriptions.join(
+            Resource.representation).filter(
+                Representation.content != None).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
-        for l in [long_descriptions, short_descriptions]:
-            for r in l:
-                evaluator.add(r.representation.content)
+        for r in descriptions:
+            evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
-        for l in [long_descriptions, short_descriptions]:
-            for r in l:
-                quality = evaluator.score(r.representation.content)
-                r.set_estimated_quality(quality)
-                if not champion or r.quality > champion.quality:
-                    champion = r
-        return champion, summaries
+        for r in descriptions:
+            content = r.representation.content
+            quality = evaluator.score(content)
+            r.set_estimated_quality(quality)
+            if not champion or r.quality > champion.quality:
+                champion = r
+
+        if privileged_data_source and not champion:
+            # We could not find any descriptions from the privileged
+            # data source. Try relaxing that restriction.
+            return cls.evaluate_summary_quality(_db, identifier_ids)
+        return champion, descriptions
 
     @classmethod
     def missing_coverage_from(
@@ -2369,6 +2377,18 @@ class Work(Base):
         if choose_edition or not self.primary_edition:
             self.set_primary_edition()
 
+        # The privileged data source may short-circuit the process of
+        # finding a good cover or description.
+        if self.primary_edition:
+            privileged_data_source = self.primary_edition.data_source
+
+            # We can't use descriptions or covers from Gutenberg, so
+            # we never consider it a privileged data source.
+            if privileged_data_source.name == DataSource.GUTENBERG:
+                privileged_data_source = None
+        else:
+            privileged_data_source = None
+
         if self.primary_edition:
             self.primary_edition.calculate_presentation(debug=debug)
 
@@ -2390,7 +2410,7 @@ class Work(Base):
 
         if choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data)
+                _db, flattened_data, privileged_data_source)
             # TODO: clean up the content
             self.set_summary(summary)
 
@@ -2401,8 +2421,8 @@ class Work(Base):
         #
         # TODO: This measurement needs to be scaled with a percentile
         # list, not by crudely dividing by three.
-        if self.primary_edition:
-            dsn = self.primary_edition.data_source.name
+        if privileged_data_source:
+            dsn = privileged_data_source.name
             if dsn in (DataSource.GUTENBERG, DataSource.THREEM):
                 oclc_linked_data = DataSource.lookup(
                     _db, DataSource.OCLC_LINKED_DATA)
@@ -2501,6 +2521,8 @@ class Work(Base):
         audience_s = Counter()
         for classification in classifications:
             subject = classification.subject
+            if not subject.checked:
+                subject.assign_to_genre()
             if (not subject.fiction and not subject.genre
                 and not subject.audience):
                 continue
@@ -3129,24 +3151,30 @@ class Subject(Base):
 
         counter = 0
         for subject in q:
-            subject.checked = True
-            classifier = Classifier.classifiers.get(subject.type, None)
-            if not classifier:
-                continue
-            genredata, audience, fiction = classifier.classify(subject)
-            if genredata:
-                genre, was_new = Genre.lookup(_db, genredata.name, True)
-                subject.genre = genre
-            if audience:
-                subject.audience = audience
-            if fiction is not None:
-                subject.fiction = fiction
-            if genredata or audience or fiction:
-                print subject
+            subject.assign_to_genre()
             counter += 1
             if not counter % batch_size:
                 _db.commit()
         _db.commit()
+
+    def assign_to_genre(self):
+        """Assign this subject to a genre."""
+        classifier = Classifier.classifiers.get(self.type, None)
+        if not classifier:
+            return
+        self.checked = True
+        genredata, audience, fiction = classifier.classify(self)
+        if genredata:
+            _db = Session.object_session(self)
+            genre, was_new = Genre.lookup(_db, genredata.name, True)
+            self.genre = genre
+        if audience:
+            self.audience = audience
+        if fiction is not None:
+            self.fiction = fiction
+        if genredata or audience or fiction:
+            print self
+
 
 class Classification(Base):
     """The assignment of a Identifier to a Subject."""
@@ -3320,6 +3348,9 @@ class Lane(object):
                and len(results) < target_size):
             remaining = target_size - len(results)
             query = self.works(languages=languages, availability=availability)
+            if quality_min < 0.01:
+                quality_min = 0
+
             query = query.filter(
                 Work.quality >= quality_min,
             )
@@ -3335,7 +3366,7 @@ class Lane(object):
                 quality_min, len(results), self.name, time.time()-start
                 )
 
-            if quality_min == quality_min_rock_bottom:
+            if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
                 break
 
@@ -3442,6 +3473,8 @@ class WorkFeed(object):
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
+        elif not isinstance(languages, list):
+            raise ValueError("Invalid value for languages: %r" % languages)
         self.languages = languages
         if not order_by:
             order_by = []
