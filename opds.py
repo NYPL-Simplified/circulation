@@ -22,8 +22,8 @@ class CirculationManagerAnnotator(Annotator):
         return url_for(
             'feed', lane=self.lane.name, order=order, _external=True)
 
-    def permalink_for(self, license_pool):
-        return url_for('work', urn=license_pool.identifier.urn, _external=True)
+    def permalink_for(self, identifier):
+        return url_for('work', urn=identifier.urn, _external=True)
 
     def featured_feed_url(cls, lane, order=None):
         return url_for('feed', lane=lane.name, order=order, _external=True)
