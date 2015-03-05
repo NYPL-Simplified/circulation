@@ -23,7 +23,7 @@ class CirculationPresentationReadyMonitor(Monitor):
     them.
     """
 
-    def __init__(self, _db, metadata_wrangler_url=None, batch_size=1000,
+    def __init__(self, _db, metadata_wrangler_url=None, batch_size=200,
                  interval_seconds=10*60):
         metadata_wrangler_url = (
             metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
@@ -37,29 +37,42 @@ class CirculationPresentationReadyMonitor(Monitor):
         self.resolve_identifiers()
 
         # Make sure any newly created Editions have Works.
-        LicensePool.consolidate_works(self._db)
+        #LicensePool.consolidate_works(
+        #    self._db, calculate_work_even_if_no_author=True, max=1)
 
         # Finally, make all Works presentation-ready.
         self.make_works_presentation_ready()
 
     def resolve_identifiers(self):
         """Look up any Identifiers that have associated LicensePools but no
-        associated Editions.
-
-        In normal usage there will not be any of these. This is a
-        defensive measure.
+        associated Editions, or Editions but no Works.
         """
-        q = self._db.query(Identifier).join(Identifier.licensed_through).outerjoin(
+        q1 = self._db.query(Identifier).join(
+            Identifier.licensed_through).outerjoin(
             Edition, Edition.primary_identifier_id==Identifier.id).filter(
-                Edition.id == None).filter(
-                    Identifier.type.in_(
-                [
-                    Identifier.GUTENBERG_ID, 
-                    Identifier.OVERDRIVE_ID,
-                    Identifier.THREEM_ID]))
-        needy_identifiers = q.count()
-        if needy_identifiers:
-            print "Asking metadata wrangler about %d identifiers which have LicensePool but no Edition." % needy_identifiers
+                Edition.id == None)
+
+        q2 = self._db.query(Identifier).join(
+            Identifier.licensed_through).outerjoin(
+            Work, Work.id==LicensePool.work_id).filter(
+                Work.id == None)
+
+        for q, message in (
+            (q1, "LicensePool but no Edition"),
+            (q2, "LicensePool but no Work")):
+            q = q.filter(
+                Identifier.type.in_(
+                    [
+                        # Identifier.GUTENBERG_ID, 
+                        Identifier.OVERDRIVE_ID,
+                        Identifier.THREEM_ID
+                        ]
+                    )
+                )
+            needy_identifiers = q.count()
+            if not needy_identifiers:
+                continue
+            print "Asking metadata wrangler about %d identifiers which have %s." % (needy_identifiers, message)
             batch = []
             for identifier in q:
                 batch.append(identifier)
@@ -69,7 +82,7 @@ class CirculationPresentationReadyMonitor(Monitor):
                     #     if not i.primarily_identifies:
                     #         set_trace()
                     batch = []
-
+            self.process_batch(batch)
 
     def make_works_presentation_ready(self):
         # Go through the Works that are not presentation ready and ask
