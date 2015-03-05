@@ -550,6 +550,47 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
+    def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
+        e, pool = self._edition(with_license_pool=True)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # There's a perfunctory description from Overdrive.
+        l1, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, overdrive, "text/plain",
+                      "F")
+
+        overdrive_resource = l1.resource
+
+        # There's a much better description from OCLC Linked Data.
+        l2, new = pool.add_link(Hyperlink.DESCRIPTION, None, oclc, "text/plain",
+                      """Nothing about working with his former high school crush, Stephanie Stephens, is ideal. Still, if Aaron Caruthers intends to save his grandmother's bakery, he must. Good thing he has a lot of ideas he can't wait to implement. He never imagines Stephanie would have her own ideas for the business. Or that they would clash with his!""")
+        oclc_resource = l2.resource
+
+        # In a head-to-head evaluation, the OCLC Linked Data description wins.
+        ids = [e.primary_identifier.id]
+        champ1, resources = Identifier.evaluate_summary_quality(self._db, ids)
+
+        eq_(set([overdrive_resource, oclc_resource]), set(resources))
+        eq_(oclc_resource, champ1)
+
+        # But if we say that Overdrive is the privileged data source, it wins
+        # automatically. The other resource isn't even considered.
+        champ2, resources2 = Identifier.evaluate_summary_quality(
+            self._db, ids, overdrive)
+        eq_(overdrive_resource, champ2)
+        eq_([overdrive_resource], resources2)
+
+        # If we say that some other data source is privileged, and
+        # there are no descriptions from that data source, a
+        # head-to-head evaluation is performed, and OCLC Linked Data
+        # wins.
+        threem = DataSource.lookup(self._db, DataSource.THREEM)
+        champ3, resources3 = Identifier.evaluate_summary_quality(
+            self._db, ids, threem)
+        eq_(set([overdrive_resource, oclc_resource]), set(resources3))
+        eq_(oclc_resource, champ3)
+        
+
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
         # distance away along the identifier-equivalence line.
