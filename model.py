@@ -2510,6 +2510,8 @@ class Work(Base):
         genre_s = Counter()
         audience_s = Counter()
         for classification in classifications:
+            if not subject.checked:
+                subject.assign_to_genre()
             subject = classification.subject
             if (not subject.fiction and not subject.genre
                 and not subject.audience):
@@ -3139,24 +3141,29 @@ class Subject(Base):
 
         counter = 0
         for subject in q:
-            subject.checked = True
-            classifier = Classifier.classifiers.get(subject.type, None)
-            if not classifier:
-                continue
-            genredata, audience, fiction = classifier.classify(subject)
-            if genredata:
-                genre, was_new = Genre.lookup(_db, genredata.name, True)
-                subject.genre = genre
-            if audience:
-                subject.audience = audience
-            if fiction is not None:
-                subject.fiction = fiction
-            if genredata or audience or fiction:
-                print subject
+            subject.assign_to_genre()
             counter += 1
             if not counter % batch_size:
                 _db.commit()
         _db.commit()
+
+    def assign_to_genre(self):
+        """Assign this subject to a genre."""
+        classifier = Classifier.classifiers.get(subject.type, None)
+        if not classifier:
+            return
+        self.checked = True
+        genredata, audience, fiction = classifier.classify(self)
+        if genredata:
+            genre, was_new = Genre.lookup(_db, genredata.name, True)
+            self.genre = genre
+        if audience:
+            self.audience = audience
+        if fiction is not None:
+            self.fiction = fiction
+        if genredata or audience or fiction:
+            print self
+
 
 class Classification(Base):
     """The assignment of a Identifier to a Subject."""
