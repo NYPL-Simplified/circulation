@@ -2394,21 +2394,31 @@ class Work(Base):
             # TODO: clean up the content
             self.set_summary(summary)
 
-        # If this is a Project Gutenberg book, treat the number of IDs
+        # If this is a Project Gutenberg or 3M book, treat the number of IDs
         # associated with the work (~the number of editions of the
         # work published in modern times) as a measurement of
         # popularity.
-        if self.primary_edition and self.primary_edition.data_source.name==DataSource.GUTENBERG:
-            oclc_linked_data = DataSource.lookup(
-                _db, DataSource.OCLC_LINKED_DATA)
-            self.primary_edition.primary_identifier.add_measurement(
-                oclc_linked_data, Measurement.POPULARITY, 
-                len(flattened_data)/3.0)
-            # Only consider the quality signals associated with the
-            # primary edition. Otherwise texts that have multiple
-            # Gutenberg editions will drag down the quality of popular
-            # books.
-            flattened_data = [self.primary_edition.primary_identifier.id]
+        #
+        # TODO: This measurement needs to be scaled with a percentile
+        # list, not by crudely dividing by three.
+        if self.primary_edition:
+            dsn = self.primary_edition.data_source.name
+            if dsn in (DataSource.GUTENBERG, DataSource.THREEM):
+                oclc_linked_data = DataSource.lookup(
+                    _db, DataSource.OCLC_LINKED_DATA)
+                if dsn == DataSource.GUTENBERG:
+                    quotient = 3.0
+                else:
+                    quotient = 1.0
+                self.primary_edition.primary_identifier.add_measurement(
+                    oclc_linked_data, Measurement.POPULARITY, 
+                    len(flattened_data)/quotient)
+            if dsn == DataSource.GUTENBERG:
+                # Only consider the quality signals associated with the
+                # primary edition. Otherwise texts that have multiple
+                # Gutenberg editions will drag down the quality of popular
+                # books.
+                flattened_data = [self.primary_edition.primary_identifier.id]
 
         if calculate_quality:
             self.calculate_quality(flattened_data)
