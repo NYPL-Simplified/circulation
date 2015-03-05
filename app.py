@@ -234,7 +234,7 @@ def feed(lane):
     annotator = CirculationManagerAnnotator(lane)
     if order == 'recommended':
         opds_feed = AcquisitionFeed.featured(
-            languages, lane, annotator)
+            languages, lane, annotator, quality_cutoff=0)
         opds_feed.add_link(**search_link)
         work_feed = None
     elif order == 'title':
