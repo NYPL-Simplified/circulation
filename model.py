@@ -3353,7 +3353,10 @@ class Lane(object):
                 quality_min, len(results), self.name, time.time()-start
                 )
 
-            if quality_min == quality_min_rock_bottom:
+            if quality_min < 0.01:
+                quality_min = 0
+
+            if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
                 break
 
