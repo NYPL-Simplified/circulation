@@ -104,7 +104,7 @@ class BaseOPDSImporter(object):
                 # talked to the metadata wrangler.
                 edition.calculate_presentation()
                 if edition.sort_author:
-                    work, ignore = edition.license_pool.calculate_work()
+                    work, is_new = edition.license_pool.calculate_work()
                     work.calculate_presentation()
             elif status_code:
                 messages_by_id[opds_id] = (status_code, message)
@@ -274,12 +274,15 @@ class BaseOPDSImporter(object):
                 else:
                     thumbnail_link = hyperlink
 
-        if (image_link and thumbnail_link and image_link.resource
-            and image_link.resource == thumbnail_link.resource):
-            # TODO: This is hacky. We can't represent an image as a thumbnail
-            # of itself, so we make sure the height is set so that
-            # we'll know that it doesn't need a thumbnail.
-            image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+        if image_link and thumbnail_link and image_link.resource:
+            if image_link.resource == thumbnail_link.resource:
+                # TODO: This is hacky. We can't represent an image as a thumbnail
+                # of itself, so we make sure the height is set so that
+                # we'll know that it doesn't need a thumbnail.
+                image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+            else:
+                # Represent the thumbnail as a thumbnail of the image.
+                thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
         return download_links, image_link, thumbnail_link
 
 class DetailedOPDSImporter(BaseOPDSImporter):

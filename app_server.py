@@ -4,8 +4,10 @@ import flask
 from flask import url_for, make_response
 from util.flask_util import problem
 from opds import (
+    AcquisitionFeed,
     LookupAcquisitionFeed,
     OPDSFeed,
+
 )
 from model import (
     Edition,
@@ -114,12 +116,12 @@ class URNLookupController(object):
             # TODO: We should delete the original Identifier object as it
             # is not properly part of the dataset and never will be.
 
-    def work_lookup(self, annotator):
+    def work_lookup(self, annotator, controller_name='lookup'):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
-        this_url = url_for('lookup', _external=True, urn=urns)
+        this_url = url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
             code, message = self.process_urn(urn)
             if code:
@@ -135,7 +137,7 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
 
-    def permalink(urn):
+    def permalink(self, urn, annotator):
         """Generate an OPDS feed for looking up a single work by identifier."""
         this_url = url_for('work', _external=True, urn=urn)
         messages_by_urn = dict()
