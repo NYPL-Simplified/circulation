@@ -312,16 +312,22 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
         # Remove any old contributors and subjects.
         removed_contributions = 0
-        for contribution in edition.contributions:
+        contributions = edition.contributions
+        for contribution in list(contributions):
             self._db.delete(contribution)
             removed_contributions += 1
+        edition.contributions = []
 
         removed_classifications = 0
         data_source = DataSource.license_source_for(self._db, identifier)
+        new_set = []
         for classification in identifier.classifications:
             if classification.data_source == data_source:
                 self._db.delete(classification)
                 removed_classifications += 1
+            else:
+                new_set.append(classification)
+        identifier.classifications = new_set
 
         print "Deleted %d contributions and %d classifications." % (
             removed_contributions, removed_classifications)
