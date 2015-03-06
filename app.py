@@ -312,9 +312,11 @@ def lane_search(lane):
         results, CirculationManagerAnnotator(lane))
     return unicode(opds_feed)
 
-@app.route('/works/<urn>')
-def work(urn):
-    Conf.urn_lookup_controller.permalink(urn)
+@app.route('/works/')
+def work():
+    annotator = CirculationManagerAnnotator(None)
+    return Conf.urn_lookup_controller.work_lookup(annotator, 'work')
+    # Conf.urn_lookup_controller.permalink(urn, annotator)
 
 @app.route('/works/<data_source>/<identifier>/checkout')
 @requires_auth
