@@ -84,17 +84,19 @@ class CirculationPresentationReadyMonitor(Monitor):
                     batch = []
             self.process_batch(batch)
 
-    def make_works_presentation_ready(self):
+    def make_works_presentation_ready(self, q=None):
         # Go through the Works that are not presentation ready and ask
         # the metadata wrangler about them.
+            
         batch = []
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        try_this_work = or_(Work.presentation_ready_attempt==None,
-            Work.presentation_ready_attempt > one_day_ago)
-        q = self._db.query(Work).filter(
-            Work.presentation_ready==False).filter(
-            try_this_work).order_by(
-                Work.last_update_time.asc())
+        if not q:
+            one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+            try_this_work = or_(Work.presentation_ready_attempt==None,
+                                Work.presentation_ready_attempt > one_day_ago)
+            q = self._db.query(Work).filter(
+                Work.presentation_ready==False).filter(
+                try_this_work).order_by(
+                    Work.last_update_time.asc())
         print "Making %d works presentation ready." % q.count()
         for work in q:
             batch.append(work.primary_edition.primary_identifier)
