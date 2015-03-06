@@ -1117,7 +1117,7 @@ class UnresolvedIdentifier(Base):
 
         return get_one_or_create(
             _db, UnresolvedIdentifier, identifier=identifier,
-            create_method_kwargs=dict(status=202),
+            create_method_kwargs=dict(status=202), on_multiple='interchangeable'
         )
 
 class Contributor(Base):
@@ -3018,10 +3018,12 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/"
+    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
+        "http://librarysimplified.org/terms/genres/3M/" : THREEM,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
