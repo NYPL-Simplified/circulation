@@ -212,7 +212,7 @@ class Annotator(object):
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
-                    if p.edition().best_open_access_link:
+                    if p.edition() and p.edition().best_open_access_link:
                         open_access_license_pool = p
                 else:
                     # TODO: It's OK to have a non-open-access license pool,
