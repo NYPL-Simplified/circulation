@@ -17,6 +17,7 @@ import requests
 import time
 import isbnlib
 import urllib
+import traceback
 
 from PIL import (
     Image,
@@ -2429,7 +2430,7 @@ class Work(Base):
                 if dsn == DataSource.GUTENBERG:
                     quotient = 3.0
                 else:
-                    quotient = 1.0
+                    quotient = 2.0
                 self.primary_edition.primary_identifier.add_measurement(
                     oclc_linked_data, Measurement.POPULARITY, 
                     len(flattened_data)/quotient)
@@ -2626,6 +2627,8 @@ class Measurement(Base):
         # This is a percentile list of OCLC Work IDs and OCLC Numbers
         # associated with Project Gutenberg texts via OCLC Linked
         # Data.
+        #
+        # TODO: Calculate a separate distribution for more modern works.
         DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
     }
 
@@ -4309,7 +4312,11 @@ class Representation(Base):
             representation.fetched_at = fetched_at
             return representation, False
 
-        status_code_series = status_code / 100
+        if status_code:
+            status_code_series = status_code / 100
+        else:
+            status_code_series = None
+
         if status_code_series in (2,3):
             # We have a new, good representation. Update the
             # Representation object and return it as fresh.
@@ -4334,8 +4341,8 @@ class Representation(Base):
 
         # Okay, things didn't go so well.
         date_string = fetched_at.strftime("%Y-%m-%d %H:%M:%S")
-        representation.exception = representation.fetch_exception or (
-            "Most recent fetch attempt (at %s) got status code %d" % (
+        representation.fetch_exception = representation.fetch_exception or (
+            "Most recent fetch attempt (at %s) got status code %s" % (
                 date_string, status_code))
         if usable_representation:
             # If we have a usable (but stale) representation, we'd
@@ -4492,7 +4499,17 @@ class Representation(Base):
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
-        image = self.as_image()
+        try:
+            image = self.as_image()
+        except Exception, e:
+            self.scale_exception = traceback.format_exc()
+            self.scaled_at = None
+            # This most likely indicates an error during the fetch
+            # phrase.
+            self.fetch_exception = "Error found while scaling: %s" % (
+                self.scale_exception)
+            print self.scale_exception
+            return self, False
 
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
@@ -4535,23 +4552,32 @@ class Representation(Base):
         except IOError, e:
             # I'm not sure why, but sometimes just trying
             # it again works.
-            original_exception = str(e)
+            original_exception = traceback.format_exc()
             try:
                 image.thumbnail(*args)
             except IOError, e:
-                thumbnail.content = None
-                thumbnail.scaled_exception = original_exception
-                thumbnail.image_height = thumbnail.image_width = None
-                return thumbnail, True
+                self.scale_exception = original_exception
+                self.scaled_at = None
+                return self, False
 
         # Save the thumbnail image to the database under
         # thumbnail.content.
         output = StringIO()
-        image.save(output, pil_format)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        try:
+            image.save(output, pil_format)
+        except Exception, e:
+            self.scale_exception = traceback.format_exc()
+            self.scaled_at = None
+            # This most likely indicates a problem during the fetch phase,
+            # Set fetch_exception so we'll retry the fetch.
+            self.fetch_exception = "Error found while scaling: %s" % (self.scale_exception)
+            return self, False
         thumbnail.content = output.getvalue()
         thumbnail.image_width, thumbnail.image_height = image.size
         output.close()
-        thumbnail.scaled_exception = None
+        thumbnail.scale_exception = None
         thumbnail.scaled_at = now
         return thumbnail, True
 
