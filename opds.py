@@ -200,7 +200,7 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition.license_pool and edition.best_open_access_link:
+            if edition.license_pool and edition.best_open_access_link and edition.title:
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -209,12 +209,13 @@ class Annotator(object):
             # associated with a loan, were a loan to be issued right
             # now.
             for p in work.license_pools:
+                edition = p.edition()
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
-                    if p.edition() and p.edition().best_open_access_link:
+                    if edition and edition.best_open_access_link:
                         open_access_license_pool = p
-                else:
+                elif edition.title:
                     # TODO: It's OK to have a non-open-access license pool,
                     # but the pool needs to have copies available.
                     active_license_pool = p
@@ -460,7 +461,7 @@ class AcquisitionFeed(OPDSFeed):
 
         entry = E.entry(
             E.id(permalink),
-            E.title(edition.title),
+            E.title(edition.title or '[Unknown title]'),
         )
         if work.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
