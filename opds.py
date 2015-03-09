@@ -162,7 +162,8 @@ class Annotator(object):
 
     @classmethod
     def lane_id(cls, lane):
-        return "tag:%s" % (lane.name)
+        return cls.featured_feed_url(lane)
+        # return "tag:%s" % (lane.name)
 
     @classmethod
     def work_id(cls, work):
@@ -314,7 +315,6 @@ class AtomFeed(object):
             E.id(url),
             E.title(title),
             E.updated(_strftime(datetime.datetime.utcnow())),
-            E.link(href=url),
             E.link(href=url, rel="self"),
         )
 
@@ -660,7 +660,7 @@ class NavigationFeed(OPDSFeed):
                 E.entry(
                     E.id(annotator.lane_id(lane)),
                     E.title(lane.name),
-                    E.link(href=annotator.featured_feed_url(lane)),
+                    # E.link(href=annotator.featured_feed_url(lane), rel="self"),
                     E.updated(_strftime(datetime.datetime.utcnow())),
                     *links
                 )
