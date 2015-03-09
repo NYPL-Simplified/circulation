@@ -25,9 +25,11 @@ class CirculationManagerAnnotator(Annotator):
     def permalink_for(self, identifier):
         return url_for('work', urn=identifier.urn, _external=True)
 
+    @classmethod
     def featured_feed_url(cls, lane, order=None):
         return url_for('feed', lane=lane.name, order=order, _external=True)
 
+    @classmethod
     def navigation_feed_url(self, lane):
         if not lane:
             lane_name = None
