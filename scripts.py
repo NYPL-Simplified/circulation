@@ -8,6 +8,7 @@ from model import (
     DataSource,
     Edition,
     LicensePool,
+    Subject,
     Work,
     WorkGenre,
 )
@@ -283,3 +284,16 @@ class NYTBestSellerListsScript(Script):
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
             self._db.commit()
+
+
+class SubjectAssignmentScript(Script):
+
+
+    def run(self):
+        a = 0
+        for s in self._db.query(Subject):
+            s.assign_to_genre()
+            print s
+            a += 1
+            if not a % 100:
+                self._db.commit()
