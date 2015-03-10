@@ -471,7 +471,9 @@ class ThreeMClassifier(Classifier):
         Cooking: [
             "COOKING/",
             "Cooking & Food",
+            "Cooking/",
         ],
+        Graphic_Novels_Comics : "COMICS & GRAPHIC NOVELS/",
         Computers: [
             "COMPUTERS/",
             "Computers/",
@@ -490,6 +492,7 @@ class ThreeMClassifier(Classifier):
             "Magic/",
             "Unicorns & Mythical/"
         ],
+        Foreign_Language_Study : "FOREIGN LANGUAGE STUDY/",
         Gardening : "GARDENING/",
         Graphic_Novels_Comics : "Comics & Graphic Novels/",
         Health_Diet : [
@@ -552,7 +555,10 @@ class ThreeMClassifier(Classifier):
         Science_Fiction : "Science Fiction",
         Self_Help: "SELF-HELP/",
         Social_Science : "SOCIAL SCIENCE/",
-        Sports : "SPORTS & RECREATION/",
+        Sports : [
+            "SPORTS & RECREATION/",
+            "Sports & Recreation/",
+        ],
         Study_Aids : "STUDY AIDS/",
         Thrillers : [
             "FICTION/Suspense/",
@@ -560,9 +566,12 @@ class ThreeMClassifier(Classifier):
         ],
         Technology_Engineering : "TECHNOLOGY/",
         Transportation : "TRANSPORTATION/",
-        Travel : "TRAVEL/",
+        Travel : ["TRAVEL/", "Travel/"],
         True_Crime : "TRUE CRIME/",
-        Urban_Fiction : "FICTION/African American/",
+        Urban_Fiction : [
+            "FICTION/African American/",
+            "FICTION/Urban/",
+        ],
         Womens_Fiction : "FICTION/Contemporary Women/",
     }
 
@@ -659,6 +668,7 @@ class ThreeMClassifier(Classifier):
             "BUSINESS & ECONOMICS/Management/",
             "BUSINESS & ECONOMICS/Leadership/",
         ],
+        Manga : "COMICS & GRAPHIC NOVELS/Manga/",
         Middle_East_History : [
             "HISTORY/Israel",
         ],
@@ -690,6 +700,9 @@ class ThreeMClassifier(Classifier):
         Religious_Fiction : [
             "JUVENILE FICTION/Religious/",
             "FICTION/Religious/",
+            "FICTION/Christian/",
+            "Religious/Jewish/",
+            "FICTION/Jewish/",
         ],
         Science_Fiction : [
             "LITERARY CRITICISM & COLLECTIONS/Science Fiction/",
