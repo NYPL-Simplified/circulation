@@ -857,6 +857,7 @@ class OverdriveClassifier(Classifier):
         True_Crime : "True Crime",
         Urban_Fantasy: "Fantasy/Contemporary/", 
         Urban_Fiction: "Urban Fiction", 
+        Womens_Fiction: "Chick Lit Fiction",
     }
 
     @classmethod
