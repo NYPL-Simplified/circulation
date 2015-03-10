@@ -4104,7 +4104,7 @@ class Representation(Base):
     # The media type of the representation.
     media_type = Column(Unicode)
 
-    resource = relationship("Resource", backref="representation")
+    resource = relationship("Resource", backref="representation", uselist=False)
 
     ### Records of things we tried to do with this representation.
 

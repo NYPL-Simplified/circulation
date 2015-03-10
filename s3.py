@@ -131,6 +131,10 @@ class S3Uploader(MirrorUploader):
         except ConnectionError, e:
             # This is a transient error; we can just try again.
             pass
+        except HTTPError, e:
+            # Probably also a transient error. In any case
+            # there's nothing we can do about it but try again.
+            pass
 
         # Close the filehandles
         for fh in filehandles:
