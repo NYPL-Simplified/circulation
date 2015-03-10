@@ -190,7 +190,7 @@ class TestOPDS(DatabaseTest):
         feed = parsed['feed']
 
         # There's a self link.
-        alternate, self_link, start_link = sorted(feed.links)
+        self_link, start_link = sorted(feed.links)
         eq_("http://navigation-feed/", self_link['href'])
 
         # There's a link to the top level, which is the same as the
@@ -206,10 +206,10 @@ class TestOPDS(DatabaseTest):
 
         # Let's look at one entry, Fiction, which has no sublanes.
         toplevel = [x for x in parsed['entries'] if x.title == 'Fiction'][0]
-        eq_("tag:Fiction", toplevel.id)
+        eq_("http://featured-feed/Fiction", toplevel.id)
 
         # There are two links to acquisition feeds.
-        self_link, featured, by_author = sorted(toplevel['links'])
+        featured, by_author = sorted(toplevel['links'])
         eq_('http://featured-feed/Fiction', featured['href'])
         eq_("Featured", featured['title'])
         eq_(NavigationFeed.FEATURED_REL, featured['rel'])
@@ -222,11 +222,11 @@ class TestOPDS(DatabaseTest):
 
         # Now let's look at one entry, Romance, which has a sublane.
         toplevel = [x for x in parsed['entries'] if x.title == 'Romance'][0]
-        eq_("tag:Romance", toplevel.id)
+        eq_("http://featured-feed/Romance", toplevel.id)
 
         # Instead of an acquisition feed (by author), we have a navigation feed
         # (the sublanes of Romance).
-        self_link, featured, sublanes = sorted(toplevel['links'])
+        featured, sublanes = sorted(toplevel['links'])
         eq_('http://navigation-feed/Romance', sublanes['href'])
         eq_("Look inside Romance", sublanes['title'])
         eq_("subsection", sublanes['rel'])
@@ -238,7 +238,7 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(unicode(original_feed))
         feed = parsed['feed']
 
-        start_link, up_link, alternate_link, self_link = sorted(feed.links)
+        start_link, up_link, self_link = sorted(feed.links)
 
         # There's a self link.
         eq_("http://navigation-feed/Romance", self_link['href'])
@@ -293,7 +293,7 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
-        alternate_link, by_author, by_title, self_link = sorted(
+        by_author, by_title, self_link = sorted(
             by_title['links'], key=lambda x: (x['rel'], x.get('title')))
 
         eq_("http://the-url.com/", self_link['href'])
