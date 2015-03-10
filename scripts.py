@@ -288,12 +288,23 @@ class NYTBestSellerListsScript(Script):
 
 class SubjectAssignmentScript(Script):
 
+    def __init__(self, force):
+        self.force = force
 
     def run(self):
         a = 0
-        for s in self._db.query(Subject):
-            s.assign_to_genre()
+        q = self._db.query(Subject)
+        if not self.force:
+            q = q.filter(Subject.fiction==None)
+
+        print "Fixing up %d subjects." % q.count()
+        for s in q:
+            self.process(s)
             print s
             a += 1
-            if not a % 100:
+            if not a % 1000:
                 self._db.commit()
+        self._db.commit()
+
+    def process(self, subject):
+        subject.assign_to_genre()
