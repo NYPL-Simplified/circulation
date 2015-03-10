@@ -2273,6 +2273,10 @@ class KeywordBasedClassifier(Classifier):
                    "women sleuths",
                    "women sleuth",
                ),
+
+               Womens_Fiction : match_kw(
+                   "contemporary women",
+               ),
                
                World_History: match_kw(
                    "world history",
