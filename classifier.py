@@ -509,6 +509,7 @@ class ThreeMClassifier(Classifier):
             "FICTION/Satire",
             "Humorous Stories/",
             "HUMOR/",
+            "Humor/",
         ],
         Horror : [
             "Horror/",
