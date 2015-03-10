@@ -247,7 +247,10 @@ from model import (
 def _setup(dbinfo):
     # Connect to the database and create the schema within a transaction
     engine, connection = SessionManager.initialize(os.environ['DATABASE_URL_TEST'])
-    Base.metadata.drop_all(connection)
+    try:
+        Base.metadata.drop_all(connection)
+    except Exception, e:
+        pass
     Base.metadata.create_all(connection)
     dbinfo.engine = engine
     dbinfo.connection = connection

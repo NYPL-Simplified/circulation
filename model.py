@@ -169,6 +169,9 @@ def get_one_or_create(db, model, create_method='',
         return one, False
     else:
         try:
+            if 'on_multiple' in kwargs:
+                # This kwarg is supported by get_one() but not by create().
+                del kwargs['on_multiple']
             return create(db, model, create_method, create_method_kwargs, **kwargs)
         except IntegrityError:
             db.rollback()
@@ -3048,7 +3051,7 @@ class Subject(Base):
 
     # Human-readable name, if different from the
     # identifier. (e.g. "Social Sciences" for DDC 300)
-    name = Column(Unicode, default=None)
+    name = Column(Unicode, default=None, index=True)
 
     # Whether classification under this subject implies anything about
     # the fiction/nonfiction status of a book.

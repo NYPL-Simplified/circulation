@@ -1668,12 +1668,12 @@ class TestScaleRepresentation(DatabaseTest):
         return self._representation(
             media_type="image/png", content=open(sample_cover_path).read())[0]
 
-    def test_cannot_scale_non_image(self):
+    def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
-        assert_raises_regexp(
-            ValueError, 
-            "Cannot load non-image representation as image: type text/plain",
-            rep.scale, 300, 600, self._url, "image/png")
+        scaled, ignore = rep.scale(300, 600, self._url, "image/png")
+        expect = "ValueError: Cannot load non-image representation as image: type text/plain"
+        assert scaled == rep
+        assert expect in rep.scale_exception
         
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
