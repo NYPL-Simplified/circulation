@@ -3051,7 +3051,7 @@ class Subject(Base):
 
     # Human-readable name, if different from the
     # identifier. (e.g. "Social Sciences" for DDC 300)
-    name = Column(Unicode, default=None)
+    name = Column(Unicode, default=None, index=True)
 
     # Whether classification under this subject implies anything about
     # the fiction/nonfiction status of a book.
