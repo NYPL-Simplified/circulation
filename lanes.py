@@ -17,27 +17,28 @@ def make_lanes(_db):
         genres.Historical_Romance, genres.Paranormal_Romance,
         genres.Regency_Romance, genres.Suspense_Romance
     ]
-    romance = Lane(_db, name="Romance",
+    romance = Lane(_db, full_name="Romance",
               genres=non_erotica_romance,
               include_subgenres=False,
               fiction=True,
               audience=Classifier.AUDIENCE_ADULT,
               sublanes=[
-                  Lane(_db, name="General Romance",
+                  Lane(_db, full_name="General Romance",
                        genres=[genres.Romance, genres.Contemporary_Romance]),
-                  #Lane(_db, name="Story-Driven Romance",
+                  #Lane(_db, full_name="Story-Driven Romance",
                   #     genres=non_erotica_romance, include_subgenres=False,
                   #     appeal=Work.STORY_APPEAL),
-                  #Lane(_db, name="Character-Driven Romance",
+                  #Lane(_db, full_name="Character-Driven Romance",
                   #     genres=non_erotica_romance, include_subgenres=False,
                   #     appeal=Work.CHARACTER_APPEAL),
-                  #Lane(_db, name="Setting-Driven Romance",
+                  #Lane(_db, full_name="Setting-Driven Romance",
                   #     genres=non_erotica_romance, include_subgenres=False,
                   #     appeal=Work.SETTING_APPEAL),
-                  #Lane(_db, name="Language-Driven Romance",
+                  #Lane(_db, full_name="Language-Driven Romance",
                   #     genres=non_erotica_romance, include_subgenres=False,
                   #     appeal=Work.LANGUAGE_APPEAL),
 
+                  genres.Contemporary_Romance,
                   genres.Historical_Romance,
                   genres.Paranormal_Romance,
                   genres.Regency_Romance,
@@ -46,7 +47,7 @@ def make_lanes(_db):
               ],
           )
 
-    mystery = Lane(_db, name="Crime, Thrillers & Mystery",
+    mystery = Lane(_db, full_name="Crime, Thrillers & Mystery",
                    genres = [genres.Crime_Thrillers_Mystery],
                    include_subgenres=True,
                    fiction=Lane.BOTH_FICTION_AND_NONFICTION,
@@ -56,22 +57,22 @@ def make_lanes(_db):
                        genres.Women_Detectives,
                        genres.Police_Procedurals,
                        genres.Thrillers,
-                       Lane(_db, name="True Crime",
+                       Lane(_db, full_name="True Crime",
                             genres=[genres.True_Crime], fiction=False),
                    ],
                )
 
     african_american = Lane(
-        _db, name="African-American",
+        _db, full_name="African-American",
         fiction=True,
         genres=[genres.African_American, genres.Urban_Fiction],
     )
 
-    adventure = Lane(_db, name="Adventure Fiction",
+    adventure = Lane(_db, full_name="Adventure Fiction",
                      genres=[genres.Action_Adventure], fiction=True)
 
     religious_fiction = Lane(
-        _db, name="Religious Fiction",
+        _db, full_name="Religious Fiction",
         genres=[genres.Religion_Spirituality,
                 genres.Body_Mind_Spirit,
                 genres.Religious_Fiction,
@@ -84,7 +85,7 @@ def make_lanes(_db):
     # Now we're ready to construct the Fiction lane itself.
     #
     fiction = Lane(
-        _db, name="Fiction",
+        _db, full_name="Fiction",
         fiction=True,
         audience=genres.Classifier.AUDIENCE_ADULT,
         genres=[],
@@ -93,19 +94,22 @@ def make_lanes(_db):
             african_american,
             genres.Classics,
             genres.Fantasy,
-            Lane(_db, name="General Fiction",
+            Lane(_db, full_name="General Fiction",
                  genres=Lane.UNCLASSIFIED),
             genres.Graphic_Novels_Comics,
             genres.Historical_Fiction,
             genres.Horror,
-            Lane(_db, name="Literary Fiction",
+            Lane(_db, full_name="Literary Fiction",
                  genres=[genres.Literary_Fiction, genres.Literary_Collections],
                  include_subgenres=False
              ),
             mystery,
             religious_fiction,
             romance,
-            genres.Science_Fiction,
+            Lane(_db, full_name="Science Fiction",
+                 genres=genres.Science_Fiction,
+                 include_subgenres=True,
+             ),
         ],
     )
 
@@ -117,7 +121,7 @@ def make_lanes(_db):
     # now that "African-American" was moved to fiction.
      
     crafts_hobbies_games = Lane(
-        _db, name="Crafts, Hobbies & Games",
+        _db, full_name="Crafts, Hobbies & Games",
         genres = [
             genres.Crafts_Hobbies_Games,
             genres.Antiques_Collectibles,
@@ -126,7 +130,7 @@ def make_lanes(_db):
         fiction=False,
     )
     hobbies_and_home = Lane(
-        _db, name="Hobbies & Home",
+        _db, full_name="Hobbies & Home",
         genres = [
             genres.Antiques_Collectibles,
             genres.Crafts_Cooking_Garden,
@@ -147,17 +151,17 @@ def make_lanes(_db):
     )
 
     religion = Lane(
-        _db, name="Religion & Spirituality",
+        _db, full_name="Religion & Spirituality",
         genres = [genres.Religion_Spirituality],
         include_subgenres=True,
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
         audience=Classifier.AUDIENCE_ADULT,
         sublanes=[
             genres.Buddhism,
-            Lane(_db, name="Christianity",
+            Lane(_db, full_name="Christianity",
                  genres=[genres.Christianity],
                  fiction=False),
-            Lane(_db, name="General Religion & Spirituality",
+            Lane(_db, full_name="General Religion & Spirituality",
                  genres=[genres.Religion_Spirituality, genres.Body_Mind_Spirit,
                          genres.Hinduism],
                  include_subgenres=False, fiction=False),
@@ -167,7 +171,7 @@ def make_lanes(_db):
         ],
     )
 
-    science = Lane(_db, name="Science & Tech",
+    science = Lane(_db, full_name="Science & Tech",
                    genres = [genres.Science_Technology_Nature],
                    include_subgenres=True,
                    audience=Classifier.AUDIENCE_ADULT,
@@ -178,10 +182,10 @@ def make_lanes(_db):
                        genres.Nature,
                        genres.Psychology,
                        genres.Science,
-                       Lane(_db, name="Social Science",
+                       Lane(_db, full_name="Social Science",
                             genres=[genres.Social_Science],
                             include_subgenres=False),
-                       Lane(_db, name="Technology",
+                       Lane(_db, full_name="Technology",
                             genres=[genres.Technology_Engineering],
                             include_subgenres=False,
                             fiction=False),
@@ -189,7 +193,7 @@ def make_lanes(_db):
                )
 
     philosophy = Lane(
-        _db, name="Criticism & Philosophy",
+        _db, full_name="Criticism & Philosophy",
         genres = [genres.Criticism_Philosophy],
         include_subgenres=True,
         fiction=False,
@@ -200,7 +204,7 @@ def make_lanes(_db):
             genres.Philosophy,
         ])            
 
-    food = Lane(_db, name="Food and Health",
+    food = Lane(_db, full_name="Food and Health",
                 genres=[
                     genres.Cooking,
                     genres.Health_Diet],
@@ -208,14 +212,14 @@ def make_lanes(_db):
                 include_subgenres=True,
                 sublanes=[
                     genres.Bartending_Cocktails,
-                    Lane(_db, name="Cooking", genres=[genres.Cooking]),
+                    Lane(_db, full_name="Cooking", genres=[genres.Cooking]),
                     genres.Health_Diet,
                     genres.Vegetarian_Vegan,
                 ]
             )
 
     family = Lane(
-        _db, name="Parenting & Family",
+        _db, full_name="Parenting & Family",
         genres=[genres.Parenting_Family],
         include_subgenres=True,
         fiction=False,
@@ -227,14 +231,14 @@ def make_lanes(_db):
     )
 
     reference = Lane(
-        _db, name="Reference & Study Aids",
+        _db, full_name="Reference & Study Aids",
         genres=[genres.Reference],
         include_subgenres=True,
         fiction=False,
         sublanes=[
             genres.Dictionaries,
             genres.Foreign_Language_Study,
-            Lane(_db, name="General Reference",
+            Lane(_db, full_name="General Reference",
                  genres=[genres.Reference, genres.Encyclopedias],
                  include_subgenres=False),
             genres.Law,
@@ -244,12 +248,12 @@ def make_lanes(_db):
     )
 
     business = Lane(
-        _db, name="Personal Finance & Business",
+        _db, full_name="Personal Finance & Business",
         genres=[genres.Business_Economics],
         include_subgenres=True,
         fiction=False,
         sublanes=[
-            Lane(_db, name="Business", genres=[genres.Business_Economics],
+            Lane(_db, full_name="Business", genres=[genres.Business_Economics],
                  include_subgenres=False),
             genres.Economics,
             genres.Management_Leadership,
@@ -258,35 +262,35 @@ def make_lanes(_db):
     )
 
     humor = Lane(
-        _db, name="Humor & Entertainment",
+        _db, full_name="Humor & Entertainment",
         genres=[genres.Humor_Entertainment],
         include_subgenres=True,
         fiction=False,
         sublanes=[
-            Lane(_db, name="Film & TV", genres=[genres.Film_TV]),
-            Lane(_db, name="Humor", genres=[genres.Humor],
+            Lane(_db, full_name="Film & TV", genres=[genres.Film_TV]),
+            Lane(_db, full_name="Humor", genres=[genres.Humor],
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION),
-            Lane(_db, name="Music", genres=[genres.Music]),
-            Lane(_db, name="Performing Arts",
+            Lane(_db, full_name="Music", genres=[genres.Music]),
+            Lane(_db, full_name="Performing Arts",
                  genres=[genres.Performing_Arts, genres.Dance]),
         ],
     )
 
     travel = Lane(
-        _db, name="Travel & Sports",
+        _db, full_name="Travel & Sports",
         genres=[genres.Travel_Adventure_Sports],
         include_subgenres=True,
         fiction=False,
         sublanes=[
             genres.Sports,
             genres.Transportation,
-            Lane(_db, name="Travel", genres=[genres.Travel],
+            Lane(_db, full_name="Travel", genres=[genres.Travel],
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION),
         ],
     )
 
     poetry_drama = Lane(
-        _db, name="Poetry & Drama",
+        _db, full_name="Poetry & Drama",
         genres=[genres.Poetry, genres.Drama],
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
         sublanes=[
@@ -299,11 +303,11 @@ def make_lanes(_db):
     # Now let's set up the 'nonfiction' lane itself.
     #
     nonfiction = Lane(
-        _db, name="Nonfiction", genres=[], 
+        _db, full_name="Nonfiction", genres=[], 
         fiction=False, audience=Classifier.AUDIENCE_ADULT,
         sublanes=[
             dict(
-                name="Art & Design",
+                full_name="Art & Design",
                 genres=[genres.Art_Architecture_Design],
             ),
             genres.Biography_Memoir,
@@ -320,7 +324,7 @@ def make_lanes(_db):
             science,
             genres.Self_Help,
             travel,
-            dict(name="Unclassified Nonfiction",
+            dict(full_name="Unclassified Nonfiction",
                  fiction=False,
                  audience=genres.Classifier.AUDIENCE_ADULT,
                  genres=Lane.UNCLASSIFIED),
@@ -332,39 +336,39 @@ def make_lanes(_db):
 
     YA = Classifier.AUDIENCE_YOUNG_ADULT
     ya_fiction = Lane(
-        _db, name="Young Adult Fiction", genres=Lane.UNCLASSIFIED,
+        _db, full_name="Young Adult Fiction", genres=Lane.UNCLASSIFIED,
         fiction=True, audience=YA,
         sublanes=[
-            Lane(_db, name="Young Adult Fantasy", genres=[genres.Fantasy],
+            Lane(_db, full_name="Young Adult Fantasy", genres=[genres.Fantasy],
                  audience=YA),
-            Lane(_db, name="Young Adult Graphic Novels & Comics",
+            Lane(_db, full_name="Young Adult Graphic Novels & Comics",
                  genres=[genres.Graphic_Novels_Comics], audience=YA),
-            Lane(_db, name="Young Adult Historical Fiction",
+            Lane(_db, full_name="Young Adult Historical Fiction",
                  genres=[genres.Historical_Fiction],
                  audience=YA),
-            Lane(_db, name="Young Adult Horror",
+            Lane(_db, full_name="Young Adult Horror",
                  genres=[genres.Horror], audience=YA),
-            Lane(_db, name="Young Adult Mystery",
+            Lane(_db, full_name="Young Adult Mystery",
                  genres=[genres.Crime_Thrillers_Mystery],
                  audience=YA),
-            Lane(_db, name="Young Adult Romance", genres=[genres.Romance],
+            Lane(_db, full_name="Young Adult Romance", genres=[genres.Romance],
                  audience=YA),
-            Lane(_db, name="Young Adult Science Fiction",
+            Lane(_db, full_name="Young Adult Science Fiction",
                  genres=[genres.Science_Fiction], audience=YA),
         ],
     )
         
-    ya_nonfiction = Lane(_db, name="Young Adult Nonfiction",
+    ya_nonfiction = Lane(_db, full_name="Young Adult Nonfiction",
                          fiction=False, genres=[], audience=YA)
 
-    children = Lane(_db, name="Children's Books",
+    children = Lane(_db, full_name="Children's Books",
                     fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                     audience=genres.Classifier.AUDIENCE_CHILDREN,
                     genres=[],
                 )
 
     unclassified = dict(
-             name="Unclassified",
+             full_name="Unclassified",
              fiction=Lane.UNCLASSIFIED,
              genres=Lane.UNCLASSIFIED,
              audience=None)
