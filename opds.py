@@ -334,6 +334,7 @@ class OPDSFeed(AtomFeed):
 
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
+    POPULAR_REL = "http://opds-spec.org/sort/popular"
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
