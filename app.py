@@ -304,8 +304,10 @@ def popular_feed(lane_name):
 
     if lane_name:
         lane = Conf.sublanes.by_name[lane_name]
+        lane_display_name = lane.display_name
     else:
         lane = None
+        lane_display_name = None
     languages = languages_for_request()
     this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
 
@@ -317,12 +319,13 @@ def popular_feed(lane_name):
             # Return the cached version.
             return feed
 
-    title = "%s: Best Sellers" % lane.display_name
+    title = "%s: Best Sellers" % lane_display_name
     # TODO: Can't sort by most recent appearance.
     work_feed = AllCustomListsFromDataSourceFeed(
         Conf.db, [DataSource.NYT], languages, availability=AllCustomListsFromDataSourceFeed.ALL)
     annotator = CirculationManagerAnnotator(lane)
     page = work_feed.page_query(Conf.db, None, 100).all()
+    page = random.sample(page, min(len(page), 20))
     opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
                                 annotator, work_feed.active_facet)
     feed_xml = unicode(opds_feed)
