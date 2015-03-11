@@ -26,7 +26,7 @@ from ..core.model import (
 
 from flask import url_for
 os.environ['TESTING'] = "True"
-from .. import circulation_manager as circulation
+from .. import app as circulation
 del os.environ['TESTING']
 
 class AuthenticationTest(DatabaseTest):

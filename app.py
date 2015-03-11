@@ -26,6 +26,7 @@ from core.overdrive import (
 
 from core.model import (
     get_one_or_create,
+    AllCustomListsFromDataSourceFeed,
     DataSource,
     production_session,
     LaneList,
@@ -35,6 +36,7 @@ from core.model import (
     Identifier,
     Work,
     LaneFeed,
+    CustomListFeed,
     Edition,
     )
 from core.opensearch import OpenSearchDocument
@@ -165,6 +167,11 @@ def navigation_feed(lane):
     feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
     feed.add_link(
+        rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
+        type=NavigationFeed.ACQUISITION_FEED_TYPE,
+        href=url_for('notable_feed', lane_name=lane.name, _external=True))
+
+    feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
         href=url_for('lane_search', lane=None, _external=True))
@@ -285,6 +292,41 @@ def feed(lane):
     if not last_seen_id:
         feed_cache[key] = (feed_xml, time.time())
     return feed_xml
+
+@app.route('/notable', defaults=dict(lane_name=None))
+@app.route('/notable/', defaults=dict(lane_name=None))
+@app.route('/notable/<lane_name>')
+def notable_feed(lane_name):
+    """Return an acquisition feed of notable books in this lane.
+    
+    At the moment, 'notable' == 'NYT bestseller'.
+    """
+
+    if lane_name:
+        lane = Conf.sublanes.by_name[lane_name]
+    else:
+        lane = None
+    languages = languages_for_request()
+    this_url = url_for('notable_feed', lane_name=lane_name, _external=True)
+
+    key = ("notable", lane_name, ",".join(languages))
+    if key in feed_cache:
+        chance = random.random()
+        feed, created_at = feed_cache.get(key)
+        if chance > 0.10:
+            # Return the cached version.
+            return feed
+
+    # TODO: Can't sort by most recent appearance.
+    work_feed = AllCustomListsFromDataSourceFeed(
+        Conf.db, [DataSource.NYT], languages, availability=AllCustomListsFromDataSourceFeed.ALL)
+    annotator = CirculationManagerAnnotator(lane)
+    page = work_feed.page_query(Conf.db, None, 100).all()
+    opds_feed = AcquisitionFeed(Conf.db, "Notable Books", this_url, page,
+                                annotator, work_feed.active_facet)
+    feed_xml = unicode(opds_feed)
+    feed_cache[key] = (feed_xml, time.time())
+    return unicode(feed_xml)
 
 @app.route('/search', defaults=dict(lane=None))
 @app.route('/search/', defaults=dict(lane=None))

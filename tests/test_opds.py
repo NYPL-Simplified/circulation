@@ -20,7 +20,7 @@ from ..core.opds import (
     AcquisitionFeed,
     OPDSFeed,
 )
-from ..circulation_manager import app
+from ..app import app
 
 class TestOPDS(DatabaseTest):
 
@@ -68,7 +68,8 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
-        permalink = annotator.permalink_for(annotator.active_licensepool_for(w1))
+        pool = annotator.active_licensepool_for(w1)
+        permalink = annotator.permalink_for(pool.identifier)
         eq_(entry['id'], permalink)
 
     def test_acquisition_feed_includes_open_access_or_borrow_link(self):
