@@ -170,7 +170,7 @@ class NYTBestSellerList(list):
 
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""
-        data_source = DataSource.lookup(_db, DataSource.BIBLIOCOMMONS)
+        data_source = DataSource.lookup(_db, DataSource.NYT)
         l, was_new = get_one_or_create(
             _db, 
             CustomList,

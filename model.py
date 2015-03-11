@@ -169,6 +169,9 @@ def get_one_or_create(db, model, create_method='',
         return one, False
     else:
         try:
+            if 'on_multiple' in kwargs:
+                # This kwarg is supported by get_one() but not by create().
+                del kwargs['on_multiple']
             return create(db, model, create_method, create_method_kwargs, **kwargs)
         except IntegrityError:
             db.rollback()
@@ -3048,7 +3051,7 @@ class Subject(Base):
 
     # Human-readable name, if different from the
     # identifier. (e.g. "Social Sciences" for DDC 300)
-    name = Column(Unicode, default=None)
+    name = Column(Unicode, default=None, index=True)
 
     # Whether classification under this subject implies anything about
     # the fiction/nonfiction status of a book.
@@ -3241,12 +3244,13 @@ class LaneList(object):
                 # A more complicated lane. Its description is a bunch
                 # of arguments to the Lane constructor.
                 l = lane_description
-                lane = Lane(_db, l['name'], l.get('genres', []), 
+                lane = Lane(_db, l['full_name'], l.get('genres', []), 
                             l.get('include_subgenres', True),
                             l.get('fiction', default_fiction),
                             l.get('audience', default_audience),
                             parent_lane,
-                            l.get('sublanes', [])
+                            l.get('sublanes', []),
+                            l.get('display_name', None)
                         )                            
             lanes.add(lane)
             for sublane in lane.sublanes.lanes:
@@ -3291,10 +3295,11 @@ class Lane(object):
         return Lane(_db, "", [], True, Lane.BOTH_FICTION_AND_NONFICTION,
                     None)
 
-    def __init__(self, _db, name, genres, include_subgenres=True,
+    def __init__(self, _db, full_name, genres, include_subgenres=True,
                  fiction=True, audience=Classifier.AUDIENCE_ADULT,
-                 parent=None, sublanes=[], appeal=None):
-        self.name = name
+                 parent=None, sublanes=[], appeal=None, display_name=None):
+        self.name = full_name
+        self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.appeal = appeal
@@ -3595,6 +3600,7 @@ class CustomListFeed(WorkFeed):
                 CustomListEntry.most_recent_appearance >= self.on_list_as_of)
             q = q.filter(on_list_clause)
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
+        print "Potentially %s permanent work IDs." % len(permanent_work_ids)
 
         # Now the second query. Find all works where the primary edition's
         # permanent work ID is in the big list of IDs we got earlier.
@@ -3602,6 +3608,20 @@ class CustomListFeed(WorkFeed):
         q = q.join(Work.primary_edition).filter(
             Edition.permanent_work_id.in_(permanent_work_ids))
         return q
+
+
+class AllCustomListsFromDataSourceFeed(CustomListFeed):
+
+    """A WorkFeed consolidating all custom lists from a given data source."""
+
+    def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
+                 **kwargs):
+        if isinstance(data_sources, basestring):
+            data_sources = [data_sources]
+        sources = [DataSource.lookup(_db, x).id for x in data_sources]
+        lists = _db.query(CustomList).filter(CustomList.data_source_id.in_(sources))
+        super(AllCustomListsFromDataSourceFeed, self).__init__(
+            lists, languages, on_list_as_of, **kwargs)
 
 
 class LicensePool(Base):
