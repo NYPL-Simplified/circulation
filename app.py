@@ -169,7 +169,7 @@ def navigation_feed(lane):
     feed.add_link(
         rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
         type=NavigationFeed.ACQUISITION_FEED_TYPE,
-        href=url_for('notable_feed', lane_name=lane.name, _external=True))
+        href=url_for('popular_feed', lane_name=lane.name, _external=True))
 
     feed.add_link(
         rel="search", 
@@ -293,23 +293,25 @@ def feed(lane):
         feed_cache[key] = (feed_xml, time.time())
     return feed_xml
 
-@app.route('/notable', defaults=dict(lane_name=None))
-@app.route('/notable/', defaults=dict(lane_name=None))
-@app.route('/notable/<lane_name>')
-def notable_feed(lane_name):
-    """Return an acquisition feed of notable books in this lane.
+@app.route('/popular', defaults=dict(lane_name=None))
+@app.route('/popular/', defaults=dict(lane_name=None))
+@app.route('/popular/<lane_name>')
+def popular_feed(lane_name):
+    """Return an acquisition feed of popular books in this lane.
     
-    At the moment, 'notable' == 'NYT bestseller'.
+    At the moment, 'popular' == 'NYT bestseller'.
     """
 
     if lane_name:
         lane = Conf.sublanes.by_name[lane_name]
+        lane_display_name = lane.display_name
     else:
         lane = None
+        lane_display_name = None
     languages = languages_for_request()
-    this_url = url_for('notable_feed', lane_name=lane_name, _external=True)
+    this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
 
-    key = ("notable", lane_name, ",".join(languages))
+    key = ("popular", lane_name, ",".join(languages))
     if key in feed_cache:
         chance = random.random()
         feed, created_at = feed_cache.get(key)
@@ -317,12 +319,14 @@ def notable_feed(lane_name):
             # Return the cached version.
             return feed
 
+    title = "%s: Best Sellers" % lane_display_name
     # TODO: Can't sort by most recent appearance.
     work_feed = AllCustomListsFromDataSourceFeed(
         Conf.db, [DataSource.NYT], languages, availability=AllCustomListsFromDataSourceFeed.ALL)
     annotator = CirculationManagerAnnotator(lane)
     page = work_feed.page_query(Conf.db, None, 100).all()
-    opds_feed = AcquisitionFeed(Conf.db, "Notable Books", this_url, page,
+    page = random.sample(page, min(len(page), 20))
+    opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
                                 annotator, work_feed.active_facet)
     feed_xml = unicode(opds_feed)
     feed_cache[key] = (feed_xml, time.time())

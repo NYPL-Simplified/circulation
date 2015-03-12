@@ -72,11 +72,11 @@ class CirculationTest(DatabaseTest):
         self.lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction", fiction=True, genres=[]),
-             dict(name="Nonfiction", fiction=False, genres=[]),
+            [dict(full_name="Fiction", fiction=True, genres=[]),
+             dict(full_name="Nonfiction", fiction=False, genres=[]),
 
-             dict(name="Romance", fiction=True, genres=[],
-                  subgenres=[dict(name="Contemporary Romance")])])
+             dict(full_name="Romance", fiction=True, genres=[],
+                  subgenres=[dict(full_name="Contemporary Romance")])])
 
         circulation.Conf.initialize(self._db, self.lanes)
         self.circulation = circulation
