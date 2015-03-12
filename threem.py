@@ -33,12 +33,18 @@ class ThreeMAPI(BaseThreeMAPI):
     #     body = "<CancelHoldRequest><ItemId>%s</ItemId><PatronId>%s</PatronId></CancelHoldRequest>" % (item_id, patron_id)
     #     return self.request(path, body, method="PUT")
 
+    MAX_AGE = datetime.timedelta(days=730).seconds
+
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
         url = "data/cloudevents?startdate=%s&enddate=%s" % (start, end)
-        data = self.request(url, cache_result=cache_result)
+        if cache_result:
+            max_age = self.MAX_AGE
+        else:
+            max_age = None
+        data = self.request(url, max_age=max_age)
         if cache_result:
             self._db.commit()
         events = EventParser().process_all(data)

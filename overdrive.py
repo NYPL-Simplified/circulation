@@ -267,18 +267,17 @@ class OverdriveAPI(BaseOverdriveAPI):
                    or pool.licenses_reserved != licenses_reserved
                    or pool.patrons_in_hold_queue != new_number_of_holds)
             
+        def printable(x, default=None):
+            if not x:
+                return default
+            if isinstance(x, unicode):
+                x = x.encode("utf8")
+            return x
+
         if changed:
-            title = edition.title
-            if title:
-                title = title.decode("utf8")
-            else:
-                title = "[NO TITLE]"
-            author = edition.author
-            if author:
-                author = author.decode("utf8")
-            else:
-                author = ""
-            # print '%s "%s" %s (%s)' % (edition.medium, title, author, edition.primary_identifier.identifier)
+            print '%s "%s" %s (%s)' % (
+                edition.medium, printable(edition.title, "[NO TITLE]"),
+                printable(edition.author, ""), edition.primary_identifier.identifier)
         #print " Owned: %s => %s" % (pool.licenses_owned, new_licenses_owned)
         #print " Available: %s => %s" % (pool.licenses_available, new_licenses_available)
         #print " Holds: %s => %s" % (pool.patrons_in_hold_queue, new_number_of_holds)
