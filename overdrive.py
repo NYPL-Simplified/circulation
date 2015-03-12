@@ -277,7 +277,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         if changed:
             print '%s "%s" %s (%s)' % (
                 edition.medium, printable(edition.title, "[NO TITLE]"),
-                printable(edition.author, ""), edition.primary_identifier.identifier)
+                printable(edition.author, ""), printable(edition.primary_identifier.identifier))
         #print " Owned: %s => %s" % (pool.licenses_owned, new_licenses_owned)
         #print " Available: %s => %s" % (pool.licenses_available, new_licenses_available)
         #print " Holds: %s => %s" % (pool.patrons_in_hold_queue, new_number_of_holds)

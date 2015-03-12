@@ -183,17 +183,20 @@ class ThreeMEventMonitor(Monitor):
                 start, cutoff, one_day):
             most_recent_timestamp = start
             print "Asking for events between %r and %r" % (start, cutoff)
-            events = self.api.get_events_between(start, cutoff, full_slice)
-            for event in events:
-                event_timestamp = self.handle_event(*event)
-                if (not most_recent_timestamp or
-                    (event_timestamp > most_recent_timestamp)):
-                    most_recent_timestamp = event_timestamp
-                i += 1
-                if not i % 1000:
-                    print i
-                    self._db.commit()
-            self._db.commit()
+            try:
+                events = self.api.get_events_between(start, cutoff, full_slice)
+                for event in events:
+                    event_timestamp = self.handle_event(*event)
+                    if (not most_recent_timestamp or
+                        (event_timestamp > most_recent_timestamp)):
+                        most_recent_timestamp = event_timestamp
+                    i += 1
+                    if not i % 1000:
+                        print i
+                        self._db.commit()
+                self._db.commit()
+            except Exception, e:
+                print "Error: %s, will try again next time." % str(e)
             self.timestamp.timestamp = most_recent_timestamp
         print "Handled %d events total" % i
         return most_recent_timestamp
