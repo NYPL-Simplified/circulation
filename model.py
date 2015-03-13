@@ -1,5 +1,6 @@
 # encoding: utf-8
 import operator
+import md5
 from collections import (
     Counter,
     defaultdict,
@@ -840,7 +841,7 @@ class Identifier(Base):
             _db, Measurement, identifier=self,
             data_source=data_source,
             quantity_measured=quantity_measured,
-            is_most_recent=True,
+            is_most_recent=True, on_multiple='interchangeable'
         )
         if most_recent and most_recent.value == value and taken_at == now:
             # The value hasn't changed since last time. Just update
@@ -2808,7 +2809,7 @@ class Hyperlink(Base):
 
         This is useful for resources that are obtained through means
         other than fetching a single URL via HTTP. It lets us get a
-        URI that's most likely uniquem, so we can create a Resource
+        URI that's most likely unique, so we can create a Resource
         object without violating the uniqueness constraint.
 
         If the output of this method isn't unique in your situation
@@ -4118,6 +4119,9 @@ class Representation(Base):
     """
 
     EPUB_MEDIA_TYPE = "application/epub+zip"
+    TEXT_XML_MEDIA_TYPE = "text/xml"
+    APPLICATION_XML_MEDIA_TYPE = "application/xml"
+    JPEG_MEDIA_TYPE = "image/jpeg"
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -4229,6 +4233,7 @@ class Representation(Base):
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
+            accept=None,
             max_age=None, pause_before=0, allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
@@ -4258,10 +4263,10 @@ class Representation(Base):
         # the data sources we currently use, so for now we can treat
         # different representations of a URL as interchangeable.
 
-        representation = get_one(
-            _db, Representation, 'interchangeable',
-            url=url
-        )
+        a = dict(url=url)
+        if accept:
+            a['media_type'] = accept
+        representation = get_one(_db, Representation, 'interchangeable', **a)
 
         # Convert a max_age timedelta to a number of seconds.
         if isinstance(max_age, datetime.timedelta):
@@ -4289,6 +4294,8 @@ class Representation(Base):
         headers = {}
         if extra_request_headers:
             headers.update(extra_request_headers)
+        if accept:
+            headers['Accept'] = accept
 
         if usable_representation:
             # We have a representation but it's not fresh. We will
@@ -4518,8 +4525,8 @@ class Representation(Base):
         _db = Session.object_session(self)
 
         if not destination_media_type in self.pil_format_for_media_type:
-            raise ValueError(
-                "Unsupported destination media type: %s" % destination_media_type)
+            raise ValueError("Unsupported destination media type: %s" % destination_media_type)
+                
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
