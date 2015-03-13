@@ -267,6 +267,7 @@ class DataSource(Base):
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
+    LIBRARIANS = "Professional librarians"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -351,6 +352,7 @@ class DataSource(Base):
                 (cls.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID, None),
                 (cls.MANUAL, False, None, None),
                 (cls.NYT, False, Identifier.ISBN, None),
+                (cls.LIBRARIANS, False, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -3020,6 +3022,8 @@ class Subject(Base):
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
     THREEM = Classifier.THREEM  # 3M's classification system
     TAG = Classifier.TAG   # Folksonomic tags.
+    FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
+
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
     PLACE = Classifier.PLACE
