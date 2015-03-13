@@ -8,6 +8,7 @@ import datetime
 import feedparser
 import requests
 import urllib
+from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
 
@@ -16,11 +17,14 @@ from util import LanguageCodes
 from util.xmlparser import XMLParser
 from model import (
     get_one,
+    get_one_or_create,
     Contributor,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
+    Representation,
     Resource,
     Subject,
 )
@@ -38,7 +42,7 @@ class SimplifiedOPDSLookup(object):
 
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
-        args = "&".join(["urn=%s" % i.urn for i in identifiers])
+        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         return requests.get(url)
 
@@ -59,7 +63,7 @@ class SimplifiedOPDSLookup(object):
 
 class OPDSXMLParser(XMLParser):
 
-    NAMESPACES = { "simplified": "http://library-simplified.com/terms/",
+    NAMESPACES = { "simplified": "http://librarysimplified.org/terms/",
                    "app" : "http://www.w3.org/2007/app",
                    "dcterms" : "http://purl.org/dc/terms/",
                    "opds": "http://opds-spec.org/2010/catalog",
@@ -100,7 +104,7 @@ class BaseOPDSImporter(object):
                 # talked to the metadata wrangler.
                 edition.calculate_presentation()
                 if edition.sort_author:
-                    work, ignore = edition.license_pool.calculate_work()
+                    work, is_new = edition.license_pool.calculate_work()
                     work.calculate_presentation()
             elif status_code:
                 messages_by_id[opds_id] = (status_code, message)
@@ -191,19 +195,28 @@ class BaseOPDSImporter(object):
                 Hyperlink.DESCRIPTION]
         self.destroy_resources(identifier, rels)
 
-        download_resources, image_resource = self.set_resources(
+        download_links, image_link, thumbnail_link = self.set_resources(
             data_source, identifier, pool, links_by_rel)
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
+        rel = Hyperlink.DESCRIPTION
         if 'value' in summary and summary['value']:
-            identifier.add_resource(
-                Hyperlink.DESCRIPTION, None, data_source, pool,
-                summary.get('type', 'text/plain'), summary['value'])
+            value = summary['value']
+            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+                                        value)
+            pool.add_link(
+                rel, uri, data_source,
+                summary.get('type', 'text/plain'), value)
         for content in entry.get('content', []):
-            identifier.add_resource(
-                Hyperlink.DESCRIPTION, None, data_source, pool,
-                summary.get('type', 'text/html'), content['value'])
+            value = content['value']
+            if not value:
+                continue
+            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+                                        value)
+            pool.add_link(
+                rel, uri, data_source,
+                summary.get('type', 'text/html'), value)
             
 
         edition.title = title
@@ -220,51 +233,57 @@ class BaseOPDSImporter(object):
         # so as to avoid keeping old stuff around.
         for resource in Identifier.resources_for_identifier_ids(
                 self._db, [identifier.id], rels):
+            for l in resource.links:
+                self._db.delete(l)
             self._db.delete(resource)
 
     def set_resources(self, data_source, identifier, pool, links):
         # Associate covers and downloads with the identifier.
         #
         # If there is both a full image and a thumbnail, we need
-        # to make sure they're put into the same resource.
-        download_resources = []
-        image_resource = None
+        # to make sure they're put into the same representation.
+        download_links = []
+        image_link = None
+        thumbnail_link = None
 
-        for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-                    Hyperlink.THUMBNAIL_IMAGE]:
+        _db = Session.object_session(data_source)
+        
+        for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
+            type = link.get('type', None)
+            if type == 'text/html':
+                # Feedparser fills this in and it's just wrong.
+                type = None
+            url = link['href']
+            hyperlink, was_new = pool.add_link(
+                Hyperlink.OPEN_ACCESS_DOWNLOAD, url, data_source, type)
+            hyperlink.resource.set_mirrored_elsewhere(type)
+            download_links.append(hyperlink)
+
+        for rel in (Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE):
             for link in links[rel]:
                 type = link.get('type', None)
                 if type == 'text/html':
                     # Feedparser fills this in and it's just wrong.
                     type = None
                 url = link['href']
-                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD or not image_resource:
-                    resource, was_new = identifier.add_resource(
-                        rel, url, data_source, pool, type)
-                if rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    download_resources.append(resource)
-                else:
-                    image_resource = resource
-
-                # TODO: Metadata wrangler should include width and
-                # height if possible, and we should pick it up here.
-
-                # The metadata wrangler handles scaling and mirroring
-                # resources, and we will trust what it says.
+                hyperlink, was_new = pool.add_link(
+                    rel, url, data_source, type)
+                hyperlink.resource.set_mirrored_elsewhere(type)
                 if rel == Hyperlink.IMAGE:
-                    # print "Resource %s was mirrored." % url
-                    image_resource.href = url
-                    image_resource.mirrored = True
-                    image_resource.mirrored_path = url
-                    image_resource.mirrored_date = datetime.datetime.utcnow()
-                    image_resource.mirrored_status = 200
-                elif rel == Hyperlink.THUMBNAIL_IMAGE:
-                    # print "Resource %s was scaled." % url
-                    image_resource.scaled = True
-                    image_resource.scaled_path = url
+                    image_link = hyperlink
                 else:
-                    print "Resource %s was neither scaled nor mirrored." % url
-        return download_resources, image_resource
+                    thumbnail_link = hyperlink
+
+        if image_link and thumbnail_link and image_link.resource:
+            if image_link.resource == thumbnail_link.resource:
+                # TODO: This is hacky. We can't represent an image as a thumbnail
+                # of itself, so we make sure the height is set so that
+                # we'll know that it doesn't need a thumbnail.
+                image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+            else:
+                # Represent the thumbnail as a thumbnail of the image.
+                thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
+        return download_links, image_link, thumbnail_link
 
 class DetailedOPDSImporter(BaseOPDSImporter):
 
@@ -293,30 +312,35 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
         # Remove any old contributors and subjects.
         removed_contributions = 0
-        for contribution in edition.contributions:
+        contributions = edition.contributions
+        for contribution in list(contributions):
             self._db.delete(contribution)
             removed_contributions += 1
+        edition.contributions = []
 
         removed_classifications = 0
         data_source = DataSource.license_source_for(self._db, identifier)
+        new_set = []
         for classification in identifier.classifications:
             if classification.data_source == data_source:
                 self._db.delete(classification)
                 removed_classifications += 1
+            else:
+                new_set.append(classification)
+        identifier.classifications = new_set
 
         print "Deleted %d contributions and %d classifications." % (
             removed_contributions, removed_classifications)
 
-        if edition_was_new:
-            for contributor in self.authors_by_id.get(entry.id, []):
-                edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
+        for contributor in self.authors_by_id.get(entry.id, []):
+            edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
 
-            weights = self.subject_weights_by_id.get(entry.id, {})
-            for key, weight in weights.items():
-                type, term = key
-                name = self.subject_names_by_id.get(key, None)
-                identifier.classify(
-                    data_source, type, term, name, weight=weight)
+        weights = self.subject_weights_by_id.get(entry.id, {})
+        for key, weight in weights.items():
+            type, term = key
+            name = self.subject_names_by_id.get(key, None)
+            identifier.classify(
+                data_source, type, term, name, weight=weight)
 
         print "Added %d contributions and %d classifications." % (
             len(edition.contributors), len(identifier.classifications)

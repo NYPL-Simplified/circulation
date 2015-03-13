@@ -59,7 +59,7 @@ class TestAnnotator(Annotator):
 class TestAnnotators(DatabaseTest):
 
     def test_all_subjects(self):
-        work = self._work()
+        work = self._work(genre="Fiction")
         edition = work.primary_edition
         identifier = edition.primary_identifier
         source1 = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -71,12 +71,10 @@ class TestAnnotators(DatabaseTest):
             (source2, Subject.LCSH, "lcsh1", "name2", 1),
             (source1, Subject.LCSH, "lcsh2", "name3", 3),
             (source1, Subject.DDC, "300", "Social sciences, sociology & anthropology", 1),
-            (source1, Subject.SIMPLIFIED_GENRE, "Fiction", None, 1)
         ]
 
         for source, subject_type, subject, name, weight in subjects:
             identifier.classify(source, subject_type, subject, name, weight=weight)
-
         category_tags = VerboseAnnotator.categories(work)
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
@@ -96,8 +94,28 @@ class TestAnnotators(DatabaseTest):
             sorted(category_tags[lcsh_uri]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
-        eq_([{'term': u'Fiction', rating_value: 1}], category_tags[genre_uri])
+        eq_(['Fiction'], category_tags[genre_uri])
 
+    def test_appeals(self):
+        work = self._work(with_open_access_download=True)
+        work.appeal_language = 0.1
+        work.appeal_character = 0.2
+        work.appeal_story = 0.3
+        work.appeal_setting = 0.4
+
+        category_tags = VerboseAnnotator.categories(work)
+        appeal_tags = category_tags[Work.APPEALS_URI]
+        expect = [
+            (Work.LANGUAGE_APPEAL, 0.1),
+            (Work.CHARACTER_APPEAL, 0.2),
+            (Work.STORY_APPEAL, 0.3),
+            (Work.SETTING_APPEAL, 0.4)
+        ]
+        actual = [
+            (x['term'], x['{http://schema.org/}ratingValue'])
+            for x in appeal_tags
+        ]
+        eq_(set(expect), set(actual))
 
     def test_detailed_author(self):
         c, ignore = self._contributor("Familyname, Givenname")
@@ -140,19 +158,19 @@ class TestOPDS(DatabaseTest):
         self.lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
-             dict(name="Romance", fiction=True, genres=[],
+             dict(full_name="Romance", fiction=True, genres=[],
                   sublanes=[
-                      dict(name="Contemporary Romance")
+                      dict(full_name="Contemporary Romance")
                   ]
               ),
          ]
@@ -172,7 +190,7 @@ class TestOPDS(DatabaseTest):
         feed = parsed['feed']
 
         # There's a self link.
-        alternate, self_link, start_link = sorted(feed.links)
+        self_link, start_link = sorted(feed.links)
         eq_("http://navigation-feed/", self_link['href'])
 
         # There's a link to the top level, which is the same as the
@@ -188,10 +206,10 @@ class TestOPDS(DatabaseTest):
 
         # Let's look at one entry, Fiction, which has no sublanes.
         toplevel = [x for x in parsed['entries'] if x.title == 'Fiction'][0]
-        eq_("tag:Fiction", toplevel.id)
+        eq_("http://featured-feed/Fiction", toplevel.id)
 
         # There are two links to acquisition feeds.
-        self_link, featured, by_author = sorted(toplevel['links'])
+        featured, by_author = sorted(toplevel['links'])
         eq_('http://featured-feed/Fiction', featured['href'])
         eq_("Featured", featured['title'])
         eq_(NavigationFeed.FEATURED_REL, featured['rel'])
@@ -204,11 +222,11 @@ class TestOPDS(DatabaseTest):
 
         # Now let's look at one entry, Romance, which has a sublane.
         toplevel = [x for x in parsed['entries'] if x.title == 'Romance'][0]
-        eq_("tag:Romance", toplevel.id)
+        eq_("http://featured-feed/Romance", toplevel.id)
 
         # Instead of an acquisition feed (by author), we have a navigation feed
         # (the sublanes of Romance).
-        self_link, featured, sublanes = sorted(toplevel['links'])
+        featured, sublanes = sorted(toplevel['links'])
         eq_('http://navigation-feed/Romance', sublanes['href'])
         eq_("Look inside Romance", sublanes['title'])
         eq_("subsection", sublanes['rel'])
@@ -220,7 +238,7 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(unicode(original_feed))
         feed = parsed['feed']
 
-        start_link, up_link, alternate_link, self_link = sorted(feed.links)
+        start_link, up_link, self_link = sorted(feed.links)
 
         # There's a self link.
         eq_("http://navigation-feed/Romance", self_link['href'])
@@ -275,7 +293,7 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
-        alternate_link, by_author, by_title, self_link = sorted(
+        by_author, by_title, self_link = sorted(
             by_title['links'], key=lambda x: (x['rel'], x.get('title')))
 
         eq_("http://the-url.com/", self_link['href'])
@@ -386,6 +404,29 @@ class TestOPDS(DatabaseTest):
         eq_([],
             [x['term'] for x in entries[2]['tags']
              if x['scheme'] == scheme])
+
+    def test_acquisition_feed_includes_category_tags_for_appeals(self):
+        work = self._work(with_open_access_download=True)
+        work.appeal_language = 0.1
+        work.appeal_character = 0.2
+        work.appeal_story = 0.3
+        work.appeal_setting = 0.4
+
+        work2 = self._work(with_open_access_download=True)
+
+        self._db.commit()
+        works = self._db.query(Work)
+        feed = AcquisitionFeed(self._db, "test", "url", works)
+        feed = feedparser.parse(unicode(feed))
+        entries = sorted(feed['entries'], key = lambda x: int(x['title']))
+
+        tags = entries[0]['tags']
+        matches = [x['term'] for x in tags if x['scheme'] == Work.APPEALS_URI]
+        eq_(['Character', 'Language', 'Setting', 'Story'], sorted(matches))
+
+        tags = entries[1]['tags']
+        matches = [x['term'] for x in tags if x['scheme'] == Work.APPEALS_URI]
+        eq_([], matches)
 
     def test_acquisition_feed_includes_category_tags_for_genres(self):
         work = self._work(with_open_access_download=True)

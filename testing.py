@@ -207,7 +207,7 @@ class DatabaseTest(object):
         for i in range(num_entries):
             edition = self._edition(
                 data_source_name, title="Item %s" % i)
-            edition.permanent_work_id="Permanent work ID %s" % i
+            edition.permanent_work_id="Permanent work ID %s" % self._str
             customlist.add_entry(
                 edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
@@ -247,7 +247,10 @@ from model import (
 def _setup(dbinfo):
     # Connect to the database and create the schema within a transaction
     engine, connection = SessionManager.initialize(os.environ['DATABASE_URL_TEST'])
-    Base.metadata.drop_all(connection)
+    try:
+        Base.metadata.drop_all(connection)
+    except Exception, e:
+        pass
     Base.metadata.create_all(connection)
     dbinfo.engine = engine
     dbinfo.connection = connection

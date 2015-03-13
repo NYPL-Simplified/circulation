@@ -1,6 +1,8 @@
 from nose.tools import set_trace
 import datetime
 import time
+import traceback
+from sqlalchemy.sql.functions import func
 
 from model import (
     get_one_or_create,
@@ -79,21 +81,27 @@ class PresentationReadyMonitor(Monitor):
         unready_works = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
                 Work.presentation_ready_exception==None).order_by(
-                    Work.last_update_time.desc()).limit(10)
+                func.random()).limit(10)
         # Work in batches of 10 works. This lets us consolidate and
         # parallelize IO-bound activities like uploading assets to S3.
-        while unready_works.count():
-            self.make_batch_presentation_ready(unready_works.all())
+        keep_going = True
+        while keep_going and unready_works.count():
+            keep_going = self.make_batch_presentation_ready(
+                unready_works.all())
+        if not keep_going:
+            print "[PRESENTATION READY] An entire batch failed. Giving up for now."
 
     def make_batch_presentation_ready(self, batch):
+        one_success = False
         for work in batch:
             failures = None
             exception = None
             try:
                 failures = self.prepare(work)
             except Exception, e:
-                exception = str(e)
-                print "[PRESENTATION READY MONITOR] Caught exception %s" % exception
+                tb = traceback.format_exc()
+                print "[PRESENTATION READY MONITOR] Caught exception %s" % tb
+                failures = True
             if failures and failures not in (None, True):
                 if isinstance(failures, list):
                     # This is a list of providers that failed.
@@ -112,7 +120,9 @@ class PresentationReadyMonitor(Monitor):
             else:
                 work.calculate_presentation(choose_edition=False)
                 work.set_presentation_ready()                    
+                one_success = True
         self.finalize_batch()
+        return one_success
 
     def prepare(self, work):
         edition = work.primary_edition

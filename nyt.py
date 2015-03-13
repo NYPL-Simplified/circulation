@@ -23,6 +23,7 @@ from model import (
     Representation,
     Resource,
 )
+from external_list import TitleFromExternalList
 
 class NYTAPI(object):
 
@@ -70,8 +71,8 @@ class NYTBestSellerAPI(NYTAPI):
             joiner = '&'
         url += joiner + "api-key=" + self.api_key
         representation, cached = Representation.get(
-            self._db, url, data_source=self.source, identifier=identifier,
-            do_get=self.do_get, max_age=max_age, debug=True, pause_before=0.1)
+            self._db, url, do_get=self.do_get, max_age=max_age, debug=True,
+            pause_before=0.1)
         content = json.loads(representation.content)
         return content
 
@@ -170,7 +171,7 @@ class NYTBestSellerList(list):
 
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""
-        data_source = DataSource.lookup(_db, DataSource.BIBLIOCOMMONS)
+        data_source = DataSource.lookup(_db, DataSource.NYT)
         l, was_new = get_one_or_create(
             _db, 
             CustomList,
@@ -196,10 +197,10 @@ class NYTBestSellerList(list):
             list_item, was_new = i.to_custom_list_entry(
                 custom_list, self.metadata_client)
 
-class NYTBestSellerListTitle(object):
+class NYTBestSellerListTitle(TitleFromExternalList):
 
     def __init__(self, data):
-        self.data = data
+        data = data
         for i in ('bestsellers_date', 'published_date'):
             try:
                 value = NYTAPI.parse_date(data.get(i))
@@ -208,13 +209,13 @@ class NYTBestSellerListTitle(object):
             setattr(self, i, value)
 
         if hasattr(self, 'bestsellers_date'):
-            self.first_appearance = self.bestsellers_date
-            self.most_recent_appearance = self.bestsellers_date
+            first_appearance = self.bestsellers_date
+            most_recent_appearance = self.bestsellers_date
         else:
-            self.first_appearance = None
-            self.most_recent_appearance = None
+            first_appearance = None
+            most_recent_appearance = None
 
-        self.isbns = [x['isbn13'] for x in data['isbns'] if 'isbn13' in x]
+        isbns = [x['isbn13'] for x in data['isbns'] if 'isbn13' in x]
 
         details = data['book_details']
         if len(details) > 0:
@@ -226,133 +227,15 @@ class NYTBestSellerListTitle(object):
                     value = None
                 setattr(self, i, value)
 
+        primary_isbn = details[0].get('primary_isbn13')
+        if not primary_isbn:
+            primary_isbn = details[0].get('primary_isbn10')
+
         # Don't call the display name of the author 'author'; it's
         # confusing.
-        self.display_author = details[0].get('author', None)
+        display_author = details[0].get('author', None)
 
-        if not self.primary_isbn10 and not self.primary_isbn13:
-            raise ValueError("Book has no identifier")
-
-    def to_custom_list_entry(self, custom_list, metadata_client):
-        _db = Session.object_session(custom_list)        
-        edition = self.to_edition(_db, metadata_client)
-
-        list_entry, is_new = get_one_or_create(
-            _db, CustomListEntry, edition=edition, customlist=custom_list
-        )
-
-        if (not list_entry.first_appearance 
-            or list_entry.first_appearance > self.first_appearance):
-            if list_entry.first_appearance:
-                print "I thought %s first showed up at %s, but then I saw it earlier, at %s!" % (self.title, list_entry.first_appearance, self.first_appearance)
-            list_entry.first_appearance = self.first_appearance
-
-        if (not list_entry.most_recent_appearance 
-            or list_entry.most_recent_appearance < self.most_recent_appearance):
-            if list_entry.most_recent_appearance:
-                print "I thought %s most recently showed up at %s, but then I saw it later, at %s!" % (self.title, list_entry.most_recent_appearance, self.most_recent_appearance)
-            list_entry.most_recent_appearance = self.most_recent_appearance
-            
-        list_entry.annotation = self.description
-
-        return list_entry, is_new
-
-    def find_sort_name(self, _db):
-        """Find the sort name for this book's author, assuming it's easy.
-
-        'Easy' means we already have an established sort name for a
-        Contributor with this exact display name.
-        
-        If it's not easy, this will be taken care of later with a call to
-        the metadata wrangler's author canonicalization service.
-
-        If we have a copy of this book in our collection (the only
-        time a NYT bestseller list item is relevant), this will
-        probably be easy.
-
-        """
-        contributors = _db.query(Contributor).filter(
-            Contributor.display_name==self.display_author).filter(
-                Contributor.name != None).all()
-        if contributors:
-            return contributors[0].name
-
-        # Maybe there's an Edition (e.g. from another NYT best-seller
-        # list) that has a sort name for this author?
-        editions = _db.query(Edition).filter(
-            Edition.author==self.display_author).filter(
-                Edition.sort_author != None).all()
-        if editions:
-            return editions[0].author
-
-        return None
-
-    def to_edition(self, _db, metadata_client):
-        """Create or update a Simplified Edition object for this NYTBestSeller
-        title.
-       """
-        identifier = self.primary_isbn13 or self.primary_isbn10
-        if not identifier:
-            return None
-        self.primary_identifier, ignore = Identifier.from_asin(_db, identifier)
-        data_source = DataSource.lookup(_db, DataSource.NYT)
-
-        edition, was_new = Edition.for_foreign_id(
-            _db, data_source, self.primary_identifier.type,
-            self.primary_identifier.identifier)
-
-        if edition.title != self.title:
-            edition.title = self.title
-            edition.permanent_work_id = None
-        edition.publisher = self.publisher
-        edition.medium = Edition.BOOK_MEDIUM
-        edition.language = 'eng'
-
-        for i in self.isbns:
-            if i == identifier:
-                # We already did this one.
-                continue
-            other_identifier, ignore = Identifier.from_asin(_db, i)
-            edition.primary_identifier.equivalent_to(
-                data_source, other_identifier, 1)
-
-        if self.published_date:
-            edition.published = self.published_date
-
-        if edition.author != self.display_author:
-            edition.permanent_work_id = None
-            edition.author = self.display_author
-        if not edition.sort_author:
-            edition.sort_author = self.find_sort_name(_db)
-            if edition.sort_author:
-                "IT WAS EASY TO FIND %s!" % edition.sort_author
-        # If find_sort_name returned a sort_name, we can calculate a
-        # permanent work ID for this Edition, and be done with it.
-        #
-        # Otherwise, we'll have to ask the metadata wrangler to find
-        # the canonicalized author name for this book.
-        if edition.sort_author:
-            edition.calculate_permanent_work_id()
-        else:
-            response = metadata_client.canonicalize_author_name(
-                self.primary_identifier, self.display_author)
-            a = u"Trying to canonicalize %s, %s" % (
-                self.primary_identifier.identifier, self.display_author)
-            print a.encode("utf8")
-            if (response.status_code == 200 
-                and response.headers['Content-Type'].startswith('text/plain')):
-                edition.sort_author = response.content.decode("utf8")
-                print "CANONICALIZER TO THE RESCUE: %s" % edition.sort_author
-                edition.calculate_permanent_work_id()
-            else:
-                print "CANONICALIZER FAILED ME."
-
-
-        # Set or update the description.
-        rel = Hyperlink.DESCRIPTION
-        href = Hyperlink.generic_uri(data_source, self.primary_identifier, rel)
-        description, is_new = self.primary_identifier.add_link(
-            rel, href, data_source, media_type="text/plain",
-            content=self.description)
-
-        return edition
+        super(NYTBestSellerListTitle, self).__init__(
+            DataSource.NYT, self.title, display_author, primary_isbn,
+            self.published_date, first_appearance, most_recent_appearance,
+            self.publisher, self.description, 'eng', isbns)

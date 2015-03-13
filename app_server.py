@@ -4,8 +4,10 @@ import flask
 from flask import url_for, make_response
 from util.flask_util import problem
 from opds import (
+    AcquisitionFeed,
     LookupAcquisitionFeed,
     OPDSFeed,
+
 )
 from model import (
     Edition,
@@ -23,6 +25,12 @@ def feed_response(feed, acquisition=True):
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
     return make_response(feed, 200, {"Content-Type": content_type})
 
+class HeartbeatController(object):
+
+    def heartbeat(self):
+        return make_response("", 200, {"Content-Type": "text/plain"})
+
+
 class URNLookupController(object):
 
     INVALID_URN = "Could not parse identifier."
@@ -33,7 +41,7 @@ class URNLookupController(object):
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
 
-    COULD_NOT_PARSE_URN_TYPE = "http://library-simplified.com/problem/could-not-parse-urn"
+    COULD_NOT_PARSE_URN_TYPE = "http://librarysimplified.org/terms/problem/could-not-parse-urn"
 
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
@@ -108,12 +116,12 @@ class URNLookupController(object):
             # TODO: We should delete the original Identifier object as it
             # is not properly part of the dataset and never will be.
 
-    def work_lookup(self, annotator):
+    def work_lookup(self, annotator, controller_name='lookup'):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
-        this_url = url_for('lookup', _external=True, urn=urns)
+        this_url = url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
             code, message = self.process_urn(urn)
             if code:
@@ -129,7 +137,7 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
 
-    def permalink(urn):
+    def permalink(self, urn, annotator):
         """Generate an OPDS feed for looking up a single work by identifier."""
         this_url = url_for('work', _external=True, urn=urn)
         messages_by_urn = dict()

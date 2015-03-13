@@ -5,6 +5,7 @@ import os
 from urlparse import urlsplit
 import urllib
 from util.mirror import MirrorUploader
+from requests.exceptions import ConnectionError
 
 class S3Uploader(MirrorUploader):
 
@@ -69,7 +70,7 @@ class S3Uploader(MirrorUploader):
         return root + "%s/%s.%s" % tuple(args + [extension])
 
     @classmethod
-    def cover_image_url(cls, data_source, identifier, filename, scaled_size=None):
+    def cover_image_url(cls, data_source, identifier, filename=None, scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
         root = cls.cover_image_root(data_source, scaled_size)
         args = [identifier.identifier, filename]
@@ -106,7 +107,8 @@ class S3Uploader(MirrorUploader):
             request = self.pool.upload(remote_filename, fh, bucket=bucket)
             requests.append(request)
         # Do the upload.
-        for response in self.pool.as_completed(requests):
+
+        def process_response(response):
             representation = representations_by_mirror_url[response.url]
             if response.status_code == 200:
                 source = representation.local_content_path
@@ -122,7 +124,13 @@ class S3Uploader(MirrorUploader):
                 representation.mirrored_at = None
                 representation.mirror_exception = "Status code %d: %s" % (
                     response.status_code, response.content)
-                set_trace()
+
+        try:
+            for response in self.pool.as_completed(requests):
+                process_response(response)
+        except ConnectionError, e:
+            # This is a transient error; we can just try again.
+            pass
 
         # Close the filehandles
         for fh in filehandles:

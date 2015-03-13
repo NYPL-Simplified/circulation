@@ -173,7 +173,7 @@ genre_structure = {
         "Horror",
         "Movies/Gaming",
         dict(name="Science Fiction", subgenres=[
-            "Military",
+            "Military SF",
             "Space Opera",
             ]
          ),
@@ -201,6 +201,7 @@ genre_structure = {
         ("Urban Fiction", True)
     ],
     ("LGBT", None) : [],
+    ("Women's Fiction", None) : [],
 }
 
 class GenreData(object):
@@ -237,7 +238,7 @@ class GenreData(object):
 
     @property
     def variable_name(self):
-        return self.name.replace("-", "_").replace(", & ", "_").replace(", ", "_").replace(" & ", "_").replace(" ", "_").replace("/", "_")
+        return self.name.replace("-", "_").replace(", & ", "_").replace(", ", "_").replace(" & ", "_").replace(" ", "_").replace("/", "_").replace("'", "")
 
     @classmethod
     def populate(cls, namespace, genres, source):
@@ -295,6 +296,7 @@ class Classifier(object):
     LCSH = "LCSH"
     FAST = "FAST"
     OVERDRIVE = "Overdrive"
+    THREEM = "3M"
     TAG = "tag"   # Folksonomic tags.
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
@@ -321,11 +323,11 @@ class Classifier(object):
         #    print "", genre, weight
 
         # Convert Genre objects to GenreData.
-        consolidated = dict()
+        consolidated = Counter()
         for genre, weight in weights.items():
             if not isinstance(genre, GenreData):
                 genre = genres[genre.name]
-            consolidated[genre] = weight
+            consolidated[genre] += weight
 
         heaviest_child = dict()
         for genre, weight in consolidated.items():
@@ -429,6 +431,350 @@ class Classifier(object):
         elif 'young adult' in n or "YA" in name:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
+    
+
+class ThreeMClassifier(Classifier):
+
+    # Any classification that starts with "FICTION" or "JUVENILE
+    # FICTION" will be counted as fiction. This is just the leftovers.
+    FICTION = set([
+        "Magic",
+        "Fables",
+        "Unicorns & Mythical",
+    ])
+
+    # These are the most general categories, used if nothing more specific matches.
+    CATCHALL_PREFIXES = {
+        Action_Adventure : [
+            "Action & Adventure/",
+            "FICTION/Adventure/",
+            "FICTION/War/",
+            "Men's Adventure/",
+            "Westerns/",
+            "Sea Stories",
+        ],
+        Architecture : "ARCHITECTURE/",
+        Art : "ART/",
+        Antiques_Collectibles : "ANTIQUES & COLLECTIBLES/",
+        Biography_Memoir : [
+            "BIOGRAPHY & AUTOBIOGRAPHY/",
+            "Biography & Autobiography/",
+            ],
+        Body_Mind_Spirit: [
+            "BODY MIND & SPIRIT/",
+            "MIND & SPIRIT/",
+        ],
+        Business_Economics : "BUSINESS & ECONOMICS/",
+        Classics : [
+            "Classics/",
+        ],
+        Cooking: [
+            "COOKING/",
+            "Cooking & Food",
+            "Cooking/",
+        ],
+        Graphic_Novels_Comics : "COMICS & GRAPHIC NOVELS/",
+        Computers: [
+            "COMPUTERS/",
+            "Computers/",
+        ],
+        Crafts_Hobbies_Games : [ 
+            "CRAFTS & HOBBIES/",
+            "GAMES/",
+        ],
+        Design: "DESIGN/",
+        Drama: "DRAMA/",
+        Education : "EDUCATION/",
+        Erotica: "Erotica/",
+        Espionage : "Espionage/",
+        Fantasy : [
+            "Fantasy/",
+            "Magic/",
+            "Unicorns & Mythical/"
+        ],
+        Foreign_Language_Study : "FOREIGN LANGUAGE STUDY/",
+        Gardening : "GARDENING/",
+        Graphic_Novels_Comics : "Comics & Graphic Novels/",
+        Health_Diet : [
+            "HEALTH & FITNESS/",
+            "Health/",
+        ],
+        Historical_Fiction : [
+            "FICTION/Historical/",
+            "JUVENILE FICTION/Historical/",
+        ],
+        History : "HISTORY/",
+        Humor : [
+            "FICTION/Humorous",
+            "FICTION/Satire",
+            "Humorous Stories/",
+            "HUMOR/",
+            "Humor/",
+        ],
+        Horror : [
+            "Horror/",
+            "Horror & Ghost Stories/",
+            "Occult/",
+        ],
+        Language_Arts_Disciplines : "LANGUAGE ARTS & DISCIPLINES/",
+        Literary_Collections : "LITERARY COLLECTIONS/",
+        Literary_Fiction : [
+            "FICTION/Literary",
+            "FICTION/Psychological",
+            "FICTION/Coming of Age",
+            "FICTION/Family Saga",
+        ],
+        Law : "LAW/",
+        Mathematics : "MATHEMATICS/",
+        Medical : "MEDICAL/",
+        Music : "MUSIC/",
+        Mystery : [
+            "Mystery & Detective/",
+            "FICTION/Crime/",
+            "Mysteries & Detective Stories/"
+        ],
+        Nature : "NATURE/",
+        Parenting_Family: "FAMILY & RELATIONSHIPS/",
+        Performing_Arts : "PERFORMING ARTS/",
+        Pets : "PETS/",
+        Philosophy : "PHILOSOPHY/",
+        Photography : "PHOTOGRAPHY/",
+        Poetry : "POETRY/",
+        Politics_Current_Events: "POLITICAL SCIENCE/",
+        Psychology : "PSYCHOLOGY & PSYCHIATRY/",
+        Reference: "REFERENCE/",
+        Religion_Spirituality : [
+            "RELIGION/",
+            "Religion/",
+        ],
+        Romance : [
+            "ROMANCE/",
+            "Romance/",
+            "JUVENILE FICTION/Love & Romance/",
+        ],
+        Science : "SCIENCE/",
+        Science_Fiction : "Science Fiction",
+        Self_Help: "SELF-HELP/",
+        Social_Science : "SOCIAL SCIENCE/",
+        Sports : [
+            "SPORTS & RECREATION/",
+            "Sports & Recreation/",
+        ],
+        Study_Aids : "STUDY AIDS/",
+        Thrillers : [
+            "FICTION/Suspense/",
+            "FICTION/Thrillers/",
+        ],
+        Technology_Engineering : "TECHNOLOGY/",
+        Transportation : "TRANSPORTATION/",
+        Travel : ["TRAVEL/", "Travel/"],
+        True_Crime : "TRUE CRIME/",
+        Urban_Fiction : [
+            "FICTION/African American/",
+            "FICTION/Urban/",
+        ],
+        Womens_Fiction : "FICTION/Contemporary Women/",
+    }
+
+    # These are more specific subcategories of the above categories that are checked first.
+    LEVEL_2_PREFIXES = {
+        Art_Criticism_Theory : "ART/Criticism",
+        Art_History : "ART/History",
+        Ancient_History : "HISTORY/Ancient",
+        Bartending_Cocktails : "COOKING/Wine & Spirits",
+        Buddhism : [
+            "RELIGION/Buddhism (see also Zen Buddhism)/"
+            "RELIGION/Zen Buddhism/",
+        ],
+        Christianity : [
+            "RELIGION/Catholicism/",
+            "RELIGION/Christian Life/",
+            "RELIGION/Christanity/",
+            "RELIGION/Christan Church/",
+        ],
+        Computers : [
+            "BUSINESS & ECONOMICS/Industries/Computers & Information Technology/",
+        ],
+        Contemporary_Romance : [
+            "Romance/Contemporary/",
+        ],
+        Crafts_Hobbies_Games : [
+            "Sports & Recreation/Games/",
+        ],
+        Erotica : [
+            "African American/Erotica",
+            "Romance/Adult",
+        ],
+        Fantasy: [
+            "JUVENILE FICTION/Animals/Dragons",
+        ],
+        Film_TV: [
+            "PERFORMING ARTS/Film/",
+            "PERFORMING ARTS/Television/",
+        ],
+        Economics : [
+            "BUSINESS & ECONOMICS/Economic History/",
+            "BUSINESS & ECONOMICS/Economics/",
+        ],
+        European_History : [
+            "HISTORY/Europe/",
+            "HISTORY/Great Britain/",
+            "HISTORY/Italy/",
+            "HISTORY/Ireland/",
+            "HISTORY/Russia (pre- & post-Soviet Union)/",
+        ],
+        Family_Relationships : [
+            "FAMILY & RELATIONSHIPS/Love & Romance/",
+            "FAMILY & RELATIONSHIPS/Marriage/",
+        ],
+        Fashion : [
+            "DESIGN/Fashion/",
+            "CRAFTS & HOBBIES/Fashion/",
+            "SELF_HELP/Fashion & Style/",
+            "Art/Fashion/",
+        ],
+        Hard_Boiled : "Mystery & Detective/Hard Boiled",
+        Health_Diet : "COOKING/Health",
+        Hinduism : [
+            "RELIGION/Hinduism",
+        ],
+        Horror : [
+            "JUVENILE FICTION/Paranormal/",
+        ],
+        Historical_Romance : [
+            "Romance/Historical/",
+        ],
+        Islam : [
+            "RELIGION/Islam/",
+        ],
+        Judaism : [
+            "RELIGION/Judaism/",
+            "Religion/Judaism/",
+        ],
+        Latin_American_History : [
+            "HISTORY/South America",
+        ],
+        Legal_Thrillers : "Thrillers/Legal",
+        LGBT : [
+            "LITERARY COLLECTIONS/Gay & Lesbian/",
+            "FICTION/Gay/",
+            "FICTION/Lesbian/",
+            "JUVENILE FICTION/Gay & Lesbian/",
+        ],
+        Literary_Criticism : [
+            "LITERARY CRITICISM & COLLECTIONS/Books & Reading/",
+            "LITERARY CRITICISM & COLLECTIONS/",
+        ],
+        Management_Leadership: [
+            "BUSINESS & ECONOMICS/Management/",
+            "BUSINESS & ECONOMICS/Leadership/",
+        ],
+        Manga : "COMICS & GRAPHIC NOVELS/Manga/",
+        Middle_East_History : [
+            "HISTORY/Israel",
+        ],
+        Military_SF : "Science Fiction/Military",
+        Military_History : "HISTORY/Military",
+        Military_Thrillers : "Thrillers/Military",
+        Modern_History : "HISTORY/Modern",
+        Music : [
+            "Performing Arts/Music",
+            "BIOGRAPHY & AUTOBIOGRAPHY/Composers & Musicians/",
+        ],
+        Paranormal_Romance : ["Romance/Paranormal"],
+        Parenting: [
+            "FAMILY & RELATIONSHIPS/Children with Special Needs/",
+            "FAMILY & RELATIONSHIPS/Fatherhood/",
+            "FAMILY & RELATIONSHIPS/Motherhood/",
+            "FAMILY & RELATIONSHIPS/Adoption/",
+            "FAMILY & RELATIONSHIPS/Infants & Toddlers/",
+            "FAMILY & RELATIONSHIPS/Parenting/",
+        ],
+        Personal_Finance_Investing : [
+            "BUSINESS & ECONOMICS/Investments & Securities/",
+            "BUSINESS & ECONOMICS/Personal Finance/",
+            "BUSINESS & ECONOMICS/Personal Success",
+        ],
+        Police_Procedurals : "Mystery & Detective/Police Procedural",
+        Political_Science : "POLITICAL SCIENCE/History & Theory/",
+        Real_Estate : "BUSINESS & ECONOMICS/Real Estate/",
+        Religious_Fiction : [
+            "JUVENILE FICTION/Religious/",
+            "FICTION/Religious/",
+            "FICTION/Christian/",
+            "Religious/Jewish/",
+            "FICTION/Jewish/",
+        ],
+        Science_Fiction : [
+            "LITERARY CRITICISM & COLLECTIONS/Science Fiction/",
+        ],
+        Space_Opera : "Science Fiction/Space Opera/",
+        Suspense_Romance : "Romance/Suspense/",
+        United_States_History : [
+            "HISTORY/United States",
+            "HISTORY/Native American",
+        ],
+        Vegetarian_Vegan: "COOKING/Vegetarian",
+        World_History : "HISTORY/Civilization",
+        Women_Detectives : "Mystery & Detective/Women Sleuths",
+    }
+
+    LEVEL_3_PREFIXES = {
+        Regency_Romance : "Romance/Historical/Regency",
+    }
+
+    PREFIX_LISTS = [LEVEL_3_PREFIXES, LEVEL_2_PREFIXES, CATCHALL_PREFIXES]
+   
+
+    @classmethod
+    def scrub_identifier(cls, identifier):
+        if not identifier.endswith('/'):
+            return identifier + '/'
+        else:
+            return identifier
+
+    @classmethod
+    def is_fiction(cls, identifier, name):    
+        if identifier in cls.FICTION:
+            return True
+        if '/Essays/' in identifier or '/Letters/' in identifier:
+            return False
+        if identifier.startswith('FICTION'):
+            return True
+        if identifier.startswith('JUVENILE FICTION'):
+            return True
+        return False
+
+    @classmethod
+    def audience(cls, identifier, name):
+        # We can't distinguish between young adult and children's
+        # material solely based on 3M genres.  Classify it all as young
+        # adult to be safe.
+        if identifier.startswith("JUVENILE"):
+            return cls.AUDIENCE_YOUNG_ADULT
+        return cls.AUDIENCE_ADULT
+
+    @classmethod
+    def _match(cls, identifier, match_against):
+        if isinstance(match_against, list):
+            return any(identifier.startswith(x) for x in match_against)
+        else:
+            return identifier.startswith(match_against)
+
+    @classmethod
+    def genre(cls, identifier, name):
+        for prefixes in cls.PREFIX_LISTS:
+            for l, v in prefixes.items():
+                if cls._match(identifier, v):
+                    return l
+                for remove_prefix in [
+                        'FICTION/', 'JUVENILE FICTION/', 'JUVENILE NONFICTION/']:
+                    if identifier.startswith(remove_prefix):
+                        check = identifier[len(remove_prefix):]
+                        if cls._match(check, v):
+                            return l
+
+        return None
 
 
 class OverdriveClassifier(Classifier):
@@ -510,7 +856,9 @@ class OverdriveClassifier(Classifier):
         Transportation : "Transportation",
         Travel : ["Travel", "Travel Literature"],
         True_Crime : "True Crime",
+        Urban_Fantasy: "Fantasy/Contemporary/", 
         Urban_Fiction: "Urban Fiction", 
+        Womens_Fiction: "Chick Lit Fiction",
     }
 
     @classmethod
@@ -1485,7 +1833,7 @@ class KeywordBasedClassifier(Classifier):
                ),
 
                # Military SF, not "military" in general.
-        Military: match_kw(
+        Military_SF: match_kw(
             "science fiction.*military",
             "military.*science fiction",
         ),
@@ -1925,6 +2273,10 @@ class KeywordBasedClassifier(Classifier):
                    "women sleuths",
                    "women sleuth",
                ),
+
+               Womens_Fiction : match_kw(
+                   "contemporary women",
+               ),
                
                World_History: match_kw(
                    "world history",
@@ -2254,4 +2606,5 @@ Classifier.classifiers[Classifier.FAST] = FASTClassifier
 Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
+Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier

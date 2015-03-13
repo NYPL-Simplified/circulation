@@ -11,12 +11,14 @@ import datetime
 import json
 import os
 from nose.tools import set_trace
+import md5
 import random
 import re
 import requests
 import time
 import isbnlib
 import urllib
+import traceback
 
 from PIL import (
     Image,
@@ -168,6 +170,9 @@ def get_one_or_create(db, model, create_method='',
         return one, False
     else:
         try:
+            if 'on_multiple' in kwargs:
+                # This kwarg is supported by get_one() but not by create().
+                del kwargs['on_multiple']
             return create(db, model, create_method, create_method_kwargs, **kwargs)
         except IntegrityError:
             db.rollback()
@@ -450,7 +455,7 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
-    URN_SCHEME_PREFIX = "urn:library-simplified.com/identifier/"
+    URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
 
     __tablename__ = 'identifiers'
@@ -805,7 +810,7 @@ class Identifier(Base):
         
         # Find or create the Resource.
         if not href:
-            href = Hyperlink.generic_uri(data_source, self, rel)
+            href = Hyperlink.generic_uri(data_source, self, rel, content)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
             create_method_kwargs=dict(data_source=data_source)
@@ -896,9 +901,12 @@ class Identifier(Base):
         return classification
 
     @classmethod
-    def resources_for_identifier_ids(self, _db, identifier_ids, rel=None):
+    def resources_for_identifier_ids(self, _db, identifier_ids, rel=None,
+                                     data_source=None):
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
+        if data_source:
+            resources = resources.filter(Hyperlink.data_source==data_source)
         if rel:
             if isinstance(rel, list):
                 resources = resources.filter(Hyperlink.rel.in_(rel))
@@ -954,6 +962,11 @@ class Identifier(Base):
             rep = r.representation
             if not rep:
                 continue
+
+            if not champion:
+                champion = r
+                continue
+
             if not rep.image_width or not rep.image_height:
                 continue
             aspect_ratio = rep.image_width / float(rep.image_height)
@@ -1001,7 +1014,8 @@ class Identifier(Base):
         return champion, images
 
     @classmethod
-    def evaluate_summary_quality(cls, _db, identifier_ids):
+    def evaluate_summary_quality(cls, _db, identifier_ids, 
+                                 privileged_data_source=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
         This is an automatic evaluation based solely on the content of
@@ -1013,43 +1027,43 @@ class Identifier(Base):
         need to see which noun phrases are most frequently used to
         describe the underlying work.
 
+        :param privileged_data_source: If present, a summary from this
+        data source will be instantly chosen, short-circuiting the
+        decision process.
+
         :return: The single highest-rated summary Resource.
 
         """
         evaluator = SummaryEvaluator()
+
         # Find all rel="description" resources associated with any of
         # these records.
-        #
-        # TODO: This does not find short descriptions, which have a different
-        # relation.
-        summaries = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.DESCRIPTION)
-        summaries = summaries.join(Resource.representation).filter(
-            Representation.content != None).all()
+        rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
+        descriptions = cls.resources_for_identifier_ids(
+            _db, identifier_ids, rels, privileged_data_source)
+        descriptions = descriptions.join(
+            Resource.representation).filter(
+                Representation.content != None).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
-        has_short_description = False
-        has_full_description = False
-        for r in summaries:
-            if r.href=="tag:short":
-                has_short_description = True
-            elif r.href=="tag:full":
-                has_full_description = True
-            if has_full_description and has_short_description:
-                break
-
-        for r in summaries:
-            evaluator.add(r.content)
+        for r in descriptions:
+            evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
-        for r in summaries:
-            quality = evaluator.score(r.content)
+        for r in descriptions:
+            content = r.representation.content
+            quality = evaluator.score(content)
             r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
                 champion = r
-        return champion, summaries
+
+        if privileged_data_source and not champion:
+            # We could not find any descriptions from the privileged
+            # data source. Try relaxing that restriction.
+            return cls.evaluate_summary_quality(_db, identifier_ids)
+        return champion, descriptions
 
     @classmethod
     def missing_coverage_from(
@@ -1108,7 +1122,7 @@ class UnresolvedIdentifier(Base):
 
         return get_one_or_create(
             _db, UnresolvedIdentifier, identifier=identifier,
-            create_method_kwargs=dict(status=202),
+            create_method_kwargs=dict(status=202), on_multiple='interchangeable'
         )
 
 class Contributor(Base):
@@ -1438,6 +1452,8 @@ class Edition(Base):
 
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
 
+    MAX_THUMBNAIL_HEIGHT = 300
+
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
     # it. Through the Equivalency class, it is associated with a
@@ -1690,10 +1706,15 @@ class Edition(Base):
         # versions of this representation and we need some way of
         # choosing between them. Right now we just pick the first one
         # that works.
-        for scaled_down in resource.representation.thumbnails:
-            if scaled_down.mirror_url and scaled_down.mirrored_at:
-                self.cover_thumbnail_url = scaled_down.mirror_url
-                break
+        if (resource.representation.image_height
+            and resource.representation.image_height <= self.MAX_THUMBNAIL_HEIGHT):
+            # This image doesn't need a thumbnail.
+            self.cover_thumbnail_url = resource.representation.mirror_url
+        else:
+            for scaled_down in resource.representation.thumbnails:
+                if scaled_down.mirror_url and scaled_down.mirrored_at:
+                    self.cover_thumbnail_url = scaled_down.mirror_url
+                    break
         print self.cover_full_url, self.cover_thumbnail_url
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,
@@ -1809,6 +1830,7 @@ class Edition(Base):
         q = Identifier.resources_for_identifier_ids(
             _db, [self.primary_identifier.id], open_access)
         for l in q:
+            
             if l.representation.media_type.startswith(Representation.EPUB_MEDIA_TYPE):
                 best = l
                 # A Project Gutenberg-ism: if we find a 'noimages' epub,
@@ -1900,7 +1922,7 @@ class Edition(Base):
             print t.encode("utf8")
             print " language=%s" % self.language
             if self.cover:
-                print " cover=" + self.cover.mirrored_path
+                print " cover=" + self.cover.representation.mirror_url
             print
 
 
@@ -1924,6 +1946,8 @@ class WorkGenre(Base):
 
 
 class Work(Base):
+
+    APPEALS_URI = "http://librarysimplified.org/terms/appeals/"
 
     CHARACTER_APPEAL = "Character"
     LANGUAGE_APPEAL = "Language"
@@ -2075,7 +2099,7 @@ class Work(Base):
         self.summary = resource
         # TODO: clean up the content
         if resource:
-            self.summary_text = resource.content
+            self.summary_text = resource.representation.content
 
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
@@ -2249,8 +2273,10 @@ class Work(Base):
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Hyperlink.IMAGE).filter(
-                Resource.mirrored==True).filter(Resource.scaled==True).order_by(
+            _db, flattened_data, Hyperlink.IMAGE).join(
+            Resource.representation).filter(
+                Representation.mirrored_at!=None).filter(
+                Representation.scaled_at!=None).order_by(
                 Resource.quality.desc())
 
     def all_descriptions(self):
@@ -2356,6 +2382,18 @@ class Work(Base):
         if choose_edition or not self.primary_edition:
             self.set_primary_edition()
 
+        # The privileged data source may short-circuit the process of
+        # finding a good cover or description.
+        if self.primary_edition:
+            privileged_data_source = self.primary_edition.data_source
+
+            # We can't use descriptions or covers from Gutenberg, so
+            # we never consider it a privileged data source.
+            if privileged_data_source.name == DataSource.GUTENBERG:
+                privileged_data_source = None
+        else:
+            privileged_data_source = None
+
         if self.primary_edition:
             self.primary_edition.calculate_presentation(debug=debug)
 
@@ -2377,25 +2415,35 @@ class Work(Base):
 
         if choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data)
+                _db, flattened_data, privileged_data_source)
             # TODO: clean up the content
             self.set_summary(summary)
 
-        # If this is a Project Gutenberg book, treat the number of IDs
+        # If this is a Project Gutenberg or 3M book, treat the number of IDs
         # associated with the work (~the number of editions of the
         # work published in modern times) as a measurement of
         # popularity.
-        if self.primary_edition and self.primary_edition.data_source.name==DataSource.GUTENBERG:
-            oclc_linked_data = DataSource.lookup(
-                _db, DataSource.OCLC_LINKED_DATA)
-            self.primary_edition.primary_identifier.add_measurement(
-                oclc_linked_data, Measurement.POPULARITY, 
-                len(flattened_data)/3.0)
-            # Only consider the quality signals associated with the
-            # primary edition. Otherwise texts that have multiple
-            # Gutenberg editions will drag down the quality of popular
-            # books.
-            flattened_data = [self.primary_edition.primary_identifier.id]
+        #
+        # TODO: This measurement needs to be scaled with a percentile
+        # list, not by crudely dividing by three.
+        if privileged_data_source:
+            dsn = privileged_data_source.name
+            if dsn in (DataSource.GUTENBERG, DataSource.THREEM):
+                oclc_linked_data = DataSource.lookup(
+                    _db, DataSource.OCLC_LINKED_DATA)
+                if dsn == DataSource.GUTENBERG:
+                    quotient = 3.0
+                else:
+                    quotient = 2.0
+                self.primary_edition.primary_identifier.add_measurement(
+                    oclc_linked_data, Measurement.POPULARITY, 
+                    len(flattened_data)/quotient)
+            if dsn == DataSource.GUTENBERG:
+                # Only consider the quality signals associated with the
+                # primary edition. Otherwise texts that have multiple
+                # Gutenberg editions will drag down the quality of popular
+                # books.
+                flattened_data = [self.primary_edition.primary_identifier.id]
 
         if calculate_quality:
             self.calculate_quality(flattened_data)
@@ -2420,8 +2468,10 @@ class Work(Base):
             print " " + ", ".join(repr(wg) for wg in self.work_genres)
             if self.summary:
                 d = " Description (%.2f) %s" % (
-                    self.summary.quality, self.summary.content[:100])
-                print d.encode("utf8")
+                    self.summary.quality, self.summary.representation.content[:100])
+                if isinstance(d, unicode):
+                    d = d.encode("utf8")
+                print d
             print
 
     def set_presentation_ready(self, as_of=None):
@@ -2476,6 +2526,8 @@ class Work(Base):
         audience_s = Counter()
         for classification in classifications:
             subject = classification.subject
+            if not subject.checked:
+                subject.assign_to_genre()
             if (not subject.fiction and not subject.genre
                 and not subject.audience):
                 continue
@@ -2560,12 +2612,12 @@ class Measurement(Base):
     __tablename__ = 'measurements'
 
     # Some common measurement types
-    POPULARITY = "http://library-simplified.com/rel/popularity"
+    POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
 
-    GUTENBERG_FAVORITE = "http://library-simplified.com/rel/lists/gutenberg-favorite"
+    GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
     # If a book's popularity measurement is found between index n and
     # index n+1 on this list, it is in the nth percentile for
@@ -2579,6 +2631,8 @@ class Measurement(Base):
         # This is a percentile list of OCLC Work IDs and OCLC Numbers
         # associated with Project Gutenberg texts via OCLC Linked
         # Data.
+        #
+        # TODO: Calculate a separate distribution for more modern works.
         DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
     }
 
@@ -2716,9 +2770,10 @@ class Hyperlink(Base):
     IMAGE = "http://opds-spec.org/image"
     THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
     SAMPLE = "http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = "http://library-simplified.com/rel/illustration"
+    ILLUSTRATION = "http://librarysimplified.org/terms/rel/illustration"
     REVIEW = "http://schema.org/Review"
     DESCRIPTION = "http://schema.org/description"
+    SHORT_DESCRIPTION = "http://librarysimplified.org/terms/rel/short-description"
     AUTHOR = "http://schema.org/author"
 
     # TODO: Is this the appropriate relation?
@@ -2763,7 +2818,11 @@ class Hyperlink(Base):
         """
         l = [identifier.urn, urllib.quote(data_source.name), urllib.quote(rel)]
         if content:
-            l.append(md5.new(content).hexdigest())
+            m = md5.new()
+            if isinstance(content, unicode):
+                content = content.encode("utf8")
+            m.update(content)
+            l.append(m.hexdigest())
         return ":".join(l)
 
 
@@ -2834,6 +2893,17 @@ class Resource(Base):
         if not self.representation.mirror_url:
             return None
         return self.representation.mirror_url
+
+    def set_mirrored_elsewhere(self, media_type):
+        """We don't need our own copy of this resource's representation--
+        a copy of it has been mirrored already.
+        """
+        _db = Session.object_session(self)
+        if not self.representation:
+            self.representation, is_new = get_one_or_create(
+                _db, Representation, url=self.url, media_type=media_type)
+        self.representation.mirror_url = self.url
+        self.representation.set_as_mirrored()
 
     def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation
@@ -2948,16 +3018,19 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
+    THREEM = Classifier.THREEM  # 3M's classification system
     TAG = Classifier.TAG   # Folksonomic tags.
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://library-simplified.com/genres/"
+    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
+        "http://librarysimplified.org/terms/genres/3M/" : THREEM,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
@@ -2979,7 +3052,7 @@ class Subject(Base):
 
     # Human-readable name, if different from the
     # identifier. (e.g. "Social Sciences" for DDC 300)
-    name = Column(Unicode, default=None)
+    name = Column(Unicode, default=None, index=True)
 
     # Whether classification under this subject implies anything about
     # the fiction/nonfiction status of a book.
@@ -3087,24 +3160,30 @@ class Subject(Base):
 
         counter = 0
         for subject in q:
-            subject.checked = True
-            classifier = Classifier.classifiers.get(subject.type, None)
-            if not classifier:
-                continue
-            genredata, audience, fiction = classifier.classify(subject)
-            if genredata:
-                genre, was_new = Genre.lookup(_db, genredata.name, True)
-                subject.genre = genre
-            if audience:
-                subject.audience = audience
-            if fiction is not None:
-                subject.fiction = fiction
-            if genredata or audience or fiction:
-                print subject
+            subject.assign_to_genre()
             counter += 1
             if not counter % batch_size:
                 _db.commit()
         _db.commit()
+
+    def assign_to_genre(self):
+        """Assign this subject to a genre."""
+        classifier = Classifier.classifiers.get(self.type, None)
+        if not classifier:
+            return
+        self.checked = True
+        genredata, audience, fiction = classifier.classify(self)
+        if genredata:
+            _db = Session.object_session(self)
+            genre, was_new = Genre.lookup(_db, genredata.name, True)
+            self.genre = genre
+        if audience:
+            self.audience = audience
+        if fiction is not None:
+            self.fiction = fiction
+        if genredata or audience or fiction:
+            print self
+
 
 class Classification(Base):
     """The assignment of a Identifier to a Subject."""
@@ -3166,12 +3245,13 @@ class LaneList(object):
                 # A more complicated lane. Its description is a bunch
                 # of arguments to the Lane constructor.
                 l = lane_description
-                lane = Lane(_db, l['name'], l.get('genres', []), 
+                lane = Lane(_db, l['full_name'], l.get('genres', []), 
                             l.get('include_subgenres', True),
                             l.get('fiction', default_fiction),
                             l.get('audience', default_audience),
                             parent_lane,
-                            l.get('sublanes', [])
+                            l.get('sublanes', []),
+                            l.get('display_name', None)
                         )                            
             lanes.add(lane)
             for sublane in lane.sublanes.lanes:
@@ -3216,10 +3296,11 @@ class Lane(object):
         return Lane(_db, "", [], True, Lane.BOTH_FICTION_AND_NONFICTION,
                     None)
 
-    def __init__(self, _db, name, genres, include_subgenres=True,
+    def __init__(self, _db, full_name, genres, include_subgenres=True,
                  fiction=True, audience=Classifier.AUDIENCE_ADULT,
-                 parent=None, sublanes=[], appeal=None):
-        self.name = name
+                 parent=None, sublanes=[], appeal=None, display_name=None):
+        self.name = full_name
+        self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.appeal = appeal
@@ -3278,6 +3359,9 @@ class Lane(object):
                and len(results) < target_size):
             remaining = target_size - len(results)
             query = self.works(languages=languages, availability=availability)
+            if quality_min < 0.01:
+                quality_min = 0
+
             query = query.filter(
                 Work.quality >= quality_min,
             )
@@ -3293,7 +3377,7 @@ class Lane(object):
                 quality_min, len(results), self.name, time.time()-start
                 )
 
-            if quality_min == quality_min_rock_bottom:
+            if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
                 break
 
@@ -3400,6 +3484,8 @@ class WorkFeed(object):
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
             languages = [languages]
+        elif not isinstance(languages, list):
+            raise ValueError("Invalid value for languages: %r" % languages)
         self.languages = languages
         if not order_by:
             order_by = []
@@ -3515,6 +3601,7 @@ class CustomListFeed(WorkFeed):
                 CustomListEntry.most_recent_appearance >= self.on_list_as_of)
             q = q.filter(on_list_clause)
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
+        print "Potentially %s permanent work IDs." % len(permanent_work_ids)
 
         # Now the second query. Find all works where the primary edition's
         # permanent work ID is in the big list of IDs we got earlier.
@@ -3522,6 +3609,20 @@ class CustomListFeed(WorkFeed):
         q = q.join(Work.primary_edition).filter(
             Edition.permanent_work_id.in_(permanent_work_ids))
         return q
+
+
+class AllCustomListsFromDataSourceFeed(CustomListFeed):
+
+    """A WorkFeed consolidating all custom lists from a given data source."""
+
+    def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
+                 **kwargs):
+        if isinstance(data_sources, basestring):
+            data_sources = [data_sources]
+        sources = [DataSource.lookup(_db, x).id for x in data_sources]
+        lists = _db.query(CustomList).filter(CustomList.data_source_id.in_(sources))
+        super(AllCustomListsFromDataSourceFeed, self).__init__(
+            lists, languages, on_list_as_of, **kwargs)
 
 
 class LicensePool(Base):
@@ -3859,16 +3960,16 @@ class RightsStatus(Base):
     """
 
     # Currently in copyright.
-    IN_COPYRIGHT = "http://librarysimplified.org/rights-status/in-copyright"
+    IN_COPYRIGHT = "http://librarysimplified.org/terms/rights-status/in-copyright"
 
     # Public domain in the USA.
-    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/rights-status/public-domain-usa"
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/terms/rights-status/public-domain-usa"
 
     # Public domain in some unknown territory
-    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/rights-status/public-domain-unknown"
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
     # Unknown copyright status.
-    UNKNOWN = "http://librarysimplified.org/rights-status/unknown"
+    UNKNOWN = "http://librarysimplified.org/terms/rights-status/unknown"
 
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
@@ -4120,9 +4221,9 @@ class Representation(Base):
 
     @property
     def has_content(self):
-        if self.content and self.status_code == 200 and self.exception is not None:
+        if self.content and self.status_code == 200 and self.fetch_exception is None:
             return True
-        if self.local_content_path and os.path.exists(self.local_content_path):
+        if self.local_content_path and os.path.exists(self.local_content_path) and self.fetch_exception is None:
             return True
         return False
 
@@ -4225,7 +4326,7 @@ class Representation(Base):
         # At this point we can create a Representation object if there
         # isn't one already.
         if not usable_representation:
-            representation, ignore = get_one_or_create(
+            representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
@@ -4238,7 +4339,11 @@ class Representation(Base):
             representation.fetched_at = fetched_at
             return representation, False
 
-        status_code_series = status_code / 100
+        if status_code:
+            status_code_series = status_code / 100
+        else:
+            status_code_series = None
+
         if status_code_series in (2,3):
             # We have a new, good representation. Update the
             # Representation object and return it as fresh.
@@ -4258,12 +4363,13 @@ class Representation(Base):
 
             representation.headers = cls.headers_to_string(headers)
             representation.content = content          
+            representation.update_image_size()
             return representation, False
 
         # Okay, things didn't go so well.
-        date_string = fetched_at.strptime("%Y-%m-%d %H:%M:%S")
-        representation.exception = representation.exception or (
-            "Most recent fetch attempt (at %s) got status code %d" % (
+        date_string = fetched_at.strftime("%Y-%m-%d %H:%M:%S")
+        representation.fetch_exception = representation.fetch_exception or (
+            "Most recent fetch attempt (at %s) got status code %s" % (
                 date_string, status_code))
         if usable_representation:
             # If we have a usable (but stale) representation, we'd
@@ -4275,7 +4381,20 @@ class Representation(Base):
         representation.status_code = status_code
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
-        return None, False
+        return representation, False
+
+    def update_image_size(self):
+        """Make sure .image_height and .image_width are up to date.
+       
+        Clears .image_height and .image_width if the representation
+        is not an image.
+        """
+        if self.media_type and self.media_type.startswith('image/'):
+            image = self.as_image()
+            self.image_width, self.image_height = image.size
+            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
+        else:
+            self.image_width = self.image_height = None
 
     @classmethod
     def normalize_content_path(cls, content_path, base=None):
@@ -4297,10 +4416,13 @@ class Representation(Base):
         if isinstance(content, unicode):
             content = content.encode("utf8")
         self.content = content
+
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
+        self.update_image_size()
+
 
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored
@@ -4364,6 +4486,8 @@ class Representation(Base):
         if self.content:
             return StringIO(self.content)
         else:
+            if not os.path.exists(self.local_path):
+                raise ValueError("%s does not exist." % local_path)
             return open(self.local_path)
             
 
@@ -4373,7 +4497,7 @@ class Representation(Base):
             raise ValueError(
                 "Cannot load non-image representation as image: type %s." 
                 % self.media_type)
-        if not self.content:
+        if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
         return Image.open(self.content_fh())
 
@@ -4402,11 +4526,26 @@ class Representation(Base):
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
-        image = self.as_image()
+        try:
+            image = self.as_image()
+        except Exception, e:
+            self.scale_exception = traceback.format_exc()
+            self.scaled_at = None
+            # This most likely indicates an error during the fetch
+            # phrase.
+            self.fetch_exception = "Error found while scaling: %s" % (
+                self.scale_exception)
+            print self.scale_exception
+            return self, False
 
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
+
+        # If the image is already thumbnail-size, don't bother.
+        if self.image_height <= max_height and self.image_width <= max_width:
+            self.thumbnails = []
+            return self, False
 
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
@@ -4440,22 +4579,32 @@ class Representation(Base):
         except IOError, e:
             # I'm not sure why, but sometimes just trying
             # it again works.
-            original_exception = str(e)
+            original_exception = traceback.format_exc()
             try:
                 image.thumbnail(*args)
             except IOError, e:
-                thumbnail.content = None
-                thumbnail.scaled_exception = original_exception
-                return thumbnail, True
+                self.scale_exception = original_exception
+                self.scaled_at = None
+                return self, False
 
         # Save the thumbnail image to the database under
         # thumbnail.content.
         output = StringIO()
-        image.save(output, pil_format)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        try:
+            image.save(output, pil_format)
+        except Exception, e:
+            self.scale_exception = traceback.format_exc()
+            self.scaled_at = None
+            # This most likely indicates a problem during the fetch phase,
+            # Set fetch_exception so we'll retry the fetch.
+            self.fetch_exception = "Error found while scaling: %s" % (self.scale_exception)
+            return self, False
         thumbnail.content = output.getvalue()
         thumbnail.image_width, thumbnail.image_height = image.size
         output.close()
-        thumbnail.scaled_exception = None
+        thumbnail.scale_exception = None
         thumbnail.scaled_at = now
         return thumbnail, True
 

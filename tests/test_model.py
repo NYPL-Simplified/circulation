@@ -17,6 +17,7 @@ from sqlalchemy.orm.exc import (
 )
 
 from model import (
+    AllCustomListsFromDataSourceFeed,
     CirculationEvent,
     Contributor,
     CoverageRecord,
@@ -550,6 +551,47 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
+    def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
+        e, pool = self._edition(with_license_pool=True)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # There's a perfunctory description from Overdrive.
+        l1, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, overdrive, "text/plain",
+                      "F")
+
+        overdrive_resource = l1.resource
+
+        # There's a much better description from OCLC Linked Data.
+        l2, new = pool.add_link(Hyperlink.DESCRIPTION, None, oclc, "text/plain",
+                      """Nothing about working with his former high school crush, Stephanie Stephens, is ideal. Still, if Aaron Caruthers intends to save his grandmother's bakery, he must. Good thing he has a lot of ideas he can't wait to implement. He never imagines Stephanie would have her own ideas for the business. Or that they would clash with his!""")
+        oclc_resource = l2.resource
+
+        # In a head-to-head evaluation, the OCLC Linked Data description wins.
+        ids = [e.primary_identifier.id]
+        champ1, resources = Identifier.evaluate_summary_quality(self._db, ids)
+
+        eq_(set([overdrive_resource, oclc_resource]), set(resources))
+        eq_(oclc_resource, champ1)
+
+        # But if we say that Overdrive is the privileged data source, it wins
+        # automatically. The other resource isn't even considered.
+        champ2, resources2 = Identifier.evaluate_summary_quality(
+            self._db, ids, overdrive)
+        eq_(overdrive_resource, champ2)
+        eq_([overdrive_resource], resources2)
+
+        # If we say that some other data source is privileged, and
+        # there are no descriptions from that data source, a
+        # head-to-head evaluation is performed, and OCLC Linked Data
+        # wins.
+        threem = DataSource.lookup(self._db, DataSource.THREEM)
+        champ3, resources3 = Identifier.evaluate_summary_quality(
+            self._db, ids, threem)
+        eq_(set([overdrive_resource, oclc_resource]), set(resources3))
+        eq_(oclc_resource, champ3)
+        
+
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
         # distance away along the identifier-equivalence line.
@@ -740,13 +782,13 @@ class TestLane(DatabaseTest):
         self.lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
@@ -1277,13 +1319,13 @@ class TestLaneList(DatabaseTest):
         lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
@@ -1492,6 +1534,33 @@ class TestCustomList(DatabaseTest):
         matches = set(feed.base_query(self._db).all())
         eq_(matches, set([w1, w2]))
 
+    def test_all_custom_lists_from_data_source_feed(self):
+        # Three works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+
+        # Three custom lists, two from NYT and one from Bibliocommons.
+        customlist1, [edition1] = self._customlist(num_entries=1)
+        customlist2, [edition2] = self._customlist(num_entries=1)
+        customlist3, [edition3] = self._customlist(
+            num_entries=1, data_source_name=DataSource.BIBLIOCOMMONS)
+
+        # Each work is on one list.
+        w1.primary_edition.permanent_work_id = edition1.permanent_work_id
+        w2.primary_edition.permanent_work_id = edition2.permanent_work_id
+        w3.primary_edition.permanent_work_id = edition3.permanent_work_id
+
+        # Let's ask for a complete feed of NYT lists.
+        self._db.commit()
+        feed = AllCustomListsFromDataSourceFeed(
+            self._db, DataSource.NYT, ['eng'])
+
+        # The two works on the NYT list are in the feed. The work from
+        # the Bibliocommons feed is not.
+        qu = feed.base_query(self._db)
+        eq_([w1, w2], qu.all())
+
     def test_feed_excludes_works_not_seen_on_list_recently(self):
         # One work.
         work = self._work(with_license_pool=True)
@@ -1579,9 +1648,10 @@ class TestScaleRepresentation(DatabaseTest):
         original = self._url
         mirror = self._url
         thumbnail_mirror = self._url
+        sample_cover_path = self.sample_cover_path("test-book-cover.png")
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
-            "fake content")
+            content=open(sample_cover_path).read())
         full_rep = hyperlink.resource.representation
         full_rep.mirror_url = mirror
         full_rep.set_as_mirrored()
@@ -1599,20 +1669,39 @@ class TestScaleRepresentation(DatabaseTest):
         eq_(mirror, edition.cover_full_url)
         eq_(thumbnail_mirror, edition.cover_thumbnail_url)
 
+    def test_set_cover_for_very_small_image(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            open(sample_cover_path).read())
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
 
-    def sample_cover_representation(self, name):
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(mirror, edition.cover_thumbnail_url)
+
+    def sample_cover_path(self, name):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "covers")
         sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        sample_cover_path = self.sample_cover_path(name)
         return self._representation(
             media_type="image/png", content=open(sample_cover_path).read())[0]
 
-    def test_cannot_scale_non_image(self):
+    def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
-        assert_raises_regexp(
-            ValueError, 
-            "Cannot load non-image representation as image: type text/plain",
-            rep.scale, 300, 600, self._url, "image/png")
+        scaled, ignore = rep.scale(300, 600, self._url, "image/png")
+        expect = "ValueError: Cannot load non-image representation as image: type text/plain"
+        assert scaled == rep
+        assert expect in rep.scale_exception
         
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
@@ -1679,13 +1768,13 @@ class TestScaleRepresentation(DatabaseTest):
         eq_(200, thumbnail.image_height)
 
     def test_book_smaller_than_thumbnail_size(self):
-        # This book is 200x200
+        # This book is 200x200. No thumbnail will be created.
         cover = self.sample_cover_representation("tiny-image-cover.png")
         url = self._url
         thumbnail, is_new = cover.scale(300, 600, url, "image/png")
-        eq_(True, is_new)
-        eq_(url, thumbnail.url)
-        eq_(cover, thumbnail.thumbnail_of)
-        # The thumbnail is the same size as the original.
-        eq_(200, thumbnail.image_height)
-        eq_(200, thumbnail.image_width)
+        eq_(False, is_new)
+        eq_(thumbnail, cover)
+        eq_([], cover.thumbnails)
+        eq_(None, thumbnail.thumbnail_of)
+        assert thumbnail.url != url
+

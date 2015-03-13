@@ -31,7 +31,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
         parsed = etree.parse(StringIO(self.content_server_feed))
         contributors_by_id, subject_names, subject_weights = DetailedOPDSImporter.authors_and_subjects_by_id(self._db, parsed)
         eq_(70, len(contributors_by_id))
-        spot_check_id = 'urn:library-simplified.com/identifier/Gutenberg%20ID/1022'
+        spot_check_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
         [contributor] = contributors_by_id[spot_check_id]
         eq_("Thoreau, Henry David", contributor.name)
         eq_(None, contributor.display_name)

@@ -8,6 +8,7 @@ from model import (
     DataSource,
     Edition,
     LicensePool,
+    Subject,
     Work,
     WorkGenre,
 )
@@ -58,10 +59,10 @@ class RunCoverageProviderScript(Script):
 
 class WorkProcessingScript(Script):
 
-    def __init__(self, force=False, restrict_to_source=None, 
+    def __init__(self, _db=None, force=False, restrict_to_source=None, 
                  specific_identifier=None, random_order=True,
                  batch_size=10):
-        self.db = self._db
+        self.db = _db or self._db
         if restrict_to_source:
             # Process works from a certain data source.
             data_source = DataSource.lookup(self.db, restrict_to_source)
@@ -240,18 +241,21 @@ class WorkReclassifierScript(WorkProcessingScript):
 
         print "That's %d works." % q.count()
 
-        q = q.limit(10)
-        while q.count():
-            for work in q:
-                # old_genres = work.genres
-                work.calculate_presentation(
-                    choose_edition=False, classify=True,
-                    choose_summary=False,
-                    calculate_quality=False, debug=True)
+        #q = q.limit(batch_size)
+        #while q.count():
+        a = 0
+        for work in q:
+            # old_genres = work.genres
+            work.calculate_presentation(
+                choose_edition=False, classify=True,
+                choose_summary=False,
+                calculate_quality=False, debug=True)
                 # new_genres = work.genres
                 # if new_genres != old_genres:
                 #     set_trace()
-            db.commit()
+            a += 1
+            if not a % 100:
+                db.commit()
         db.commit()
 
 class NYTBestSellerListsScript(Script):
@@ -280,3 +284,27 @@ class NYTBestSellerListsScript(Script):
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
             self._db.commit()
+
+
+class SubjectAssignmentScript(Script):
+
+    def __init__(self, force):
+        self.force = force
+
+    def run(self):
+        a = 0
+        q = self._db.query(Subject)
+        if not self.force:
+            q = q.filter(Subject.fiction==None)
+
+        print "Fixing up %d subjects." % q.count()
+        for s in q:
+            self.process(s)
+            print s
+            a += 1
+            if not a % 1000:
+                self._db.commit()
+        self._db.commit()
+
+    def process(self, subject):
+        subject.assign_to_genre()

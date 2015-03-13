@@ -37,7 +37,7 @@ opds_ns = 'http://opds-spec.org/2010/catalog'
 schema_ns = 'http://schema.org/'
 
 # This is a placeholder namespace for stuff we've invented.
-simplified_ns = 'http://library-simplified.com/terms/'
+simplified_ns = 'http://librarysimplified.org/terms/'
 
 
 nsmap = {
@@ -121,6 +121,23 @@ class Annotator(object):
         if simplified_genres:
             categories[Subject.SIMPLIFIED_GENRE] = simplified_genres
 
+        # Add the appeals as a category of schema
+        # http://librarysimplified.org/terms/appeal
+        schema_url = simplified_ns + "appeals/"
+        appeals = []
+        categories[schema_url] = appeals
+        for name, value in (
+                (Work.CHARACTER_APPEAL, work.appeal_character),
+                (Work.LANGUAGE_APPEAL, work.appeal_language),
+                (Work.SETTING_APPEAL, work.appeal_setting),
+                (Work.STORY_APPEAL, work.appeal_story),
+        ):
+            if value:
+                appeal = dict(term=name)
+                appeals.append(appeal)
+                weight_field = "{%s}ratingValue" % schema_ns
+                appeal[weight_field] = value
+
         # Add the audience as a category of schema
         # http://schema.org/audience
         if work.audience:
@@ -145,7 +162,8 @@ class Annotator(object):
 
     @classmethod
     def lane_id(cls, lane):
-        return "tag:%s" % (lane.name)
+        return cls.featured_feed_url(lane)
+        # return "tag:%s" % (lane.name)
 
     @classmethod
     def work_id(cls, work):
@@ -183,7 +201,7 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition.license_pool and edition.best_open_access_link:
+            if edition.license_pool and edition.best_open_access_link and edition.title:
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -192,12 +210,13 @@ class Annotator(object):
             # associated with a loan, were a loan to be issued right
             # now.
             for p in work.license_pools:
+                edition = p.edition()
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
-                    if p.edition().best_open_access_link:
+                    if edition and edition.best_open_access_link:
                         open_access_license_pool = p
-                else:
+                elif edition.title:
                     # TODO: It's OK to have a non-open-access license pool,
                     # but the pool needs to have copies available.
                     active_license_pool = p
@@ -245,6 +264,7 @@ class VerboseAnnotator(Annotator):
         by_scheme = defaultdict(list)
         for (scheme, term), value in by_scheme_and_term.items():
             by_scheme[scheme].append(value)
+        by_scheme.update(super(VerboseAnnotator, cls).categories(work))
         return by_scheme
 
     @classmethod
@@ -295,7 +315,6 @@ class AtomFeed(object):
             E.id(url),
             E.title(title),
             E.updated(_strftime(datetime.datetime.utcnow())),
-            E.link(href=url),
             E.link(href=url, rel="self"),
         )
 
@@ -315,6 +334,7 @@ class OPDSFeed(AtomFeed):
 
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
+    POPULAR_REL = "http://opds-spec.org/sort/popular"
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
@@ -330,12 +350,12 @@ class OPDSFeed(AtomFeed):
 class AcquisitionFeed(OPDSFeed):
 
     @classmethod
-    def featured(cls, languages, lane, annotator):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
         feed_size = 20
-        works = lane.quality_sample(languages, 0.65, 0.3, feed_size,
+        works = lane.quality_sample(languages, 0.65, quality_cutoff, feed_size,
                                     "currently_available")
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.name, url, works, annotator, 
@@ -398,6 +418,9 @@ class AcquisitionFeed(OPDSFeed):
             return None
 
         active_edition = active_license_pool.edition()
+        if not active_edition:
+            print "NO ACTIVE EDITION FOR %r" % active_license_pool
+            return None
         identifier = active_license_pool.identifier
         return self._create_entry(work, active_license_pool, active_edition, identifier,
                            lane_link)
@@ -439,7 +462,7 @@ class AcquisitionFeed(OPDSFeed):
 
         entry = E.entry(
             E.id(permalink),
-            E.title(edition.title),
+            E.title(edition.title or '[Unknown title]'),
         )
         if work.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
@@ -638,7 +661,7 @@ class NavigationFeed(OPDSFeed):
                 E.entry(
                     E.id(annotator.lane_id(lane)),
                     E.title(lane.name),
-                    E.link(href=annotator.featured_feed_url(lane)),
+                    # E.link(href=annotator.featured_feed_url(lane), rel="self"),
                     E.updated(_strftime(datetime.datetime.utcnow())),
                     *links
                 )
