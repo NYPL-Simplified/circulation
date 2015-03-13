@@ -239,7 +239,7 @@ class CustomListFromCSV(object):
 
             identifier = e.primary_identifier
             for f in self.TAG_FIELDS:
-                tags = self.to_list(self.row.get(, ""))            
+                tags = self.to_list(self.row.get(f, ""))
                 for tag in tags:
                     identifier.classify(
                         e.data_source, Subject.TAG, tag,
@@ -255,7 +255,7 @@ class CustomListFromCSV(object):
                 print new_row
             writer.writerow([(x or u'').encode("utf8") for x in new_row])
 
-    def _v(self.x):
+    def _v(self, x):
         if isinstance(x,basestring):
             return x.decode("utf8")
         return x
