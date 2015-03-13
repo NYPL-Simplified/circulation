@@ -298,6 +298,7 @@ class Classifier(object):
     OVERDRIVE = "Overdrive"
     THREEM = "3M"
     TAG = "tag"   # Folksonomic tags.
+    FREEFORM_AUDIENCE = "schema:audience" # "0-2", "YA", "Adult", etc.
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
     PLACE = "schema:Place"
