@@ -596,7 +596,7 @@ class NavigationFeed(OPDSFeed):
     def main_feed(self, lane, annotator):
         """The main navigation feed for the given lane."""
         if lane.name:
-            name = "Navigation feed for %s" % lane.name
+            name = lane.name
         else:
             name = "Navigation feed"
         feed = NavigationFeed(
