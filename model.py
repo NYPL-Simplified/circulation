@@ -1,5 +1,6 @@
 # encoding: utf-8
 import operator
+import md5
 from collections import (
     Counter,
     defaultdict,
@@ -838,7 +839,7 @@ class Identifier(Base):
             _db, Measurement, identifier=self,
             data_source=data_source,
             quantity_measured=quantity_measured,
-            is_most_recent=True,
+            is_most_recent=True, on_multiple='interchangeable'
         )
         if most_recent and most_recent.value == value and taken_at == now:
             # The value hasn't changed since last time. Just update
@@ -2806,7 +2807,7 @@ class Hyperlink(Base):
 
         This is useful for resources that are obtained through means
         other than fetching a single URL via HTTP. It lets us get a
-        URI that's most likely uniquem, so we can create a Resource
+        URI that's most likely unique, so we can create a Resource
         object without violating the uniqueness constraint.
 
         If the output of this method isn't unique in your situation
@@ -3244,12 +3245,13 @@ class LaneList(object):
                 # A more complicated lane. Its description is a bunch
                 # of arguments to the Lane constructor.
                 l = lane_description
-                lane = Lane(_db, l['name'], l.get('genres', []), 
+                lane = Lane(_db, l['full_name'], l.get('genres', []), 
                             l.get('include_subgenres', True),
                             l.get('fiction', default_fiction),
                             l.get('audience', default_audience),
                             parent_lane,
-                            l.get('sublanes', [])
+                            l.get('sublanes', []),
+                            l.get('display_name', None)
                         )                            
             lanes.add(lane)
             for sublane in lane.sublanes.lanes:
@@ -3294,10 +3296,11 @@ class Lane(object):
         return Lane(_db, "", [], True, Lane.BOTH_FICTION_AND_NONFICTION,
                     None)
 
-    def __init__(self, _db, name, genres, include_subgenres=True,
+    def __init__(self, _db, full_name, genres, include_subgenres=True,
                  fiction=True, audience=Classifier.AUDIENCE_ADULT,
-                 parent=None, sublanes=[], appeal=None):
-        self.name = name
+                 parent=None, sublanes=[], appeal=None, display_name=None):
+        self.name = full_name
+        self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.appeal = appeal
@@ -3598,6 +3601,7 @@ class CustomListFeed(WorkFeed):
                 CustomListEntry.most_recent_appearance >= self.on_list_as_of)
             q = q.filter(on_list_clause)
         permanent_work_ids = set([x.edition.permanent_work_id for x in q])
+        print "Potentially %s permanent work IDs." % len(permanent_work_ids)
 
         # Now the second query. Find all works where the primary edition's
         # permanent work ID is in the big list of IDs we got earlier.
@@ -3605,6 +3609,20 @@ class CustomListFeed(WorkFeed):
         q = q.join(Work.primary_edition).filter(
             Edition.permanent_work_id.in_(permanent_work_ids))
         return q
+
+
+class AllCustomListsFromDataSourceFeed(CustomListFeed):
+
+    """A WorkFeed consolidating all custom lists from a given data source."""
+
+    def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
+                 **kwargs):
+        if isinstance(data_sources, basestring):
+            data_sources = [data_sources]
+        sources = [DataSource.lookup(_db, x).id for x in data_sources]
+        lists = _db.query(CustomList).filter(CustomList.data_source_id.in_(sources))
+        super(AllCustomListsFromDataSourceFeed, self).__init__(
+            lists, languages, on_list_as_of, **kwargs)
 
 
 class LicensePool(Base):
@@ -4097,6 +4115,9 @@ class Representation(Base):
     """
 
     EPUB_MEDIA_TYPE = "application/epub+zip"
+    TEXT_XML_MEDIA_TYPE = "text/xml"
+    APPLICATION_XML_MEDIA_TYPE = "application/xml"
+    JPEG_MEDIA_TYPE = "image/jpeg"
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -4208,6 +4229,7 @@ class Representation(Base):
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
+            accept=None,
             max_age=None, pause_before=0, allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
@@ -4237,10 +4259,10 @@ class Representation(Base):
         # the data sources we currently use, so for now we can treat
         # different representations of a URL as interchangeable.
 
-        representation = get_one(
-            _db, Representation, 'interchangeable',
-            url=url
-        )
+        a = dict(url=url)
+        if accept:
+            a['media_type'] = accept
+        representation = get_one(_db, Representation, 'interchangeable', **a)
 
         # Convert a max_age timedelta to a number of seconds.
         if isinstance(max_age, datetime.timedelta):
@@ -4268,6 +4290,8 @@ class Representation(Base):
         headers = {}
         if extra_request_headers:
             headers.update(extra_request_headers)
+        if accept:
+            headers['Accept'] = accept
 
         if usable_representation:
             # We have a representation but it's not fresh. We will
@@ -4497,8 +4521,8 @@ class Representation(Base):
         _db = Session.object_session(self)
 
         if not destination_media_type in self.pil_format_for_media_type:
-            raise ValueError(
-                "Unsupported destination media type: %s" % destination_media_type)
+            raise ValueError("Unsupported destination media type: %s" % destination_media_type)
+                
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.

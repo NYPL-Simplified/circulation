@@ -17,6 +17,7 @@ from sqlalchemy.orm.exc import (
 )
 
 from model import (
+    AllCustomListsFromDataSourceFeed,
     CirculationEvent,
     Contributor,
     CoverageRecord,
@@ -781,13 +782,13 @@ class TestLane(DatabaseTest):
         self.lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
@@ -1318,13 +1319,13 @@ class TestLaneList(DatabaseTest):
         lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
@@ -1532,6 +1533,33 @@ class TestCustomList(DatabaseTest):
         # Both works match.
         matches = set(feed.base_query(self._db).all())
         eq_(matches, set([w1, w2]))
+
+    def test_all_custom_lists_from_data_source_feed(self):
+        # Three works.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+
+        # Three custom lists, two from NYT and one from Bibliocommons.
+        customlist1, [edition1] = self._customlist(num_entries=1)
+        customlist2, [edition2] = self._customlist(num_entries=1)
+        customlist3, [edition3] = self._customlist(
+            num_entries=1, data_source_name=DataSource.BIBLIOCOMMONS)
+
+        # Each work is on one list.
+        w1.primary_edition.permanent_work_id = edition1.permanent_work_id
+        w2.primary_edition.permanent_work_id = edition2.permanent_work_id
+        w3.primary_edition.permanent_work_id = edition3.permanent_work_id
+
+        # Let's ask for a complete feed of NYT lists.
+        self._db.commit()
+        feed = AllCustomListsFromDataSourceFeed(
+            self._db, DataSource.NYT, ['eng'])
+
+        # The two works on the NYT list are in the feed. The work from
+        # the Bibliocommons feed is not.
+        qu = feed.base_query(self._db)
+        eq_([w1, w2], qu.all())
 
     def test_feed_excludes_works_not_seen_on_list_recently(self):
         # One work.

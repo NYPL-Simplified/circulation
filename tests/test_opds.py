@@ -158,19 +158,19 @@ class TestOPDS(DatabaseTest):
         self.lanes = LaneList.from_description(
             self._db,
             None,
-            [dict(name="Fiction",
+            [dict(full_name="Fiction",
                   fiction=True,
                   audience=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
-                 name="Young Adult",
+                 full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
-             dict(name="Romance", fiction=True, genres=[],
+             dict(full_name="Romance", fiction=True, genres=[],
                   sublanes=[
-                      dict(name="Contemporary Romance")
+                      dict(full_name="Contemporary Romance")
                   ]
               ),
          ]

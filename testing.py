@@ -207,7 +207,7 @@ class DatabaseTest(object):
         for i in range(num_entries):
             edition = self._edition(
                 data_source_name, title="Item %s" % i)
-            edition.permanent_work_id="Permanent work ID %s" % i
+            edition.permanent_work_id="Permanent work ID %s" % self._str
             customlist.add_entry(
                 edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
