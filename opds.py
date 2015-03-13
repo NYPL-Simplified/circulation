@@ -452,13 +452,7 @@ class AcquisitionFeed(OPDSFeed):
         permalink = self.annotator.permalink_for(identifier)
         content = self.annotator.content(work)
 
-        # TODO: This is a super cheesy way of estimating whether the
-        # book's description contains HTML. We need to estimate this
-        # better, and the estimate needs to happen ahead of time.
-        if '<' in content and '>' in content:
-            content_type = 'html'
-        else:
-            content_type = 'text'
+        content_type = 'html'
 
         entry = E.entry(
             E.id(permalink),
@@ -471,7 +465,7 @@ class AcquisitionFeed(OPDSFeed):
         entry.extend(author_tags)
 
         entry.extend([
-            E.content(content, type=content_type),
+            E.summary(content, type=content_type),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
 
