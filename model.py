@@ -839,7 +839,7 @@ class Identifier(Base):
             _db, Measurement, identifier=self,
             data_source=data_source,
             quantity_measured=quantity_measured,
-            is_most_recent=True,
+            is_most_recent=True, on_multiple='interchangeable'
         )
         if most_recent and most_recent.value == value and taken_at == now:
             # The value hasn't changed since last time. Just update
