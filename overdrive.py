@@ -202,7 +202,12 @@ class OverdriveAPI(BaseOverdriveAPI):
             book = dict(id=book_id)
         else:
             circulation_link = book['availability_link']
-        status_code, headers, content = self.get(circulation_link, {})
+        try:
+            status_code, headers, content = self.get(circulation_link, {})
+        except Exception, e:
+            status_code = None
+            print "HTTP EXCEPTION: %s" % str(e)
+
         if status_code != 200:
             print "ERROR: Could not get availability for %s: %s" % (
                 book['id'], status_code)
