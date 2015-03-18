@@ -40,6 +40,15 @@ class TestLanguageCodes(object):
         eq_("eng", m("en-GB"))
         eq_(None, m("nq-none"))
 
+    def test_string_to_alpha_3(self):
+        m = LanguageCodes.string_to_alpha_3
+        eq_("eng", m("en"))
+        eq_("eng", m("eng"))
+        eq_("eng", m("English"))
+        eq_("eng", m("ENGLISH"))
+        eq_(None, m("NO SUCH LANGUAGE"))
+        eq_(None, None)
+
 class DummyAuthor(object):
 
     def __init__(self, name, aliases=[]):
