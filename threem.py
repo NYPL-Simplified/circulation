@@ -33,12 +33,18 @@ class ThreeMAPI(BaseThreeMAPI):
     #     body = "<CancelHoldRequest><ItemId>%s</ItemId><PatronId>%s</PatronId></CancelHoldRequest>" % (item_id, patron_id)
     #     return self.request(path, body, method="PUT")
 
+    MAX_AGE = datetime.timedelta(days=730).seconds
+
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
         url = "data/cloudevents?startdate=%s&enddate=%s" % (start, end)
-        data = self.request(url, cache_result=cache_result)
+        if cache_result:
+            max_age = self.MAX_AGE
+        else:
+            max_age = None
+        data = self.request(url, max_age=max_age)
         if cache_result:
             self._db.commit()
         events = EventParser().process_all(data)
@@ -177,17 +183,20 @@ class ThreeMEventMonitor(Monitor):
                 start, cutoff, one_day):
             most_recent_timestamp = start
             print "Asking for events between %r and %r" % (start, cutoff)
-            events = self.api.get_events_between(start, cutoff, full_slice)
-            for event in events:
-                event_timestamp = self.handle_event(*event)
-                if (not most_recent_timestamp or
-                    (event_timestamp > most_recent_timestamp)):
-                    most_recent_timestamp = event_timestamp
-                i += 1
-                if not i % 1000:
-                    print i
-                    self._db.commit()
-            self._db.commit()
+            try:
+                events = self.api.get_events_between(start, cutoff, full_slice)
+                for event in events:
+                    event_timestamp = self.handle_event(*event)
+                    if (not most_recent_timestamp or
+                        (event_timestamp > most_recent_timestamp)):
+                        most_recent_timestamp = event_timestamp
+                    i += 1
+                    if not i % 1000:
+                        print i
+                        self._db.commit()
+                self._db.commit()
+            except Exception, e:
+                print "Error: %s, will try again next time." % str(e)
             self.timestamp.timestamp = most_recent_timestamp
         print "Handled %d events total" % i
         return most_recent_timestamp

@@ -202,7 +202,12 @@ class OverdriveAPI(BaseOverdriveAPI):
             book = dict(id=book_id)
         else:
             circulation_link = book['availability_link']
-        status_code, headers, content = self.get(circulation_link, {})
+        try:
+            status_code, headers, content = self.get(circulation_link, {})
+        except Exception, e:
+            status_code = None
+            print "HTTP EXCEPTION: %s" % str(e)
+
         if status_code != 200:
             print "ERROR: Could not get availability for %s: %s" % (
                 book['id'], status_code)
@@ -267,8 +272,17 @@ class OverdriveAPI(BaseOverdriveAPI):
                    or pool.licenses_reserved != licenses_reserved
                    or pool.patrons_in_hold_queue != new_number_of_holds)
             
+        def printable(x, default=None):
+            if not x:
+                return default
+            if isinstance(x, unicode):
+                x = x.encode("utf8")
+            return x
+
         if changed:
-            print '%s "%s" %s (%s)' % (edition.medium, edition.title, edition.author, edition.primary_identifier.identifier)
+            print '%s "%s" %s (%s)' % (
+                edition.medium, printable(edition.title, "[NO TITLE]"),
+                printable(edition.author, ""), printable(edition.primary_identifier.identifier))
         #print " Owned: %s => %s" % (pool.licenses_owned, new_licenses_owned)
         #print " Available: %s => %s" % (pool.licenses_available, new_licenses_available)
         #print " Holds: %s => %s" % (pool.patrons_in_hold_queue, new_number_of_holds)

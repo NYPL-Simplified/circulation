@@ -77,7 +77,10 @@ class CirculationPresentationReadyMonitor(Monitor):
             for identifier in q:
                 batch.append(identifier)
                 if len(batch) >= self.batch_size:
-                    self.process_batch(batch)
+                    try:
+                        self.process_batch(batch)
+                    except Exception, e:
+                        print "Error, will try again later: %s" % str(e)
                     # for i in batch:
                     #     if not i.primarily_identifies:
                     #         set_trace()
