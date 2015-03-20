@@ -59,7 +59,44 @@ class ThreeMAPI(BaseThreeMAPI):
             if circ:
                 yield circ
 
-     
+    TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
+
+    def checkout(self, patron_id, threem_id):
+
+        args = dict(request_type='CheckoutRequest',
+                   item_id=threem_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        print body
+        response = self.request('checkout', body, method="PUT")
+        if response.status_code in (200, 201):
+            return self.get_fulfillment_file(patron_id, threem_id)
+
+    def get_fulfillment_file(self, patron_id, threem_id):
+        args = dict(request_type='ACSMRequest',
+                   item_id=threem_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('GetItemACSM', body, method="PUT")
+
+    def checkin(self, patron_id, threem_id):
+        args = dict(request_type='CheckinRequest',
+                   item_id=threem_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('checkin', body, method="PUT")
+
+    def place_hold(self, patron_id, threem_id):
+        args = dict(request_type='PlaceHoldRequest',
+                   item_id=threem_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('placehold', body, method="PUT")
+
+    def cancel_hold(self, patron_id, threem_id):
+        args = dict(request_type='CancelHoldRequest',
+                   item_id=threem_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('cancelhold', body, method="PUT")
+
+
+
 class CirculationParser(XMLParser):
 
     """Parse 3M's circulation XML dialect into something we can apply to a LicensePool."""
