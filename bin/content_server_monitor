@@ -8,5 +8,5 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 from core.scripts import OPDSImportScript
 from core.opds_import import BaseOPDSImporter
-content_server_url = os.environ['CONTENT_SERVER_URL']
+content_server_url = os.environ['CONTENT_WEB_APP_URL']
 OPDSImportScript(content_server_url, BaseOPDSImporter).run()
