@@ -185,6 +185,9 @@ class TitleFromExternalList(object):
 
         return None
 
+class CSVFormatError(csv.Error):
+    pass
+
 class CustomListFromCSV(object):
 
     def __init__(self, data_source_name, list_name, metadata_client=None,
@@ -248,7 +251,7 @@ class CustomListFromCSV(object):
         """
         data_source = DataSource.lookup(_db, self.data_source_name)
         now = datetime.datetime.utcnow()
-        l, was_new = get_one_or_create(
+        custom_list, was_new = get_one_or_create(
             _db, 
             CustomList,
             data_source=data_source,
@@ -257,7 +260,7 @@ class CustomListFromCSV(object):
                 created=now,
             )
         )
-        l.updated = now
+        custom_list.updated = now
         missing_fields = []
         fields = dictreader.fieldnames
         for i in (self.title_field, self.author_field, self.isbn_field):
@@ -265,8 +268,8 @@ class CustomListFromCSV(object):
                 missing_fields.append(i)
 
         if missing_fields:
-            raise ValueError("Could not find required field(s): %s." %
-                             ", ".join(missing_fields))
+            raise CSVFormatError("Could not find required field(s): %s." %
+                                 ", ".join(missing_fields))
         writer.writerow(["Title", "Author", "ISBN", "Annotation", "Internal work ID", "Sort author", "Import status"])
         for row in dictreader:
             status, warnings, list_item = self.row_to_list_item(
@@ -385,11 +388,3 @@ class CustomListFromCSV(object):
             data_source.name, t, author, isbn, published_date,
             first_appearance, now, None, annotation, language)
         return title, warnings
-
-# if __name__ == '__main__':
-#     from model import production_session
-#     _db = production_session()
-#     reader = csv.DictReader(sys.stdin)
-#     l = CustomListFromCSV(DataSource.LIBRARIANS, "Staff picks")
-#     writer = csv.writer(sys.stdout)
-#     l.to_customlist(_db, reader, writer)
