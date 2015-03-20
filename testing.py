@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import (
+    datetime,
+    timedelta,
+)
 import shutil
 import tempfile
 from nose.tools import set_trace
@@ -31,10 +34,13 @@ class DatabaseTest(object):
         self.__transaction = self.DBInfo.connection.begin_nested()
         self._db = Session(self.DBInfo.connection)
         self.counter = 0
+        self.time_counter = datetime(2014, 1, 1)
+        self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
 
     def teardown(self):
         self._db.close()
         self.__transaction.rollback()
+
 
     @property
     def _id(self):
@@ -44,6 +50,16 @@ class DatabaseTest(object):
     @property
     def _str(self):
         return unicode(self._id)
+
+    @property
+    def _time(self):
+        v = self.time_counter 
+        self.time_counter = self.time_counter + timedelta(days=1)
+        return v
+
+    @property
+    def _isbn(self):
+        return self.isbns.pop()
 
     @property
     def _url(self):
@@ -233,6 +249,34 @@ class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_edition(self, edition):
         super(NeverSuccessfulCoverageProvider, self).process_edition(edition)
         return False
+
+class DummyCanonicalizeLookupResponse(object):
+
+    @classmethod
+    def success(cls, result):
+        r = cls()
+        r.status_code = 200
+        r.headers = { "Content-Type" : "text/plain" }
+        r.content = result
+        return r
+
+    @classmethod
+    def failure(cls):
+        r = cls()
+        r.status_code = 404
+        return r
+
+class DummyMetadataClient(object):
+
+    def __init__(self):
+        self.lookups = {}
+
+    def canonicalize_author_name(self, primary_identifier, display_author):
+        if display_author in self.lookups:
+            return DummyCanonicalizeLookupResponse.success(
+                self.lookups[display_author])
+        else:
+            return DummyCanonicalizeLookupResponse.failure()
 
 from nose.tools import set_trace
 import os
