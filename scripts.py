@@ -1,9 +1,17 @@
+from nose.tools import set_trace
+from cStringIO import StringIO
+import csv
 import os
+import sys
+from datetime import timedelta
 from sqlalchemy import or_
 from core.model import (
     Contribution,
+    CustomList,
+    DataSource,
     Edition,
     Identifier,
+    Representation,
 )
 from core.scripts import Script
 from core.opds_import import (
@@ -11,6 +19,7 @@ from core.opds_import import (
     DetailedOPDSImporter,
 )
 from core.opds import OPDSFeed
+from core.external_list import CustomListFromCSV
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -132,3 +141,29 @@ class FillInAuthorScript(MetadataCalculationScript):
         return self._db.query(Edition).join(
             Edition.contributions).join(Contribution.contributor).filter(
                 Edition.sort_author==None)
+
+class UpdateStaffPicksScript(Script):
+
+    URL_TEMPLATE = "https://docs.google.com/spreadsheets/d/%s/export?format=csv"
+
+    def run(self):
+        key = os.environ['STAFF_PICKS_GOOGLE_SPREADSHEET_KEY']
+        url = self.URL_TEMPLATE % key
+        metadata_client = None
+        representation, cached = Representation.get(
+            self._db, url, do_get=Representation.browser_http_get,
+            accept="text/csv", max_age=timedelta(days=1))
+        if representation.status_code != 200:
+            raise ValueError("Unexpected status code %s" % 
+                             representation.status_code)
+            return
+        if not representation.media_type.startswith("text/csv"):
+            raise ValueError("Unexpected media type %s" % 
+                             representation.media_type)
+            return
+        importer = CustomListFromCSV(
+            DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME)
+        reader = csv.DictReader(StringIO(representation.content))
+        writer = csv.writer(sys.stdout)
+        importer.to_customlist(self._db, reader, writer)
+        self._db.commit()
