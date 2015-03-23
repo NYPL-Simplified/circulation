@@ -10,6 +10,7 @@ sys.path.insert(0, parent)
 
 from testing import (
     DatabaseTest,
+    DummyMetadataClient,
     _setup,
     _teardown,
 )

@@ -7,7 +7,10 @@ from nose.tools import (
 import datetime
 import json
 
-from . import DatabaseTest
+from . import (
+    DatabaseTest,
+    DummyMetadataClient,
+)
 from nyt import (
     NYTBestSellerAPI,
     NYTBestSellerList,
@@ -44,34 +47,6 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
         else:
             filename = "list_%s.json" % list.foreign_identifier
         list.update(self.sample_json(filename))
-
-class DummyCanonicalizeLookupResponse(object):
-
-    @classmethod
-    def success(cls, result):
-        r = cls()
-        r.status_code = 200
-        r.headers = { "Content-Type" : "text/plain" }
-        r.content = result
-        return r
-
-    @classmethod
-    def failure(cls):
-        r = cls()
-        r.status_code = 404
-        return r
-
-class DummyMetadataClient(object):
-
-    def __init__(self):
-        self.lookups = {}
-
-    def canonicalize_author_name(self, primary_identifier, display_author):
-        if display_author in self.lookups:
-            return DummyCanonicalizeLookupResponse.success(
-                self.lookups[display_author])
-        else:
-            return DummyCanonicalizeLookupResponse.failure()
 
 class NYTBestSellerAPITest(DatabaseTest):
 

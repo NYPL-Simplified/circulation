@@ -27,6 +27,7 @@ class LanguageCodes(object):
     two_to_three = defaultdict(lambda: None)
     three_to_two = defaultdict(lambda: None)
     english_names = defaultdict(list)
+    english_names_to_three = defaultdict(lambda: None)
 
     RAW_DATA = """aar||aa|Afar|afar
 abk||ab|Abkhazian|abkhaze
@@ -523,6 +524,8 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             three_to_two[alpha_3] = alpha_2
             english_names[alpha_2] = names
             two_to_three[alpha_2] = alpha_3
+            for name in names:
+                english_names_to_three[name.lower()] = alpha_3
         english_names[alpha_3] = names
 
 
@@ -540,6 +543,21 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             return language
         return None
 
+    @classmethod
+    def string_to_alpha_3(cls, s):
+        """Try really hard to convert a string to an ISO-639-2 alpha-3 language code."""
+        if not s:
+            return None
+        if s in cls.three_to_two:
+            # It's already an alpha-3.
+            return s
+        elif s in cls.two_to_three:
+            # It's an alpha-2.
+            return cls.two_to_three[s]
+        elif s.lower() in cls.english_names_to_three:
+            # It's the English name of a language.
+            return cls.english_names_to_three[s.lower()]
+        return None
 
 def languages_from_accept(accept_languages):
     """Turn a list of (locale, quality) 2-tuples into a list of language codes."""

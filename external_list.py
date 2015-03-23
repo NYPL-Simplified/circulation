@@ -1,6 +1,7 @@
 # encoding: utf-8
 from nose.tools import set_trace
 import datetime
+from dateutil.parser import parse
 import csv
 import os
 from sqlalchemy.orm.session import Session
@@ -15,8 +16,10 @@ from model import (
     Edition,
     Hyperlink,
     Identifier,
+    Subject,
     Work,
 )
+from util import LanguageCodes
 
 class TitleFromExternalList(object):
 
@@ -46,7 +49,7 @@ class TitleFromExternalList(object):
         if not self.primary_isbn:
             raise ValueError("Book has no identifier")
 
-    def to_edition(self, _db, metadata_client):
+    def to_edition(self, _db, metadata_client, overwrite_old_data=False):
         """Create or update a Simplified Edition object for this title.
         """
         identifier = self.primary_isbn
@@ -108,17 +111,27 @@ class TitleFromExternalList(object):
 
 
         # Set or update the description.
+        if overwrite_old_data:
+            for h in self.primary_identifier.links:
+                if (h.data_source==edition.data_source
+                    and h.rel==Hyperlink.DESCRIPTION):
+                    _db.delete(h.resource.representation)
+                    _db.delete(h.resource)
+                    _db.delete(h)
+
+            _db.commit()
+
         if self.description:
             description, is_new = self.primary_identifier.add_link(
-                Hyperlink.DESCRIPTION, None, data_source)
-            description.resource.set_fetched_content(
-                "text/plain", self.description or '', None)
+                Hyperlink.DESCRIPTION, None, data_source, media_type='text/plain', 
+                content=self.description)
 
         return edition
 
-    def to_custom_list_entry(self, custom_list, metadata_client):
-        _db = Session.object_session(custom_list)        
-        edition = self.to_edition(_db, metadata_client)
+    def to_custom_list_entry(self, custom_list, metadata_client,
+                             overwrite_old_data=False):
+        _db = Session.object_session(custom_list)
+        edition = self.to_edition(_db, metadata_client, overwrite_old_data)
 
         list_entry, is_new = get_one_or_create(
             _db, CustomListEntry, edition=edition, customlist=custom_list
@@ -172,27 +185,64 @@ class TitleFromExternalList(object):
 
         return None
 
+class CSVFormatError(csv.Error):
+    pass
+
 class CustomListFromCSV(object):
 
-    ANNOTATION_FIELD = 'Annotation'
-    PUBLICATION_YEAR_FIELD = 'Publication Year'
-    TAG_FIELDS = ['Genre / Collection area']
-    AUDIENCE_FIELDS = ['Age', 'Age range [children]']
-
     def __init__(self, data_source_name, list_name, metadata_client=None,
-                 classification_weight=100):
+                 classification_weight=100,
+                 overwrite_old_data=True,
+                 first_appearance_field='Timestamp',
+                 title_field='Title',
+                 author_field='Author',
+                 isbn_field='ISBN',
+                 language_field='Language',
+                 publication_date_field='Publication Year',
+                 tag_fields=['Genre / Collection area'],
+                 audience_fields=['Age', 'Age range [children]'],
+                 annotation_field='Annotation',
+                 annotation_author_name_field='Name',
+                 annotation_author_affiliation_field='Location',
+                 default_language='eng',
+    ):
         self.data_source_name = data_source_name
         self.foreign_identifier = list_name
-        self.reader = reader
         self.list_name = list_name
+        self.overwrite_old_data = overwrite_old_data
         if not metadata_client:
             metadata_url = os.environ['METADATA_WEB_APP_URL']
             metadata_client = SimplifiedOPDSLookup(metadata_url)
         self.metadata_client = metadata_client
         self.classification_weight = classification_weight
 
+        # Set the field names
+        self.title_field = title_field
+        self.author_field = author_field
+        self.isbn_field = isbn_field
+        self.annotation_field=annotation_field
+        self.publication_date_field=publication_date_field
+        if not tag_fields:
+            tag_fields = []
+        elif isinstance(tag_fields, basestring):
+            tag_fields = [tag_fields]
+        self.tag_fields=list(tag_fields)
+        if not audience_fields:
+            audience_fields = []
+        elif isinstance(audience_fields, basestring):
+            audience_fields = [audience_fields]
+        self.audience_fields=list(audience_fields)
+        self.language_field=language_field
+        self.default_language=default_language
+        self.annotation_author_name_field = annotation_author_name_field
+        self.annotation_author_affiliation_field = annotation_author_affiliation_field
+        self.first_appearance_field = first_appearance_field
+
+
     def to_list(self, x):
-        return [item.strip() for item in ",".split(x)]
+        if not x:
+            return []
+        return [item.strip() for item in x.split(",")]
 
     def to_customlist(self, _db, dictreader, writer):
         """Turn the CSV file in `dictreader` into a CustomList.
@@ -201,7 +251,7 @@ class CustomListFromCSV(object):
         """
         data_source = DataSource.lookup(_db, self.data_source_name)
         now = datetime.datetime.utcnow()
-        l, was_new = get_one_or_create(
+        custom_list, was_new = get_one_or_create(
             _db, 
             CustomList,
             data_source=data_source,
@@ -210,108 +260,131 @@ class CustomListFromCSV(object):
                 created=now,
             )
         )
-        l.updated = now
+        custom_list.updated = now
         missing_fields = []
         fields = dictreader.fieldnames
-        for i in ('Title', 'Author', 'ISBN'):
+        for i in (self.title_field, self.author_field, self.isbn_field):
             if i not in fields:
                 missing_fields.append(i)
 
         if missing_fields:
-            raise ValueError("Could not find required field(s): %s." %
-                             ", ".join(missing_fields))
-        writer.writerow(["Title", "Author", "ISBN", "Annotation", "Work ID", "Sort author", "Import status"])
+            raise CSVFormatError("Could not find required field(s): %s." %
+                                 ", ".join(missing_fields))
+        writer.writerow(["Title", "Author", "ISBN", "Annotation", "Internal work ID", "Sort author", "Import status"])
         for row in dictreader:
-            list_item, was_new = self.to_custom_list_entry(
-                l, now, row)
+            status, warnings, list_item = self.row_to_list_item(
+                custom_list, data_source, now, row)
             e = list_item.edition
 
-            q = _db.query(Work).join(Work.primary_edition).filter(
-                Edition.permanent_work_id==e.permanent_work_id)
-            if q.count() > 0:
-                status = "Found matching work in collection."
-            else:
-                status = "No matching work found."
+            status = warnings + [status]
 
             new_row = [e.title, e.author, e.primary_identifier.identifier,
                        list_item.annotation, e.permanent_work_id, e.sort_author,
-                       status]
+                       "\n".join(status)]
+            writer.writerow([self._out(x) for x in new_row])
 
-            identifier = e.primary_identifier
-            for f in self.TAG_FIELDS:
-                tags = self.to_list(self.row.get(f, ""))
-                for tag in tags:
-                    identifier.classify(
-                        e.data_source, Subject.TAG, tag,
-                        self.classification_weight)
+    def row_to_list_item(self, custom_list, data_source, now, row):
+        """Import a row of a CSV file to an item in the given CustomList."""
+        _db = Session.object_session(data_source)
+        title, warnings = self.row_to_title(
+            data_source, now, row)
 
-            for f in self.AUDIENCE_FIELDS:
-                audiences = self.to_list(self.row.get(f))
-                for audience in audiences:
-                    tag.classify(e.data_source, Subject.FREEFORM_AUDIENCE, 
-                                 audience, self.classification_weight)
+        list_item, was_new = title.to_custom_list_entry(
+            custom_list, self.metadata_client, self.overwrite_old_data)
+        e = list_item.edition
 
-            if status == "Found matching work in collection.":
-                print new_row
-            writer.writerow([(x or u'').encode("utf8") for x in new_row])
+        q = _db.query(Work).join(Work.primary_edition).filter(
+            Edition.permanent_work_id==e.permanent_work_id)
+        if q.count() > 0:
+            status = "Found matching work in collection."
+        else:
+            status = "No matching work found."
 
-    def _v(self, x):
-        if isinstance(x,basestring):
-            return x.decode("utf8")
+
+        # Set or update classifications.
+        identifier = e.primary_identifier
+        if self.overwrite_old_data:
+            for cl in identifier.classifications:
+                if cl.data_source==e.data_source:
+                    _db.delete(cl)
+            identifier.classifications = []
+            _db.commit()
+
+        for f in self.tag_fields:
+            tags = self.to_list(self._field(row, f, ""))
+            for tag in tags:
+                identifier.classify(
+                    e.data_source, Subject.TAG, tag,
+                    self.classification_weight)
+
+        for f in self.audience_fields:
+            audiences = self.to_list(self._field(row, f))
+            for audience in audiences:
+                identifier.classify(
+                    e.data_source, Subject.FREEFORM_AUDIENCE, 
+                    audience, self.classification_weight)
+        return status, warnings, list_item
+
+    def _out(self, x):
+        if x is None:
+            return ''
+        if isinstance(x, unicode):
+            return x.encode('utf8')
         return x
 
-    def annotation_extra(self, row):
-        annotation_author = self._v(row.get('Name'))
-        annotation_author_location = self._v(row.get('Location'))
-        if annotation_author_location == annotation_author:
-            annotation_author_location = None
+    def _field(self, row, name, default=None):
+        "Get a value from a field and ensure it comes in as Unicode."
+        value = row.get(name, default)
+        if isinstance(value, basestring):
+            return value.decode("utf8")
+        return value
+
+    def annotation_citation(self, row):
+        annotation_author = self._field(row, self.annotation_author_name_field)
+        annotation_author_affiliation = self._field(
+            row, self.annotation_author_affiliation_field)
+        if annotation_author_affiliation == annotation_author:
+            annotation_author_affiliation = None
         annotation_extra = ''
         if annotation_author:
             annotation_extra = annotation_author
-            if annotation_author_location:
-                annotation_extra += ', %s' % annotation_author_location
+            if annotation_author_affiliation:
+                annotation_extra += ', ' + annotation_author_affiliation
         if annotation_extra:
             return u' —' + annotation_extra
         return None
 
-    def to_custom_list_entry(self, custom_list, now, row):
-        t = self._v(row['Title'])
-        author = self._v(row['Author'])
-        isbn = row['ISBN']
-        annotation = self._v(row.get(self.ANNOTATION_FIELD, None))
+    def row_to_title(self, data_source, now, row):
+        warnings = []
+        t = self._field(row, self.title_field)
+        author = self._field(row, self.author_field)
+        isbn = self._field(row, self.isbn_field)
+        annotation = self._field(row, self.annotation_field)
 
-        annotation_extra = self.annotation_extra(row)
-        if annotation_extra:
-            annotation = annotation + annotation_extra
+        annotation_citation = self.annotation_citation(row)
+        if annotation_citation:
+            annotation = annotation + annotation_citation
 
-        if self.PUBLICATION_YEAR_FIELD in row:
-            raw = row[self.PUBLICATION_YEAR_FIELD]
+        published_date = None
+        if self.publication_date_field in row:
+            raw = row[self.publication_date_field]
             try:
-                published_date = datetime.datetime.strptime(raw, "%Y")
+                published_date = parse(raw)
             except ValueError:
-                print "WARNING: Could not parse publication year %s" % raw
-                published_date = None
-        else:
-            published_date = None
-        if 'Timestamp' in row:
-            raw = row['Timestamp']
-            first_appearance = datetime.datetime.strptime(raw, "%m/%d/%Y %H:%M:%S")
-        else:
-            first_appearance = now
-        if 'Language' in row:
-            # TODO: Try to turn into 3-letter format.
-            language = _f(row['Language'])
-        else:
-            language = 'eng'
+                warnings.append('Could not parse publication date "%s"' % raw)
+        first_appearance = now
+        if self.first_appearance_field in row:
+            raw = row[self.first_appearance_field]
+            try:
+                first_appearance = parse(raw)
+            except ValueError:
+                warnings.append('Could not parse first appearance "%s"' % raw)
+                
+        language = self.default_language
+        if self.language_field in row:
+            language = self._field(row, self.language_field)
+            language = LanguageCodes.string_to_alpha_3(language)
         title = TitleFromExternalList(
-            custom_list.data_source.name, t, author, isbn, published_date,
+            data_source.name, t, author, isbn, published_date,
             first_appearance, now, None, annotation, language)
-        return title.to_custom_list_entry(custom_list, self.metadata_client)
-
-# if __name__ == '__main__':
-#     from model import production_session
-#     _db = production_session()
-#     reader = csv.DictReader(sys.stdin)
-#     l = CustomListFromCSV(DataSource.LIBRARIANS, "Staff picks")
-#     writer = csv.writer(sys.stdout)
-#     l.to_customlist(_db, reader, writer)
+        return title, warnings

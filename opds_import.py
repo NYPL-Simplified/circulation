@@ -419,16 +419,16 @@ class OPDSImportMonitor(Monitor):
     it mentions.
     """
     
-    def __init__(self, feed_url, import_class, interval_seconds=3600):
+    def __init__(self, _db, feed_url, import_class, interval_seconds=3600):
         self.feed_url = feed_url
         self.import_class = import_class
         super(OPDSImportMonitor, self).__init__(
-            "OPDS Import %s" % feed_url, interval_seconds)
+            _db, "OPDS Import %s" % feed_url, interval_seconds)
 
-    def run_once(self, _db, start, cutoff):
+    def run_once(self, start, cutoff):
         next_link = self.feed_url
         while next_link:
-            importer, imported = self.process_one_page(_db, next_link)
+            importer, imported = self.process_one_page(next_link)
             if len(imported) == 0:
                 # We did not see a single book on this page we haven't
                 # already seen. There's no need to keep going.
@@ -440,7 +440,7 @@ class OPDSImportMonitor(Monitor):
                 break
             next_link = next_links[0]['href']
 
-    def process_one_page(self, _db, url):
+    def process_one_page(self, url):
         response = requests.get(url)
-        importer = self.import_class(_db, response.content)
+        importer = self.import_class(self._db, response.content)
         return importer, importer.import_from_feed()
