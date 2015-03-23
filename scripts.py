@@ -182,7 +182,7 @@ class ContentOPDSImporter(BaseOPDSImporter):
 
     # The content server is the canonical source for open-access
     # links, but not for anything else.
-    OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS]
+    OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS_DOWNLOAD]
 
     def __init__(self, _db, feed):
         super(ContentOPDSImporter, self).__init__(_db, self.OVERWRITE_RELS)
