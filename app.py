@@ -347,9 +347,7 @@ def lane_search(lane):
     if not query:
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)
-    # Run a search.
-    
-
+    # Run a search.    
     results = lane.search(languages, query).limit(50)
     info = OpenSearchDocument.search_info(lane)
     opds_feed = AcquisitionFeed(

@@ -10,6 +10,7 @@ from core.model import (
     CustomList,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     Representation,
 )
@@ -17,6 +18,7 @@ from core.scripts import Script
 from core.opds_import import (
     SimplifiedOPDSLookup,
     DetailedOPDSImporter,
+    BaseOPDSImporter,
 )
 from core.opds import OPDSFeed
 from core.external_list import CustomListFromCSV
@@ -77,7 +79,9 @@ class CreateWorksForIdentifiersScript(Script):
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise Exception("Wrong media type: %s" % content_type)
 
-        importer = DetailedOPDSImporter(self._db, response.text)
+        importer = DetailedOPDSImporter(
+            self._db, response.text,
+            [Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
         imported, messages_by_id = importer.import_from_feed()
         print "%d successes, %d failures." % (len(imported), len(messages_by_id))
         self._db.commit()
@@ -172,3 +176,13 @@ class UpdateStaffPicksScript(Script):
         writer = csv.writer(sys.stdout)
         importer.to_customlist(self._db, reader, writer)
         self._db.commit()
+
+
+class ContentOPDSImporter(BaseOPDSImporter):
+
+    # The content server is the canonical source for open-access
+    # links, but not for anything else.
+    OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS]
+
+    def __init__(self, _db, feed):
+        super(ContentOPDSImporter, self).__init__(_db, self.OVERWRITE_RELS)
