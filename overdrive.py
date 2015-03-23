@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import json
+import requests
 
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
@@ -25,6 +26,10 @@ from circulation_exceptions import (
 )
 
 class OverdriveAPI(BaseOverdriveAPI):
+
+    # TODO: This is a terrible choice but this URL should never be
+    # displayed to a patron, so it doesn't matter much.
+    DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False):
@@ -99,19 +104,84 @@ class OverdriveAPI(BaseOverdriveAPI):
             if code == 'NoCopiesAvailable':
                 raise NoAvailableCopies()
 
-        # TODO: We need a better error URL here, not that it matters.
-        expires, content_link_gateway = self.extract_data_from_checkout_response(
-            response.json(), format_type, "http://library-simplified.com/")
+        expires, download_link = self.extract_data_from_checkout_response(
+            response.json(), format_type, self.DEFAULT_ERROR_URL)
 
-        # Now GET the content_link_gateway, which will point us to the
-        # ACSM file or equivalent.
-        final_response = self.patron_request(patron, pin, content_link_gateway)
-        content_link, content_type = self.extract_content_link(final_response.json())
+        # Now turn the download link into a fulfillment link, which
+        # will give us the ACSM file or equivalent.
+        content_link, content_type = self.get_fulfillment_link_from_download_link(
+            patron, pin, download_link)
         return content_link, content_type, expires
+
+    def get_loan(self, patron, pin, overdrive_id):
+        url = self.CHECKOUTS_ENDPOINT + "/" + overdrive_id.upper()
+        return self.patron_request(patron, pin, url).json()
+
+    def get_loans(self, patron, pin):
+        """Get a JSON structure describing all of a patron's outstanding
+        loans."""
+        return self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+
+    def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
+        """Get the link to the ACSM file corresponding to an existing loan."""
+        loan = self.get_loan(patron, pin, overdrive_id)
+        if not loan:
+            raise ValueError("Could not find active loan for %s" % overdrive_id)
+        if not 'formats' in loan:
+            raise ValueError("Loan for %s has no formats" % overdrive_id)
+
+        format = None
+        format_names = []
+
+        if not loan['isFormatLockedIn']:
+            # The format is not locked in. Lock it in.
+            #
+            # This can happen if someone checks out a book on the
+            # Overdrive website and then tries to fulfil the loan via
+            # Simplified.
+            response = self.lock_in_format(
+                patron, pin, overdrive_id, format_type)
+            if response.status_code not in (201, 200):
+                raise ValueError("Could not lock in format %s" % format_type)
+
+        download_link = self.get_download_link(
+            loan, format_type, self.DEFAULT_ERROR_URL)
+        if not download_link:
+            raise ValueError(
+                "No download link for %s, format %s" % (
+                    overdrive_id, format_type))
+        return self.get_fulfillment_link_from_download_link(
+            patron, pin, download_link)
+
+    def get_fulfillment_link_from_download_link(self, patron, pin, download_link):
+        download_response = self.patron_request(patron, pin, download_link)
+        return self.extract_content_link(download_response.json())
         
     def extract_content_link(self, content_link_gateway_json):
         link = content_link_gateway_json['links']['contentlink']
         return link['href'], link['type']
+
+    def lock_in_format(self, patron, pin, overdrive_id, format_type):
+
+        headers = {"Content-Type": "application/json; charset=utf-8"}
+        document_template = """{
+    fields: [
+        {
+            "name": "reserveId",
+            "value": "%(overdrive_id)s"
+        },
+        {
+            "name": "formatType",
+            "value": "%(format_type)s"
+        }
+    ]
+}"""
+        overdrive_id = overdrive_id.upper()
+        document = document_template % dict(overdrive_id=overdrive_id,
+                                            format_type=format_type)
+
+        url = self.FORMATS_ENDPOINT % dict(overdrive_id=overdrive_id)
+        return self.patron_request(patron, pin, url, headers, document)
 
     @classmethod
     def extract_data_from_checkout_response(cls, checkout_response_json,

@@ -159,4 +159,3 @@ class TestOverdriveAPI(DatabaseTest):
         loans = OverdriveAPI.sync_bookshelf(patron, json)
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans
-
