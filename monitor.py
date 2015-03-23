@@ -5,6 +5,7 @@ from sqlalchemy import or_
 from core.monitor import Monitor
 from core.model import (
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
     Work,
@@ -125,7 +126,10 @@ class CirculationPresentationReadyMonitor(Monitor):
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise HTTPIntegrationException("Wrong media type: %s" % content_type)
 
-        importer = DetailedOPDSImporter(self._db, response.text)
+        
+        importer = DetailedOPDSImporter(
+            self._db, response.text,
+            [Hyperlink.IMAGE, Hyperlink.DESCRIPTION])
         imported, messages_by_id = importer.import_from_feed()
         # We need to commit the database to make sure that a newly
         # created Edition will show up as its Work's .primary_edition.
