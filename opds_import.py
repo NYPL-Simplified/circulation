@@ -298,8 +298,8 @@ class DetailedOPDSImporter(BaseOPDSImporter):
     content servers.
     """
 
-    def __init__(self, _db, feed):
-        super(DetailedOPDSImporter, self).__init__(_db, feed)
+    def __init__(self, _db, feed, overwrite_rels=None):
+        super(DetailedOPDSImporter, self).__init__(_db, feed, overwrite_rels)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
         self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id = self.authors_and_subjects_by_id(
             _db, self.lxml_parsed)
@@ -429,7 +429,9 @@ class OPDSImportMonitor(Monitor):
 
     def run_once(self, start, cutoff):
         next_link = self.feed_url
+        seen_links = set([next_link])
         while next_link:
+            print next_link
             importer, imported = self.process_one_page(next_link)
             self._db.commit()
             if len(imported) == 0:
@@ -442,6 +444,9 @@ class OPDSImportMonitor(Monitor):
                 # to import.
                 break
             next_link = next_links[0]['href']
+            if next_link in seen_links:
+                # Loop.
+                break
         self._db.commit()
 
     def process_one_page(self, url):
