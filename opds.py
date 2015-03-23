@@ -412,6 +412,8 @@ class AcquisitionFeed(OPDSFeed):
 
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
+        if work.title == 'Kazan':
+            set_trace()
         active_license_pool = self.annotator.active_licensepool_for(work)
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool:
