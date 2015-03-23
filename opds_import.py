@@ -95,7 +95,8 @@ class BaseOPDSImporter(object):
             opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
             if not edition and status_code == 200:
-                set_trace()
+                print "EDITION NOT CREATED: %s" % message
+                print "Raw data: %r" % entry
             if edition:
                 imported.append(edition)
 
