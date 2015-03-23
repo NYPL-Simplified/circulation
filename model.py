@@ -3877,7 +3877,7 @@ class LicensePool(Base):
         if not primary_edition.work and (
                 not primary_edition.title or (
                     not primary_edition.author and not even_if_no_author)):
-            print " No author or title, giving up."
+            print " Edition has no author or title, not assigning Work to Edition."
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)

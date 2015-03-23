@@ -428,6 +428,7 @@ class OPDSImportMonitor(Monitor):
         next_link = self.feed_url
         while next_link:
             importer, imported = self.process_one_page(next_link)
+            self._db.commit()
             if len(imported) == 0:
                 # We did not see a single book on this page we haven't
                 # already seen. There's no need to keep going.
@@ -438,6 +439,7 @@ class OPDSImportMonitor(Monitor):
                 # to import.
                 break
             next_link = next_links[0]['href']
+        self._db.commit()
 
     def process_one_page(self, url):
         response = requests.get(url)
