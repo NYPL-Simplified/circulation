@@ -83,10 +83,14 @@ class BaseOPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, feed):
+    def __init__(self, _db, feed, overwrite_rels=None):
         self._db = _db
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
+        overwrite_rels = overwrite_rels or [
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
+            Hyperlink.DESCRIPTION]
+        self.overwrite_rels = overwrite_rels
 
     def import_from_feed(self):
         imported = []
@@ -192,9 +196,7 @@ class BaseOPDSImporter(object):
             # The metadata has not changed since last time
             return identifier, edition, False, status_code, message
 
-        rels = [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-                Hyperlink.DESCRIPTION]
-        self.destroy_resources(identifier, rels)
+        self.destroy_resources(identifier, self.overwrite_rels)
 
         download_links, image_link, thumbnail_link = self.set_resources(
             data_source, identifier, pool, links_by_rel)
