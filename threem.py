@@ -82,10 +82,9 @@ class ThreeMAPI(object):
                 self._db, url, extra_request_headers=headers,
                 do_get=Representation.http_get_no_timeout, max_age=max_age)
             content = representation.content
+            return content
         else:
             response = requests.request(
                 method, url, data=body, headers=headers, allow_redirects=False)
-            content = response.text
-        return content
-
-      
+            return response
+        

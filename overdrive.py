@@ -26,6 +26,7 @@ class OverdriveAPI(object):
     AVAILABILITY_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
 
     CHECKOUTS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts"
+    FORMATS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
     ME_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me"
 
     MAX_CREDENTIAL_AGE = 50 * 60
