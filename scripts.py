@@ -213,7 +213,8 @@ class OPDSImportScript(Script):
         self.importer_class = importer_class
 
     def run(self):
-        OPDSImportMonitor(self.feed_url, self.importer_class).run(self._db)
+        monitor = OPDSImportMonitor(self._db, self.feed_url, self.importer_class)
+        monitor.run()
         
 
 class WorkReclassifierScript(WorkProcessingScript):
