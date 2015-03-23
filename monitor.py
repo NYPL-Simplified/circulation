@@ -37,7 +37,7 @@ class CirculationPresentationReadyMonitor(Monitor):
         self.resolve_identifiers()
 
         # Make sure any newly created Editions have Works.
-        #LicensePool.consolidate_works(
+        # LicensePool.consolidate_works(
         #    self._db, calculate_work_even_if_no_author=True, max=1)
 
         # Finally, make all Works presentation-ready.
@@ -59,13 +59,14 @@ class CirculationPresentationReadyMonitor(Monitor):
 
         for q, message in (
             (q1, "LicensePool but no Edition"),
-            (q2, "LicensePool but no Work")):
+            (q2, "LicensePool but no Work"),
+            ):
             q = q.filter(
                 Identifier.type.in_(
                     [
-                        # Identifier.GUTENBERG_ID, 
-                        Identifier.OVERDRIVE_ID,
-                        Identifier.THREEM_ID
+                        Identifier.GUTENBERG_ID, 
+                        #Identifier.OVERDRIVE_ID,
+                        #Identifier.THREEM_ID
                         ]
                     )
                 )
