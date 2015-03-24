@@ -185,4 +185,4 @@ class ContentOPDSImporter(BaseOPDSImporter):
     OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS_DOWNLOAD]
 
     def __init__(self, _db, feed):
-        super(ContentOPDSImporter, self).__init__(_db, self.OVERWRITE_RELS)
+        super(ContentOPDSImporter, self).__init__(_db, feed, self.OVERWRITE_RELS)
