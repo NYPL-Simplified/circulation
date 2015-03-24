@@ -4348,7 +4348,7 @@ class Representation(Base):
         else:
             status_code_series = None
 
-        if status_code_series in (2,3):
+        if status_code_series in (2,3) or status_code in (404, 410):
             # We have a new, good representation. Update the
             # Representation object and return it as fresh.
             representation.status_code = status_code
