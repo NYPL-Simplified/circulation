@@ -20,8 +20,13 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
-from core.overdrive import (
-    OverdriveAPI
+from overdrive import (
+    OverdriveAPI,
+    DummyOverdriveAPI,
+)
+from threem import (
+    ThreeMAPI,
+    DummyThreeMAPI,
 )
 
 from core.model import (
@@ -52,11 +57,10 @@ from core.util.flask_util import (
     languages_for_request
 )
 from millenium_patron import (
-    DummyMilleniumPatronAPI as authenticator,
+    DummyMilleniumPatronAPI,
+    MilleniumPatronAPI,
 )
 from lanes import make_lanes
-
-auth = authenticator()
 
 feed_cache = dict()
 
@@ -66,20 +70,37 @@ class Conf:
     name = None
     parent = None
     urn_lookup_controller = None
+    overdrive = None
+    threem = None
+    auth = None
 
     @classmethod
-    def initialize(cls, _db, lanes):
-        cls.db = _db
-        cls.sublanes = lanes
-        cls.urn_lookup_controller = URNLookupController(cls.db)
+    def initialize(cls, _db=None, lanes=None):
+        if cls.testing:
+            if not lanes:
+                lanes = make_lanes(_db)
+            cls.db = _db
+            cls.sublanes = lanes
+            cls.urn_lookup_controller = URNLookupController(cls.db)
+            cls.overdrive = DummyOverdriveAPI(cls.db)
+            cls.threem = DummyThreeMAPI(cls.db)
+            cls.auth = DummyMilleniumPatronAPI()
+        else:
+            _db = production_session()
+            lanes = make_lanes(_db)
+            cls.db = _db
+            cls.sublanes = lanes
+            cls.urn_lookup_controller = URNLookupController(cls.db)
+            cls.overdrive = OverdriveAPI(cls.db)
+            cls.threem = ThreeMAPI(cls.db)
+            cls.auth = MilleniumPatronAPI()
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
+    # It's the test's responsibility to call initialize()
 else:
     Conf.testing = False
-    _db = production_session()
-    lanes = make_lanes(_db)
-    Conf.initialize(_db, lanes)
+    Conf.initialize()
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -99,7 +120,7 @@ def authenticated_patron(barcode, pin):
 
     If there's no problem, return a Patron object.
     """
-    patron = auth.authenticated_patron(Conf.db, barcode, pin)
+    patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
     if not patron:
         return (INVALID_CREDENTIALS_PROBLEM,
                 INVALID_CREDENTIALS_TITLE)
@@ -189,25 +210,22 @@ def lane_url(cls, lane, order=None):
 @app.route('/loans/')
 @requires_auth
 def active_loans():
+    patron = flask.request.patron
 
     # First synchronize our local list of loans with all third-party
     # loan providers.
     header = flask.request.authorization
-    # TODO: this is a hack necessary so long as we use dummy auth,
-    # because Overdrive always asks the real ILS for the real barcode.
-    # If you use a test barcode, we want /loans to act like you have no
-    # Overdrive loans; we don't want it to crash.
-    try:
-        overdrive = OverdriveAPI(Conf.db)
-        overdrive_loans = overdrive.get_patron_checkouts(
-            flask.request.patron, header.password)
-        OverdriveAPI.sync_bookshelf(flask.request.patron, overdrive_loans)
-        Conf.db.commit()
-    except Exception, e:
-        print e
+    overdrive_loans = Conf.overdrive.get_patron_checkouts(
+        patron, header.password)
+    threem_loans, threem_holds = Conf.threem.get_patron_checkouts(
+        flask.request.patron)
+
+    Conf.overdrive.sync_bookshelf(patron, overdrive_loans)
+    Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds)
+    Conf.db.commit()
 
     # Then make the feed.
-    feed = CirculationManagerAnnotator.active_loans_for(flask.request.patron)
+    feed = CirculationManagerAnnotator.active_loans_for(patron)
     return unicode(feed)
 
 @app.route('/feed/<lane>')

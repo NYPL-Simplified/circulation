@@ -1,3 +1,5 @@
+from lxml import etree
+from cStringIO import StringIO
 import datetime
 import os
 
@@ -11,6 +13,8 @@ from core.model import (
     Identifier,
     LicensePool,
     get_one_or_create,
+    Loan,
+    Hold,
 )
 
 from core.monitor import Monitor
@@ -18,20 +22,6 @@ from core.util.xmlparser import XMLParser
 from core.threem import ThreeMAPI as BaseThreeMAPI
 
 class ThreeMAPI(BaseThreeMAPI):
-
-    # def get_patron_circulation(self, patron_id):
-    #     path = "circulation/patron/%s" % patron_id
-    #     return self.request(path)
-
-    # def place_hold(self, item_id, patron_id):
-    #     path = "placehold"
-    #     body = "<PlaceHoldRequest><ItemId>%s</ItemId><PatronId>%s</PatronId></PlaceHoldRequest>" % (item_id, patron_id)
-    #     return self.request(path, body, method="PUT")
-
-    # def cancel_hold(self, item_id, patron_id):
-    #     path = "cancelhold"
-    #     body = "<CancelHoldRequest><ItemId>%s</ItemId><PatronId>%s</PatronId></CancelHoldRequest>" % (item_id, patron_id)
-    #     return self.request(path, body, method="PUT")
 
     MAX_AGE = datetime.timedelta(days=730).seconds
 
@@ -53,11 +43,14 @@ class ThreeMAPI(BaseThreeMAPI):
     def get_circulation_for(self, identifiers):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
-        # We don't cache this data--it changes too frequently.
-        data = self.request(url, cache_result=False)
+        data = self.request(url)
         for circ in CirculationParser().process_all(data):
             if circ:
                 yield circ
+
+    def get_patron_checkouts(self, patron_id):
+        path = "circulation/patron/%s" % patron_id
+        return self.request(path)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
@@ -95,6 +88,34 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         return self.request('cancelhold', body, method="PUT")
 
+
+class DummyThreeMAPIResponse(object):
+
+    def __init__(self, response_code, headers, content):
+        self.status_code = response_code
+        self.headers = headers
+        self.content = content
+
+class DummyThreeMAPI(ThreeMAPI):
+
+    def __init__(self, *args, **kwargs):
+        super(DummyThreeMAPI, self).__init__(*args, **kwargs)
+        self.responses = []
+
+    def queue_response(self, response_code=200, media_type="applicaion/xml",
+                       other_headers=None, content=''):
+        headers = {"content-type": media_type}
+        if other_headers:
+            for k, v in other_headers.items():
+                headers[k.lower()] = v
+        self.responses.append((response_code, headers, content))
+
+    def request(self, *args, **kwargs):
+        response_code, headers, content = self.responses.pop()
+        if kwargs.get('method') == 'GET':
+            return content
+        else:
+            return DummyThreeMAPIResponse(response_code, headers, content)
 
 
 class CirculationParser(XMLParser):
@@ -136,6 +157,49 @@ class CirculationParser(XMLParser):
             value = int(t.xpath("count(Patron)"))
             item[simplified_key] = value
 
+        return item
+
+class PatronCirculationParser(XMLParser):
+
+    """Parse 3M's patron circulation status document into something we can apply to a Patron."""
+
+    def process_all(self, string):
+        parser = etree.XMLParser()
+        root = etree.parse(StringIO(string), parser)
+        sup = super(PatronCirculationParser, self)
+        loans = [x for x in sup.process_all(
+            root, "//Checkouts/Item", handler=self.process_one_loan) if x]
+        holds = [x for x in sup.process_all(
+            root, "//Holds/Item", handler=self.process_one_hold) if x]
+        holds += [x for x in sup.process_all(
+            root, "//Reserves/Item", handler=self.process_one_hold) if x]
+        return loans, holds
+
+    def process_one_loan(self, tag, namespaces):
+        return self.process_one(tag, namespaces, Loan)
+
+    def process_one_hold(self, tag, namespaces):
+        return self.process_one(tag, namespaces, Hold)
+
+    def process_one(self, tag, namespaces, source_class):
+        if not tag.xpath("ItemId"):
+            # This happens for events associated with books
+            # no longer in our collection.
+            return None
+
+        def datevalue(key):
+            value = self.text_of_subtag(tag, key)
+            return datetime.datetime.strptime(
+                value, ThreeMAPI.ARGUMENT_TIME_FORMAT)
+
+        identifiers = {}
+        item = { Identifier : identifiers }
+        identifiers[Identifier.THREEM_ID] = self.text_of_subtag(tag, "ItemId")
+        
+        item[source_class.start] = datevalue("EventStartDateInUTC")
+        item[source_class.end] = datevalue("EventEndDateInUTC")
+        if source_class == Hold:
+            item[source_class.position] = self.int_of_subtag(tag, "Position")
         return item
 
 

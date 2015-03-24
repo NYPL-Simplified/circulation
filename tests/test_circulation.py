@@ -24,51 +24,14 @@ from ..core.model import (
     Edition,
 )
 
-from flask import url_for
-os.environ['TESTING'] = "True"
-from .. import app as circulation
-del os.environ['TESTING']
-
-class AuthenticationTest(DatabaseTest):
-
-    def setup(self):
-        super(AuthenticationTest, self).setup()
-        circulation.old_auth = circulation.auth
-        circulation.auth = DummyMilleniumPatronAPI()
-
-    def teardown(self):
-        super(AuthenticationTest, self).teardown()
-        circulation.auth = circulation.old_auth
-        circulation.old_auth = None
-
-    def test_valid_barcode(self):
-        patron = circulation.authenticated_patron("1", "1111")
-        eq_("1", patron.authorization_identifier)
-
-    def test_invalid_barcode(self):
-        uri, title = circulation.authenticated_patron("1", "1112")
-        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
-
-    def test_no_such_patron(self):
-        uri, title = circulation.authenticated_patron("404111", "4444")
-        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
-
-    def test_expired_barcode(self):
-        uri, title = circulation.authenticated_patron("410111", "4444")
-        eq_(circulation.EXPIRED_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.EXPIRED_CREDENTIALS_TITLE, title)
-
-
 class CirculationTest(DatabaseTest):
-    # TODO: The language-based tests assumes that the default sitewide
-    # language is English.
 
     def setup(self):
-        super(CirculationTest, self).setup()
-        circulation.app.config['TESTING'] = True
+        os.environ['TESTING'] = "True"
+        from .. import app as circulation
+        del os.environ['TESTING']
 
+        super(CirculationTest, self).setup()
         self.lanes = LaneList.from_description(
             self._db,
             None,
@@ -82,6 +45,35 @@ class CirculationTest(DatabaseTest):
         self.circulation = circulation
         self.app = circulation.app
         self.client = circulation.app.test_client()
+
+class AuthenticationTest(CirculationTest):
+
+    def test_valid_barcode(self):
+        patron = self.circulation.authenticated_patron("1", "1111")
+        eq_("1", patron.authorization_identifier)
+
+    def test_invalid_barcode(self):
+        uri, title = self.circulation.authenticated_patron("1", "1112")
+        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
+        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
+
+    def test_no_such_patron(self):
+        uri, title = self.circulation.authenticated_patron("404111", "4444")
+        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
+        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
+
+    def test_expired_barcode(self):
+        uri, title = self.circulation.authenticated_patron("410111", "4444")
+        eq_(circulation.EXPIRED_CREDENTIALS_PROBLEM, uri)
+        eq_(circulation.EXPIRED_CREDENTIALS_TITLE, title)
+
+
+class CirculationAppTest(CirculationTest):
+    # TODO: The language-based tests assumes that the default sitewide
+    # language is English.
+
+    def setup(self):
+        super(CirculationAppTest, self).setup()
 
         # Create two English books and a French book.
         self.english_1 = self._work(
@@ -101,7 +93,7 @@ class CirculationTest(DatabaseTest):
         self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
-class TestNavigationFeed(CirculationTest):
+class TestNavigationFeed(CirculationAppTest):
 
     def test_root_redirects_to_navigation_feed(self):
         response = self.client.get('/')
@@ -110,7 +102,7 @@ class TestNavigationFeed(CirculationTest):
 
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
-            response = circulation.navigation_feed(None)
+            response = self.circulation.navigation_feed(None)
             feed = feedparser.parse(response)
             links = feed['feed']['links']
             for expect_rel, expect_href_end in (
@@ -132,7 +124,7 @@ class TestNavigationFeed(CirculationTest):
 
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):
-            response = circulation.feed('Fiction')
+            response = self.circulation.feed('Fiction')
             parsed = feedparser.parse(unicode(response))
             [author_facet, title_facet, next_link, search] = sorted(
                 [(x['rel'], x['href'])
@@ -156,7 +148,7 @@ class TestNavigationFeed(CirculationTest):
 
     def test_lane_without_language_preference_uses_default_language(self):
         with self.app.test_request_context("/"):
-            response = circulation.feed('Nonfiction')
+            response = self.circulation.feed('Nonfiction')
             assert "Totally American" in response
             assert "Quite British" not in response # Wrong lane
             assert u"Tr&#232;s Fran&#231;ais" not in response # Wrong language
@@ -166,7 +158,7 @@ class TestNavigationFeed(CirculationTest):
         
         os.environ['DEFAULT_LANGUAGES'] = "fre"
         with self.app.test_request_context("/"):
-            response = circulation.feed('Nonfiction')
+            response = self.circulation.feed('Nonfiction')
             assert "Totally American" not in response
             assert u"Tr&#232;s Fran&#231;ais" in response
         os.environ['DEFAULT_LANGUAGES'] = old_default
@@ -175,36 +167,51 @@ class TestNavigationFeed(CirculationTest):
         
         with self.app.test_request_context(
                 "/", headers={"Accept-Language": "fr"}):
-            response = circulation.feed('Nonfiction')
+            response = self.circulation.feed('Nonfiction')
             assert "Totally American" not in response
             assert "Tr&#232;s Fran&#231;ais" in response
 
         with self.app.test_request_context(
                 "/", headers={"Accept-Language": "fr,en-us"}):
-            response = circulation.feed('Nonfiction')
+            response = self.circulation.feed('Nonfiction')
             assert "Totally American" in response
             assert "Tr&#232;s Fran&#231;ais" in response
 
 
-class TestAcquisitionFeed(CirculationTest):
+class TestAcquisitionFeed(CirculationAppTest):
 
     def test_active_loan_feed(self):
         # No loans.
+
+        overdrive = self.circulation.Conf.overdrive
+        threem = self.circulation.Conf.threem
+        from test_overdrive import TestOverdriveAPI as overdrive_data
+        from test_threem import TestThreeMAPI as threem_data
+        overdrive.queue_response(
+            content=overdrive_data.sample_data("empty_checkouts_list.json"))
+        threem.queue_response(
+            content=threem_data.sample_data("empty_checkouts.xml"))
+
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            response = circulation.active_loans()
+            response = self.circulation.active_loans()
             assert not "<entry>" in response
 
-        # One loan.
+        # A number of loans.
+        overdrive.queue_response(
+            content=overdrive_data.sample_data("checkouts_list.json"))
+        threem.queue_response(
+            content=threem_data.sample_data("checkouts.xml"))
+
         self.english_1.license_pools[0].loan_to(self.default_patron)
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            response = circulation.active_loans()
+            response = self.circulation.active_loans()
             assert self.english_1.title in response
             assert ">loan<" in response
 
 
-class TestCheckout(CirculationTest):
+class TestCheckout(CirculationAppTest):
 
     def setup(self):
         super(TestCheckout, self).setup()
@@ -216,25 +223,25 @@ class TestCheckout(CirculationTest):
     def test_checkout_requires_authentication(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-            response = circulation.checkout(
+            response = self.circulation.checkout(
                 self.data_source.name, self.identifier.identifier)
             eq_(401, response.status_code)
             detail = json.loads(response.data)
-            eq_(circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+            eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
 
     def test_checkout_with_bad_authentication_fails(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-            response = circulation.checkout(
+            response = self.circulation.checkout(
                 self.data_source.name, self.identifier.identifier)
         eq_(401, response.status_code)
         detail = json.loads(response.data)
-        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+        eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
         
     def test_checkout_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            response = circulation.checkout(
+            response = self.circulation.checkout(
                 self.data_source.name, self.identifier.identifier)
 
             # We've been redirected to the download link.
@@ -256,7 +263,7 @@ class TestCheckout(CirculationTest):
 
     #     with self.app.test_request_context(
     #             "/", headers=dict(Authorization=self.valid_auth)):
-    #         response = circulation.checkout(
+    #         response = self.circulation.checkout(
     #             data_source.name, identifier.identifier)
     #         eq_(404, response.status_code)
     #         assert "Sorry, couldn't find an available license." in response.data

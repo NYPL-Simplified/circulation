@@ -7,7 +7,7 @@ import os
 import pkgutil
 import json
 from ..overdrive import (
-    OverdriveAPI,
+    DummyOverdriveAPI,
 )
 
 from . import (
@@ -21,14 +21,18 @@ from ..core.model import (
 
 class TestOverdriveAPI(DatabaseTest):
 
-    def setup(self):
-        super(TestOverdriveAPI, self).setup()
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "files", "overdrive")
+    base_path = os.path.split(__file__)[0]
+    resource_path = os.path.join(base_path, "files", "overdrive")
 
-    def sample_json(self, filename):
+    @classmethod
+    def sample_data(self, filename):
         path = os.path.join(self.resource_path, filename)
         data = open(path).read()
+        return data
+
+    @classmethod
+    def sample_json(self, filename):
+        data = self.sample_data(filename)
         return data, json.loads(data)
 
     def test_update_new_licensepool(self):
@@ -43,7 +47,7 @@ class TestOverdriveAPI(DatabaseTest):
         # newly created Identifier.
         raw['id'] = identifier.identifier
 
-        api = OverdriveAPI(self._db)
+        api = DummyOverdriveAPI(self._db)
         pool, was_new, changed = api.update_licensepool_with_book_info(raw)
         eq_(True, was_new)
         eq_(True, changed)
@@ -76,7 +80,7 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
-        api = OverdriveAPI(self._db)
+        api = DummyOverdriveAPI(self._db)
         p2, was_new, changed = api.update_licensepool_with_book_info(raw)
         eq_(False, was_new)
         eq_(True, changed)
@@ -96,23 +100,23 @@ class TestOverdriveAPI(DatabaseTest):
         )
         raw['id'] = identifier.identifier
 
-        api = OverdriveAPI(self._db)
+        api = DummyOverdriveAPI(self._db)
         pool, was_new, changed = api.update_licensepool_with_book_info(raw)
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
 
     def test_get_download_link(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        url = OverdriveAPI.get_download_link(
+        url = DummyOverdriveAPI.get_download_link(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
         
-        assert_raises(IOError, OverdriveAPI.get_download_link,
+        assert_raises(IOError, DummyOverdriveAPI.get_download_link,
             json, "no-such-format", "http://foo.com/")
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        expires, url = OverdriveAPI.extract_data_from_checkout_response(
+        expires, url = DummyOverdriveAPI.extract_data_from_checkout_response(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_(2013, expires.year)
         eq_(10, expires.month)
@@ -124,12 +128,12 @@ class TestOverdriveAPI(DatabaseTest):
 
         # All four loans in the sample data were created.
         patron = self.default_patron
-        loans = OverdriveAPI.sync_bookshelf(patron, json)
+        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
         eq_(4, len(loans))
         eq_(loans, patron.loans)
 
         # Running the sync again leaves all four loans in place.
-        loans = OverdriveAPI.sync_bookshelf(patron, json)
+        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
         eq_(4, len(loans))
         eq_(loans, patron.loans)        
 
@@ -142,7 +146,7 @@ class TestOverdriveAPI(DatabaseTest):
         overdrive_loan, new = overdrive.license_pool.loan_to(patron)
 
         # The loan not present in the sample data has been removed
-        loans = OverdriveAPI.sync_bookshelf(patron, json)
+        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
         eq_(4, len(loans))
         eq_(loans, patron.loans)
         assert overdrive_loan not in patron.loans
@@ -156,6 +160,6 @@ class TestOverdriveAPI(DatabaseTest):
         
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
-        loans = OverdriveAPI.sync_bookshelf(patron, json)
+        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans

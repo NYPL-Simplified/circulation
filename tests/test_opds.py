@@ -1,3 +1,4 @@
+import os
 from nose.tools import (
     set_trace,
     eq_,
@@ -20,14 +21,17 @@ from ..core.opds import (
     AcquisitionFeed,
     OPDSFeed,
 )
-from ..app import app
-
 class TestOPDS(DatabaseTest):
 
     def setup(self):
+
+        os.environ['TESTING'] = "True"
+        from .. import app
+        del os.environ['TESTING']
+
         super(TestOPDS, self).setup()
-        self.app = app.test_client()
-        self.ctx = app.test_request_context()
+        self.app = app.app.test_client()
+        self.ctx = app.app.test_request_context()
         self.ctx.push()
 
         self.lanes = LaneList.from_description(
@@ -50,14 +54,7 @@ class TestOPDS(DatabaseTest):
               ),
          ]
         )
-
-        class FakeConf(object):
-            name = None
-            sublanes = None
-            pass
-
-        self.conf = FakeConf()
-        self.conf.sublanes = self.lanes
+        app.Conf.initialize(self._db, self.lanes)
 
     def test_id_is_permalink(self):
         w1 = self._work(with_open_access_download=True)

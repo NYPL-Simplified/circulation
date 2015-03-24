@@ -430,6 +430,48 @@ class OverdriveAPI(BaseOverdriveAPI):
                 yield i
 
 
+class DummyOverdriveResponse(object):
+    def __init__(self, status_code, headers, content):
+        self.status_code = status_code
+        self.headers = headers
+        self.content = content
+
+    def json(self):
+        return json.loads(self.content)
+
+class DummyOverdriveAPI(OverdriveAPI):
+
+    library_data = '{"id":1810,"name":"My Public Library (MA)","type":"Library","collectionToken":"1a09d9203","links":{"self":{"href":"http://api.overdrive.com/v1/libraries/1810","type":"application/vnd.overdrive.api+json"},"products":{"href":"http://api.overdrive.com/v1/collections/1a09d9203/products","type":"application/vnd.overdrive.api+json"},"dlrHomepage":{"href":"http://ebooks.nypl.org","type":"text/html"}},"formats":[{"id":"audiobook-wma","name":"OverDrive WMA Audiobook"},{"id":"ebook-pdf-adobe","name":"Adobe PDF eBook"},{"id":"ebook-mediado","name":"MediaDo eBook"},{"id":"ebook-epub-adobe","name":"Adobe EPUB eBook"},{"id":"ebook-kindle","name":"Kindle Book"},{"id":"audiobook-mp3","name":"OverDrive MP3 Audiobook"},{"id":"ebook-pdf-open","name":"Open PDF eBook"},{"id":"ebook-overdrive","name":"OverDrive Read"},{"id":"video-streaming","name":"Streaming Video"},{"id":"ebook-epub-open","name":"Open EPUB eBook"}]}'
+
+    token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
+
+    def __init__(self, *args, **kwargs):
+        super(DummyOverdriveAPI, self).__init__(*args, **kwargs)
+        self.responses = []
+
+    def queue_response(self, response_code=200, media_type="application/json",
+                       other_headers=None, content=''):
+        headers = {"content-type": media_type}
+        if other_headers:
+            for k, v in other_headers.items():
+                headers[k.lower()] = v
+        self.responses.append((response_code, headers, content))
+
+    # Give canned answers to the most basic requests -- for access tokens
+    # and basic library information.
+    def token_post(self, *args, **kwargs):
+        return DummyOverdriveResponse(200, {}, self.token_data)
+
+    def get_library(self):
+        return json.loads(self.library_data)
+
+    def get(self, url, extra_headers, exception_on_401=False):
+        return self.responses.pop()
+
+    def patron_request(self, *args, **kwargs):
+        return DummyOverdriveResponse(*self.responses.pop())
+
+
 class OverdriveCirculationMonitor(Monitor):
     """Maintain LicensePools for Overdrive titles.
 
