@@ -508,8 +508,7 @@ class AcquisitionFeed(OPDSFeed):
             license_pool.availability_time <= now):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.
-            availability_tag.text = license_pool.availability_time.strftime(
-                "%Y-%m-%d %H:%M:%S")
+            availability_tag.text = _strftime(license_pool.availability_time)
             entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
@@ -525,7 +524,7 @@ class AcquisitionFeed(OPDSFeed):
         issued = edition.published
         if (issued and issued <= today):
             issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
-            # TODO: convert to local timezone.
+            # TODO: convert to local timezone, not that it matters much.
             issued_tag.text = issued.strftime("%Y-%m-%d")
             entry.extend([issued_tag])
 
