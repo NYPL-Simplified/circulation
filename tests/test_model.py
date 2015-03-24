@@ -50,6 +50,7 @@ from classifier import (
 
 from . import (
     DatabaseTest,
+    DummyHTTPClient,
 )
 
 class TestDataSource(DatabaseTest):
@@ -1641,6 +1642,20 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(None, filename)
         fh = representation.content_fh()
         eq_("some text", fh.read())
+
+    def test_404_creates_cachable_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(404)
+
+        url = self._url
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+        representation2, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(True, cached)
+        eq_(representation, representation2)
 
 class TestScaleRepresentation(DatabaseTest):
 

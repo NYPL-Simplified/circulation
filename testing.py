@@ -278,6 +278,22 @@ class DummyMetadataClient(object):
         else:
             return DummyCanonicalizeLookupResponse.failure()
 
+class DummyHTTPClient(object):
+
+    def __init__(self):
+        self.responses = []
+
+    def queue_response(self, response_code, media_type="text/html",
+                       other_headers=None, content=''):
+        headers = {"content-type": media_type}
+        if other_headers:
+            for k, v in other_headers.items():
+                headers[k.lower()] = v
+        self.responses.append((response_code, headers, content))
+
+    def do_get(self, url, headers, **kwargs):
+        return self.responses.pop()
+
 from nose.tools import set_trace
 import os
 from sqlalchemy.orm.session import Session

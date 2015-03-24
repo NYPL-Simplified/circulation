@@ -11,6 +11,7 @@ sys.path.insert(0, parent)
 from testing import (
     DatabaseTest,
     DummyMetadataClient,
+    DummyHTTPClient,
     _setup,
     _teardown,
 )

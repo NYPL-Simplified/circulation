@@ -25,7 +25,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
     def setup(self):
         super(TestCustomListFromCSV, self).setup()
-        self.data_source = DataSource.lookup(self._db, DataSource.LIBRARIANS)
+        self.data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         self.metadata = DummyMetadataClient()
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'
         self.l = CustomListFromCSV(self.data_source.name, "Test list",
