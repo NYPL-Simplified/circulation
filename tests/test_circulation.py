@@ -17,9 +17,11 @@ from . import (
 )
 
 from ..core.model import (
+    get_one,
     DataSource,
     LaneList,
     Loan,
+    Patron,
     Resource,
     Edition,
 )
@@ -203,13 +205,40 @@ class TestAcquisitionFeed(CirculationAppTest):
         threem.queue_response(
             content=threem_data.sample_data("checkouts.xml"))
 
-        self.english_1.license_pools[0].loan_to(self.default_patron)
+        patron = get_one(self._db, Patron,
+            authorization_identifier="200")
+
+        # Sync the bookshelf so we can create works for the loans.
+        overdrive_loans = overdrive.get_patron_checkouts(
+            patron, "foo")
+        threem_loans, threem_holds = threem.get_patron_checkouts(
+            patron.authorization_identifier)
+        overdrive.sync_bookshelf(patron, overdrive_loans)
+        threem.sync_bookshelf(patron, threem_loans, threem_holds)
+
+        # Super hacky--make sure the loans have works that will show
+        # up in the feed.
+        for loan in patron.loans:
+            pool = loan.license_pool
+            work = self._work()
+            work.license_pools = [pool]
+            work.editions[0].primary_identifier = pool.identifier
+            work.editions[0].data_source = pool.data_source
+
+        # Queue the same loans from last time.
+        overdrive.queue_response(
+            content=overdrive_data.sample_data("checkouts_list.json"))
+        threem.queue_response(
+            content=threem_data.sample_data("checkouts.xml"))
+
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
-            assert self.english_1.title in response
             assert ">loan<" in response
-
+            for loan in patron.loans:
+                expect_title = loan.license_pool.work.title
+                assert "title>%s</title" % expect_title in response
+                
 
 class TestCheckout(CirculationAppTest):
 
