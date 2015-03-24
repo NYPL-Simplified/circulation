@@ -9,12 +9,14 @@ from sqlalchemy import or_
 
 from core.model import (
     CirculationEvent,
+    DataSource,
     Edition,
     Identifier,
     LicensePool,
     get_one_or_create,
     Loan,
     Hold,
+    Session,
 )
 
 from core.monitor import Monitor
@@ -50,7 +52,8 @@ class ThreeMAPI(BaseThreeMAPI):
 
     def get_patron_checkouts(self, patron_id):
         path = "circulation/patron/%s" % patron_id
-        return self.request(path)
+        response = self.request(path)
+        return PatronCirculationParser().process_all(response.content)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
@@ -87,6 +90,54 @@ class ThreeMAPI(BaseThreeMAPI):
                    item_id=threem_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('cancelhold', body, method="PUT")
+
+    @classmethod
+    def sync_bookshelf(cls, patron, remote_loans, remote_holds):
+        """Synchronize 3M's view of the patron's bookshelf with our view.
+        """
+
+        _db = Session.object_session(patron)
+        threem_source = DataSource.lookup(_db, DataSource.THREEM)
+        active_loans = []
+
+        loans = _db.query(Loan).join(Loan.license_pool).filter(
+            LicensePool.data_source==threem_source)
+        loans_by_identifier = dict()
+        for loan in loans:
+            loans_by_identifier[loan.license_pool.identifier.identifier] = loan
+
+        to_add = []
+        for checkout in remote_loans:
+            start = checkout[Loan.start]
+            end = checkout[Loan.end]
+            threem_identifier = checkout[Identifier][Identifier.THREEM_ID]
+            identifier, new = Identifier.for_foreign_id(
+                _db, Identifier.THREEM_ID, threem_identifier)
+            if identifier.identifier in loans_by_identifier:
+                # We have a corresponding local loan. Just make sure the
+                # data matches up.
+                loan = loans_by_identifier[identifier.identifier]
+                loan.start = start
+                loan.end = end
+                active_loans.append(loan)
+
+                # Remove the loan from the list so that we don't
+                # delete it later.
+                del loans_by_identifier[identifier.identifier]
+            else:
+                # We never heard of this loan. Create it locally.
+                pool, new = LicensePool.for_foreign_id(
+                    _db, threem_source, identifier.type,
+                    identifier.identifier)
+                loan, new = pool.loan_to(patron, start, end)
+                active_loans.append(loan)
+
+        # Every loan remaining in loans_by_identifier is a loan that
+        # 3M doesn't know about, which means it's expired and we
+        # should get rid of it.
+        for loan in loans_by_identifier.values():
+            _db.delete(loan)
+        return active_loans
 
 
 class DummyThreeMAPIResponse(object):
