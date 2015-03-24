@@ -246,6 +246,14 @@ class Loan(Base):
     end = Column(DateTime)
 
 
+class Hold(object):
+    """Placeholder for a future 'holds' table."""
+
+    start = 'start'
+    end = 'end'
+    position = 'position'
+
+
 class DataSource(Base):
 
     """A source for information about books, and possibly the books themselves."""
