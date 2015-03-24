@@ -434,10 +434,10 @@ class OPDSImportMonitor(Monitor):
             print next_link
             importer, imported = self.process_one_page(next_link)
             self._db.commit()
-            if len(imported) == 0:
-                # We did not see a single book on this page we haven't
-                # already seen. There's no need to keep going.
-                break
+            #if len(imported) == 0:
+            #    # We did not see a single book on this page we haven't
+            #    # already seen. There's no need to keep going.
+            #    break
             next_links = importer.links_by_rel()['next']
             if not next_links:
                 # We're at the end of the list. There are no more books
