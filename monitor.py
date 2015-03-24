@@ -15,6 +15,7 @@ from core.opds_import import (
     SimplifiedOPDSLookup,
     DetailedOPDSImporter,
 )
+from scripts import ContentOPDSImporter
 
 class HTTPIntegrationException(Exception):
     pass
@@ -28,7 +29,10 @@ class CirculationPresentationReadyMonitor(Monitor):
                  interval_seconds=10*60):
         metadata_wrangler_url = (
             metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
+        content_server_url = (os.environ['CONTENT_WEB_APP_URL'])
+
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
+        self.content_lookup = SimplifiedOPDSLookup(content_server_url)
         self.batch_size = batch_size
         super(CirculationPresentationReadyMonitor, self).__init__(
             _db, "Presentation ready monitor", interval_seconds)
@@ -131,6 +135,25 @@ class CirculationPresentationReadyMonitor(Monitor):
             self._db, response.text,
             [Hyperlink.IMAGE, Hyperlink.DESCRIPTION])
         imported, messages_by_id = importer.import_from_feed()
+
+        # Look up any open-access works for which there is no
+        # open-access link. We'll try to get one from the open-access
+        # content server.
+        needs_open_access_import = []
+        for e in imported:
+            pool = e.license_pool
+            if pool.open_access and not e.best_open_access_link:
+                needs_open_access_import.append(e.primary_identifier)
+
+        if needs_open_access_import:
+            print "%d works need open access import." % len(needs_open_access_import)
+            response = self.content_lookup.lookup(needs_open_access_import)
+            importer = ContentOPDSImporter(self._db, response.text)
+            oa_imported, oa_messages_by_id = importer.import_from_feed()
+            print "%d successes, %d failures." % (len(oa_imported), len(oa_messages_by_id))
+            for identifier, (status_code, message) in oa_messages_by_id.items():
+                print identifier, status_code, message
+
         # We need to commit the database to make sure that a newly
         # created Edition will show up as its Work's .primary_edition.
         self._db.commit()
