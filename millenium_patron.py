@@ -32,6 +32,8 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     def __init__(self):
         root = os.environ['MILLENIUM_HOST']
+        if not root.endswith('/'):
+            root = root + "/"
         self.root = root
         self.parser = etree.HTMLParser()
 
@@ -46,7 +48,9 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 yield i.split('=', 1)
 
     def dump(self, barcode):
-        url = urljoin(self.root, "/%(barcode)s/dump" % dict(barcode=barcode))
+        path = "%(barcode)s/dump" % dict(barcode=barcode)
+        url = self.root + path
+        print url
         response = self.request(url)
         d = dict()
         for k, v in self._extract_text_nodes(response.content):
@@ -57,9 +61,9 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         return d
 
     def pintest(self, barcode, pin):
-        url = urljoin(
-            self.root, "/%(barcode)s/%(pin)s/pintest" % dict(
-                barcode=barcode, pin=pin))
+        path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
+        url = self.root + path
+        print url
         response = self.request(url)
         data = dict(self._extract_text_nodes(response.content))
         if data.get('RETCOD') == '0':

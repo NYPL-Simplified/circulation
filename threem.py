@@ -52,7 +52,8 @@ class ThreeMAPI(BaseThreeMAPI):
             if circ:
                 yield circ
 
-    def get_patron_checkouts(self, patron_id):
+    def get_patron_checkouts(self, patron_obj):
+        patron_id = patron_obj.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
         return PatronCirculationParser().process_all(response.content)
