@@ -54,7 +54,7 @@ class CirculationManagerAnnotator(Annotator):
         identifier = active_license_pool.identifier
         if active_loan:
             entry.extend([feed.loan_tag(active_loan)])
-            rel = None
+            rel = OPDSFeed.ACQUISITION_REL
         else:
             #Include a checkout URL
             if active_license_pool.open_access:
