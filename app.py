@@ -436,6 +436,7 @@ def checkout(data_source, identifier):
     # Try to find an existing loan.
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
     header = flask.request.authorization
+    location = None
     if loan:
         # The loan already exists. Try to send the patron a
         # fulfillment document, or a link to one.
@@ -463,8 +464,9 @@ def checkout(data_source, identifier):
 
         try:
             header = flask.request.authorization
+            format_to_use = possible_formats[0]
             content_link, content_type, content, content_expires = api.checkout(
-                patron, header.password, pool.identifier.identifier)
+                patron, header.password, pool.identifier, format_to_use)
         except NoAvailableCopies:
             # Most likely someone checked out the book and the
             # circulation manager is not yet aware of it.

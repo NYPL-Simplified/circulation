@@ -60,20 +60,19 @@ class ThreeMAPI(BaseThreeMAPI):
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
-    def checkout(self, patron_obj, patron_password, threem_id):
+    def checkout(self, patron_obj, patron_password, identifier, format=None):
 
-        patron_identier = patron_obj.authorization_identifier
+        threem_id = identifier.identifier
+        patron_identifier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
                     item_id=threem_id, patron_id=patron_identifier)
         body = self.TEMPLATE % args 
-        print body
         response = self.request('checkout', body, method="PUT")
-        # TODO: determine loan_expires
-        set_trace()
+        loan_expires = CheckoutResponseParser().process_all(response.content)
         if response.status_code in (200, 201):
-            content_link, media_type, content = self.get_fulfillment_file(
-                patron_id, threem_id)
-            return content_link, media_type, content, loan_expires
+            response = self.get_fulfillment_file(
+                patron_identifier, threem_id)
+            return None, response.headers.get('Content-Type'), response.content, loan_expires
         else:
             raise CheckoutException(response.content)
 
@@ -87,7 +86,6 @@ class ThreeMAPI(BaseThreeMAPI):
                    item_id=threem_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
-        
 
     def checkin(self, patron_id, threem_id):
         args = dict(request_type='CheckinRequest',
@@ -330,6 +328,22 @@ class PatronCirculationParser(XMLParser):
         if source_class == Hold:
             item[source_class.position] = self.int_of_subtag(tag, "Position")
         return item
+
+class CheckoutResponseParser(XMLParser):
+
+    """Extract due date from a checkout response."""
+
+    def process_all(self, string):
+        parser = etree.XMLParser()
+        root = etree.parse(StringIO(string), parser)
+        m = root.xpath("/CheckoutResult/DueDateInUTC")
+        if not m:
+            return None
+        due_date = m[0].text
+        if not due_date:
+            return None
+        return datetime.datetime.strptime(
+                due_date, EventParser.INPUT_TIME_FORMAT)
 
 
 class EventParser(XMLParser):

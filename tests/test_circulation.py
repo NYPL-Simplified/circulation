@@ -211,8 +211,7 @@ class TestAcquisitionFeed(CirculationAppTest):
         # Sync the bookshelf so we can create works for the loans.
         overdrive_loans = overdrive.get_patron_checkouts(
             patron, "foo")
-        threem_loans, threem_holds = threem.get_patron_checkouts(
-            patron.authorization_identifier)
+        threem_loans, threem_holds = threem.get_patron_checkouts(patron)
         overdrive.sync_bookshelf(patron, overdrive_loans)
         threem.sync_bookshelf(patron, threem_loans, threem_holds)
 

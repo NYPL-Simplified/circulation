@@ -82,9 +82,10 @@ class OverdriveAPI(BaseOverdriveAPI):
             raise IOError(response['error'] + "/" + response['error_description'])
         return credential
 
-    def checkout(self, patron, pin, overdrive_id, 
+    def checkout(self, patron, pin, identifier, 
                  format_type='ebook-epub-adobe'):
         
+        overdrive_id=identifier.identifier
         headers = {"Content-Type": "application/json"}
         payload = dict(fields=[dict(name="reserveId", value=overdrive_id)])
         if format_type:
@@ -106,11 +107,18 @@ class OverdriveAPI(BaseOverdriveAPI):
 
         expires, download_link = self.extract_data_from_checkout_response(
             response.json(), format_type, self.DEFAULT_ERROR_URL)
+        print download_link
 
         # Now turn the download link into a fulfillment link, which
         # will give us the ACSM file or equivalent.
+        if not format_type:
+            # Again, this would only be used in a test scenario.
+            return None, "text/plain", "", expires
         content_link, content_type = self.get_fulfillment_link_from_download_link(
             patron, pin, download_link)
+        # Even though we're given the media type of the ACSM file, we
+        # don't send it because we don't have the actual file, only
+        # a link to the file.
         return content_link, None, None, expires
 
     def get_loan(self, patron, pin, overdrive_id):

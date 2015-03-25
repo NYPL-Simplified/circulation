@@ -8,6 +8,7 @@ from nose.tools import (
 from ..threem import (
     ThreeMAPI,
     PatronCirculationParser,
+    CheckoutResponseParser,
 )
 
 from . import (
@@ -63,3 +64,10 @@ class TestPatronCirculationParser(TestThreeMAPI):
         eq_(expect_hold_start, h2[Hold.start])
         eq_(expect_hold_end, h2[Hold.end])
         eq_(1, h2[Hold.position])
+
+
+class TestCheckoutResponseParser(TestThreeMAPI):
+    def test_parse(self):
+        data = self.sample_data("successful_checkout.xml")
+        due_date = CheckoutResponseParser().process_all(data)
+        eq_(datetime.datetime(2015, 4, 16, 0, 32, 36), due_date)
