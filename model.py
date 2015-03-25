@@ -2121,8 +2121,12 @@ class Work(Base):
             joinedload('license_pools').joinedload('data_source'),
             joinedload('work_genres')
         )
+        q = q.join(Work.license_pools)
+        or_clause = or_(
+            LicensePool.open_access==True,
+            LicensePool.licenses_owned > 0)
+        q = q.filter(or_clause)
         if availability == cls.CURRENTLY_AVAILABLE:
-            q = q.join(Work.license_pools)
             or_clause = or_(
                 LicensePool.open_access==True,
                 LicensePool.licenses_available > 0)
