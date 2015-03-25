@@ -14,6 +14,8 @@ import flask
 from flask import Flask, url_for, redirect, Response
 
 from circulation_exceptions import (
+    CannotLoan,
+    AlreadyCheckedOut,
     NoAvailableCopies,
 )
 from core.app_server import (
@@ -110,7 +112,10 @@ INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/creden
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
 EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-expired"
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
-NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-license"
+NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
+NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
+ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
+CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -384,6 +389,8 @@ def work():
 @requires_auth
 def checkout(data_source, identifier):
 
+    patron = flask.request.patron
+
     # Turn source + identifier into a LicensePool
     source = DataSource.lookup(Conf.db, data_source)
     if source is None:
@@ -395,45 +402,52 @@ def checkout(data_source, identifier):
     if not id_obj:
         # TODO
         return problem(
-            NO_AVAILABLE_LICENSE_PROBLEM, "I never heard of such a book.", 404)
+            NO_LICENSES_PROBLEM, "I never heard of such a book.", 404)
 
     pool = id_obj.licensed_through
     if not pool:
         return problem(
-            NO_AVAILABLE_LICENSE_PROBLEM, 
+            NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that book.", 404)
 
     if pool.open_access:
         best_pool, best_link = pool.best_license_link
         if not best_link:
             return problem(
-                NO_AVAILABLE_LICENSE_PROBLEM,
-                "Sorry, couldn't find an available license.", 404)
-        best_pool.loan_to(flask.request.patron)
+                NO_LICENSES_PROBLEM,
+                "Sorry, couldn't find an open-access download link.", 404)
+        best_pool.loan_to(patron)
         return redirect(best_link.representation.mirror_url)
 
     # This is not an open-access pool.
     if pool.licenses_available < 1:
         return problem(
-            NO_AVAILABLE_LICENSE_PROBLEM,
-            "Sorry, couldn't find an available license.", 400)
+            NO_LICENSES_PROBLEM,
+            "Sorry, we don't currently license this book.", 400)
 
     content_link = None
     content_type = None
     content_expires = None
-    if pool.data_source.name==DataSource.OVERDRIVE:
-        api = OverdriveAPI(_db)
+    try:
+        if pool.data_source.name==DataSource.OVERDRIVE:
+            api = Conf.overdrive
+        else:
+            api = Conf.threem
         header = flask.request.authorization
-        try:
-            content_link, content_type, content_expires = api.checkout(
-                flask.request.patron, header.password,
-                pool.identifier.identifier)
-        except NoAvailableCopies:
-            return problem(
-                NO_AVAILABLE_LICENSE_PROBLEM,
-                "Sorry, couldn't find an available license.", 400)
+        content_link, content_type, content_expires = api.checkout(
+            patron, header.password, pool.identifier.identifier)
+    except NoAvailableCopies:
+        return problem(
+            NO_AVAILABLE_LICENSE_PROBLEM,
+            "Sorry, couldn't find an available license.", 400)
+    except AlreadyCheckedOut:
+        return problem(
+            ALREADY_CHECKED_OUT_PROBLEM,
+            "You have already checked out this book.", 400)
+    except CannotLoan, e:
+        return problem(CHECKOUT_FAILED_PROBLEM, str(e), 400)
 
-    pool.loan_to(flask.request.patron, end=content_expires)
+    pool.loan_to(patron, end=content_expires)
     headers = { "Location" : content_link }
     return Response(data, 201, headers)
 

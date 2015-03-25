@@ -2,6 +2,7 @@ from lxml import etree
 from cStringIO import StringIO
 import datetime
 import os
+import re
 
 from nose.tools import set_trace
 
@@ -22,6 +23,7 @@ from core.model import (
 from core.monitor import Monitor
 from core.util.xmlparser import XMLParser
 from core.threem import ThreeMAPI as BaseThreeMAPI
+from circulation_exceptions import *
 
 class ThreeMAPI(BaseThreeMAPI):
 
@@ -57,15 +59,19 @@ class ThreeMAPI(BaseThreeMAPI):
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
-    def checkout(self, patron_id, threem_id):
+    def checkout(self, patron_obj, patron_password, threem_id):
 
+        patron_identier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
-                   item_id=threem_id, patron_id=patron_id)
+                    item_id=threem_id, patron_id=patron_identifier)
         body = self.TEMPLATE % args 
         print body
         response = self.request('checkout', body, method="PUT")
+        set_trace()
         if response.status_code in (200, 201):
             return self.get_fulfillment_file(patron_id, threem_id)
+        else:
+            raise CheckoutException(response.content)
 
     def get_fulfillment_file(self, patron_id, threem_id):
         args = dict(request_type='ACSMRequest',
@@ -209,6 +215,68 @@ class CirculationParser(XMLParser):
             item[simplified_key] = value
 
         return item
+
+class ThreeMException(Exception):
+    pass
+
+class WorkflowException(ThreeMException):
+    def __init__(self, actual_status, statuses_that_would_work):
+        self.actual_status = actual_status
+        self.statuses_that_would_work = statuses_that_would_work
+
+    def __str__(self):
+        return "Book status is %s, must be: %s" % (
+            self.actual_status, ", ".join(self.statuses_that_would_work))
+
+class ErrorParser(XMLParser):
+    """Turn an error document from the 3M web service into a CheckoutException"""
+
+    wrong_status = re.compile(
+        "the patron document status was ([^ ]+) and not one of ([^ ]+)")
+    
+    error_mapping = {
+        "The patron does not have the book on hold" : NotOnHold,
+        "The patron has no eBooks checked out" : NotCheckedOut,
+    }
+
+    def process_all(self, string):
+        for i in super(ErrorParser, self).process_all(
+                string, "//Error"):
+            return i
+
+    def process_one(self, error_tag, namespaces):
+        message = self.text_of_subtag(error_tag, "Message")
+        if not message:
+            return ThreeMException("Unknown error")
+
+        if message in self.error_mapping:
+            return self.error_mapping[message](message)
+
+        m = self.wrong_status.search(message)
+        if not m:
+            return ThreeMException(message)
+        actual, expected = m.groups()
+        expected = expected.split(",")
+
+        if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
+            return NoAvailableCopies(message)
+
+        if 'CAN_LOAN' in expected and actual == 'LOAN':
+            return AlreadyCheckedOut(message)
+
+        if 'CAN_HOLD' in expected and actual == 'CAN_WISH':
+            return CurrentlyAvailable(message)
+
+        if 'CAN_HOLD' in expected and actual == 'HOLD':
+            return AlreadyOnHold(message)
+
+        if 'CAN_HOLD' in expected:
+            return CannotHold(message)
+
+        if 'CAN_LOAN' in expected:
+            return CannotLoan(message)
+
+        return ThreeMException(message)
 
 class PatronCirculationParser(XMLParser):
 
