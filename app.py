@@ -221,7 +221,7 @@ def active_loans():
 
     # First synchronize our local list of loans with all third-party
     # loan providers.
-    if len(patron.authorization_identifier) == 14:
+    if patron.authorization_identifier and len(patron.authorization_identifier) == 14:
         # TODO: Barcodes that are not 14 digits are dummy code
         # that allow the creation of arbitrary test accounts that
         # are limited to public domain books. We cannot
