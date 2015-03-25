@@ -3,6 +3,7 @@ from lxml import etree
 from urlparse import urljoin
 from urllib import urlencode
 import datetime
+import requests
 
 from core.util.xmlparser import XMLParser
 from authenticator import Authenticator
@@ -35,7 +36,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         self.parser = etree.HTMLParser()
 
     def request(self, url):
-        return requests.request(url)
+        return requests.get(url)
 
     def _extract_text_nodes(self, content):
         tree = etree.fromstring(content, self.parser)
