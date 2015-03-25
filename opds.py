@@ -417,6 +417,11 @@ class AcquisitionFeed(OPDSFeed):
         if not active_license_pool:
             return None
 
+        if not work:
+            # We have a license pool but no work. Most likely we don't have
+            # metadata for this work yet.
+            return None
+
         active_edition = active_license_pool.edition()
         if not active_edition:
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
