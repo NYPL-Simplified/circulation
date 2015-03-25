@@ -77,6 +77,9 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     def update_patron(self, patron, identifier, dump=None):
         """Update a Patron record with information from a data dump."""
+        if len(identifier) != 14:
+            # TODO: This is a test identifier.
+            return
         if not dump:
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
@@ -119,18 +122,23 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         # before, has their authorization identifier (barcode)
         # changed, or do they not exist in Millenium either?
         dump = self.dump(identifier)
-        if dump.get('ERRNUM') == '1':
+        if dump.get('ERRNUM') in ('1', '2'):
             # The patron does not exist in Millenium. This is a bad
             # barcode. How we passed the PIN test is a mystery, but
             # ours not to reason why. There is no authenticated
             # patron.
 
+            set_trace()
             # TODO: EXCEPT, this might be a test patron dynamically
             # created by the test code.
             if len(identifier) != 14:
                 print "Creating test patron!"
                 patron, is_new = get_one_or_create(
-                    db, Patron, external_identifier=permanent_id)
+                    db, Patron, external_identifier=identifier,
+                )
+                patron.authorization_identifier = identifier
+                db.commit()
+                return patron
 
             return None
 
