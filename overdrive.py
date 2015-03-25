@@ -111,7 +111,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         # will give us the ACSM file or equivalent.
         content_link, content_type = self.get_fulfillment_link_from_download_link(
             patron, pin, download_link)
-        return content_link, content_type, expires
+        return content_link, None, None, expires
 
     def get_loan(self, patron, pin, overdrive_id):
         url = self.CHECKOUTS_ENDPOINT + "/" + overdrive_id.upper()
@@ -121,6 +121,11 @@ class OverdriveAPI(BaseOverdriveAPI):
         """Get a JSON structure describing all of a patron's outstanding
         loans."""
         return self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+
+    def fulfill(self, patron, pin, identifier, format_type):
+        url, media_type = self.get_fulfillment_link(
+            patron, pin, identifier.identifier, format_type)
+        return url, media_type, None
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan."""

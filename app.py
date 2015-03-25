@@ -32,6 +32,7 @@ from threem import (
 )
 
 from core.model import (
+    get_one,
     get_one_or_create,
     AllCustomListsFromDataSourceFeed,
     DataSource,
@@ -39,6 +40,7 @@ from core.model import (
     LaneList,
     Lane,
     LicensePool,
+    Loan,
     Patron,
     Identifier,
     Work,
@@ -420,36 +422,70 @@ def checkout(data_source, identifier):
         return redirect(best_link.representation.mirror_url)
 
     # This is not an open-access pool.
-    if pool.licenses_available < 1:
-        return problem(
-            NO_LICENSES_PROBLEM,
-            "Sorry, we don't currently license this book.", 400)
 
+    possible_formats = [None]
+    if pool.data_source.name==DataSource.OVERDRIVE:
+        api = Conf.overdrive
+        possible_formats = ["ebook-epub-adobe", "ebook-epub-open"]
+    else:
+        api = Conf.threem
     content_link = None
     content_type = None
-    content_expires = None
-    try:
-        if pool.data_source.name==DataSource.OVERDRIVE:
-            api = Conf.overdrive
-        else:
-            api = Conf.threem
-        header = flask.request.authorization
-        content_link, content_type, content_expires = api.checkout(
-            patron, header.password, pool.identifier.identifier)
-    except NoAvailableCopies:
-        return problem(
-            NO_AVAILABLE_LICENSE_PROBLEM,
-            "Sorry, couldn't find an available license.", 400)
-    except AlreadyCheckedOut:
-        return problem(
-            ALREADY_CHECKED_OUT_PROBLEM,
-            "You have already checked out this book.", 400)
-    except CannotLoan, e:
-        return problem(CHECKOUT_FAILED_PROBLEM, str(e), 400)
+    status_code = None
 
-    pool.loan_to(patron, end=content_expires)
-    headers = { "Location" : content_link }
-    return Response(data, 201, headers)
+    # Try to find an existing loan.
+    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+    header = flask.request.authorization
+    if loan:
+        # The loan already exists. Try to send the patron a
+        # fulfillment document, or a link to one.
+        for f in possible_formats:
+            location, media_type, content = api.fulfill(
+                patron, header.password, id_obj, f)
+            if location or content:
+                break
+        else:
+            return problem(
+                NO_ACCEPTABLE_FORMAT_PROBLEM,
+                "Could not find this book in a usable format.", 500)
+        if location:
+            status_code = 302
+        else:
+            status_code = 200
+    else:
+        content_expires = None
+        # There is no existing loan. At this point there must be a license
+        # free to assign to this patron.
+        if pool.licenses_available < 1:
+            return problem(
+                NO_AVAILABLE_LICENSE_PROBLEM,
+                "Sorry, all copies of this book are checked out.", 400)
+
+        try:
+            header = flask.request.authorization
+            content_link, content_type, content, content_expires = api.checkout(
+                patron, header.password, pool.identifier.identifier)
+        except NoAvailableCopies:
+            # Most likely someone checked out the book and the
+            # circulation manager is not yet aware of it.
+            return problem(
+                NO_AVAILABLE_LICENSE_PROBLEM,
+                "Sorry, all copies of this book are checked out.", 400)
+        except AlreadyCheckedOut:
+            return problem(
+                ALREADY_CHECKED_OUT_PROBLEM,
+                "You have already checked out this book.", 400)
+        except CannotLoan, e:
+            return problem(CHECKOUT_FAILED_PROBLEM, str(e), 400)
+
+        pool.loan_to(patron, end=content_expires)
+        status_code = 201
+    headers = {}
+    if location:
+        headers["Location"] = location
+    if media_type:
+        headers['Content-Type'] = media_type
+    return Response(content, status_code, headers)
 
 print __name__
 if __name__ == '__main__':

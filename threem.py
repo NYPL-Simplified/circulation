@@ -68,17 +68,26 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         print body
         response = self.request('checkout', body, method="PUT")
+        # TODO: determine loan_expires
         set_trace()
         if response.status_code in (200, 201):
-            return self.get_fulfillment_file(patron_id, threem_id)
+            content_link, media_type, content = self.get_fulfillment_file(
+                patron_id, threem_id)
+            return content_link, media_type, content, loan_expires
         else:
             raise CheckoutException(response.content)
+
+    def fulfill(self, patron, password, identifier, format):
+        response = self.get_fulfillment_file(
+            patron.authorization_identifier, identifier.identifier)
+        return None, response.headers.get('Content-Type'), response.content
 
     def get_fulfillment_file(self, patron_id, threem_id):
         args = dict(request_type='ACSMRequest',
                    item_id=threem_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
+        
 
     def checkin(self, patron_id, threem_id):
         args = dict(request_type='CheckinRequest',
