@@ -65,7 +65,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             # TODO: This is dummy code to allow people to test random
             # barcodes. You will not be able to check out licensed
             # books but you will be able to get public domain books.
-            return barcode and pin == barcode[0] * 4
+            return barcode and pin == (barcode[0] * 4)
 
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
         url = self.root + path
@@ -124,6 +124,14 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             # barcode. How we passed the PIN test is a mystery, but
             # ours not to reason why. There is no authenticated
             # patron.
+
+            # TODO: EXCEPT, this might be a test patron dynamically
+            # created by the test code.
+            if len(identifier) != 14:
+                print "Creating test patron!"
+                patron, is_new = get_one_or_create(
+                    db, Patron, external_identifier=permanent_id)
+
             return None
 
         # If we've gotten this far, the patron does exist in
