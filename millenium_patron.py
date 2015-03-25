@@ -128,7 +128,6 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             # ours not to reason why. There is no authenticated
             # patron.
 
-            set_trace()
             # TODO: EXCEPT, this might be a test patron dynamically
             # created by the test code.
             if len(identifier) != 14:
