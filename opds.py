@@ -336,6 +336,7 @@ class OPDSFeed(AtomFeed):
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
+    ACQUISITION_REL = "http://opds-spec.org/acquisition"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
