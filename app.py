@@ -221,15 +221,20 @@ def active_loans():
 
     # First synchronize our local list of loans with all third-party
     # loan providers.
-    header = flask.request.authorization
-    overdrive_loans = Conf.overdrive.get_patron_checkouts(
-        patron, header.password)
-    threem_loans, threem_holds = Conf.threem.get_patron_checkouts(
-        flask.request.patron)
+    if len(patron.authorization_identifier) == 14:
+        # TODO: Barcodes that are not 14 digits are dummy code
+        # that allow the creation of arbitrary test accounts that
+        # are limited to public domain books. We cannot
+        # ask Overdrive or 3M about these barcodes. 
+        header = flask.request.authorization
+        overdrive_loans = Conf.overdrive.get_patron_checkouts(
+            patron, header.password)
+        threem_loans, threem_holds = Conf.threem.get_patron_checkouts(
+            flask.request.patron)
 
-    Conf.overdrive.sync_bookshelf(patron, overdrive_loans)
-    Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds)
-    Conf.db.commit()
+        Conf.overdrive.sync_bookshelf(patron, overdrive_loans)
+        Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds)
+        Conf.db.commit()
 
     # Then make the feed.
     feed = CirculationManagerAnnotator.active_loans_for(patron)

@@ -61,9 +61,14 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         return d
 
     def pintest(self, barcode, pin):
+        if len(barcode) != 14:
+            # TODO: This is dummy code to allow people to test random
+            # barcodes. You will not be able to check out licensed
+            # books but you will be able to get public domain books.
+            return barcode and pin == barcode[0] * 4
+
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
         url = self.root + path
-        print url
         response = self.request(url)
         data = dict(self._extract_text_nodes(response.content))
         if data.get('RETCOD') == '0':
