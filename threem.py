@@ -106,21 +106,32 @@ class ThreeMAPI(BaseThreeMAPI):
         return self.request('cancelhold', body, method="PUT")
 
     @classmethod
-    def sync_bookshelf(cls, patron, remote_loans, remote_holds):
+    def sync_bookshelf(cls, patron, remote_loans, remote_holds, remote_reserves):
         """Synchronize 3M's view of the patron's bookshelf with our view.
         """
 
         _db = Session.object_session(patron)
         threem_source = DataSource.lookup(_db, DataSource.THREEM)
         active_loans = []
+        active_holds = []
+
+        # Treat reserves as holds where position=0
+        for reserve in remote_reserves:
+            reserve[Hold.position] = 0
+            remote_holds.append(reserve)
 
         loans = _db.query(Loan).join(Loan.license_pool).filter(
             LicensePool.data_source==threem_source)
+        holds = _db.query(Hold).join(Hold.license_pool).filter(
+            LicensePool.data_source==threem_source)
+
         loans_by_identifier = dict()
         for loan in loans:
             loans_by_identifier[loan.license_pool.identifier.identifier] = loan
+        holds_by_identifier = dict()
+        for hold in holds:
+            holds_by_identifier[hold.license_pool.identifier.identifier] = hold
 
-        to_add = []
         for checkout in remote_loans:
             start = checkout[Loan.start]
             end = checkout[Loan.end]
@@ -146,12 +157,37 @@ class ThreeMAPI(BaseThreeMAPI):
                 loan, new = pool.loan_to(patron, start, end)
                 active_loans.append(loan)
 
-        # Every loan remaining in loans_by_identifier is a loan that
+        for hold in remote_holds:
+            start = hold[Hold.start]
+            end = hold[Hold.end]
+            threem_identifier = hold[Identifier][Identifier.THREEM_ID]
+            position = hold[Hold.position]
+            identifier, new = Identifier.for_foreign_id(
+                _db, Identifier.THREEM_ID, threem_identifier)
+            if identifier.identifier in holds_by_identifier:
+                # We have a corresponding hold. Just make sure the
+                # data matches up.
+                hold = holds_by_identifier[identifier.identifier]
+                hold.update(start, end, position)
+                active_holds.append(hold)
+
+                # Remove the hold from the list so that we don't
+                # delete it later.
+                del holds_by_identifier[identifier.identifier]
+            else:
+                # We never heard of this hold. Create it locally.
+                pool, new = LicensePool.for_foreign_id(
+                    _db, threem_source, identifier.type,
+                    identifier.identifier)
+                hold, new = pool.on_hold_to(patron, start, end, position)
+                active_holds.append(loan)
+
+        # Every hold remaining in holds_by_identifier is a hold that
         # 3M doesn't know about, which means it's expired and we
         # should get rid of it.
-        for loan in loans_by_identifier.values():
-            _db.delete(loan)
-        return active_loans
+        for hold in holds_by_identifier.values():
+            _db.delete(hold)
+        return active_loans, active_holds
 
 
 class DummyThreeMAPIResponse(object):
@@ -298,9 +334,9 @@ class PatronCirculationParser(XMLParser):
             root, "//Checkouts/Item", handler=self.process_one_loan) if x]
         holds = [x for x in sup.process_all(
             root, "//Holds/Item", handler=self.process_one_hold) if x]
-        holds += [x for x in sup.process_all(
+        reserves = [x for x in sup.process_all(
             root, "//Reserves/Item", handler=self.process_one_hold) if x]
-        return loans, holds
+        return loans, holds, reserves
 
     def process_one_loan(self, tag, namespaces):
         return self.process_one(tag, namespaces, Loan)
