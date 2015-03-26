@@ -215,6 +215,7 @@ class Patron(Base):
     authorization_expires = Column(Date, index=True)
 
     loans = relationship('Loan', backref='patron')
+    holds = relationship('Hold', backref='patron')
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
@@ -246,12 +247,30 @@ class Loan(Base):
     end = Column(DateTime)
 
 
-class Hold(object):
-    """Placeholder for a future 'holds' table."""
+class Hold(Base):
+    """A patron is in line to check out a book.
+    """
+    __tablename__ = 'holds'
+    id = Column(Integer, primary_key=True)
+    patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
+    position = Column(Integer, index=True)
 
-    start = 'start'
-    end = 'end'
-    position = 'position'
+    def update(self, start, end, position):
+        """When the book becomes available, position will be 0 and end will be
+        set to the time at which point the patron will lose their place in
+        line.
+        
+        Otherwise, end is irrelevant and is set to None.
+        """
+        self.start = start
+        if position == 0:
+            self.end = end
+        else:
+            self.end = None
+        self.position = position
 
 
 class DataSource(Base):
@@ -3665,6 +3684,9 @@ class LicensePool(Base):
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
+    # One LicensePool can have many Holds.
+    holds = relationship('Hold', backref='license_pool')
+
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
@@ -3831,6 +3853,14 @@ class LicensePool(Base):
         return get_one_or_create(
             _db, Loan, patron=patron, license_pool=self, 
             create_method_kwargs=kwargs)
+
+    def on_hold_to(self, patron, start=None, end=None, position=None):
+        _db = Session.object_session(patron)
+        start = start or datetime.datetime.utcnow()
+        hold, new = get_one_or_create(
+            _db, Hold, patron=patron, license_pool=self)
+        hold.update(start, end, position)
+        return hold, new
 
     @classmethod
     def consolidate_works(cls, _db, calculate_work_even_if_no_author=False):
