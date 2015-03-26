@@ -27,6 +27,8 @@ class OverdriveAPI(object):
 
     CHECKOUTS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts"
     FORMATS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
+    HOLDS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds"
+    HOLD_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s"
     ME_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me"
 
     MAX_CREDENTIAL_AGE = 50 * 60
