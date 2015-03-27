@@ -1298,6 +1298,31 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+class TestHold(DatabaseTest):
+
+    def test_on_hold_to(self):
+        now = datetime.datetime.utcnow()
+        later = now + datetime.timedelta(days=1)
+        patron = self._patron()
+        edition = self._edition()
+        pool = self._licensepool(edition)
+
+        hold, is_new = pool.on_hold_to(patron, now, later, 4)
+        eq_(True, is_new)
+        eq_(now, hold.start)
+        eq_(None, hold.end)
+        eq_(4, hold.position)
+
+        # Now update the position to 0. It's the patron's turn
+        # to check out the book.
+        hold, is_new = pool.on_hold_to(patron, now, later, 0)
+        eq_(False, is_new)
+        eq_(now, hold.start)
+        # The patron has until `hold.end` to actually check out the book.
+        eq_(later, hold.end)
+        eq_(0, hold.position)
+
+
 class TestLane(DatabaseTest):
 
     def test_setup(self):

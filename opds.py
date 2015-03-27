@@ -53,7 +53,7 @@ def _strftime(d):
     """
 Format a date the way Atom likes it (RFC3339?)
 """
-    return d.strftime('%Y-%m-%dT%H:%M:%SZ%z')
+    return d.strftime(AtomFeed.TIME_FORMAT)
 
 default_typemap = {datetime: lambda e, v: _strftime(v)}
 
@@ -309,6 +309,8 @@ class VerboseAnnotator(Annotator):
 
 
 class AtomFeed(object):
+
+    TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 
     def __init__(self, title, url):
         self.feed = E.feed(
