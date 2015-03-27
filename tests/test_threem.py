@@ -102,4 +102,4 @@ class TestSyncBookshelf(TestThreeMAPI):
         # whether or not to check out this book.
         eq_(datetime.datetime(2015, 5, 25, 17, 5, 34), h2.start)
         eq_(datetime.datetime(2015, 5, 27, 17, 5, 34), h2.end)
-        eq_(0, h1.position)
+        eq_(0, h2.position)

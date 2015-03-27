@@ -13,6 +13,7 @@ from core.model import (
     Credential,
     DataSource,
     Edition,
+    Hold,
     Identifier,
     LicensePool,
     Loan,
@@ -224,7 +225,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         return self.patron_request(patron, pin, url, method='DELETE')
 
     @classmethod
-    def sync_bookshelf(cls, patron, remote_view):
+    def sync_bookshelf(cls, patron, remote_view_loans, remote_view_holds):
         """Synchronize Overdrive's view of the patron's bookshelf with our view.
         """
 
@@ -238,8 +239,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         for loan in loans:
             loans_by_identifier[loan.license_pool.identifier.identifier] = loan
 
-        to_add = []
-        for checkout in remote_view['checkouts']:
+        for checkout in remote_view_loans['checkouts']:
             start = datetime.datetime.strptime(
                 checkout['checkoutDate'], cls.TIME_FORMAT)
             end = datetime.datetime.strptime(
@@ -266,12 +266,62 @@ class OverdriveAPI(BaseOverdriveAPI):
                 loan, new = pool.loan_to(patron, start, end)
                 active_loans.append(loan)
 
-        # Every loan remaining in loans_by_identifier is a loan that
+        # Every loan remaining in loans_by_identifier is a hold that
         # Overdrive doesn't know about, which means it's expired and
         # we should get rid of it.
         for loan in loans_by_identifier.values():
             _db.delete(loan)
-        return active_loans
+
+        active_holds = []
+        holds = _db.query(Hold).join(Hold.license_pool).filter(
+            LicensePool.data_source==overdrive_source)
+        holds_by_identifier = dict()
+        for hold in holds:
+            holds_by_identifier[hold.license_pool.identifier.identifier] = hold
+
+        for hold_json in remote_view_holds['holds']:
+            start = datetime.datetime.strptime(
+                hold_json['holdPlacedDate'], cls.TIME_FORMAT)
+
+            end = None
+            expires_json = hold_json.get('holdExpires')
+            if expires_json:
+                end = datetime.datetime.strptime(expires_json, cls.TIME_FORMAT)
+            position = int(hold_json['holdListPosition'])
+            if position == 1 and 'checkout' in hold_json.get('actions', {}):
+                # This patron needs to decide whether to check the
+                # book out. By our reckoning, their position is 0, not 1.
+                position = 0
+
+            overdrive_identifier = hold_json['reserveId'].lower()
+            identifier, new = Identifier.for_foreign_id(
+                _db, Identifier.OVERDRIVE_ID, overdrive_identifier)
+            if identifier.identifier in holds_by_identifier:
+                # We have a corresponding local hold. Just make sure the
+                # data matches up.
+                hold = holds_by_identifier[identifier.identifier]
+                hold.start = start
+                hold.end = end
+                active_holds.append(hold)
+
+                # Remove the hold from the list so that we don't
+                # delete it later.
+                del holds_by_identifier[identifier.identifier]
+            else:
+                # We never heard of this hold. Create it locally.
+                pool, new = LicensePool.for_foreign_id(
+                    _db, overdrive_source, identifier.type,
+                    identifier.identifier)
+                hold, new = pool.on_hold_to(patron, start, end, position)
+                active_holds.append(hold)
+
+        # Every hold remaining in holds_by_identifier is a hold that
+        # Overdrive doesn't know about, which means it's expired and
+        # we should get rid of it.
+        for hold in holds_by_identifier.values():
+            _db.delete(hold)
+
+        return active_loans, active_holds
        
     def update_licensepool(self, book):
         """Update availability information for a single book.
