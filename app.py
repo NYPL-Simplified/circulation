@@ -37,6 +37,7 @@ from core.model import (
     AllCustomListsFromDataSourceFeed,
     DataSource,
     production_session,
+    Hold,
     LaneList,
     Lane,
     LicensePool,
@@ -49,7 +50,10 @@ from core.model import (
     Edition,
     )
 from core.opensearch import OpenSearchDocument
-from opds import CirculationManagerAnnotator
+from opds import (
+    CirculationManagerAnnotator,
+    CirculationManagerLoanAndHoldAnnotator,
+)
 from core.opds import (
     E,
     AcquisitionFeed,
@@ -118,6 +122,8 @@ NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
 NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
 ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
+NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
+NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -239,8 +245,41 @@ def active_loans():
         Conf.db.commit()
 
     # Then make the feed.
-    feed = CirculationManagerAnnotator.active_loans_for(patron)
+    feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
     return unicode(feed)
+
+@app.route('/loans/<data_source>/<identifier>')
+@requires_auth
+def loan_detail(data_source, identifier):
+    patron = flask.request.patron
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+    if not loan:
+        return problem(
+            NO_ACTIVE_LOAN_PROBLEM, 
+            'You have no active loan for "%s".' % pool.work.title, 404)
+    feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+        loan)
+    return unicode(feed)
+
+@app.route('/holds/<data_source>/<identifier>')
+@requires_auth
+def hold_detail(data_source, identifier):
+    patron = flask.request.patron
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+    hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+    if not hold:
+        return problem(
+            NO_ACTIVE_HOLD_PROBLEM, 
+            'You have no active hold on "%s".' % pool.work.title, 404)
+    feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+        hold)
+    return unicode(feed)
+
 
 @app.route('/feed/<lane>')
 def feed(lane):
@@ -394,13 +433,7 @@ def work():
     return URNLookupController(Conf.db).work_lookup(annotator, 'work')
     # Conf.urn_lookup_controller.permalink(urn, annotator)
 
-@app.route('/works/<data_source>/<identifier>/checkout')
-@requires_auth
-def checkout(data_source, identifier):
-
-    patron = flask.request.patron
-
-    # Turn source + identifier into a LicensePool
+def _load_licensepool(data_source, identifier):
     source = DataSource.lookup(Conf.db, data_source)
     if source is None:
         return problem("No such data source!", 404)
@@ -412,8 +445,20 @@ def checkout(data_source, identifier):
         # TODO
         return problem(
             NO_LICENSES_PROBLEM, "I never heard of such a book.", 404)
-
     pool = id_obj.licensed_through
+    return pool
+
+@app.route('/works/<data_source>/<identifier>/checkout')
+@requires_auth
+def checkout(data_source, identifier):
+
+    patron = flask.request.patron
+
+    # Turn source + identifier into a LicensePool
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+
     if not pool:
         return problem(
             NO_LICENSES_PROBLEM, 

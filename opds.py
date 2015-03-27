@@ -112,6 +112,8 @@ class CirculationManagerAnnotator(Annotator):
         return summary
 
 
+class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
+
     @classmethod
     def active_loans_for(cls, patron):
         db = Session.object_session(patron)
@@ -125,3 +127,29 @@ class CirculationManagerAnnotator(Annotator):
         annotator = cls(None, active_loans_by_work, active_holds_by_work)
         works = patron.works_on_loan_or_on_hold()
         return AcquisitionFeed(db, "Active loans", url, works, annotator)
+
+    @classmethod
+    def single_loan_feed(cls, loan):
+        db = Session.object_session(loan)
+        work = loan.license_pool.work
+        url = url_for(
+            'loan_detail', data_source=loan.license_pool.data_source,
+            identifier=loan.license_pool.identifier, _external=True)
+        active_loans_by_work = { work : loan }
+        annotator = cls(None, active_loans_by_work, {})
+        works = [work]
+        return AcquisitionFeed(
+            db, "Active loan for %s" % work.title, url, works, annotator)
+
+    @classmethod
+    def single_hold_feed(cls, hold):
+        db = Session.object_session(hold)
+        work = hold.license_pool.work
+        url = url_for(
+            'hold_detail', data_source=hold.license_pool.data_source,
+            identifier=hold.license_pool.identifier, _external=True)
+        active_holds_by_work = { work : hold }
+        annotator = cls(None, {}, active_holds_by_work)
+        works = [work]
+        return AcquisitionFeed(
+            db, "Active hold for %s" % work.title, url, works, annotator)
