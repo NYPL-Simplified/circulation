@@ -225,6 +225,14 @@ class Patron(Base):
         loans = db.query(Loan).filter(Loan.patron==self)
         return [loan.license_pool.work for loan in loans]
 
+    def works_on_loan_or_on_hold(self):
+        db = Session.object_session(self)
+        results = set()
+        holds_q = db.query(Hold).filter(Loan.patron==self)
+        holds = [hold.license_pool.work for hold in holds_q]
+        loans = self.works_on_loan()
+        return set(holds + loans)
+
     @property
     def authorization_is_active(self):
         # Unlike pretty much every other place in this app, I use
@@ -576,6 +584,9 @@ class Identifier(Base):
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
         was_new = None
+        if foreign_identifier_type in (
+                Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
+            foreign_id = foreign_id.lower()
         if autocreate:
             m = get_one_or_create
         else:

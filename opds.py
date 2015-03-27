@@ -540,23 +540,36 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     def loan_tag(self, loan=None):
-        # TODO: loan.start should be a datetime object that knows it's UTC.
-        if not loan:
-            return None
-        loan_tag = E._makeelement("{%s}Event" % schema_ns)
-        name = E._makeelement("{%s}name" % schema_ns)
-        loan_tag.extend([name])
-        name.text = 'loan'
+        return self._event_tag('loan', loan.start, loan.end)
 
-        if loan.start:
+    def hold_tag(self, hold=None):
+        if not hold:
+            return None
+        hold_tag = self._event_tag('hold', hold.start, hold.end)
+        position = E._makeelement("{%s}position" % schema_ns)
+        hold_tag.extend([position])
+        position.text = str(hold.position)
+        return hold_tag
+
+    def _event_tag(self, name, start, end):
+        """
+        :param start: A datetime (MUST be in UTC)
+        :param end: A datetime (MUST be in UTC)
+        """
+        tag = E._makeelement("{%s}Event" % schema_ns)
+        name_tag = E._makeelement("{%s}name" % schema_ns)
+        tag.extend([name_tag])
+        name_tag.text = name
+
+        if start:
             created = E._makeelement("{%s}startDate" % schema_ns)
-            loan_tag.extend([created])
-            created.text = loan.start.isoformat() + "Z"
-        if loan.end:
+            tag.extend([created])
+            created.text = start.isoformat() + "Z"
+        if end:
             expires = E._makeelement("{%s}endDate" % schema_ns)
-            loan_tag.extend([expires])
-            expires.text = loan.end.isoformat() + "Z"
-        return loan_tag
+            tag.extend([expires])
+            expires.text = end.isoformat() + "Z"
+        return tag
 
     def license_tags(self, license_pool):
         if license_pool.open_access:
