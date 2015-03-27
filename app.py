@@ -229,10 +229,12 @@ def active_loans():
         header = flask.request.authorization
         overdrive_loans = Conf.overdrive.get_patron_checkouts(
             patron, header.password)
+        overdrive_holds = Conf.overdrive.get_patron_holds(
+            patron, header.password)
         threem_loans, threem_holds, threem_reserves = Conf.threem.get_patron_checkouts(
             flask.request.patron)
 
-        Conf.overdrive.sync_bookshelf(patron, overdrive_loans)
+        Conf.overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
         Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds, threem_reserves)
         Conf.db.commit()
 
