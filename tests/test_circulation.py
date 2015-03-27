@@ -248,7 +248,11 @@ class TestAcquisitionFeed(CirculationAppTest):
             for loan in patron.loans:
                 expect_title = loan.license_pool.work.title
                 assert "title>%s</title" % expect_title in response
-                
+
+            assert ">hold<" in response
+            for hold in patron.holds:
+                expect_title = hold.license_pool.work.title
+                assert "title>%s</title" % expect_title in response
 
 class TestCheckout(CirculationAppTest):
 

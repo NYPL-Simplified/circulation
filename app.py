@@ -219,8 +219,8 @@ def lane_url(cls, lane, order=None):
 def active_loans():
     patron = flask.request.patron
 
-    # First synchronize our local list of loans with all third-party
-    # loan providers.
+    # First synchronize our local list of loans and holds with all
+    # third-party loan providers.
     if patron.authorization_identifier and len(patron.authorization_identifier) == 14:
         # TODO: Barcodes that are not 14 digits are dummy code
         # that allow the creation of arbitrary test accounts that
