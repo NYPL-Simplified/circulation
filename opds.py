@@ -12,9 +12,10 @@ from core.model import (
 
 class CirculationManagerAnnotator(Annotator):
 
-    def __init__(self, lane, active_loans_by_work={}):
+    def __init__(self, lane, active_loans_by_work={}, active_holds_by_work={}):
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
+        self.active_holds_by_work = active_holds_by_work
 
     def facet_url(self, order):
         if not self.lane:
@@ -38,12 +39,14 @@ class CirculationManagerAnnotator(Annotator):
         return url_for('navigation_feed', lane=lane_name, _external=True)
 
     def active_licensepool_for(self, work):
-        loan = self.active_loans_by_work.get(work)
+        loan = (self.active_loans_by_work.get(work) or
+                self.active_holds_by_work.get(work))
         if loan:
             # The active license pool is the one associated with
-            # the loan.
+            # the loan/hold.
             return loan.license_pool
         else:
+
             # There is no active loan. Use the default logic for
             # determining the active license pool.
             return super(
@@ -51,13 +54,26 @@ class CirculationManagerAnnotator(Annotator):
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, links):
         active_loan = self.active_loans_by_work.get(work)
+        active_hold = self.active_holds_by_work.get(work)
         identifier = active_license_pool.identifier
         if active_loan:
             entry.extend([feed.loan_tag(active_loan)])
             rel = OPDSFeed.ACQUISITION_REL
+        elif active_hold:
+            entry.extend([feed.hold_tag(active_hold)])
+            if active_hold.position == 0:
+                # The patron is at the front of the hold queue and
+                # has the ability decision to borrow
+                rel = OPDSFeed.BORROW_REL
+            else:
+                # The patron cannot do anything but wait.
+                rel = None
         else:
-            #Include a checkout URL
+            # The patron has no existing relationship with this
+            # work. Give them the opportunity to check out the work
+            # or put it on hold.
             if active_license_pool.open_access:
+                # It's an open-access work, so they can just download it.
                 rel = OPDSFeed.OPEN_ACCESS_REL
             else:
                 # This will transact a loan if there are available
@@ -103,6 +119,9 @@ class CirculationManagerAnnotator(Annotator):
         active_loans_by_work = {}
         for loan in patron.loans:
             active_loans_by_work[loan.license_pool.work] = loan
-        annotator = cls(None, active_loans_by_work)
-        works = patron.works_on_loan()
+        active_holds_by_work = {}
+        for hold in patron.holds:
+            active_holds_by_work[hold.license_pool.work] = hold
+        annotator = cls(None, active_loans_by_work, active_holds_by_work)
+        works = patron.works_on_loan_or_on_hold()
         return AcquisitionFeed(db, "Active loans", url, works, annotator)

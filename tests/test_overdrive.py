@@ -124,21 +124,25 @@ class TestOverdriveAPI(DatabaseTest):
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
 
     def test_sync_bookshelf_creates_local_loans(self):
-        data, json = self.sample_json("shelf_with_some_checked_out_books.json")
+        loans, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        holds, json_holds = self.sample_json("no_holds.json")
 
         # All four loans in the sample data were created.
         patron = self.default_patron
-        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
         eq_(4, len(loans))
         eq_(loans, patron.loans)
 
+        eq_([], holds)
+
         # Running the sync again leaves all four loans in place.
-        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
         eq_(4, len(loans))
         eq_(loans, patron.loans)        
 
     def test_sync_bookshelf_removes_loans_not_present_on_remote(self):
-        data, json = self.sample_json("shelf_with_some_checked_out_books.json")
+        data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        data, json_holds = self.sample_json("no_holds.json")
         
         patron = self.default_patron
         overdrive, new = self._edition(data_source_name=DataSource.OVERDRIVE,
@@ -146,7 +150,7 @@ class TestOverdriveAPI(DatabaseTest):
         overdrive_loan, new = overdrive.license_pool.loan_to(patron)
 
         # The loan not present in the sample data has been removed
-        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
         eq_(4, len(loans))
         eq_(loans, patron.loans)
         assert overdrive_loan not in patron.loans
@@ -156,10 +160,58 @@ class TestOverdriveAPI(DatabaseTest):
         gutenberg, new = self._edition(data_source_name=DataSource.GUTENBERG,
                                        with_license_pool=True)
         gutenberg_loan, new = gutenberg.license_pool.loan_to(patron)
-        data, json = self.sample_json("shelf_with_some_checked_out_books.json")
-        
+        data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        data, json_holds = self.sample_json("no_holds.json")     
+   
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
-        loans = DummyOverdriveAPI.sync_bookshelf(patron, json)
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans
+
+    def test_sync_bookshelf_creates_local_holds(self):
+        
+        loans, json_loans = self.sample_json("no_loans.json")
+        holds, json_holds = self.sample_json("holds.json")
+
+        # All four loans in the sample data were created.
+        patron = self.default_patron
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(
+            patron, json_loans, json_holds)
+        eq_(4, len(holds))
+        eq_(holds, patron.holds)
+
+        # Running the sync again leaves all four holds in place.
+        loans = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        eq_(4, len(holds))
+        eq_(holds, patron.holds)        
+
+    def test_sync_bookshelf_removes_holds_not_present_on_remote(self):
+        loans, json_loans = self.sample_json("no_loans.json")
+        holds, json_holds = self.sample_json("holds.json")
+        
+        patron = self.default_patron
+        overdrive, new = self._edition(data_source_name=DataSource.OVERDRIVE,
+                                       with_license_pool=True)
+        overdrive_hold, new = overdrive.license_pool.on_hold_to(patron)
+
+        # The hold not present in the sample data has been removed
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        eq_(4, len(holds))
+        eq_(holds, patron.holds)
+        assert overdrive_hold not in patron.loans
+
+    def test_sync_bookshelf_ignores_holds_from_other_sources(self):
+        loans, json_loans = self.sample_json("no_loans.json")
+        holds, json_holds = self.sample_json("holds.json")
+
+        patron = self.default_patron
+        threem, new = self._edition(data_source_name=DataSource.THREEM,
+                                    with_license_pool=True)
+        threem_hold, new = threem.license_pool.on_hold_to(patron)
+   
+        # Overdrive doesn't know about the 3M hold, but it was
+        # not destroyed, because it came from another source.
+        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        eq_(5, len(patron.holds))
+        assert threem_hold in patron.holds

@@ -199,7 +199,9 @@ class TestAcquisitionFeed(CirculationAppTest):
             response = self.circulation.active_loans()
             assert not "<entry>" in response
 
-        # A number of loans.
+        # A number of loans and holds.
+        overdrive.queue_response(
+            content=overdrive_data.sample_data("holds.json"))
         overdrive.queue_response(
             content=overdrive_data.sample_data("checkouts_list.json"))
         threem.queue_response(
@@ -209,22 +211,31 @@ class TestAcquisitionFeed(CirculationAppTest):
             authorization_identifier="200")
 
         # Sync the bookshelf so we can create works for the loans.
-        overdrive_loans = overdrive.get_patron_checkouts(
-            patron, "foo")
-        threem_loans, threem_holds = threem.get_patron_checkouts(patron)
-        overdrive.sync_bookshelf(patron, overdrive_loans)
-        threem.sync_bookshelf(patron, threem_loans, threem_holds)
+        pin = 'foo'
+        overdrive_loans = overdrive.get_patron_checkouts(patron, pin)
+        overdrive_holds = overdrive.get_patron_holds(patron, pin)
 
-        # Super hacky--make sure the loans have works that will show
-        # up in the feed.
-        for loan in patron.loans:
-            pool = loan.license_pool
-            work = self._work()
-            work.license_pools = [pool]
-            work.editions[0].primary_identifier = pool.identifier
-            work.editions[0].data_source = pool.data_source
+        threem_loans, threem_holds, threem_reserves = threem.get_patron_checkouts(
+            patron)
 
-        # Queue the same loans from last time.
+        overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
+        threem.sync_bookshelf(
+            patron, threem_loans, threem_holds, threem_reserves)
+
+        # Super hacky--make sure the loans and holds have works that
+        # will show up in the feed.
+        for l in [patron.loans, patron.holds]:
+            for loan in l:
+                pool = loan.license_pool
+                work = self._work()
+                work.license_pools = [pool]
+                work.editions[0].primary_identifier = pool.identifier
+                work.editions[0].data_source = pool.data_source
+
+        # Queue the same loan and hold lists from last time,
+        # so we can actually generate the feed.
+        overdrive.queue_response(
+            content=overdrive_data.sample_data("holds.json"))
         overdrive.queue_response(
             content=overdrive_data.sample_data("checkouts_list.json"))
         threem.queue_response(
@@ -237,7 +248,11 @@ class TestAcquisitionFeed(CirculationAppTest):
             for loan in patron.loans:
                 expect_title = loan.license_pool.work.title
                 assert "title>%s</title" % expect_title in response
-                
+
+            assert ">hold<" in response
+            for hold in patron.holds:
+                expect_title = hold.license_pool.work.title
+                assert "title>%s</title" % expect_title in response
 
 class TestCheckout(CirculationAppTest):
 

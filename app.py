@@ -219,8 +219,8 @@ def lane_url(cls, lane, order=None):
 def active_loans():
     patron = flask.request.patron
 
-    # First synchronize our local list of loans with all third-party
-    # loan providers.
+    # First synchronize our local list of loans and holds with all
+    # third-party loan providers.
     if patron.authorization_identifier and len(patron.authorization_identifier) == 14:
         # TODO: Barcodes that are not 14 digits are dummy code
         # that allow the creation of arbitrary test accounts that
@@ -229,11 +229,11 @@ def active_loans():
         header = flask.request.authorization
         overdrive_loans = Conf.overdrive.get_patron_checkouts(
             patron, header.password)
-        threem_loans, threem_holds = Conf.threem.get_patron_checkouts(
+        threem_loans, threem_holds, threem_reserves = Conf.threem.get_patron_checkouts(
             flask.request.patron)
 
         Conf.overdrive.sync_bookshelf(patron, overdrive_loans)
-        Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds)
+        Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds, threem_reserves)
         Conf.db.commit()
 
     # Then make the feed.
