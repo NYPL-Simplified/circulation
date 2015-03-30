@@ -125,6 +125,11 @@ class OverdriveAPI(BaseOverdriveAPI):
         # a link to the file.
         return content_link, None, None, expires
 
+    def checkin(self, patron, pin, identifier):
+        url = self.CHECKOUT_ENDPOINT % dict(
+            overdrive_id=identifier.identifier)
+        return self.patron_request(patron, pin, url, method='DELETE')
+
     def fill_out_form(self, **values):
         fields = []
         for k, v in values.items():
@@ -220,8 +225,8 @@ class OverdriveAPI(BaseOverdriveAPI):
         return self.patron_request(patron, pin, self.HOLDS_ENDPOINT, headers, 
                                    document)
 
-    def release_hold(self, patron, pin, overdrive_id):
-        url = self.HOLD_ENDPOINT % dict(product_id=overdrive_id)
+    def release_hold(self, patron, pin, identifier):
+        url = self.HOLD_ENDPOINT % dict(product_id=identifier.identifier)
         return self.patron_request(patron, pin, url, method='DELETE')
 
     @classmethod

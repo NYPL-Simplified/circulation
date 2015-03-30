@@ -125,6 +125,7 @@ CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-lo
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
 NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
+COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -234,22 +235,28 @@ def active_loans():
         # are limited to public domain books. We cannot
         # ask Overdrive or 3M about these barcodes. 
         header = flask.request.authorization
-        overdrive_loans = Conf.overdrive.get_patron_checkouts(
-            patron, header.password)
-        overdrive_holds = Conf.overdrive.get_patron_holds(
-            patron, header.password)
-        threem_loans, threem_holds, threem_reserves = Conf.threem.get_patron_checkouts(
+        try:
+            overdrive_loans = Conf.overdrive.get_patron_checkouts(
+                patron, header.password)
+            overdrive_holds = Conf.overdrive.get_patron_holds(
+                patron, header.password)
+            threem_loans, threem_holds, threem_reserves = Conf.threem.get_patron_checkouts(
             flask.request.patron)
 
-        Conf.overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
-        Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds, threem_reserves)
-        Conf.db.commit()
+            Conf.overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
+            Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds, threem_reserves)
+            Conf.db.commit()
+        except Exception, e:
+            # If anything goes wrong, omit the sync step and just
+            # display the current active loans, as we understand them.
+            print "ERROR DURING SYNC"
+            print traceback.format_exc()            
 
     # Then make the feed.
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
     return unicode(feed)
 
-@app.route('/loans/<data_source>/<identifier>')
+@app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 def loan_or_hold_detail(data_source, identifier):
     patron = flask.request.patron
@@ -258,20 +265,55 @@ def loan_or_hold_detail(data_source, identifier):
         return pool
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
     if loan:
-        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-            loan)
+        hold = None
     else:
         hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
-        if hold:
+
+    if not loan and not hold:
+        return problem(
+            NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
+            'You have no active loan or hold for "%s".' % pool.work.title,
+            404)
+
+    if flask.request.method=='GET':
+        if loan:
+            feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+                loan)
+        else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             hold)
-        else:
-            return problem(
-                NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
-                'You have no active loan or hold for "%s".' % pool.work.title,
-                404)
-    return unicode(feed)
+        return unicode(feed)
 
+    if flask.request.method == 'DELETE':
+        pin = flask.request.authorization.password
+        status_code = 200
+        if loan:
+            Conf.db.delete(loan)
+            if pool.data_source.name==DataSource.OVERDRIVE:
+                # It probably won't work, but just to be thorough,
+                # tell Overdrive to cancel the loan.
+                response = Conf.overdrive.checkin(
+                    patron, pin, pool.identifier)
+            elif pool.data_source.name==DataSource.THREEM:
+                response = Conf.threem.checkin(patron.authorization_identifier,
+                                               pool.identifier.identifier)
+            if response.status_code == 400:
+                uri = COULD_NOT_MIRROR_TO_REMOTE
+                title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
+                return problem(uri, title, 400)
+
+        if hold:
+            Conf.db.delete(hold)
+            if pool.data_source.name==DataSource.OVERDRIVE:
+                response = Conf.overdrive.release_hold(
+                    patron, pin, pool.identifier)
+            elif pool.data_source.name==DataSource.THREEM:
+                response = Conf.threem.release_hold(
+                    patron.authorization_identifier,
+                    pool.identifier.identifier)
+                set_trace()
+        Conf.db.commit()
+        return ""
 
 @app.route('/feed/<lane>')
 def feed(lane):

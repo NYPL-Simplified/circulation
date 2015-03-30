@@ -99,7 +99,7 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         return self.request('placehold', body, method="PUT")
 
-    def cancel_hold(self, patron_id, threem_id):
+    def release_hold(self, patron_id, threem_id):
         args = dict(request_type='CancelHoldRequest',
                    item_id=threem_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
@@ -187,6 +187,7 @@ class ThreeMAPI(BaseThreeMAPI):
         # should get rid of it.
         for hold in holds_by_identifier.values():
             _db.delete(hold)
+
         return active_loans, active_holds
 
 
