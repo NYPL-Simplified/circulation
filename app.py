@@ -124,6 +124,7 @@ ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-a
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
+NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -250,34 +251,25 @@ def active_loans():
 
 @app.route('/loans/<data_source>/<identifier>')
 @requires_auth
-def loan_detail(data_source, identifier):
+def loan_or_hold_detail(data_source, identifier):
     patron = flask.request.patron
     pool = _load_licensepool(data_source, identifier)
     if isinstance(pool, Response):
         return pool
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
-    if not loan:
-        return problem(
-            NO_ACTIVE_LOAN_PROBLEM, 
-            'You have no active loan for "%s".' % pool.work.title, 404)
-    feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-        loan)
-    return unicode(feed)
-
-@app.route('/holds/<data_source>/<identifier>')
-@requires_auth
-def hold_detail(data_source, identifier):
-    patron = flask.request.patron
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        return pool
-    hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
-    if not hold:
-        return problem(
-            NO_ACTIVE_HOLD_PROBLEM, 
-            'You have no active hold on "%s".' % pool.work.title, 404)
-    feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-        hold)
+    if loan:
+        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+            loan)
+    else:
+        hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+        if hold:
+            feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+            hold)
+        else:
+            return problem(
+                NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
+                'You have no active loan or hold for "%s".' % pool.work.title,
+                404)
     return unicode(feed)
 
 

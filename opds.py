@@ -114,6 +114,12 @@ class CirculationManagerAnnotator(Annotator):
 
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
 
+    def permalink_for(self, work, license_pool, identifier):
+        ds = license_pool.data_source.name
+        return url_for(
+            'loan_or_hold_detail', data_source=ds,
+            identifier=identifier.identifier, _external=True)
+
     @classmethod
     def active_loans_for(cls, patron):
         db = Session.object_session(patron)
@@ -133,7 +139,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         db = Session.object_session(loan)
         work = loan.license_pool.work
         url = url_for(
-            'loan_detail', data_source=loan.license_pool.data_source,
+            'loan_or_hold_detail', data_source=loan.license_pool.data_source,
             identifier=loan.license_pool.identifier, _external=True)
         active_loans_by_work = { work : loan }
         annotator = cls(None, active_loans_by_work, {})
@@ -146,7 +152,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         db = Session.object_session(hold)
         work = hold.license_pool.work
         url = url_for(
-            'hold_detail', data_source=hold.license_pool.data_source,
+            'loan_or_hold_detail', data_source=hold.license_pool.data_source,
             identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
         annotator = cls(None, {}, active_holds_by_work)
