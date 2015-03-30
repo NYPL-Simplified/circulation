@@ -2577,7 +2577,15 @@ class Work(Base):
                 continue
             weight = classification.scaled_weight
             fiction_s[subject.fiction] += weight
-            audience_s[subject.audience] += weight
+            if Subject.type == Subject.OVERDRIVE:
+                # We trust Overdrive classifications of audience quite
+                # a bit. We don't trust 3M classifications more than
+                # usual because it doesn't distinguish between
+                # childrens' and YA.
+                audience_weight = weight * 50
+            else:
+                audience_weight = weight
+            audience_s[subject.audience] += audience_weight
             if subject.genre:
                 genre_s[subject.genre] += weight
         if fiction_s[True] > fiction_s[False]:
@@ -2587,11 +2595,25 @@ class Work(Base):
         else:
             fiction = None
         unmarked = audience_s[None]
+        adult = audience_s[Classifier.AUDIENCE_ADULT]
         audience = Classifier.AUDIENCE_ADULT
 
-        if audience_s[Classifier.AUDIENCE_YOUNG_ADULT] > unmarked:
+        # To avoid embarassing situations we will classify works by
+        # default as being intended for adults.
+        # 
+        # To be classified as a young adult or childrens' book, there
+        # must be twice as many votes for that status as for the
+        # 'adult' status, or, if there are no 'adult' classifications,
+        # the default status.
+        if adult:
+            threshold = adult
+        else:
+            threshold = unmarked
+        threshold *= 2
+
+        if audience_s[Classifier.AUDIENCE_YOUNG_ADULT] > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
-        elif audience_s[Classifier.AUDIENCE_CHILDREN] > unmarked:
+        elif audience_s[Classifier.AUDIENCE_CHILDREN] > threshold:
             audience = Classifier.AUDIENCE_CHILDREN
 
         # Clear any previous genre assignments.

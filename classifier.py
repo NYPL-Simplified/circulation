@@ -902,7 +902,7 @@ class DeweyDecimalClassifier(Classifier):
     NAMES["B"] = "Biography"
     NAMES["E"] = "Juvenile Fiction"
     NAMES["F"] = "Fiction"
-    NAMES["FIC"] = "Juvenile Fiction"
+    NAMES["FIC"] = "Fiction"
     NAMES["J"] = "Juvenile Nonfiction"
     NAMES["Y"] = "Young Adult"
 
@@ -1028,7 +1028,7 @@ class DeweyDecimalClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name):
-        if identifier in ('E', 'FIC'):
+        if identifier == 'E':
             # Juvenile fiction
             return cls.AUDIENCE_CHILDREN
 
