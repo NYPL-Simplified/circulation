@@ -170,7 +170,7 @@ class Annotator(object):
         return work.primary_edition.primary_identifier.urn
 
     @classmethod
-    def permalink_for(cls, identifier):
+    def permalink_for(cls, work, license_pool, identifier):
         """In the absence of any specific URLs, the best we can do
         is a URN.
         """
@@ -457,7 +457,7 @@ class AcquisitionFeed(OPDSFeed):
                 links.append(E.link(rel=rel, href=url, type=image_type))
            
 
-        permalink = self.annotator.permalink_for(identifier)
+        permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
 
         content_type = 'html'

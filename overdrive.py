@@ -26,6 +26,7 @@ class OverdriveAPI(object):
     AVAILABILITY_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
 
     CHECKOUTS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts"
+    CHECKOUT_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
     FORMATS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
     HOLDS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds"
     HOLD_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s"
