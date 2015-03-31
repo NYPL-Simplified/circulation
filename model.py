@@ -3640,7 +3640,7 @@ class WorkFeed(object):
 
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
-        query = query.options(joinedload('edition'))
+        query = query.options(joinedload('license_pools').joinedload('edition'))
         return query
 
 class LaneFeed(WorkFeed):
