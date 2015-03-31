@@ -3441,23 +3441,22 @@ class Lane(object):
             # How many are there?
             start = time.time()
             count = query.count()
-            if count == 0:
-                continue
-            if count <= 250:
-                random_offset = 0
-            else:
-                random_offset = random.randint(0, count-250)
+            if count > 0:
+                if count <= 250:
+                    random_offset = 0
+                else:
+                    random_offset = random.randint(0, count-250)
 
-            # Pick up a subset of at most 250 items.
-            query = query.offset(random_offset).limit(250)
-            r = query.all()
-            sample_size = min(remaining, len(r))
-            print "Sampling %d from %d" % (sample_size, len(r))
-            sample = random.sample(r, sample_size)
-            results.extend(sample)
-            # query = query.order_by(func.random()).limit(remaining)
-            print "Quality %.1f got %d results for %s in %.2fsec" % (
-                quality_min, len(results), self.name, time.time()-start
+                # Pick up a subset of at most 250 items.
+                query = query.offset(random_offset).limit(250)
+                r = query.all()
+                sample_size = min(remaining, len(r))
+                print "Sampling %d from %d" % (sample_size, len(r))
+                sample = random.sample(r, sample_size)
+                results.extend(sample)
+                # query = query.order_by(func.random()).limit(remaining)
+                print "Quality %.1f got %d results for %s in %.2fsec" % (
+                    quality_min, len(results), self.name, time.time()-start
                 )
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
@@ -3641,7 +3640,7 @@ class WorkFeed(object):
 
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
-        query = query.options(joinedload('license_pools').joinedload('edition'))
+        query = query.options(joinedload('edition'))
         return query
 
 class LaneFeed(WorkFeed):
