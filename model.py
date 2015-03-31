@@ -3427,7 +3427,7 @@ class Lane(object):
                and len(results) < target_size):
             remaining = target_size - len(results)
             query = self.works(languages=languages, availability=availability)
-            if quality_min < 0.01:
+            if quality_min < 0.05:
                 quality_min = 0
 
             query = query.filter(
@@ -3592,6 +3592,7 @@ class WorkFeed(object):
         """
 
         query = self.base_query(_db)
+        query = query.filter(LicensePool.edition != None)
         primary_order_field = self.order_by[0]
         if last_edition_seen:
             # Only find records that show up after the last one seen.
@@ -3625,6 +3626,7 @@ class WorkFeed(object):
 
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by).limit(page_size)
+        query = query.joinedload(LicensePool.edition)
         return query
 
 class LaneFeed(WorkFeed):
@@ -3730,6 +3732,11 @@ class LicensePool(Base):
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
 
+    clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
+    edition = relationship(
+        "Edition", primaryjoin=clause, uselist=False, lazy='joined',
+        foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id])
+
     open_access = Column(Boolean)
     last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
@@ -3777,17 +3784,6 @@ class LicensePool(Base):
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
         return license_pool, was_new
-
-    def edition(self):
-        """The LicencePool's primary Edition.
-
-        This is (our view of) the book's entry on whatever website
-        hosts the licenses.
-        """
-        _db = Session.object_session(self)
-        return get_one(_db, Edition,
-            data_source=self.data_source,
-            primary_identifier=self.identifier)
 
     @classmethod
     def with_no_work(cls, _db):
@@ -3928,13 +3924,13 @@ class LicensePool(Base):
         Work will be created.
         """
         
-        print "Calculating work for %r" % self.edition()
+        print "Calculating work for %r" % self.edition
         if self.work:
             # The work has already been done.
             print " Already got one."
             return self.work, False
 
-        primary_edition = self.edition()
+        primary_edition = self.edition
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
@@ -4013,7 +4009,7 @@ class LicensePool(Base):
         """Find the best available licensing link for the work associated
         with this LicensePool.
         """
-        wr = self.edition()
+        wr = self.edition
         link = wr.best_open_access_link
         if link:
             return self, link
@@ -4022,7 +4018,7 @@ class LicensePool(Base):
         # link associated with it.
         work = self.work
         for pool in work.license_pools:
-            wr = pool.edition()
+            wr = pool.edition
             link = wr.best_open_access_link
             if link:
                 return pool, link

@@ -1,3 +1,4 @@
+import copy
 from collections import (
     defaultdict,
     Counter,
@@ -10,6 +11,7 @@ import site
 import sys
 import datetime
 import random
+import time
 import urllib
 from urlparse import urlparse, urljoin
 import md5
@@ -210,13 +212,13 @@ class Annotator(object):
             # associated with a loan, were a loan to be issued right
             # now.
             for p in work.license_pools:
-                edition = p.edition()
+                edition = p.edition
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
                     if edition and edition.best_open_access_link:
                         open_access_license_pool = p
-                elif edition.title:
+                elif edition and edition.title:
                     # TODO: It's OK to have a non-open-access license pool,
                     # but the pool needs to have copies available.
                     active_license_pool = p
@@ -365,7 +367,7 @@ class AcquisitionFeed(OPDSFeed):
             sublanes=lane.sublanes)
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={}):
+                 active_facet=None, sublanes=[], messages_by_urn={}, cache=None):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         import time
@@ -373,7 +375,7 @@ class AcquisitionFeed(OPDSFeed):
         totals = []
         for work in works:
             a = time.time()
-            self.add_entry(work, lane_link)
+            self.add_entry(work, lane_link, cache)
             totals.append(time.time()-a)
 
         # Add minimal entries for the messages.
@@ -390,9 +392,10 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(message_tag)
             self.feed.append(entry)
 
-        # import numpy
-        # print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (
+        #import numpy
+        #print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (
         #    time.time()-first_time, numpy.mean(totals), numpy.std(totals))
+        print "Feed built in %.2f" % (time.time()-first_time)
 
         for title, order, facet_group, in [
                 ('Title', 'title', 'Sort by'),
@@ -407,13 +410,13 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % opds_ns] = "true"
             self.add_link(**link)
 
-    def add_entry(self, work, lane_link):
-        entry = self.create_entry(work, lane_link)
+    def add_entry(self, work, lane_link, cache):
+        entry = self.create_entry(work, lane_link, cache)
         if entry is not None:
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link):
+    def create_entry(self, work, lane_link, cache):
         """Turn a work into an entry for an acquisition feed."""
         active_license_pool = self.annotator.active_licensepool_for(work)
         # There's no reason to present a book that has no active license pool.
@@ -425,15 +428,43 @@ class AcquisitionFeed(OPDSFeed):
             # metadata for this work yet.
             return None
 
-        active_edition = active_license_pool.edition()
+        identifier = active_license_pool.identifier
+        active_edition = active_license_pool.edition
         if not active_edition:
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
             return None
-        identifier = active_license_pool.identifier
-        return self._create_entry(work, active_license_pool, active_edition, identifier,
-                           lane_link)
 
-    def _create_entry(self, work, license_pool, edition, identifier, lane_link):
+        return self._create_entry(work, active_license_pool, active_edition,
+                                  identifier,
+                                  lane_link, cache)
+
+    def _create_entry(self, work, license_pool, edition, identifier, lane_link,
+                      cache):
+
+        # before = time.time()
+        key = identifier
+        cache_hit = False
+        if cache is not None and key in cache:
+            cache_hit = True
+            xml = cache[identifier]
+        else:
+            xml = self._make_entry_xml(
+                work, license_pool, edition, identifier, lane_link)
+            
+            if cache is not None:
+                cache[key] = xml
+
+        if cache is not None:
+            xml = copy.deepcopy(xml)
+        self.annotator.annotate_work_entry(
+            work, license_pool, edition, identifier, self, xml)
+
+        # after = time.time()
+        # print "%r %.2f" % (cache_hit, after-before)
+        return xml
+
+    def _make_entry_xml(self, work, license_pool, edition, identifier,
+                        lane_link):
 
         # Find the .epub link
         epub_href = None
@@ -534,9 +565,6 @@ class AcquisitionFeed(OPDSFeed):
             issued_tag.text = issued.strftime("%Y-%m-%d")
             entry.extend([issued_tag])
 
-        self.annotator.annotate_work_entry(
-            work, license_pool, edition, identifier, self, entry, links)
-
         return entry
 
     def loan_tag(self, loan=None):
@@ -605,7 +633,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         if not active_license_pool:
             return None
 
-        active_edition = active_license_pool.edition()
+        active_edition = active_license_pool.edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
             identifier, lane_link)
