@@ -3437,10 +3437,24 @@ class Lane(object):
             if previous_quality_min is not None:
                 query = query.filter(
                     Work.quality < previous_quality_min)
+
+            # How many are there?
             start = time.time()
-            query = query.order_by(func.random()).limit(remaining)
-            #results.extend([x for x in query.all() if x.license_pools])
-            results.extend(query.all())
+            count = query.count()
+            if count <= 250:
+                random_offset = 0
+            else:
+                random_offset = random.randint(0, count-250)
+
+            # Pick up a subset of at most 250 items.
+            
+            query = query.offset(random_offset).limit(250)
+            r = query.all()
+            sample_size = min(remaining, len(r))
+            print "Sampling %d from %d" % (sample_size, len(r))
+            sample = random.sample(r, sample_size)
+            results.extend(sample)
+            # query = query.order_by(func.random()).limit(remaining)
             print "Quality %.1f got %d results for %s in %.2fsec" % (
                 quality_min, len(results), self.name, time.time()-start
                 )
