@@ -1,3 +1,4 @@
+import pylru
 from functools import wraps
 from nose.tools import set_trace
 import random
@@ -81,6 +82,7 @@ class Conf:
     overdrive = None
     threem = None
     auth = None
+    entry_cache = None
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -102,6 +104,7 @@ class Conf:
             cls.overdrive = OverdriveAPI(cls.db)
             cls.threem = ThreeMAPI(cls.db)
             cls.auth = MilleniumPatronAPI()
+            cls.entry_cache = pylru.lrucache(10000)
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -346,7 +349,7 @@ def feed(lane):
     annotator = CirculationManagerAnnotator(lane)
     if order == 'recommended':
         opds_feed = AcquisitionFeed.featured(
-            languages, lane, annotator, quality_cutoff=0)
+            languages, lane, annotator, quality_cutoff=0, )
         opds_feed.add_link(**search_link)
         work_feed = None
     elif order == 'title':
@@ -383,7 +386,7 @@ def feed(lane):
         page = work_feed.page_query(Conf.db, last_work_seen, size).all()
 
         opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                    annotator, work_feed.active_facet)
+                                    annotator, work_feed.active_facet, Conf.entry_cache)
         # Add a 'next' link if appropriate.
         if page and len(page) >= size:
             after = page[-1].id
@@ -432,7 +435,7 @@ def popular_feed(lane_name):
     page = work_feed.page_query(Conf.db, None, 100).all()
     page = random.sample(page, min(len(page), 20))
     opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                annotator, work_feed.active_facet)
+                                annotator, work_feed.active_facet, cache=Conf.entry_cache)
     feed_xml = unicode(opds_feed)
     feed_cache[key] = (feed_xml, time.time())
     return unicode(feed_xml)
@@ -458,7 +461,7 @@ def lane_search(lane):
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query),
-        results, CirculationManagerAnnotator(lane))
+        results, CirculationManagerAnnotator(lane), cache=Conf.entry_cache)
     return unicode(opds_feed)
 
 @app.route('/works/')
