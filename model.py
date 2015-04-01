@@ -3923,7 +3923,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False):
+    def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -3945,7 +3945,10 @@ class LicensePool(Base):
             print " Already got one."
             return self.work, False
 
-        primary_edition = self.edition
+        primary_edition = self.edition or known_edition
+        if primary_edition.license_pool != self:
+            raise ValueError(
+                "Primary edition's license pool is not the license pool for which work is being calculated!")
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.

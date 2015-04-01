@@ -24,6 +24,7 @@ from model import (
     Hyperlink,
     Identifier,
     LicensePool,
+    Measurement,
     Representation,
     Resource,
     Subject,
@@ -67,7 +68,7 @@ class OPDSXMLParser(XMLParser):
                    "app" : "http://www.w3.org/2007/app",
                    "dcterms" : "http://purl.org/dc/terms/",
                    "opds": "http://opds-spec.org/2010/catalog",
-                   "schema" : "http://schema.org",
+                   "schema" : "http://schema.org/",
                    "atom" : "http://www.w3.org/2005/Atom",
     }
 
@@ -109,7 +110,17 @@ class BaseOPDSImporter(object):
                 # talked to the metadata wrangler.
                 edition.calculate_presentation()
                 if edition.sort_author:
-                    work, is_new = edition.license_pool.calculate_work()
+                    work, is_new = edition.license_pool.calculate_work(
+                        known_edition=edition)
+                    pool = edition.license_pool
+                    # TODO: If the edition was just created, it's
+                    # likely that edition.license_pool works but
+                    # edition.license_pool.edition is None. Passing in
+                    # known_edition is a bit of a hack but so is the
+                    # only other solution I could find, doing a
+                    # database commit. I'm sure there's a better
+                    # solution though.
+                    work, is_new = pool.calculate_work(known_edition=edition)
                     work.calculate_presentation()
             elif status_code:
                 messages_by_id[opds_id] = (status_code, message)
@@ -227,7 +238,7 @@ class BaseOPDSImporter(object):
         edition.publisher = publisher
 
         # Assign the LicensePool to a Work.
-        work = pool.calculate_work()
+        work = pool.calculate_work(known_edition=edition)
 
         return identifier, edition, edition_was_new, status_code, message
 
@@ -293,15 +304,19 @@ class DetailedOPDSImporter(BaseOPDSImporter):
     """An OPDS importer that imports authors as contributors and
     tags as subjects.
 
+    It also imports any provided quality score, popularity score, or
+    rating.
+
     This should be used by circulation managers when talking to the
     metadata wrangler, and by the metadata wrangler when talking to
     content servers.
+
     """
 
     def __init__(self, _db, feed, overwrite_rels=None):
         super(DetailedOPDSImporter, self).__init__(_db, feed, overwrite_rels)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
-        self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id = self.authors_and_subjects_by_id(
+        self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
             _db, self.lxml_parsed)
 
 
@@ -348,12 +363,19 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         print "Added %d contributions and %d classifications." % (
             len(edition.contributors), len(identifier.classifications)
         )
+
+        ratings = self.ratings_by_id.get(entry.id, {})
+        for rel, value in ratings.items():
+            if not rel:
+                rel = Measurement.RATING
+            identifier.add_measurement(data_source, rel, value)
+
         return identifier, edition, edition_was_new, status_code, message
 
     @classmethod
     def authors_and_subjects_by_id(cls, _db, root):
         """Parse the OPDS as XML and extract all author and subject
-        information.
+        information, as well as ratings.
 
         Feedparser can't handle this so we have to use lxml.
         """
@@ -361,6 +383,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         authors_by_id = defaultdict(list)
         subject_names_by_id = defaultdict(dict)
         subject_weights_by_id = defaultdict(Counter)
+        ratings_by_id = defaultdict(dict)
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier = parser._xpath1(entry, 'atom:id')
             if identifier is None or not identifier.text:
@@ -413,7 +436,16 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 subject_names_by_id[identifier][key] = name
                 subject_weights_by_id[identifier][key] += weight
 
-        return authors_by_id, subject_names_by_id, subject_weights_by_id
+            for rating_tag in parser._xpath(entry, 'schema:Rating'):
+                type = rating_tag.get('{http://schema.org/}additionalType')
+                value = rating_tag.get('{http://schema.org/}ratingValue')
+                try:
+                    value = float(value)
+                    ratings_by_id[identifier][type] = value
+                except ValueError:
+                    pass
+
+        return authors_by_id, subject_names_by_id, subject_weights_by_id, ratings_by_id
 
 
 class OPDSImportMonitor(Monitor):
