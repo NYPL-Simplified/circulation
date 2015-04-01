@@ -84,13 +84,17 @@ class BaseOPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, feed, overwrite_rels=None):
+    def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
+                 overwrite_rels=None):
         self._db = _db
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
-        overwrite_rels = overwrite_rels or [
-            Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-            Hyperlink.DESCRIPTION]
+        self.data_source = DataSource.lookup(self._db, data_source_name)
+        if overwrite_rels is None:
+            overwrite_rels = [
+                Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
+                Hyperlink.DESCRIPTION
+            ]
         self.overwrite_rels = overwrite_rels
 
     def import_from_feed(self):
@@ -141,7 +145,7 @@ class BaseOPDSImporter(object):
 
     def import_from_feedparser_entry(self, entry):
         identifier, ignore = Identifier.parse_urn(self._db, entry.get('id'))
-        data_source = DataSource.license_source_for(self._db, identifier)
+        license_data_source = DataSource.license_source_for(self._db, identifier)
 
         status_code = entry.get('simplified_status_code', 200)
         message = entry.get('simplified_message', None)
@@ -172,7 +176,7 @@ class BaseOPDSImporter(object):
 
         # Get an existing LicensePool for this book.
         pool = get_one(
-            self._db, LicensePool, data_source=data_source,
+            self._db, LicensePool, data_source=license_data_source,
             identifier=identifier)
 
         links_by_rel = self.links_by_rel(entry)
@@ -185,7 +189,8 @@ class BaseOPDSImporter(object):
                 # Yes. This is an open-access book and we know where
                 # you can download it.
                 pool, pool_was_new = LicensePool.for_foreign_id(
-                    self._db, data_source, identifier.type, identifier.identifier)
+                    self._db, license_data_source, identifier.type,
+                    identifier.identifier)
             else:
                 # No, we can't. This most likely indicates a problem.
                 message = message or self.COULD_NOT_CREATE_LICENSE_POOL
@@ -195,8 +200,14 @@ class BaseOPDSImporter(object):
             pool.open_access = True
 
         # Create or retrieve an Edition for this book.
+        #
+        # TODO: It would be better if we could use self.data_source
+        # here, not license_data_source. This is the metadata
+        # wrangler's view of the book, not the license provider's. But
+        # we can't currently associate an Edition from one data source
+        # with a LicensePool from another data source.
         edition, edition_was_new = Edition.for_foreign_id(
-            self._db, data_source, identifier.type, identifier.identifier)
+            self._db, license_data_source, identifier.type, identifier.identifier)
 
         source_last_updated = entry.get('updated_parsed')
         # TODO: I'm not really happy with this but it will work as long
@@ -209,15 +220,17 @@ class BaseOPDSImporter(object):
 
         self.destroy_resources(identifier, self.overwrite_rels)
 
+        # Again, the links come from the OPDS feed, not from the entity
+        # providing the original license.
         download_links, image_link, thumbnail_link = self.set_resources(
-            data_source, identifier, pool, links_by_rel)
+            self.data_source, identifier, pool, links_by_rel)
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
         rel = Hyperlink.DESCRIPTION
         if 'value' in summary and summary['value']:
             value = summary['value']
-            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+            uri = Hyperlink.generic_uri(self.data_source, identifier, rel,
                                         value)
             pool.add_link(
                 rel, uri, data_source,
@@ -226,10 +239,10 @@ class BaseOPDSImporter(object):
             value = content['value']
             if not value:
                 continue
-            uri = Hyperlink.generic_uri(data_source, identifier, rel,
+            uri = Hyperlink.generic_uri(self.data_source, identifier, rel,
                                         value)
             pool.add_link(
-                rel, uri, data_source,
+                rel, uri, self.data_source,
                 summary.get('type', 'text/html'), value)
             
 
@@ -238,7 +251,10 @@ class BaseOPDSImporter(object):
         edition.publisher = publisher
 
         # Assign the LicensePool to a Work.
-        work = pool.calculate_work(known_edition=edition)
+        try:
+            work = pool.calculate_work(known_edition=edition)
+        except Exception, e:
+            set_trace()
 
         return identifier, edition, edition_was_new, status_code, message
 
@@ -313,12 +329,13 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     """
 
-    def __init__(self, _db, feed, overwrite_rels=None):
-        super(DetailedOPDSImporter, self).__init__(_db, feed, overwrite_rels)
+    def __init__(self, _db, feed,
+                 data_source_name=DataSource.METADATA_WRANGLER,
+                 overwrite_rels=None):
+        super(DetailedOPDSImporter, self).__init__(_db, feed, data_source_name, overwrite_rels)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
         self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
             _db, self.lxml_parsed)
-
 
     def import_from_feedparser_entry(self, entry):
         identifier, edition, edition_was_new, status_code, message = super(
@@ -337,10 +354,9 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         edition.contributions = []
 
         removed_classifications = 0
-        data_source = DataSource.license_source_for(self._db, identifier)
         new_set = []
         for classification in identifier.classifications:
-            if classification.data_source == data_source:
+            if classification.data_source == self.data_source:
                 self._db.delete(classification)
                 removed_classifications += 1
             else:
@@ -358,7 +374,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
             type, term = key
             name = self.subject_names_by_id.get(key, None)
             identifier.classify(
-                data_source, type, term, name, weight=weight)
+                self.data_source, type, term, name, weight=weight)
 
         print "Added %d contributions and %d classifications." % (
             len(edition.contributors), len(identifier.classifications)
@@ -368,7 +384,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         for rel, value in ratings.items():
             if not rel:
                 rel = Measurement.RATING
-            identifier.add_measurement(data_source, rel, value)
+            identifier.add_measurement(self.data_source, rel, value)
 
         return identifier, edition, edition_was_new, status_code, message
 

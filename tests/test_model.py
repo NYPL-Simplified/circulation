@@ -79,6 +79,7 @@ class TestDataSource(DatabaseTest):
             (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
             (DataSource.NYT, False, Identifier.ISBN),
             (DataSource.LIBRARY_STAFF, False, Identifier.ISBN),
+            (DataSource.METADATA_WRANGLER, False, Identifier.URI),
         ]
         eq_(set(sources), set(expect))
 

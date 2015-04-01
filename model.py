@@ -299,6 +299,7 @@ class DataSource(Base):
     VIAF = "Content Cafe"
     GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
+    METADATA_WRANGLER = "Library Simplified metadata wrangler"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
@@ -388,6 +389,7 @@ class DataSource(Base):
                 (cls.MANUAL, False, None, None),
                 (cls.NYT, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
+                (cls.METADATA_WRANGLER, False, Identifier.URI, None),
         ):
 
             extra = dict()
@@ -2822,7 +2824,10 @@ class Measurement(Base):
             width = float(scale_max-scale_min)
             value = self.value-scale_min
             self._normalized_value = value / width
-
+        elif self.data_source.name == DataSource.METADATA_WRANGLER:
+            # Data from the metadata wrangler comes in pre-normalized.
+            self._normalized_value = self.value
+            
         return self._normalized_value
 
 

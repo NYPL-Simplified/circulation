@@ -16,7 +16,10 @@ from . import (
 from opds_import import (
     DetailedOPDSImporter,
 )
-from model import Measurement
+from model import (
+    DataSource,
+    Measurement,
+)
 
 class TestDetailedOPDSImporter(DatabaseTest):
 
@@ -55,17 +58,23 @@ class TestDetailedOPDSImporter(DatabaseTest):
         feed = open(path).read()
         imported, messages = DetailedOPDSImporter(
             self._db, feed).import_from_feed()
+
+        eq_(DataSource.GUTENBERG, imported[0].data_source.name)
+
         [has_measurements] = [
             x for x in imported if x.primary_identifier.measurements]
         pop, qual, rating = sorted(
             has_measurements.primary_identifier.measurements,
             key=lambda x: x.quantity_measured)
+        eq_(DataSource.METADATA_WRANGLER, pop.data_source.name)
         eq_(Measurement.POPULARITY, pop.quantity_measured)
         eq_(0.25, pop.value)
 
+        eq_(DataSource.METADATA_WRANGLER, qual.data_source.name)
         eq_(Measurement.QUALITY, qual.quantity_measured)
         eq_(0.3333, qual.value)
 
+        eq_(DataSource.METADATA_WRANGLER, rating.data_source.name)
         eq_(Measurement.RATING, rating.quantity_measured)
         eq_(0.6, rating.value)
 
@@ -73,6 +82,10 @@ class TestDetailedOPDSImporter(DatabaseTest):
         no_measurements = [
             x for x in imported if not x.primary_identifier.measurements][0]
         eq_([], x.primary_identifier.measurements)
+
+        work = has_measurements.work
+        work.calculate_presentation()
+        eq_(0.495, work.quality)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
