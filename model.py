@@ -221,15 +221,15 @@ class Patron(Base):
     credentials = relationship("Credential", backref="patron")
 
     def works_on_loan(self):
-        db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
-        return [loan.license_pool.work for loan in loans]
+        return [loan.license_pool.work for loan in self.loans 
+                if loan.license_pool.work]
 
     def works_on_loan_or_on_hold(self):
         db = Session.object_session(self)
         results = set()
-        holds_q = db.query(Hold).filter(Loan.patron==self)
-        holds = [hold.license_pool.work for hold in holds_q]
+        holds = [hold.license_pool.work for hold in self.holds
+                 if hold.license_pool.work]
         loans = self.works_on_loan()
         return set(holds + loans)
 

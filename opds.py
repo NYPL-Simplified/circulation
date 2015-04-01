@@ -198,6 +198,9 @@ class Annotator(object):
         open_access_license_pool = None
         active_license_pool = None
 
+        if not work:
+            return None
+
         if work.has_open_access_license:
             # All licenses are issued from the license pool associated with
             # the work's primary edition.
@@ -375,6 +378,7 @@ class AcquisitionFeed(OPDSFeed):
         totals = []
         for work in works:
             a = time.time()
+            print work
             self.add_entry(work, lane_link, cache)
             totals.append(time.time()-a)
 
@@ -625,7 +629,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     from the identifier we should use in the feed.
     """
 
-    def create_entry(self, work, lane_link):
+    def create_entry(self, work, lane_link, cache):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
         active_license_pool = self.annotator.active_licensepool_for(work)
@@ -636,7 +640,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         active_edition = active_license_pool.edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
-            identifier, lane_link)
+            identifier, lane_link, cache)
 
 class NavigationFeed(OPDSFeed):
 
