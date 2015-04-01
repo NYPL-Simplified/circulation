@@ -221,6 +221,7 @@ class Patron(Base):
     credentials = relationship("Credential", backref="patron")
 
     def works_on_loan(self):
+        db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
         return [loan.license_pool.work for loan in self.loans 
                 if loan.license_pool.work]
