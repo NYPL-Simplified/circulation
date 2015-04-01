@@ -1086,7 +1086,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
-        eq_(edition2, pool.edition())
+        eq_(edition2, pool.edition)
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
         edition, ignore = Edition.for_foreign_id(

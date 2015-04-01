@@ -31,7 +31,7 @@ class TestDewey(object):
         eq_("Human physiology", DDC.name_for("612"))
         eq_("American speeches in English", DDC.name_for("815"))
         eq_("Juvenile Nonfiction", DDC.name_for("J"))
-        eq_("Juvenile Fiction", DDC.name_for("FIC"))
+        eq_("Fiction", DDC.name_for("FIC"))
         eq_(None, DDC.name_for("Fic"))
 
     def test_audience(self):
@@ -46,10 +46,10 @@ class TestDewey(object):
         eq_(child, aud("JB"))
         eq_(child, aud("J300"))
         eq_(child, aud("NZJ300"))
-        eq_(child, aud("FIC"))
-        eq_(child, aud("Fic"))
         eq_(child, aud("E"))
         eq_(young_adult, aud("Y300"))
+        eq_(adult, aud("FIC"))
+        eq_(adult, aud("Fic"))
         eq_(adult, aud("B"))
         eq_(adult, aud("400"))
 

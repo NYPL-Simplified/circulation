@@ -16,6 +16,7 @@ from model import (
     Genre,
     Lane,
     LaneList,
+    Measurement,
     Patron,
     Subject,
     Work,
@@ -150,6 +151,27 @@ class TestAnnotators(DatabaseTest):
         work.primary_edition.add_contributor(
             self._contributor()[0], "Illustrator")
         eq_(2, len(VerboseAnnotator.authors(work)))
+
+    def test_ratings(self):
+        work = self._work(
+            with_license_pool=True, with_open_access_download=True)
+        work.quality = 1.0/3
+        work.popularity = 0.25
+        work.rating = 0.6
+        annotator = VerboseAnnotator
+        feed = AcquisitionFeed(self._db, self._str, self._url, [work], annotator)
+        url = self._url
+        tag = feed.create_entry(work, url, None)
+        nsmap = dict(schema='http://schema.org/')
+        ratings = [(rating.get('{http://schema.org/}ratingValue'),
+                    rating.get('{http://schema.org/}additionalType'))
+                   for rating in tag.xpath("schema:Rating", namespaces=nsmap)]
+        expected = [
+            ('0.3333', Measurement.QUALITY),
+            ('0.2500', Measurement.POPULARITY),
+            ('0.6000', None)
+        ]
+        eq_(set(expected), set(ratings))
 
 class TestOPDS(DatabaseTest):
 

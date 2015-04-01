@@ -2679,6 +2679,7 @@ class Measurement(Base):
 
     # Some common measurement types
     POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
+    QUALITY = "http://librarysimplified.org/terms/rel/quality"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
