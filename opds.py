@@ -126,10 +126,12 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         url = url_for('active_loans', _external=True)
         active_loans_by_work = {}
         for loan in patron.loans:
-            active_loans_by_work[loan.license_pool.work] = loan
+            if loan.license_pool.work:
+                active_loans_by_work[loan.license_pool.work] = loan
         active_holds_by_work = {}
         for hold in patron.holds:
-            active_holds_by_work[hold.license_pool.work] = hold
+            if hold.license_pool.work:
+                active_holds_by_work[hold.license_pool.work] = hold
         annotator = cls(None, active_loans_by_work, active_holds_by_work)
         works = patron.works_on_loan_or_on_hold()
         return AcquisitionFeed(db, "Active loans", url, works, annotator)
