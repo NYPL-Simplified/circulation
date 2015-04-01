@@ -2555,7 +2555,7 @@ class Work(Base):
     def calculate_quality(self, flattened_data):
         _db = Session.object_session(self)
         quantities = [Measurement.POPULARITY, Measurement.RATING,
-                      Measurement.DOWNLOADS]
+                      Measurement.DOWNLOADS, Measurement.QUALITY]
         measurements = _db.query(Measurement).filter(
             Measurement.identifier_id.in_(flattened_data)).filter(
                 Measurement.is_most_recent==True).filter(
@@ -2762,28 +2762,37 @@ class Measurement(Base):
         )
         popularities = []
         ratings = []
+        qualities = []
         for m in measurements:
             l = None
             if m.quantity_measured in (cls.POPULARITY, cls.DOWNLOADS):
                 l = popularities
             elif m.quantity_measured == cls.RATING:
                 l = ratings
+            elif m.quantity_measured == cls.QUALITY:
+                l = qualities
             if l is not None:
                 l.append(m)
         popularity = cls._average_normalized_value(popularities)
         rating = cls._average_normalized_value(ratings)
-        if popularity is None and rating is None:
+        quality = cls._average_normalized_value(qualities)
+        if popularity is None and rating is None and quality is None:
             # We have absolutely no idea about the quality of this work.
             return 0
-        if popularity is not None and rating is None:
+        if popularity is not None and rating is None and quality is None:
             # Our idea of the quality depends entirely on the work's popularity.
             return popularity
-        if rating is not None and popularity is None:
+        if rating is not None and popularity is None and quality is None:
             # Our idea of the quality depends entirely on the work's rating.
             return rating
+        if quality is not None and rating is None and popularity is None:
+            # Our idea of the quality depends entirely on the work's quality scores.
+            return quality
 
         # We have both popularity and rating.
         final = (popularity * popularity_weight) + (rating * rating_weight)
+        if quality:
+            final = (final / 2) + (quality / 2)
         print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
             popularity, popularity_weight, rating, rating_weight, final)
         return final

@@ -233,7 +233,7 @@ class BaseOPDSImporter(object):
             uri = Hyperlink.generic_uri(self.data_source, identifier, rel,
                                         value)
             pool.add_link(
-                rel, uri, data_source,
+                rel, uri, self.data_source,
                 summary.get('type', 'text/plain'), value)
         for content in entry.get('content', []):
             value = content['value']
