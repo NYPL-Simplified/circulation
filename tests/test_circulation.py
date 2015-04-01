@@ -231,6 +231,7 @@ class TestAcquisitionFeed(CirculationAppTest):
                 work.license_pools = [pool]
                 work.editions[0].primary_identifier = pool.identifier
                 work.editions[0].data_source = pool.data_source
+        self._db.commit()
 
         # Queue the same loan and hold lists from last time,
         # so we can actually generate the feed.

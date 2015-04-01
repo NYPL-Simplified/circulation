@@ -134,7 +134,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                 active_holds_by_work[hold.license_pool.work] = hold
         annotator = cls(None, active_loans_by_work, active_holds_by_work)
         works = patron.works_on_loan_or_on_hold()
-        return AcquisitionFeed(db, "Active loans", url, works, annotator)
+        return AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
 
     @classmethod
     def single_loan_feed(cls, loan):
