@@ -54,7 +54,8 @@ class TestOverdriveAPI(DatabaseTest):
 
         # The title of the corresponding Edition has been filled
         # in, just to provide some basic human-readable metadata.
-        eq_("Blah blah blah", pool.edition().title)
+        self._db.commit()
+        eq_("Blah blah blah", pool.edition.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)

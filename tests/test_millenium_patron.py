@@ -61,4 +61,4 @@ class TestMilleniumPatronAPI(object):
 
     def test_pintest_correct_pin(self):
         self.api.enqueue("pintest.good.html")
-        eq_(True, self.api.pintest("barcode", "correct pin"))
+        eq_(True, self.api.pintest("barcode1234567", "correct pin"))

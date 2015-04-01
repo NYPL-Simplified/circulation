@@ -16,7 +16,10 @@ from ..core.classifier import (
     Fantasy,
 )
 
-from ..opds import CirculationManagerAnnotator
+from ..opds import (
+    CirculationManagerAnnotator,
+    CirculationManagerLoanAndHoldAnnotator,
+)
 from ..core.opds import (
     AcquisitionFeed,
     OPDSFeed,
@@ -66,7 +69,7 @@ class TestOPDS(DatabaseTest):
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         pool = annotator.active_licensepool_for(w1)
-        permalink = annotator.permalink_for(pool.identifier)
+        permalink = annotator.permalink_for(w1, pool, pool.identifier)
         eq_(entry['id'], permalink)
 
     def test_acquisition_feed_includes_open_access_or_borrow_link(self):
@@ -93,7 +96,7 @@ class TestOPDS(DatabaseTest):
 
     def test_active_loan_feed(self):
         patron = self.default_patron
-        feed = CirculationManagerAnnotator.active_loans_for(patron)
+        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
         # Nothing in the feed.
         feed = feedparser.parse(unicode(feed))
         eq_(0, len(feed['entries']))
@@ -103,7 +106,7 @@ class TestOPDS(DatabaseTest):
         unused = self._work(language="eng", with_open_access_download=True)
 
         # Get the feed.
-        feed = CirculationManagerAnnotator.active_loans_for(patron)
+        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
         feed = feedparser.parse(unicode(feed))
 
         # The only entry in the feed is the work currently out on loan

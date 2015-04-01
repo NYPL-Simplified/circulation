@@ -81,7 +81,7 @@ class CreateWorksForIdentifiersScript(Script):
 
         importer = DetailedOPDSImporter(
             self._db, response.text,
-            [Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
+            overwrite_rels=[Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
         imported, messages_by_id = importer.import_from_feed()
         print "%d successes, %d failures." % (len(imported), len(messages_by_id))
         self._db.commit()
@@ -185,4 +185,4 @@ class ContentOPDSImporter(BaseOPDSImporter):
     OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS_DOWNLOAD]
 
     def __init__(self, _db, feed):
-        super(ContentOPDSImporter, self).__init__(_db, feed, self.OVERWRITE_RELS)
+        super(ContentOPDSImporter, self).__init__(_db, feed, overwrite_rels=self.OVERWRITE_RELS)

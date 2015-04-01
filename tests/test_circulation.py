@@ -259,7 +259,7 @@ class TestCheckout(CirculationAppTest):
     def setup(self):
         super(TestCheckout, self).setup()
         self.pool = self.english_1.license_pools[0]
-        self.edition = self.pool.edition()
+        self.edition = self.pool.edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
     
@@ -300,7 +300,7 @@ class TestCheckout(CirculationAppTest):
     # def test_checkout_fails_when_no_available_licenses(self):
     #     pool = self.english_2.license_pools[0]
     #     pool.open_access = False
-    #     edition = pool.edition()
+    #     edition = pool.edition
     #     data_source = edition.data_source
     #     identifier = edition.primary_identifier
 
