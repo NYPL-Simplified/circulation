@@ -358,7 +358,7 @@ class OPDSFeed(AtomFeed):
 class AcquisitionFeed(OPDSFeed):
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3, cache=None):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
@@ -367,7 +367,7 @@ class AcquisitionFeed(OPDSFeed):
                                     "currently_available")
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.name, url, works, annotator, 
-            sublanes=lane.sublanes)
+            sublanes=lane.sublanes, cache=cache)
 
     def __init__(self, _db, title, url, works, annotator=None,
                  active_facet=None, sublanes=[], messages_by_urn={}, cache=None):
