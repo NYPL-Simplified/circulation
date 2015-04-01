@@ -27,6 +27,7 @@ from model import (
     Resource,
     Identifier,
     Edition,
+    Measurement,
     Subject,
     Work,
     )
@@ -71,7 +72,7 @@ class Annotator(object):
 
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
-                            entry, links):
+                            entry):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
@@ -237,6 +238,24 @@ class VerboseAnnotator(Annotator):
     This Annotator describes all categories and authors for the book
     in great detail.
     """
+
+    @classmethod
+    def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
+                            entry):
+        """Add a quality rating to the work.
+        """
+        value_key = '{%s}ratingValue' % schema_ns
+        type_key = '{%s}additionalType' % schema_ns
+        for type_uri, value in [
+                (Measurement.QUALITY, work.quality),
+                (None, work.rating),
+                (Measurement.POPULARITY, work.popularity),
+        ]:
+            rating_tag = E._makeelement("{%s}Rating" % schema_ns)
+            rating_tag.set(value_key, "%.4f" % value)
+            if type_uri:
+                rating_tag.set(type_key, type_uri)
+            entry.append(rating_tag)
 
     @classmethod
     def categories(cls, work):

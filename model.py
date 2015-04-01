@@ -299,6 +299,7 @@ class DataSource(Base):
     VIAF = "Content Cafe"
     GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
+    METADATA_WRANGLER = "Library Simplified metadata wrangler"
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
@@ -388,6 +389,7 @@ class DataSource(Base):
                 (cls.MANUAL, False, None, None),
                 (cls.NYT, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
+                (cls.METADATA_WRANGLER, False, Identifier.URI, None),
         ):
 
             extra = dict()
@@ -2679,6 +2681,7 @@ class Measurement(Base):
 
     # Some common measurement types
     POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
+    QUALITY = "http://librarysimplified.org/terms/rel/quality"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
@@ -2821,7 +2824,10 @@ class Measurement(Base):
             width = float(scale_max-scale_min)
             value = self.value-scale_min
             self._normalized_value = value / width
-
+        elif self.data_source.name == DataSource.METADATA_WRANGLER:
+            # Data from the metadata wrangler comes in pre-normalized.
+            self._normalized_value = self.value
+            
         return self._normalized_value
 
 
@@ -3922,7 +3928,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False):
+    def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -3944,7 +3950,10 @@ class LicensePool(Base):
             print " Already got one."
             return self.work, False
 
-        primary_edition = self.edition
+        primary_edition = self.edition or known_edition
+        if primary_edition.license_pool != self:
+            raise ValueError(
+                "Primary edition's license pool is not the license pool for which work is being calculated!")
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
