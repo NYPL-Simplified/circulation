@@ -367,6 +367,8 @@ class OPDSFeed(AtomFeed):
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
 
+    REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
+
     def __init__(self, title, url, annotator):
         if not annotator:
             annotator = Annotator()
