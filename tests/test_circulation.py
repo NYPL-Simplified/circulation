@@ -255,6 +255,13 @@ class TestAcquisitionFeed(CirculationAppTest):
                 expect_title = hold.license_pool.work.title
                 assert "title>%s</title" % expect_title in response
 
+            # Each entry must have a 'revoke' link.
+            feed = feedparser.parse(response)
+            for entry in feed['entries']:
+                revoke_link = [x for x in entry['links']
+                               if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
+                assert revoke_link != []
+
 class TestCheckout(CirculationAppTest):
 
     def setup(self):

@@ -4,6 +4,7 @@ from flask import url_for
 from core.opds import (
     Annotator,
     AcquisitionFeed,
+    E,
     OPDSFeed,
 )
 from core.model import (
@@ -56,6 +57,8 @@ class CirculationManagerAnnotator(Annotator):
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
         identifier = active_license_pool.identifier
+        data_source = active_license_pool.data_source
+
         if active_loan:
             entry.extend([feed.loan_tag(active_loan)])
             rel = OPDSFeed.ACQUISITION_REL
@@ -81,12 +84,23 @@ class CirculationManagerAnnotator(Annotator):
                 # available licenses.
                 rel = OPDSFeed.BORROW_REL
 
+        if active_loan or active_hold:
+            url = url_for(
+                'revoke_loan_or_hold', data_source=data_source.name,
+                identifier=identifier.identifier, _external=True)
+
+            link = E._makeelement(
+                "link", rel=OPDSFeed.REVOKE_LOAN_REL, href=url
+            )
+            entry.extend([link])
+
+
         if not active_license_pool.open_access:
             entry.extend(feed.license_tags(active_license_pool))
 
         if rel:
             checkout_url = url_for(
-                "checkout", data_source=active_license_pool.data_source.name,
+                "checkout", data_source=data_source.name,
                 identifier=identifier.identifier, _external=True)
             feed.add_link_to_entry(entry, rel=rel, href=checkout_url)
 
@@ -114,11 +128,11 @@ class CirculationManagerAnnotator(Annotator):
 
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
 
-    def permalink_for(self, work, license_pool, identifier):
-        ds = license_pool.data_source.name
-        return url_for(
-            'loan_or_hold_detail', data_source=ds,
-            identifier=identifier.identifier, _external=True)
+    # def permalink_for(self, work, license_pool, identifier):
+    #     ds = license_pool.data_source.name
+    #     return url_for(
+    #         'loan_or_hold_detail', data_source=ds,
+    #         identifier=identifier.identifier, _external=True)
 
     @classmethod
     def active_loans_for(cls, patron):

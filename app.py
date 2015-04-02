@@ -124,6 +124,7 @@ EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/creden
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
 NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
 NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
+NO_ACCEPTABLE_FORMAT_PROBLEM = "http://librarysimplified.org/terms/problem/no-acceptable-format"
 ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
@@ -260,6 +261,56 @@ def active_loans():
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
     return unicode(feed)
 
+@app.route('/loans/<data_source>/<identifier>/revoke')
+@requires_auth
+def revoke_loan_or_hold(data_source, identifier):
+    patron = flask.request.patron
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+    if loan:
+        hold = None
+    else:
+        hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+
+    if not loan and not hold:
+        return problem(
+            NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
+            'You have no active loan or hold for "%s".' % pool.work.title,
+            404)
+
+    pin = flask.request.authorization.password
+    status_code = 200
+    if loan:
+        Conf.db.delete(loan)
+        if pool.data_source.name==DataSource.OVERDRIVE:
+            # It probably won't work, but just to be thorough,
+            # tell Overdrive to cancel the loan.
+            response = Conf.overdrive.checkin(
+                patron, pin, pool.identifier)
+        elif pool.data_source.name==DataSource.THREEM:
+            response = Conf.threem.checkin(patron.authorization_identifier,
+                                               pool.identifier.identifier)
+        if response.status_code == 400:
+            uri = COULD_NOT_MIRROR_TO_REMOTE
+            title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
+            return problem(uri, title, 400)
+
+    if hold:
+        Conf.db.delete(hold)
+        if pool.data_source.name==DataSource.OVERDRIVE:
+            response = Conf.overdrive.release_hold(
+                patron, pin, pool.identifier)
+        elif pool.data_source.name==DataSource.THREEM:
+            response = Conf.threem.release_hold(
+                patron.authorization_identifier,
+                pool.identifier.identifier)
+            set_trace()
+    Conf.db.commit()
+    return ""
+
+
 @app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 def loan_or_hold_detail(data_source, identifier):
@@ -288,36 +339,8 @@ def loan_or_hold_detail(data_source, identifier):
             hold)
         return unicode(feed)
 
-    if flask.request.method == 'DELETE':
-        pin = flask.request.authorization.password
-        status_code = 200
-        if loan:
-            Conf.db.delete(loan)
-            if pool.data_source.name==DataSource.OVERDRIVE:
-                # It probably won't work, but just to be thorough,
-                # tell Overdrive to cancel the loan.
-                response = Conf.overdrive.checkin(
-                    patron, pin, pool.identifier)
-            elif pool.data_source.name==DataSource.THREEM:
-                response = Conf.threem.checkin(patron.authorization_identifier,
-                                               pool.identifier.identifier)
-            if response.status_code == 400:
-                uri = COULD_NOT_MIRROR_TO_REMOTE
-                title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-                return problem(uri, title, 400)
-
-        if hold:
-            Conf.db.delete(hold)
-            if pool.data_source.name==DataSource.OVERDRIVE:
-                response = Conf.overdrive.release_hold(
-                    patron, pin, pool.identifier)
-            elif pool.data_source.name==DataSource.THREEM:
-                response = Conf.threem.release_hold(
-                    patron.authorization_identifier,
-                    pool.identifier.identifier)
-                set_trace()
-        Conf.db.commit()
-        return ""
+    if flask.request.method=='DELETE':
+        return revoke_loan_or_hold(data_source, identifier)
 
 @app.route('/feed/<lane>')
 def feed(lane):
