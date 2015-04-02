@@ -590,6 +590,21 @@ class AcquisitionFeed(OPDSFeed):
 
         return entry
 
+    @classmethod
+    def acquisition_link(cls, rel, href, types):
+        if len(types) == 0:
+            raise ValueError("Acquisition link must specify at least one type.")
+        initial_type = types[0]
+        indirect_types = types[1:]
+        link = E._makeelement("link", type=initial_type, rel=rel)
+        parent = link
+        for t in indirect_types:
+            indirect_link = E._makeelement(
+                "{%s}indirectAcquisition" % opds_ns, type=t)
+            parent.extend([indirect_link])
+            parent = indirect_link
+        return link
+
     def loan_tag(self, loan=None):
         return self._event_tag('loan', loan.start, loan.end)
 
