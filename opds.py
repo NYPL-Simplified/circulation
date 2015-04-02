@@ -59,50 +59,53 @@ class CirculationManagerAnnotator(Annotator):
         identifier = active_license_pool.identifier
         data_source = active_license_pool.data_source
 
+        can_borrow = False
+        can_fulfill = False
+        can_revoke = False
+
         if active_loan:
             entry.extend([feed.loan_tag(active_loan)])
-            rel = OPDSFeed.ACQUISITION_REL
+            can_fulfill = True
+            can_revoke = True
         elif active_hold:
+            can_revoke = True
             entry.extend([feed.hold_tag(active_hold)])
             if active_hold.position == 0:
                 # The patron is at the front of the hold queue and
                 # has the ability decision to borrow
-                rel = OPDSFeed.BORROW_REL
-            else:
-                # The patron cannot do anything but wait.
-                rel = None
+                can_borrow = True
         else:
             # The patron has no existing relationship with this
             # work. Give them the opportunity to check out the work
             # or put it on hold.
-            if active_license_pool.open_access:
-                # It's an open-access work, so they can just download it.
-                rel = OPDSFeed.OPEN_ACCESS_REL
-            else:
-                # This will transact a loan if there are available
-                # licenses, or put the book on hold if there are no
-                # available licenses.
-                rel = OPDSFeed.BORROW_REL
-
-        if active_loan or active_hold:
-            url = url_for(
-                'revoke_loan_or_hold', data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
-
-            link = E._makeelement(
-                "link", rel=OPDSFeed.REVOKE_LOAN_REL, href=url
-            )
-            entry.extend([link])
+            can_borrow = True
 
 
         if not active_license_pool.open_access:
             entry.extend(feed.license_tags(active_license_pool))
 
-        if rel:
-            checkout_url = url_for(
-                "checkout", data_source=data_source.name,
+        if can_fulfill:
+            fulfill_url = url_for(
+                "fulfill", data_source=data_source.name,
                 identifier=identifier.identifier, _external=True)
-            feed.add_link_to_entry(entry, rel=rel, href=checkout_url)
+            feed.add_link_to_entry(entry, rel=OPDSFeed.ACQUISITION_REL,
+                                   href=fulfill_url)
+
+        if can_borrow:
+            borrow_url = url_for(
+                "borrow", data_source=data_source.name,
+                identifier=identifier.identifier, _external=True)
+            feed.add_link_to_entry(entry, rel=OPDSFeed.BORROW_REL,
+                                   href=borrow_url)
+
+        if can_revoke:
+            url = url_for(
+                'revoke_loan_or_hold', data_source=data_source.name,
+                identifier=identifier.identifier, _external=True)
+
+            feed.add_link_to_entry(entry, rel=OPDSFeed.REVOKE_LOAN_REL,
+                                   href=url)
+
 
     def summary(self, work):
         """Return an HTML summary of this work."""

@@ -6,6 +6,7 @@ import feedparser
 import json
 import os
 from ..millenium_patron import DummyMilleniumPatronAPI
+from flask import url_for
 
 from nose.tools import (
     eq_,
@@ -24,6 +25,10 @@ from ..core.model import (
     Patron,
     Resource,
     Edition,
+)
+
+from ..core.opds import (
+    OPDSFeed,
 )
 
 class CirculationTest(DatabaseTest):
@@ -274,7 +279,7 @@ class TestCheckout(CirculationAppTest):
     def test_checkout_requires_authentication(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-            response = self.circulation.checkout(
+            response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
             eq_(401, response.status_code)
             detail = json.loads(response.data)
@@ -283,7 +288,7 @@ class TestCheckout(CirculationAppTest):
     def test_checkout_with_bad_authentication_fails(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-            response = self.circulation.checkout(
+            response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
         eq_(401, response.status_code)
         detail = json.loads(response.data)
@@ -292,15 +297,31 @@ class TestCheckout(CirculationAppTest):
     def test_checkout_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            response = self.circulation.checkout(
+            response = self.circulation.borrow(
+                self.data_source.name, self.identifier.identifier)
+
+            # A loan has been created for this license pool.
+            eq_(1, self._db.query(Loan).filter(Loan.license_pool==self.pool).count())
+
+            # We've been given an OPDS feed with one entry, which tells us how 
+            # to fulfill the license.
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            fulfillment_link = [x for x in entry['links']
+                               if x['rel'] == OPDSFeed.ACQUISITION_REL][0]
+            expect = url_for('fulfill', data_source=self.data_source.name,
+                             identifier=self.identifier.identifier, _external=True)
+            eq_(expect, fulfillment_link['href'])
+
+            # Now let's try to fulfill the license.
+            response = self.circulation.fulfill(
                 self.data_source.name, self.identifier.identifier)
 
             # We've been redirected to the download link.
             eq_(302, response.status_code)
             assert response.headers['Location'].startswith("http://foo.com/")
 
-            # A loan has been created for this license pool.
-            eq_(1, self._db.query(Loan).filter(Loan.license_pool==self.pool).count())
 
     # TODO: We have disabled this functionality so that we can see what
     # Overdrive books look like in the catalog.
