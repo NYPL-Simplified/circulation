@@ -875,6 +875,10 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
+        print "MEASUREMENT: %s on %s/%s: %s == %s (wt=%d)" % (
+            data_source.name, self.type, self.identifier,
+            quantity_measured, value, weight)
+
         now = datetime.datetime.utcnow()
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
@@ -920,6 +924,10 @@ class Identifier(Base):
             _db, subject_type, subject_identifier, subject_name)
         #if is_new:
         #    print repr(subject)
+
+        print "CLASSIFICATION: %s on %s/%s: %s %s/%s" % (
+            data_source.name, self.type, self.identifier,
+            subject.type, subject.identifier, subject.name)
 
         # Use a Classification to connect the Identifier to the
         # Subject.
@@ -2437,9 +2445,10 @@ class Work(Base):
             # We can't use descriptions or covers from Gutenberg, so
             # we never consider it a privileged data source.
             if privileged_data_source.name == DataSource.GUTENBERG:
-                privileged_data_source = None
+                privileged_data_source_descriptions = None
         else:
-            privileged_data_source = None
+            privileged_data_source = None 
+            privileged_data_source_descriptions = None
 
         if self.primary_edition:
             self.primary_edition.calculate_presentation(debug=debug)
@@ -2462,35 +2471,24 @@ class Work(Base):
 
         if choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source)
+                _db, flattened_data, privileged_data_source_descriptions)
             # TODO: clean up the content
             self.set_summary(summary)
 
-        # If this is a Project Gutenberg or 3M book, treat the number of IDs
-        # associated with the work (~the number of editions of the
-        # work published in modern times) as a measurement of
-        # popularity.
-        #
-        # TODO: This measurement needs to be scaled with a percentile
-        # list, not by crudely dividing by three.
+        # Measure the number of IDs associated with the work (~the
+        # number of editions of the work published in modern times).
         if privileged_data_source:
-            dsn = privileged_data_source.name
-            if dsn in (DataSource.GUTENBERG, DataSource.THREEM):
-                oclc_linked_data = DataSource.lookup(
-                    _db, DataSource.OCLC_LINKED_DATA)
-                if dsn == DataSource.GUTENBERG:
-                    quotient = 3.0
-                else:
-                    quotient = 2.0
-                self.primary_edition.primary_identifier.add_measurement(
-                    oclc_linked_data, Measurement.POPULARITY, 
-                    len(flattened_data)/quotient)
-            if dsn == DataSource.GUTENBERG:
-                # Only consider the quality signals associated with the
-                # primary edition. Otherwise texts that have multiple
-                # Gutenberg editions will drag down the quality of popular
-                # books.
-                flattened_data = [self.primary_edition.primary_identifier.id]
+            oclc_linked_data = DataSource.lookup(
+                _db, DataSource.OCLC_LINKED_DATA)
+            self.primary_edition.primary_identifier.add_measurement(
+                oclc_linked_data, Measurement.PUBLISHED_EDITIONS, 
+                len(flattened_data))
+            #if dsn == DataSource.GUTENBERG:
+            #    # Only consider the quality signals associated with the
+            #    # primary edition. Otherwise texts that have multiple
+            #    # Gutenberg editions will drag down the quality of popular
+            #    # books.
+            #    flattened_data = [self.primary_edition.primary_identifier.id]
 
         if calculate_quality:
             self.calculate_quality(flattened_data)
@@ -2683,9 +2681,12 @@ class Measurement(Base):
     # Some common measurement types
     POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
     QUALITY = "http://librarysimplified.org/terms/rel/quality"
+    PUBLISHED_EDITIONS = "http://librarysimplified.org/terms/rel/editions"
+    HOLDINGS = "http://librarysimplified.org/terms/rel/holdings"
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
+    AWARDS = "http://librarysimplified.org/terms/rel/awards"
 
     GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
@@ -4319,7 +4320,8 @@ class Representation(Base):
     )
 
     # A User-Agent to use when acting like a web browser.
-    BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36 (Simplified)"
+    # BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36 (Simplified)"
+    BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:37.0) Gecko/20100101 Firefox/37.0"
 
     @property
     def age(self):

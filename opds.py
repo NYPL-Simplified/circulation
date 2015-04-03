@@ -251,11 +251,12 @@ class VerboseAnnotator(Annotator):
                 (None, work.rating),
                 (Measurement.POPULARITY, work.popularity),
         ]:
-            rating_tag = E._makeelement("{%s}Rating" % schema_ns)
-            rating_tag.set(value_key, "%.4f" % value)
-            if type_uri:
-                rating_tag.set(type_key, type_uri)
-            entry.append(rating_tag)
+            if value:
+                rating_tag = E._makeelement("{%s}Rating" % schema_ns)
+                rating_tag.set(value_key, "%.4f" % value)
+                if type_uri:
+                    rating_tag.set(type_key, type_uri)
+                entry.append(rating_tag)
 
     @classmethod
     def categories(cls, work):
@@ -366,6 +367,8 @@ class OPDSFeed(AtomFeed):
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
     FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
+
+    REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
 
     def __init__(self, title, url, annotator):
         if not annotator:
@@ -589,6 +592,21 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([issued_tag])
 
         return entry
+
+    @classmethod
+    def acquisition_link(cls, rel, href, types):
+        if len(types) == 0:
+            raise ValueError("Acquisition link must specify at least one type.")
+        initial_type = types[0]
+        indirect_types = types[1:]
+        link = E._makeelement("link", type=initial_type, rel=rel)
+        parent = link
+        for t in indirect_types:
+            indirect_link = E._makeelement(
+                "{%s}indirectAcquisition" % opds_ns, type=t)
+            parent.extend([indirect_link])
+            parent = indirect_link
+        return link
 
     def loan_tag(self, loan=None):
         return self._event_tag('loan', loan.start, loan.end)
