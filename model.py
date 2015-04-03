@@ -875,7 +875,7 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
-        print "MEASUREMENT: %s on %s/%s: %s==%s (weight %d)" % (
+        print "MEASUREMENT: %s on %s/%s: %s == %s (wt=%d)" % (
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
