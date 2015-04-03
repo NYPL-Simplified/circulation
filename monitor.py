@@ -133,7 +133,7 @@ class CirculationPresentationReadyMonitor(Monitor):
         
         importer = DetailedOPDSImporter(
             self._db, response.text,
-            [Hyperlink.IMAGE, Hyperlink.DESCRIPTION])
+            overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION])
         imported, messages_by_id = importer.import_from_feed()
 
         # Look up any open-access works for which there is no
