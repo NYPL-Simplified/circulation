@@ -251,11 +251,12 @@ class VerboseAnnotator(Annotator):
                 (None, work.rating),
                 (Measurement.POPULARITY, work.popularity),
         ]:
-            rating_tag = E._makeelement("{%s}Rating" % schema_ns)
-            rating_tag.set(value_key, "%.4f" % value)
-            if type_uri:
-                rating_tag.set(type_key, type_uri)
-            entry.append(rating_tag)
+            if value:
+                rating_tag = E._makeelement("{%s}Rating" % schema_ns)
+                rating_tag.set(value_key, "%.4f" % value)
+                if type_uri:
+                    rating_tag.set(type_key, type_uri)
+                entry.append(rating_tag)
 
     @classmethod
     def categories(cls, work):

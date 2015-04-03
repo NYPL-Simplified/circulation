@@ -875,6 +875,10 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
+        print "Adding measurement: %s on %s/%s: %s is %s weight %d" % (
+            data_source.name, self.type, self.identifier,
+            quantity_measured, value, weight)
+
         now = datetime.datetime.utcnow()
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
