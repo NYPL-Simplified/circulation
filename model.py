@@ -2474,13 +2474,11 @@ class Work(Base):
         # Measure the number of IDs associated with the work (~the
         # number of editions of the work published in modern times).
         if privileged_data_source:
-            dsn = privileged_data_source.name
-            if dsn in (DataSource.GUTENBERG, DataSource.THREEM):
-                oclc_linked_data = DataSource.lookup(
-                    _db, DataSource.OCLC_LINKED_DATA)
-                self.primary_edition.primary_identifier.add_measurement(
-                    oclc_linked_data, Measurement.PUBLISHED_EDITIONS, 
-                    len(flattened_data))
+            oclc_linked_data = DataSource.lookup(
+                _db, DataSource.OCLC_LINKED_DATA)
+            self.primary_edition.primary_identifier.add_measurement(
+                oclc_linked_data, Measurement.PUBLISHED_EDITIONS, 
+                len(flattened_data))
             #if dsn == DataSource.GUTENBERG:
             #    # Only consider the quality signals associated with the
             #    # primary edition. Otherwise texts that have multiple
