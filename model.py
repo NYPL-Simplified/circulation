@@ -2682,6 +2682,7 @@ class Measurement(Base):
     RATING = "http://schema.org/ratingValue"
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
+    AWARDS = "http://librarysimplified.org/terms/rel/awards"
 
     GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
