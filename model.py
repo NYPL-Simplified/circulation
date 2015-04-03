@@ -925,6 +925,10 @@ class Identifier(Base):
         #if is_new:
         #    print repr(subject)
 
+        print "CLASSIFICATION: %s on %s/%s: %s %s/%s" % (
+            data_source.name, self.type, self.identifier,
+            subject.type, subject.identifier, subject.name)
+
         # Use a Classification to connect the Identifier to the
         # Subject.
         try:
