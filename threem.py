@@ -489,8 +489,9 @@ class ThreeMCirculationSweep(Monitor):
                     None, None, start=now)
 
             if pool.edition:
-                print "Updating %s (%s)" % (
+                m = "Updating %s (%s)" % (
                     pool.edition.title, pool.edition.author)
+                print m.encode("utf8")
             else:
                 print "Updating unknown work %s" % identifier.identifier
             # Update availability and send out notifications.
@@ -510,8 +511,9 @@ class ThreeMCirculationSweep(Monitor):
             if not pool:
                 continue
             if pool.edition:
-                print "Removing %s (%s) from circulation" % (
+                m = "Removing %s (%s) from circulation" % (
                     pool.edition.title, pool.edition.author)
+                print m.encode("utf8")
             else:
                 print "Removing unknown work %s from circulation." % (
                     identifier.identifier)
