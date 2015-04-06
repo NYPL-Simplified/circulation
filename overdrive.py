@@ -93,8 +93,6 @@ class OverdriveAPI(BaseOverdriveAPI):
         headers = {"Content-Type": "application/json"}
         payload = dict(fields=[dict(name="reserveId", value=overdrive_id)])
         if format_type:
-            # The only reason to specify format_type==None is to test
-            # checkouts on the live site without actually claiming the book.
             field = dict(name="formatType", value=format_type)
             payload['fields'].append(field)
         payload = json.dumps(payload)
@@ -173,14 +171,17 @@ class OverdriveAPI(BaseOverdriveAPI):
             if response.status_code not in (201, 200):
                 raise ValueError("Could not lock in format %s" % format_type)
 
-        download_link = self.get_download_link(
-            loan, format_type, self.DEFAULT_ERROR_URL)
-        if not download_link:
-            raise ValueError(
-                "No download link for %s, format %s" % (
-                    overdrive_id, format_type))
-        return self.get_fulfillment_link_from_download_link(
-            patron, pin, download_link)
+        if format_type:
+            download_link = self.get_download_link(
+                loan, format_type, self.DEFAULT_ERROR_URL)
+            if not download_link:
+                raise ValueError(
+                    "No download link for %s, format %s" % (
+                        overdrive_id, format_type))
+            return self.get_fulfillment_link_from_download_link(
+                patron, pin, download_link)
+        else:
+            return response
 
     def get_fulfillment_link_from_download_link(self, patron, pin, download_link):
         download_response = self.patron_request(patron, pin, download_link)

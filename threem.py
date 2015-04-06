@@ -39,9 +39,16 @@ class ThreeMAPI(BaseThreeMAPI):
         else:
             max_age = None
         response = self.request(url, max_age=max_age)
+        if response.status_code in (500, 501, 502):
+            raise Exception(
+                "Server sent status code %s" % response.status_code)
         if cache_result:
             self._db.commit()
-        events = EventParser().process_all(response.content)
+        try:
+            events = EventParser().process_all(response.content)
+        except Exception, e:
+            print response.content
+            raise e
         return events
 
     def get_circulation_for(self, identifiers):

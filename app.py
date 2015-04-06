@@ -60,6 +60,7 @@ from core.opds import (
     E,
     AcquisitionFeed,
     NavigationFeed,
+    OPDSFeed,
 )
 import urllib
 from core.util.flask_util import (
@@ -124,6 +125,7 @@ EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/creden
 EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
 NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
 NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
+NO_ACCEPTABLE_FORMAT_PROBLEM = "http://librarysimplified.org/terms/problem/no-acceptable-format"
 ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
@@ -260,6 +262,55 @@ def active_loans():
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
     return unicode(feed)
 
+@app.route('/loans/<data_source>/<identifier>/revoke')
+@requires_auth
+def revoke_loan_or_hold(data_source, identifier):
+    patron = flask.request.patron
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+    if loan:
+        hold = None
+    else:
+        hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+
+    if not loan and not hold:
+        return problem(
+            NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
+            'You have no active loan or hold for "%s".' % pool.work.title,
+            404)
+
+    pin = flask.request.authorization.password
+    status_code = 200
+    if loan:
+        Conf.db.delete(loan)
+        if pool.data_source.name==DataSource.OVERDRIVE:
+            # It probably won't work, but just to be thorough,
+            # tell Overdrive to cancel the loan.
+            response = Conf.overdrive.checkin(
+                patron, pin, pool.identifier)
+        elif pool.data_source.name==DataSource.THREEM:
+            response = Conf.threem.checkin(patron.authorization_identifier,
+                                               pool.identifier.identifier)
+        if response.status_code == 400:
+            uri = COULD_NOT_MIRROR_TO_REMOTE
+            title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
+            return problem(uri, title, 400)
+
+    if hold:
+        Conf.db.delete(hold)
+        if pool.data_source.name==DataSource.OVERDRIVE:
+            response = Conf.overdrive.release_hold(
+                patron, pin, pool.identifier)
+        elif pool.data_source.name==DataSource.THREEM:
+            response = Conf.threem.release_hold(
+                patron.authorization_identifier,
+                pool.identifier.identifier)
+    Conf.db.commit()
+    return ""
+
+
 @app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 def loan_or_hold_detail(data_source, identifier):
@@ -288,36 +339,8 @@ def loan_or_hold_detail(data_source, identifier):
             hold)
         return unicode(feed)
 
-    if flask.request.method == 'DELETE':
-        pin = flask.request.authorization.password
-        status_code = 200
-        if loan:
-            Conf.db.delete(loan)
-            if pool.data_source.name==DataSource.OVERDRIVE:
-                # It probably won't work, but just to be thorough,
-                # tell Overdrive to cancel the loan.
-                response = Conf.overdrive.checkin(
-                    patron, pin, pool.identifier)
-            elif pool.data_source.name==DataSource.THREEM:
-                response = Conf.threem.checkin(patron.authorization_identifier,
-                                               pool.identifier.identifier)
-            if response.status_code == 400:
-                uri = COULD_NOT_MIRROR_TO_REMOTE
-                title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-                return problem(uri, title, 400)
-
-        if hold:
-            Conf.db.delete(hold)
-            if pool.data_source.name==DataSource.OVERDRIVE:
-                response = Conf.overdrive.release_hold(
-                    patron, pin, pool.identifier)
-            elif pool.data_source.name==DataSource.THREEM:
-                response = Conf.threem.release_hold(
-                    patron.authorization_identifier,
-                    pool.identifier.identifier)
-                set_trace()
-        Conf.db.commit()
-        return ""
+    if flask.request.method=='DELETE':
+        return revoke_loan_or_hold(data_source, identifier)
 
 @app.route('/feed/<lane>')
 def feed(lane):
@@ -486,11 +509,92 @@ def _load_licensepool(data_source, identifier):
     pool = id_obj.licensed_through
     return pool
 
-@app.route('/works/<data_source>/<identifier>/checkout')
-@requires_auth
-def checkout(data_source, identifier):
+def _api_for_license_pool(license_pool):
+    if license_pool.data_source.name==DataSource.OVERDRIVE:
+        api = Conf.overdrive
+        possible_formats = ["ebook-epub-adobe", "ebook-epub-open"]
+    else:
+        api = Conf.threem
+        possible_formats = [None]
 
+    return api, possible_formats
+
+
+@app.route('/works/<data_source>/<identifier>/fulfil')
+@requires_auth
+def fulfill(data_source, identifier):
+    """Fulfill a book that has already been checked out.
+
+    If successful, this will serve the patron a downloadable copy of
+    the book, or a DRM license such as an ACSM file, or serve an HTTP
+    redirect that sends the patron to a copy of the book or a license
+    file.
+    """
     patron = flask.request.patron
+    header = flask.request.authorization
+
+    # Turn source + identifier into a LicensePool
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        return pool
+
+    # There must be an active loan. We'll try fulfilling even if the
+    # loan has expired--they may have renewed it out-of-band.
+    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+
+    content_link = None
+    content_type = None
+    status_code = None
+    content = None
+
+    if pool.open_access:
+        best_pool, best_link = pool.best_license_link
+        if not best_link:
+            return problem(
+                NO_LICENSES_PROBLEM,
+                "Sorry, couldn't find an open-access download link.", 404)
+
+        r = best_link.representation
+        if r.url:
+            content_link = r.url
+
+        media_type = best_link.representation.media_type
+    else:
+        api, possible_formats = _api_for_license_pool(pool)
+
+        for f in possible_formats:
+            content_link, media_type, content = api.fulfill(
+                patron, header.password, pool.identifier, f)
+            if content_link or content:
+                break
+        else:
+            return problem(
+                NO_ACCEPTABLE_FORMAT_PROBLEM,
+                "Could not find this book in a usable format.", 500)
+
+    headers = dict()
+    if content_link:
+        status_code = 302
+        headers["Location"] = content_link
+    else:
+        status_code = 200
+    if media_type:
+        headers['Content-Type'] = media_type
+    return Response(content, status_code, headers)
+
+
+@app.route('/works/<data_source>/<identifier>/borrow')
+@requires_auth
+def borrow(data_source, identifier):
+    """Create a new loan for a book.
+
+    Return an OPDS Acquisition feed that includes a link of rel
+    "http://opds-spec.org/acquisition", which can be used to fetch the
+    book or the license file.
+    """
+    patron = flask.request.patron
+
+    headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
 
     # Turn source + identifier into a LicensePool
     pool = _load_licensepool(data_source, identifier)
@@ -502,81 +606,61 @@ def checkout(data_source, identifier):
             NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that book.", 404)
 
-    if pool.open_access:
-        best_pool, best_link = pool.best_license_link
-        if not best_link:
-            return problem(
-                NO_LICENSES_PROBLEM,
-                "Sorry, couldn't find an open-access download link.", 404)
-        best_pool.loan_to(patron)
-        return redirect(best_link.representation.mirror_url)
-
-    # This is not an open-access pool.
-
-    possible_formats = [None]
-    if pool.data_source.name==DataSource.OVERDRIVE:
-        api = Conf.overdrive
-        possible_formats = ["ebook-epub-adobe", "ebook-epub-open"]
-    else:
-        api = Conf.threem
-    content_link = None
-    content_type = None
-    status_code = None
-
     # Try to find an existing loan.
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
     header = flask.request.authorization
-    location = None
+    content_link = None
     if loan:
-        # The loan already exists. Try to send the patron a
-        # fulfillment document, or a link to one.
-        for f in possible_formats:
-            location, media_type, content = api.fulfill(
-                patron, header.password, id_obj, f)
-            if location or content:
-                break
-        else:
-            return problem(
-                NO_ACCEPTABLE_FORMAT_PROBLEM,
-                "Could not find this book in a usable format.", 500)
-        if location:
-            status_code = 302
-        else:
-            status_code = 200
+        status_code = 200
     else:
-        content_expires = None
-        # There is no existing loan. At this point there must be a license
-        # free to assign to this patron.
-        if pool.licenses_available < 1:
-            return problem(
-                NO_AVAILABLE_LICENSE_PROBLEM,
-                "Sorry, all copies of this book are checked out.", 400)
+        # There is no existing loan.
+        status_code = 201 # Assuming this works, of course.
+        if pool.open_access:
+            best_pool, best_link = pool.best_license_link
+            if not best_link:
+                return problem(
+                    NO_LICENSES_PROBLEM,
+                    "Sorry, couldn't find an open-access download link.", 404)
+            # Open-access loans never expire.
+            content_expires = None
+        else:
+            api, possible_formats = _api_for_license_pool(pool)
+            # At this point there must be a license free to assign to
+            # this patron.
+            if pool.licenses_available < 1:
+                return problem(
+                    NO_AVAILABLE_LICENSE_PROBLEM,
+                    "Sorry, all copies of this book are checked out.", 400)
 
-        try:
-            header = flask.request.authorization
-            format_to_use = possible_formats[0]
-            content_link, content_type, content, content_expires = api.checkout(
-                patron, header.password, pool.identifier, format_to_use)
-        except NoAvailableCopies:
-            # Most likely someone checked out the book and the
-            # circulation manager is not yet aware of it.
-            return problem(
-                NO_AVAILABLE_LICENSE_PROBLEM,
-                "Sorry, all copies of this book are checked out.", 400)
-        except AlreadyCheckedOut:
-            return problem(
-                ALREADY_CHECKED_OUT_PROBLEM,
-                "You have already checked out this book.", 400)
-        except CannotLoan, e:
-            return problem(CHECKOUT_FAILED_PROBLEM, str(e), 400)
+            try:
+                header = flask.request.authorization
 
-        pool.loan_to(patron, end=content_expires)
-        status_code = 201
-    headers = {}
-    if location:
-        headers["Location"] = location
-    if media_type:
-        headers['Content-Type'] = media_type
+                format_to_use = possible_formats[0]
+                content_link, content_type, content, content_expires = api.checkout(
+                    patron, header.password, pool.identifier,
+                    format_type=format_to_use)
+            except NoAvailableCopies:
+                # Most likely someone checked out the book and the
+                # circulation manager is not yet aware of it.
+                return problem(
+                    NO_AVAILABLE_LICENSE_PROBLEM,
+                    "Sorry, all copies of this book are checked out.", 400)
+            except AlreadyCheckedOut:
+                return problem(
+                    ALREADY_CHECKED_OUT_PROBLEM,
+                    "You have already checked out this book.", 400)
+            except CannotLoan, e:
+                return problem(CHECKOUT_FAILED_PROBLEM, str(e), 400)
+
+        # We've done any necessary work on the back-end to secure the loan.
+        # Now create it in our database.
+        loan, ignore = pool.loan_to(patron, end=content_expires)
+
+    # At this point we have a loan. (We may have had one to start
+    # with, but whatever.) Serve a feed that tells the patron how to
+    # fulfill the loan.
+    feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
+    content = unicode(feed)
     return Response(content, status_code, headers)
 
 print __name__

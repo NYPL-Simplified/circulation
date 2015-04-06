@@ -87,11 +87,9 @@ class TestOPDS(DatabaseTest):
 
         open_access_links, borrow_links = [x['links'] for x in entries]
         open_access_rels = [x['rel'] for x in open_access_links]
-        assert OPDSFeed.OPEN_ACCESS_REL in open_access_rels
-        assert not OPDSFeed.BORROW_REL in open_access_rels
+        assert OPDSFeed.BORROW_REL in open_access_rels
 
         borrow_rels = [x['rel'] for x in borrow_links]
-        assert not OPDSFeed.OPEN_ACCESS_REL in borrow_rels
         assert OPDSFeed.BORROW_REL in borrow_rels
 
     def test_active_loan_feed(self):
