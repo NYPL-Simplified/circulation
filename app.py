@@ -659,9 +659,13 @@ def borrow(data_source, identifier):
     # At this point we have a loan. (We may have had one to start
     # with, but whatever.) Serve a feed that tells the patron how to
     # fulfill the loan.
-    feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
-    content = unicode(feed)
-    return Response(content, status_code, headers)
+    
+    # TODO: No, actually, we auto-fulfill the loan.
+    return fulfill(data_source, identifier)
+
+    #feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
+    #content = unicode(feed)
+    #return Response(content, status_code, headers)
 
 print __name__
 if __name__ == '__main__':
