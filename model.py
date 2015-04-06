@@ -2439,16 +2439,14 @@ class Work(Base):
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
+        privileged_data_source = None
+        privileged_data_source_descriptions = None
         if self.primary_edition:
             privileged_data_source = self.primary_edition.data_source
 
-            # We can't use descriptions or covers from Gutenberg, so
-            # we never consider it a privileged data source.
+            # We can't use descriptions from Gutenberg.
             if privileged_data_source.name == DataSource.GUTENBERG:
                 privileged_data_source_descriptions = None
-        else:
-            privileged_data_source = None 
-            privileged_data_source_descriptions = None
 
         if self.primary_edition:
             self.primary_edition.calculate_presentation(debug=debug)
