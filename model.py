@@ -925,9 +925,10 @@ class Identifier(Base):
         #if is_new:
         #    print repr(subject)
 
-        print "CLASSIFICATION: %s on %s/%s: %s %s/%s" % (
+        msg = "CLASSIFICATION: %s on %s/%s: %s %s/%s" % (
             data_source.name, self.type, self.identifier,
             subject.type, subject.identifier, subject.name)
+        print msg.encode("utf8")
 
         # Use a Classification to connect the Identifier to the
         # Subject.
@@ -2439,16 +2440,13 @@ class Work(Base):
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
+        privileged_data_source = None
+        privileged_data_source_descriptions = None
         if self.primary_edition:
             privileged_data_source = self.primary_edition.data_source
-
-            # We can't use descriptions or covers from Gutenberg, so
-            # we never consider it a privileged data source.
-            if privileged_data_source.name == DataSource.GUTENBERG:
-                privileged_data_source_descriptions = None
-        else:
-            privileged_data_source = None 
-            privileged_data_source_descriptions = None
+            # We can't use descriptions or covers from Gutenberg.
+            if privileged_data_source.name != DataSource.GUTENBERG:
+                privileged_data_source_descriptions = privileged_data_source
 
         if self.primary_edition:
             self.primary_edition.calculate_presentation(debug=debug)

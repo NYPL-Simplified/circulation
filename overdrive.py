@@ -174,13 +174,12 @@ class OverdriveAPI(object):
     def metadata_lookup(self, identifier):
         """Look up metadata for an Overdrive identifier.
         """
-        url = self.METADATA_ENDPOINT % dict(
-            collection_token=self.collection_token,
+        url = self.overdrive.METADATA_ENDPOINT % dict(
+            collection_token=self.overdrive.collection_token,
             item_id=identifier.identifier
         )
-        representation, cached = Representation.get(
-            self._db, url, self.get)
-        return json.loads(representation.content)
+        status_code, headers, content = self.overdrive.get(url, {})
+        return json.loads(content)
 
     @classmethod
     def make_link_safe(self, url):
