@@ -124,6 +124,7 @@ class CoverageProvider(object):
             self._db, CoverageRecord,
             identifier=identifier,
             data_source=self.output_source,
+            on_multiple='interchangeable'
         )
         coverage_record.date = now
         return coverage_record, is_new

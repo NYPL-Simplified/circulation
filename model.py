@@ -664,7 +664,7 @@ class Identifier(Base):
             data_source=data_source,
             input=self,
             output=identifier,
-            create_method_kwargs=dict(strength=strength))
+            create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
         # print "%r==%r p=%.2f" % (self, identifier, strength)
         return eq
 
