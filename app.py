@@ -520,7 +520,7 @@ def _api_for_license_pool(license_pool):
     return api, possible_formats
 
 
-@app.route('/works/<data_source>/<identifier>/fulfil')
+@app.route('/works/<data_source>/<identifier>/fulfill')
 @requires_auth
 def fulfill(data_source, identifier):
     """Fulfill a book that has already been checked out.
