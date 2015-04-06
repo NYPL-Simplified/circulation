@@ -75,7 +75,7 @@ class ThreeMAPI(object):
         else:
             headers = {"Content-Type" : "application/xml"}
         self.sign(method, headers, path)
-        print headers
+        # print headers
         if max_age and method=='GET':
             print "%s %s" % (method, url)
             representation, cached = Representation.get(
@@ -84,6 +84,7 @@ class ThreeMAPI(object):
             content = representation.content
             return content
         else:
+            print "Fetching", url
             response = requests.request(
                 method, url, data=body, headers=headers, allow_redirects=False)
             return response
