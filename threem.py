@@ -47,8 +47,8 @@ class ThreeMAPI(BaseThreeMAPI):
     def get_circulation_for(self, identifiers):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
-        data = self.request(url)
-        for circ in CirculationParser().process_all(data):
+        response = self.request(url)
+        for circ in CirculationParser().process_all(response.content):
             if circ:
                 yield circ
 
@@ -422,6 +422,97 @@ class EventParser(XMLParser):
 
         return (threem_id, isbn, patron_id, start_time, end_time,
                 internal_event_type)
+
+class ThreeMCirculationSweep(Monitor):
+    """Check on the current circulation status of each 3M book in our
+    collection.
+
+    In some cases this will lead to duplicate events being logged,
+    because this monitor and the main 3M circulation monitor will
+    count the same event.  However it will greatly improve our current
+    view of our 3M circulation, which is more important.
+    """
+    def __init__(self, _db, account_id=None, library_id=None, account_key=None):
+        super(ThreeMCirculationSweep, self).__init__(
+            _db, "3M Circulation Sweep")
+        self._db = _db
+        self.api = ThreeMAPI(self._db, account_id, library_id,
+                             account_key)
+        self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
+
+    def run_once(self, start, cutoff):
+        offset = 0
+        limit = 25
+        q = self._db.query(Identifier).filter(
+            Identifier.type==Identifier.THREEM_ID).order_by(Identifier.id)
+        identifiers = True
+        while identifiers:
+            identifiers = q.offset(offset).limit(limit).all()
+            self.process_batch(identifiers)
+            self._db.commit()
+            offset += limit
+
+    def process_batch(self, identifiers):
+        identifiers_by_threem_id = dict()
+        threem_ids = set()
+        for identifier in identifiers:
+            threem_ids.add(identifier.identifier)
+            identifiers_by_threem_id[identifier.identifier] = identifier
+
+        identifiers_not_mentioned_by_threem = set(identifiers)
+        now = datetime.datetime.utcnow()
+        for circ in self.api.get_circulation_for(threem_ids):
+            if not circ:
+                continue
+            threem_id = circ[Identifier][Identifier.THREEM_ID]
+            identifier = identifiers_by_threem_id[threem_id]
+            identifiers_not_mentioned_by_threem.remove(identifier)
+
+            pool = identifier.licensed_through
+            if not pool:
+                # We don't have a license pool for this work. That
+                # shouldn't happen--how did we know about the
+                # identifier?--but it shouldn't be a big deal to
+                # create one.
+                pool, ignore = LicensePool.for_foreign_id(
+                    self._db, self.data_source, identifier.type,
+                    identifier.identifier)
+                CirculationEvent.log(
+                    self._db, pool, CirculationEvent.TITLE_ADD,
+                    None, None, start=now)
+
+            if pool.edition:
+                print "Updating %s (%s)" % (
+                    pool.edition.title, pool.edition.author)
+            else:
+                print "Updating unknown work %s" % identifier.identifier
+            # Update availability and send out notifications.
+            pool.update_availability(
+                circ[LicensePool.licenses_owned],
+                circ[LicensePool.licenses_available],
+                circ[LicensePool.licenses_reserved],
+                circ[LicensePool.patrons_in_hold_queue])
+
+
+        # At this point there may be some license pools left over
+        # that 3M doesn't know about.  This is a pretty reliable
+        # indication that we no longer own any licenses to the
+        # book.
+        for identifier in identifiers_not_mentioned_by_threem:
+            pool = identifier.licensed_through
+            if not pool:
+                continue
+            if pool.edition:
+                print "Removing %s (%s) from circulation" % (
+                    pool.edition.title, pool.edition.author)
+            else:
+                print "Removing unknown work %s from circulation." % (
+                    identifier.identifier)
+            pool.licenses_owned = 0
+            pool.licenses_available = 0
+            pool.licenses_reserved = 0
+            pool.patrons_in_hold_queue = 0
+            pool.last_checked = now
 
 
 class ThreeMEventMonitor(Monitor):
