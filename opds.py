@@ -81,7 +81,16 @@ class CirculationManagerAnnotator(Annotator):
             can_borrow = True
 
 
-        if not active_license_pool.open_access:
+        if active_license_pool.open_access:
+            rel = OPDSFeed.OPEN_ACCESS_REL
+            best_pool, best_link = active_license_pool.best_license_link
+            if best_link:
+                representation = best_link.representation
+                if representation.mirror_url:
+                    feed.add_link_to_entry(
+                        entry, rel=rel, href=representation.mirror_url,
+                        type=representation.media_type)
+        else:
             entry.extend(feed.license_tags(active_license_pool))
 
         if can_fulfill:
