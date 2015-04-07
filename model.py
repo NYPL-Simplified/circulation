@@ -72,6 +72,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
+from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
@@ -2447,6 +2448,7 @@ class Work(Base):
                                classify=True, choose_summary=True,
                                calculate_quality=True,
                                calculate_opds_entry=True,
+                               search_index_client=None,
                                debug=True):
         """Determine the following information:
         
@@ -2528,6 +2530,11 @@ class Work(Base):
         #         _db, self, Annotator)
         #     self.verbose_opds_entry = AcquisitionFeed.single_entry(
         #         _db, self, VerboseAnnotator)
+
+        if search_index_client:
+            search_index_client.index(
+                index='work-index', doc_type='work-type', id=self.id,
+                body=self.to_search_document())
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -4037,7 +4044,8 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None):
+    def calculate_work(self, even_if_no_author=False, known_edition=None,
+                       search_index_client=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -4129,7 +4137,7 @@ class LicensePool(Base):
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
-        work.calculate_presentation()
+        work.calculate_presentation(search_index_client=search_index_client)
 
         if created:
             print " Created %r" % work
