@@ -16,6 +16,9 @@ from core.opds_import import (
     DetailedOPDSImporter,
 )
 from scripts import ContentOPDSImporter
+from core.external_search import (
+    ExternalSearchIndex,
+)
 
 class HTTPIntegrationException(Exception):
     pass
@@ -34,6 +37,7 @@ class CirculationPresentationReadyMonitor(Monitor):
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
         self.content_lookup = SimplifiedOPDSLookup(content_server_url)
         self.batch_size = batch_size
+        self.search_index = ExternalSearchIndex()
         super(CirculationPresentationReadyMonitor, self).__init__(
             _db, "Presentation ready monitor", interval_seconds)
 
@@ -168,7 +172,10 @@ class CirculationPresentationReadyMonitor(Monitor):
             dirty = False
             if not edition.work:                
                 dirty = True
-                pool.calculate_work(even_if_no_author=True)
+                pool.calculate_work(
+                    even_if_no_author=True,
+                    search_index_client=self.search_index
+                )
 
             if pool.work != edition.work:
                 # This is a big problem. But hopefully it's limited to
@@ -187,7 +194,10 @@ class CirculationPresentationReadyMonitor(Monitor):
                     # with a Work that doesn't include the Edition.
                     pool.work = None
 
-                pool.calculate_work(even_if_no_author=True)
+                pool.calculate_work(
+                    even_if_no_author=True,
+                    search_index_client=self.search_index
+                )
                 if pool.work != edition.work:
                     set_trace()
             if dirty:
