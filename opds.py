@@ -76,7 +76,7 @@ class Annotator(object):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
-        return
+        pass
 
     @classmethod
     def cover_links(cls, work):
@@ -90,7 +90,7 @@ class Annotator(object):
 
         """
         # TODO: This might not be necessary anymore.
-        if not work.cover_full_url and work.primary_edition.cover:
+        if not work.cover_full_url and work.primary_edition and work.primary_edition.cover:
             work.primary_edition.set_cover(work.primary_edition.cover)
 
         thumbnails = []
@@ -207,7 +207,7 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition.license_pool and edition.best_open_access_link and edition.title:
+            if edition and edition.license_pool and edition.best_open_access_link and edition.title:
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -442,11 +442,18 @@ class AcquisitionFeed(OPDSFeed):
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link, cache):
+    @classmethod
+    def single_entry(cls, _db, work, annotator):
+        feed = cls(_db, '', '', [], annotator=annotator)
+        if not work.primary_edition:
+            return None
+        return feed.create_entry(work, None, None, even_if_no_license_pool=True)
+
+    def create_entry(self, work, lane_link, cache, even_if_no_license_pool=False):
         """Turn a work into an entry for an acquisition feed."""
         active_license_pool = self.annotator.active_licensepool_for(work)
         # There's no reason to present a book that has no active license pool.
-        if not active_license_pool:
+        if not active_license_pool and not even_if_no_license_pool:
             return None
 
         if not work:
@@ -454,8 +461,12 @@ class AcquisitionFeed(OPDSFeed):
             # metadata for this work yet.
             return None
 
-        identifier = active_license_pool.identifier
-        active_edition = active_license_pool.edition
+        if active_license_pool:        
+            identifier = active_license_pool.identifier
+            active_edition = active_license_pool.edition
+        else:
+            active_edition = work.primary_edition
+            identifier = active_edition.primary_identifier
         if not active_edition:
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
             return None
@@ -567,7 +578,7 @@ class AcquisitionFeed(OPDSFeed):
         # available to people using this application.
         now = datetime.datetime.utcnow()
         today = datetime.date.today()
-        if (license_pool.availability_time and
+        if (license_pool and license_pool.availability_time and
             license_pool.availability_time <= now):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.

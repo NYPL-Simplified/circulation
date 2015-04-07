@@ -2084,6 +2084,11 @@ class Work(Base):
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
 
+    # # We store precomposed OPDS entries for this work to save time when
+    # # generating feeds.
+    # simple_opds_entry = Column(Unicode)
+    # verbose_opds_entry = Column(Unicode)
+
     @property
     def title(self):
         if self.primary_edition:
@@ -2092,14 +2097,20 @@ class Work(Base):
 
     @property
     def sort_title(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.sort_title or self.primary_edition.title
 
     @property
     def subtitle(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.subtitle
 
     @property
     def series(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.series
 
     @property
@@ -2110,6 +2121,8 @@ class Work(Base):
 
     @property
     def sort_author(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.sort_author or self.primary_edition.author
 
     @property
@@ -2120,22 +2133,32 @@ class Work(Base):
 
     @property
     def language_code(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.language_code
 
     @property
     def publisher(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.publisher
 
     @property
     def imprint(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.imprint
 
     @property
     def cover_full_url(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.cover_full_url
 
     @property
     def cover_thumbnail_url(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.cover_thumbnail_url
 
     @property
@@ -2422,7 +2445,9 @@ class Work(Base):
 
     def calculate_presentation(self, choose_edition=True,
                                classify=True, choose_summary=True,
-                               calculate_quality=True, debug=True):
+                               calculate_quality=True,
+                               calculate_opds_entry=True,
+                               debug=True):
         """Determine the following information:
         
         * Which Edition is the 'primary'. The default view of the
@@ -2492,6 +2517,17 @@ class Work(Base):
             self.calculate_quality(flattened_data)
 
         self.last_update_time = datetime.datetime.utcnow()
+
+        # if calculate_opds_entry:
+        #     from opds import (
+        #         AcquisitionFeed,
+        #         Annotator,
+        #         VerboseAnnotator,
+        #     )
+        #     self.simple_opds_entry = AcquisitionFeed.single_entry(
+        #         _db, self, Annotator)
+        #     self.verbose_opds_entry = AcquisitionFeed.single_entry(
+        #         _db, self, VerboseAnnotator)
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2669,6 +2705,79 @@ class Work(Base):
             self.secondary_appeal = secondary[0]
         else:
             self.secondary_appeal = self.NO_APPEAL
+
+    def to_search_document(self):
+        """Generate a search document for this Work."""
+
+        _db = Session.object_session(self)
+        doc = dict(_id=self.id,
+                   title=self.title,
+                   subtitle=self.subtitle,
+                   series=self.series,
+                   language=self.language,
+                   sort_title=self.sort_title, 
+                  author=self.author,
+                   sort_author=self.sort_author,
+                   medium=self.primary_edition.medium,
+                   publisher=self.publisher,
+                   imprint=self.imprint,
+                   permanent_work_id=self.primary_edition.permanent_work_id,
+                   fiction= "Fiction" if self.fiction else "Nonfiction",
+                   audience=self.audience,
+                   summary = self.summary_text,
+                   quality = self.quality,
+                   rating = self.rating,
+                   popularity = self.popularity,
+                   was_merged_into_id = self.was_merged_into_id,
+               )
+
+        contribution_desc = []
+        doc['contributors'] = contribution_desc
+        for contribution in self.primary_edition.contributions:
+            contributor = contribution.contributor
+            contribution_desc.append(
+                dict(name=contributor.name, family_name=contributor.family_name,
+                     role=contribution.role))
+
+        # identifier_ids = self.all_identifier_ids()
+        # classifications = Identifier.classifications_for_identifier_ids(
+        #     _db, identifier_ids)
+        # by_scheme_and_term = Counter()
+        # classification_total_weight = 0.0
+        # for c in classifications:
+        #     subject = c.subject
+        #     if subject.type in Subject.uri_lookup:
+        #         scheme = Subject.uri_lookup[subject.type]
+        #         term = subject.name or subject.identifier
+        #         if not term:
+        #             # There's no text to search for.
+        #             continue
+        #         key = (scheme, term)
+        #         by_scheme_and_term[key] += c.weight
+        #         classification_total_weight += c.weight
+
+        classification_desc = []
+        doc['classifications'] = classification_desc
+        # for (scheme, term), weight in by_scheme_and_term.items():
+        #     classification_desc.append(
+        #         dict(scheme=scheme, term=term,
+        #              weight=weight/classification_total_weight))
+
+        for workgenre in self.work_genres:
+            classification_desc.append(
+                dict(scheme=Subject.SIMPLIFIED_GENRE, term=workgenre.genre.name,
+                     weight=workgenre.affinity))
+
+        # for term, weight in (
+        #         (Work.CHARACTER_APPEAL, self.appeal_character),
+        #         (Work.LANGUAGE_APPEAL, self.appeal_language),
+        #         (Work.SETTING_APPEAL, self.appeal_setting),
+        #         (Work.STORY_APPEAL, self.appeal_story)):
+        #     if weight:
+        #         classification_desc.append(
+        #             dict(scheme=Work.APPEALS_URI, term=term,
+        #                  weight=weight))
+        return doc
 
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
