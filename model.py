@@ -2577,12 +2577,14 @@ class Work(Base):
             VerboseAnnotator,
         )
         _db = Session.object_session(self)
-        self.simple_opds_entry = etree.tostring(
-            AcquisitionFeed.single_entry(_db, self, Annotator,
-                                         force_create=True))
-        self.verbose_opds_entry = etree.tostring(
-            AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
-                                         force_create=True))
+        simple = AcquisitionFeed.single_entry(_db, self, Annotator,
+                                              force_create=True)
+        if simple:
+            self.simple_opds_entry = etree.tostring(simple)
+        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
+                                               force_create=True)
+        if verbose:
+            self.verbose_opds_entry = etree.tostring(verbose)
         print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
 
