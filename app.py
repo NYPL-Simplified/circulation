@@ -1,4 +1,3 @@
-import pylru
 from functools import wraps
 from nose.tools import set_trace
 import random
@@ -21,6 +20,7 @@ from circulation_exceptions import (
     NoAvailableCopies,
 )
 from core.app_server import (
+    feed_response,
     HeartbeatController,
     URNLookupController,
 )
@@ -84,7 +84,6 @@ class Conf:
     overdrive = None
     threem = None
     auth = None
-    entry_cache = None
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -106,7 +105,6 @@ class Conf:
             cls.overdrive = OverdriveAPI(cls.db)
             cls.threem = ThreeMAPI(cls.db)
             cls.auth = MilleniumPatronAPI()
-            cls.entry_cache = pylru.lrucache(10000)
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -223,7 +221,7 @@ def navigation_feed(lane):
 
     feed = unicode(feed)
     feed_cache[key] = feed
-    return feed
+    return feed_response(feed, acquisition=False)
 
 def lane_url(cls, lane, order=None):
     return url_for('feed', lane=lane.name, order=order, _external=True)
@@ -260,7 +258,7 @@ def active_loans():
 
     # Then make the feed.
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
-    return unicode(feed)
+    return feed_response(feed)
 
 @app.route('/loans/<data_source>/<identifier>/revoke')
 @requires_auth
@@ -285,6 +283,7 @@ def revoke_loan_or_hold(data_source, identifier):
     status_code = 200
     if loan:
         Conf.db.delete(loan)
+        response = None
         if pool.data_source.name==DataSource.OVERDRIVE:
             # It probably won't work, but just to be thorough,
             # tell Overdrive to cancel the loan.
@@ -293,7 +292,8 @@ def revoke_loan_or_hold(data_source, identifier):
         elif pool.data_source.name==DataSource.THREEM:
             response = Conf.threem.checkin(patron.authorization_identifier,
                                                pool.identifier.identifier)
-        if response.status_code == 400:
+            
+        if response and response.status_code == 400:
             uri = COULD_NOT_MIRROR_TO_REMOTE
             title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
             return problem(uri, title, 400)
@@ -337,7 +337,7 @@ def loan_or_hold_detail(data_source, identifier):
         else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             hold)
-        return unicode(feed)
+        return feed_response(feed)
 
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
@@ -363,7 +363,7 @@ def feed(lane):
             chance = 0
         if chance > 0.10:
             # Return the cached version.
-            return feed
+            return feed_response(feed)
 
     search_link = dict(
         rel="search",
@@ -383,7 +383,7 @@ def feed(lane):
         work_feed = LaneFeed(lane, languages, Edition.sort_author)
         title = "%s: By author" % lane.name
     else:
-        return "I don't know how to order a feed by '%s'" % order
+        return problem("I don't know how to order a feed by '%s'" % order, 400)
 
     if work_feed:
         # Turn the work feed into an acquisition feed.
@@ -410,7 +410,7 @@ def feed(lane):
         page = work_feed.page_query(Conf.db, last_work_seen, size).all()
 
         opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                    annotator, work_feed.active_facet, Conf.entry_cache)
+                                    annotator, work_feed.active_facet)
         # Add a 'next' link if appropriate.
         if page and len(page) >= size:
             after = page[-1].id
@@ -423,7 +423,8 @@ def feed(lane):
     feed_xml = unicode(opds_feed)
     if not last_seen_id:
         feed_cache[key] = (feed_xml, time.time())
-    return feed_xml
+    set_trace()
+    return feed_response(feed_xml)
 
 @app.route('/popular', defaults=dict(lane_name=None))
 @app.route('/popular/', defaults=dict(lane_name=None))
@@ -459,10 +460,10 @@ def popular_feed(lane_name):
     page = work_feed.page_query(Conf.db, None, 100).all()
     page = random.sample(page, min(len(page), 20))
     opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                annotator, work_feed.active_facet, cache=Conf.entry_cache)
+                                annotator, work_feed.active_facet)
     feed_xml = unicode(opds_feed)
     feed_cache[key] = (feed_xml, time.time())
-    return unicode(feed_xml)
+    return feed_response(feed_xml)
 
 @app.route('/search', defaults=dict(lane=None))
 @app.route('/search/', defaults=dict(lane=None))
@@ -485,8 +486,8 @@ def lane_search(lane):
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query),
-        results, CirculationManagerAnnotator(lane), cache=Conf.entry_cache)
-    return unicode(opds_feed)
+        results, CirculationManagerAnnotator(lane))
+    return feed_response(opds_feed)
 
 @app.route('/works/')
 def work():
@@ -520,7 +521,7 @@ def _api_for_license_pool(license_pool):
     return api, possible_formats
 
 
-@app.route('/works/<data_source>/<identifier>/fulfil')
+@app.route('/works/<data_source>/<identifier>/fulfill')
 @requires_auth
 def fulfill(data_source, identifier):
     """Fulfill a book that has already been checked out.

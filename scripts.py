@@ -22,6 +22,7 @@ from core.opds_import import (
 )
 from core.opds import OPDSFeed
 from core.external_list import CustomListFromCSV
+from core.externalsearch import ExternalSearchIndex
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -105,6 +106,7 @@ class MetadataCalculationScript(Script):
 
     def run(self):
         q = self.q()
+        search_index_client = ExternalSearchIndex()
         print "Attempting to repair %d" % q.count()
 
         success = 0
@@ -121,7 +123,8 @@ class MetadataCalculationScript(Script):
             edition.calculate_presentation()
             if edition.sort_author:
                 success += 1
-                work, is_new = edition.license_pool.calculate_work()
+                work, is_new = edition.license_pool.calculate_work(
+                    search_index_client=search_index_client)
                 if work:
                     work.calculate_presentation()
                     if is_new:
