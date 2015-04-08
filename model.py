@@ -2579,11 +2579,11 @@ class Work(Base):
         _db = Session.object_session(self)
         simple = AcquisitionFeed.single_entry(_db, self, Annotator,
                                               force_create=True)
-        if simple:
+        if simple is not None:
             self.simple_opds_entry = etree.tostring(simple)
         verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
                                                force_create=True)
-        if verbose:
+        if verbose is not None:
             self.verbose_opds_entry = etree.tostring(verbose)
         print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
