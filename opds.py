@@ -443,13 +443,15 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
-    def single_entry(cls, _db, work, annotator):
+    def single_entry(cls, _db, work, annotator, force_create=False):
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.primary_edition:
             return None
-        return feed.create_entry(work, None, None, even_if_no_license_pool=True)
+        return feed.create_entry(work, None, even_if_no_license_pool=True,
+                                 force_create=force_create)
 
-    def create_entry(self, work, lane_link, even_if_no_license_pool=False):
+    def create_entry(self, work, lane_link, even_if_no_license_pool=False,
+                     force_create=False):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -480,14 +482,15 @@ class AcquisitionFeed(OPDSFeed):
 
         return self._create_entry(work, active_license_pool, active_edition,
                                   identifier,
-                                  lane_link)
+                                  lane_link, force_create)
 
-    def _create_entry(self, work, license_pool, edition, identifier, lane_link):
+    def _create_entry(self, work, license_pool, edition, identifier, lane_link,
+                      force_create=False):
 
         before = time.time()
         xml = None
         cache_hit = False
-        if work:
+        if work and not force_create:
             if self.annotator == Annotator:
                 xml = work.simple_opds_entry
             elif self.annotator == VerboseAnnotator:
@@ -495,11 +498,11 @@ class AcquisitionFeed(OPDSFeed):
 
         if xml:
             cache_hit = True
-            xml = etree.ElementTree.fromstring(xml)
+            xml = etree.fromstring(xml)
         else:
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
-           
+
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
@@ -536,7 +539,7 @@ class AcquisitionFeed(OPDSFeed):
 
         permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
-        if isinstance(content, basestring):
+        if isinstance(content, str):
             content = content.decode("utf8")
 
         content_type = 'html'
@@ -690,7 +693,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     from the identifier we should use in the feed.
     """
 
-    def create_entry(self, work, lane_link, cache):
+    def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
         active_license_pool = self.annotator.active_licensepool_for(work)
@@ -701,7 +704,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         active_edition = active_license_pool.edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
-            identifier, lane_link, cache)
+            identifier, lane_link)
 
 class NavigationFeed(OPDSFeed):
 

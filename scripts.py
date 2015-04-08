@@ -82,7 +82,6 @@ class WorkProcessingScript(Script):
                 Edition.primary_identifier==specific_identifier)
             self.specific_works = q
 
-        self.random_order=random_order
         self.batch_size = batch_size
 
     def run(self):
@@ -102,16 +101,17 @@ class WorkProcessingScript(Script):
                     Edition.data_source==self.restrict_to_source)
             q = self.query_hook(q)
 
-        if self.random_order:
-            q = q.order_by(func.random())
+        q = q.order_by(Work.id)
         print "That's %d works." % q.count()
 
-        a = 0
-        for work in q:
-            self.process_work(work)
-            a += 1
-            if not a % self.batch_size:
-                self.db.commit()
+        works = True
+        offset = 0
+        while works:
+            works = q.offset(offset).limit(self.batch_size)
+            for work in works:
+                self.process_work(work)
+            offset += self.batch_size
+            self.db.commit()
         self.db.commit()
 
     def query_hook(self, q):
@@ -220,6 +220,14 @@ class OPDSImportScript(Script):
         monitor = OPDSImportMonitor(self._db, self.feed_url, self.importer_class)
         monitor.run()
         
+
+class OPDSRefreshingScript(WorkProcessingScript):
+    """Refresh the cached OPDS feeds for Work objects."""
+
+    def process_work(self, work):
+        if work.presentation_ready:
+            work.calculate_opds_entries()
+
 
 class WorkReclassifierScript(WorkProcessingScript):
 

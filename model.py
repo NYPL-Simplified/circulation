@@ -2539,16 +2539,7 @@ class Work(Base):
         self.last_update_time = datetime.datetime.utcnow()
 
         if calculate_opds_entry:
-            from opds import (
-                AcquisitionFeed,
-                Annotator,
-                VerboseAnnotator,
-            )
-            self.simple_opds_entry = etree.tostring(
-                AcquisitionFeed.single_entry(_db, self, Annotator))
-            self.verbose_opds_entry = etree.tostring(
-                AcquisitionFeed.single_entry(_db, self, VerboseAnnotator))
-            print self.verbose_opds_entry
+            self.calculate_opds_entries()
 
         if search_index_client:
             search_index_client.index(
@@ -2578,6 +2569,22 @@ class Work(Base):
                     d = d.encode("utf8")
                 print d
             print
+
+    def calculate_opds_entries(self):
+        from opds import (
+            AcquisitionFeed,
+            Annotator,
+            VerboseAnnotator,
+        )
+        _db = Session.object_session(self)
+        self.simple_opds_entry = etree.tostring(
+            AcquisitionFeed.single_entry(_db, self, Annotator,
+                                         force_create=True))
+        self.verbose_opds_entry = etree.tostring(
+            AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
+                                         force_create=True))
+        print self.id, self.simple_opds_entry, self.verbose_opds_entry
+
 
     def set_presentation_ready(self, as_of=None):
         as_of = as_of or datetime.datetime.utcnow()
