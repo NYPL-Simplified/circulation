@@ -2,6 +2,10 @@ import os
 import sys
 from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
+from external_search import (
+    ExternalSearchIndex,
+)
+
 from model import (
     production_session,
     CustomList,
@@ -225,6 +229,7 @@ class WorkReclassifierScript(WorkProcessingScript):
         if restrict_to_source:
             restrict_to_source = DataSource.lookup(self.db, restrict_to_source)
         self.restrict_to_source = restrict_to_source
+        self.search_index = ExternalSearchIndex()
 
     def run(self):
         if self.restrict_to_source:
@@ -250,7 +255,9 @@ class WorkReclassifierScript(WorkProcessingScript):
             work.calculate_presentation(
                 choose_edition=False, classify=True,
                 choose_summary=False,
-                calculate_quality=False, debug=True)
+                calculate_quality=False, debug=True,
+                search_index_client=self.search_index,
+            )
                 # new_genres = work.genres
                 # if new_genres != old_genres:
                 #     set_trace()
