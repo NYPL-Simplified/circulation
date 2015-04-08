@@ -40,6 +40,10 @@ from model import (
     get_one_or_create,
 )
 
+from external_search import (
+    DummyExternalSearchIndex,
+)
+
 import classifier
 from classifier import (
     Classifier,
@@ -723,7 +727,9 @@ class TestWork(DatabaseTest):
             work.license_pools.append(p)
 
         work.last_update_time = None
-        work.calculate_presentation()
+        index = DummyExternalSearchIndex()
+        work.calculate_presentation(search_index_client=index)
+
         # The title of the Work is the title of its primary work
         # record.
         eq_("The 2nd Title", work.title)
@@ -737,6 +743,11 @@ class TestWork(DatabaseTest):
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
+        # The index has been updated with a document.
+        [[args, doc]] = index.docs
+        eq_(doc['id'], work.id)
+        eq_(doc['body'], work.to_search_document)
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)

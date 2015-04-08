@@ -310,7 +310,7 @@ def _setup(dbinfo):
     try:
         Base.metadata.drop_all(connection)
     except Exception, e:
-        pass
+        print "Could not drop database:", e
     Base.metadata.create_all(connection)
     dbinfo.engine = engine
     dbinfo.connection = connection

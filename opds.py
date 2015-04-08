@@ -76,7 +76,7 @@ class Annotator(object):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
-        return
+        pass
 
     @classmethod
     def cover_links(cls, work):
@@ -89,17 +89,14 @@ class Annotator(object):
         :return: A 2-tuple (thumbnail_links, full_links)
 
         """
-        # TODO: This might not be necessary anymore.
-        if not work.cover_full_url and work.primary_edition.cover:
-            work.primary_edition.set_cover(work.primary_edition.cover)
-
         thumbnails = []
-        if work.cover_thumbnail_url:
-            thumbnails = [work.cover_thumbnail_url]
-
         full = []
-        if work.cover_full_url:
-            full = [work.cover_full_url]
+        if work:
+            if work.cover_thumbnail_url:
+                thumbnails = [work.cover_thumbnail_url]
+
+            if work.cover_full_url:
+                full = [work.cover_full_url]
         return thumbnails, full
 
     @classmethod
@@ -108,6 +105,8 @@ class Annotator(object):
 
         :return: A dictionary mapping 'scheme' URLs to 'term' attributes.
         """
+        if not work:
+            return {}
         simplified_genres = []
         for wg in work.work_genres:
             simplified_genres.append(wg.genre.name)
@@ -148,19 +147,20 @@ class Annotator(object):
         return categories
 
     @classmethod
-    def authors(cls, work):
+    def authors(cls, work, license_pool, edition, identifier):
         """Create one or more <author> tags for the given work."""
-        return [E.author(E.name(work.author or ""))]
+        return [E.author(E.name(edition.author or ""))]
 
     @classmethod
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
-        if work.summary_text:
-            summary = work.summary_text
-        elif work.summary:
-            work.summary_text = work.summary.content
-            summary = work.summary_text
+        if work: 
+            if work.summary_text:
+                summary = work.summary_text
+            elif work.summary:
+                work.summary_text = work.summary.content
+                summary = work.summary_text
         return summary
 
     @classmethod
@@ -207,7 +207,7 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition.license_pool and edition.best_open_access_link and edition.title:
+            if edition and edition.license_pool and edition.best_open_access_link and edition.title:
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -293,10 +293,10 @@ class VerboseAnnotator(Annotator):
         return by_scheme
 
     @classmethod
-    def authors(cls, work):
+    def authors(cls, work, license_pool, edition, identifier):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
-                for author in work.primary_edition.author_contributors]
+                for author in edition.author_contributors]
 
     @classmethod
     def detailed_author(cls, contributor):
@@ -380,7 +380,7 @@ class OPDSFeed(AtomFeed):
 class AcquisitionFeed(OPDSFeed):
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3, cache=None):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
@@ -389,10 +389,10 @@ class AcquisitionFeed(OPDSFeed):
                                     "currently_available")
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.name, url, works, annotator, 
-            sublanes=lane.sublanes, cache=cache)
+            sublanes=lane.sublanes)
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={}, cache=None):
+                 active_facet=None, sublanes=[], messages_by_urn={}):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         import time
@@ -401,7 +401,7 @@ class AcquisitionFeed(OPDSFeed):
         for work in works:
             a = time.time()
             print work
-            self.add_entry(work, lane_link, cache)
+            self.add_entry(work, lane_link)
             totals.append(time.time()-a)
 
         # Add minimal entries for the messages.
@@ -436,57 +436,78 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % opds_ns] = "true"
             self.add_link(**link)
 
-    def add_entry(self, work, lane_link, cache):
-        entry = self.create_entry(work, lane_link, cache)
+    def add_entry(self, work, lane_link):
+        entry = self.create_entry(work, lane_link)
         if entry is not None:
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link, cache):
+    @classmethod
+    def single_entry(cls, _db, work, annotator, force_create=False):
+        feed = cls(_db, '', '', [], annotator=annotator)
+        if not isinstance(work, Edition) and not work.primary_edition:
+            return None
+        return feed.create_entry(work, None, even_if_no_license_pool=True,
+                                 force_create=force_create)
+
+    def create_entry(self, work, lane_link, even_if_no_license_pool=False,
+                     force_create=False):
         """Turn a work into an entry for an acquisition feed."""
-        active_license_pool = self.annotator.active_licensepool_for(work)
+        if isinstance(work, Edition):
+            active_edition = work
+            identifier = active_edition.primary_identifier
+            active_license_pool = None
+            work = None
+        else:
+            active_license_pool = self.annotator.active_licensepool_for(work)
+            if not work:
+                # We have a license pool but no work. Most likely we don't have
+                # metadata for this work yet.
+                return None
+
+            if active_license_pool:        
+                identifier = active_license_pool.identifier
+                active_edition = active_license_pool.edition
+            else:
+                active_edition = work.primary_edition
+                identifier = active_edition.primary_identifier
+
         # There's no reason to present a book that has no active license pool.
-        if not active_license_pool:
+        if not active_license_pool and not even_if_no_license_pool:
             return None
 
-        if not work:
-            # We have a license pool but no work. Most likely we don't have
-            # metadata for this work yet.
-            return None
-
-        identifier = active_license_pool.identifier
-        active_edition = active_license_pool.edition
         if not active_edition:
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
                                   identifier,
-                                  lane_link, cache)
+                                  lane_link, force_create)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
-                      cache):
+                      force_create=False):
 
-        # before = time.time()
-        key = identifier
+        before = time.time()
+        xml = None
         cache_hit = False
-        if cache is not None and key in cache:
+        if work and not force_create:
+            if self.annotator == Annotator:
+                xml = work.simple_opds_entry
+            elif self.annotator == VerboseAnnotator:
+                xml = work.verbose_opds_entry            
+
+        if xml:
             cache_hit = True
-            xml = cache[identifier]
+            xml = etree.fromstring(xml)
         else:
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
-            
-            if cache is not None:
-                cache[key] = xml
 
-        if cache is not None:
-            xml = copy.deepcopy(xml)
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
-        # after = time.time()
-        # print "%r %.2f" % (cache_hit, after-before)
+        after = time.time()
+        print "%r %.2f" % (cache_hit, after-before)
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
@@ -498,7 +519,9 @@ class AcquisitionFeed(OPDSFeed):
 
         links = []
         cover_quality = 0
-        qualities = [("Work quality", work.quality)]
+        qualities = []
+        if work:
+            qualities.append(("Work quality", work.quality))
         full_url = None
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
@@ -516,6 +539,8 @@ class AcquisitionFeed(OPDSFeed):
 
         permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
+        if isinstance(content, str):
+            content = content.decode("utf8")
 
         content_type = 'html'
 
@@ -523,14 +548,16 @@ class AcquisitionFeed(OPDSFeed):
             E.id(permalink),
             E.title(edition.title or '[Unknown title]'),
         )
-        if work.subtitle:
+        if edition.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
 
-        author_tags = self.annotator.authors(work)
+        author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
 
+        if content:
+            entry.extend([E.summary(content, type=content_type)])
+
         entry.extend([
-            E.summary(content, type=content_type),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
 
@@ -567,7 +594,7 @@ class AcquisitionFeed(OPDSFeed):
         # available to people using this application.
         now = datetime.datetime.utcnow()
         today = datetime.date.today()
-        if (license_pool.availability_time and
+        if (license_pool and license_pool.availability_time and
             license_pool.availability_time <= now):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.
@@ -666,7 +693,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     from the identifier we should use in the feed.
     """
 
-    def create_entry(self, work, lane_link, cache):
+    def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
         active_license_pool = self.annotator.active_licensepool_for(work)
@@ -677,7 +704,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         active_edition = active_license_pool.edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
-            identifier, lane_link, cache)
+            identifier, lane_link)
 
 class NavigationFeed(OPDSFeed):
 

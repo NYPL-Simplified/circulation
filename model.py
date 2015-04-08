@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 from nose.tools import set_trace
+from lxml import etree
 import md5
 import random
 import re
@@ -72,6 +73,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
+from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
@@ -664,7 +666,7 @@ class Identifier(Base):
             data_source=data_source,
             input=self,
             output=identifier,
-            create_method_kwargs=dict(strength=strength))
+            create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
         # print "%r==%r p=%.2f" % (self, identifier, strength)
         return eq
 
@@ -1577,6 +1579,10 @@ class Edition(Base):
     # its primary edition.
     no_known_cover = Column(Boolean, default=False)
 
+    # An OPDS entry containing all metadata about this entry that
+    # would be relevant to display to a library patron.
+    simple_opds_entry = Column(Unicode, default=None)
+
     # Information kept in here probably won't be used.
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
@@ -1930,8 +1936,9 @@ class Edition(Base):
         self.permanent_work_id = WorkIDCalculator.permanent_id(
             title, author, medium)
 
-    def calculate_presentation(self, debug=False):
+    def calculate_presentation(self, calculate_opds_entry=True, debug=False):
 
+        _db = Session.object_session(self)
         # Calling calculate_presentation() on NYT data will actually
         # destroy the presentation, so don't do anything.
         if self.data_source.name == DataSource.NYT:
@@ -1966,6 +1973,13 @@ class Edition(Base):
                         print "WARN: Best cover for %s/%s (%s) was never mirrored or thumbnailed!" % (self.primary_identifier.type, self.primary_identifier.identifier, rep.url)
                 self.set_cover(best_cover)
                 break
+
+        from opds import (
+            AcquisitionFeed,
+            Annotator,
+        )
+        #self.simple_opds_entry = etree.tostring(
+        #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2084,6 +2098,15 @@ class Work(Base):
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
 
+    # A precalculated OPDS entry containing all metadata about this
+    # work that would be relevant to display to a library patron.
+    simple_opds_entry = Column(Unicode, default=None)
+
+    # A precalculated OPDS entry containing all metadata about this
+    # work that would be relevant to display in a machine-to-machine
+    # integration context.
+    verbose_opds_entry = Column(Unicode, default=None)
+
     @property
     def title(self):
         if self.primary_edition:
@@ -2092,14 +2115,20 @@ class Work(Base):
 
     @property
     def sort_title(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.sort_title or self.primary_edition.title
 
     @property
     def subtitle(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.subtitle
 
     @property
     def series(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.series
 
     @property
@@ -2110,6 +2139,8 @@ class Work(Base):
 
     @property
     def sort_author(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.sort_author or self.primary_edition.author
 
     @property
@@ -2120,22 +2151,32 @@ class Work(Base):
 
     @property
     def language_code(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.language_code
 
     @property
     def publisher(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.publisher
 
     @property
     def imprint(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.imprint
 
     @property
     def cover_full_url(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.cover_full_url
 
     @property
     def cover_thumbnail_url(self):
+        if not self.primary_edition:
+            return None
         return self.primary_edition.cover_thumbnail_url
 
     @property
@@ -2422,7 +2463,10 @@ class Work(Base):
 
     def calculate_presentation(self, choose_edition=True,
                                classify=True, choose_summary=True,
-                               calculate_quality=True, debug=True):
+                               calculate_quality=True,
+                               calculate_opds_entry=True,
+                               search_index_client=None,
+                               debug=True):
         """Determine the following information:
         
         * Which Edition is the 'primary'. The default view of the
@@ -2449,7 +2493,8 @@ class Work(Base):
                 privileged_data_source_descriptions = privileged_data_source
 
         if self.primary_edition:
-            self.primary_edition.calculate_presentation(debug=debug)
+            self.primary_edition.calculate_presentation(
+                debug=debug, calculate_opds_entry=calculate_opds_entry)
 
         if not (classify or choose_summary or calculate_quality):
             return
@@ -2493,6 +2538,14 @@ class Work(Base):
 
         self.last_update_time = datetime.datetime.utcnow()
 
+        if calculate_opds_entry:
+            self.calculate_opds_entries()
+
+        if search_index_client:
+            search_index_client.index(
+                index='work-index', doc_type='work-type', id=self.id,
+                body=self.to_search_document())
+
         # Now that everything's calculated, print it out.
         if debug:
             t = u"WORK %s (by %s)" % (self.title, self.author)
@@ -2516,6 +2569,24 @@ class Work(Base):
                     d = d.encode("utf8")
                 print d
             print
+
+    def calculate_opds_entries(self):
+        from opds import (
+            AcquisitionFeed,
+            Annotator,
+            VerboseAnnotator,
+        )
+        _db = Session.object_session(self)
+        simple = AcquisitionFeed.single_entry(_db, self, Annotator,
+                                              force_create=True)
+        if simple is not None:
+            self.simple_opds_entry = etree.tostring(simple)
+        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
+                                               force_create=True)
+        if verbose is not None:
+            self.verbose_opds_entry = etree.tostring(verbose)
+        print self.id, self.simple_opds_entry, self.verbose_opds_entry
+
 
     def set_presentation_ready(self, as_of=None):
         as_of = as_of or datetime.datetime.utcnow()
@@ -2669,6 +2740,79 @@ class Work(Base):
             self.secondary_appeal = secondary[0]
         else:
             self.secondary_appeal = self.NO_APPEAL
+
+    def to_search_document(self):
+        """Generate a search document for this Work."""
+
+        _db = Session.object_session(self)
+        doc = dict(_id=self.id,
+                   title=self.title,
+                   subtitle=self.subtitle,
+                   series=self.series,
+                   language=self.language,
+                   sort_title=self.sort_title, 
+                  author=self.author,
+                   sort_author=self.sort_author,
+                   medium=self.primary_edition.medium,
+                   publisher=self.publisher,
+                   imprint=self.imprint,
+                   permanent_work_id=self.primary_edition.permanent_work_id,
+                   fiction= "Fiction" if self.fiction else "Nonfiction",
+                   audience=self.audience,
+                   summary = self.summary_text,
+                   quality = self.quality,
+                   rating = self.rating,
+                   popularity = self.popularity,
+                   was_merged_into_id = self.was_merged_into_id,
+               )
+
+        contribution_desc = []
+        doc['contributors'] = contribution_desc
+        for contribution in self.primary_edition.contributions:
+            contributor = contribution.contributor
+            contribution_desc.append(
+                dict(name=contributor.name, family_name=contributor.family_name,
+                     role=contribution.role))
+
+        # identifier_ids = self.all_identifier_ids()
+        # classifications = Identifier.classifications_for_identifier_ids(
+        #     _db, identifier_ids)
+        # by_scheme_and_term = Counter()
+        # classification_total_weight = 0.0
+        # for c in classifications:
+        #     subject = c.subject
+        #     if subject.type in Subject.uri_lookup:
+        #         scheme = Subject.uri_lookup[subject.type]
+        #         term = subject.name or subject.identifier
+        #         if not term:
+        #             # There's no text to search for.
+        #             continue
+        #         key = (scheme, term)
+        #         by_scheme_and_term[key] += c.weight
+        #         classification_total_weight += c.weight
+
+        classification_desc = []
+        doc['classifications'] = classification_desc
+        # for (scheme, term), weight in by_scheme_and_term.items():
+        #     classification_desc.append(
+        #         dict(scheme=scheme, term=term,
+        #              weight=weight/classification_total_weight))
+
+        for workgenre in self.work_genres:
+            classification_desc.append(
+                dict(scheme=Subject.SIMPLIFIED_GENRE, term=workgenre.genre.name,
+                     weight=workgenre.affinity))
+
+        # for term, weight in (
+        #         (Work.CHARACTER_APPEAL, self.appeal_character),
+        #         (Work.LANGUAGE_APPEAL, self.appeal_language),
+        #         (Work.SETTING_APPEAL, self.appeal_setting),
+        #         (Work.STORY_APPEAL, self.appeal_story)):
+        #     if weight:
+        #         classification_desc.append(
+        #             dict(scheme=Work.APPEALS_URI, term=term,
+        #                  weight=weight))
+        return doc
 
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
@@ -3937,7 +4081,8 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None):
+    def calculate_work(self, even_if_no_author=False, known_edition=None,
+                       search_index_client=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -4029,7 +4174,7 @@ class LicensePool(Base):
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
-        work.calculate_presentation()
+        work.calculate_presentation(search_index_client=search_index_client)
 
         if created:
             print " Created %r" % work
@@ -4431,9 +4576,13 @@ class Representation(Base):
             content = None
             media_type = None
 
-        # At this point we can create a Representation object if there
-        # isn't one already.
-        if not usable_representation:
+        # At this point we can create/fetch a Representation object if
+        # we don't have one already, or if the URL or media type we
+        # actually got from the server differs from what we thought
+        # we had.
+        if (not usable_representation 
+            or media_type != representation.media_type
+            or url != representation.url):
             representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
