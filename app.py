@@ -1,4 +1,3 @@
-import pylru
 from functools import wraps
 from nose.tools import set_trace
 import random
@@ -21,6 +20,7 @@ from circulation_exceptions import (
     NoAvailableCopies,
 )
 from core.app_server import (
+    feed_response,
     HeartbeatController,
     URNLookupController,
 )
@@ -221,7 +221,7 @@ def navigation_feed(lane):
 
     feed = unicode(feed)
     feed_cache[key] = feed
-    return feed
+    return feed_response(feed, acquisition=False)
 
 def lane_url(cls, lane, order=None):
     return url_for('feed', lane=lane.name, order=order, _external=True)
@@ -258,7 +258,7 @@ def active_loans():
 
     # Then make the feed.
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
-    return unicode(feed)
+    return feed_response(feed)
 
 @app.route('/loans/<data_source>/<identifier>/revoke')
 @requires_auth
@@ -337,7 +337,7 @@ def loan_or_hold_detail(data_source, identifier):
         else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             hold)
-        return unicode(feed)
+        return feed_response(feed)
 
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
@@ -363,7 +363,7 @@ def feed(lane):
             chance = 0
         if chance > 0.10:
             # Return the cached version.
-            return feed
+            return feed_response(feed)
 
     search_link = dict(
         rel="search",
@@ -383,7 +383,7 @@ def feed(lane):
         work_feed = LaneFeed(lane, languages, Edition.sort_author)
         title = "%s: By author" % lane.name
     else:
-        return "I don't know how to order a feed by '%s'" % order
+        return problem("I don't know how to order a feed by '%s'" % order, 400)
 
     if work_feed:
         # Turn the work feed into an acquisition feed.
@@ -423,7 +423,8 @@ def feed(lane):
     feed_xml = unicode(opds_feed)
     if not last_seen_id:
         feed_cache[key] = (feed_xml, time.time())
-    return feed_xml
+    set_trace()
+    return feed_response(feed_xml)
 
 @app.route('/popular', defaults=dict(lane_name=None))
 @app.route('/popular/', defaults=dict(lane_name=None))
@@ -462,7 +463,7 @@ def popular_feed(lane_name):
                                 annotator, work_feed.active_facet)
     feed_xml = unicode(opds_feed)
     feed_cache[key] = (feed_xml, time.time())
-    return unicode(feed_xml)
+    return feed_response(feed_xml)
 
 @app.route('/search', defaults=dict(lane=None))
 @app.route('/search/', defaults=dict(lane=None))
@@ -486,7 +487,7 @@ def lane_search(lane):
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query),
         results, CirculationManagerAnnotator(lane))
-    return unicode(opds_feed)
+    return feed_response(opds_feed)
 
 @app.route('/works/')
 def work():
