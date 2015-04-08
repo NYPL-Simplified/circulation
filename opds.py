@@ -89,17 +89,14 @@ class Annotator(object):
         :return: A 2-tuple (thumbnail_links, full_links)
 
         """
-        # TODO: This might not be necessary anymore.
-        if not work.cover_full_url and work.primary_edition and work.primary_edition.cover:
-            work.primary_edition.set_cover(work.primary_edition.cover)
-
         thumbnails = []
-        if work.cover_thumbnail_url:
-            thumbnails = [work.cover_thumbnail_url]
-
         full = []
-        if work.cover_full_url:
-            full = [work.cover_full_url]
+        if work:
+            if work.cover_thumbnail_url:
+                thumbnails = [work.cover_thumbnail_url]
+
+            if work.cover_full_url:
+                full = [work.cover_full_url]
         return thumbnails, full
 
     @classmethod
@@ -108,6 +105,8 @@ class Annotator(object):
 
         :return: A dictionary mapping 'scheme' URLs to 'term' attributes.
         """
+        if not work:
+            return {}
         simplified_genres = []
         for wg in work.work_genres:
             simplified_genres.append(wg.genre.name)
@@ -148,19 +147,20 @@ class Annotator(object):
         return categories
 
     @classmethod
-    def authors(cls, work):
+    def authors(cls, work, license_pool, edition, identifier):
         """Create one or more <author> tags for the given work."""
-        return [E.author(E.name(work.author or ""))]
+        return [E.author(E.name(edition.author or ""))]
 
     @classmethod
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
-        if work.summary_text:
-            summary = work.summary_text
-        elif work.summary:
-            work.summary_text = work.summary.content
-            summary = work.summary_text
+        if work: 
+            if work.summary_text:
+                summary = work.summary_text
+            elif work.summary:
+                work.summary_text = work.summary.content
+                summary = work.summary_text
         return summary
 
     @classmethod
@@ -293,10 +293,10 @@ class VerboseAnnotator(Annotator):
         return by_scheme
 
     @classmethod
-    def authors(cls, work):
+    def authors(cls, work, license_pool, edition, identifier):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
-                for author in work.primary_edition.author_contributors]
+                for author in edition.author_contributors]
 
     @classmethod
     def detailed_author(cls, contributor):
@@ -445,28 +445,35 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def single_entry(cls, _db, work, annotator):
         feed = cls(_db, '', '', [], annotator=annotator)
-        if not work.primary_edition:
+        if not isinstance(work, Edition) and not work.primary_edition:
             return None
         return feed.create_entry(work, None, None, even_if_no_license_pool=True)
 
     def create_entry(self, work, lane_link, cache, even_if_no_license_pool=False):
         """Turn a work into an entry for an acquisition feed."""
-        active_license_pool = self.annotator.active_licensepool_for(work)
+        if isinstance(work, Edition):
+            active_edition = work
+            identifier = active_edition.primary_identifier
+            active_license_pool = None
+            work = None
+        else:
+            active_license_pool = self.annotator.active_licensepool_for(work)
+            if not work:
+                # We have a license pool but no work. Most likely we don't have
+                # metadata for this work yet.
+                return None
+
+            if active_license_pool:        
+                identifier = active_license_pool.identifier
+                active_edition = active_license_pool.edition
+            else:
+                active_edition = work.primary_edition
+                identifier = active_edition.primary_identifier
+
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool and not even_if_no_license_pool:
             return None
 
-        if not work:
-            # We have a license pool but no work. Most likely we don't have
-            # metadata for this work yet.
-            return None
-
-        if active_license_pool:        
-            identifier = active_license_pool.identifier
-            active_edition = active_license_pool.edition
-        else:
-            active_edition = work.primary_edition
-            identifier = active_edition.primary_identifier
         if not active_edition:
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
             return None
@@ -509,7 +516,9 @@ class AcquisitionFeed(OPDSFeed):
 
         links = []
         cover_quality = 0
-        qualities = [("Work quality", work.quality)]
+        qualities = []
+        if work:
+            qualities.append(("Work quality", work.quality))
         full_url = None
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
@@ -527,6 +536,8 @@ class AcquisitionFeed(OPDSFeed):
 
         permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
+        if isinstance(content, basestring):
+            content = content.decode("utf8")
 
         content_type = 'html'
 
@@ -534,14 +545,16 @@ class AcquisitionFeed(OPDSFeed):
             E.id(permalink),
             E.title(edition.title or '[Unknown title]'),
         )
-        if work.subtitle:
+        if edition.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
 
-        author_tags = self.annotator.authors(work)
+        author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
 
+        if content:
+            entry.extend([E.summary(content, type=content_type)])
+
         entry.extend([
-            E.summary(content, type=content_type),
             E.updated(_strftime(datetime.datetime.utcnow())),
         ])
 

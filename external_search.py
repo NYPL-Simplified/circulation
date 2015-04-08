@@ -4,8 +4,8 @@ import os
 class ExternalSearchIndex(Elasticsearch):
     
     def __init__(self, url=None):
-        url = url or os.environ['SEARCH_SERVER_URL']
-        use_ssl = url.startswith('https://')
+        url = url or os.environ.get('SEARCH_SERVER_URL')
+        use_ssl = url and url.startswith('https://')
         super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
 
 

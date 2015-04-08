@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 from nose.tools import set_trace
+from lxml import etree
 import md5
 import random
 import re
@@ -1580,7 +1581,7 @@ class Edition(Base):
 
     # An OPDS entry containing all metadata about this entry that
     # would be relevant to display to a library patron.
-    simple_opds_entry = Column(Unicode, default=None, index=True)
+    simple_opds_entry = Column(Unicode, default=None)
 
     # Information kept in here probably won't be used.
     extra = Column(MutableDict.as_mutable(JSON), default={})
@@ -1937,6 +1938,7 @@ class Edition(Base):
 
     def calculate_presentation(self, calculate_opds_entry=True, debug=False):
 
+        _db = Session.object_session(self)
         # Calling calculate_presentation() on NYT data will actually
         # destroy the presentation, so don't do anything.
         if self.data_source.name == DataSource.NYT:
@@ -1976,8 +1978,8 @@ class Edition(Base):
             AcquisitionFeed,
             Annotator,
         )
-        self.simple_opds_entry = unicode(AcquisitionFeed.single_entry(
-            _db, self, Annotator))
+        #self.simple_opds_entry = etree.tostring(
+        #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2097,9 +2099,13 @@ class Work(Base):
     was_merged_into = relationship("Work", remote_side = [id])
 
     # A precalculated OPDS entry containing all metadata about this
+    # work that would be relevant to display to a library patron.
+    simple_opds_entry = Column(Unicode, default=None)
+
+    # A precalculated OPDS entry containing all metadata about this
     # work that would be relevant to display in a machine-to-machine
     # integration context.
-    verbose_opds_entry = Column(Unicode, default=None, index=True)
+    verbose_opds_entry = Column(Unicode, default=None)
 
     @property
     def title(self):
@@ -2535,10 +2541,14 @@ class Work(Base):
         if calculate_opds_entry:
             from opds import (
                 AcquisitionFeed,
+                Annotator,
                 VerboseAnnotator,
             )
-            self.verbose_opds_entry = unicode(AcquisitionFeed.single_entry(
-                _db, self, VerboseAnnotator))
+            self.simple_opds_entry = etree.tostring(
+                AcquisitionFeed.single_entry(_db, self, Annotator))
+            self.verbose_opds_entry = etree.tostring(
+                AcquisitionFeed.single_entry(_db, self, VerboseAnnotator))
+            print self.verbose_opds_entry
 
         if search_index_client:
             search_index_client.index(
