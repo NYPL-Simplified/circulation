@@ -380,7 +380,7 @@ class OPDSFeed(AtomFeed):
 class AcquisitionFeed(OPDSFeed):
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3, cache=None):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
@@ -389,10 +389,10 @@ class AcquisitionFeed(OPDSFeed):
                                     "currently_available")
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.name, url, works, annotator, 
-            sublanes=lane.sublanes, cache=cache)
+            sublanes=lane.sublanes)
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={}, cache=None):
+                 active_facet=None, sublanes=[], messages_by_urn={}):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         import time
@@ -401,7 +401,7 @@ class AcquisitionFeed(OPDSFeed):
         for work in works:
             a = time.time()
             print work
-            self.add_entry(work, lane_link, cache)
+            self.add_entry(work, lane_link)
             totals.append(time.time()-a)
 
         # Add minimal entries for the messages.
@@ -436,8 +436,8 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % opds_ns] = "true"
             self.add_link(**link)
 
-    def add_entry(self, work, lane_link, cache):
-        entry = self.create_entry(work, lane_link, cache)
+    def add_entry(self, work, lane_link):
+        entry = self.create_entry(work, lane_link)
         if entry is not None:
             self.feed.append(entry)
         return entry
@@ -449,7 +449,7 @@ class AcquisitionFeed(OPDSFeed):
             return None
         return feed.create_entry(work, None, None, even_if_no_license_pool=True)
 
-    def create_entry(self, work, lane_link, cache, even_if_no_license_pool=False):
+    def create_entry(self, work, lane_link, even_if_no_license_pool=False):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -480,31 +480,31 @@ class AcquisitionFeed(OPDSFeed):
 
         return self._create_entry(work, active_license_pool, active_edition,
                                   identifier,
-                                  lane_link, cache)
+                                  lane_link)
 
-    def _create_entry(self, work, license_pool, edition, identifier, lane_link,
-                      cache):
+    def _create_entry(self, work, license_pool, edition, identifier, lane_link):
 
-        # before = time.time()
-        key = identifier
+        before = time.time()
+        xml = None
         cache_hit = False
-        if cache is not None and key in cache:
+        if work:
+            if self.annotator == Annotator:
+                xml = work.simple_opds_entry
+            elif self.annotator == VerboseAnnotator:
+                xml = work.verbose_opds_entry            
+
+        if xml:
             cache_hit = True
-            xml = cache[identifier]
+            xml = etree.ElementTree.fromstring(xml)
         else:
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
-            
-            if cache is not None:
-                cache[key] = xml
-
-        if cache is not None:
-            xml = copy.deepcopy(xml)
+           
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
-        # after = time.time()
-        # print "%r %.2f" % (cache_hit, after-before)
+        after = time.time()
+        print "%r %.2f" % (cache_hit, after-before)
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
