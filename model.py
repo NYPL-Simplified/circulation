@@ -664,7 +664,7 @@ class Identifier(Base):
             data_source=data_source,
             input=self,
             output=identifier,
-            create_method_kwargs=dict(strength=strength))
+            create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
         # print "%r==%r p=%.2f" % (self, identifier, strength)
         return eq
 
@@ -4431,9 +4431,13 @@ class Representation(Base):
             content = None
             media_type = None
 
-        # At this point we can create a Representation object if there
-        # isn't one already.
-        if not usable_representation:
+        # At this point we can create/fetch a Representation object if
+        # we don't have one already, or if the URL or media type we
+        # actually got from the server differs from what we thought
+        # we had.
+        if (not usable_representation 
+            or media_type != representation.media_type
+            or url != representation.url):
             representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=media_type)
 
