@@ -1577,6 +1577,10 @@ class Edition(Base):
     # its primary edition.
     no_known_cover = Column(Boolean, default=False)
 
+    # An OPDS entry containing all metadata about this entry that
+    # would be relevant to display to a library patron.
+    simple_opds_entry = Column(Unicode, default=None, index=True)
+
     # Information kept in here probably won't be used.
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
@@ -2083,6 +2087,11 @@ class Work(Base):
     # A Work may be merged into one other Work.
     was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
     was_merged_into = relationship("Work", remote_side = [id])
+
+    # A precalculated OPDS entry containing all metadata about this
+    # work that would be relevant to display in a machine-to-machine
+    # integration context.
+    verbose_opds_entry = Column(Unicode, default=None, index=True)
 
     @property
     def title(self):
