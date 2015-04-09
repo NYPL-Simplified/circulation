@@ -74,8 +74,8 @@ class CirculationPresentationReadyMonitor(Monitor):
                 Identifier.type.in_(
                     [
                         Identifier.GUTENBERG_ID, 
-                        #Identifier.OVERDRIVE_ID,
-                        #Identifier.THREEM_ID
+                        Identifier.OVERDRIVE_ID,
+                        Identifier.THREEM_ID
                         ]
                     )
                 )
