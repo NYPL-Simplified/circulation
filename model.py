@@ -2593,12 +2593,12 @@ class Work(Base):
                     id=self.id)
         if self.presentation_ready:
             doc = self.to_search_document()
-            if not doc:
-                print "WARNING: Could not generate a search document for allegedly presentation-ready work %d."
-            args['body'] = doc
-            print self.id, doc
-            print args
-            client.index(**args)
+            if doc:
+                args['body'] = doc
+                print self.id, doc
+                client.index(**args)
+            else:
+                print "WARNING: Could not generate a search document for allegedly presentation-ready work %d." % self.id
         else:
             if client.exists(**args):
                 client.delete(**args)
