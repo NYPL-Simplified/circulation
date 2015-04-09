@@ -199,13 +199,15 @@ def hearbeat():
 @app.route('/lanes/', defaults=dict(lane=None))
 @app.route('/lanes/<lane>')
 def navigation_feed(lane):
+    lane_name = lane
     if lane is None:
         lane = Conf
     else:
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
-    key = (",".join(languages), 'navigation', lane)
+    this_url = url_for("navigation_feed", lane=lane_name, _external=True)
+    key = (",".join(languages), this_url)
     # This feed will not change unless the application is upgraded,
     # so there's no need to expire the cache.
     if key in feed_cache:
