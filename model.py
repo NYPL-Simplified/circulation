@@ -24,6 +24,7 @@ import traceback
 from PIL import (
     Image,
 )
+import elasticsearch
 
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
@@ -2542,9 +2543,7 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if search_index_client:
-            search_index_client.index(
-                index='work-index', doc_type='work-type', id=self.id,
-                body=self.to_search_document())
+            self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -2586,6 +2585,23 @@ class Work(Base):
         if verbose is not None:
             self.verbose_opds_entry = etree.tostring(verbose)
         print self.id, self.simple_opds_entry, self.verbose_opds_entry
+
+
+    def update_external_index(self, client):
+        args = dict(index=client.works_index, 
+                    doc_type=client.work_document_type,
+                    id=self.id)
+        if self.presentation_ready:
+            doc = self.to_search_document()
+            if not doc:
+                print "WARNING: Could not generate a search document for allegedly presentation-ready work %d."
+            args['body'] = doc
+            print self.id, doc
+            print args
+            client.index(**args)
+        else:
+            if client.exists(**args):
+                client.delete(**args)
 
 
     def set_presentation_ready(self, as_of=None):
@@ -2745,20 +2761,22 @@ class Work(Base):
         """Generate a search document for this Work."""
 
         _db = Session.object_session(self)
+        if not self.primary_edition:
+            return None
         doc = dict(_id=self.id,
                    title=self.title,
                    subtitle=self.subtitle,
                    series=self.series,
                    language=self.language,
                    sort_title=self.sort_title, 
-                  author=self.author,
+                   author=self.author,
                    sort_author=self.sort_author,
                    medium=self.primary_edition.medium,
                    publisher=self.publisher,
                    imprint=self.imprint,
                    permanent_work_id=self.primary_edition.permanent_work_id,
                    fiction= "Fiction" if self.fiction else "Nonfiction",
-                   audience=self.audience,
+                   audience=self.audience.replace(" ", ""),
                    summary = self.summary_text,
                    quality = self.quality,
                    rating = self.rating,
@@ -2798,10 +2816,11 @@ class Work(Base):
         #         dict(scheme=scheme, term=term,
         #              weight=weight/classification_total_weight))
 
+
         for workgenre in self.work_genres:
             classification_desc.append(
-                dict(scheme=Subject.SIMPLIFIED_GENRE, term=workgenre.genre.name,
-                     weight=workgenre.affinity))
+                dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
+                     term=workgenre.genre.id, weight=workgenre.affinity))
 
         # for term, weight in (
         #         (Work.CHARACTER_APPEAL, self.appeal_character),
@@ -3542,21 +3561,44 @@ class Lane(object):
         self.audience = audience
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
-    def search(self, languages, query):
+    def search(self, languages, query, search_client):
         """Find works in this lane that match a search query.
-        
-        TODO: Current implementation is incredibly bad and does
-        a direct database search using ILIKE.
         """
         if isinstance(languages, basestring):
             languages = [languages]
 
+        if self.fiction in (True, False):
+            fiction = self.fiction
+        else:
+            fiction = None
+
+        q = None
+        if search_client:
+            try:
+                search_client.query_works(
+                    query, languages, self.fiction, self.audience,
+                    self.all_matching_genres)
+            except elasticsearch.exceptions.ConnectionError, e:
+                print (
+                    "Could not connect to Elasticsearch; falling back to database search."
+                )
+        if not q:
+            q = self._search_database(languages, fiction, query)
+        return q
+
+    def _search_database(self, languages, fiction, query):
+        """Do a really awful database search for a book using ILIKE.
+
+        This is useful if an app server has no external search
+        interface defined, or if the search interface isn't working
+        for some reason.
+        """
         k = "%" + query + "%"
-        q = self.works(languages=languages, fiction=None).filter(
+        q = self.works(languages=languages, fiction=fiction).filter(
             or_(Edition.title.ilike(k),
                 Edition.author.ilike(k)))
         q = q.order_by(Work.quality.desc())
-        return q
+
 
     def quality_sample(
             self, languages, quality_min_start,
@@ -3620,6 +3662,15 @@ class Lane(object):
                 quality_min = quality_min_rock_bottom
         return results
 
+    @property
+    def all_matching_genres(self):
+        genres = set()
+        for genre in self.genres:
+            if self.include_subgenres:
+                genres = genres.union(genre.self_and_subgenres)
+            else:
+                genres.add(genre)
+        return genres
 
     def works(self, languages, fiction=None, availability=Work.ALL):
         """Find Works that will go together in this Lane.
@@ -3667,13 +3718,8 @@ class Lane(object):
                 # whether we've got fiction or nonfiction genres.
                 fiction = None
 
-            genres = []
+            genres = self.all_matching_genres
             for genre in self.genres:
-                if self.include_subgenres:
-                    genres.extend(genre.self_and_subgenres)
-                else:
-                    genres.append(genre)
-
                 if fiction_default_by_genre:
                     if fiction is None:
                         fiction = genre.default_fiction
