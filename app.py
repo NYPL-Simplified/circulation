@@ -14,6 +14,10 @@ from sqlalchemy.orm.exc import (
 import flask
 from flask import Flask, url_for, redirect, Response
 
+from core.external_search import (
+    ExternalSearchIndex,
+    DummyExternalSearchIndex,
+)
 from circulation_exceptions import (
     CannotLoan,
     AlreadyCheckedOut,
@@ -84,6 +88,7 @@ class Conf:
     overdrive = None
     threem = None
     auth = None
+    search = None
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -96,6 +101,7 @@ class Conf:
             cls.overdrive = DummyOverdriveAPI(cls.db)
             cls.threem = DummyThreeMAPI(cls.db)
             cls.auth = DummyMilleniumPatronAPI()
+            cls.search = DummyExternalSearchIndex()
         else:
             _db = production_session()
             lanes = make_lanes(_db)
@@ -105,6 +111,7 @@ class Conf:
             cls.overdrive = OverdriveAPI(cls.db)
             cls.threem = ThreeMAPI(cls.db)
             cls.auth = MilleniumPatronAPI()
+            cls.search = ExternalSearchIndex()
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -423,7 +430,6 @@ def feed(lane):
     feed_xml = unicode(opds_feed)
     if not last_seen_id:
         feed_cache[key] = (feed_xml, time.time())
-    set_trace()
     return feed_response(feed_xml)
 
 @app.route('/popular', defaults=dict(lane_name=None))
@@ -481,7 +487,7 @@ def lane_search(lane):
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)
     # Run a search.    
-    results = lane.search(languages, query).limit(50)
+    results = lane.search(languages, query, Conf.search, 50)
     info = OpenSearchDocument.search_info(lane)
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
