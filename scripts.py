@@ -228,6 +228,16 @@ class OPDSRefreshingScript(WorkProcessingScript):
         if work.presentation_ready:
             work.calculate_opds_entries()
 
+class IndexRefreshingScript(WorkProcessingScript):
+    """Re-index each work under the default external search index."""
+
+    def __init__(self, *args, **kwargs):
+        super(IndexRefreshingScript, self).__init__(*args, **kwargs)
+        self.client = ExternalSearchIndex()
+
+    def process_work(self, work):
+        work.update_external_index(self.client)
+            
 
 class WorkReclassifierScript(WorkProcessingScript):
 
