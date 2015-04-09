@@ -3561,9 +3561,9 @@ class Lane(object):
         self.audience = audience
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
-    def search(self, languages, query, search_client):
+    def search(self, languages, query, search_client, limit=50):
         """Find works in this lane that match a search query.
-        """
+        """        
         if isinstance(languages, basestring):
             languages = [languages]
 
@@ -3572,19 +3572,30 @@ class Lane(object):
         else:
             fiction = None
 
-        q = None
+        results = None
         if search_client:
+            docs = None
             try:
-                search_client.query_works(
-                    query, languages, self.fiction, self.audience,
-                    self.all_matching_genres)
+                docs = search_client.query_works(
+                    query, Edition.BOOK_MEDIUM, languages, fiction,
+                    self.audience,
+                    self.all_matching_genres, fields=["_id"])
             except elasticsearch.exceptions.ConnectionError, e:
                 print (
                     "Could not connect to Elasticsearch; falling back to database search."
                 )
-        if not q:
-            q = self._search_database(languages, fiction, query)
-        return q
+
+            if docs:
+                doc_ids = [int(x['_id']) for x in docs['hits']['hits']]
+                q = self._db.query(Work).filter(Work.id.in_(doc_ids))
+                work_by_id = dict()
+                for w in q:
+                    work_by_id[w.id] = w
+                results = [work_by_id[x] for x in doc_ids if x in work_by_id]
+
+        if not results:
+            results = self._search_database(languages, fiction, query).limit(limit)
+        return results
 
     def _search_database(self, languages, fiction, query):
         """Do a really awful database search for a book using ILIKE.
@@ -3598,7 +3609,7 @@ class Lane(object):
             or_(Edition.title.ilike(k),
                 Edition.author.ilike(k)))
         q = q.order_by(Work.quality.desc())
-
+        return q
 
     def quality_sample(
             self, languages, quality_min_start,

@@ -15,7 +15,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.indices.create(self.works_index)
 
     def query_works(self, query_string, medium, languages, fiction, audience,
-                    in_any_of_these_genres=[]):
+                    in_any_of_these_genres=[], fields=None):
         q = dict(
             filtered=dict(
                 query=self.make_query(query_string),
@@ -25,9 +25,13 @@ class ExternalSearchIndex(Elasticsearch):
             )
         )
         body = dict(query=q)
-        from pprint import pprint
-        pprint(body)
-        return self.search(index=self.works_index, body=dict(query=q))
+        args = dict(
+            index=self.works_index,
+            body=dict(query=q)
+        )
+        if fields is not None:
+            args['fields'] = fields
+        return self.search(**args)
 
     def make_query(self, query_string):
         must_multi_match = dict(
