@@ -211,7 +211,7 @@ def navigation_feed(lane):
     # This feed will not change unless the application is upgraded,
     # so there's no need to expire the cache.
     if key in feed_cache:
-        return feed_cache[key]
+        return feed_response(feed_cache[key], acquisition=False)
         
     feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
