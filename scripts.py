@@ -5,6 +5,8 @@ import os
 import sys
 from datetime import timedelta
 from sqlalchemy import or_
+from lanes import make_lanes
+import urlparse
 from core.model import (
     Contribution,
     CustomList,
@@ -22,7 +24,9 @@ from core.opds_import import (
 )
 from core.opds import OPDSFeed
 from core.external_list import CustomListFromCSV
-from core.externalsearch import ExternalSearchIndex
+from core.external_search import ExternalSearchIndex
+from opds import CirculationManagerAnnotator
+import app
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -189,3 +193,31 @@ class ContentOPDSImporter(BaseOPDSImporter):
 
     def __init__(self, _db, feed):
         super(ContentOPDSImporter, self).__init__(_db, feed, overwrite_rels=self.OVERWRITE_RELS)
+
+
+class PrecalculateFeaturedFeedsScript(Script):
+
+    def __init__(self, language_sets=[["eng"], ["spa"]]):
+        self.lanes = make_lanes(self._db)
+        self.language_sets = language_sets
+
+        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+
+    def run(self):
+        client = app.app.test_client()
+        ctx = app.app.test_request_context(base_url=self.base_url)
+        ctx.push()
+        for lane in self.lanes:
+            for languages in self.language_sets:
+                annotator = CirculationManagerAnnotator(lane)
+                cache_url = app.featured_feed_cache_url(
+                    annotator, lane, languages)
+                def get(*args, **kwargs):
+                    return app.make_featured_feed(annotator, lane, languages)
+
+                feed_rep, ignore = Representation.get(
+                    self._db, cache_url, get,
+                    accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+                    max_age=0)
+                self._db.commit()
+        ctx.pop()

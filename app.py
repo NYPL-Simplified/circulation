@@ -50,6 +50,7 @@ from core.model import (
     Loan,
     Patron,
     Identifier,
+    Representation,
     Work,
     LaneFeed,
     CustomListFeed,
@@ -185,6 +186,25 @@ def requires_auth(f):
             flask.request.patron = patron
         return f(*args, **kwargs)
     return decorated
+
+def featured_feed_cache_url(annotator, lane, languages):
+    url = annotator.featured_feed_url(lane)
+    if '?' in url:
+        url += '&'
+    else:
+        url += '?'
+    return url + "languages=%s" % ",".join(languages)
+
+def make_featured_feed(annotator, lane, languages):
+    search_link = dict(
+        rel="search",
+        type="application/opensearchdescription+xml",
+        href=url_for('lane_search', lane=lane.name,
+                     _external=True))
+    opds_feed = AcquisitionFeed.featured(
+        languages, lane, annotator, quality_cutoff=0.3)
+    opds_feed.add_link(**search_link)
+    return 200, {"Content-Type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
 
 @app.route('/')
@@ -361,6 +381,7 @@ def feed(lane):
     lane = Conf.sublanes.by_name[lane]
 
     key = (lane, ",".join(languages), order)
+    feed_xml = None
     if not last_seen_id and key in feed_cache:
         chance = random.random()
         feed, created_at = feed_cache.get(key)
@@ -380,11 +401,15 @@ def feed(lane):
         href=url_for('lane_search', lane=lane.name, _external=True))
 
     annotator = CirculationManagerAnnotator(lane)
+    work_feed = None
     if order == 'recommended':
-        opds_feed = AcquisitionFeed.featured(
-            languages, lane, annotator, quality_cutoff=0, )
-        opds_feed.add_link(**search_link)
-        work_feed = None
+        cache_url = featured_feed_cache_url(annotator, lane, languages)
+        def get(*args, **kwargs):
+            return make_featured_feed(annotator, lane, languages)
+        feed_rep, cached = Representation.get(
+            Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+            max_age=60*30)
+        feed_xml = feed_rep.content
     elif order == 'title':
         work_feed = LaneFeed(lane, languages, Edition.sort_title)
         title = "%s: By title" % lane.name
@@ -429,7 +454,8 @@ def feed(lane):
 
         opds_feed.add_link(**search_link)
 
-    feed_xml = unicode(opds_feed)
+    if not feed_xml:
+        feed_xml = unicode(opds_feed)
     if not last_seen_id:
         feed_cache[key] = (feed_xml, time.time())
     return feed_response(feed_xml)
