@@ -4623,6 +4623,8 @@ class Representation(Base):
                 media_type = headers['content-type'].lower()
             else:
                 media_type = None
+            if isinstance(content, unicode):
+                content = content.encode("utf8")
         except Exception, e:
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
