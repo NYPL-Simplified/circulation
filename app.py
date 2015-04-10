@@ -206,6 +206,42 @@ def make_featured_feed(annotator, lane, languages):
     opds_feed.add_link(**search_link)
     return 200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
+def popular_feed_cache_url(annotator, lane, languages):
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    url = url_for('popular_feed', lane_name=lane_name, _external=True)
+    if '?' in url:
+        url += '&'
+    else:
+        url += '?'
+    return url + "languages=%s" % ",".join(languages)
+
+def make_popular_feed(_db, annotator, lane, languages):
+    if not lane:
+        lane_name = lane
+        lane_display_name = lane
+        title = "Best Sellers"
+    else:
+        lane_name = lane.name
+        lane_display_name = lane.display_name
+        title = "%s: Best Sellers" % lane_display_name
+    # TODO: Can't sort by most recent appearance.
+    work_feed = AllCustomListsFromDataSourceFeed(
+        _db, [DataSource.NYT], languages,
+        availability=AllCustomListsFromDataSourceFeed.ALL)
+    page = work_feed.page_query(_db, None, 100).all()
+    page = random.sample(page, min(len(page), 20))
+
+    this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
+    opds_feed = AcquisitionFeed(_db, title, this_url, page,
+                                annotator, work_feed.active_facet)
+    return (200,
+            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+            unicode(opds_feed)
+    )
+
 
 @app.route('/')
 def index():    
@@ -460,6 +496,7 @@ def feed(lane):
         feed_cache[key] = (feed_xml, time.time())
     return feed_response(feed_xml)
 
+
 @app.route('/popular', defaults=dict(lane_name=None))
 @app.route('/popular/', defaults=dict(lane_name=None))
 @app.route('/popular/<lane_name>')
@@ -476,27 +513,14 @@ def popular_feed(lane_name):
         lane = None
         lane_display_name = None
     languages = languages_for_request()
-    this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
 
-    key = ("popular", lane_name, ",".join(languages))
-    if key in feed_cache:
-        chance = random.random()
-        feed, created_at = feed_cache.get(key)
-        if chance > 0.10:
-            # Return the cached version.
-            return feed
-
-    title = "%s: Best Sellers" % lane_display_name
-    # TODO: Can't sort by most recent appearance.
-    work_feed = AllCustomListsFromDataSourceFeed(
-        Conf.db, [DataSource.NYT], languages, availability=AllCustomListsFromDataSourceFeed.ALL)
-    annotator = CirculationManagerAnnotator(lane)
-    page = work_feed.page_query(Conf.db, None, 100).all()
-    page = random.sample(page, min(len(page), 20))
-    opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                annotator, work_feed.active_facet)
-    feed_xml = unicode(opds_feed)
-    feed_cache[key] = (feed_xml, time.time())
+    cache_url = featured_feed_cache_url(annotator, lane, languages)
+    def get(*args, **kwargs):
+        return make_popular_feed(Conf.db, annotator, lane, languages)
+    feed_rep, cached = Representation.get(
+        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+        max_age=None)
+    feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
 @app.route('/search', defaults=dict(lane=None))

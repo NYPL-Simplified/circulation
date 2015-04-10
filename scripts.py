@@ -243,10 +243,12 @@ class PrecalculatePopularFeedsScript(Script):
     def make_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.language_sets:
-            cache_url = app.featured_feed_cache_url(
+            set_trace()
+            cache_url = app.popular_feed_cache_url(
                 annotator, lane, languages)
             def get(*args, **kwargs):
-                return app.make_featured_feed(annotator, lane, languages)
+                return app.make_popular_feed(
+                    self._db, annotator, lane, languages)
 
             feed_rep, ignore = Representation.get(
                 self._db, cache_url, get,
@@ -257,12 +259,8 @@ class PrecalculatePopularFeedsScript(Script):
         client = app.app.test_client()
         ctx = app.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = [None] + self.lanes
-        while queue:
-            new_queue = []
-            for l in queue:
-                self.make_lane(l)
-                new_queue.extend(l.sublanes)
-            queue = new_queue
+        queue = [None] + self.lanes.lanes
+        for l in queue:
+            self.make_lane(l)
             self._db.commit()
         ctx.pop()
