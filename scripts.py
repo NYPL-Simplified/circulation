@@ -203,21 +203,66 @@ class PrecalculateFeaturedFeedsScript(Script):
 
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
 
+    def make_lane(self, lane):
+        annotator = CirculationManagerAnnotator(lane)
+        for languages in self.language_sets:
+            cache_url = app.featured_feed_cache_url(
+                annotator, lane, languages)
+            def get(*args, **kwargs):
+                return app.make_featured_feed(annotator, lane, languages)
+
+            feed_rep, ignore = Representation.get(
+                self._db, cache_url, get,
+                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+                max_age=0)
+
     def run(self):
         client = app.app.test_client()
         ctx = app.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        for lane in self.lanes:
-            for languages in self.language_sets:
-                annotator = CirculationManagerAnnotator(lane)
-                cache_url = app.featured_feed_cache_url(
-                    annotator, lane, languages)
-                def get(*args, **kwargs):
-                    return app.make_featured_feed(annotator, lane, languages)
+        queue = self.lanes.lanes
+        while queue:
+            new_queue = []
+            print "!! %d entries in queue!" % queue
+            for l in queue:
+                self.make_lane(l)
+                new_queue.extend(l.sublanes)
+            queue = new_queue
+            self._db.commit()
+        ctx.pop()
 
-                feed_rep, ignore = Representation.get(
-                    self._db, cache_url, get,
-                    accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-                    max_age=0)
-                self._db.commit()
+
+class PrecalculatePopularFeedsScript(Script):
+
+    def __init__(self, language_sets=[["eng"]]):
+        self.lanes = make_lanes(self._db)
+        self.language_sets = language_sets
+
+        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+
+    def make_lane(self, lane):
+        annotator = CirculationManagerAnnotator(lane)
+        for languages in self.language_sets:
+            cache_url = app.featured_feed_cache_url(
+                annotator, lane, languages)
+            def get(*args, **kwargs):
+                return app.make_featured_feed(annotator, lane, languages)
+
+            feed_rep, ignore = Representation.get(
+                self._db, cache_url, get,
+                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+                max_age=0)
+
+    def run(self):
+        client = app.app.test_client()
+        ctx = app.app.test_request_context(base_url=self.base_url)
+        ctx.push()
+        queue = [None] + self.lanes
+        while queue:
+            new_queue = []
+            for l in queue:
+                self.make_lane(l)
+                new_queue.extend(l.sublanes)
+            queue = new_queue
+            self._db.commit()
         ctx.pop()

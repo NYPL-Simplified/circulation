@@ -202,9 +202,9 @@ def make_featured_feed(annotator, lane, languages):
         href=url_for('lane_search', lane=lane.name,
                      _external=True))
     opds_feed = AcquisitionFeed.featured(
-        languages, lane, annotator, quality_cutoff=0.3)
+        languages, lane, annotator, quality_cutoff=0.0)
     opds_feed.add_link(**search_link)
-    return 200, {"Content-Type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
+    return 200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
 
 @app.route('/')
@@ -408,7 +408,7 @@ def feed(lane):
             return make_featured_feed(annotator, lane, languages)
         feed_rep, cached = Representation.get(
             Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-            max_age=60*30)
+            max_age=None)
         feed_xml = feed_rep.content
     elif order == 'title':
         work_feed = LaneFeed(lane, languages, Edition.sort_title)
