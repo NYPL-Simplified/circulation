@@ -514,7 +514,8 @@ def popular_feed(lane_name):
         lane_display_name = None
     languages = languages_for_request()
 
-    cache_url = featured_feed_cache_url(annotator, lane, languages)
+    annotator = CirculationManagerAnnotator(lane)
+    cache_url = popular_feed_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
         return make_popular_feed(Conf.db, annotator, lane, languages)
     feed_rep, cached = Representation.get(
