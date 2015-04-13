@@ -223,7 +223,7 @@ class PrecalculateFeaturedFeedsScript(Script):
         queue = self.lanes.lanes
         while queue:
             new_queue = []
-            print "!! %d entries in queue!" % queue
+            print "!! %d entries in queue!" % len(queue)
             for l in queue:
                 self.make_lane(l)
                 new_queue.extend(l.sublanes)
