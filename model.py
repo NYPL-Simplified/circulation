@@ -4397,6 +4397,7 @@ class Timestamp(Base):
     __tablename__ = 'timestamps'
     service = Column(String(255), primary_key=True)
     timestamp = Column(DateTime)
+    counter = Column(Integer)
 
     @classmethod
     def stamp(self, _db, service):

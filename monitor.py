@@ -6,6 +6,7 @@ from sqlalchemy.sql.functions import func
 
 from model import (
     get_one_or_create,
+    Identifier,
     LicensePool,
     Timestamp,
     Work,
@@ -55,7 +56,64 @@ class Monitor(object):
 
     def cleanup(self):
         pass
-        
+
+
+class IdentifierSweepMonitor(Monitor):
+
+    def __init__(self, _db, name, interval_seconds=3600,
+                 default_counter=0, batch_size=100):
+        super(IdentifierSweepMonitor, self).__init__(
+            _db, name, interval_seconds)
+        self.default_counter = default_counter
+        self.batch_size = batch_size
+
+    def run(self):        
+        self.timestamp, new = get_one_or_create(
+            self._db, Timestamp,
+            service=self.service_name,
+            create_method_kwargs=dict(
+                counter=self.default_counter
+            )
+        )
+        offset = self.timestamp.counter or self.default_counter
+
+        started_at = datetime.datetime.utcnow()
+        while not self.stop_running:
+            print "Old offset: %s" % offset
+            new_offset = self.run_once(offset)
+            to_sleep = 0
+            if new_offset == 0:
+                # We completed a sweep. Sleep until the next sweep
+                # begins.
+                duration = datetime.datetime.utcnow()
+                to_sleep = self.interval_seconds-duration.seconds-1
+                self.cleanup()
+            self.counter = new_offset
+            self.timestamp.counter = self.counter
+            self._db.commit()
+            print "New offset: %s" % new_offset
+            if to_sleep > 0:
+                print "Sleeping for %.1f" % to_sleep
+                time.sleep(to_sleep)
+            offset = new_offset
+
+    def run_once(self, offset):
+        q = self.identifier_query().filter(
+            Identifier.id > offset).order_by(
+            Identifier.id).limit(self.batch_size)
+        identifiers = q.all()
+        self.process_batch(identifiers)
+        if identifiers:
+            return identifiers[-1].id
+        else:
+            return 0
+
+    def identifier_query(self):
+        return self._db.query(Identifier)
+
+    def process_batch(self, identifiers):
+        raise NotImplementedError()
+
 
 class PresentationReadyMonitor(Monitor):
     """A monitor that makes works presentation ready.
