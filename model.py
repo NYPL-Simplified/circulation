@@ -3855,7 +3855,13 @@ class WorkFeed(object):
             m = lambda x: x.desc()
 
         order_by = [m(x) for x in self.order_by]
-        query = query.order_by(*order_by).limit(page_size)
+        query = query.order_by(*order_by)
+
+        if order_by:
+            query = query.distinct(*self.order_by)
+        else:
+            query = query.distinct(Work.id)
+        query = query.limit(page_size)
         query = query.options(joinedload('license_pools').joinedload('edition'))
         return query
 
