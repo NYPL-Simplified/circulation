@@ -20,7 +20,10 @@ from core.model import (
     Session,
 )
 
-from core.monitor import Monitor
+from core.monitor import (
+    Monitor,
+    IdentifierSweepMonitor,
+)
 from core.util.xmlparser import XMLParser
 from core.threem import ThreeMAPI as BaseThreeMAPI
 from circulation_exceptions import *
@@ -55,6 +58,9 @@ class ThreeMAPI(BaseThreeMAPI):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
+        if response.status_code != 200:
+            raise IOError("Server gave status code %s: %s" % (
+                response.status_code, response.content))
         for circ in CirculationParser().process_all(response.content):
             if circ:
                 yield circ
@@ -430,7 +436,7 @@ class EventParser(XMLParser):
         return (threem_id, isbn, patron_id, start_time, end_time,
                 internal_event_type)
 
-class ThreeMCirculationSweep(Monitor):
+class ThreeMCirculationSweep(IdentifierSweepMonitor):
     """Check on the current circulation status of each 3M book in our
     collection.
 
@@ -441,23 +447,15 @@ class ThreeMCirculationSweep(Monitor):
     """
     def __init__(self, _db, account_id=None, library_id=None, account_key=None):
         super(ThreeMCirculationSweep, self).__init__(
-            _db, "3M Circulation Sweep")
+            _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
         self.api = ThreeMAPI(self._db, account_id, library_id,
                              account_key)
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
-    def run_once(self, start, cutoff):
-        offset = 0
-        limit = 25
-        q = self._db.query(Identifier).filter(
-            Identifier.type==Identifier.THREEM_ID).order_by(Identifier.id)
-        identifiers = True
-        while identifiers:
-            identifiers = q.offset(offset).limit(limit).all()
-            self.process_batch(identifiers)
-            self._db.commit()
-            offset += limit
+    def identifier_query(self):
+        return self._db.query(Identifier).filter(
+            Identifier.type==Identifier.THREEM_ID)
 
     def process_batch(self, identifiers):
         identifiers_by_threem_id = dict()
