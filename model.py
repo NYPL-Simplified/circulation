@@ -4161,10 +4161,6 @@ class LicensePool(Base):
             print " Already got one."
             return self.work, False
 
-        primary_edition = self.edition or known_edition
-        if primary_edition.license_pool != self:
-            raise ValueError(
-                "Primary edition's license pool is not the license pool for which work is being calculated!")
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
@@ -4172,6 +4168,10 @@ class LicensePool(Base):
                 self.identifier)
 
             return None, False
+
+        if primary_edition.license_pool != self:
+            raise ValueError(
+                "Primary edition's license pool is not the license pool for which work is being calculated!")
 
         if not primary_edition.title or not primary_edition.author:
             print " Calculating presentation."
