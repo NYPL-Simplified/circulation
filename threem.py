@@ -58,6 +58,8 @@ class ThreeMAPI(BaseThreeMAPI):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
+        if response.status_code == 404:
+            return
         if response.status_code != 200:
             raise IOError("Server gave status code %s: %s" % (
                 response.status_code, response.content))
