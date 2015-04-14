@@ -482,7 +482,7 @@ def feed(lane):
         opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
                                     annotator, work_feed.active_facet)
         # Add a 'next' link if appropriate.
-        if page and len(page) >= size:
+        if len(page) > 0:
             after = page[-1].id
             next_url = url_for(
                 'feed', lane=lane.name, order=order, after=after, _external=True)
