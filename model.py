@@ -4167,6 +4167,8 @@ class LicensePool(Base):
             print " Already got one."
             return self.work, False
 
+        primary_edition = known_edition or work.primary_edition
+
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
