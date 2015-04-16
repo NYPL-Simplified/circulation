@@ -85,8 +85,8 @@ class IdentifierSweepMonitor(Monitor):
             if new_offset == 0:
                 # We completed a sweep. Sleep until the next sweep
                 # begins.
-                duration = datetime.datetime.utcnow()
-                to_sleep = self.interval_seconds-duration.seconds-1
+                duration = datetime.datetime.now() - started_at
+                to_sleep = self.interval_seconds - duration.seconds
                 self.cleanup()
             self.counter = new_offset
             self.timestamp.counter = self.counter
@@ -102,8 +102,8 @@ class IdentifierSweepMonitor(Monitor):
             Identifier.id > offset).order_by(
             Identifier.id).limit(self.batch_size)
         identifiers = q.all()
-        self.process_batch(identifiers)
         if identifiers:
+            self.process_batch(identifiers)
             return identifiers[-1].id
         else:
             return 0

@@ -174,11 +174,11 @@ class OverdriveAPI(object):
     def metadata_lookup(self, identifier):
         """Look up metadata for an Overdrive identifier.
         """
-        url = self.overdrive.METADATA_ENDPOINT % dict(
-            collection_token=self.overdrive.collection_token,
+        url = self.METADATA_ENDPOINT % dict(
+            collection_token=self.collection_token,
             item_id=identifier.identifier
         )
-        status_code, headers, content = self.overdrive.get(url, {})
+        status_code, headers, content = self.get(url, {})
         return json.loads(content)
 
     @classmethod
