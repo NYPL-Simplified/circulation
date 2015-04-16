@@ -603,6 +603,7 @@ class ThreeMClassifier(Classifier):
         Travel : ["TRAVEL/", "Travel/"],
         True_Crime : "TRUE CRIME/",
         Westerns : "Westerns/",
+        Urban_Fantasy: "Fantasy/Contemporary/",
         Urban_Fiction : [
             "FICTION/African American/",
             "FICTION/Urban/",
@@ -893,7 +894,6 @@ class OverdriveClassifier(Classifier):
         Suspense_Thriller : ["Suspense", "Thriller"],
         Travel : ["Travel", "Travel Literature"],
         True_Crime : "True Crime",
-        Urban_Fantasy: "Fantasy/Contemporary/", 
         Urban_Fiction: ["African American Fiction", "Urban Fiction"],
         Womens_Fiction: "Chick Lit Fiction",
     }
