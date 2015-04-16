@@ -72,9 +72,12 @@ class ExternalSearchIndex(Elasticsearch):
 
 class DummyExternalSearchIndex(object):
 
+    work_document_type = 'work-type'
+
     def __init__(self, url=None):
         self.url = url
         self.docs = {}
+        self.works_index = "works"
 
     def index(self, index, doc_type, id, body):
         self.docs[(index, doc_type, id)] = body
@@ -83,3 +86,6 @@ class DummyExternalSearchIndex(object):
         key = (index, doc_type, id)
         if key in self.docs:
             del self.docs[key]
+
+    def exists(self, index, doc_type, id):
+        return id in self.docs

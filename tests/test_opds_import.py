@@ -85,7 +85,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
 
         work = has_measurements.work
         work.calculate_presentation()
-        eq_(0.495, work.quality)
+        eq_(0.41415, work.quality)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
