@@ -727,6 +727,7 @@ class TestWork(DatabaseTest):
             work.license_pools.append(p)
 
         work.last_update_time = None
+        work.presentation_ready = True
         index = DummyExternalSearchIndex()
         work.calculate_presentation(search_index_client=index)
 
@@ -745,9 +746,8 @@ class TestWork(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # The index has been updated with a document.
-        [[args, doc]] = index.docs
-        eq_(doc['id'], work.id)
-        eq_(doc['body'], work.to_search_document)
+        [[args, doc]] = index.docs.items()
+        eq_(doc, work.to_search_document())
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
@@ -1598,7 +1598,7 @@ class TestCustomList(DatabaseTest):
         # The two works on the NYT list are in the feed. The work from
         # the Bibliocommons feed is not.
         qu = feed.base_query(self._db)
-        eq_([w1, w2], qu.all())
+        eq_(set([w1, w2]), set(qu.all()))
 
     def test_feed_excludes_works_not_seen_on_list_recently(self):
         # One work.

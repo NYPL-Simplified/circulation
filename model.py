@@ -2589,7 +2589,7 @@ class Work(Base):
 
 
     def update_external_index(self, client):
-        args = dict(index=client.works_index, 
+        args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
         if self.presentation_ready:
@@ -4172,7 +4172,7 @@ class LicensePool(Base):
             print " Already got one."
             return self.work, False
 
-        primary_edition = known_edition or work.primary_edition
+        primary_edition = known_edition or self.edition
 
         if not primary_edition:
             # We don't have any information about the identifier

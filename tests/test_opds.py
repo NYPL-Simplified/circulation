@@ -137,21 +137,25 @@ class TestAnnotators(DatabaseTest):
         assert "<schema:sameas>http://viaf.org/viaf/100</" in tag_string
         assert "<schema:sameas>http://id.loc.gov/authorities/names/n100</"
 
-        work = self._work(authors=[])
+        work = self._work(authors=[], with_license_pool=True)
         work.primary_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
-        [same_tag] = VerboseAnnotator.authors(work)
+        [same_tag] = VerboseAnnotator.authors(
+            work, work.license_pools[0], work.primary_edition,
+            work.primary_edition.primary_identifier)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_verbose_annotator_mentions_every_author(self):
-        work = self._work(authors=[])
+        work = self._work(authors=[], with_license_pool=True)
         work.primary_edition.add_contributor(
             self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
         work.primary_edition.add_contributor(
             self._contributor()[0], Contributor.AUTHOR_ROLE)
         work.primary_edition.add_contributor(
             self._contributor()[0], "Illustrator")
-        eq_(2, len(VerboseAnnotator.authors(work)))
+        eq_(2, len(VerboseAnnotator.authors(
+            work, work.license_pools[0], work.primary_edition,
+            work.primary_edition.primary_identifier)))
 
     def test_ratings(self):
         work = self._work(
