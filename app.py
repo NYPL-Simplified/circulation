@@ -291,9 +291,13 @@ def navigation_feed(lane):
 def lane_url(cls, lane, order=None):
     return url_for('feed', lane=lane.name, order=order, _external=True)
 
-@app.route('/loans/')
+@app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
 def active_loans():
+
+    if flask.request.method=='HEAD':
+        return Response()
+
     patron = flask.request.patron
 
     # First synchronize our local list of loans and holds with all

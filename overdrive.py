@@ -245,7 +245,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         for loan in loans:
             loans_by_identifier[loan.license_pool.identifier.identifier] = loan
 
-        for checkout in remote_view_loans['checkouts']:
+        for checkout in remote_view_loans.get('checkouts', []):
             start = datetime.datetime.strptime(
                 checkout['checkoutDate'], cls.TIME_FORMAT)
             end = datetime.datetime.strptime(
@@ -285,7 +285,7 @@ class OverdriveAPI(BaseOverdriveAPI):
         for hold in holds:
             holds_by_identifier[hold.license_pool.identifier.identifier] = hold
 
-        for hold_json in remote_view_holds['holds']:
+        for hold_json in remote_view_holds.get('holds', []):
             start = datetime.datetime.strptime(
                 hold_json['holdPlacedDate'], cls.TIME_FORMAT)
 
