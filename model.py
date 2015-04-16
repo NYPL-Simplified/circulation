@@ -2046,6 +2046,7 @@ class Work(Base):
     work_genres = relationship("WorkGenre", backref="work",
                                cascade="all, delete-orphan")
     audience = Column(Unicode, index=True)
+    target_age = Column(Integer, index=True)
     fiction = Column(Boolean, index=True)
 
     summary_id = Column(
@@ -3307,8 +3308,12 @@ class Subject(Base):
     # Whether classification under this subject implies anything about
     # the book's audience.
     audience = Column(
-        Enum("Adult", "Young Adult", "Children", name="audience"),
-        default=None)
+        Enum("Adult", "Young Adult", "Children", "Adults Only", 
+             name="audience"),
+        default=None, index=True)
+
+    # For children's books, the target age implied by this subject.
+    target_age = Column(Integer, default=None, index=True)
 
     # Each Subject may claim affinity with one Genre.
     genre_id = Column(Integer, ForeignKey('genres.id'), index=True)

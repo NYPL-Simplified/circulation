@@ -23,272 +23,10 @@ from sqlalchemy.sql.expression import and_
 base_dir = os.path.split(__file__)[0]
 resource_dir = os.path.join(base_dir, "resources")
 
-# This is the large-scale structure of our classification system,
-# taken mostly from Zola. 
-#
-# "Children" and "Young Adult" are not here--they are the 'audience' facet
-# of a genre.
-#
-# "Fiction" is not here--it's a seperate facet.
-#
-# If the name of a genre is a 2-tuple, the second item in the tuple is
-# whether or not the genre contains fiction by default. If the name of
-# a genre is a string, the genre inherits the default fiction status
-# of its parent, or (if a top-level genre) is nonfiction by default.
-#
-# If the name of a genre is a dictionary, the 'name' key corresponds to its
-# name and the 'subgenres' key contains a list of subgenres. 
-#
-# Genres and subgenres do *not* correspond to lanes and sublanes in
-# the user-visible side of the circulation server. This is the
-# structure used when classifying books. The circulation server is
-# responsible for its own mapping of genres to lanes.
-genre_structure = {
-    "Art, Architecture, & Design" : [
-        "Architecture",
-        dict(name="Art", subgenres=[
-            "Art Criticism & Theory",
-            "Art History",
-        ]),
-        "Design",
-        "Fashion",
-        "Photography",
-    ],
-    "Biography & Memoir" : [],
-    "Business & Economics" : [
-        "Economics",
-        "Management & Leadership",
-        "Personal Finance & Investing",
-        "Real Estate",
-    ],
-    ("Classics & Poetry", None) : [
-        "Classics",
-        "Poetry",
-    ],
-    "Crafts, Cooking & Garden" : [
-        "Antiques & Collectibles",
-        dict(name="Cooking", subgenres=[
-            "Bartending & Cocktails",
-            "Vegetarian & Vegan",
-            ]
-         ),
-        "Crafts, Hobbies, & Games",
-        "Gardening",
-        "Health & Diet",
-        "House & Home",
-        "Pets",
-    ],
-    ("Crime, Thrillers & Mystery", True) : [
-        "Action & Adventure",
-        dict(name="Mystery", subgenres=[
-            "Hard Boiled",
-            "Police Procedurals",
-            "Women Detectives",
-        ]),
-        dict(name="Thrillers", subgenres=[
-            "Legal Thrillers",
-            "Military Thrillers",
-            "Supernatural Thrillers",
-        ]),
-        "Espionage",
-        ("True Crime", False),
-    ],
-    "Criticism & Philosophy" : [
-        "Language Arts & Disciplines",
-        "Literary Criticism",
-        "Philosophy",
-    ],
-    ("Graphic Novels & Comics", True) : [
-        "Literary",
-        "Manga",
-        "Superhero",
-    ],
-    ("Historical Fiction", True) : [],
-    "History" : [
-        "African History",
-        "Ancient History",
-        "Asian History",
-        "Civil War History",
-        "European History",
-        "Latin American History",
-        "Medieval History",
-        "Middle East History",
-        "Military History",
-        "Modern History",
-        "Renaissance & Early Modern History",
-        "United States History",
-        "World History",
-    ],
-    "Humor & Entertainment" : [
-        ("Humor", None),
-        dict(name="Performing Arts", subgenres=[
-                "Dance",
-                "Drama",
-                "Film & TV",
-                "Music",
-                ]),
-    ],
-    ("Literary Fiction", True) : ["Literary Collections"],
-    "Parenting & Family" : [
-        "Education",
-        "Family & Relationships",
-        "Parenting",
-    ],
-    "Periodicals" : [],
-    "Politics & Current Events" : [
-        "Political Science",
-    ],
-    "Reference" : [
-        "Dictionaries",
-        "Encyclopedias",
-        "Foreign Language Study",
-        "Law",
-        "Study Aids",
-    ],
-    "Religion & Spirituality" : [
-        "Body, Mind, & Spirit",
-        "Buddhism",
-        "Christianity",
-        "Hinduism",
-        "Islam",
-        "Judaism",
-        "New Age",
-        ("Religious Fiction", True),
-    ],
-    ("Romance & Erotica", True) : [
-        dict(name="Romance", subgenres=[
-            "Contemporary Romance",
-            "Historical Romance",
-            "Paranormal Romance",
-            "Regency Romance",
-            "Suspense Romance",
-        ]),
-        "Erotica",
-    ],
-    ("Science Fiction & Fantasy", True) : [
-        dict(name="Fantasy", subgenres=[
-            "Epic Fantasy",
-            "Urban Fantasy",
-        ]),
-        "Horror",
-        "Movies/Gaming",
-        dict(name="Science Fiction", subgenres=[
-            "Military SF",
-            "Space Opera",
-            ]
-         ),
-    ],
-    "Science, Technology, & Nature" : [
-        dict(name="Technology & Engineering", subgenres=[
-            "Computers",
-        ]),
-        dict(name="Social Science", subgenres=[
-            "Psychology",
-        ]),
-        dict(name="Science", subgenres=[
-            "Mathematics",
-            "Medical",
-        ]),
-        "Nature",
-    ],
-    "Self-Help" : [],
-    "Travel, Adventure & Sports" : [
-        "Sports",
-        "Transportation",
-        "Travel",
-    ],
-    ("African-American", None) : [
-        ("Urban Fiction", True)
-    ],
-    ("LGBT", None) : [],
-    ("Women's Fiction", None) : [],
-}
-
-class GenreData(object):
-    def __init__(self, name, is_fiction, parent=None):
-        self.name = name
-        self.parent = parent
-        self.is_fiction = is_fiction
-        self.subgenres = []
-
-    def __repr__(self):
-        return "<GenreData: %s>" % self.name
-
-    @property
-    def self_and_subgenres(self):
-        yield self
-        for child in self.subgenres:
-            for subgenre in child.self_and_subgenres:
-                yield subgenre
-
-    @property
-    def parents(self):
-        parents = []
-        p = self.parent
-        while p:
-            parents.append(p)
-            p = p.parent
-        return reversed(parents)
-
-    def has_subgenre(self, subgenre):
-        for s in self.subgenres:
-            if s == subgenre or s.has_subgenre(subgenre):
-                return True
-        return False
-
-    @property
-    def variable_name(self):
-        return self.name.replace("-", "_").replace(", & ", "_").replace(", ", "_").replace(" & ", "_").replace(" ", "_").replace("/", "_").replace("'", "")
-
-    @classmethod
-    def populate(cls, namespace, genres, source):
-        """Create a GenreData object for every genre and subgenre in the given
-        dictionary.
-        """
-        for name, subgenres in source.items():
-            # Nonfiction is the default, because genres of
-            # nonfiction outnumber genres of fiction.
-            default_to_fiction=False
-            cls.add_genre(
-                namespace, genres, name, subgenres, default_to_fiction, None)
-
-    @classmethod
-    def add_genre(cls, namespace, genres, name, subgenres, default_to_fiction,
-                  parent):
-        """Create a GenreData object. Add it to a dictionary and a namespace.
-        """
-        if isinstance(name, tuple):
-            name, default_to_fiction = name
-        if isinstance(name, dict):
-            subgenres = name['subgenres']
-            name = name['name']
-        if name in genres:
-            raise ValueError("Duplicate genre name! %s" % name)
-
-        # Create the GenreData object.
-        genre_data = GenreData(name, default_to_fiction, parent)
-        if parent:
-            parent.subgenres.append(genre_data)
-
-        # Add the genre to the given dictionary, keyed on name.
-        genres[genre_data.name] = genre_data
-
-        # Convert the name to a Python-safe variable name,
-        # and add it to the given namespace.
-        namespace[genre_data.variable_name] = genre_data
-
-        # Do the same for subgenres.
-        for sub in subgenres:
-            cls.add_genre(namespace, genres, sub, [], default_to_fiction,
-                          genre_data)
-
-genres = dict()
-GenreData.populate(globals(), genres, genre_structure)
-
 class Classifier(object):
 
     """Turn an external classification into an internal genre, an
-    audience, and a fiction status.
+    audience, an age level, and a fiction status.
     """
 
     DDC = "DDC"
@@ -306,6 +44,7 @@ class Classifier(object):
     ORGANIZATION = "schema:Organization"
 
     AUDIENCE_ADULT = "Adult"
+    AUDIENCE_ADULTS_ONLY = "Adults Only"
     AUDIENCE_YOUNG_ADULT = "Young Adult"
     AUDIENCE_CHILDREN = "Children"
 
@@ -378,7 +117,7 @@ class Classifier(object):
 
     @classmethod
     def classify(cls, subject):
-        """Try to determine genre, audience, and fiction status
+        """Try to determine genre, audience, target age, and fiction status
         for the given Subject.
         """
         identifier = cls.scrub_identifier(subject.identifier)
@@ -388,6 +127,7 @@ class Classifier(object):
             name = identifier
         return (cls.genre(identifier, name),
                 cls.audience(identifier, name),
+                cls.age_range(identifier, name),
                 cls.is_fiction(identifier, name))
 
     @classmethod
@@ -397,12 +137,12 @@ class Classifier(object):
         This may involve data normalization, conversion to lowercase,
         etc.
         """
-        return identifier.lower()
+        return Lowercased(identifier)
 
     @classmethod
     def scrub_name(cls, name):
         """Prepare a name from within a call to classify()."""
-        return name.lower()
+        return Lowercased(name)
 
     @classmethod
     def genre(cls, identifier, name):
@@ -414,10 +154,9 @@ class Classifier(object):
         """Is this identifier+name particularly indicative of fiction?
         How about nonfiction?
         """
-        n = name.lower()
-        if "nonfiction" in n:
+        if "nonfiction" in name:
             return False
-        if "fiction" in n:
+        if "fiction" in name:
             return True
         return None
 
@@ -426,13 +165,306 @@ class Classifier(object):
         """What does this identifier+name say about the audience for
         this book?
         """
-        n = name.lower()
-        if 'juvenile' in n:
+        if 'juvenile' in name:
             return cls.AUDIENCE_CHILDREN
-        elif 'young adult' in n or "YA" in name:
+        elif 'young adult' in name or "YA" in name.original:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
+
+    @classmethod
+    def age_range(cls, identifier, name):
+        """For children's books, what does this identifier+name say
+        about the target age for this book?
+        """
+        return None
+
+
+# This is the large-scale structure of our classification system,
+# taken mostly from Zola. 
+#
+# "Children" and "Young Adult" are not here--they are the 'audience' facet
+# of a genre.
+#
+# "Fiction" is not here--it's a seperate facet.
+#
+# If the name of a genre is a 2-tuple, the second item in the tuple is
+# whether or not the genre contains fiction by default. If the name of
+# a genre is a string, the genre inherits the default fiction status
+# of its parent, or (if a top-level genre) is nonfiction by default.
+#
+# If the name of a genre is a dictionary, the 'name' key corresponds to its
+# name and the 'subgenres' key contains a list of subgenres. 
+#
+# Genres and subgenres do *not* correspond to lanes and sublanes in
+# the user-visible side of the circulation server. This is the
+# structure used when classifying books. The circulation server is
+# responsible for its own mapping of genres to lanes. However, for
+# adult fiction and nonfiction there is generally a mapping of 
+
+fiction_genres = [
+    "Adventure",
+    "Classics",
+    "Comics & Graphic Novels",
+    "Drama",
+    ("Erotica", [], Classifier.AUDIENCE_ADULTS_ONLY),
+    ("Fantasy", [
+        "Epic Fantasy", 
+        "Historical Fantasy",
+        "Urban Fantasy", 
+    ]),
+    "Folklore",
+    "Historical Fiction",
+    ("Horror", [
+        "Gothic Horror",
+        "Ghost Stories",
+        "Vampires",
+        "Werewolves",
+        "Occult Horror",
+    ]),
+    "Humorous Fiction",
+    "Literary Fiction",
+    "LGBTQ Fiction", 
+    ("Mystery", [
+        "Crime & Detective Stories",
+        "Hard-Boiled Mystery",
+        "Police Procedural",
+        "Cozy Mystery",
+        "Historical Mystery",
+        "Paranormal Mystery",
+        "Women Detectives",
+    ]),
+    "Poetry",
+    "Religious Fiction",
+    ("Romance", [
+        "Contemporary Romance",
+        "Gothic Romance",
+        "Historical Romance",
+        "Paranormal Romance",
+        "Western Romance",
+        "Romantic Suspense",
+    ]),
+    ("Science Fiction", [
+        "Dystopian SF",
+        "Space Opera",
+        "Cyberpunk",
+        "Military SF",
+        "Alternative History",
+        "Steampunk",
+        "Romantic SF",
+        "Media Tie-in SF",
+    ]),
+    "Short Stories",
+    ("Suspense/Thriller", [
+        "Historical Thriller",
+        "Espionage",
+        "Supernatural Thriller",
+        "Medical Thriller",
+        "Political Thriller",
+        "Psychological Thriller",
+        "Technothriller",
+        "Legal Thriller",
+        "Military Thriller",
+    ]),
+    "Urban Fiction",
+    "Westerns",
+    "Women's Fiction",
+]
+
+nonfiction_genres = [
+    ("Art & Design", [
+        "Architecture",
+        "Art",
+        "Art Criticism & Theory",
+        "Art History",
+        "Design",
+        "Fashion",
+        "Photography",
+    ]),
+    "Biography & Memoir",
+    "Education",
+    ("Personal Finance & Business", [
+        "Business",
+        "Economics",
+        "Management & Leadership",
+        "Personal Finance & Investing",
+        "Real Estate",
+    ]),
+    ("Parenting & Family", [
+        "Family & Relationships",
+        "Parenting",
+    ]),
+    ("Food & Health", [
+        "Bartending & Cocktails",
+        "Cooking",
+        "Health & Diet",
+        "Vegetarian & Vegan",
+    ]),
+    ("History", [
+        "African History",
+        "Ancient History",
+        "Asian History",
+        "Civil War History",
+        "European History",
+        "Latin American History",
+        "Medieval History",
+        "Middle East History",
+        "Military History",
+        "Modern History",
+        "Renaissance & Early Modern History",
+        "United States History",
+        "World History",
+    ]),
+    ("Hobbies & Home", [
+        "Antiques & Collectibles",
+        "Crafts & Hobbies",
+        "Gardening",
+        "Games",
+        "House & Home",
+        "Pets",
+    ]),
+    "Humorous Nonfiction",
+    ("Entertainment", [
+        "Film & TV",
+        "Music",
+        "Performing Arts",
+    ]),
+    ("Life Strategies", [], Classifier.AUDIENCE_YOUNG_ADULT),
+    "Literary Criticism",
+    "Periodicals",
+    "Philosophy",
+    ("Politics & Current Events", ["Political Science"]),
+    ("Reference & Study Aids", [
+        "Dictionaries",
+        "Foreign Language Study",
+        "Law",
+        "Study Aids",
+    ]),
+    ("Religion & Spirituality", [
+        "Body, Mind & Spirit",
+        "Buddhism",
+        "Christianity",
+        "Hinduism",
+        "Islam",
+        "Judaism",
+    ]),
+    ("Science & Technology", [
+        "Computers",
+        "Mathematics",
+        "Medical",
+        "Nature",
+        "Psychology",
+        "Science",
+        "Social Sciences",
+        "Technology",
+    ]),
+    "Self-Help",
+    "Sports",
+    "Travel",
+    "True Crime",
+]
+
+
+class GenreData(object):
+    def __init__(self, name, is_fiction, parent=None, audience_restriction=None):
+        self.name = name
+        self.parent = parent
+        self.is_fiction = is_fiction
+        self.subgenres = []
+        if isinstance(audience_restriction, basestring):
+            audience_restriction = [audience_restriction]
+        self.audience_restriction = audience_restriction
+
+    def __repr__(self):
+        return "<GenreData: %s>" % self.name
+
+    @property
+    def self_and_subgenres(self):
+        yield self
+        for child in self.subgenres:
+            for subgenre in child.self_and_subgenres:
+                yield subgenre
+
+    @property
+    def parents(self):
+        parents = []
+        p = self.parent
+        while p:
+            parents.append(p)
+            p = p.parent
+        return reversed(parents)
+
+    def has_subgenre(self, subgenre):
+        for s in self.subgenres:
+            if s == subgenre or s.has_subgenre(subgenre):
+                return True
+        return False
+
+    @property
+    def variable_name(self):
+        return self.name.replace("-", "_").replace(", & ", "_").replace(", ", "_").replace(" & ", "_").replace(" ", "_").replace("/", "_").replace("'", "")
+
+    @classmethod
+    def populate(cls, namespace, genres, fiction_source, nonfiction_source):
+        """Create a GenreData object for every genre and subgenre in the given
+        list of fiction and nonfiction genres.
+        """
+        for source in fiction_source, nonfiction_source:
+            fiction = (source is fiction_source)
+            for item in source:
+                subgenres = []
+                audience_restriction = None
+                name = item
+                if isinstance(item, tuple):
+                    if len(item) == 2:
+                        name, subgenres = item
+                    elif len(item) == 3:
+                        name, subgenres, audience_restriction = item
     
+                cls.add_genre(
+                    namespace, genres, name, subgenres, fiction,
+                    audience_restriction, None)
+
+    @classmethod
+    def add_genre(cls, namespace, genres, name, subgenres, fiction,
+                  audience_restriction, parent):
+        """Create a GenreData object. Add it to a dictionary and a namespace.
+        """
+        if isinstance(name, tuple):
+            name, default_to_fiction = name
+        if isinstance(name, dict):
+            subgenres = name['subgenres']
+            name = name['name']
+            fiction = name['fiction']
+            audience_restriction = name.get('audience', None)
+        if name in genres:
+            raise ValueError("Duplicate genre name! %s" % name)
+
+        # Create the GenreData object.
+        genre_data = GenreData(name, fiction, audience_restriction, parent)
+        if parent:
+            parent.subgenres.append(genre_data)
+
+        # Add the genre to the given dictionary, keyed on name.
+        genres[genre_data.name] = genre_data
+
+        # Convert the name to a Python-safe variable name,
+        # and add it to the given namespace.
+        namespace[genre_data.variable_name] = genre_data
+
+        # Do the same for subgenres.
+        for sub in subgenres:
+            cls.add_genre(namespace, genres, sub, [], fiction,
+                          audience_restriction, genre_data)
+
+genres = dict()
+GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
+
+class Lowercased(unicode):
+    """A lowercased string that remembers what it was originally."""
+    def __init__(self, s):
+        super(Lowercased, self).__init__(s.lower())
+        self.original = s
+
 
 class ThreeMClassifier(Classifier):
 
@@ -446,12 +478,11 @@ class ThreeMClassifier(Classifier):
 
     # These are the most general categories, used if nothing more specific matches.
     CATCHALL_PREFIXES = {
-        Action_Adventure : [
+        Adventure : [
             "Action & Adventure/",
             "FICTION/Adventure/",
             "FICTION/War/",
             "Men's Adventure/",
-            "Westerns/",
             "Sea Stories",
         ],
         Architecture : "ARCHITECTURE/",
@@ -465,7 +496,7 @@ class ThreeMClassifier(Classifier):
             "BODY MIND & SPIRIT/",
             "MIND & SPIRIT/",
         ],
-        Business_Economics : "BUSINESS & ECONOMICS/",
+        Personal_Finance_Business : "BUSINESS & ECONOMICS/",
         Classics : [
             "Classics/",
         ],
@@ -474,13 +505,15 @@ class ThreeMClassifier(Classifier):
             "Cooking & Food",
             "Cooking/",
         ],
-        Graphic_Novels_Comics : "COMICS & GRAPHIC NOVELS/",
+        Comics_Graphic_Novels : "COMICS & GRAPHIC NOVELS/",
         Computers: [
             "COMPUTERS/",
             "Computers/",
         ],
-        Crafts_Hobbies_Games : [ 
+        Crafts_Hobbies : [ 
             "CRAFTS & HOBBIES/",
+        ],
+        Games : [
             "GAMES/",
         ],
         Design: "DESIGN/",
@@ -495,7 +528,7 @@ class ThreeMClassifier(Classifier):
         ],
         Foreign_Language_Study : "FOREIGN LANGUAGE STUDY/",
         Gardening : "GARDENING/",
-        Graphic_Novels_Comics : "Comics & Graphic Novels/",
+        Comics_Graphic_Novels : "Comics & Graphic Novels/",
         Health_Diet : [
             "HEALTH & FITNESS/",
             "Health/",
@@ -505,10 +538,12 @@ class ThreeMClassifier(Classifier):
             "JUVENILE FICTION/Historical/",
         ],
         History : "HISTORY/",
-        Humor : [
+        Humorous_Fiction : [
             "FICTION/Humorous",
             "FICTION/Satire",
             "Humorous Stories/",
+        ],
+        Humorous_Nonfiction : [
             "HUMOR/",
             "Humor/",
         ],
@@ -517,8 +552,6 @@ class ThreeMClassifier(Classifier):
             "Horror & Ghost Stories/",
             "Occult/",
         ],
-        Language_Arts_Disciplines : "LANGUAGE ARTS & DISCIPLINES/",
-        Literary_Collections : "LITERARY COLLECTIONS/",
         Literary_Fiction : [
             "FICTION/Literary",
             "FICTION/Psychological",
@@ -541,9 +574,9 @@ class ThreeMClassifier(Classifier):
         Philosophy : "PHILOSOPHY/",
         Photography : "PHOTOGRAPHY/",
         Poetry : "POETRY/",
-        Politics_Current_Events: "POLITICAL SCIENCE/",
+        Political_Science: "POLITICAL SCIENCE/",
         Psychology : "PSYCHOLOGY & PSYCHIATRY/",
-        Reference: "REFERENCE/",
+        Reference_Study_Aids: "REFERENCE/",
         Religion_Spirituality : [
             "RELIGION/",
             "Religion/",
@@ -556,20 +589,20 @@ class ThreeMClassifier(Classifier):
         Science : "SCIENCE/",
         Science_Fiction : "Science Fiction",
         Self_Help: "SELF-HELP/",
-        Social_Science : "SOCIAL SCIENCE/",
+        Social_Sciences : "SOCIAL SCIENCE/",
         Sports : [
             "SPORTS & RECREATION/",
             "Sports & Recreation/",
         ],
         Study_Aids : "STUDY AIDS/",
-        Thrillers : [
+        Suspense_Thriller : [
             "FICTION/Suspense/",
             "FICTION/Thrillers/",
         ],
-        Technology_Engineering : "TECHNOLOGY/",
-        Transportation : "TRANSPORTATION/",
+        Technology : ["TECHNOLOGY/", "TRANSPORTATION/"],
         Travel : ["TRAVEL/", "Travel/"],
         True_Crime : "TRUE CRIME/",
+        Westerns : "Westerns/",
         Urban_Fiction : [
             "FICTION/African American/",
             "FICTION/Urban/",
@@ -599,7 +632,7 @@ class ThreeMClassifier(Classifier):
         Contemporary_Romance : [
             "Romance/Contemporary/",
         ],
-        Crafts_Hobbies_Games : [
+        Games : [
             "Sports & Recreation/Games/",
         ],
         Erotica : [
@@ -634,7 +667,7 @@ class ThreeMClassifier(Classifier):
             "SELF_HELP/Fashion & Style/",
             "Art/Fashion/",
         ],
-        Hard_Boiled : "Mystery & Detective/Hard Boiled",
+        Hard_Boiled_Mystery : "Mystery & Detective/Hard Boiled",
         Health_Diet : "COOKING/Health",
         Hinduism : [
             "RELIGION/Hinduism",
@@ -655,14 +688,16 @@ class ThreeMClassifier(Classifier):
         Latin_American_History : [
             "HISTORY/South America",
         ],
-        Legal_Thrillers : "Thrillers/Legal",
-        LGBT : [
+        Legal_Thriller : "Thrillers/Legal",
+        LGBTQ_Fiction : [
             "LITERARY COLLECTIONS/Gay & Lesbian/",
             "FICTION/Gay/",
             "FICTION/Lesbian/",
             "JUVENILE FICTION/Gay & Lesbian/",
         ],
         Literary_Criticism : [
+            "LANGUAGE ARTS & DISCIPLINES/",
+            "LITERARY COLLECTIONS/",
             "LITERARY CRITICISM & COLLECTIONS/Books & Reading/",
             "LITERARY CRITICISM & COLLECTIONS/",
         ],
@@ -670,13 +705,13 @@ class ThreeMClassifier(Classifier):
             "BUSINESS & ECONOMICS/Management/",
             "BUSINESS & ECONOMICS/Leadership/",
         ],
-        Manga : "COMICS & GRAPHIC NOVELS/Manga/",
+        Comics_Graphic_Novels : "COMICS & GRAPHIC NOVELS/Manga/",
         Middle_East_History : [
             "HISTORY/Israel",
         ],
         Military_SF : "Science Fiction/Military",
         Military_History : "HISTORY/Military",
-        Military_Thrillers : "Thrillers/Military",
+        Military_Thriller : "Thrillers/Military",
         Modern_History : "HISTORY/Modern",
         Music : [
             "Performing Arts/Music",
@@ -696,7 +731,7 @@ class ThreeMClassifier(Classifier):
             "BUSINESS & ECONOMICS/Personal Finance/",
             "BUSINESS & ECONOMICS/Personal Success",
         ],
-        Police_Procedurals : "Mystery & Detective/Police Procedural",
+        Police_Procedural : "Mystery & Detective/Police Procedural",
         Political_Science : "POLITICAL SCIENCE/History & Theory/",
         Real_Estate : "BUSINESS & ECONOMICS/Real Estate/",
         Religious_Fiction : [
@@ -710,7 +745,7 @@ class ThreeMClassifier(Classifier):
             "LITERARY CRITICISM & COLLECTIONS/Science Fiction/",
         ],
         Space_Opera : "Science Fiction/Space Opera/",
-        Suspense_Romance : "Romance/Suspense/",
+        Romantic_Suspense : "Romance/Suspense/",
         United_States_History : [
             "HISTORY/United States",
             "HISTORY/Native American",
@@ -721,7 +756,7 @@ class ThreeMClassifier(Classifier):
     }
 
     LEVEL_3_PREFIXES = {
-        Regency_Romance : "Romance/Historical/Regency",
+#        Regency_Romance : "Romance/Historical/Regency",
     }
 
     PREFIX_LISTS = [LEVEL_3_PREFIXES, LEVEL_2_PREFIXES, CATCHALL_PREFIXES]
@@ -795,36 +830,37 @@ class OverdriveClassifier(Classifier):
         ])
 
     GENRES = {
-        African_American : ["African American Fiction", "African American Nonfiction"],
         Antiques_Collectibles : "Antiques",
         Architecture : "Architecture",
         Art : "Art",
         Biography_Memoir : "Biography & Autobiography",
-        Business_Economics : ["Business", "Marketing & Sales", "Careers"],
-        Christianity : ["Christian Fiction", "Christian Nonfiction"],
+        Business : ["Business", "Marketing & Sales", "Careers"],
+        Christianity : "Christian Nonfiction",
         Computers : "Computer Technology",
         Classics : "Classic Literature",
         Cooking : "Cooking & Food",
-        Crafts_Hobbies_Games : ["Crafts", "Games"],
+        Crafts_Hobbies : "Crafts",
+        Games : "Games",
         Drama : "Drama",
         Education : "Education",
         Erotica : "Erotic Literature",
         Fantasy : "Fantasy",
         Foreign_Language_Study : "Foreign Language Study",
         Gardening : "Gardening",
-        Graphic_Novels_Comics : "Comic and Graphic Books",
+        Comics_Graphic_Novels : "Comic and Graphic Books",
         Health_Diet : "Health & Fitness",
         Historical_Fiction : "Historical Fiction",
         History : "History",
         Horror : "Horror",
         House_Home : u"Home Design & Décor",
-        Humor : ["Humor (Fiction)", "Humor (Nonfiction)"],
-        Humor_Entertainment : "Entertainment",
+        Humorous_Fiction : "Humor (Fiction)", 
+        Humorous_Nonfiction : "Humor (Nonfiction)",
+        Entertainment : "Entertainment",
         Judaism : "Judaica",
-        Language_Arts_Disciplines : ["Language Arts", "Grammar & Language Usage"],
         Law : "Law",
-        Literary_Collections : "Literary Anthologies",
-        Literary_Criticism : ["Literary Criticism", "Criticism"],
+        Literary_Criticism : [
+            "Literary Criticism", "Criticism", "Literary Anthologies",
+            "Language Arts"],
         Management_Leadership : "Management",
         Mathematics : "Mathematics",
         Medical : "Medical",
@@ -832,7 +868,7 @@ class OverdriveClassifier(Classifier):
         Music : "Music",
         Mystery : "Mystery",
         Nature : "Nature",
-        New_Age : "New Age",
+        Body_Mind_Spirit : "New Age",
         Parenting_Family : "Family & Relationships",
         Performing_Arts : "Performing Arts",
         Personal_Finance_Investing : "Finance",
@@ -842,23 +878,23 @@ class OverdriveClassifier(Classifier):
         Poetry : "Poetry",
         Politics_Current_Events : ["Politics", "Current Events"],
         Psychology : ["Psychology", "Psychiatry", "Psychiatry & Psychology"],
-        Reference : "Reference",
+        Reference_Study_Aids : ["Reference", "Grammar & Language Usage"],
+        Religious_Fiction : ["Christian Fiction"],
         Religion_Spirituality : "Religion & Spirituality",
         Romance : "Romance",
         Science : ["Science", "Physics", "Chemistry"],
         Science_Fiction : "Science Fiction",
-        Science_Fiction_Fantasy : "Science Fiction & Fantasy",
+        # Science_Fiction_Fantasy : "Science Fiction & Fantasy",
         Self_Help : ["Self-Improvement", "Self-Help", "Self Help"],
-        Social_Science : "Sociology",
+        Social_Sciences : "Sociology",
         Sports : "Sports & Recreations",
         Study_Aids : "Study Aids & Workbooks",
-        Technology_Engineering : ["Technology", "Engineering"],
-        Thrillers : ["Suspense", "Thriller"],
-        Transportation : "Transportation",
+        Technology : ["Technology", "Engineering", "Transportation"],
+        Suspense_Thriller : ["Suspense", "Thriller"],
         Travel : ["Travel", "Travel Literature"],
         True_Crime : "True Crime",
         Urban_Fantasy: "Fantasy/Contemporary/", 
-        Urban_Fiction: "Urban Fiction", 
+        Urban_Fiction: ["African American Fiction", "Urban Fiction"],
         Womens_Fiction: "Chick Lit Fiction",
     }
 
@@ -926,17 +962,19 @@ class DeweyDecimalClassifier(Classifier):
         Art_Criticism_Theory : [701],
         Asian_History : range(950, 960) + [995, 996, 997],
         Biography_Memoir : ["B", 920],
-        Business_Economics : range(330, 340),
+        Economics : range(330, 340),
         Christianity : [range(220, 230) + range(230, 290)],
         Cooking : [range(640, 642)],
-        Crafts_Hobbies_Games : [790, 793, 794, 795],
+        Performing_Arts : [790, 791, 792],
+        Entertainment : 790,
+        Games : [793, 794, 795],
         Drama : [812, 822, 832, 842, 852, 862, 872, 882],
         Education : range(370,380) + [707],
         European_History : range(940, 950),
+        Folklore : [398],
         History : [900],
         Islam : [297],
         Judaism : [296],
-        Language_Arts_Disciplines : range(410, 430),
         Latin_American_History : range(981, 990),
         Law : range(340, 350) + [364],
         Management_Leadership : [658],        
@@ -948,17 +986,18 @@ class DeweyDecimalClassifier(Classifier):
         Philosophy : range(160, 200),
         Photography : [771, 772, 773, 775, 778, 779],
         Poetry : [811, 821, 831, 841, 851, 861, 871, 874, 881, 884],
-        Political_Science : range(320, 330) + range(351, 355),
+        Politics_Current_Events : range(320, 330) + range(351, 355),
         Psychology : range(150, 160),
-        Reference : range(10, 20) + range(30, 40) + [103, 203, 303, 403, 503, 603, 703, 803, 903],
+        Foreign_Language_Study : range(430,500),
+        Reference_Study_Aids : range(10, 20) + range(30, 40) + [103, 203, 303, 403, 503, 603, 703, 803, 903] + range(410, 430),
         Religion_Spirituality : range(200, 220) + [290, 292, 293, 294, 295, 299],
         Science : ([500, 501, 502] + range(506, 510) + range(520, 530) 
                    + range(530, 540) + range(540, 550) + range(550, 560)
                    + range(560, 570) + range(570, 580) + range(580, 590)
                    + range(590, 600)),
-        Social_Science : (range(300, 310) + range(360, 364) + range(390,400)), # 398=Folklore
+        Social_Sciences : (range(300, 310) + range(360, 364) + range(390,397) + [399]),
         Sports : range(796, 800),
-        Technology_Engineering : (
+        Technology : (
             [600, 601, 602, 604] + range(606, 610) + range(610, 640)
             + range(660, 670) + range(670, 680) + range(681, 690) + range(690, 700)),
         Travel : range(910, 920),
@@ -1078,15 +1117,17 @@ class LCCClassifier(Classifier):
         Art_Criticism_Theory : ["BH"],
         Asian_History : ["DS", "DU"],
         Biography_Memoir : ["CT"],
-        Business_Economics : ["HB", "HC", "HF", "HJ"],      
+        Business : ["HC", "HF", "HJ"],      
         Christianity : ["BR", "BS", "BT", "BV", "BX"],
         Cooking : ["TX"],
-        Crafts_Hobbies_Games : ["TT", "GV"],
+        Crafts_Hobbies : ["TT"],
+        Economics : ["HB"],
         Education : ["L"],
         European_History : ["DA", "DAW", "DB", "DD", "DF", "DG", "DH", "DJ", "DK", "DL", "DP", "DQ", "DR"],
+        Games : ["GV"],
         Islam : ["BP"],
         Judaism : ["BM"],
-        Language_Arts_Disciplines : ["Z"],
+        Literary_Criticism : ["Z"],
         Mathematics : ["QA", "HA", "GA"],
         Medical: ["QM", "R"],
         Military_History: ["U", "V"],
@@ -1097,20 +1138,20 @@ class LCCClassifier(Classifier):
         Photography: ["TR"],
         Political_Science : ["J", "HX"],
         Psychology : ["BF"],
-        Reference : ["AE", "AG", "AI"],
+        Reference_Study_Aids : ["AE", "AG", "AI"],
         Religion_Spirituality : ["BL", "BQ"],
         Science : ["QB", "QC", "QD", "QE", "QH", "QK", "QL", "QR", "CC", "GB", "GC", "QP"],
-        Social_Science : ["HD", "HE", "HF", "HM", "HN", "HS", "HT", "HV", "GN", "GF", "GR", "GT"],
+        Social_Sciences : ["HD", "HE", "HF", "HM", "HN", "HS", "HT", "HV", "GN", "GF", "GR", "GT"],
         Sports: ["SK"],
         World_History : ["CB"],
     }
 
     LEFTOVERS = dict(
         B=Philosophy,
-        T=Technology_Engineering,
+        T=Technology,
         Q=Science,
         S=Science,
-        H=Social_Science,
+        H=Social_Sciences,
         D=History,
         N=Art,
         L=Education,
@@ -1199,26 +1240,16 @@ class KeywordBasedClassifier(Classifier):
     ])
 
     GENRES = { 
-        Action_Adventure : match_kw(
+        Adventure : match_kw(
             "adventure",
             "adventurers",
             "adventure stories",
             "adventure fiction", 
-            "western stories",
             "adventurers",
             "sea stories",
             "war stories", 
             "men's adventure",
         ), 
-
-        African_American : match_kw(
-            "african[^a-z]+americans", 
-            "african[^a-z]+american", 
-            "afro[^a-z]+americans", 
-            "afro[^a-z]+american", 
-            "black studies",
-            "african-american studies",
-        ),
                
         African_History: match_kw(
             "african history",
@@ -1251,11 +1282,7 @@ class KeywordBasedClassifier(Classifier):
             "artists",
             "artistic",
         ),
-               
-        Art_Architecture_Design: match_kw(
-            # Pure super-category.
-        ),
-               
+
         Art_Criticism_Theory: match_kw(
             "art criticism",
             "art / criticism & theory",
@@ -1299,7 +1326,7 @@ class KeywordBasedClassifier(Classifier):
                    "buddha",
                ),
                
-               Business_Economics: match_kw(
+               Business: match_kw(
                    "business",
                    "businesspeople",
                    "businesswomen",
@@ -1338,11 +1365,7 @@ class KeywordBasedClassifier(Classifier):
                Classics: match_kw(
                    'classics',
                ),
-               
-               Classics_Poetry: match_kw(
-                   # Pure supercategory
-               ),
-               
+                             
                Computers : match_kw(
                    "computer",
                    "computer science",
@@ -1376,12 +1399,8 @@ class KeywordBasedClassifier(Classifier):
                    "home economics",
                    "cuisine",
                ),
-               
-               Crafts_Cooking_Garden: match_kw(
-                   # Pure supercategory
-               ),
-               
-               Crafts_Hobbies_Games: match_kw(
+                             
+               Crafts_Hobbies: match_kw(
                    # ! "arts and crafts movement"
                    "arts & crafts",
                    "arts, crafts"
@@ -1397,7 +1416,6 @@ class KeywordBasedClassifier(Classifier):
                    "decorative arts",
                    "flower arranging",
                    "folkcrafts",
-                   "games",
                    "handicrafts",
                    "hobbies",
                    "hobby",
@@ -1421,28 +1439,8 @@ class KeywordBasedClassifier(Classifier):
                    "toymaking",
                    "weaving",
                    "woodwork",
-                   "video games",
-                   "gaming",
-                   "gambling",
                ),
-               
-               Crime_Thrillers_Mystery: match_kw(
-                   # Pure supercategory
-                   "crime",
-                   "crimes",
-               ),
-               
-               Criticism_Philosophy: match_kw(
-                   # Pure supercategory
-               ),
-               
-               Dance: match_kw(
-                   "dance",
-                   "dances",
-                   "dancers",
-                   "dancer",
-               ),
-               
+
                Design: match_kw(
                    "design",
                    "designer",
@@ -1497,13 +1495,6 @@ class KeywordBasedClassifier(Classifier):
                    #"college",
                    "university",
                    "universities",
-               ),
-               
-               Encyclopedias: match_kw(
-                   "encyclopaedias",
-                   "encyclopaedia",
-                   "encyclopedias",
-                   "encyclopedia",            
                ),
                
                Epic_Fantasy: match_kw(
@@ -1596,22 +1587,40 @@ class KeywordBasedClassifier(Classifier):
                    "foreign language study",
                    "multi-language dictionaries",
                ),
+
+               Games : match_kw(
+                   "games",
+                   "video games",
+                   "gaming",
+                   "gambling",
+               ),
                
                Gardening: match_kw(
                    "gardening",
                    "horticulture",
                ),
                
-               Graphic_Novels_Comics: match_kw(
+               Comics_Graphic_Novels: match_kw(
                    "comics",
                    "comic strip",
                    "comic strips",
                    "comic book",
                    "comic books",
                    "graphic novels",
+
+                   # Formerly in 'Superhero'
+                   "superhero",
+                   "superheroes",
+
+                   # Formerly in 'Manga'
+                   "japanese comic books",
+                   "japanese comics",
+                   "manga",
+                   "yaoi",
+
                ),
                
-               Hard_Boiled: match_kw(
+               Hard_Boiled_Mystery: match_kw(
                    "hard-boiled",
                    "noir",
                ),
@@ -1643,6 +1652,8 @@ class KeywordBasedClassifier(Classifier):
                
                Historical_Romance: match_kw(
                    "historical romance",
+                   "regency romance",
+                   "romance.*regency",
                ),
                
                History : match_kw(
@@ -1667,7 +1678,9 @@ class KeywordBasedClassifier(Classifier):
                    "interior decorating",
                ),
                
-               Humor : match_kw(
+               # TODO: These keywords match Humorous Fiction or
+               # Humorous Nonfiction, depending on the fiction valence.
+               Humorous_Fiction : match_kw(
                    "comedy",
                    "humor",
                    "humorous",
@@ -1675,8 +1688,8 @@ class KeywordBasedClassifier(Classifier):
                    "satire",
                    "wit",
                ),
-               
-               Humor_Entertainment: match_kw(
+
+               Entertainment: match_kw(
                    # Almost a pure top-level category 
                    "entertainment",
                ),
@@ -1693,13 +1706,11 @@ class KeywordBasedClassifier(Classifier):
                    'jewish studies',
                ),
                
-               LGBT: match_kw(
+               LGBTQ_Fiction: match_kw(
                    'lesbian',
                    'lesbians',
                    'gay',
-                   'gay studies',
                    'bisexual',
-                   'lesbian studies',
                    'transgender',
                    'transsexual',
                    'transsexuals',
@@ -1707,32 +1718,6 @@ class KeywordBasedClassifier(Classifier):
                    'homosexuals',
                    'homosexuality',
                    'queer',
-               ),
-               
-               Language_Arts_Disciplines: match_kw(
-                   "alphabets",
-                   "communication studies",
-                   "composition",
-                   "creative writing",
-                   "grammar",
-                   "handwriting",
-                   "information sciences",
-                   "journalism",
-                   "language arts & disciplines",
-                   "language arts and disciplines",
-                   "language arts",
-                   "library & information sciences",
-                   "linguistics",
-                   "literacy",
-                   "public speaking",
-                   "rhetoric",
-                   "sign language",
-                   "speech",
-                   "spelling",
-                   "style manuals",
-                   "syntax",
-                   "vocabulary",
-                   "writing systems",
                ),
                
                Latin_American_History: match_kw(
@@ -1747,21 +1732,14 @@ class KeywordBasedClassifier(Classifier):
                    "legal",
                ),
                
-               Legal_Thrillers: match_kw(
+               Legal_Thriller: match_kw(
                    "legal thriller",
                    "legal thrillers",
                ),
-               
-               # This is 'literary' comic books, not literary fiction.
-               Literary: match_kw(
-               ),
-               
-               Literary_Collections: match_kw(
-                   "literary collections",
-               ),
-               
+                             
                Literary_Criticism: match_kw(
                    "criticism, interpretation",
+                   "literary collections",
                ),
                
                Literary_Fiction: match_kw(
@@ -1777,13 +1755,6 @@ class KeywordBasedClassifier(Classifier):
                    "business & economics / leadership",
                    "business & economics -- leadership",
                    "management science",
-               ),
-               
-               Manga: match_kw(
-                   "japanese comic books",
-                   "japanese comics",
-                   "manga",
-                   "yaoi",
                ),
                
                Mathematics : match_kw(
@@ -1848,7 +1819,7 @@ class KeywordBasedClassifier(Classifier):
                    "world war",
                ),
                
-               Military_Thrillers: match_kw(
+               Military_Thriller: match_kw(
                    "military thrillers",
                    "thrillers.*military",
                ),
@@ -1868,7 +1839,7 @@ class KeywordBasedClassifier(Classifier):
         # This one is difficult because it takes effect if book
         # has subject "media tie-in" *and* "science fiction" or
         # "fantasy"
-        Movies_Gaming: match_kw(
+        Media_Tie_in_SF: match_kw(
             "science fiction & fantasy gaming",
             "star trek",
             "star wars",
@@ -1907,7 +1878,7 @@ class KeywordBasedClassifier(Classifier):
                    "nature",
                ),
                
-               New_Age: match_kw(
+               Body_Mind_Spirit: match_kw(
                    "new age",
                ),
                
@@ -1972,7 +1943,7 @@ class KeywordBasedClassifier(Classifier):
                    "photographic",
                ),
                
-               Police_Procedurals: match_kw(
+               Police_Procedural: match_kw(
                    "police[^a-z]+procedural",
                    "police[^a-z]+procedurals",
                ),
@@ -2025,15 +1996,39 @@ class KeywordBasedClassifier(Classifier):
                    "real estate",
                ),
                
-               Reference : match_kw(
+               Reference_Study_Aids : match_kw(
                    "catalogs",
                    "handbooks",
                    "manuals",
-               ),
-               
-               Regency_Romance: match_kw(
-                   "regency romance",
-                   "romance.*regency",
+                   "encyclopaedias",
+                   "encyclopaedia",
+                   "encyclopedias",
+                   "encyclopedia",            
+
+                   # Formerly in 'Language Arts & Disciplines'
+                   "alphabets",
+                   "communication studies",
+                   "composition",
+                   "creative writing",
+                   "grammar",
+                   "handwriting",
+                   "information sciences",
+                   "journalism",
+                   "language arts & disciplines",
+                   "language arts and disciplines",
+                   "language arts",
+                   "library & information sciences",
+                   "linguistics",
+                   "literacy",
+                   "public speaking",
+                   "rhetoric",
+                   "sign language",
+                   "speech",
+                   "spelling",
+                   "style manuals",
+                   "syntax",
+                   "vocabulary",
+                   "writing systems",
                ),
                
                Religion_Spirituality : match_kw(
@@ -2063,10 +2058,6 @@ class KeywordBasedClassifier(Classifier):
                    "romance",
                    "love & romance",
                    "romances",
-               ),
-               
-               Romance_Erotica: match_kw(
-                   # Pure super-category.
                ),
                
                Science : match_kw(
@@ -2107,23 +2098,19 @@ class KeywordBasedClassifier(Classifier):
                    "time travel",
                ),
                
-               Science_Fiction_Fantasy: match_kw(
-                   "science fiction.*fantasy",
-               ),
-               
-               Science_Technology_Nature: match_kw(
-                   # Pure top-level category
-               ),
+               #Science_Fiction_Fantasy: match_kw(
+               #    "science fiction.*fantasy",
+               #),
                
                Self_Help: match_kw(
                    "self help",
                    "self-help",
                ),
-               
-               Social_Science: match_kw(
+               Folklore : match_kw(
                    "folklore",
                    "myth",
-
+               ),
+               Social_Sciences: match_kw(
                    "social sciences",
                    "social science",
                    "anthropology",
@@ -2137,6 +2124,10 @@ class KeywordBasedClassifier(Classifier):
                    "regional studies",
                    "women's studies",
                    "demography",
+                   'lesbian studies',
+                   'gay studies',
+                   "black studies",
+                   "african-american studies",
                ),
                
                Space_Opera: match_kw(
@@ -2181,17 +2172,12 @@ class KeywordBasedClassifier(Classifier):
                    "workbooks",
                ),
                
-               Superhero: match_kw(
-                   "superhero",
-                   "superheroes",
-               ),
-               
-               Supernatural_Thrillers: match_kw(
+               Supernatural_Thriller: match_kw(
                    "thriller.*supernatural",
                    "supernatural.*thriller",
                ),
                
-               Suspense_Romance : match_kw(
+               Romantic_Suspense : match_kw(
                    "romantic.*suspense",
                    "suspense.*romance",
                    "romance.*suspense",
@@ -2200,22 +2186,12 @@ class KeywordBasedClassifier(Classifier):
                    "thriller.*romance",
                ),
                
-               Technology_Engineering: match_kw(
+               Technology: match_kw(
                    "technology",
                    "engineering",
                    "bioengineering",
-               ),
-               
-               Thrillers: match_kw(
-                   "thriller",
-                   "thrillers",
-                   "suspense",
-                   "techno-thriller",
-                   "technothriller",
-                   "technothrillers",
-               ),
-               
-               Transportation: match_kw(
+
+                   # Formerly in 'Transportation'
                    "transportation",
                    "railroads",
                    "trains",
@@ -2224,6 +2200,18 @@ class KeywordBasedClassifier(Classifier):
                    "cars & trucks",
                ),
                
+               Suspense_Thriller: match_kw(
+                   "thriller",
+                   "thrillers",
+                   "suspense",
+               ),
+
+               Technothriller : match_kw(
+                   "techno-thriller",
+                   "technothriller",
+                   "technothrillers",
+               ),
+
                Travel : match_kw(
                    "discovery",
                    "exploration",
@@ -2264,6 +2252,11 @@ class KeywordBasedClassifier(Classifier):
                    "vegan",
                    "veganism",
                    "vegetarianism",
+               ),
+
+               Westerns : match_kw(
+                   "western stories",
+                   "westerns",
                ),
                
                Women_Detectives : match_kw(
@@ -2356,15 +2349,15 @@ class GutenbergBookshelfClassifier(Classifier):
         "Western",
         "Suspense",
         "Thriller",
+        "Children's Anthologies",
         ])
 
     GENRES = {
-        Action_Adventure: [
+        Adventure: [
             "Adventure",
-            "Western",
             "Pirates, Buccaneers, Corsairs, etc.",
         ],
-        African_American : ["African American Writers"],
+        # African_American : ["African American Writers"],
         Ancient_History: ["Classical Antiquity"],
         Architecture : [
             "Architecture",
@@ -2404,16 +2397,13 @@ class GutenbergBookshelfClassifier(Classifier):
             "Children's History",
         ],
         Horror : ["Gothic Fiction", "Horror"],
-        Humor : ["Humor"],
+        Humorous_Fiction : ["Humor"],
         Islam : "Islam",
         Judaism : "Judaism",
         Law : [
             "British Law",
             "Noteworthy Trials",
             "United States Law",
-        ],
-        Literary_Collections : [
-            "Children's Anthologies",
         ],
         Literary_Criticism : ["Bibliomania"],
         Mathematics : "Mathematics",
@@ -2528,7 +2518,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Politics",
         ],
         Psychology : ["Psychology"],
-        Reference : [
+        Reference_Study_Aids : [
             "Reference",
             "CIA World Factbooks",
         ],
@@ -2561,19 +2551,24 @@ class GutenbergBookshelfClassifier(Classifier):
             "The Galaxy",
             "Science Fiction",
         ],
-        Social_Science : [
+        Social_Sciences : [
             "Anthropology",
             "Archaeology",
             "The American Journal of Archaeology",
             "Sociology",
         ],
-        Technology_Engineering : [
-            "Engineering", 
-            "Technology"
+        Suspense_Thriller : [
+            "Suspense",
+            "Thriller",
         ],
-        Transportation : "Transportation",
+        Technology : [
+            "Engineering", 
+            "Technology",
+            "Transportation",
+        ],
         Travel : "Travel",
         True_Crime : "Crime Nonfiction",
+        Westerns : "Western",
     }
 
     @classmethod
