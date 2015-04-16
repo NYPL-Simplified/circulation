@@ -3423,7 +3423,7 @@ class Subject(Base):
         if not classifier:
             return
         self.checked = True
-        genredata, audience, fiction = classifier.classify(self)
+        genredata, audience, target_age, fiction = classifier.classify(self)
         if genredata:
             _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)
@@ -3432,7 +3432,9 @@ class Subject(Base):
             self.audience = audience
         if fiction is not None:
             self.fiction = fiction
-        if genredata or audience or fiction:
+        if target_age is not None:
+            self.target_age = target_age
+        if genredata or audience or target_age or fiction:
             print self
 
 

@@ -460,11 +460,11 @@ genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 
 class Lowercased(unicode):
-    """A lowercased string that remembers what it was originally."""
-    def __init__(self, s):
-        super(Lowercased, self).__init__(s.lower())
-        self.original = s
-
+    """A lowercased string that remembers its original value."""
+    def __new__(cls, value):
+        o = super(Lowercased, cls).__new__(cls, value.lower())
+        o.original = value
+        return o
 
 class ThreeMClassifier(Classifier):
 
@@ -1095,7 +1095,6 @@ class LCCClassifier(Classifier):
 
     GENRES = {
 
-        # Folklore: GR, placed into Social Sciences for now
         # Unclassified/complicated stuff.
         # "America": E11-E143
         # Ancient_History: D51-D90
@@ -1124,6 +1123,7 @@ class LCCClassifier(Classifier):
         Economics : ["HB"],
         Education : ["L"],
         European_History : ["DA", "DAW", "DB", "DD", "DF", "DG", "DH", "DJ", "DK", "DL", "DP", "DQ", "DR"],
+        Folklore : ["GR"],
         Games : ["GV"],
         Islam : ["BP"],
         Judaism : ["BM"],
@@ -1141,7 +1141,7 @@ class LCCClassifier(Classifier):
         Reference_Study_Aids : ["AE", "AG", "AI"],
         Religion_Spirituality : ["BL", "BQ"],
         Science : ["QB", "QC", "QD", "QE", "QH", "QK", "QL", "QR", "CC", "GB", "GC", "QP"],
-        Social_Sciences : ["HD", "HE", "HF", "HM", "HN", "HS", "HT", "HV", "GN", "GF", "GR", "GT"],
+        Social_Sciences : ["HD", "HE", "HF", "HM", "HN", "HS", "HT", "HV", "GN", "GF", "GT"],
         Sports: ["SK"],
         World_History : ["CB"],
     }
@@ -1239,7 +1239,7 @@ class KeywordBasedClassifier(Classifier):
         "missing children",
     ])
 
-    GENRES = { 
+    CATCHALL_KEYWORDS = { 
         Adventure : match_kw(
             "adventure",
             "adventurers",
@@ -1298,16 +1298,16 @@ class KeywordBasedClassifier(Classifier):
             "australasian & pacific history",
         ),
                
-               Bartending_Cocktails: match_kw(
-                   "cocktail",
-                   "cocktails",
-                   "bartending",
-                   "beer",
-                   "alcoholic beverages",
-                   "wine",
-                   "wine & spirits",
-                   "spirits & cocktails",
-               ),
+        Bartending_Cocktails: match_kw(
+            "cocktail",
+            "cocktails",
+            "bartending",
+            "beer",
+            "alcoholic beverages",
+            "wine",
+            "wine & spirits",
+            "spirits & cocktails",
+        ),
                
                Biography_Memoir : match_kw(
                    "autobiographies",
@@ -1459,8 +1459,6 @@ class KeywordBasedClassifier(Classifier):
                    "drama",
                    "dramatist",
                    "dramatists",
-                   # Removed so as not to conflict with 'space opera'
-                   # "opera",
                    "operas",
                    "plays",
                    "shakespeare",
@@ -1679,15 +1677,15 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                # TODO: These keywords match Humorous Fiction or
-               # Humorous Nonfiction, depending on the fiction valence.
-               Humorous_Fiction : match_kw(
-                   "comedy",
-                   "humor",
-                   "humorous",
-                   "humour",
-                   "satire",
-                   "wit",
-               ),
+        # Humorous Nonfiction, depending on the fiction valence.
+        Humorous_Fiction : match_kw(
+            "comedy",
+            "humor",
+            "humorous",
+            "humour",
+            "satire",
+            "wit",
+        ),
 
                Entertainment: match_kw(
                    # Almost a pure top-level category 
@@ -1724,8 +1722,8 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                Law: match_kw(
-            "court",
-            "judicial",
+                   "court",
+                   "judicial",
                    "law",
                    "laws",
                    "legislation",
@@ -2099,8 +2097,8 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                #Science_Fiction_Fantasy: match_kw(
-               #    "science fiction.*fantasy",
-               #),
+        #    "science fiction.*fantasy",
+        #),
                
                Self_Help: match_kw(
                    "self help",
@@ -2128,11 +2126,7 @@ class KeywordBasedClassifier(Classifier):
                    'gay studies',
                    "black studies",
                    "african-american studies",
-               ),
-               
-               Space_Opera: match_kw(
-                   "space opera",
-               ),
+               ),               
                
                Sports: match_kw(
                    # Ton of specific sports here since 'players'
@@ -2278,6 +2272,19 @@ class KeywordBasedClassifier(Classifier):
                ),              
     }
 
+    LEVEL_2_KEYWORDS = {
+        Drama : match_kw(
+            "opera",
+        )
+    }
+
+    LEVEL_3_KEYWORDS = {
+        Space_Opera: match_kw(
+            "space opera",
+        ),
+    }
+    
+
     @classmethod
     def is_fiction(cls, identifier, name):
         if not name:
@@ -2310,21 +2317,24 @@ class KeywordBasedClassifier(Classifier):
     def genre(cls, identifier, name):
         matches = Counter()
         match_against = [name]
-        for genre, keywords in cls.GENRES.items():
-            if keywords and keywords.search(name):
-                matches[genre] += 1
-        most_specific_genre = None
-        most_specific_count = 0
-        # The genre with the most regex matches wins.
-        #
-        # If a genre and a subgenre are tied, then the subgenre wins
-        # because it's more specific.
-        for genre, count in matches.most_common():
-            if not most_specific_genre or (
-                    most_specific_genre.has_subgenre(genre)
-                    and count >= most_specific_count):
-                most_specific_genre = genre
-                most_specific_count = count
+        for l in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
+            for genre, keywords in l.items():
+                if keywords and keywords.search(name):
+                    matches[genre] += 1
+            most_specific_genre = None
+            most_specific_count = 0
+            # The genre with the most regex matches wins.
+            #
+            # If a genre and a subgenre are tied, then the subgenre wins
+            # because it's more specific.
+            for genre, count in matches.most_common():
+                if not most_specific_genre or (
+                        most_specific_genre.has_subgenre(genre)
+                        and count >= most_specific_count):
+                    most_specific_genre = genre
+                    most_specific_count = count
+            if most_specific_genre:
+                break
         return most_specific_genre
 
 class LCSHClassifier(KeywordBasedClassifier):

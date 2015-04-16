@@ -75,7 +75,7 @@ class TestDewey(object):
             i = DDC.scrub_identifier(identifier)
             return DDC.genre(i, None)
 
-        eq_(classifier.Social_Science, c("398"))
+        eq_(classifier.Folklore, c("398"))
 
 class TestLCC(object):
 
@@ -157,10 +157,13 @@ class TestLCSH(object):
         eq_(None, aud("Runaway children"))
         eq_(None, aud("Humor"))
 
-
 class TestKeyword(object):
     def genre(self, keyword):
         return Keyword.genre(None, Keyword.scrub_identifier(keyword))
+
+    def test_higher_tier_wins(self):
+        eq_(classifier.Space_Opera, self.genre("space opera"))
+        eq_(classifier.Drama, self.genre("opera"))
 
     def test_subgenre_wins_over_genre(self):
         # Asian_History wins over History, even though they both
@@ -172,24 +175,22 @@ class TestKeyword(object):
 class TestNestedSubgenres(object):
 
     def test_parents(self):
-        eq_([classifier.Romance_Erotica],
-            list(classifier.Erotica.parents))
+        eq_([classifier.Romantic_Suspense],
+            list(classifier.Romantic_Suspense.parents))
 
-        eq_([classifier.Crime_Thrillers_Mystery, classifier.Mystery],
-            list(classifier.Police_Procedurals.parents))
+        #eq_([classifier.Crime_Thrillers_Mystery, classifier.Mystery],
+        #    list(classifier.Police_Procedurals.parents))
 
     def test_self_and_subgenres(self):
-        # Romance and Erotica
-        #  - Erotica
-        #  - Romance
-        #    - Contemporary Romance
-        #    - etc.
+        # Fantasy
+        #  - Epic Fantasy
+        #  - Historical Fantasy
+        #  - Urban Fantasy
         eq_(
-            set([classifier.Romance_Erotica, classifier.Erotica, 
-                 classifier.Romance, classifier.Contemporary_Romance,
-                 classifier.Historical_Romance, classifier.Paranormal_Romance,
-                 classifier.Regency_Romance, classifier.Suspense_Romance]),
-            set(list(classifier.Romance_Erotica.self_and_subgenres)))
+            set([classifier.Fantasy, classifier.Epic_Fantasy, 
+                 classifier.Historical_Fantasy, classifier.Urban_Fantasy,
+             ]),
+            set(list(classifier.Fantasy.self_and_subgenres)))
 
 class TestConsolidateWeights(object):
 
@@ -214,24 +215,24 @@ class TestConsolidateWeights(object):
         assert classifier.Romance not in w2
 
     def test_consolidate_through_multiple_levels(self):
-        # Romance & Erotica is the parent of the parent of Paranormal
+        # Romance is the parent of the parent of Paranormal
         # Romance, but its weight successfully flows down into
         # Paranormal Romance.
         weights = dict()
-        weights[classifier.Romance_Erotica] = 100
+        weights[classifier.Romance] = 100
         weights[classifier.Paranormal_Romance] = 4
         w2 = Classifier.consolidate_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
-        assert classifier.Romance_Erotica not in w2
+        assert classifier.Romance not in w2
 
     def test_consolidate_through_multiple_levels_from_multiple_sources(self):
         weights = dict()
-        weights[classifier.Romance_Erotica] = 50
+        weights[classifier.Romance] = 50
         weights[classifier.Romance] = 50
         weights[classifier.Paranormal_Romance] = 4
         w2 = Classifier.consolidate_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
-        assert classifier.Romance_Erotica not in w2
+        assert classifier.Romance not in w2
 
     def test_consolidate_fails_when_threshold_not_met(self):
         weights = dict()
