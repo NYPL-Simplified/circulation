@@ -1,7 +1,10 @@
 # encoding: utf-8
 
-# "literary history" != "history"
-# "Investigations -- nonfiction" != "Mystery"
+# If the genre classification does not match the fiction classification, throw
+# away the genre classifications.
+#
+# E.g. "Investigations -- nonfiction" maps to Mystery, but Mystery
+# conflicts with Nonfiction.
 
 # SQL to find commonly used DDC classifications
 # select count(editions.id) as c, subjects.identifier from editions join identifiers on workrecords.primary_identifier_id=workidentifiers.id join classifications on workidentifiers.id=classifications.work_identifier_id join subjects on classifications.subject_id=subjects.id where subjects.type = 'DDC' and not subjects.identifier like '8%' group by subjects.identifier order by c desc;
@@ -1401,7 +1404,6 @@ class KeywordBasedClassifier(Classifier):
                ),
                              
                Crafts_Hobbies: match_kw(
-                   # ! "arts and crafts movement"
                    "arts & crafts",
                    "arts, crafts"
                    "beadwork",
@@ -1475,8 +1477,10 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                Education: match_kw(
-                   # a lot of these don't work well because of the
-                   # huge amount of fiction about students.
+                   # TODO: a lot of these don't work well because of
+                   # the huge amount of fiction about students. This
+                   # will be fixed when we institute the
+                   # fiction/nonfiction split.
                    "education",
                    "educational",
                    "educator",
@@ -1534,10 +1538,7 @@ class KeywordBasedClassifier(Classifier):
         ),
                
                Family_Relationships: match_kw(
-                   # ! human-animal relationships
                    "family & relationships",                   
-                   # This is a little awkward because many (most?) of
-                   # "relationships" go into fiction
                    "relationships",
                    "family relationships",
                ),
@@ -1625,7 +1626,6 @@ class KeywordBasedClassifier(Classifier):
                
                Health_Diet: match_kw(
                    # ! "health services" ?
-                   # ! "health care reform"
                    "fitness",
                    "health",
                    "health aspects",
@@ -1802,11 +1802,6 @@ class KeywordBasedClassifier(Classifier):
                    "history.*middle east",
                ),
 
-               # Military SF, not "military" in general.
-        Military_SF: match_kw(
-            "science fiction.*military",
-            "military.*science fiction",
-        ),
                
                Military_History : match_kw(
                    "military science",
@@ -1816,12 +1811,7 @@ class KeywordBasedClassifier(Classifier):
                    "1939-1945",
                    "world war",
                ),
-               
-               Military_Thriller: match_kw(
-                   "military thrillers",
-                   "thrillers.*military",
-               ),
-               
+                             
                Modern_History: match_kw(
                    "1900 - 1999",
                    "2000-2099",
@@ -1886,7 +1876,7 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                Parenting : match_kw(
-                   # ! "children of"
+                   "children",
                    # "family" doesn't work because of many specific
                    # families.
                    "parenting",
@@ -1924,7 +1914,6 @@ class KeywordBasedClassifier(Classifier):
                    "pets",
                    "dogs",
                    "cats",
-                   "human-animal relationships",
                ),
                
                Philosophy : match_kw(
@@ -1998,6 +1987,8 @@ class KeywordBasedClassifier(Classifier):
                    "catalogs",
                    "handbooks",
                    "manuals",
+
+                   # Formerly in 'Encyclopedias'
                    "encyclopaedias",
                    "encyclopaedia",
                    "encyclopedias",
@@ -2034,13 +2025,6 @@ class KeywordBasedClassifier(Classifier):
                    "religious",
                ),
                
-               Religious_Fiction: match_kw(
-                   "christian fiction",
-                   "fiction.*christian",
-                   "religious fiction",
-                   "fiction.*religious",
-               ),
-
                Renaissance_Early_Modern_History: match_kw(
                    "early modern period",
                    "early modern history",
@@ -2051,7 +2035,6 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                Romance : match_kw(
-                   # ! romance language
                    "love stories",
                    "romance",
                    "love & romance",
@@ -2103,10 +2086,15 @@ class KeywordBasedClassifier(Classifier):
                Self_Help: match_kw(
                    "self help",
                    "self-help",
+                   "self improvement",
+                   "self-improvement",
                ),
                Folklore : match_kw(
                    "folklore",
+                   "folktales",
+                   "folk tales",
                    "myth",
+                   "legends",
                ),
                Social_Sciences: match_kw(
                    "social sciences",
@@ -2130,7 +2118,7 @@ class KeywordBasedClassifier(Classifier):
                
                Sports: match_kw(
                    # Ton of specific sports here since 'players'
-                   # doesn't work.
+                   # doesn't work. TODO: Why? I don't remember.
                    "sports",
                    "baseball",
                    "football",
@@ -2165,12 +2153,7 @@ class KeywordBasedClassifier(Classifier):
                    "toefl",
                    "workbooks",
                ),
-               
-               Supernatural_Thriller: match_kw(
-                   "thriller.*supernatural",
-                   "supernatural.*thriller",
-               ),
-               
+                            
                Romantic_Suspense : match_kw(
                    "romantic.*suspense",
                    "suspense.*romance",
@@ -2234,7 +2217,6 @@ class KeywordBasedClassifier(Classifier):
                ),
                
                Urban_Fiction: match_kw(
-                   # TODO: fiction.*urban but not fiction.*fantasy.*urban
                    "urban fiction",
                    "fiction.*african american.*urban",
                    "fiction / urban",
@@ -2264,6 +2246,7 @@ class KeywordBasedClassifier(Classifier):
 
                Womens_Fiction : match_kw(
                    "contemporary women",
+                   "chick lit",
                ),
                
                World_History: match_kw(
@@ -2273,8 +2256,63 @@ class KeywordBasedClassifier(Classifier):
     }
 
     LEVEL_2_KEYWORDS = {
+        Design : match_kw(
+            "arts and crafts movement",
+        ),
         Drama : match_kw(
             "opera",
+        ),
+        Literary_Criticism : match_kw(
+            "literary history", # Not History
+            "romance language", # Not Romance
+        ),
+
+        # We need to match these first so that the 'military'
+        # part doesn't match Military History.
+        Military_SF: match_kw(
+            "science fiction.*military",
+            "military.*science fiction",
+        ),
+        Military_Thriller: match_kw(
+            "military thrillers",
+            "thrillers.*military",
+        ),
+        Pets : match_kw(
+            "human-animal relationships",
+        ),
+        Politics_Current_Events : match_kw(
+            "health care reform",
+        ),
+
+        # Stop the 'religious' from matching Religion/Spirituality.
+        Religious_Fiction: match_kw(
+            "christian fiction",
+            "fiction.*christian",
+            "religious fiction",
+            "fiction.*religious",
+        ),
+
+        Supernatural_Thriller: match_kw(               Romantic_Suspense : match_kw(
+                   "romantic.*suspense",
+                   "suspense.*romance",
+                   "romance.*suspense",
+                   "romantic.*thriller",
+                   "romance.*thriller",
+                   "thriller.*romance",
+               ),
+
+            "thriller.*supernatural",
+            "supernatural.*thriller",
+        ),
+
+        # Otherwise fiction.*urban turns Urban Fantasy into Urban Fiction
+        Urban_Fantasy : match_kw(
+            "fiction.*fantasy.*urban",
+        ),
+
+        # Stop the 'children' in 'children of' from matching Parenting.
+        None : match_kw(
+            "children of",
         )
     }
 
