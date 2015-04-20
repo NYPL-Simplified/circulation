@@ -3484,6 +3484,7 @@ class LaneList(object):
             default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
             default_audience = Classifier.AUDIENCES_ADULT
 
+        description = description or []
         for lane_description in description:
             if isinstance(lane_description, basestring):
                 lane_description = classifier.genres[lane_description]
@@ -3497,8 +3498,6 @@ class LaneList(object):
                         parent_lane.audience != audience_restriction
                         and not audience_restriction in parent_lane.audience):
                         continue
-                else:
-                    set_trace()
                 lane_description = classifier.genres[name]
 
             if isinstance(lane_description, Genre):
@@ -3519,12 +3518,16 @@ class LaneList(object):
                 # A more complicated lane. Its description is a bunch
                 # of arguments to the Lane constructor.
                 l = lane_description
-                lane = Lane(_db, l['full_name'], l.get('genres', []), 
-                            l.get('fiction', default_fiction),
-                            l.get('audience', default_audience),
-                            parent_lane,
-                            l.get('sublanes', []),
-                            l.get('display_name', None),
+                lane = Lane(_db, full_name=l['full_name'], genres=l.get('genres', []), 
+                            subgenre_books_go=l.get('subgenre_books_go', 
+                                                    Lane.IN_SUBLANES),
+                            fiction=l.get('fiction', default_fiction),
+                            audience=l.get('audience', default_audience),
+                            parent=parent_lane,
+                            sublanes=l.get('sublanes', []),
+                            display_name=l.get('display_name', None),
+                            age_range=l.get('age_range', None),
+                            exclude_genres=l.get('exclude_genres', []),
                         )                            
             lanes.add(lane)
             for sublane in lane.sublanes.lanes:
@@ -3617,6 +3620,7 @@ class Lane(object):
         self.fiction = fiction
         self.audience = audience
         self.exclude_genres = exclude_genres
+        self.subgenre_books_go=subgenre_books_go
 
         if self.age_range and self.audience != Classifier.AUDIENCE_CHILDREN:
             raise ValueError(
@@ -3672,10 +3676,7 @@ class Lane(object):
                         # subgenres, they will also show up as
                         # separate lanes.
 
-        if sublanes:
-            self.sublanes = LaneList.from_description(_db, self, sublanes)
-        else:
-            self.sublanes = []
+        self.sublanes = LaneList.from_description(_db, self, sublanes)
 
     def search(self, languages, query, search_client, limit=50):
         """Find works in this lane that match a search query.
@@ -3858,7 +3859,10 @@ class Lane(object):
                 q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
 
         if self.audience != None:
-            q = q.filter(Work.audience==self.audience)
+            if isinstance(self.audience, list):
+                q = q.filter(Work.audience.in_(self.audience))
+            else:
+                q = q.filter(Work.audience==self.audience)
 
         if self.appeal != None:
             q = q.filter(Work.primary_appeal==self.appeal)
