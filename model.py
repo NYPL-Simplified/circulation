@@ -4160,8 +4160,10 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
+
+        primary_edition = known_edition or self.edition
         
-        print "Calculating work for %r" % self.edition
+        print "Calculating work for %r" % primary_edition
         if self.work:
             # The work has already been done.
             print " Already got one."
