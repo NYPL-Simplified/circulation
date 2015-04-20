@@ -176,9 +176,8 @@ class TestKeyword(object):
         eq_(classifier.Asian_History, self.genre("history: asia"))
 
     def test_classification_may_depend_on_fiction_status(self):
-        set_trace()
-        a = self.genre("Humorous nonfiction")
-        b = self.genre("Humorous stories")
+        eq_(classifier.Humorous_Nonfiction, self.genre("Humor (Nonfiction)"))
+        eq_(classifier.Humorous_Fiction, self.genre("Humorous stories"))
 
 class TestNestedSubgenres(object):
 

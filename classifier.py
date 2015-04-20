@@ -188,8 +188,7 @@ class Classifier(object):
         return None
 
 
-# This is the large-scale structure of our classification system,
-# taken mostly from Zola. 
+# This is the large-scale structure of our classification system.
 #
 # If the name of a genre is a 2-tuple, the second item in the tuple is
 # a list of names of subgenres.
