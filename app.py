@@ -106,6 +106,10 @@ class Conf:
         else:
             _db = production_session()
             lanes = make_lanes(_db)
+            for lane in lanes.lanes:
+                print lane.name
+                for sublane in lane.sublanes:
+                    print "", sublane.display_name
             cls.db = _db
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)
