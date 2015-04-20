@@ -51,6 +51,8 @@ class Classifier(object):
     AUDIENCE_YOUNG_ADULT = "Young Adult"
     AUDIENCE_CHILDREN = "Children"
 
+    AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
+
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
 
@@ -128,10 +130,14 @@ class Classifier(object):
             name = cls.scrub_name(subject.name)
         else:
             name = identifier
-        return (cls.genre(identifier, name),
-                cls.audience(identifier, name),
+        fiction = cls.is_fiction(identifier, name)
+        audience = cls.audience(identifier, name)
+
+        return (cls.genre(identifier, name, fiction, audience),
+                audience,
                 cls.age_range(identifier, name),
-                cls.is_fiction(identifier, name))
+                fiction,
+                )
 
     @classmethod
     def scrub_identifier(cls, identifier):
@@ -148,7 +154,7 @@ class Classifier(object):
         return Lowercased(name)
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         """Is this identifier associated with a particular Genre?"""
         return None
 
@@ -185,25 +191,12 @@ class Classifier(object):
 # This is the large-scale structure of our classification system,
 # taken mostly from Zola. 
 #
-# "Children" and "Young Adult" are not here--they are the 'audience' facet
-# of a genre.
-#
-# "Fiction" is not here--it's a seperate facet.
-#
 # If the name of a genre is a 2-tuple, the second item in the tuple is
-# whether or not the genre contains fiction by default. If the name of
-# a genre is a string, the genre inherits the default fiction status
-# of its parent, or (if a top-level genre) is nonfiction by default.
+# a list of names of subgenres.
 #
-# If the name of a genre is a dictionary, the 'name' key corresponds to its
-# name and the 'subgenres' key contains a list of subgenres. 
-#
-# Genres and subgenres do *not* correspond to lanes and sublanes in
-# the user-visible side of the circulation server. This is the
-# structure used when classifying books. The circulation server is
-# responsible for its own mapping of genres to lanes. However, for
-# adult fiction and nonfiction there is generally a mapping of 
-
+# If the name of a genre is a 3-tuple, the genre is restricted to a
+# specific audience (e.g. erotica is adults-only), and the third item
+# in the tuple describes that audience.
 fiction_genres = [
     "Adventure",
     "Classics",
@@ -226,7 +219,7 @@ fiction_genres = [
     ]),
     "Humorous Fiction",
     "Literary Fiction",
-    "LGBTQ Fiction", 
+    ("LGBTQ Fiction", [], Classifier.AUDIENCE_YOUNG_ADULT),
     ("Mystery", [
         "Crime & Detective Stories",
         "Hard-Boiled Mystery",
@@ -375,6 +368,8 @@ class GenreData(object):
         self.subgenres = []
         if isinstance(audience_restriction, basestring):
             audience_restriction = [audience_restriction]
+        elif audience_restriction and not isinstance(audience_restriction, list):
+            set_trace()
         self.audience_restriction = audience_restriction
 
     def __repr__(self):
@@ -383,6 +378,11 @@ class GenreData(object):
     @property
     def self_and_subgenres(self):
         yield self
+        for child in self.all_subgenres:
+            yield child
+
+    @property
+    def all_subgenres(self):
         for child in self.subgenres:
             for subgenre in child.self_and_subgenres:
                 yield subgenre
@@ -425,11 +425,11 @@ class GenreData(object):
     
                 cls.add_genre(
                     namespace, genres, name, subgenres, fiction,
-                    audience_restriction, None)
+                    None, audience_restriction)
 
     @classmethod
     def add_genre(cls, namespace, genres, name, subgenres, fiction,
-                  audience_restriction, parent):
+                  parent, audience_restriction):
         """Create a GenreData object. Add it to a dictionary and a namespace.
         """
         if isinstance(name, tuple):
@@ -443,7 +443,7 @@ class GenreData(object):
             raise ValueError("Duplicate genre name! %s" % name)
 
         # Create the GenreData object.
-        genre_data = GenreData(name, fiction, audience_restriction, parent)
+        genre_data = GenreData(name, fiction, parent, audience_restriction)
         if parent:
             parent.subgenres.append(genre_data)
 
@@ -457,7 +457,7 @@ class GenreData(object):
         # Do the same for subgenres.
         for sub in subgenres:
             cls.add_genre(namespace, genres, sub, [], fiction,
-                          audience_restriction, genre_data)
+                          genre_data, audience_restriction)
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
@@ -802,7 +802,7 @@ class ThreeMClassifier(Classifier):
             return identifier.startswith(match_against)
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         for prefixes in cls.PREFIX_LISTS:
             for l, v in prefixes.items():
                 if cls._match(identifier, v):
@@ -925,7 +925,7 @@ class OverdriveClassifier(Classifier):
         return cls.AUDIENCE_ADULT
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         for l, v in cls.GENRES.items():
             if identifier == v or (isinstance(v, list) and identifier in v):
                 return l
@@ -1083,7 +1083,7 @@ class DeweyDecimalClassifier(Classifier):
         return cls.AUDIENCE_ADULT
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         for genre, identifiers in cls.GENRES.items():
             if identifier == identifiers or identifier in identifiers:
                 return genre
@@ -1185,7 +1185,7 @@ class LCCClassifier(Classifier):
         return False
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         for genre, strings in cls.GENRES.items():
             for s in strings:
                 if identifier.startswith(s):
@@ -1676,14 +1676,21 @@ class KeywordBasedClassifier(Classifier):
                    "interior decorating",
                ),
                
-               # TODO: These keywords match Humorous Fiction or
-        # Humorous Nonfiction, depending on the fiction valence.
         Humorous_Fiction : match_kw(
             "comedy",
             "humor",
             "humorous",
+            "humourous",
             "humour",
             "satire",
+            "wit",
+        ),
+        Humorous_Nonfiction : match_kw(
+            "comedy",
+            "humor",
+            "humorous",
+            "humour",
+            "humourous",
             "wit",
         ),
 
@@ -2292,15 +2299,16 @@ class KeywordBasedClassifier(Classifier):
             "fiction.*religious",
         ),
 
-        Supernatural_Thriller: match_kw(               Romantic_Suspense : match_kw(
-                   "romantic.*suspense",
-                   "suspense.*romance",
-                   "romance.*suspense",
-                   "romantic.*thriller",
-                   "romance.*thriller",
-                   "thriller.*romance",
-               ),
+        Romantic_Suspense : match_kw(
+            "romantic.*suspense",
+            "suspense.*romance",
+            "romance.*suspense",
+            "romantic.*thriller",
+            "romance.*thriller",
+            "thriller.*romance",
+        ),
 
+        Supernatural_Thriller: match_kw(
             "thriller.*supernatural",
             "supernatural.*thriller",
         ),
@@ -2352,11 +2360,16 @@ class KeywordBasedClassifier(Classifier):
         return use
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         matches = Counter()
         match_against = [name]
         for l in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
             for genre, keywords in l.items():
+                if genre and fiction is not None and genre.is_fiction != fiction:
+                    continue
+                if (genre and audience and genre.audience_restriction
+                    and audience not in genre.audience_restriction):
+                    continue
                 if keywords and keywords.search(name):
                     matches[genre] += 1
             most_specific_genre = None
@@ -2637,7 +2650,7 @@ class GutenbergBookshelfClassifier(Classifier):
         return cls.AUDIENCE_ADULT
 
     @classmethod
-    def genre(cls, identifier, name):
+    def genre(cls, identifier, name, fiction=None, audience=None):
         for l, v in cls.GENRES.items():
             if identifier == v or (isinstance(v, list) and identifier in v):
                 return l

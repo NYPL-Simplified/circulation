@@ -3472,7 +3472,7 @@ class LaneList(object):
         return "<LaneList: %slanes=[%s]>" % (
             parent,
             ", ".join([repr(x) for x in self.lanes])
-        )
+        )       
 
     @classmethod
     def from_description(self, _db, parent_lane, description):
@@ -3482,10 +3482,15 @@ class LaneList(object):
             default_audience = parent_lane.audience
         else:
             default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-            default_audience = Classifier.AUDIENCE_ADULT
+            default_audience = Classifier.ADULT_AUDIENCES
 
         for lane_description in description:
-            if isinstance(lane_description, GenreData):
+            if isinstance(lane_description, Genre):
+                lane = Lane(_db, lane_description.name, [lane_description],
+                            True, default_fiction,
+                            default_audience, parent_lane)
+
+            elif isinstance(lane_description, GenreData):
                 # This very simple lane is the default view for a genre.
                 genre = lane_description
                 lane = Lane(_db, genre.name, [genre], True, default_fiction,
@@ -3504,7 +3509,7 @@ class LaneList(object):
                             l.get('audience', default_audience),
                             parent_lane,
                             l.get('sublanes', []),
-                            l.get('display_name', None)
+                            l.get('display_name', None),
                         )                            
             lanes.add(lane)
             for sublane in lane.sublanes.lanes:
@@ -3536,6 +3541,14 @@ class Lane(object):
     BOTH_FICTION_AND_NONFICTION = "both fiction and nonfiction"
     FICTION_DEFAULT_FOR_GENRE = "fiction default for genre"
 
+    # Books classified in a subgenre of this lane's genre(s) will
+    # be shown in separate lanes.
+    IN_SUBLANES = "separate"
+
+    # Books classified in a subgenre of this lane's genre(s) will be
+    # shown in this lane.
+    IN_SAME_LANE = "collapse"
+
     def __repr__(self):
         if self.sublanes.lanes:
             sublanes = " (sublanes=%d)" % len(self.sublanes.lanes)
@@ -3544,19 +3557,54 @@ class Lane(object):
         return "<Lane %s%s>" % (self.name, sublanes)
 
     @classmethod
-    def everything(cls, _db):
+    def everything(cls, _db, fiction=None,
+                   audience=None):
         """Return a synthetic Lane that matches everything."""
-        return Lane(_db, "", [], True, Lane.BOTH_FICTION_AND_NONFICTION,
-                    None)
+        if fiction == True:
+            what = 'fiction'
+        elif fiction == False:
+            what = 'nonfiction'
+        else:
+            what = 'books'
+        if audience == Classifier.AUDIENCE_ADULT:
+            what = 'adult ' + what
+        elif audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            what = 'young adult ' + what
+        elif audience == Classifier.AUDIENCE_CHILDREN:
+            what = "childrens' " + what
+            
+        full_name = "All " + what
+        return Lane(
+            _db, full_name, genres=[], subgenre_books_go=IN_SAME_LANE,
+            fiction=fiction,
+            audience=audience)
 
-    def __init__(self, _db, full_name, genres, include_subgenres=True,
-                 fiction=True, audience=Classifier.AUDIENCE_ADULT,
-                 parent=None, sublanes=[], appeal=None, display_name=None):
+    def __init__(self, 
+                 _db, 
+                 full_name,
+                 genres,
+                 subgenre_books_go=IN_SUBLANES,
+                 fiction=True,
+                 audience=Classifier.AUDIENCE_ADULT,
+                 parent=None,
+                 sublanes=[],
+                 appeal=None,
+                 display_name=None,
+                 age_range=None,
+                 ):
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.appeal = appeal
+        self.age_range = age_range
+        self.fiction = fiction
+        self.audience = audience
+
+        if self.age_range and self.audience != Classifier.AUDIENCE_CHILDREN:
+            raise ValueError(
+                "Lane %s specifies age range but does not contain children's books." & self.display_name
+            )
 
         if genres in (None, self.UNCLASSIFIED):
             # We will only be considering works that are not
@@ -3566,15 +3614,43 @@ class Lane(object):
         else:
             if not isinstance(genres, list):
                 genres = [genres]
+
             # Turn names or GenreData objects into Genre objects. 
             self.genres = []
             for genre in genres:
+                if isinstance(genre, tuple):
+                    if len(genre) == 2:
+                        genre, subgenres = genre
+                    else:
+                        genre, subgenres, audience_restriction = genre
+
+                if isinstance(genre, GenreData):
+                    genredata = genre
+                else:
+                    if isinstance(genre, Genre):
+                        genre_name = genre.name
+                    else:
+                        genre_name = genre
+                    genredata = classifier.genres.get(genre_name)
                 if not isinstance(genre, Genre):
                     genre, ignore = Genre.lookup(_db, genre)
                 self.genres.append(genre)
-            self.include_subgenres=include_subgenres
-        self.fiction = fiction
-        self.audience = audience
+                if subgenre_books_go:
+                    if not genredata:
+                        raise ValueError("Couldn't turn %r into GenreData object to find subgenres." % genre)
+                    for subgenre in genredata.all_subgenres:
+                        subgenre, ignore = Genre.lookup(_db, subgenre)
+                        if subgenre_books_go == self.IN_SAME_LANE:
+                            # Incorporate this genre's subgenres, recursively,
+                            # in this lane.
+                            self.genres.append(subgenre)
+                        elif subgenre_books_go == self.IN_SUBLANES:
+                            # Only treat the direct subgenres as
+                            # separate lanes.  If those genres have
+                            # subgenres, they will also show up as
+                            # separate lanes.
+                            sublanes.append(subgenre)
+
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
     def search(self, languages, query, search_client, limit=50):

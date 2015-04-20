@@ -159,7 +159,10 @@ class TestLCSH(object):
 
 class TestKeyword(object):
     def genre(self, keyword):
-        return Keyword.genre(None, Keyword.scrub_identifier(keyword))
+        scrub = Keyword.scrub_identifier(keyword)
+        fiction = Keyword.is_fiction(None, scrub)
+        audience = Keyword.audience(None, scrub)
+        return Keyword.genre(None, scrub, fiction, audience)
 
     def test_higher_tier_wins(self):
         eq_(classifier.Space_Opera, self.genre("space opera"))
@@ -171,6 +174,11 @@ class TestKeyword(object):
         # specific.
         eq_(classifier.Asian_History, self.genre("asian history"))
         eq_(classifier.Asian_History, self.genre("history: asia"))
+
+    def test_classification_may_depend_on_fiction_status(self):
+        set_trace()
+        a = self.genre("Humorous nonfiction")
+        b = self.genre("Humorous stories")
 
 class TestNestedSubgenres(object):
 
