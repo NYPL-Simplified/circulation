@@ -2236,6 +2236,7 @@ class Work(Base):
         """Modify a query so it finds only Works that are not classified under
         any genre."""
         q = q.outerjoin(Work.work_genres)
+        q = q.options(contains_eager(Work.work_genres))
         q = q.filter(WorkGenre.genre==None)
         return q
 
@@ -3862,6 +3863,7 @@ class Lane(object):
                             "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
             if genres:
                 q = q.join(Work.work_genres)
+                q = q.options(contains_eager(Work.work_genres))
                 q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
 
         if self.audience != None:
