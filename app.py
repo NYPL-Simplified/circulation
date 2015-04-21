@@ -246,6 +246,47 @@ def make_popular_feed(_db, annotator, lane, languages):
             unicode(opds_feed)
     )
 
+def staff_picks_feed_cache_url(annotator, lane, languages):
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    url = url_for('staff_picks_feed', lane_name=lane_name, _external=True)
+    if '?' in url:
+        url += '&'
+    else:
+        url += '?'
+    return url + "languages=%s" % ",".join(languages)
+
+def make_staff_picks_feed(_db, annotator, lane, languages):
+    if not lane:
+        lane_name = lane
+        lane_display_name = lane
+        title = "Staff Picks"
+    else:
+        lane_name = lane.name
+        lane_display_name = lane.display_name
+        title = "%s: Staff Picks" % lane_display_name
+
+    custom_list = _db.query(CustomList).filter(
+        CustomList.name==CustomList.STAFF_PICKS_NAME).one()
+    if not custom_list:
+        print "No staff picks list."
+        return (200, {}, "")
+
+    work_feed = CustomListFeed(
+        _db, [custom_list], languages, availability=CustomListFeed.ALL)
+    page = work_feed.page_query(_db, None, 100).all()
+    page = random.sample(page, min(len(page), 20))
+
+    this_url = url_for('staff_picks_feed', lane_name=lane_name, _external=True)
+    opds_feed = AcquisitionFeed(_db, title, this_url, page,
+                                annotator, work_feed.active_facet)
+    return (200,
+            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+            unicode(opds_feed)
+    )
+
 
 @app.route('/')
 def index():    
@@ -275,10 +316,15 @@ def navigation_feed(lane):
         
     feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
-    feed.add_link(
-        rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
-        type=NavigationFeed.ACQUISITION_FEED_TYPE,
-        href=url_for('popular_feed', lane_name=lane.name, _external=True))
+    if not lane.parent:
+        feed.add_link(
+            rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
+            type=NavigationFeed.ACQUISITION_FEED_TYPE,
+            href=url_for('popular_feed', lane_name=lane.name, _external=True))
+        feed.add_link(
+            rel=NavigationFeed.POPULAR_REL, title="Staff Picks",
+            type=NavigationFeed.ACQUISITION_FEED_TYPE,
+            href=url_for('staff_picks_feed', lane_name=lane.name, _external=True))
 
     feed.add_link(
         rel="search", 
@@ -504,6 +550,28 @@ def feed(lane):
         feed_cache[key] = (feed_xml, time.time())
     return feed_response(feed_xml)
 
+@app.route('/staff_picks', defaults=dict(lane_name=None))
+@app.route('/staff_picks/', defaults=dict(lane_name=None))
+@app.route('/staff_picks/<lane_name>')
+def staff_picks_feed(lane_name):
+    """Return an acquisition feed of staff picks in this lane."""
+    if lane_name:
+        lane = Conf.sublanes.by_name[lane_name]
+        lane_display_name = lane.display_name
+    else:
+        lane = None
+        lane_display_name = None
+    languages = languages_for_request()
+
+    annotator = CirculationManagerAnnotator(lane)
+    cache_url = staff_picks_feed_cache_url(annotator, lane, languages)
+    def get(*args, **kwargs):
+        return make_staff_picks_feed(Conf.db, annotator, lane, languages)
+    feed_rep, cached = Representation.get(
+        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+        max_age=None)
+    feed_xml = feed_rep.content
+    return feed_response(feed_xml)
 
 @app.route('/popular', defaults=dict(lane_name=None))
 @app.route('/popular/', defaults=dict(lane_name=None))
