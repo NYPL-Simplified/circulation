@@ -400,7 +400,6 @@ class AcquisitionFeed(OPDSFeed):
         totals = []
         for work in works:
             a = time.time()
-            print work
             self.add_entry(work, lane_link)
             totals.append(time.time()-a)
 

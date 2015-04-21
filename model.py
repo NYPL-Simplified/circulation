@@ -2202,7 +2202,8 @@ class Work(Base):
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
         """Return a query against Work suitable for using in OPDS feeds."""
-        q = _db.query(Work).join(Work.primary_edition).options(
+        q = _db.query(Work).join(Work.primary_edition)
+        q = q.options(
             joinedload('license_pools').joinedload('data_source'),
             joinedload('work_genres')
         )
@@ -3933,6 +3934,7 @@ class WorkFeed(object):
         """
 
         query = self.base_query(_db)
+        # TODO: This is extraordinarily inefficient.
         query = query.filter(LicensePool.edition != None)
         primary_order_field = self.order_by[0]
         if last_edition_seen:
