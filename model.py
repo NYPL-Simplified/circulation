@@ -3827,7 +3827,7 @@ class WorkFeed(object):
         if last_work_seen:
             # Only find records that show up after the last one seen.
             last_value = getattr(last_work_seen, primary_order_field.name)
-            if last_value:
+            if last_value is not None:
                 # This means works where the primary ordering field has a
                 # higher value.
                 clause = self.sort_operator(primary_order_field, last_value)
