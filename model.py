@@ -36,6 +36,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import (
     aliased,
     backref,
+    contains_eager,
     joinedload,
 )
 from sqlalchemy.orm.exc import (
@@ -2201,15 +2202,15 @@ class Work(Base):
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
         """Return a query against Work suitable for using in OPDS feeds."""
-        q = _db.query(Work).join(Work.primary_edition).options(
-            joinedload('license_pools').joinedload('data_source'),
+        q = _db.query(Work).join(Work.primary_edition)
+        q = q.join(Work.license_pools).join(LicensePool.data_source)
+        q = q.options(
+            contains_eager(Work.primary_edition),
+            contains_eager(Work.license_pools),
+            contains_eager(Work.license_pools, LicensePool.data_source),
+            contains_eager(Work.license_pools, LicensePool.edition),
             joinedload('work_genres')
         )
-        q = q.join(Work.license_pools)
-        or_clause = or_(
-            LicensePool.open_access==True,
-            LicensePool.licenses_owned > 0)
-        q = q.filter(or_clause)
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
                 LicensePool.open_access==True,
@@ -3816,17 +3817,16 @@ class WorkFeed(object):
         # By default, return every Work in the entire database.
         return Work.feed_query(_db, self.languages, self.availability)
 
-    def page_query(self, _db, last_edition_seen, page_size, extra_filter=None):
+    def page_query(self, _db, last_work_seen, page_size, extra_filter=None):
         """Turn the base query into a query that retrieves a particular page 
         of works.
         """
 
         query = self.base_query(_db)
-        query = query.filter(LicensePool.edition != None)
         primary_order_field = self.order_by[0]
-        if last_edition_seen:
+        if last_work_seen:
             # Only find records that show up after the last one seen.
-            last_value = getattr(last_edition_seen, primary_order_field.name)
+            last_value = getattr(last_work_seen, primary_order_field.name)
             if last_value:
                 # This means works where the primary ordering field has a
                 # higher value.
@@ -3837,7 +3837,7 @@ class WorkFeed(object):
                     # OR, it means works where all the previous ordering
                     # fields have the same value as the last work seen,
                     # and this next ordering field has a higher value.
-                    new_value = getattr(last_edition_seen, next_order_field.name)
+                    new_value = getattr(last_work_seen, next_order_field.name)
                     if new_value != None:
                         clause = or_(clause,
                                      and_(base_and_clause, 
