@@ -1385,7 +1385,7 @@ class TestLaneList(DatabaseTest):
         eq_(True, fiction.fiction)
 
         eq_("Fantasy", fantasy.name)
-        eq_(Classifier.AUDIENCE_ADULT, fantasy.audience)
+        eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
         eq_([fantasy_genre], fantasy.genres)
         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
 

@@ -56,6 +56,37 @@ class Classifier(object):
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
 
+    # How old a kid is when they start grade N in the US.
+    american_grade_to_age = {
+        # Preschool: 3-4 years
+
+        # Easy readers
+        '0' : 5, # Kindergarten
+        'k' : 5,
+        'first' : 6,
+        '1' : 6,
+        'second' : 7,
+        '2' : 7,
+
+        # Chapter Books
+        'third' : 8,
+        '3' : 8,
+        'fourth' : 9,
+        '4' : 9,
+        'fifth' : 10,
+        '5' : 10,
+        'sixth' : 11,
+        '6' : 11,
+        '7' : 12,
+        '8' : 13,
+
+        # YA
+        '9' : 14,
+        '10' : 15,
+        '11' : 16,
+        '12': 17,
+    }
+
     @classmethod
     def consolidate_weights(cls, weights, subgenre_swallows_parent_at=0.03):
         """If a genre and its subgenres both show up, examine the subgenre
@@ -135,7 +166,7 @@ class Classifier(object):
 
         return (cls.genre(identifier, name, fiction, audience),
                 audience,
-                cls.age_range(identifier, name),
+                cls.target_age(identifier, name),
                 fiction,
                 )
 
@@ -180,11 +211,28 @@ class Classifier(object):
             return cls.AUDIENCE_YOUNG_ADULT
         return None
 
+    grade_res = map(
+        re.compile, [
+            "grades? ([k0-9]+)", 
+            "([0-9]+)[tns][hdt] grade",
+            "([a-z]+) grade",
+        ]
+    )
+
     @classmethod
-    def age_range(cls, identifier, name):
+    def target_age(cls, identifier, name):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
+        for r in cls.grade_res:
+            for k in identifier, name:
+                if not k:
+                    continue
+                m = r.search(k)
+                if m:
+                    grade = m.groups()[0]
+                    if grade in cls.american_grade_to_age:
+                        return cls.american_grade_to_age[grade]
         return None
 
 
@@ -2655,6 +2703,10 @@ class GutenbergBookshelfClassifier(Classifier):
                 return l
         return None
 
+class FreeformAudienceClassifier(Classifier):
+    pass
+
+
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
 Classifier.classifiers[Classifier.LCC] = LCCClassifier
@@ -2663,4 +2715,5 @@ Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
 Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
+Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier

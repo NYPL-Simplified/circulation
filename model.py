@@ -3425,6 +3425,11 @@ class Subject(Base):
             return
         self.checked = True
         genredata, audience, target_age, fiction = classifier.classify(self)
+        if audience in Classifier.AUDIENCES_ADULT:
+            target_age = None
+        if not audience and target_age:
+            if target_age >= 14:
+                audience = Classifier.AUDIENCE_YOUNG_ADULT
         if genredata:
             _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)

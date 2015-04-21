@@ -23,6 +23,27 @@ class TestClassifierLookup(object):
         eq_(Overdrive, Classifier.lookup(Classifier.OVERDRIVE))
         eq_(None, Classifier.lookup('no-such-key'))
 
+class TestTargetAge(object):
+    eq_(5, Classifier.target_age("grades k-2", None))
+    eq_(5, Classifier.target_age(None, "grades 0-1"))
+    eq_(6, Classifier.target_age("first grade", None))
+    eq_(6, Classifier.target_age("1st grade", None))
+    eq_(6, Classifier.target_age("grade 1", None))
+    eq_(7, Classifier.target_age("second grade", None))
+    eq_(7, Classifier.target_age("2nd grade", None))
+    eq_(8, Classifier.target_age("third grade", None))
+    eq_(9, Classifier.target_age("fourth grade", None))
+    eq_(10, Classifier.target_age("fifth grade", None))
+    eq_(11, Classifier.target_age("sixth grade", None))
+    eq_(12, Classifier.target_age("7th grade", None))
+    eq_(13, Classifier.target_age("grade 8", None))
+    eq_(14, Classifier.target_age("9th grade", None))
+    eq_(15, Classifier.target_age("grades 10-12", None))
+    eq_(17, Classifier.target_age("12th grade", None))
+    eq_(None, Classifier.target_age("grade 50", None))
+    eq_(None, Classifier.target_age("road grades -- history", None))
+    eq_(None, Classifier.target_age(None, None))
+
 class TestDewey(object):
 
     def test_name_for(self):
