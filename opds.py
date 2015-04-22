@@ -388,19 +388,17 @@ class AcquisitionFeed(OPDSFeed):
         works = lane.quality_sample(languages, 0.65, quality_cutoff, feed_size,
                                     "currently_available")
         return AcquisitionFeed(
-            lane._db, "%s: featured" % lane.name, url, works, annotator, 
+            lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
             sublanes=lane.sublanes)
 
     def __init__(self, _db, title, url, works, annotator=None,
                  active_facet=None, sublanes=[], messages_by_urn={}):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
-        import time
         first_time = time.time()
         totals = []
         for work in works:
             a = time.time()
-            print work
             self.add_entry(work, lane_link)
             totals.append(time.time()-a)
 
@@ -418,9 +416,6 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(message_tag)
             self.feed.append(entry)
 
-        #import numpy
-        #print "Feed built in %.2f (mean %.2f, stdev %.2f)" % (
-        #    time.time()-first_time, numpy.mean(totals), numpy.std(totals))
         print "Feed built in %.2f" % (time.time()-first_time)
 
         for title, order, facet_group, in [
@@ -711,8 +706,8 @@ class NavigationFeed(OPDSFeed):
     @classmethod
     def main_feed(self, lane, annotator):
         """The main navigation feed for the given lane."""
-        if lane.name:
-            name = lane.name
+        if lane.display_name:
+            name = lane.display_name
         else:
             name = "Navigation feed"
         feed = NavigationFeed(
@@ -724,7 +719,9 @@ class NavigationFeed(OPDSFeed):
             href=annotator.navigation_feed_url(None),
         )
 
-        if lane.name:
+        # If this is not a top-level lane, link to the navigation feed
+        # for the parent lane.
+        if lane.display_name:
             if lane.parent:
                 parent = lane.parent
             else:
@@ -736,41 +733,54 @@ class NavigationFeed(OPDSFeed):
                 type=self.NAVIGATION_FEED_TYPE,
             )
 
-        for lane in lane.sublanes:
-            links = []
+        if lane.display_name:
+            # Link to an acquisition feed that contains _all_ books in
+            # this lane.
+            feed.add_link(
+                type=self.ACQUISITION_FEED_TYPE,
+                href=annotator.featured_feed_url(lane, 'author'),
+                title="All %s" % lane.display_name,
+            )
 
+        # Create an entry for each sublane of this lane.
+        for sublane in lane.sublanes:
+            links = []
+            # The entry will link to an acquisition feed of featured
+            # books in that lane.
             for title, order, rel in [
                     ('Featured', None, self.FEATURED_REL)
             ]:
                 link = E.link(
                     type=self.ACQUISITION_FEED_TYPE,
-                    href=annotator.featured_feed_url(lane, order),
+                    href=annotator.featured_feed_url(sublane, order),
                     rel=rel,
                     title=title,
                 )
                 links.append(link)
 
-            if lane.sublanes.lanes:
-                navigation_link = E.link(
+            if sublane.sublanes.lanes:
+                # The sublane itself has sublanes. Link to the
+                # equivalent of this feed for that sublane.
+                sublane_link = E.link(
                     type=self.NAVIGATION_FEED_TYPE,
-                    href=annotator.navigation_feed_url(lane),
+                    href=annotator.navigation_feed_url(sublane),
                     rel="subsection",
-                    title="Look inside %s" % lane.name,
+                    title="Look inside %s" % sublane.display_name,
                 )
-                links.append(navigation_link)
             else:
-                link = E.link(
+                # This sublane has no sublanes. Link to an acquisition
+                # feed that contains all books in the lane.
+                sublane_link = E.link(
                     type=self.ACQUISITION_FEED_TYPE,
-                    href=annotator.featured_feed_url(lane, 'author'),
-                    title="Look inside %s" % lane.name,
+                    href=annotator.featured_feed_url(sublane, 'author'),
+                    title="All %s" % sublane.display_name,
                 )
-                links.append(link)
-
+            links.append(sublane_link)
 
             feed.feed.append(
                 E.entry(
-                    E.id(annotator.lane_id(lane)),
-                    E.title(lane.name),
+                    E.id(annotator.lane_id(sublane)),
+                    E.title(sublane.display_name),
                     # E.link(href=annotator.featured_feed_url(lane), rel="self"),
                     E.updated(_strftime(datetime.datetime.utcnow())),
                     *links
