@@ -294,7 +294,7 @@ fiction_genres = [
         "Alternative History",
         "Steampunk",
         "Romantic SF",
-        "Media Tie-in SF",
+        dict(full_name="Media Tie-in SF", display_name="Movie and TV Novelizations")
     ]),
     "Short Stories",
     ("Suspense/Thriller", [

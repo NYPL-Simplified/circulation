@@ -3511,21 +3511,24 @@ class LaneList(object):
                 name = lane_description.get('name')
                 display_name = lane_description.get('display_name')
                 subdescriptions = lane_description.get('subgenres')
+                default_audience_restriction = None
+                if parent_lane:
+                    default_audience_restriction = parent_lane.audience
                 audience_restriction = lane_description.get(
-                    'audience_restriction', parent_lane.audience)
+                    'audience_restriction', default_audience_restriction)
 
             if isinstance(lane_description, Genre):
                 lane = Lane(_db, lane_description.name, [lane_description],
-                            True, default_fiction,
-                            default_audience, parent_lane)
+                            Lane.IN_SAME_LANE, default_fiction,
+                            default_audience, parent_lane,
+                            sublanes=genre.subgenres)
 
             elif isinstance(lane_description, GenreData):
                 # This very simple lane is the default view for a genre.
                 genre = lane_description
                 lane = Lane(_db, genre.name, [genre], Lane.IN_SUBLANES,
                             default_fiction,
-                            default_audience, parent_lane,
-                            sublanes=genre.subgenres)
+                            default_audience, parent_lane)
             elif isinstance(lane_description, Lane):
                 # The Lane object has already been created.
                 lane = lane_description
@@ -3680,17 +3683,19 @@ class Lane(object):
                         raise ValueError("Couldn't turn %r into GenreData object to find subgenres." % genre)
 
                     if subgenre_books_go == self.IN_SAME_LANE:
-                        for subgenre in genredata.all_subgenres:
-                            subgenre, ignore = Genre.lookup(_db, subgenre)
-                            if subgenre_books_go == self.IN_SAME_LANE:
-                                # Incorporate this genre's subgenres,
-                                # recursively, in this lane.
+                        for subgenre_data in genredata.all_subgenres:
+                            subgenre, ignore = Genre.lookup(_db, subgenre_data)
+                            # Incorporate this genre's subgenres,
+                            # recursively, in this lane.
+                            if not exclude_genres or subgenre_data not in exclude_genres:
                                 self.genres.append(subgenre)
                     elif subgenre_books_go == self.IN_SUBLANES:
-                        # This is redundant -- the sublanes should
-                        # have been provided as the `sublanes`
-                        # argument.
-                        pass
+                        if self.sublanes.lanes:
+                            raise ValueError(
+                                "Explicit list of sublanes was provided, but I'm also asked to turn subgenres into sublanes!")
+                        self.sublanes = LaneList.from_description(
+                                _db, self, genredata.subgenres)
+
 
     def search(self, languages, query, search_client, limit=50):
         """Find works in this lane that match a search query.

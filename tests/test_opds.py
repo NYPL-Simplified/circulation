@@ -206,6 +206,7 @@ class TestOPDS(DatabaseTest):
 
         class FakeConf(object):
             name = None
+            display_name = None
             sublanes = None
             pass
 
@@ -260,7 +261,7 @@ class TestOPDS(DatabaseTest):
         eq_(NavigationFeed.ACQUISITION_FEED_TYPE, featured['type'])
 
         eq_('http://featured-feed/Fiction?order=author', by_author['href'])
-        eq_("Look inside Fiction", by_author['title'])
+        eq_("All Fiction", by_author['title'])
         # eq_(None, by_author.get('rel'))
         eq_(NavigationFeed.ACQUISITION_FEED_TYPE, by_author['type'])
 
