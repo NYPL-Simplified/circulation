@@ -84,6 +84,7 @@ class Conf:
     db = None
     sublanes = None
     name = None
+    display_name = None
     parent = None
     urn_lookup_controller = None
     overdrive = None
@@ -317,12 +318,14 @@ def navigation_feed(lane):
     feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
     if not lane.parent:
+        # Top-level lanes are the only ones that have best-seller
+        # and staff pick lanes.
         feed.add_link(
             rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
             type=NavigationFeed.ACQUISITION_FEED_TYPE,
             href=url_for('popular_feed', lane_name=lane.name, _external=True))
         feed.add_link(
-            rel=NavigationFeed.POPULAR_REL, title="Staff Picks",
+            rel=NavigationFeed.RECOMMENDED_REL, title="Staff Picks",
             type=NavigationFeed.ACQUISITION_FEED_TYPE,
             href=url_for('staff_picks_feed', lane_name=lane.name, _external=True))
 
@@ -507,7 +510,7 @@ def feed(lane):
         work_feed = LaneFeed(lane, languages, Edition.sort_author)
         title = "%s: By author" % lane.name
     else:
-        return problem("I don't know how to order a feed by '%s'" % order, 400)
+        return problem(None, "I don't know how to order a feed by '%s'" % order, 400)
 
     if work_feed:
         # Turn the work feed into an acquisition feed.
@@ -515,7 +518,7 @@ def feed(lane):
         try:
             size = int(size)
         except ValueError:
-            return problem("Invalid size: %s" % size, 400)
+            return problem(None, "Invalid size: %s" % size, 400)
         size = min(size, 100)
 
         last_work_seen = None
@@ -524,11 +527,11 @@ def feed(lane):
             try:
                 last_id = int(last_id)
             except ValueError:
-                return problem("Invalid work ID: %s" % last_id, 400)
+                return problem(None, "Invalid work ID: %s" % last_id, 400)
             try:
                 last_work_seen = Conf.db.query(Work).filter(Work.id==last_id).one()
             except NoResultFound:
-                return problem("No such work id: %s" % last_id, 400)
+                return problem(None, "No such work id: %s" % last_id, 400)
 
         this_url = url_for('feed', lane=lane.name, order=order, _external=True)
         page = work_feed.page_query(Conf.db, last_work_seen, size).all()
@@ -633,7 +636,7 @@ def work():
 def _load_licensepool(data_source, identifier):
     source = DataSource.lookup(Conf.db, data_source)
     if source is None:
-        return problem("No such data source!", 404)
+        return problem(None, "No such data source!", 404)
     identifier_type = source.primary_identifier_type
 
     id_obj, ignore = Identifier.for_foreign_id(
