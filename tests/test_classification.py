@@ -23,6 +23,27 @@ class TestClassifierLookup(object):
         eq_(Overdrive, Classifier.lookup(Classifier.OVERDRIVE))
         eq_(None, Classifier.lookup('no-such-key'))
 
+class TestTargetAge(object):
+    eq_(5, Classifier.target_age("grades k-2", None))
+    eq_(5, Classifier.target_age(None, "grades 0-1"))
+    eq_(6, Classifier.target_age("first grade", None))
+    eq_(6, Classifier.target_age("1st grade", None))
+    eq_(6, Classifier.target_age("grade 1", None))
+    eq_(7, Classifier.target_age("second grade", None))
+    eq_(7, Classifier.target_age("2nd grade", None))
+    eq_(8, Classifier.target_age("third grade", None))
+    eq_(9, Classifier.target_age("fourth grade", None))
+    eq_(10, Classifier.target_age("fifth grade", None))
+    eq_(11, Classifier.target_age("sixth grade", None))
+    eq_(12, Classifier.target_age("7th grade", None))
+    eq_(13, Classifier.target_age("grade 8", None))
+    eq_(14, Classifier.target_age("9th grade", None))
+    eq_(15, Classifier.target_age("grades 10-12", None))
+    eq_(17, Classifier.target_age("12th grade", None))
+    eq_(None, Classifier.target_age("grade 50", None))
+    eq_(None, Classifier.target_age("road grades -- history", None))
+    eq_(None, Classifier.target_age(None, None))
+
 class TestDewey(object):
 
     def test_name_for(self):
@@ -75,7 +96,7 @@ class TestDewey(object):
             i = DDC.scrub_identifier(identifier)
             return DDC.genre(i, None)
 
-        eq_(classifier.Social_Science, c("398"))
+        eq_(classifier.Folklore, c("398"))
 
 class TestLCC(object):
 
@@ -157,10 +178,16 @@ class TestLCSH(object):
         eq_(None, aud("Runaway children"))
         eq_(None, aud("Humor"))
 
-
 class TestKeyword(object):
     def genre(self, keyword):
-        return Keyword.genre(None, Keyword.scrub_identifier(keyword))
+        scrub = Keyword.scrub_identifier(keyword)
+        fiction = Keyword.is_fiction(None, scrub)
+        audience = Keyword.audience(None, scrub)
+        return Keyword.genre(None, scrub, fiction, audience)
+
+    def test_higher_tier_wins(self):
+        eq_(classifier.Space_Opera, self.genre("space opera"))
+        eq_(classifier.Drama, self.genre("opera"))
 
     def test_subgenre_wins_over_genre(self):
         # Asian_History wins over History, even though they both
@@ -169,27 +196,29 @@ class TestKeyword(object):
         eq_(classifier.Asian_History, self.genre("asian history"))
         eq_(classifier.Asian_History, self.genre("history: asia"))
 
+    def test_classification_may_depend_on_fiction_status(self):
+        eq_(classifier.Humorous_Nonfiction, self.genre("Humor (Nonfiction)"))
+        eq_(classifier.Humorous_Fiction, self.genre("Humorous stories"))
+
 class TestNestedSubgenres(object):
 
     def test_parents(self):
-        eq_([classifier.Romance_Erotica],
-            list(classifier.Erotica.parents))
+        eq_([classifier.Romantic_Suspense],
+            list(classifier.Romantic_Suspense.parents))
 
-        eq_([classifier.Crime_Thrillers_Mystery, classifier.Mystery],
-            list(classifier.Police_Procedurals.parents))
+        #eq_([classifier.Crime_Thrillers_Mystery, classifier.Mystery],
+        #    list(classifier.Police_Procedurals.parents))
 
     def test_self_and_subgenres(self):
-        # Romance and Erotica
-        #  - Erotica
-        #  - Romance
-        #    - Contemporary Romance
-        #    - etc.
+        # Fantasy
+        #  - Epic Fantasy
+        #  - Historical Fantasy
+        #  - Urban Fantasy
         eq_(
-            set([classifier.Romance_Erotica, classifier.Erotica, 
-                 classifier.Romance, classifier.Contemporary_Romance,
-                 classifier.Historical_Romance, classifier.Paranormal_Romance,
-                 classifier.Regency_Romance, classifier.Suspense_Romance]),
-            set(list(classifier.Romance_Erotica.self_and_subgenres)))
+            set([classifier.Fantasy, classifier.Epic_Fantasy, 
+                 classifier.Historical_Fantasy, classifier.Urban_Fantasy,
+             ]),
+            set(list(classifier.Fantasy.self_and_subgenres)))
 
 class TestConsolidateWeights(object):
 
@@ -214,24 +243,24 @@ class TestConsolidateWeights(object):
         assert classifier.Romance not in w2
 
     def test_consolidate_through_multiple_levels(self):
-        # Romance & Erotica is the parent of the parent of Paranormal
+        # Romance is the parent of the parent of Paranormal
         # Romance, but its weight successfully flows down into
         # Paranormal Romance.
         weights = dict()
-        weights[classifier.Romance_Erotica] = 100
+        weights[classifier.Romance] = 100
         weights[classifier.Paranormal_Romance] = 4
         w2 = Classifier.consolidate_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
-        assert classifier.Romance_Erotica not in w2
+        assert classifier.Romance not in w2
 
     def test_consolidate_through_multiple_levels_from_multiple_sources(self):
         weights = dict()
-        weights[classifier.Romance_Erotica] = 50
+        weights[classifier.Romance] = 50
         weights[classifier.Romance] = 50
         weights[classifier.Paranormal_Romance] = 4
         w2 = Classifier.consolidate_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
-        assert classifier.Romance_Erotica not in w2
+        assert classifier.Romance not in w2
 
     def test_consolidate_fails_when_threshold_not_met(self):
         weights = dict()

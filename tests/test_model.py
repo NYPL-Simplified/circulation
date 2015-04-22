@@ -146,18 +146,22 @@ class TestIdentifier(DatabaseTest):
         isbn10 = '1449358063'
         isbn13 = '9781449358068'
         asin = 'B0088IYM3C'
-        
+        isbn13_with_dashes = '978-144-935-8068'        
+
         i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
         i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
         i_asin, new3 = Identifier.from_asin(self._db, asin)
+        i_isbn13_2, new4 = Identifier.from_asin(self._db, isbn13_with_dashes)
 
-        # The two ISBNs are equivalent, so they got turned into the same
+        # The three ISBNs are equivalent, so they got turned into the same
         # Identifier, using the ISBN13.
         eq_(i_isbn10, i_isbn13)
+        eq_(i_isbn13_2, i_isbn13)
         eq_(Identifier.ISBN, i_isbn10.type)
         eq_(isbn13, i_isbn10.identifier)
         eq_(True, new1)
         eq_(False, new2)
+        eq_(False, new4)
 
         eq_(Identifier.ASIN, i_asin.type)
         eq_(asin, i_asin.identifier)
@@ -1338,19 +1342,62 @@ class TestHold(DatabaseTest):
 class TestLane(DatabaseTest):
 
     def test_setup(self):
-        fantasy_genre, ignore = Genre.lookup(
-            self._db, classifier.Fantasy)
+        fantasy_genre, ig = Genre.lookup(self._db, classifier.Fantasy)
+        epic_fantasy, ig = Genre.lookup(self._db, classifier.Epic_Fantasy)
+        historical_fantasy, ig = Genre.lookup(
+            self._db, classifier.Historical_Fantasy)
+        urban_fantasy, ig = Genre.lookup(
+            self._db, classifier.Urban_Fantasy)
+        fantasy_subgenres = classifier.Fantasy.subgenres
 
-        fantasy_lane = Lane(
+        # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
+        # have their own lanes.
+        adult_fantasy_lane = Lane(
             self._db, fantasy_genre.name, 
-            [fantasy_genre], True, Lane.FICTION_DEFAULT_FOR_GENRE,
-            Classifier.AUDIENCE_ADULT)
+            [fantasy_genre], Lane.IN_SAME_LANE,
+            fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
+            audience=Classifier.AUDIENCE_ADULT,
+            sublanes=fantasy_subgenres
+        )
 
-        eq_([fantasy_genre], fantasy_lane.genres)
-        eq_(Classifier.AUDIENCE_ADULT, fantasy_lane.audience)
-        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy_lane.fiction)
-        eq_(True, fantasy_lane.include_subgenres)
+        fantasy_and_subgenres = set([
+            fantasy_genre, urban_fantasy, epic_fantasy, historical_fantasy])
 
+        # Although the subgenres have their own lanes, the parent lane
+        # also incorporates books from the subgenres.
+        eq_(fantasy_and_subgenres, set(adult_fantasy_lane.genres))
+        eq_(Classifier.AUDIENCE_ADULT, adult_fantasy_lane.audience)
+        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, adult_fantasy_lane.fiction)
+
+        # Here's a 'YA Fantasy' lane, which has no sublanes.
+        ya_fantasy_lane = Lane(
+            self._db, fantasy_genre.name, 
+            [fantasy_genre], Lane.IN_SAME_LANE,
+            fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
+            audience=Classifier.AUDIENCE_YOUNG_ADULT)
+
+        # The parent lane also includes books from the subgenres.
+        eq_(fantasy_and_subgenres, set(ya_fantasy_lane.genres))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, ya_fantasy_lane.audience)
+
+        # Here's a 'YA Science Fiction' lane, which has no sublanes,
+        # and which excludes Dystopian SF and Steampunk (which have their
+        # own lanes on the same level as 'YA Science Fiction')
+        ya_sf = Lane(
+            self._db, full_name="YA Science Fiction",
+            display_name="Science Fiction",
+            genres=[classifier.Science_Fiction],
+            subgenre_books_go=Lane.IN_SAME_LANE,
+            exclude_genres=[
+                classifier.Dystopian_SF, classifier.Steampunk],
+            audience=Classifier.AUDIENCE_YOUNG_ADULT)
+        eq_([], ya_sf.sublanes)
+        eq_("YA Science Fiction", ya_sf.name)
+        eq_("Science Fiction", ya_sf.display_name)
+        included_subgenres = [x.name for x in ya_sf.genres]
+        assert "Cyberpunk" in included_subgenres
+        assert "Dystopian SF" not in included_subgenres
+        assert "Steampunk" not in included_subgenres
 
 class TestLaneList(DatabaseTest):
     
@@ -1385,7 +1432,7 @@ class TestLaneList(DatabaseTest):
         eq_(True, fiction.fiction)
 
         eq_("Fantasy", fantasy.name)
-        eq_(Classifier.AUDIENCE_ADULT, fantasy.audience)
+        eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
         eq_([fantasy_genre], fantasy.genres)
         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
 
