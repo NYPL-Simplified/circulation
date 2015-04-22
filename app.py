@@ -498,7 +498,7 @@ def feed(lane):
             return make_featured_feed(annotator, lane, languages)
         feed_rep, cached = Representation.get(
             Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-            max_age=None)
+            max_age=60*60)
         feed_xml = feed_rep.content
     elif order == 'title':
         work_feed = LaneFeed(lane, languages, Edition.sort_title)
