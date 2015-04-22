@@ -947,7 +947,7 @@ class OverdriveClassifier(Classifier):
         Science_Fiction : "Science Fiction",
         # Science_Fiction_Fantasy : "Science Fiction & Fantasy",
         Self_Help : ["Self-Improvement", "Self-Help", "Self Help"],
-        Social_Sciences : "Sociology",
+        Social_Sciences : ["Sociology", "Gender Studies"],
         Sports : "Sports & Recreations",
         Study_Aids : "Study Aids & Workbooks",
         Technology : ["Technology", "Engineering", "Transportation"],
@@ -960,6 +960,8 @@ class OverdriveClassifier(Classifier):
 
     @classmethod
     def scrub_identifier(cls, identifier):
+        if identifier.startswith('Foreign Language Study'):
+            return 'Foreign Language Study'
         return identifier
 
     @classmethod
@@ -980,6 +982,14 @@ class OverdriveClassifier(Classifier):
         elif "Young Adult" in identifier:
             return cls.AUDIENCE_YOUNG_ADULT
         return cls.AUDIENCE_ADULT
+
+    @classmethod
+    def target_age(cls, identifier, name):
+        if identifier.startswith('Picture Book'):
+            return 0 # As early as possible
+        elif identifier.startswith('Beginning Reader'):
+            return 5 # Kindergarten
+        return None
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
@@ -1142,7 +1152,9 @@ class DeweyDecimalClassifier(Classifier):
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         for genre, identifiers in cls.GENRES.items():
-            if identifier == identifiers or identifier in identifiers:
+            if identifier == identifiers or (
+                    isinstance(identifiers, list) 
+                    and identifier in identifiers):
                 return genre
         return None
     
@@ -2715,6 +2727,59 @@ class GutenbergBookshelfClassifier(Classifier):
 
 class FreeformAudienceClassifier(Classifier):
     pass
+
+# TODO: This needs a lot of additions.
+genre_publishers = {
+    "Harlequin" : Romance,
+    "Pocket Books/Star Trek" : Media_Tie_in_SF,
+    "Kensington" : Urban_Fiction,
+    "Fodor's Travel Publications" : Travel,
+    "Marvel Entertainment, LLC" : Comics_Graphic_Novels,
+}
+
+genre_imprints = {
+    "Harlequin Intrigue" : Romantic_Suspense,
+    "Love Inspired Suspense" : Romantic_Suspense,
+    "Harlequin Historical" : Historical_Romance,
+    "Harlequin Historical Undone" : Historical_Romance,
+    "Frommers" : Travel,
+}
+
+audience_imprints = {
+    "Harlequin Teen" : Classifier.AUDIENCE_YOUNG_ADULT,
+    "HarperTeen" : Classifier.AUDIENCE_YOUNG_ADULT,
+    "Open Road Media Teen & Tween" : Classifier.AUDIENCE_YOUNG_ADULT,
+    "Rosen Young Adult" : Classifier.AUDIENCE_YOUNG_ADULT,
+}
+
+not_adult_publishers = set([
+    "Scholastic Inc.",
+    "Random House Children's Books",
+    "Little, Brown Books for Young Readers",
+    "Penguin Young Readers Group",
+    "Hachette Children's Books",
+    "Nickelodeon Publishing",
+])
+
+not_adult_imprints = set([
+    "Scholastic",
+    "Random House Books for Young Readers",
+    "HMH Books for Young Readers",
+    "Knopf Books for Young Readers",
+    "Delacorte Books for Young Readers",
+    "Open Road Media Young Readers",
+    "Macmillan Young Listeners",
+    "Bloomsbury Childrens",
+    "NYR Children's Collection",
+    "Bloomsbury USA Childrens",
+    "National Geographic Children's Books",
+])
+
+fiction_imprints = set(["Del Rey"])
+nonfiction_imprints = set(["Harlequin Nonfiction"])
+
+nonfiction_publishers = set(["Wiley"])
+fiction_publishers = set([])
 
 
 # Make a dictionary of classification schemes to classifiers.

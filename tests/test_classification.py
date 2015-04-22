@@ -254,13 +254,18 @@ class TestConsolidateWeights(object):
         assert classifier.Romance not in w2
 
     def test_consolidate_through_multiple_levels_from_multiple_sources(self):
-        weights = dict()
-        weights[classifier.Romance] = 50
-        weights[classifier.Romance] = 50
-        weights[classifier.Paranormal_Romance] = 4
-        w2 = Classifier.consolidate_weights(weights)
-        eq_(104, w2[classifier.Paranormal_Romance])
-        assert classifier.Romance not in w2
+        # This test can't work anymore because we no longer have a
+        # triply-nested category like Romance/Erotica -> Romance ->
+        # Paranormal Romance.
+        #
+        # weights = dict()
+        # weights[classifier.Romance_Erotica] = 50
+        # weights[classifier.Romance] = 50
+        # weights[classifier.Paranormal_Romance] = 4
+        # w2 = Classifier.consolidate_weights(weights)
+        # eq_(104, w2[classifier.Paranormal_Romance])
+        # assert classifier.Romance not in w2
+        pass
 
     def test_consolidate_fails_when_threshold_not_met(self):
         weights = dict()
@@ -270,6 +275,18 @@ class TestConsolidateWeights(object):
         eq_(100, w2[classifier.History])
         eq_(1, w2[classifier.Middle_East_History])
 
+
+class TestOverdriveClassifier(object):
+
+    def test_foreign_languages(self):
+        eq_("Foreign Language Study", 
+            Overdrive.scrub_identifier("Foreign Language Study - Italian"))
+
+    def test_target_age(self):
+        a = Overdrive.target_age
+        eq_(0, a("Picture Book Nonfiction", None))
+        eq_(5, a("Beginning Reader", None))
+        eq_(None, a("Fiction", None))
 
 # TODO: This needs to be moved into model I guess?
 

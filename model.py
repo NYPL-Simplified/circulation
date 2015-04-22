@@ -2650,40 +2650,91 @@ class Work(Base):
 
         self.quality = Measurement.overall_quality(measurements)
 
+    def genre_weights_from_metadata(self, identifier_ids):
+        """Use work metadata to simulate genre classifications.
+
+        This is basic stuff, like: Harlequin tends to publish
+        romances.
+        """
+        fiction = Counter()
+        genre = Counter()
+        audience = Counter()
+        target_age = Counter()
+
+        if self.title and ('Star Trek:' in self.title
+            or 'Star Wars:' in self.title
+            or ('Jedi' in self.title 
+                and self.imprint=='Del Rey')
+        ):
+            genre[classifier.Media_Tie_in_SF] = 100
+
+        publisher = self.publisher
+        imprint = self.imprint
+        if (imprint in classifier.nonfiction_imprints
+            or publisher in classifier.nonfiction_publishers):
+            fiction[False] = 100
+        elif (imprint in classifier.fiction_imprints
+              or publisher in classifier.fiction_publishers):
+            fiction[True] = 100
+
+        if imprint in classifier.genre_imprints:
+            genre[classifier.genre_imprints[imprint]] += 100
+        elif publisher in classifier.genre_publishers:
+            genre[classifier.genre_publishers[publisher]] += 100
+
+        if imprint in classifier.audience_imprints:
+            audience[classifier.audience_imprints[imprint]] += 100
+        elif (publisher in classifier.not_adult_publishers
+              or imprint in classifier.not_adult_imprints):
+            audience[Classifier.AUDIENCE_ADULT] -= 100
+
+        return fiction, genre, target_age, audience
+
     def assign_genres(self, identifier_ids, cutoff=0.15):
         _db = Session.object_session(self)
 
         classifications = Identifier.classifications_for_identifier_ids(
             _db, identifier_ids)
-        fiction_s = Counter()
-        genre_s = Counter()
-        audience_s = Counter()
+
+        # Start off with some simple guesses based on metadata, e.g. the
+        # publisher.
+        fiction_s, genre_s, target_age_s, audience_s = (
+            self.genre_weights_from_metadata(identifier_ids))
+
         for classification in classifications:
             subject = classification.subject
             if not subject.checked:
                 subject.assign_to_genre()
             if (not subject.fiction and not subject.genre
                 and not subject.audience):
+                # This Classification is completely irrelevant to how
+                # this book is classified.
                 continue
+
             weight = classification.scaled_weight
-            fiction_s[subject.fiction] += weight
+
+            if subject.fiction:
+                fiction_s[subject.fiction] += weight
+
             if Subject.type == Subject.OVERDRIVE:
                 # We trust Overdrive classifications of audience quite
                 # a bit. We don't trust 3M classifications more than
-                # usual because it doesn't distinguish between
+                # usual because 3M doesn't distinguish between
                 # childrens' and YA.
                 audience_weight = weight * 50
             else:
                 audience_weight = weight
             audience_s[subject.audience] += audience_weight
+
             if subject.genre:
                 genre_s[subject.genre] += weight
+
         if fiction_s[True] > fiction_s[False]:
             fiction = True
-        elif fiction_s[False] > fiction_s[True]:
-            fiction = False
         else:
-            fiction = None
+            # We default to nonfiction.
+            fiction = False
+
         unmarked = audience_s[None]
         adult = audience_s[Classifier.AUDIENCE_ADULT]
         audience = Classifier.AUDIENCE_ADULT
@@ -2694,17 +2745,27 @@ class Work(Base):
         # To be classified as a young adult or childrens' book, there
         # must be twice as many votes for that status as for the
         # 'adult' status, or, if there are no 'adult' classifications,
-        # the default status.
+        # it must have at least 10 weighted votes.
         if adult:
-            threshold = adult
+            threshold = adult * 2
         else:
-            threshold = unmarked
-        threshold *= 2
+            threshold = 10
 
         if audience_s[Classifier.AUDIENCE_YOUNG_ADULT] > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
         elif audience_s[Classifier.AUDIENCE_CHILDREN] > threshold:
             audience = Classifier.AUDIENCE_CHILDREN
+
+        # Remove any genres whose fiction status is inconsistent with the
+        # (independently determined) fiction status of the book.
+        #
+        # It doesn't matter if a book is classified as 'science
+        # fiction' 100 times; if we know it's nonfiction, it can't be
+        # science fiction. (It's probably a history of science fiction
+        # or something.)
+        for genre, weight in list(genre_s.items()):
+            if genre.default_fiction != fiction:
+                del genre_s[genre]
 
         # Clear any previous genre assignments.
         for i in self.work_genres:
