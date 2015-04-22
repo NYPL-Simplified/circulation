@@ -2220,6 +2220,7 @@ class Work(Base):
             Edition.language.in_(languages),
             Work.was_merged_into == None,
             Work.presentation_ready == True,
+            Edition.medium == Edition.BOOK_MEDIUM,
         )
         return q
 
