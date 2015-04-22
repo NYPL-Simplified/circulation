@@ -484,12 +484,18 @@ class GenreData(object):
         """Create a GenreData object. Add it to a dictionary and a namespace.
         """
         if isinstance(name, tuple):
-            name, default_to_fiction = name
+            name, default_fiction = name
+        default_fiction = None
+        default_audience = None
+        if parent:
+            default_fiction = parent.is_fiction
+            default_audience = parent.audience_restriction
         if isinstance(name, dict):
-            subgenres = name['subgenres']
-            name = name['name']
-            fiction = name['fiction']
-            audience_restriction = name.get('audience', None)
+            data = name
+            subgenres = data.get('subgenres', [])
+            name = data['full_name']
+            fiction = data.get('fiction', default_fiction)
+            audience_restriction = data.get('audience', default_audience)
         if name in genres:
             raise ValueError("Duplicate genre name! %s" % name)
 
