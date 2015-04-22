@@ -146,18 +146,22 @@ class TestIdentifier(DatabaseTest):
         isbn10 = '1449358063'
         isbn13 = '9781449358068'
         asin = 'B0088IYM3C'
-        
+        isbn13_with_dashes = '978-144-935-8068'        
+
         i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
         i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
         i_asin, new3 = Identifier.from_asin(self._db, asin)
+        i_isbn13_2, new4 = Identifier.from_asin(self._db, isbn13_with_dashes)
 
-        # The two ISBNs are equivalent, so they got turned into the same
+        # The three ISBNs are equivalent, so they got turned into the same
         # Identifier, using the ISBN13.
         eq_(i_isbn10, i_isbn13)
+        eq_(i_isbn13_2, i_isbn13)
         eq_(Identifier.ISBN, i_isbn10.type)
         eq_(isbn13, i_isbn10.identifier)
         eq_(True, new1)
         eq_(False, new2)
+        eq_(False, new4)
 
         eq_(Identifier.ASIN, i_asin.type)
         eq_(asin, i_asin.identifier)
