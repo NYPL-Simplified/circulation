@@ -264,7 +264,7 @@ fiction_genres = [
         "Werewolves",
         "Occult Horror",
     ]),
-    "Humorous Fiction",
+    dict(full_name="Humorous Fiction", display_name="Humor"),
     "Literary Fiction",
     ("LGBTQ Fiction", [], Classifier.AUDIENCE_YOUNG_ADULT),
     ("Mystery", [
@@ -365,7 +365,7 @@ nonfiction_genres = [
         "House & Home",
         "Pets",
     ]),
-    "Humorous Nonfiction",
+    dict(full_name="Humorous Nonfiction", display_name="Humor"),
     ("Entertainment", [
         "Film & TV",
         "Music",
@@ -469,7 +469,11 @@ class GenreData(object):
                         name, subgenres = item
                     elif len(item) == 3:
                         name, subgenres, audience_restriction = item
-    
+                elif isinstance(item, dict):
+                    name = item['full_name']
+                    subgenres = item.get('subgenres', [])
+                    audience_restriction = item.get('audience_restriction')
+
                 cls.add_genre(
                     namespace, genres, name, subgenres, fiction,
                     None, audience_restriction)
