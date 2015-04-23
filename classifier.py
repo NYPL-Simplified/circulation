@@ -39,12 +39,18 @@ class Classifier(object):
     OVERDRIVE = "Overdrive"
     THREEM = "3M"
     TAG = "tag"   # Folksonomic tags.
-    FREEFORM_AUDIENCE = "schema:audience" # "0-2", "YA", "Adult", etc.
+
+    # "K-4", "Grade 2", "YA", "Adult", etc.
+    # We know this says something about the audience but we're not sure what.
+    FREEFORM_AUDIENCE = "schema:audience"
+    GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
+    AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
     PLACE = "schema:Place"
     PERSON = "schema:Person"
     ORGANIZATION = "schema:Organization"
+    LEXILE_SCORE = "Lexile"
 
     AUDIENCE_ADULT = "Adult"
     AUDIENCE_ADULTS_ONLY = "Adults Only"
@@ -1291,7 +1297,7 @@ class KeywordBasedClassifier(Classifier):
     )
     NONFICTION_INDICATORS = match_kw(
         "history", "biography", "histories", "biographies", "autobiography",
-        "autobiographies", "nonfiction")
+        "autobiographies", "nonfiction", "essays", "letters")
     JUVENILE_INDICATORS = match_kw(
         "for children", "children's", "juvenile",
         "nursery rhymes", "9-12")

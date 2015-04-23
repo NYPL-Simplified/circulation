@@ -30,6 +30,7 @@ from model import (
     LicensePool,
     Measurement,
     Representation,
+    Subject,
     Timestamp,
     UnresolvedIdentifier,
     Work,
@@ -1328,6 +1329,24 @@ class TestAssignGenres(DatabaseTest):
         fiction, genre, target_age, audience = for_young_readers.genre_weights_from_metadata([])
         eq_(-100, audience[Classifier.AUDIENCE_ADULT])
 
+    def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
+        work = self._work()
+        work.primary_edition.title = "Science Fiction: A Comprehensive History"
+        i = work.primary_edition.primary_identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        i.classify(source, Subject.OVERDRIVE, "Nonfiction", weight=1000)
+        i.classify(source, Subject.OVERDRIVE, "Science Fiction", weight=100)
+        i.classify(source, Subject.OVERDRIVE, "History", weight=10)
+        ids = [i.id]
+        ([history], fiction, audience) = work.assign_genres(ids)
+
+        # This work really looks like science fiction, but it looks
+        # *even more* like nonfiction, and science fiction is not a
+        # genre of nonfiction. So this book can't be science
+        # fiction. It must be history.
+        eq("History", history.genre.name)
+        eq(False, fiction)
+        eq(Classifier.AUDIENCE_ADULT, audience)
 
 class TestLoans(DatabaseTest):
 

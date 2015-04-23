@@ -2705,7 +2705,7 @@ class Work(Base):
             subject = classification.subject
             if not subject.checked:
                 subject.assign_to_genre()
-            if (not subject.fiction and not subject.genre
+            if (subject.fiction is None and not subject.genre
                 and not subject.audience):
                 # This Classification is completely irrelevant to how
                 # this book is classified.
@@ -2713,7 +2713,7 @@ class Work(Base):
 
             weight = classification.scaled_weight
 
-            if subject.fiction:
+            if subject.fiction is not None:
                 fiction_s[subject.fiction] += weight
 
             if Subject.type == Subject.OVERDRIVE:
@@ -2913,6 +2913,7 @@ class Measurement(Base):
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
     AWARDS = "http://librarysimplified.org/terms/rel/awards"
+    LEXILE_SCORE = "http://librarysimplified.org/terms/rel/lexile-score"
 
     GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
@@ -3330,6 +3331,10 @@ class Subject(Base):
     THREEM = Classifier.THREEM  # 3M's classification system
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
+
+    GRADE_LEVEL = Classifier.GRADE_LEVEL
+    AGE_RANGE = Classifier.AGE_RANGE
+    LEXILE = Classifier.LEXILE
 
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
