@@ -2913,7 +2913,6 @@ class Measurement(Base):
     DOWNLOADS = "https://schema.org/UserDownloads"
     PAGE_COUNT = "https://schema.org/numberOfPages"
     AWARDS = "http://librarysimplified.org/terms/rel/awards"
-    LEXILE_SCORE = "http://librarysimplified.org/terms/rel/lexile-score"
 
     GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
@@ -3334,7 +3333,7 @@ class Subject(Base):
 
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
-    LEXILE = Classifier.LEXILE
+    LEXILE_SCORE = Classifier.LEXILE_SCORE
 
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
