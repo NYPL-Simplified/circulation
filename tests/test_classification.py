@@ -13,6 +13,7 @@ from ..classifier import (
     KeywordBasedClassifier as Keyword,
     GradeLevelClassifier,
     AgeClassifier,
+    InterestLevelClassifier,
     )
 
 class TestClassifierLookup(object):
@@ -22,6 +23,9 @@ class TestClassifierLookup(object):
         eq_(LCC, Classifier.lookup(Classifier.LCC))
         eq_(LCSH, Classifier.lookup(Classifier.LCSH))
         eq_(FAST, Classifier.lookup(Classifier.FAST))
+        eq_(GradeLevelClassifier, Classifier.lookup(Classifier.GRADE_LEVEL))
+        eq_(AgeClassifier, Classifier.lookup(Classifier.AGE_RANGE))
+        eq_(InterestLevelClassifier, Classifier.lookup(Classifier.INTEREST_LEVEL))
         eq_(Overdrive, Classifier.lookup(Classifier.OVERDRIVE))
         eq_(None, Classifier.lookup('no-such-key'))
 
@@ -96,6 +100,25 @@ class TestTargetAge(object):
         eq_(None, f("Third-graders"))
         eq_(None, f("First graders"))
         eq_(None, f("Fifth grade (Education)--Curricula"))
+
+class TestInterestLevelClassifier(object):
+
+    def test_audience(self):
+        def f(t):
+            return InterestLevelClassifier.audience(t, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, f("lg"))
+        eq_(Classifier.AUDIENCE_CHILDREN, f("mg"))
+        eq_(Classifier.AUDIENCE_CHILDREN, f("mg+"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("ug"))
+
+    def test_target_age(self):
+        def f(t):
+            return InterestLevelClassifier.target_age(t, None)
+        eq_(5, f("lg"))
+        eq_(9, f("mg"))
+        eq_(9, f("mg+"))
+        eq_(14, f("ug"))
+
 
 class TestDewey(object):
 

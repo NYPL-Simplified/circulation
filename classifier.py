@@ -280,6 +280,28 @@ class GradeLevelClassifier(Classifier):
         return None
 
 
+class InterestLevelClassifier(Classifier):
+
+    @classmethod
+    def audience(cls, identifier, name):
+        if identifier in ('lg', 'mg+', 'mg'):
+            return cls.AUDIENCE_CHILDREN
+        elif identifier == 'ug':
+            return cls.AUDIENCE_YOUNG_ADULT
+        else:
+            return None
+
+    @classmethod
+    def target_age(cls, identifier, name):
+        if identifier == 'lg':
+            return 5
+        if identifier in ('mg+', 'mg'):
+            return 9
+        if identifier == 'ug':
+            return 14
+        return None
+
+
 class AgeClassifier(Classifier):
     # Regular expressions that match common ways of expressing ages.
     age_res = [
@@ -295,12 +317,16 @@ class AgeClassifier(Classifier):
         re.compile("([0-9]+) ?- ?[0-9]+", re.I),
     ]
 
+    baby_re = re.compile("^baby ?-")
+
     @classmethod
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
         if require_explicit_age_marker:
             res = cls.age_res
         else:
             res = cls.age_res + cls.generic_age_res
+            if identifier and cls.baby_re.search(identifier):
+                return 0
 
         for r in res:
             for k in identifier, name:
@@ -2881,6 +2907,8 @@ Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
 Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
+Classifier.classifiers[Classifier.AGE_RANGE] = AgeClassifier
 Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
+Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
