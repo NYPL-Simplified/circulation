@@ -3334,6 +3334,8 @@ class Subject(Base):
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
+    ATOS_SCORE = Classifier.ATOS_SCORE
+    INTEREST_LEVEL = Classifier.INTEREST_LEVEL
 
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC

@@ -1344,9 +1344,9 @@ class TestAssignGenres(DatabaseTest):
         # *even more* like nonfiction, and science fiction is not a
         # genre of nonfiction. So this book can't be science
         # fiction. It must be history.
-        eq("History", history.genre.name)
-        eq(False, fiction)
-        eq(Classifier.AUDIENCE_ADULT, audience)
+        eq_("History", history.genre.name)
+        eq_(False, fiction)
+        eq_(Classifier.AUDIENCE_ADULT, audience)
 
 class TestLoans(DatabaseTest):
 

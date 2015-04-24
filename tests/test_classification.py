@@ -11,6 +11,8 @@ from ..classifier import (
     OverdriveClassifier as Overdrive,
     FASTClassifier as FAST,
     KeywordBasedClassifier as Keyword,
+    GradeLevelClassifier,
+    AgeClassifier,
     )
 
 class TestClassifierLookup(object):
@@ -24,25 +26,76 @@ class TestClassifierLookup(object):
         eq_(None, Classifier.lookup('no-such-key'))
 
 class TestTargetAge(object):
-    eq_(5, Classifier.target_age("grades k-2", None))
-    eq_(5, Classifier.target_age(None, "grades 0-1"))
-    eq_(6, Classifier.target_age("first grade", None))
-    eq_(6, Classifier.target_age("1st grade", None))
-    eq_(6, Classifier.target_age("grade 1", None))
-    eq_(7, Classifier.target_age("second grade", None))
-    eq_(7, Classifier.target_age("2nd grade", None))
-    eq_(8, Classifier.target_age("third grade", None))
-    eq_(9, Classifier.target_age("fourth grade", None))
-    eq_(10, Classifier.target_age("fifth grade", None))
-    eq_(11, Classifier.target_age("sixth grade", None))
-    eq_(12, Classifier.target_age("7th grade", None))
-    eq_(13, Classifier.target_age("grade 8", None))
-    eq_(14, Classifier.target_age("9th grade", None))
-    eq_(15, Classifier.target_age("grades 10-12", None))
-    eq_(17, Classifier.target_age("12th grade", None))
-    eq_(None, Classifier.target_age("grade 50", None))
-    eq_(None, Classifier.target_age("road grades -- history", None))
-    eq_(None, Classifier.target_age(None, None))
+    def test_age_from_grade_classifier(self):
+        def f(t):
+            return GradeLevelClassifier.target_age(t, None)
+        eq_(5, GradeLevelClassifier.target_age(None, "grades 0-1"))
+        eq_(5, f("grades k-2"))
+        eq_(6, f("first grade"))
+        eq_(6, f("1st grade"))
+        eq_(6, f("grade 1"))
+        eq_(7, f("second grade"))
+        eq_(7, f("2nd grade"))
+        eq_(8, f("third grade"))
+        eq_(9, f("fourth grade"))
+        eq_(10, f("fifth grade"))
+        eq_(11, f("sixth grade"))
+        eq_(12, f("7th grade"))
+        eq_(13, f("grade 8"))
+        eq_(14, f("9th grade"))
+        eq_(15, f("grades 10-12"))
+        eq_(17, f("12th grade"))
+
+        # target_age() will assume that a number it sees is talking
+        # about a grade level, unless require_explicit_grade_marker is
+        # True.
+        eq_(7, GradeLevelClassifier.target_age("2-4", None, False))
+        eq_(None, GradeLevelClassifier.target_age("2-4", None, True))
+        eq_(14, f("Children's Audio - 9-12"))
+        eq_(None, GradeLevelClassifier.target_age(
+            "Children's Audio - 9-12", None, True))
+
+        eq_(None, GradeLevelClassifier.target_age("grade 50", None))
+        eq_(None, GradeLevelClassifier.target_age("road grades -- history", None))
+        eq_(None, GradeLevelClassifier.target_age(None, None))
+
+    def test_age_from_age_classifier(self):
+        def f(t):
+            return AgeClassifier.target_age(t, None)
+        eq_(9, f("Ages 9-12"))
+        eq_(9, f("9 and up"))
+        eq_(9, f("9-12"))
+        eq_(9, f("9 years"))
+        eq_(9, f("9 - 12 years"))
+        eq_(12, f("12 - 14"))
+        eq_(0, f("0-3"))
+        eq_(None, f("K-3"))
+
+        eq_(None, AgeClassifier.target_age("K-3", None, True))
+        eq_(None, AgeClassifier.target_age("9-12", None, True))
+        eq_(9, AgeClassifier.target_age("9 and up", None, True))
+
+    def test_age_from_keyword_classifier(self):
+        def f(t):
+            return LCSH.target_age(t, None)
+        eq_(5, f("Interest age: from c 5 years"))
+        eq_(9, f("Children's Books / 9-12 Years"))
+        eq_(9, f("Ages 9-12"))
+        eq_(9, f("Children's Books/Ages 9-12 Fiction"))
+        eq_(4, f("Children's Books / 4-8 Years"))
+        eq_(0, f("For children c 0-2 years"))
+        eq_(12, f("Children: Young Adult (Gr. 7-9)"))
+        eq_(8, f("Grades 3-5 (Common Core History: The Alexandria Plan)"))
+        eq_(9, f("Children: Grades 4-6"))
+
+        # This could definitely be better, but we get in the neighborhood
+        eq_(3, f("Baby-3 Years"))
+
+        eq_(None, f("Children's Audio - 9-12")) # Doesn't specify grade or years
+        eq_(None, f("Children's 9-12 - Literature - Classics / Contemporary"))
+        eq_(None, f("Third-graders"))
+        eq_(None, f("First graders"))
+        eq_(None, f("Fifth grade (Education)--Curricula"))
 
 class TestDewey(object):
 

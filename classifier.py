@@ -40,17 +40,22 @@ class Classifier(object):
     THREEM = "3M"
     TAG = "tag"   # Folksonomic tags.
 
-    # "K-4", "Grade 2", "YA", "Adult", etc.
-    # We know this says something about the audience but we're not sure what.
-    FREEFORM_AUDIENCE = "schema:audience"
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
+
+    # We know this says something about the audience but we're not sure what.
+    # Could be any of the values from GRADE_LEVEL or AGE_RANGE, plus
+    # "YA", "Adult", etc.
+    FREEFORM_AUDIENCE = "schema:audience"
+
     GUTENBERG_BOOKSHELF = "gutenberg:bookshelf"
     TOPIC = "schema:Topic"
     PLACE = "schema:Place"
     PERSON = "schema:Person"
     ORGANIZATION = "schema:Organization"
     LEXILE_SCORE = "Lexile"
+    ATOS_SCORE = "ATOS"
+    INTEREST_LEVEL = "Interest Level"
 
     AUDIENCE_ADULT = "Adult"
     AUDIENCE_ADULTS_ONLY = "Adults Only"
@@ -61,37 +66,6 @@ class Classifier(object):
 
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
-
-    # How old a kid is when they start grade N in the US.
-    american_grade_to_age = {
-        # Preschool: 3-4 years
-
-        # Easy readers
-        '0' : 5, # Kindergarten
-        'k' : 5,
-        'first' : 6,
-        '1' : 6,
-        'second' : 7,
-        '2' : 7,
-
-        # Chapter Books
-        'third' : 8,
-        '3' : 8,
-        'fourth' : 9,
-        '4' : 9,
-        'fifth' : 10,
-        '5' : 10,
-        'sixth' : 11,
-        '6' : 11,
-        '7' : 12,
-        '8' : 13,
-
-        # YA
-        '9' : 14,
-        '10' : 15,
-        '11' : 16,
-        '12': 17,
-    }
 
     @classmethod
     def consolidate_weights(cls, weights, subgenre_swallows_parent_at=0.03):
@@ -217,20 +191,84 @@ class Classifier(object):
             return cls.AUDIENCE_YOUNG_ADULT
         return None
 
-    grade_res = map(
-        re.compile, [
-            "grades? ([k0-9]+)", 
-            "([0-9]+)[tns][hdt] grade",
-            "([a-z]+) grade",
-        ]
-    )
-
     @classmethod
     def target_age(cls, identifier, name):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
-        for r in cls.grade_res:
+        return None
+
+class GradeLevelClassifier(Classifier):
+    # How old a kid is when they start grade N in the US.
+    american_grade_to_age = {
+        # Preschool: 3-4 years
+        'preschool' : 3,
+        'pre-school' : 3,
+        'p' : 3,
+
+        # Easy readers
+        'kindergarten' : 5,
+        'k' : 5,
+        '0' : 5,
+        'first' : 6,
+        '1' : 6,
+        'second' : 7,
+        '2' : 7,
+
+        # Chapter Books
+        'third' : 8,
+        '3' : 8,
+        'fourth' : 9,
+        '4' : 9,
+        'fifth' : 10,
+        '5' : 10,
+        'sixth' : 11,
+        '6' : 11,
+        '7' : 12,
+        '8' : 13,
+
+        # YA
+        '9' : 14,
+        '10' : 15,
+        '11' : 16,
+        '12': 17,
+    }
+
+    # Regular expressions that match common ways of expressing grade
+    # levels.
+    grade_res = [
+        re.compile(x, re.I) for x in [
+            "grades? ([kp0-9]+)", 
+            "gr\.? ([kp0-9]+)", 
+            "([0-9]+)[tns][hdt] grade",
+            "([a-z]+) grade",
+            "^(kindergarten|preschool)\b",
+        ]
+    ]
+
+    generic_grade_res = [
+        re.compile(r"^([0-9]+)\b", re.I),
+        re.compile(r"^([kp])\b", re.I),
+        re.compile(r"([0-9]+) ?- ?[0-9]+", re.I),
+    ]
+
+    @classmethod
+    def target_age(cls, identifier, name, require_explicit_grade_marker=False):
+
+        if (identifier and "education" in identifier) or (name and 'education' in name):
+            # This is a book about teaching, e.g. fifth grade.
+            return None
+
+        if (identifier and 'graders' in identifier) or (name and 'graders' in name):
+            # This is a book about, e.g. fifth graders.
+            return None
+
+        if require_explicit_grade_marker:
+            res = cls.grade_res
+        else:
+            res = cls.grade_res + cls.generic_grade_res
+
+        for r in res:
             for k in identifier, name:
                 if not k:
                     continue
@@ -239,6 +277,40 @@ class Classifier(object):
                     grade = m.groups()[0]
                     if grade in cls.american_grade_to_age:
                         return cls.american_grade_to_age[grade]
+        return None
+
+
+class AgeClassifier(Classifier):
+    # Regular expressions that match common ways of expressing ages.
+    age_res = [
+        re.compile(x, re.I) for x in [
+            "ages ([0-9]+) ?- ?[0-9]+",
+            "([0-9]+) ?- ?[0-9]+ year",
+            "([0-9]+) year",
+            "([0-9]+) and up",
+        ]
+    ]
+
+    generic_age_res = [
+        re.compile("([0-9]+) ?- ?[0-9]+", re.I),
+    ]
+
+    @classmethod
+    def target_age(cls, identifier, name, require_explicit_age_marker=False):
+        if require_explicit_age_marker:
+            res = cls.age_res
+        else:
+            res = cls.age_res + cls.generic_age_res
+
+        for r in res:
+            for k in identifier, name:
+                if not k:
+                    continue
+                m = r.search(k)
+                if m:
+                    age = m.groups()[0]
+                    if age:
+                        return int(age)
         return None
 
 
@@ -2463,6 +2535,19 @@ class KeywordBasedClassifier(Classifier):
                 break
         return most_specific_genre
 
+    @classmethod
+    def target_age(cls, identifier, name):
+        """This tag might contain a grade level, an age in years, or nothing.
+        We will try both a grade level and an age in years, but we
+        will require that the tag indicate what's being measured. A
+        tag like "9-12" will not match anything because we don't know if it's
+        age 9-12 or grade 9-12.
+        """
+        age = AgeClassifier.target_age(identifier, name, True)
+        if age is None:
+            age = GradeLevelClassifier.target_age(identifier, name, True)
+        return age
+
 class LCSHClassifier(KeywordBasedClassifier):
     pass
 
@@ -2796,5 +2881,6 @@ Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
 Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
+Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
