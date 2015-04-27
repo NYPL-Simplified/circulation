@@ -2514,7 +2514,7 @@ class Work(Base):
         flattened_data = Identifier.flatten_identifier_ids(data)
 
         if classify:
-            workgenres, self.fiction, self.audience = self.assign_genres(
+            workgenres, self.fiction, self.audience, self.target_age = self.assign_genres(
                 flattened_data)
 
         if choose_summary:
@@ -2561,9 +2561,13 @@ class Work(Base):
                 fiction = "Nonfiction"
             else:
                 fiction = "???"
-            print " %(fiction)s a=%(audience)s" % (
+            if self.target_age:
+                target_age = " age=" + str(self.target_age)
+            else:
+                target_age = ""
+            print " %(fiction)s a=%(audience)s%(target_age)s" % (
                 dict(fiction=fiction,
-                     audience=self.audience))
+                     audience=self.audience, target_age=target_age))
             print " " + ", ".join(repr(wg) for wg in self.work_genres)
             if self.summary:
                 d = " Description (%.2f) %s" % (
@@ -2701,12 +2705,14 @@ class Work(Base):
         fiction_s, genre_s, target_age_s, audience_s = (
             self.genre_weights_from_metadata(identifier_ids))
 
+        target_age_relevant_classifications = []
+
         for classification in classifications:
             subject = classification.subject
             if not subject.checked:
                 subject.assign_to_genre()
             if (subject.fiction is None and not subject.genre
-                and not subject.audience):
+                and not subject.audience and not subject.target_age):
                 # This Classification is completely irrelevant to how
                 # this book is classified.
                 continue
@@ -2715,19 +2721,13 @@ class Work(Base):
 
             if subject.fiction is not None:
                 fiction_s[subject.fiction] += weight
-
-            if Subject.type == Subject.OVERDRIVE:
-                # We trust Overdrive classifications of audience quite
-                # a bit. We don't trust 3M classifications more than
-                # usual because 3M doesn't distinguish between
-                # childrens' and YA.
-                audience_weight = weight * 50
-            else:
-                audience_weight = weight
-            audience_s[subject.audience] += audience_weight
+            audience_s[subject.audience] += weight
 
             if subject.genre:
                 genre_s[subject.genre] += weight
+
+            if subject.target_age:
+                target_age_relevant_classifications.append(classification)
 
         if fiction_s[True] > fiction_s[False]:
             fiction = True
@@ -2794,7 +2794,34 @@ class Work(Base):
             wg.affinity = score/total_weight
             workgenres.append(wg)
 
-        return workgenres, fiction, audience
+        target_ages = []
+        most_relevant = None
+        for c in target_age_relevant_classifications:
+            score = c.quality_as_indicator_of_target_age
+            if not score:
+                continue
+            target = c.subject.target_age
+            if not most_relevant or score > most_relevant:
+                most_relevant = score
+                target_ages = [target]
+            elif score == most_relevant:
+                target_ages.append(target)
+
+        if target_ages:
+            target_age = max(target_ages)
+            # If we have a well-attested target age, we can make
+            # an audience decision on that basis.
+            if (most_relevant > 
+                Classification._quality_as_indicator_of_target_age[Subject.TAG]):
+                if target_age < 14:
+                    audience = Classifier.AUDIENCE_CHILDREN
+                elif target_age < 18:
+                    audience = Classifier.AUDIENCE_YOUNG_ADULT
+                elif classifier not in Classifier.ADULT_AUDIENCES:
+                    audience = Classifier.AUDIENCE_ADULT
+        else:
+            target_age = None
+        return workgenres, fiction, audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -3541,6 +3568,34 @@ class Classification(Base):
         elif self.data_source.name == DataSource.OVERDRIVE:
             weight = weight * 50
         return weight
+
+    _quality_as_indicator_of_target_age = {
+        # These measure age appropriateness.
+        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
+        Subject.OVERDRIVE : 15,
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+
+        # These measure reading level, except for TAG, which measures
+        # who-knows-what.
+        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 5,
+        Subject.TAG : 2,
+        Subject.LEXILE_SCORE : 1,
+        Subject.ATOS_SCORE: 1,
+    }
+    
+    @property
+    def quality_as_indicator_of_target_age(self):
+        if not self.subject.target_age:
+            return 0
+        data_source = self.data_source.name
+        subject_type = self.subject.type
+        q = self._quality_as_indicator_of_target_age
+        if subject_type in q:
+            return q[subject_type]
+        if (data_source, subject_type) in q:
+            return q[(data_source, subject_type)]
+        return 0
 
 # Non-database objects.
 
