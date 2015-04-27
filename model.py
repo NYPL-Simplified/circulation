@@ -3425,8 +3425,12 @@ class Subject(Base):
             genre = ' genre="%s"' % self.genre.name
         else:
             genre = ""
-        a = u'[%s:%s%s%s%s%s]' % (
-            self.type, self.identifier, name, fiction, audience, genre)
+        if self.target_age is not None:
+            age_range= " (%s years)" % self.target_age
+        else:
+            age_range = ""
+        a = u'[%s:%s%s%s%s%s%s]' % (
+            self.type, self.identifier, name, fiction, audience, genre, age_range)
         return a.encode("utf8")
 
     @classmethod
@@ -3496,9 +3500,13 @@ class Subject(Base):
         genredata, audience, target_age, fiction = classifier.classify(self)
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = None
-        if not audience and target_age:
-            if target_age >= 14:
+        if not audience and target_age is not None:
+            if target_age >= 18:
+                audience = Classifier.AUDIENCE_ADULT
+            elif target_age >= 14:
                 audience = Classifier.AUDIENCE_YOUNG_ADULT
+            else:
+                audience = Classifier.AUDIENCE_CHILDREN
         if genredata:
             _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)

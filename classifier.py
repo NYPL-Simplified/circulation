@@ -1081,7 +1081,7 @@ class OverdriveClassifier(Classifier):
     @classmethod
     def audience(cls, identifier, name):
         if ("Juvenile" in identifier or "Picture Book" in identifier
-            or "Beginning Reader" in identifier):
+            or "Beginning Reader" in identifier or "Children's" in identifier):
             return cls.AUDIENCE_CHILDREN
         elif "Young Adult" in identifier:
             return cls.AUDIENCE_YOUNG_ADULT
