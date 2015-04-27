@@ -11,7 +11,7 @@ class ExternalSearchIndex(Elasticsearch):
         self.works_index = works_index or os.environ.get('SEARCH_WORKS_INDEX')
         use_ssl = url and url.startswith('https://')
         super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
-        if not self.indices.exists(self.works_index):
+        if self.works_index and not self.indices.exists(self.works_index):
             self.indices.create(self.works_index)
 
     def query_works(self, query_string, medium, languages, fiction, audience,
