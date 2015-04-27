@@ -27,6 +27,7 @@ from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
 import app
+import time
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -211,10 +212,15 @@ class PrecalculateFeaturedFeedsScript(Script):
             def get(*args, **kwargs):
                 return app.make_featured_feed(annotator, lane, languages)
 
+            a = time.time()
             feed_rep, ignore = Representation.get(
                 self._db, cache_url, get,
                 accept=OPDSFeed.ACQUISITION_FEED_TYPE,
                 max_age=0)
+            b = time.time()
+            print "!!! Built %r feed for %s in %.2fsec" % (
+                languages, lane.name, b-a)
+            print
 
     def run(self):
         client = app.app.test_client()
@@ -223,7 +229,7 @@ class PrecalculateFeaturedFeedsScript(Script):
         queue = self.lanes.lanes
         while queue:
             new_queue = []
-            print "!! %d entries in queue!" % len(queue)
+            print "!! Beginning of loop: %d lanes to process" % len(queue)
             for l in queue:
                 self.make_lane(l)
                 new_queue.extend(l.sublanes)

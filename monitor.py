@@ -122,6 +122,10 @@ class CirculationPresentationReadyMonitor(Monitor):
 
         print "All done."
 
+    def process_identifier(self, identifier):
+        batch = [identifier]
+        self.process_batch(batch)
+
     def process_batch(self, batch):
         print "%d batch" % len(batch)
         response = self.lookup.lookup(batch)
