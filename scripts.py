@@ -261,27 +261,27 @@ class WorkReclassifierScript(WorkProcessingScript):
         q = db.query(Work)
         if self.restrict_to_source:
             q = q.join(Edition).filter(Edition.data_source==self.restrict_to_source)
-        q = q.order_by(func.random())
+        q = q.order_by(Work.id)
 
         print "That's %d works." % q.count()
 
-        #q = q.limit(batch_size)
-        #while q.count():
-        a = 0
-        for work in q:
-            # old_genres = work.genres
-            work.calculate_presentation(
-                choose_edition=False, classify=True,
-                choose_summary=False,
-                calculate_quality=False, debug=True,
-                search_index_client=self.search_index,
-            )
+        offset = 0
+        batch_size = 100
+        batch = True
+        while batch:
+            batch = q.offset(offset).limit(batch_size)
+            for work in batch:
+                # old_genres = work.genres
+                work.calculate_presentation(
+                    choose_edition=False, classify=True,
+                    choose_summary=False,
+                    calculate_quality=False, debug=True,
+                    search_index_client=self.search_index,
+                    )
                 # new_genres = work.genres
                 # if new_genres != old_genres:
                 #     set_trace()
-            a += 1
-            if not a % 100:
-                db.commit()
+            db.commit()
         db.commit()
 
 class NYTBestSellerListsScript(Script):

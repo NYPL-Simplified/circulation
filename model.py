@@ -2599,6 +2599,9 @@ class Work(Base):
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
+        if not client.works_index:
+            # There is no index set up on this instance.
+            return
         if self.presentation_ready:
             doc = self.to_search_document()
             if doc:
@@ -2704,6 +2707,12 @@ class Work(Base):
         # publisher.
         fiction_s, genre_s, target_age_s, audience_s = (
             self.genre_weights_from_metadata(identifier_ids))
+
+        new_genres = Counter()
+        for genre, score in genre_s.items():
+            genre, ignore = Genre.lookup(_db, genre)
+            new_genres[genre] = score
+        genre_s = new_genres
 
         target_age_relevant_classifications = []
 

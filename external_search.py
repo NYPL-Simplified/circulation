@@ -16,6 +16,8 @@ class ExternalSearchIndex(Elasticsearch):
 
     def query_works(self, query_string, medium, languages, fiction, audience,
                     in_any_of_these_genres=[], fields=None):
+        if not self.works_index:
+            return []
         q = dict(
             filtered=dict(
                 query=self.make_query(query_string),
