@@ -8,6 +8,7 @@ from model import (
     get_one_or_create,
     Identifier,
     LicensePool,
+    Subject,
     Timestamp,
     Work,
 )
@@ -114,6 +115,31 @@ class IdentifierSweepMonitor(Monitor):
     def process_batch(self, identifiers):
         raise NotImplementedError()
 
+class SubjectSweepMonitor(IdentifierSweepMonitor):
+
+    def run_once(self, offset):
+        q = self.subject_query().filter(
+            Subject.id > offset).order_by(
+            Subject.id).limit(self.batch_size)
+        subjects = q.all()
+        if subjects:
+            self.process_batch(subjects)
+            return subjects[-1].id
+        else:
+            return 0
+
+    def subject_query(self):
+        return self._db.query(Subject)
+
+class SubjectAssignmentMonitor(SubjectSweepMonitor):
+
+    def __init__(self, _db, interval_seconds=3600*24):
+        super(SubjectAssignmentMonitor, self).__init__(
+            _db, "Subject assignment monitor", interval_seconds)
+
+    def process_batch(self, subjects):
+        for subject in subjects:
+            subject.assign_to_genre()
 
 class PresentationReadyMonitor(Monitor):
     """A monitor that makes works presentation ready.

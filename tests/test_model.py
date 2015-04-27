@@ -30,6 +30,7 @@ from model import (
     LicensePool,
     Measurement,
     Representation,
+    Subject,
     Timestamp,
     UnresolvedIdentifier,
     Work,
@@ -1281,6 +1282,71 @@ class TestWorkConsolidation(DatabaseTest):
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
 
+class TestAssignGenres(DatabaseTest):
+
+    def test_genre_weights_from_metadata(self):
+        star_trek = self._work()
+        star_trek.primary_edition.title = "Star Trek: The Book"
+        fiction, genre, target_age, audience = star_trek.genre_weights_from_metadata([])
+        eq_(100, genre[classifier.Media_Tie_in_SF])
+
+        # Genre publisher and imprint
+        harlequin = self._work()
+        harlequin.primary_edition.publisher = "Harlequin"
+        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
+        eq_(100, genre[classifier.Romance])
+
+        harlequin.primary_edition.imprint = "Harlequin Intrigue"
+        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
+        # Imprint is more specific than publisher, so it takes precedence.
+        assert classifier.Romance not in genre
+        eq_(100, genre[classifier.Romantic_Suspense])
+
+        # Genre and audience publisher 
+        harlequin_teen = self._work()
+        harlequin_teen.primary_edition.publisher = "Harlequin"
+        harlequin_teen.primary_edition.imprint = "Harlequin Teen"
+        fiction, genre, target_age, audience = harlequin_teen.genre_weights_from_metadata([])
+        eq_(100, genre[classifier.Romance])
+        eq_(100, audience[Classifier.AUDIENCE_YOUNG_ADULT])
+
+        harlequin_nonfiction = self._work()
+        harlequin_nonfiction.primary_edition.publisher = "Harlequin"
+        harlequin_nonfiction.primary_edition.imprint = "Harlequin Nonfiction"
+        fiction, genre, target_age, audience = harlequin_nonfiction.genre_weights_from_metadata([])
+        eq_(100, fiction[False])
+        assert True not in fiction
+
+        # We don't know if this is a children's book or a young adult
+        # book, but we're confident it's one or the other.
+        scholastic = self._work()
+        scholastic.primary_edition.publisher = "Scholastic Inc."
+        fiction, genre, target_age, audience = scholastic.genre_weights_from_metadata([])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
+
+        for_young_readers = self._work()
+        for_young_readers.primary_edition.imprint = "Delacorte Books for Young Readers"
+        fiction, genre, target_age, audience = for_young_readers.genre_weights_from_metadata([])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
+
+    def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
+        work = self._work()
+        work.primary_edition.title = "Science Fiction: A Comprehensive History"
+        i = work.primary_edition.primary_identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        i.classify(source, Subject.OVERDRIVE, "Nonfiction", weight=1000)
+        i.classify(source, Subject.OVERDRIVE, "Science Fiction", weight=100)
+        i.classify(source, Subject.OVERDRIVE, "History", weight=10)
+        ids = [i.id]
+        ([history], fiction, audience) = work.assign_genres(ids)
+
+        # This work really looks like science fiction, but it looks
+        # *even more* like nonfiction, and science fiction is not a
+        # genre of nonfiction. So this book can't be science
+        # fiction. It must be history.
+        eq_("History", history.genre.name)
+        eq_(False, fiction)
+        eq_(Classifier.AUDIENCE_ADULT, audience)
 
 class TestLoans(DatabaseTest):
 
@@ -1391,7 +1457,7 @@ class TestLane(DatabaseTest):
             exclude_genres=[
                 classifier.Dystopian_SF, classifier.Steampunk],
             audience=Classifier.AUDIENCE_YOUNG_ADULT)
-        eq_([], ya_sf.sublanes)
+        eq_([], ya_sf.sublanes.lanes)
         eq_("YA Science Fiction", ya_sf.name)
         eq_("Science Fiction", ya_sf.display_name)
         included_subgenres = [x.name for x in ya_sf.genres]
