@@ -3613,7 +3613,7 @@ class Lane(object):
             
         full_name = "All " + what
         return Lane(
-            _db, full_name, genres=[], subgenre_books_go=IN_SAME_LANE,
+            _db, full_name, genres=[], subgenre_books_go=Lane.IN_SAME_LANE,
             fiction=fiction,
             audience=audience)
 
