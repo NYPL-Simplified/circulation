@@ -1338,7 +1338,7 @@ class TestAssignGenres(DatabaseTest):
         i.classify(source, Subject.OVERDRIVE, "Science Fiction", weight=100)
         i.classify(source, Subject.OVERDRIVE, "History", weight=10)
         ids = [i.id]
-        ([history], fiction, audience) = work.assign_genres(ids)
+        ([history], fiction, audience, target_age) = work.assign_genres(ids)
 
         # This work really looks like science fiction, but it looks
         # *even more* like nonfiction, and science fiction is not a
@@ -1347,6 +1347,7 @@ class TestAssignGenres(DatabaseTest):
         eq_("History", history.genre.name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_ADULT, audience)
+        eq_(None, target_age)
 
 class TestLoans(DatabaseTest):
 
