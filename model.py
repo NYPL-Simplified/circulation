@@ -2811,7 +2811,7 @@ class Work(Base):
                 target_ages = [target]
             elif score == most_relevant:
                 target_ages.append(target)
-
+        set_trace()
         if target_ages:
             target_age = max(target_ages)
             # If we have a well-attested target age, we can make
