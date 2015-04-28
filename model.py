@@ -2756,10 +2756,13 @@ class Work(Base):
         else:
             threshold = 10
 
-        if audience_s[Classifier.AUDIENCE_YOUNG_ADULT] > threshold:
-            audience = Classifier.AUDIENCE_YOUNG_ADULT
-        elif audience_s[Classifier.AUDIENCE_CHILDREN] > threshold:
+        ya_score = audience_s[Classifier.AUDIENCE_YOUNG_ADULT]
+        ch_score = audience_s[Classifier.AUDIENCE_CHILDREN]
+        if (ch_score > threshold and ch_score > ya_score):
             audience = Classifier.AUDIENCE_CHILDREN
+        elif ya_score > threshold:
+            audience = Classifier.AUDIENCE_YOUNG_ADULT
+
 
         # Remove any genres whose fiction status is inconsistent with the
         # (independently determined) fiction status of the book.
@@ -2811,7 +2814,6 @@ class Work(Base):
                 target_ages = [target]
             elif score == most_relevant:
                 target_ages.append(target)
-        set_trace()
         if target_ages:
             target_age = max(target_ages)
             # If we have a well-attested target age, we can make
