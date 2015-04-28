@@ -23,7 +23,7 @@ def make_lanes(_db):
         _db, full_name="Adult Nonfiction", display_name="Nonfiction",
         genres=None,
         sublanes=nonfiction_genres,
-        fiction=True, audience=Classifier.AUDIENCES_ADULT
+        fiction=False, audience=Classifier.AUDIENCES_ADULT
     )
 
     YA = Classifier.AUDIENCE_YOUNG_ADULT
@@ -71,7 +71,7 @@ def make_lanes(_db):
     )
 
     ya_nonfiction = Lane(
-        _db, full_name="Young Adult Nonfiction", genres=None, fiction=True,
+        _db, full_name="Young Adult Nonfiction", genres=None, fiction=False,
         audience=YA,
         sublanes=[
             Lane(_db, "YA Biography", genres.Biography_Memoir,
