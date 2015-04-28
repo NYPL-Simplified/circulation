@@ -19,6 +19,7 @@ from opds_import import (
 from model import (
     DataSource,
     Measurement,
+    Subject,
 )
 
 class TestDetailedOPDSImporter(DatabaseTest):
@@ -83,9 +84,19 @@ class TestDetailedOPDSImporter(DatabaseTest):
             x for x in imported if not x.primary_identifier.measurements][0]
         eq_([], x.primary_identifier.measurements)
 
+        seven, children, courtship, fantasy, magic, new_york, pz = sorted(
+            has_measurements.primary_identifier.classifications,
+            key=lambda x: x.subject.identifier)
+        eq_('7', seven.subject.identifier)
+        eq_(Subject.AGE_RANGE, seven.subject.type)
+        from classifier import Classifier
+        classifier = Classifier.classifiers.get(seven.subject.type, None)
+        classifier.classify(seven.subject)
         work = has_measurements.work
         work.calculate_presentation()
         eq_(0.41415, work.quality)
+        eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
+        eq_(7, work.target_age)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")

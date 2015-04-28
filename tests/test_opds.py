@@ -428,6 +428,7 @@ class TestOPDS(DatabaseTest):
         work.audience = "Young Adult"
         work2 = self._work(with_open_access_download=True)
         work2.audience = "Children"
+        work2.target_age = 7
         work3 = self._work(with_open_access_download=True)
         work3.audience = None
 
@@ -446,6 +447,11 @@ class TestOPDS(DatabaseTest):
         eq_(['Children'],
             [x['term'] for x in entries[1]['tags']
              if x['scheme'] == scheme])
+
+        age_scheme = Subject.uri_lookup[Subject.AGE_RANGE]
+        eq_(['7'],
+            [x['term'] for x in entries[1]['tags']
+             if x['scheme'] == age_scheme])
 
         eq_([],
             [x['term'] for x in entries[2]['tags']

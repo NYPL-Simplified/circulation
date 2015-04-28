@@ -253,6 +253,18 @@ class GradeLevelClassifier(Classifier):
     ]
 
     @classmethod
+    def audience(cls, identifier, name, require_explicit_age_marker=False):
+        a = cls.target_age(identifier, name, require_explicit_age_marker)
+        if not a:
+            return None
+        if a < 12:
+            return Classifier.AUDIENCE_CHILDREN
+        elif a < 18:
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        else:
+            return Classifier.AUDIENCE_ADULT
+
+    @classmethod
     def target_age(cls, identifier, name, require_explicit_grade_marker=False):
 
         if (identifier and "education" in identifier) or (name and 'education' in name):
@@ -314,10 +326,23 @@ class AgeClassifier(Classifier):
     ]
 
     generic_age_res = [
+        re.compile(r"^([0-9]+)\b", re.I),
         re.compile("([0-9]+) ?- ?[0-9]+", re.I),
     ]
 
     baby_re = re.compile("^baby ?-")
+
+    @classmethod
+    def audience(cls, identifier, name, require_explicit_age_marker=False):
+        a = cls.target_age(identifier, name, require_explicit_age_marker)
+        if not a:
+            return None
+        if a < 12:
+            return Classifier.AUDIENCE_CHILDREN
+        elif a < 18:
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        else:
+            return Classifier.AUDIENCE_ADULT
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_age_marker=False):

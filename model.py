@@ -2434,13 +2434,6 @@ class Work(Base):
                     champion = wr
                     continue
 
-            # At the moment, anything is better than 3M, because we
-            # can't actually check out 3M books.
-            if (champion.data_source.name == DataSource.THREEM
-                and wr.data_source.name != DataSource.THREEM):
-                champion = wr
-                continue
-
             # More licenses is better than fewer.
             if (wr.license_pool.licenses_owned
                 > champion.license_pool.licenses_owned):
@@ -3388,6 +3381,7 @@ class Subject(Base):
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
         "http://purl.org/dc/terms/DDC" : DDC,
+        "http://schema.org/typicalAgeRange" : AGE_RANGE,
     }
 
     uri_lookup = dict()
@@ -3539,7 +3533,7 @@ class Subject(Base):
         if not audience and target_age is not None:
             if target_age >= 18:
                 audience = Classifier.AUDIENCE_ADULT
-            elif target_age >= 14:
+            elif target_age >= 12:
                 audience = Classifier.AUDIENCE_YOUNG_ADULT
             else:
                 audience = Classifier.AUDIENCE_CHILDREN
@@ -3580,6 +3574,7 @@ class Classification(Base):
 
     _quality_as_indicator_of_target_age = {
         # These measure age appropriateness.
+        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
         Subject.OVERDRIVE : 15,
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,

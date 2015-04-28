@@ -144,6 +144,11 @@ class Annotator(object):
         # http://schema.org/audience
         if work.audience:
             categories[schema_ns + "audience"] = [work.audience]
+
+        if work.target_age:
+            uri = Subject.uri_lookup[Subject.AGE_RANGE]
+            categories[uri] = [str(work.target_age)]
+
         return categories
 
     @classmethod
