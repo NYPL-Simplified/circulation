@@ -2713,6 +2713,9 @@ class Work(Base):
             subject = classification.subject
             if not subject.checked:
                 subject.assign_to_genre()
+            if subject.type == Classifier.FREEFORM_AUDIENCE:
+                subject.assign_to_genre()
+
             if (subject.fiction is None and not subject.genre
                 and not subject.audience and not subject.target_age):
                 # This Classification is completely irrelevant to how
@@ -3382,6 +3385,7 @@ class Subject(Base):
         "http://purl.org/dc/terms/LCSH" : LCSH,
         "http://purl.org/dc/terms/DDC" : DDC,
         "http://schema.org/typicalAgeRange" : AGE_RANGE,
+        "http://schema.org/audience" : FREEFORM_AUDIENCE,
     }
 
     uri_lookup = dict()

@@ -443,7 +443,12 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
                 term = a.get('term')
                 name = a.get('label')
-                weight = a.get('{http://schema.org/}ratingValue', 1)
+                default_weight = 1
+                if subject_type in (
+                    Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE):
+                    default_weight = 100
+
+                weight = a.get('{http://schema.org/}ratingValue', default_weight)
                 try:
                     weight = int(weight)
                 except ValueError, e:

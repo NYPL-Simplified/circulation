@@ -2868,7 +2868,17 @@ class GutenbergBookshelfClassifier(Classifier):
         return None
 
 class FreeformAudienceClassifier(Classifier):
-    pass
+    @classmethod
+    def audience(cls, identifier, name):
+        if identifier == 'children':
+            return cls.AUDIENCE_CHILDREN
+        elif identifier in ('young adult','ya'):
+            return cls.AUDIENCE_YOUNG_ADULT
+        elif identifier == 'adult':
+            return cls.AUDIENCE_ADULT
+        elif identifier == 'adults only':
+            return cls.AUDIENCE_ADULTS_ONLY
+
 
 # TODO: This needs a lot of additions.
 genre_publishers = {
