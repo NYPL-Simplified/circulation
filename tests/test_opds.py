@@ -306,6 +306,7 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
         u = unicode(feed)
+        assert '<entry schema:additionalType="http://schema.org/Book">' in u
         parsed = feedparser.parse(u)
         [with_author] = parsed['entries']
         eq_("Alice", with_author['authors'][0]['name'])

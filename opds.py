@@ -544,9 +544,19 @@ class AcquisitionFeed(OPDSFeed):
 
         content_type = 'html'
 
+        kw = {}
+        if edition.medium:
+            additional_type = Edition.medium_to_additional_type.get(
+                edition.medium)
+            if not additional_type:
+                print "WARNING: No additionalType for medium %s" % (
+                    edition.medium)
+            additional_type_field = "{%s}additionalType" % schema_ns
+            kw[additional_type_field] = additional_type
         entry = E.entry(
             E.id(permalink),
             E.title(edition.title or '[Unknown title]'),
+            **kw
         )
         if edition.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])

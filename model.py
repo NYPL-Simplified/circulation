@@ -1560,6 +1560,18 @@ class Edition(Base):
     MUSIC_MEDIUM = "Music"
     VIDEO_MEDIUM = "Video"
 
+    medium_to_additional_type = {
+        BOOK_MEDIUM : "http://schema.org/Book",
+        AUDIO_MEDIUM : "http://schema.org/AudioObject",
+        PERIODICAL_MEDIUM : "http://schema.org/PublicationIssue",
+        MUSIC_MEDIUM :  "http://schema.org/MusicRecording",
+        VIDEO_MEDIUM :  "http://schema.org/VideoObject",
+    }
+
+    additional_type_to_medium = {}
+    for k, v in medium_to_additional_type.items():
+        additional_type_to_medium[v] = k
+
     medium = Column(
         Enum(BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM,
              MUSIC_MEDIUM, VIDEO_MEDIUM, name="medium"),
