@@ -131,6 +131,23 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
     def subject_query(self):
         return self._db.query(Subject)
 
+class WorkSweepMonitor(IdentifierSweepMonitor):
+
+    def run_once(self, offset):
+        q = self.work_query().filter(
+            Work.id > offset).order_by(
+            Work.id).limit(self.batch_size)
+        works = q.all()
+        if works:
+            self.process_batch(works)
+            return works[-1].id
+        else:
+            return 0
+
+    def work_query(self):
+        return self._db.query(Work)
+
+
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
     def __init__(self, _db, interval_seconds=3600*24):
@@ -141,7 +158,7 @@ class SubjectAssignmentMonitor(SubjectSweepMonitor):
         for subject in subjects:
             subject.assign_to_genre()
 
-class PresentationReadyMonitor(Monitor):
+class PresentationReadyMonitor(WorkSweepMonitor):
     """A monitor that makes works presentation ready.
 
     By default this works by passing the work's active edition into
@@ -156,26 +173,20 @@ class PresentationReadyMonitor(Monitor):
         self.coverage_providers = coverage_providers
         self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
 
-    def run_once(self, start, cutoff):
+    def work_query(self):
+        return self._db.query(Work).filter(
+            Work.presentation_ready==False).filter(
+            Work.presentation_ready_exception==None)
+
+    def run_once(self, offset):
         # Consolidate works.
         LicensePool.consolidate_works(
             self._db,
             calculate_work_even_if_no_author=self.calculate_work_even_if_no_author)
 
-        unready_works = self._db.query(Work).filter(
-            Work.presentation_ready==False).filter(
-                Work.presentation_ready_exception==None).order_by(
-                func.random()).limit(10)
-        # Work in batches of 10 works. This lets us consolidate and
-        # parallelize IO-bound activities like uploading assets to S3.
-        keep_going = True
-        while keep_going and unready_works.count():
-            keep_going = self.make_batch_presentation_ready(
-                unready_works.all())
-        if not keep_going:
-            print "[PRESENTATION READY] An entire batch failed. Giving up for now."
+        super(PresentationReadyMonitor, self).run_once(offset)
 
-    def make_batch_presentation_ready(self, batch):
+    def process_batch(self, batch):
         one_success = False
         for work in batch:
             failures = None

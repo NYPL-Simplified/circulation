@@ -2868,7 +2868,6 @@ class GutenbergBookshelfClassifier(Classifier):
         return None
 
 class FreeformAudienceClassifier(Classifier):
-
     @classmethod
     def audience(cls, identifier, name):
         if identifier == 'children':
