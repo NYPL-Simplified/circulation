@@ -71,7 +71,7 @@ class LicensePoolButNoEditionPresentationReadyMonitor(IdentifierSweepMonitor):
 
     def cleanup(self):
         LicensePool.consolidate_works(
-            self._db, calculate_work_even_if_no_author=True, max=1)
+            self._db, calculate_work_even_if_no_author=True)
 
     def identifier_query(self):
         """Find identifiers that have a LicensePool but no Edition."""
@@ -112,7 +112,7 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
         # TODO: Check if necessary--probably only necessary for 
         # LicensePoolButNoEditionPresentationReadyMonitor.
         #LicensePool.consolidate_works(
-        #    self._db, calculate_work_even_if_no_author=True, max=1)
+        #    self._db, calculate_work_even_if_no_author=True)
         pass
 
     def identifier_query(self):
