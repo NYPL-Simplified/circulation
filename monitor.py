@@ -2,7 +2,10 @@ import datetime
 from nose.tools import set_trace
 import os
 from sqlalchemy import or_
-from core.monitor import Monitor
+from core.monitor import (
+    IdentifierSweepMonitor,
+    WorkSweepMonitor,
+)
 from core.model import (
     Edition,
     Hyperlink,
@@ -23,108 +26,131 @@ from core.external_search import (
 class HTTPIntegrationException(Exception):
     pass
 
-class CirculationPresentationReadyMonitor(Monitor):
+
+class CirculationPresentationReadyMonitor(WorkSweepMonitor):
     """Make works presentation-ready by asking the metadata wrangler about
     them.
     """
 
-    def __init__(self, _db, metadata_wrangler_url=None, batch_size=200,
+    def __init__(self, _db, metadata_wrangler_url=None, batch_size=10,
                  interval_seconds=10*60):
+        super(CirculationPresentationReadyMonitor, self).__init__(
+            _db, "Presentation ready monitor", batch_size=batch_size, 
+            interval_seconds=interval_seconds)
+        self.make_presentation_ready = MakePresentationReady(
+            self._db, metadata_wrangler_url)
+        self.batch_size = batch_size
+
+    def work_query(self):
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        try_this_work = or_(Work.presentation_ready_attempt==None,
+                            Work.presentation_ready_attempt > one_day_ago)
+        q = self._db.query(Work).filter(
+            Work.presentation_ready==False).filter(
+            try_this_work)
+        return q
+
+    def process_batch(self, batch):
+        batch = [work.primary_edition.primary_identifier
+                 for work in batch]
+        self.make_presentation_ready.process_batch(batch)
+
+
+class LicensePoolButNoEditionPresentationReadyMonitor(IdentifierSweepMonitor):
+    """Turn LicensePools that have no corresponding Edition into
+    presentation-ready works.
+    """
+
+    def __init__(self, _db, batch_size=10, interval_seconds=10*60):
+        super(LicensePoolButNoEditionPresentationReadyMonitor, self).__init__(
+            _db, 
+            "Presentation ready monitor - Identifier has LicensePool but no Edition", 
+            interval_seconds)
+        self.make_presentation_ready = MakePresentationReady(self._db)
+        self.batch_size = batch_size
+
+    def cleanup(self):
+        LicensePool.consolidate_works(
+            self._db, calculate_work_even_if_no_author=True, max=1)
+
+    def identifier_query(self):
+        """Find identifiers that have a LicensePool but no Edition."""
+        q = self._db.query(Identifier).join(
+            Identifier.licensed_through).outerjoin(
+            Edition, Edition.primary_identifier_id==Identifier.id).filter(
+                Edition.id == None)
+        q = q.filter(
+            Identifier.type.in_(
+                [
+                    Identifier.GUTENBERG_ID, 
+                    Identifier.OVERDRIVE_ID,
+                    Identifier.THREEM_ID
+                    ]
+                )
+            )
+        return q
+
+    def process_batch(self, batch):
+        self.make_presentation_ready.process_batch(batch)
+
+
+class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
+    """Turn LicensePools that have no corresponding Work into
+    presentation-ready works.
+    """
+
+    def __init__(self, _db, batch_size=10, interval_seconds=10*60):
+        super(LicensePoolButNoWorkPresentationReadyMonitor, self).__init__(
+            _db, 
+            "Presentation ready monitor - Identifier has LicensePool but no Work", 
+            interval_seconds)
+        self.make_presentation_ready = MakePresentationReady(self._db)
+        self.batch_size = batch_size
+
+    def cleanup(self):
+        # Make sure any newly created Editions have Works.
+        # TODO: Check if necessary--probably only necessary for 
+        # LicensePoolButNoEditionPresentationReadyMonitor.
+        #LicensePool.consolidate_works(
+        #    self._db, calculate_work_even_if_no_author=True, max=1)
+        pass
+
+    def identifier_query(self):
+        """Find identifiers that have a LicensePool but no Work."""
+        q = self._db.query(Identifier).join(
+            Identifier.licensed_through).outerjoin(
+            Work, Work.id==LicensePool.work_id).filter(
+                Work.id == None)
+        q = q.filter(
+            Identifier.type.in_(
+                [
+                    Identifier.GUTENBERG_ID, 
+                    Identifier.OVERDRIVE_ID,
+                    Identifier.THREEM_ID
+                    ]
+                )
+            )
+        return q
+
+    def process_batch(self, batch):
+        self.make_presentation_ready.process_batch(batch)
+
+
+class MakePresentationReady(object):
+    """A helper class that takes a bunch of Identifiers and
+    asks the metadata wrangler (and possibly the content server)
+    about them.
+    """
+
+    def __init__(self, _db, metadata_wrangler_url=None):
         metadata_wrangler_url = (
             metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
         content_server_url = (os.environ['CONTENT_WEB_APP_URL'])
 
+        self._db = _db
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
         self.content_lookup = SimplifiedOPDSLookup(content_server_url)
-        self.batch_size = batch_size
         self.search_index = ExternalSearchIndex()
-        super(CirculationPresentationReadyMonitor, self).__init__(
-            _db, "Presentation ready monitor", interval_seconds)
-
-    def run_once(self, start, cutoff):
-        # Fix any Identifiers that have LicensePools but not Editions.
-        self.resolve_identifiers()
-
-        # Make sure any newly created Editions have Works.
-        # LicensePool.consolidate_works(
-        #    self._db, calculate_work_even_if_no_author=True, max=1)
-
-        # Finally, make all Works presentation-ready.
-        self.make_works_presentation_ready()
-
-    def resolve_identifiers(self):
-        """Look up any Identifiers that have associated LicensePools but no
-        associated Editions, or Editions but no Works.
-        """
-        q1 = self._db.query(Identifier).join(
-            Identifier.licensed_through).outerjoin(
-            Edition, Edition.primary_identifier_id==Identifier.id).filter(
-                Edition.id == None)
-
-        q2 = self._db.query(Identifier).join(
-            Identifier.licensed_through).outerjoin(
-            Work, Work.id==LicensePool.work_id).filter(
-                Work.id == None)
-
-        for q, message in (
-            (q1, "LicensePool but no Edition"),
-            (q2, "LicensePool but no Work"),
-            ):
-            q = q.filter(
-                Identifier.type.in_(
-                    [
-                        Identifier.GUTENBERG_ID, 
-                        Identifier.OVERDRIVE_ID,
-                        Identifier.THREEM_ID
-                        ]
-                    )
-                )
-            needy_identifiers = q.count()
-            if not needy_identifiers:
-                continue
-            print "Asking metadata wrangler about %d identifiers which have %s." % (needy_identifiers, message)
-            batch = []
-            for identifier in q:
-                batch.append(identifier)
-                if len(batch) >= self.batch_size:
-                    try:
-                        self.process_batch(batch)
-                    except Exception, e:
-                        print "Error, will try again later: %s" % str(e)
-                    # for i in batch:
-                    #     if not i.primarily_identifies:
-                    #         set_trace()
-                    batch = []
-            self.process_batch(batch)
-
-    def make_works_presentation_ready(self, q=None):
-        # Go through the Works that are not presentation ready and ask
-        # the metadata wrangler about them.
-            
-        batch = []
-        if not q:
-            one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-            try_this_work = or_(Work.presentation_ready_attempt==None,
-                                Work.presentation_ready_attempt > one_day_ago)
-            q = self._db.query(Work).filter(
-                Work.presentation_ready==False).filter(
-                try_this_work).order_by(
-                    Work.last_update_time.asc())
-        print "Making %d works presentation ready." % q.count()
-        for work in q:
-            batch.append(work.primary_edition.primary_identifier)
-            if len(batch) >= self.batch_size:
-                self.process_batch(batch)
-                batch = []
-
-        if batch:
-            self.process_batch(batch)
-
-        print "All done."
-
-    def process_identifier(self, identifier):
-        batch = [identifier]
-        self.process_batch(batch)
 
     def process_batch(self, batch):
         print "%d batch" % len(batch)
