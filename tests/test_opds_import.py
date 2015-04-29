@@ -34,9 +34,16 @@ class TestDetailedOPDSImporter(DatabaseTest):
     def test_authors_by_id(self):
 
         parsed = etree.parse(StringIO(self.content_server_feed))
-        contributors_by_id, subject_names, subject_weights, ratings_by_id = DetailedOPDSImporter.authors_and_subjects_by_id(self._db, parsed)
-        eq_(70, len(contributors_by_id))
+        medium_by_id, contributors_by_id, subject_names, subject_weights, ratings_by_id = DetailedOPDSImporter.authors_and_subjects_by_id(self._db, parsed)
+
+        book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
+        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'  
+        eq_(76, len(medium_by_id))
+        eq_(Edition.BOOK_MEDIUM, medium_by_id[book_id])
+        eq_(Edition.PERIODICAL_MEDIUM, medium_by_id[periodical_id])
+
         spot_check_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
+        eq_(70, len(contributors_by_id))
         [contributor] = contributors_by_id[spot_check_id]
         eq_("Thoreau, Henry David", contributor.name)
         eq_(None, contributor.display_name)
@@ -55,12 +62,14 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.3333, ratings[Measurement.QUALITY])
 
     def test_ratings_become_measurements(self):
-        path = os.path.join(self.resource_path, "content_server.opds")
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
         imported, messages = DetailedOPDSImporter(
             self._db, feed).import_from_feed()
 
         eq_(DataSource.GUTENBERG, imported[0].data_source.name)
+        eq_(Edition.PERIODICAL_MEDIUM, imported[0].medium)
+        eq_(Edition.BOOK_MEDIUM, imported[1].medium)
 
         [has_measurements] = [
             x for x in imported if x.primary_identifier.measurements]

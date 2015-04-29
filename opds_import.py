@@ -334,7 +334,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                  overwrite_rels=None):
         super(DetailedOPDSImporter, self).__init__(_db, feed, data_source_name, overwrite_rels)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
-        self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
+        self.medium_by_id, self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
             _db, self.lxml_parsed)
 
     def import_from_feedparser_entry(self, entry):
@@ -344,6 +344,8 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         if not edition:
             # No edition was created. Nothing to do.
             return identifier, edition, edition_was_new, status_code, message
+
+        edition.medium = self.medium_by_id.get(entry.id)
 
         # Remove any old contributors and subjects.
         removed_contributions = 0
@@ -391,11 +393,13 @@ class DetailedOPDSImporter(BaseOPDSImporter):
     @classmethod
     def authors_and_subjects_by_id(cls, _db, root):
         """Parse the OPDS as XML and extract all author and subject
-        information, as well as ratings.
+        information, as well as ratings and medium.
 
-        Feedparser can't handle this so we have to use lxml.
+        All the stuff that Feedparser can't handle so we have to use lxml.
         """
         parser = OPDSXMLParser()
+        default_additional_type = Edition.medium_to_additional_type[Edition.BOOK_MEDIUM]
+        medium_by_id = {}
         authors_by_id = defaultdict(list)
         subject_names_by_id = defaultdict(dict)
         subject_weights_by_id = defaultdict(Counter)
@@ -405,6 +409,11 @@ class DetailedOPDSImporter(BaseOPDSImporter):
             if identifier is None or not identifier.text:
                 continue
             identifier = identifier.text
+            additional_type = entry.get('{http://schema.org/}additionalType', 
+                                        default_additional_type)
+            medium = Edition.additional_type_to_medium.get(additional_type)
+            medium_by_id[identifier] = medium
+
             for author_tag in parser._xpath(entry, 'atom:author'):
                 subtag = parser.text_of_optional_subtag
                 sort_name = subtag(author_tag, 'simplified:sort_name')
@@ -466,7 +475,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 except ValueError:
                     pass
 
-        return authors_by_id, subject_names_by_id, subject_weights_by_id, ratings_by_id
+        return medium_by_id, authors_by_id, subject_names_by_id, subject_weights_by_id, ratings_by_id
 
 
 class OPDSImportMonitor(Monitor):
