@@ -147,6 +147,33 @@ class WorkSweepMonitor(IdentifierSweepMonitor):
     def work_query(self):
         return self._db.query(Work)
 
+    def process_batch(self, batch):
+        for work in batch:
+            self.process_work(work)
+
+    def process_work(self, work):
+        raise NotImplementedError()
+
+class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
+
+    def work_query(self):
+        return self._db.query(Work).filter(Work.presentation_ready==True)
+
+class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
+
+    def __init__(self, _db, interval_seconds=3600*24,
+                 include_verbose_entry=True):
+        super(OPDSEntryCacheMonitor, self).__init__(
+            _db, "ODPS Entry Cache Monitor", interval_seconds)
+        self.include_verbose_entry=include_verbose_entry
+
+    def process_work(self, work):
+        work.calculate_opds_entries(verbose=self.include_verbose_entry)
+
+class SimpleOPDSEntryCacheMonitor(OPDSEntryCacheMonitor):
+    def __init__(self, _db, interval_seconds=3600*24):
+        super(SimpleOPDSEntryCacheMonitor, self).__init__(
+            _db, interval_seconds, False)
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
@@ -155,8 +182,12 @@ class SubjectAssignmentMonitor(SubjectSweepMonitor):
             _db, "Subject assignment monitor", interval_seconds)
 
     def process_batch(self, subjects):
+        highest_id = 0
         for subject in subjects:
+            if subject.id > highest_id:
+                highest_id = subject.id
             subject.assign_to_genre()
+        return highest_id
 
 class PresentationReadyMonitor(WorkSweepMonitor):
     """A monitor that makes works presentation ready.

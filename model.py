@@ -2582,7 +2582,7 @@ class Work(Base):
                 print d
             print
 
-    def calculate_opds_entries(self):
+    def calculate_opds_entries(self, verbose=True):
         from opds import (
             AcquisitionFeed,
             Annotator,
