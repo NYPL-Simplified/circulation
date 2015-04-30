@@ -502,12 +502,22 @@ class AcquisitionFeed(OPDSFeed):
         else:
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
+            data = etree.tostring(xml)
+            if self.annotator == Annotator:
+                work.simple_opds_entry = data
+            elif self.annotator == VerboseAnnotator:
+                work.verbose_opds_entry = data
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
         after = time.time()
-        print "%r %.2f" % (cache_hit, after-before)
+        if edition:
+            title = edition.title + " "
+        else:
+            title = ""
+        print "%s %r %.2f" % (title, cache_hit, after-before)
+
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
