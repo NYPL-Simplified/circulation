@@ -47,12 +47,11 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
                             Work.presentation_ready_attempt > one_day_ago)
         q = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
-            try_this_work)
+            try_this_work).filter(Work.primary_edition != None)
         return q
 
     def process_batch(self, batch):
-        batch = [work.primary_edition.primary_identifier
-                 for work in batch]
+        batch = [work.primary_edition.primary_identifier for work in batch]
         self.make_presentation_ready.process_batch(batch)
 
 
@@ -152,10 +151,16 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
 
     def process_batch(self, batch):
         # TODO: Perfect opportunity for a bulk upload.
+        highest_id = 0
         for work in batch:
+            if work.id > highest_id:
+                highest_id = work.id
             work.update_external_index(self.search_index_client)
-            print work.title
-
+            if work.title:
+                print work.title.encode("utf8")
+            else:
+                print "WARN: Work %d is presentation-ready but has no title?" % work.id
+        return highest_id
 
 class MakePresentationReady(object):
     """A helper class that takes a bunch of Identifiers and
