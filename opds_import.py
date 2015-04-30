@@ -45,6 +45,7 @@ class SimplifiedOPDSLookup(object):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
         args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
+        print "Lookup URL: %s" % url
         return requests.get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
