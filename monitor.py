@@ -151,13 +151,16 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
 
     def process_batch(self, batch):
         # TODO: Perfect opportunity for a bulk upload.
+        highest_id = 0
         for work in batch:
+            if work.id > highest_id:
+                highest_id = work.id
             work.update_external_index(self.search_index_client)
             if work.title:
                 print work.title.encode("utf8")
             else:
                 print "WARN: Work %d is presentation-ready but has no title?" % work.id
-
+        return highest_id
 
 class MakePresentationReady(object):
     """A helper class that takes a bunch of Identifiers and
