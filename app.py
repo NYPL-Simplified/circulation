@@ -611,10 +611,12 @@ def lane_search(lane):
     query = flask.request.args.get('q')
     if lane:
         lane = Conf.sublanes.by_name[lane]    
+        lane_name = lane.name
     else:
         # Create a synthetic Lane that includes absolutely everything.
         lane = Lane.everything(Conf.db)
-    this_url = url_for('lane_search', lane=lane.name, _external=True)
+        lane_name = None
+    this_url = url_for('lane_search', lane=lane_name, _external=True)
     if not query:
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)
