@@ -46,13 +46,12 @@ class CoverageProvider(object):
         failures = set([])
         print "%d records need coverage." % (
             self.editions_that_need_coverage.count())
+        offset = 0
         while remaining:
             successes = 0
-            if len(failures) >= self.workset_size:
-                raise Exception(
-                    "Number of failures equals workset size, cannot continue.")
+            offset += len(failures)
             batch = self.editions_that_need_coverage.limit(
-                self.workset_size)
+                self.workset_size).offset(offset)
             batch = [x for x in batch if x not in failures]
             successes, new_failures = self.process_batch(batch)
             if len(successes) == 0 and len(new_failures) == 0:
