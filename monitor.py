@@ -179,6 +179,7 @@ class MakePresentationReady(object):
         print "Response!"
 
         if response.status_code != 200:
+            print "BAD RESPONSE CODE: %s" % response.status_code
             raise HTTPIntegrationException(response.text)
             
         content_type = response.headers['content-type']
