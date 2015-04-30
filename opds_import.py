@@ -375,7 +375,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         weights = self.subject_weights_by_id.get(entry.id, {})
         for key, weight in weights.items():
             type, term = key
-            name = self.subject_names_by_id.get(key, None)
+            name = self.subject_names_by_id.get(entry.id).get(key, None)
             identifier.classify(
                 self.data_source, type, term, name, weight=weight)
 

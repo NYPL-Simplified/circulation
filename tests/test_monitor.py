@@ -79,7 +79,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
         success = AlwaysSuccessfulCoverageProvider(
             "Provider 1", self.gutenberg, self.oclc)
         monitor = PresentationReadyMonitor(self._db, [success])
-        monitor.make_batch_presentation_ready([self.work])
+        monitor.process_batch([self.work])
         eq_(None, self.work.presentation_ready_exception)
         eq_(True, self.work.presentation_ready)
 
@@ -89,7 +89,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
         failure = NeverSuccessfulCoverageProvider(
             "Provider 2", self.gutenberg, self.overdrive)
         monitor = PresentationReadyMonitor(self._db, [success, failure])
-        monitor.make_batch_presentation_ready([self.work])
+        monitor.process_batch([self.work])
         eq_(False, self.work.presentation_ready)
         eq_(
             "Provider(s) failed: Provider 2",

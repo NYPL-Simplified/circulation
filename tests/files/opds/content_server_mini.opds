@@ -23,7 +23,7 @@
     <category term="New York (N.Y.) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="Fantasy fiction" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="Magic -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
-    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="PZ" label="Juvenile Fiction" scheme="http://purl.org/dc/terms/LCC"/>
     <category term="Children" scheme="http://schema.org/audience"/>
     <category term="7" scheme="http://schema.org/typicalAgeRange"/>
     <dcterms:language>en</dcterms:language>
@@ -42,7 +42,7 @@
     <simplified:pwid>9acabf17-cea8-c7dd-8440-f12dfa75caa9</simplified:pwid>
     <category term="Animals -- Juvenile poetry" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="Nursery rhymes" scheme="http://purl.org/dc/terms/LCSH"/>
-    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="PZ" label="Juvenile Fiction" scheme="http://purl.org/dc/terms/LCC"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
     <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>

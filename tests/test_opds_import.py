@@ -18,6 +18,7 @@ from opds_import import (
 )
 from model import (
     DataSource,
+    Edition,
     Measurement,
     Subject,
 )
@@ -106,6 +107,9 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(7, work.target_age)
+
+        eq_("PZ", pz.subject.identifier)
+        eq_("Juvenile Fiction", pz.subject.name)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
