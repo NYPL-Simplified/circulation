@@ -98,6 +98,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
             has_measurements.primary_identifier.classifications,
             key=lambda x: x.subject.identifier)
         eq_('7', seven.subject.identifier)
+        eq_(100, seven.weight)
         eq_(Subject.AGE_RANGE, seven.subject.type)
         from classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
