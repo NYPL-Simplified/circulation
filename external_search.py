@@ -61,14 +61,17 @@ class ExternalSearchIndex(Elasticsearch):
         if languages:
             clauses.append(dict(terms=dict(language=languages)))
         if genres:
-            clauses.append(dict(terms={"classifications.term" : genres}))
+            genre_ids = [genre.id for genre in genres]
+            clauses.append(dict(terms={"classifications.term" : genre_ids}))
         if medium:
             clauses.append(dict(term=dict(medium=_f(medium))))
         if fiction is not None:
             value = "fiction" if fiction == True else "nonfiction"
             clauses.append(dict(term=dict(fiction=value)))
         if audience:
-            clauses.append(dict(term=dict(audience=_f(audience))))
+            if isinstance(audience, list):
+                audience = [_f(aud) for aud in audience]
+            clauses.append(dict(term=dict(audience=audience)))
         return {"and" :clauses}
 
 
