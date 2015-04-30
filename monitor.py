@@ -47,12 +47,11 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
                             Work.presentation_ready_attempt > one_day_ago)
         q = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
-            try_this_work)
+            try_this_work).filter(Work.primary_edition != None)
         return q
 
     def process_batch(self, batch):
-        batch = [work.primary_edition.primary_identifier
-                 for work in batch]
+        batch = [work.primary_edition.primary_identifier for work in batch]
         self.make_presentation_ready.process_batch(batch)
 
 
