@@ -135,6 +135,27 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
     def process_batch(self, batch):
         self.make_presentation_ready.process_batch(batch)
 
+class SearchIndexUpdateMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work.
+    """
+
+    def __init__(self, _db, batch_size=100, interval_seconds=3600*24):
+        super(SearchIndexUpdateMonitor, self).__init__(
+            _db, 
+            "Index Update Monitor", 
+            interval_seconds)
+        self.batch_size = batch_size
+        self.search_index_client = ExternalSearchIndex()
+
+    def work_query(self):
+        return self._db.query(Work).filter(Work.presentation_ready==True)
+
+    def process_batch(self, batch):
+        # TODO: Perfect opportunity for a bulk upload.
+        for work in batch:
+            work.update_external_index(self.search_index_client)
+            print work.title
+
 
 class MakePresentationReady(object):
     """A helper class that takes a bunch of Identifiers and
