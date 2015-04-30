@@ -154,7 +154,10 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
         # TODO: Perfect opportunity for a bulk upload.
         for work in batch:
             work.update_external_index(self.search_index_client)
-            print work.title
+            if work.title:
+                print work.title.encode("utf8")
+            else:
+                print "WARN: Work %d is presentation-ready but has no title?" % work.id
 
 
 class MakePresentationReady(object):
