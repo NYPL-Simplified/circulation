@@ -516,7 +516,7 @@ class AcquisitionFeed(OPDSFeed):
             title = edition.title + " "
         else:
             title = ""
-        print "%s %r %.2f" % (title, cache_hit, after-before)
+        print "%s %r %.2f" % (title.encode("utf8"), cache_hit, after-before)
 
         return xml
 
