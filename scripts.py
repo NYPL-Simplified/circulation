@@ -221,51 +221,6 @@ class OPDSImportScript(Script):
         monitor.run()
         
 
-class WorkReclassifierScript(WorkProcessingScript):
-
-    def __init__(self, force=False, restrict_to_source=None):
-        self.force = force
-        self.db = self._db
-        if restrict_to_source:
-            restrict_to_source = DataSource.lookup(self.db, restrict_to_source)
-        self.restrict_to_source = restrict_to_source
-        self.search_index = ExternalSearchIndex()
-
-    def run(self):
-        if self.restrict_to_source:
-            which_works = works_from_source.name
-        else:
-            which_works = "all"
-
-        print "Reclassifying %s works." % (which_works)
-        i = 0
-        db = self.db
-        q = db.query(Work)
-        if self.restrict_to_source:
-            q = q.join(Edition).filter(Edition.data_source==self.restrict_to_source)
-        q = q.order_by(Work.id)
-
-        print "That's %d works." % q.count()
-
-        offset = 0
-        batch_size = 100
-        batch = True
-        while batch:
-            batch = q.offset(offset).limit(batch_size)
-            for work in batch:
-                # old_genres = work.genres
-                work.calculate_presentation(
-                    choose_edition=False, classify=True,
-                    choose_summary=False,
-                    calculate_quality=False, debug=True,
-                    search_index_client=self.search_index,
-                    )
-                # new_genres = work.genres
-                # if new_genres != old_genres:
-                #     set_trace()
-            db.commit()
-        db.commit()
-
 class NYTBestSellerListsScript(Script):
 
     def __init__(self, include_history=False):
