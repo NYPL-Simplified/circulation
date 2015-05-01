@@ -134,6 +134,8 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
 class WorkSweepMonitor(IdentifierSweepMonitor):
 
     def run_once(self, offset):
+        if offset is None:
+            offset = 0
         q = self.work_query().filter(
             Work.id > offset).order_by(
             Work.id).limit(self.batch_size)
