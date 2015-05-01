@@ -3965,11 +3965,12 @@ class Lane(object):
     @property
     def all_matching_genres(self):
         genres = set()
-        for genre in self.genres:
-            if self.subgenre_books_go == self.IN_SAME_LANE:
-                genres = genres.union(genre.self_and_subgenres)
-            else:
-                genres.add(genre)
+        if self.genres:
+            for genre in self.genres:
+                if self.subgenre_books_go == self.IN_SAME_LANE:
+                    genres = genres.union(genre.self_and_subgenres)
+                else:
+                    genres.add(genre)
         return genres
 
     def works(self, languages, fiction=None, availability=Work.ALL):
