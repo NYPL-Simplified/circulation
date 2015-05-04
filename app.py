@@ -306,7 +306,7 @@ def navigation_feed(lane):
     if lane is None:
         lane = Conf
     else:
-        if lane not in Conf.sublanes_by_name:
+        if lane not in Conf.sublanes.by_name:
             return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
         lane = Conf.sublanes.by_name[lane]
 
@@ -474,7 +474,7 @@ def feed(lane):
     order = arg('order', 'recommended')
     last_seen_id = arg('after', None)
 
-    if lane not in Conf.sublanes_by_name:
+    if lane not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
 
     lane = Conf.sublanes.by_name[lane]
