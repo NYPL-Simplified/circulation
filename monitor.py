@@ -292,9 +292,6 @@ class PresentationReadyMonitor(WorkSweepMonitor):
                 work.set_presentation_ready()                    
                 one_success = True
         self.finalize_batch()
-        if not one_success and self.batch_size > 5:
-            exception = "Failed to make even a single work presentation-ready. Suspect a problem with the code, not continuing."
-            raise Exception(exception)
         return max_id
 
     def prepare(self, work):
