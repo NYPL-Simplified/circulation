@@ -32,7 +32,8 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
     them.
     """
 
-    def __init__(self, _db, metadata_wrangler_url=None, batch_size=10,
+    def __init__(self, _db, metadata_wrangler_url=None,
+                 service_name="Presentation ready monitor", batch_size=10,
                  interval_seconds=10*60):
         super(CirculationPresentationReadyMonitor, self).__init__(
             _db, "Presentation ready monitor", batch_size=batch_size, 
@@ -53,6 +54,30 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
     def process_batch(self, batch):
         batch = [work.primary_edition.primary_identifier for work in batch]
         self.make_presentation_ready.process_batch(batch)
+
+
+class MetadataRefreshMonitor(CirculationPresentationReadyMonitor):
+    """Refresh the metadata of works that are already presentation-ready.
+    """
+
+    def __init__(self, _db, batch_size=10,
+                 interval_seconds=3600*24*7):
+        super(MetadataRefreshMonitor, self).__init__(
+            _db, service_name="Metadata refresh monitor",
+            batch_size=batch_size, 
+            interval_seconds=interval_seconds)
+
+    def work_query(self):
+        # Only get works that are already presentation-ready
+        q = self._db.query(Work).filter(Work.presentation_ready==True)
+
+        # TODO: This is a temporary measure to improve the
+        # classification of childrens' books.
+        from core.classifier import Classifier
+        q = q.filter(Work.audience.in_(
+            [Classifier.AUDIENCE_CHILDREN,
+             Classifier.AUDIENCE_YOUNG_ADULT]))
+        return q
 
 
 class LicensePoolButNoEditionPresentationReadyMonitor(IdentifierSweepMonitor):
