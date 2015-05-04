@@ -3,6 +3,9 @@ import datetime
 import time
 import traceback
 from sqlalchemy.sql.functions import func
+from sqlalchemy.sql.expression import (
+    or_,
+)
 
 from model import (
     get_one_or_create,
@@ -207,9 +210,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
 
     def work_query(self):
-        return self._db.query(Work).filter(
-            Work.presentation_ready==False).filter(
-            Work.presentation_ready_exception==None)
+        not_presentation_ready = or_(
+            Work.presentation_ready==False,
+            Work.presentation_ready==None)
+        return self._db.query(Work).filter(not_presentation_ready)
 
     def run_once(self, offset):
         # Consolidate works.
@@ -217,13 +221,16 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             self._db,
             calculate_work_even_if_no_author=self.calculate_work_even_if_no_author)
 
-        super(PresentationReadyMonitor, self).run_once(offset)
+        return super(PresentationReadyMonitor, self).run_once(offset)
 
     def process_batch(self, batch):
+        max_id = 0
         one_success = False
         for work in batch:
             failures = None
             exception = None
+            if work.id > max_id:
+                max_id = work.id
             try:
                 failures = self.prepare(work)
             except Exception, e:
@@ -250,10 +257,15 @@ class PresentationReadyMonitor(WorkSweepMonitor):
                 work.set_presentation_ready()                    
                 one_success = True
         self.finalize_batch()
-        return one_success
+        if not one_success and self.batch_size > 5:
+            exception = "Failed to make even a single work presentation-ready. Suspect a problem with the code, not continuing."
+            raise Exception(exception)
+        return max_id
 
     def prepare(self, work):
         edition = work.primary_edition
+        if not edition:
+            work = work.calculate_presentation()
         identifier = edition.primary_identifier
         overall_success = True
         failures = []
