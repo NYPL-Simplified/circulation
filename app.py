@@ -143,6 +143,7 @@ NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-l
 NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
 NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
+NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -305,6 +306,8 @@ def navigation_feed(lane):
     if lane is None:
         lane = Conf
     else:
+        if lane not in Conf.sublanes_by_name:
+            return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
@@ -470,6 +473,9 @@ def feed(lane):
     arg = flask.request.args.get
     order = arg('order', 'recommended')
     last_seen_id = arg('after', None)
+
+    if lane not in Conf.sublanes_by_name:
+        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
 
     lane = Conf.sublanes.by_name[lane]
 
