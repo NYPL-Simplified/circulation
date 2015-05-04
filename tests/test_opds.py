@@ -59,6 +59,13 @@ class TestAnnotator(Annotator):
         return "http://facet/" + facet
 
 
+class TestAnnotatorWithBlock(TestAnnotator):
+
+    @classmethod
+    def block_uri(cls, work, license_pool, identifier):
+        return "http://block/" + str(work.id)
+
+
 class TestAnnotators(DatabaseTest):
 
     def test_all_subjects(self):
@@ -299,6 +306,18 @@ class TestOPDS(DatabaseTest):
         eq_("up", up_link['rel'])
         eq_(NavigationFeed.NAVIGATION_FEED_TYPE, up_link['type'])
 
+    def test_block(self):
+        work = self._work(with_open_access_download=True, authors="Alice")
+        [lp] = work.license_pools
+
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               [work], TestAnnotatorWithBlock)
+        u = unicode(feed)
+        parsed = feedparser.parse(u)
+        [block_link] = parsed.entries[0].links
+        expect = TestAnnotatorWithBlock.block_uri(work, lp, lp.identifier)
+        eq_(OPDSFeed.BLOCK_REL, block_link['rel'])
+        eq_(expect, block_link['href'])
 
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")
