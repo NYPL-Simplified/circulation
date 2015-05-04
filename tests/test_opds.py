@@ -290,7 +290,7 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(unicode(original_feed))
         feed = parsed['feed']
 
-        start_link, up_link, self_link = sorted(feed.links)
+        start_link, up_link, self_link, alternate_link = sorted(feed.links)
 
         # There's a self link.
         eq_("http://navigation-feed/Romance", self_link['href'])
@@ -305,6 +305,13 @@ class TestOPDS(DatabaseTest):
         eq_("http://navigation-feed/", up_link['href'])
         eq_("up", up_link['rel'])
         eq_(NavigationFeed.NAVIGATION_FEED_TYPE, up_link['type'])
+
+        # There's an alternate view of this feed.
+        #
+        # TODO: I don't really like this one.
+        eq_("http://featured-feed/Romance?order=author", alternate_link['href'])
+        eq_("alternate", alternate_link['rel'])
+        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, alternate_link['type'])
 
     def test_block(self):
         work = self._work(with_open_access_download=True, authors="Alice")
