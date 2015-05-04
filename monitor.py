@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 import datetime
+import os
 import time
 import traceback
 from sqlalchemy.sql.functions import func
@@ -27,6 +28,15 @@ class Monitor(object):
         self.service_name = name
         self.interval_seconds = interval_seconds
         self.stop_running = False
+
+        url = os.environ.get('SEARCH_SERVER_URL')
+        if url:
+            index = os.environ['SEARCH_WORKS_INDEX']
+            search_index_client = ExternalSearchIndex(url, index)
+        else:
+            search_index_client = None
+        self.search_index_client=search_index_client
+
         if not default_start_time:
              default_start_time = (
                  datetime.datetime.utcnow() - self.ONE_MINUTE_AGO)
@@ -163,6 +173,31 @@ class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
 
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)
+
+class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
+
+    """Reclassifies works using (one hopes) new data or updated
+    classification rules.
+    """
+
+    def __init__(self, _db, interval_seconds=3600*24):
+        super(ReclassifierMonitor, self).__init__(
+            _db, "Reclassifier", interval_seconds)
+
+    def run_once(self, offset):
+        new_offset = super(ReclassifierMonitor, self).run_once(offset)
+        if new_offset == 0:
+            self.stop_running = True
+        return new_offset
+
+    def process_work(self, work):
+        work.calculate_presentation(
+        choose_edition=False, classify=True,
+        choose_summary=False,
+        calculate_quality=False, debug=True,
+        search_index_client=self.search_index_client
+    )
+
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
 
