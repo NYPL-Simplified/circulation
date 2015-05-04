@@ -16,6 +16,9 @@ from model import (
     Timestamp,
     Work,
 )
+from external_search import (
+    ExternalSearchIndex,
+)
 
 class Monitor(object):
 
