@@ -17,6 +17,7 @@ class CirculationManagerAnnotator(Annotator):
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
+        self.lane_by_work = dict()
 
     def facet_url(self, order):
         if not self.lane:
@@ -52,6 +53,28 @@ class CirculationManagerAnnotator(Annotator):
             # determining the active license pool.
             return super(
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
+
+    def block_uri(self, work, license_pool, identifier):
+        if not work in self.lane_by_work:
+            return None, ""
+
+        lane = self.lane_by_work[work]
+        if not lane:
+            # I don't think this should ever happen?
+            lane_name = None
+            url = url_for('acquisition_blocks', lane=lane_name, _external=True)
+            title = "All Books"
+            return url, title
+        lane_name = lane.name
+        # If the lane has sublanes, the URL identifying the block will
+        # take the user to another set of blocks for the
+        # sublanes. Otherwise it will take the user to a list of the
+        # books in the lane by author.
+        if lane.sublanes:
+            url = url_for('acquisition_blocks', lane=lane_name, _external=True)
+        else:
+            url = url_for('feed', lane=lane_name, order='author', _external=True)
+        return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
