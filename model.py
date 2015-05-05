@@ -3063,7 +3063,12 @@ class Measurement(Base):
             return quality
 
         # We have both popularity and rating.
-        final = (popularity * popularity_weight) + (rating * rating_weight)
+        if popularity is None:
+            final = rating
+        if rating is None:
+            final = popularity
+        else:
+            final = (popularity * popularity_weight) + (rating * rating_weight)
         if quality:
             final = (final / 2) + (quality / 2)
         print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
