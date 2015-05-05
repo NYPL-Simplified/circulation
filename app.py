@@ -212,6 +212,32 @@ def make_featured_feed(annotator, lane, languages):
     opds_feed.add_link(**search_link)
     return 200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
+def acquisition_blocks_cache_url(annotator, lane, languages):
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    url = url_for('acquisition_blocks', lane_name=lane_name, _external=True)
+    if '?' in url:
+        url += '&'
+    else:
+        url += '?'
+    return url + "languages=%s" % ",".join(languages)
+
+def make_acquisition_blocks(annotator, lane, languages):
+    feed = AcquisitionFeed.featured_blocks(url, languages, lane, annotator)
+    feed.add_link(
+        rel="search", 
+        type="application/opensearchdescription+xml",
+        href=url_for('lane_search', lane=None, _external=True))
+    feed.add_link(
+        rel="http://opds-spec.org/shelf", 
+        href=url_for('active_loans', _external=True))
+    return (200,
+            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+            unicode(feed)
+    )
+
 def popular_feed_cache_url(annotator, lane, languages):
     if not lane:
         lane_name = lane
@@ -346,6 +372,31 @@ def navigation_feed(lane):
 
 def lane_url(cls, lane, order=None):
     return url_for('feed', lane=lane.name, order=order, _external=True)
+
+@app.route('/blocks', defaults=dict(lane=None))
+@app.route('/blocks/', defaults=dict(lane=None))
+@app.route('/blocks/<lane>')
+def acquisition_blocks(lane):
+    lane_name = lane
+    if lane is None:
+        lane = Conf
+    else:
+        if lane not in Conf.sublanes.by_name:
+            return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
+        lane = Conf.sublanes.by_name[lane]
+
+    languages = languages_for_request()
+    annotator = CirculationManagerAnnotator(lane)
+
+    cache_url = acquisition_blocks_cache_url(annotator, lane, languages)
+    def get(*args, **kwargs):
+            return make_acquisition_blocks(annotator, lane, languages)
+    feed_rep, cached = Representation.get(
+        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+        max_age=60*60)
+    feed_xml = feed_rep.content
+    return feed_response(feed_xml, acquisition=True)
+
 
 @app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
