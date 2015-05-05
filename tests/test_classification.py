@@ -279,7 +279,7 @@ class TestKeyword(object):
 class TestNestedSubgenres(object):
 
     def test_parents(self):
-        eq_([classifier.Romantic_Suspense],
+        eq_([classifier.Romance],
             list(classifier.Romantic_Suspense.parents))
 
         #eq_([classifier.Crime_Thrillers_Mystery, classifier.Mystery],

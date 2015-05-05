@@ -79,6 +79,10 @@ class Annotator(object):
         pass
 
     @classmethod
+    def block_uri(cls, work, license_pool, identifier):
+        return None
+
+    @classmethod
     def cover_links(cls, work):
         """Return all links to be used as cover links for this work.
 
@@ -364,6 +368,7 @@ class OPDSFeed(AtomFeed):
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
 
+    BLOCK_REL = "http://opds-spec.org/block"
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
@@ -533,6 +538,10 @@ class AcquisitionFeed(OPDSFeed):
         if work:
             qualities.append(("Work quality", work.quality))
         full_url = None
+
+        block_uri = self.annotator.block_uri(work, license_pool, identifier)
+        if block_uri:
+            links.append(E.link(rel=OPDSFeed.BLOCK_REL, href=block_uri))
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (
