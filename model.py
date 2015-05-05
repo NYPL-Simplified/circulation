@@ -3939,7 +3939,7 @@ class Lane(object):
             if previous_quality_min is not None:
                 query = query.filter(
                     Work.quality < previous_quality_min)
-
+                
             # How many are there?
             start = time.time()
             count = query.count()
@@ -4017,11 +4017,11 @@ class Lane(object):
             else:
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
 
-        if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
-            # No genre plus a boolean value for `fiction` means
-            # fiction or nonfiction not associated with any genre.
-            q = Work.with_no_genres(q)
-        elif self.genres is not None:
+        #if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
+        #    # No genre plus a boolean value for `fiction` means
+        #    # fiction or nonfiction not associated with any genre.
+        #    q = Work.with_no_genres(q)
+        if self.genres is not None:
             # Find works that are assigned to the given genres. This
             # may also turn into a restriction on the fiction status.
             fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
