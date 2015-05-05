@@ -154,7 +154,7 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
         q = q.filter(
             Identifier.type.in_(
                 [
-                    # Identifier.GUTENBERG_ID, 
+                    Identifier.GUTENBERG_ID, 
                     Identifier.OVERDRIVE_ID,
                     Identifier.THREEM_ID
                     ]
