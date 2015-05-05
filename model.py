@@ -2976,7 +2976,7 @@ class Measurement(Base):
         # Data.
         #
         # TODO: Calculate a separate distribution for more modern works.
-        DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
+        # DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
     }
 
     DOWNLOAD_PERCENTILES = {
@@ -3069,10 +3069,12 @@ class Measurement(Base):
             final = popularity
         else:
             final = (popularity * popularity_weight) + (rating * rating_weight)
+            print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
+                popularity, popularity_weight, rating, rating_weight, final)
         if quality:
+            print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
             final = (final / 2) + (quality / 2)
-        print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
-            popularity, popularity_weight, rating, rating_weight, final)
+            print "Final value: %.2f" % final
         return final
 
     @classmethod
