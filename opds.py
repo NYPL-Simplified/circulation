@@ -409,6 +409,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         feed_size = 20
         _db = None
+        all_works = []
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
@@ -417,8 +418,9 @@ class AcquisitionFeed(OPDSFeed):
                 "currently_available")
             for work in works:
                 annotator.lane_by_work[work] = l
+                all_works.append(work)
 
-        feed = AcquisitionFeed(_db, "Featured", url, works, annotator,
+        feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])
         return feed
 

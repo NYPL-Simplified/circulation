@@ -3717,6 +3717,9 @@ class LaneList(object):
         self.lanes = []
         self.by_name = dict()
 
+    def __len__(self):
+        return len(self.lanes)
+
     def __iter__(self):
         return self.lanes.__iter__()
 
