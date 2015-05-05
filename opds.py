@@ -80,7 +80,7 @@ class Annotator(object):
 
     @classmethod
     def block_uri(cls, work, license_pool, identifier):
-        return None
+        return None, ""
 
     @classmethod
     def cover_links(cls, work):
@@ -401,8 +401,35 @@ class AcquisitionFeed(OPDSFeed):
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
             sublanes=lane.sublanes)
 
+    @classmethod
+    def featured_blocks(
+            cls, url, languages, lane, annotator, quality_cutoff=0.3):
+        """The acquisition feed for 'featured' items from a given lane's
+        sublanes, organized into per-lane blocks.
+        """
+        feed_size = 20
+        _db = None
+        for l in lane.sublanes:
+            if not _db:
+                _db = l._db
+            works = l.quality_sample(
+                languages, 0.65, quality_cutoff, feed_size,
+                "currently_available")
+            for work in works:
+                annotator.lane_by_work[work] = l
+
+        feed = AcquisitionFeed(_db, "Featured", url, works, annotator,
+                               facet_groups=[])
+        return feed
+
+    DEFAULT_FACET_GROUPS = [
+        ('Title', 'title', 'Sort by'),
+        ('Author', 'author', 'Sort by')
+    ]
+
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={}):
+                 active_facet=None, sublanes=[], messages_by_urn={},
+                 facet_groups=DEFAULT_FACET_GROUPS):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
@@ -428,9 +455,7 @@ class AcquisitionFeed(OPDSFeed):
 
         print "Feed built in %.2f" % (time.time()-first_time)
 
-        for title, order, facet_group, in [
-                ('Title', 'title', 'Sort by'),
-                ('Author', 'author', 'Sort by')]:
+        for title, order, facet_group, in facet_groups:
             url = self.annotator.facet_url(order)
             if not url:
                 continue
@@ -539,9 +564,11 @@ class AcquisitionFeed(OPDSFeed):
             qualities.append(("Work quality", work.quality))
         full_url = None
 
-        block_uri = self.annotator.block_uri(work, license_pool, identifier)
+        block_uri, block_title = self.annotator.block_uri(
+            work, license_pool, identifier)
         if block_uri:
-            links.append(E.link(rel=OPDSFeed.BLOCK_REL, href=block_uri))
+            links.append(E.link(rel=OPDSFeed.BLOCK_REL, href=block_uri,
+                                title=block_title))
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (
