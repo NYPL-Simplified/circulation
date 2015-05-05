@@ -3943,14 +3943,15 @@ class Lane(object):
             # How many are there?
             start = time.time()
             count = query.count()
+            max_subset = 100
             if count > 0:
-                if count <= 250:
+                if count <= 100:
                     random_offset = 0
                 else:
-                    random_offset = random.randint(0, count-250)
+                    random_offset = random.randint(0, count-100)
 
                 # Pick up a subset of at most 250 items.
-                query = query.offset(random_offset).limit(250)
+                query = query.offset(random_offset).limit(100)
                 r = query.all()
                 sample_size = min(remaining, len(r))
                 print "Sampling %d from %d" % (sample_size, len(r))
