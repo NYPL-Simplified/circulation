@@ -2944,6 +2944,38 @@ class Work(Base):
         #                  weight=weight))
         return doc
 
+        @classmethod
+        def restrict_to_custom_lists(base_query, custom_lists, on_list_as_of):
+            """Annotate a query that joins Work against Edition to match only
+            Works that are on one or more custom lists."""
+
+            # Find works...
+            q = base_query
+
+            # ...that are on one of the given custom lists.
+            edition_from_custom_list = aliased(Edition)
+            has_same_pwid = (
+                edition_from_custom_list.permanent_work_id
+                ==Edition.permanent_work_id)
+            q = q.join(edition_from_custom_list, has_same_pwid).join(
+                edition_from_custom_list.custom_list_entries)
+            custom_list_ids = [x.id for x in custom_lists]
+            q = q.filter(
+                CustomListEntry.list_id.in_(custom_list_ids))
+
+            if on_list_as_of:
+                # The work must have been seen on the given list as
+                # recently as the given date.
+                on_list_clause = (
+                    CustomListEntry.most_recent_appearance >= self.on_list_as_of)
+                q = q.filter(on_list_clause)
+
+            # Only count a work once, even if it shows up on more than one
+            # of the given lists.
+            q = q.distinct(Work.id)
+            return q
+
+
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
     Identifier.
@@ -4176,32 +4208,8 @@ class CustomListFeed(WorkFeed):
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
-        # Find works...
         q = Work.feed_query(_db, self.languages, self.availability)
-
-        # ...that are on one of the given custom lists.
-        edition_from_custom_list = aliased(Edition)
-        has_same_pwid = (
-            edition_from_custom_list.permanent_work_id
-            ==Edition.permanent_work_id)
-        q = q.join(edition_from_custom_list, has_same_pwid).join(
-                edition_from_custom_list.custom_list_entries)
-        custom_list_ids = [x.id for x in self.custom_lists]
-        q = q.filter(
-            CustomListEntry.list_id.in_(custom_list_ids))
-
-        if self.on_list_as_of:
-            # The work must have been seen on the given list as
-            # recently as the given date.
-            on_list_clause = (
-                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
-            q = q.filter(on_list_clause)
-
-        # Only count a work once, even if it shows up on more than one
-        # of the given lists.
-        q = q.distinct(Work.id)
-        q = q.order_by(CustomListEntry.most_recent_appearance.desc())
-        return q
+        return Work.restrict_to_custom_lists(q, self.custom_lists, self.on_list_as_of)
 
 class AllCustomListsFromDataSourceFeed(CustomListFeed):
 
@@ -4209,10 +4217,7 @@ class AllCustomListsFromDataSourceFeed(CustomListFeed):
 
     def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
                  **kwargs):
-        if isinstance(data_sources, basestring):
-            data_sources = [data_sources]
-        sources = [DataSource.lookup(_db, x).id for x in data_sources]
-        lists = _db.query(CustomList).filter(CustomList.data_source_id.in_(sources))
+        lists = CustomList.all_from_data_sources(_db, data_sources)
         super(AllCustomListsFromDataSourceFeed, self).__init__(
             lists, languages, on_list_as_of, **kwargs)
 
@@ -5248,6 +5253,18 @@ class CustomList(Base):
     # TODO: It should be possible to associate a CustomList with an
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
+
+    @clasmethod
+    def all_from_data_sources(cls, _db, data_sources):
+        """All custom lists from the given data sources."""
+        if not isinstance(data_sources, list):
+            data_sources = [data_sources]
+        ids = []
+        for ds in data_sources:
+            if isinstance(ds, basestring):
+                ds = DataSource.lookup(_db, ds)
+            ids.append(ds.id)
+        return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     def add_entry(self, edition, annotation=None, first_appearance=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()

@@ -409,16 +409,38 @@ class AcquisitionFeed(OPDSFeed):
         """
         feed_size = 20
         _db = None
+        all_works = []
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
             works = l.quality_sample(
                 languages, 0.65, quality_cutoff, feed_size,
-                "currently_available")
+                Work.CURRENTLY_AVAILABLE)
             for work in works:
                 annotator.lane_by_work[work] = l
+                all_works.append(work)
+        if lane.parent is None or lane.parent.parent is None:
+            # If lane.parent is None, this is the very top level.
+            # If lane.parent.parent is None, this is a top-level
+            #  lane (e.g. "Young Adult Fiction").
+            #
+            # These are the only lanes that get Staff Picks and
+            # Best-Sellers.
+            best_seller_uri = "tag:Best%20Sellers"
+            nyt_lists = CustomList.all_from_data_sources(_db, DataSource.NYT)
+            q = l.works(languages, Work.ALL)
+            q = Work.restrict_to_custom_lists(q, nyt_lists)
+            q = q.order_by(CustomListEntry.most_recent_appearance.desc())
+            page = work_feed.page_query(_db, None, 200).all()
+            sample = random.sample(20)
+            for work in sample:
+                annotator.lane_by_work[work] = best_seller_uri
+                all_works.append(work)
+            # TODO: As long as we've got this info, let's make the complete 
+            # feed and send it back so we can have the block URI be something
+            # other than a tag.
 
-        feed = AcquisitionFeed(_db, "Featured", url, works, annotator,
+        feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])
         return feed
 
