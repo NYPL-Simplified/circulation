@@ -2004,7 +2004,7 @@ class Edition(Base):
             if self.cover:
                 print " cover=" + self.cover.representation.mirror_url
             print
-
+Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -4176,17 +4176,19 @@ class CustomListFeed(WorkFeed):
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
+        # Find works...
+        q = Work.feed_query(_db, self.languages, self.availability)
 
-        # TODO: The simplest way to do this is two queries, but it can
-        # be optimized to one if it becomes a problem.
-
-        # First, find all works in one of the given lists which also
-        # have a permanent work ID.
+        # ...that are on one of the given custom lists.
+        edition_from_custom_list = aliased(Edition)
+        has_same_pwid = (
+            edition_from_custom_list.permanent_work_id
+            ==Edition.permanent_work_id)
+        q = q.join(edition_from_custom_list, has_same_pwid).join(
+                edition_from_custom_list.custom_list_entries)
         custom_list_ids = [x.id for x in self.custom_lists]
-        q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
-            CustomListEntry.list_id.in_(custom_list_ids)).filter(
-                Edition.permanent_work_id != None)
-        q = q.options(joinedload(CustomListEntry.edition))
+        q = q.filter(
+            CustomListEntry.list_id.in_(custom_list_ids))
 
         if self.on_list_as_of:
             # The work must have been seen on the given list as
@@ -4194,16 +4196,12 @@ class CustomListFeed(WorkFeed):
             on_list_clause = (
                 CustomListEntry.most_recent_appearance >= self.on_list_as_of)
             q = q.filter(on_list_clause)
-        permanent_work_ids = set([x.edition.permanent_work_id for x in q])
-        print "Potentially %s permanent work IDs." % len(permanent_work_ids)
 
-        # Now the second query. Find all works where the primary edition's
-        # permanent work ID is in the big list of IDs we got earlier.
-        q = Work.feed_query(_db, self.languages, self.availability)
-        q = q.join(Work.primary_edition).filter(
-            Edition.permanent_work_id.in_(permanent_work_ids))
+        # Only count a work once, even if it shows up on more than one
+        # of the given lists.
+        q = q.distinct(Work.id)
+        q = q.order_by(CustomListEntry.most_recent_appearance.desc())
         return q
-
 
 class AllCustomListsFromDataSourceFeed(CustomListFeed):
 
@@ -4256,6 +4254,8 @@ class LicensePool(Base):
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
 
+    # Index the combination of DataSource and Identifier to make joins easier.
+
     clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
     edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined',
@@ -4269,7 +4269,9 @@ class LicensePool(Base):
     patrons_in_hold_queue = Column(Integer,default=0)
 
     # A Identifier should have at most one LicensePool.
-    __table_args__ = (UniqueConstraint('identifier_id'),)
+    __table_args__ = (
+        UniqueConstraint('identifier_id'),
+    )
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):
@@ -4555,7 +4557,7 @@ class LicensePool(Base):
             if link:
                 return pool, link
         return self, None
-
+Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
 class RightsStatus(Base):
 

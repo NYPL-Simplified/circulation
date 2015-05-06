@@ -409,6 +409,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         feed_size = 20
         _db = None
+        set_trace()
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
