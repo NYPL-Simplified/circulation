@@ -429,9 +429,9 @@ class AcquisitionFeed(OPDSFeed):
             # These are the only lanes that get Staff Picks and
             # Best-Sellers.
             best_seller_uri = "tag:Best%20Sellers"
-            nyt_lists = CustomList.all_from_data_sources(_db, DataSource.NYT)
+            nyt = DataSource.lookup(_db, DataSource.NYT)
             q = l.works(languages, availability=Work.ALL)
-            q = Work.restrict_to_custom_lists(q, nyt_lists)
+            q = Work.restrict_to_custom_lists_from_data_source(q, nyt)
             q = q.order_by(CustomListEntry.most_recent_appearance.desc())
             q = q.limit(200)
             a = time.time()

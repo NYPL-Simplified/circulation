@@ -1535,7 +1535,7 @@ class Edition(Base):
     # This is not a foreign key per se; it's a calculated UUID-like
     # identifier for this work based on its title and author, used to
     # group together different editions of the same work.
-    permanent_work_id = Column(Unicode, index=True)
+    permanent_work_id = Column(String(36), index=True)
 
     # A string depiction of the authors' names.
     author = Column(Unicode, index=True)
@@ -2945,10 +2945,10 @@ class Work(Base):
         return doc
 
     @classmethod
-    def restrict_to_custom_lists(cls, base_query, custom_lists, on_list_as_of=None):
+    def restrict_to_custom_lists_from_data_source(
+            cls, base_query, data_source, on_list_as_of=None):
         """Annotate a query that joins Work against Edition to match only
-        Works that are on one or more custom lists."""
-
+        Works that are on a custom list from the given data source."""
         # Find works...
         q = base_query
 
@@ -2959,9 +2959,8 @@ class Work(Base):
             ==Edition.permanent_work_id)
         q = q.join(edition_from_custom_list, has_same_pwid).join(
             edition_from_custom_list.custom_list_entries)
-        custom_list_ids = [x.id for x in custom_lists]
-        q = q.filter(
-            CustomListEntry.list_id.in_(custom_list_ids))
+        q = q.join(CustomListEntry.customlist)
+        q = q.filter(CustomList.data_source==data_source)
 
         if on_list_as_of:
             # The work must have been seen on the given list as
@@ -4207,25 +4206,16 @@ class CustomListFeed(WorkFeed):
 
     """A WorkFeed where all the works come from one or more custom lists."""
 
-    def __init__(self, custom_lists, languages, on_list_as_of=None, 
+    def __init__(self, custom_list_data_source, languages, on_list_as_of=None, 
                  **kwargs):
-        self.custom_lists = custom_lists
+        self.custom_list_data_source = custom_list_data_source
         self.on_list_as_of = on_list_as_of
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
         q = Work.feed_query(_db, self.languages, self.availability)
-        return Work.restrict_to_custom_lists(q, self.custom_lists, self.on_list_as_of)
-
-class AllCustomListsFromDataSourceFeed(CustomListFeed):
-
-    """A WorkFeed consolidating all custom lists from a given data source."""
-
-    def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
-                 **kwargs):
-        lists = CustomList.all_from_data_sources(_db, data_sources)
-        super(AllCustomListsFromDataSourceFeed, self).__init__(
-            lists, languages, on_list_as_of, **kwargs)
+        return Work.restrict_to_custom_lists_from_data_source(
+            q, self.custom_list_data_source, self.on_list_as_of)
 
 
 class LicensePool(Base):
