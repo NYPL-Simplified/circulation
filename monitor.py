@@ -123,7 +123,7 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
     presentation-ready works.
     """
 
-    def __init__(self, _db, batch_size=10, interval_seconds=10*60):
+    def __init__(self, _db, batch_size=50, interval_seconds=10*60):
         super(LicensePoolButNoWorkPresentationReadyMonitor, self).__init__(
             _db, 
             "Presentation ready monitor - Identifier has LicensePool but no Work", 
