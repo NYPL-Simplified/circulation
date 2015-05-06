@@ -22,6 +22,8 @@ import requests
 from lxml import builder, etree
 
 from model import (
+    CustomList,
+    CustomListEntry,
     DataSource,
     Hyperlink,
     Resource,
@@ -419,7 +421,7 @@ class AcquisitionFeed(OPDSFeed):
             for work in works:
                 annotator.lane_by_work[work] = l
                 all_works.append(work)
-        if lane.parent is None or lane.parent.parent is None:
+        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages:
             # If lane.parent is None, this is the very top level.
             # If lane.parent.parent is None, this is a top-level
             #  lane (e.g. "Young Adult Fiction").
@@ -428,17 +430,24 @@ class AcquisitionFeed(OPDSFeed):
             # Best-Sellers.
             best_seller_uri = "tag:Best%20Sellers"
             nyt_lists = CustomList.all_from_data_sources(_db, DataSource.NYT)
-            q = l.works(languages, Work.ALL)
+            q = l.works(languages, availability=Work.ALL)
             q = Work.restrict_to_custom_lists(q, nyt_lists)
             q = q.order_by(CustomListEntry.most_recent_appearance.desc())
-            page = work_feed.page_query(_db, None, 200).all()
-            sample = random.sample(20)
+            q = q.limit(200)
+            a = time.time()
+            page = q.all()
+            b = time.time()
+            print "Obtained best-seller sample of %d in %.2f sec" % (len(page), b-a)
+            if len(page) > 20:
+                sample = random.sample(page, 20)
+            else:
+                sample = page
             for work in sample:
-                annotator.lane_by_work[work] = best_seller_uri
+                annotator.lane_by_work[work] = (best_seller_uri, 'Best Sellers')
                 all_works.append(work)
             # TODO: As long as we've got this info, let's make the complete 
             # feed and send it back so we can have the block URI be something
-            # other than a tag.
+            # other than a tag, and the best seller list will be browsable.
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])

@@ -2944,36 +2944,36 @@ class Work(Base):
         #                  weight=weight))
         return doc
 
-        @classmethod
-        def restrict_to_custom_lists(base_query, custom_lists, on_list_as_of):
-            """Annotate a query that joins Work against Edition to match only
-            Works that are on one or more custom lists."""
+    @classmethod
+    def restrict_to_custom_lists(cls, base_query, custom_lists, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on one or more custom lists."""
 
-            # Find works...
-            q = base_query
+        # Find works...
+        q = base_query
 
-            # ...that are on one of the given custom lists.
-            edition_from_custom_list = aliased(Edition)
-            has_same_pwid = (
-                edition_from_custom_list.permanent_work_id
-                ==Edition.permanent_work_id)
-            q = q.join(edition_from_custom_list, has_same_pwid).join(
-                edition_from_custom_list.custom_list_entries)
-            custom_list_ids = [x.id for x in custom_lists]
-            q = q.filter(
-                CustomListEntry.list_id.in_(custom_list_ids))
+        # ...that are on one of the given custom lists.
+        edition_from_custom_list = aliased(Edition)
+        has_same_pwid = (
+            edition_from_custom_list.permanent_work_id
+            ==Edition.permanent_work_id)
+        q = q.join(edition_from_custom_list, has_same_pwid).join(
+            edition_from_custom_list.custom_list_entries)
+        custom_list_ids = [x.id for x in custom_lists]
+        q = q.filter(
+            CustomListEntry.list_id.in_(custom_list_ids))
 
-            if on_list_as_of:
-                # The work must have been seen on the given list as
-                # recently as the given date.
-                on_list_clause = (
-                    CustomListEntry.most_recent_appearance >= self.on_list_as_of)
-                q = q.filter(on_list_clause)
+        if on_list_as_of:
+            # The work must have been seen on the given list as
+            # recently as the given date.
+            on_list_clause = (
+                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
+            q = q.filter(on_list_clause)
 
-            # Only count a work once, even if it shows up on more than one
-            # of the given lists.
-            q = q.distinct(Work.id)
-            return q
+        # Only count a work once, even if it shows up on more than one
+        # of the given lists.
+        # q = q.distinct(Work.id)
+        return q
 
 
 class Measurement(Base):
@@ -5260,7 +5260,7 @@ class CustomList(Base):
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
 
-    @clasmethod
+    @classmethod
     def all_from_data_sources(cls, _db, data_sources):
         """All custom lists from the given data sources."""
         if not isinstance(data_sources, list):
