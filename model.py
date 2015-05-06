@@ -2946,32 +2946,29 @@ class Work(Base):
 
     @classmethod
     def restrict_to_custom_lists_from_data_source(
-            cls, base_query, data_source, on_list_as_of=None):
+            cls, _db, base_query, data_source, on_list_as_of=None):
         """Annotate a query that joins Work against Edition to match only
         Works that are on a custom list from the given data source."""
         # Find works...
         q = base_query
 
-        # ...that are on one of the given custom lists.
-        edition_from_custom_list = aliased(Edition)
-        has_same_pwid = (
-            edition_from_custom_list.permanent_work_id
-            ==Edition.permanent_work_id)
-        q = q.join(edition_from_custom_list, has_same_pwid).join(
-            edition_from_custom_list.custom_list_entries)
-        q = q.join(CustomListEntry.customlist)
-        q = q.filter(CustomList.data_source==data_source)
-
+        # Find editions that are on a list from the given data source.
+        subquery = _db.query(Edition.permanent_work_id).join(
+            Edition.custom_list_entries).join(
+            CustomListEntry.customlist).filter(
+                CustomList.data_source==data_source)
         if on_list_as_of:
             # The work must have been seen on the given list as
             # recently as the given date.
             on_list_clause = (
-                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
-            q = q.filter(on_list_clause)
-
-        # Only count a work once, even if it shows up on more than one
-        # of the given lists.
-        # q = q.distinct(Work.id)
+                CustomListEntry.most_recent_appearance >= on_list_as_of)
+            subquery = subquery.filter(on_list_clause)
+        subquery = subquery.distinct(Edition.permanent_work_id)
+        subquery = subquery.subquery('nyt')
+        has_same_pwid = (
+            subquery.c.permanent_work_id
+            ==Edition.permanent_work_id)
+        q = q.join(subquery, has_same_pwid)
         return q
 
 
@@ -4215,7 +4212,7 @@ class CustomListFeed(WorkFeed):
     def base_query(self, _db):
         q = Work.feed_query(_db, self.languages, self.availability)
         return Work.restrict_to_custom_lists_from_data_source(
-            q, self.custom_list_data_source, self.on_list_as_of)
+            _db, q, self.custom_list_data_source, self.on_list_as_of)
 
 
 class LicensePool(Base):
