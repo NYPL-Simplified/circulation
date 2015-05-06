@@ -201,16 +201,24 @@ class PrecalculateFeaturedFeedsScript(Script):
     def __init__(self, language_sets=[["eng"], ["spa"]]):
         self.lanes = make_lanes(self._db)
         self.language_sets = language_sets
+        class DummyConf:
+            sublanes = self.lanes
+            name = None
+            display_name = None
+
+        self.conf = DummyConf
 
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
 
     def make_lane(self, lane):
+        if not lane.sublanes:
+            return
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.language_sets:
-            cache_url = app.featured_feed_cache_url(
+            cache_url = app.acquisition_blocks_cache_url(
                 annotator, lane, languages)
             def get(*args, **kwargs):
-                return app.make_featured_feed(annotator, lane, languages)
+                return app.make_acquisition_blocks(annotator, lane, languages)
 
             a = time.time()
             feed_rep, ignore = Representation.get(
@@ -226,15 +234,17 @@ class PrecalculateFeaturedFeedsScript(Script):
         client = app.app.test_client()
         ctx = app.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = self.lanes.lanes
+        queue = [self.conf]
         while queue:
             new_queue = []
             print "!! Beginning of loop: %d lanes to process" % len(queue)
             for l in queue:
                 self.make_lane(l)
-                new_queue.extend(l.sublanes)
+                self._db.commit()
+                for sublane in l.sublanes:
+                    if sublane.sublanes:
+                        new_queue.append(sublane)
             queue = new_queue
-            self._db.commit()
         ctx.pop()
 
 

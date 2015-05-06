@@ -62,7 +62,7 @@ class CirculationManagerAnnotator(Annotator):
         if not lane:
             # I don't think this should ever happen?
             lane_name = None
-            url = url_for('acquisition_blocks', lane=lane_name, _external=True)
+            url = url_for('acquisition_blocks', lane=None, _external=True)
             title = "All Books"
             return url, title
         lane_name = lane.name
@@ -71,9 +71,9 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes:
-            url = url_for('acquisition_blocks', lane=lane_name, _external=True)
+            url = url_for('acquisition_blocks', lane=lane.display_name, _external=True)
         else:
-            url = url_for('feed', lane=lane_name, order='author', _external=True)
+            url = url_for('feed', lane=lane.display_name, order='author', _external=True)
         return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):

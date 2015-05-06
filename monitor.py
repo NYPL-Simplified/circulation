@@ -123,7 +123,7 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
     presentation-ready works.
     """
 
-    def __init__(self, _db, batch_size=10, interval_seconds=10*60):
+    def __init__(self, _db, batch_size=50, interval_seconds=10*60):
         super(LicensePoolButNoWorkPresentationReadyMonitor, self).__init__(
             _db, 
             "Presentation ready monitor - Identifier has LicensePool but no Work", 
@@ -141,9 +141,15 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
 
     def identifier_query(self):
         """Find identifiers that have a LicensePool but no Work."""
+        # TODO: It's indicative of a problem that the commented-out query
+        # tends to pick up many fewer results than the other one.
+        #q = self._db.query(Identifier).join(
+        #    Identifier.licensed_through).outerjoin(
+        #    Work, Work.id==LicensePool.work_id).filter(
+        #        Work.id == None)
         q = self._db.query(Identifier).join(
-            Identifier.licensed_through).outerjoin(
-            Work, Work.id==LicensePool.work_id).filter(
+            Identifier.licensed_through).join(LicensePool.edition).outerjoin(
+            Work, Work.id==Edition.work_id).filter(
                 Work.id == None)
         q = q.filter(
             Identifier.type.in_(

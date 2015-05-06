@@ -226,6 +226,7 @@ def acquisition_blocks_cache_url(annotator, lane, languages):
     return url + "languages=%s" % ",".join(languages)
 
 def make_acquisition_blocks(annotator, lane, languages):
+    url = url_for("acquisition_blocks", lane=lane)
     feed = AcquisitionFeed.featured_blocks(url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
@@ -393,10 +394,10 @@ def acquisition_blocks(lane):
 
     cache_url = acquisition_blocks_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
-            return make_acquisition_blocks(annotator, lane, languages)
+        make_acquisition_blocks(annotator, lane, languages)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-        max_age=60*60)
+        max_age=None)
     feed_xml = feed_rep.content
     return feed_response(feed_xml, acquisition=True)
 
