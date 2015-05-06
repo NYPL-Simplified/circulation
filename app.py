@@ -1,5 +1,6 @@
 from functools import wraps
 from nose.tools import set_trace
+import datetime
 import random
 import time
 import os
@@ -259,11 +260,13 @@ def make_popular_feed(_db, annotator, lane, languages):
         lane_name = lane.name
         lane_display_name = lane.display_name
         title = "%s: Best Sellers" % lane_display_name
-    # TODO: Can't sort by most recent appearance.
     work_feed = AllCustomListsFromDataSourceFeed(
         _db, [DataSource.NYT], languages,
         availability=AllCustomListsFromDataSourceFeed.ALL)
-    page = work_feed.page_query(_db, None, 100).all()
+    a = time.time()
+    page = work_feed.page_query(_db, None, 200).all()
+    b = time.time()
+    print "Best-seller feed created in %.2f sec" % (b-a)
     page = random.sample(page, min(len(page), 20))
 
     this_url = url_for('popular_feed', lane_name=lane_name, _external=True)

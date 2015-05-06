@@ -249,7 +249,6 @@ class PrecalculatePopularFeedsScript(Script):
     def make_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.language_sets:
-            set_trace()
             cache_url = app.popular_feed_cache_url(
                 annotator, lane, languages)
             def get(*args, **kwargs):
