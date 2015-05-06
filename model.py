@@ -3008,7 +3008,7 @@ class Measurement(Base):
         # Data.
         #
         # TODO: Calculate a separate distribution for more modern works.
-        DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
+        # DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
     }
 
     DOWNLOAD_PERCENTILES = {
@@ -3101,10 +3101,12 @@ class Measurement(Base):
             final = popularity
         else:
             final = (popularity * popularity_weight) + (rating * rating_weight)
+            print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
+                popularity, popularity_weight, rating, rating_weight, final)
         if quality:
+            print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
             final = (final / 2) + (quality / 2)
-        print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
-            popularity, popularity_weight, rating, rating_weight, final)
+            print "Final value: %.2f" % final
         return final
 
     @classmethod
@@ -3749,6 +3751,9 @@ class LaneList(object):
         self.lanes = []
         self.by_name = dict()
 
+    def __len__(self):
+        return len(self.lanes)
+
     def __iter__(self):
         return self.lanes.__iter__()
 
@@ -3966,18 +3971,19 @@ class Lane(object):
             if previous_quality_min is not None:
                 query = query.filter(
                     Work.quality < previous_quality_min)
-
+                
             # How many are there?
             start = time.time()
             count = query.count()
+            max_subset = 100
             if count > 0:
-                if count <= 250:
+                if count <= 100:
                     random_offset = 0
                 else:
-                    random_offset = random.randint(0, count-250)
+                    random_offset = random.randint(0, count-100)
 
                 # Pick up a subset of at most 250 items.
-                query = query.offset(random_offset).limit(250)
+                query = query.offset(random_offset).limit(100)
                 r = query.all()
                 sample_size = min(remaining, len(r))
                 print "Sampling %d from %d" % (sample_size, len(r))
@@ -4043,11 +4049,11 @@ class Lane(object):
             else:
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
 
-        if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
-            # No genre plus a boolean value for `fiction` means
-            # fiction or nonfiction not associated with any genre.
-            q = Work.with_no_genres(q)
-        elif self.genres is not None:
+        #if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
+        #    # No genre plus a boolean value for `fiction` means
+        #    # fiction or nonfiction not associated with any genre.
+        #    q = Work.with_no_genres(q)
+        if self.genres is not None:
             # Find works that are assigned to the given genres. This
             # may also turn into a restriction on the fiction status.
             fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
