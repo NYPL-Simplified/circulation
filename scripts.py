@@ -198,10 +198,12 @@ class ContentOPDSImporter(BaseOPDSImporter):
 
 class PrecalculateFeaturedFeedsScript(Script):
 
-    def __init__(self, language_sets=[["eng"], ["spa"]]):
+    def __init__(self, language_sets=[["eng"]]):#language_sets=[["eng"], ["spa"]]):
         self.lanes = make_lanes(self._db)
         self.language_sets = language_sets
         class DummyConf:
+            db = None
+            parent = None
             sublanes = self.lanes
             name = None
             display_name = None

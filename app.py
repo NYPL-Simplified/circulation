@@ -226,12 +226,16 @@ def acquisition_blocks_cache_url(annotator, lane, languages):
     return url + "languages=%s" % ",".join(languages)
 
 def make_acquisition_blocks(annotator, lane, languages):
-    url = url_for("acquisition_blocks", lane=lane)
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    url = url_for("acquisition_blocks", lane=lane_name)
     feed = AcquisitionFeed.featured_blocks(url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=None, _external=True))
+        href=url_for('lane_search', lane=lane_name, _external=True))
     feed.add_link(
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
