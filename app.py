@@ -41,7 +41,7 @@ from threem import (
 from core.model import (
     get_one,
     get_one_or_create,
-    AllCustomListsFromDataSourceFeed,
+    CustomListFeed,
     DataSource,
     production_session,
     Hold,
@@ -265,9 +265,10 @@ def make_popular_feed(_db, annotator, lane, languages):
         lane_name = lane.name
         lane_display_name = lane.display_name
         title = "%s: Best Sellers" % lane_display_name
-    work_feed = AllCustomListsFromDataSourceFeed(
-        _db, [DataSource.NYT], languages,
-        availability=AllCustomListsFromDataSourceFeed.ALL)
+    nyt = DataSource.lookup(_db, DataSource.NYT)
+    work_feed = CustomListFeed(
+        _db, DataSource.NYT, languages,
+        availability=CustomListFeed.ALL)
     a = time.time()
     page = work_feed.page_query(_db, None, 200).all()
     b = time.time()
