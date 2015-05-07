@@ -72,7 +72,7 @@ class Annotator(object):
     application context.
     """
 
-    opds_cache_field = Work.simple_opds_entry
+    opds_cache_field = Work.simple_opds_entry.name
 
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
@@ -252,7 +252,7 @@ class VerboseAnnotator(Annotator):
     in great detail.
     """
 
-    opds_cache_field = Work.verbose_opds_entry
+    opds_cache_field = Work.verbose_opds_entry.name
 
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
@@ -559,7 +559,7 @@ class AcquisitionFeed(OPDSFeed):
         if work and not force_create:
             field = self.annotator.opds_cache_field
             if field:
-                xml = getattr(work, field.name)
+                xml = getattr(work, field)
 
         if xml:
             cache_hit = True
