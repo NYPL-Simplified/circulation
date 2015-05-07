@@ -553,9 +553,8 @@ class AcquisitionFeed(OPDSFeed):
         before = time.time()
         xml = None
         cache_hit = False
-        if work and not force_create:
-            field = self.annotator.opds_cache_field
-            if field:
+        field = self.annotator.opds_cache_field
+        if field and work and not force_create:
                 xml = getattr(work, field)
 
         if xml:
@@ -565,10 +564,8 @@ class AcquisitionFeed(OPDSFeed):
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
             data = etree.tostring(xml)
-            if self.annotator == Annotator:
-                work.simple_opds_entry = data
-            elif self.annotator == VerboseAnnotator:
-                work.verbose_opds_entry = data
+            if field:
+                setattr(work, field, data)
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
@@ -578,7 +575,11 @@ class AcquisitionFeed(OPDSFeed):
             title = edition.title + " "
         else:
             title = ""
-        print "%s %r %.2f" % (title.encode("utf8"), cache_hit, after-before)
+        if cache_hit:
+            cache_hit = "Cached"
+        else:
+            cache_hit = "Uncached"
+        print "%s %s %.2f" % (title.encode("utf8"), cache_hit, after-before)
 
         return xml
 
