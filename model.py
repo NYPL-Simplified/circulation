@@ -2005,6 +2005,7 @@ class Edition(Base):
                 print " cover=" + self.cover.representation.mirror_url
             print
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
+Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -4259,10 +4260,10 @@ class LicensePool(Base):
         "Edition", primaryjoin=clause, uselist=False, lazy='joined',
         foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id])
 
-    open_access = Column(Boolean)
+    open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
-    licenses_available = Column(Integer,default=0)
+    licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
 
