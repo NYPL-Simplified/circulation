@@ -72,6 +72,8 @@ class Annotator(object):
     application context.
     """
 
+    opds_cache_field = Work.simple_opds_entry
+
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
                             entry):
@@ -249,6 +251,8 @@ class VerboseAnnotator(Annotator):
     This Annotator describes all categories and authors for the book
     in great detail.
     """
+
+    opds_cache_field = Work.verbose_opds_entry
 
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
@@ -553,10 +557,9 @@ class AcquisitionFeed(OPDSFeed):
         xml = None
         cache_hit = False
         if work and not force_create:
-            if self.annotator == Annotator:
-                xml = work.simple_opds_entry
-            elif self.annotator == VerboseAnnotator:
-                xml = work.verbose_opds_entry            
+            field = self.annotator.opds_cache_field
+            if field:
+                xml = getattr(work, field.name)
 
         if xml:
             cache_hit = True
