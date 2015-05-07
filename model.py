@@ -2218,12 +2218,13 @@ class Work(Base):
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
         """Return a query against Work suitable for using in OPDS feeds."""
         q = _db.query(Work).join(Work.primary_edition)
-        q = q.join(Work.license_pools).join(LicensePool.data_source)
+        q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
             contains_eager(Work.primary_edition),
             contains_eager(Work.license_pools),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
+            contains_eager(Work.license_pools, LicensePool.identifier),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(

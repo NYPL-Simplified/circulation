@@ -435,10 +435,7 @@ class AcquisitionFeed(OPDSFeed):
             q = l.works(languages, availability=Work.ALL)
             q = Work.restrict_to_custom_lists_from_data_source(
                 _db, q, nyt, cutoff_point)
-            a = time.time()
             page = q.all()
-            b = time.time()
-            print "Obtained best-seller sample of %d in %.2f sec" % (len(page), b-a)
             if len(page) > 20:
                 sample = random.sample(page, 20)
             else:
