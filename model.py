@@ -2224,7 +2224,6 @@ class Work(Base):
             contains_eager(Work.license_pools),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
-            joinedload('work_genres')
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
@@ -2972,7 +2971,7 @@ class Work(Base):
             ==Edition.permanent_work_id)
         q = q.join(subquery, has_same_pwid)
         return q
-
+Index("ix_works_audience_target_age", Work.audience, Work.target_age)
 
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
@@ -4039,7 +4038,6 @@ class Lane(object):
 
         """
         q = Work.feed_query(self._db, languages, availability)
-
         audience = self.audience
         if fiction is None:
             if self.fiction is not None:
@@ -4070,6 +4068,7 @@ class Lane(object):
                             "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
             if genres:
                 q = q.join(Work.work_genres)
+                q = q.options(joinedload('work_genres'))
                 q = q.options(contains_eager(Work.work_genres))
                 q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
 
@@ -4081,6 +4080,12 @@ class Lane(object):
 
         if self.appeal != None:
             q = q.filter(Work.primary_appeal==self.appeal)
+
+        if self.age_range != None:
+            age_range = sorted(self.age_range)
+            q = q.filter(Work.target_age >= age_range[0])
+            if age_range[-1] != age_range[0]:
+                q = q.filter(Work.target_age <= age_range[-1])
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(Work.fiction==None)
