@@ -230,6 +230,7 @@ class PrecalculateFeaturedFeedsScript(Script):
             b = time.time()
             print "!!! Built %r feed for %s in %.2fsec" % (
                 languages, lane.name, b-a)
+            print "Content: %d bytes" % len(feed_rep.content)
             print
 
     def run(self):
