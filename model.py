@@ -2073,7 +2073,7 @@ class Work(Base):
     # The overall suitability of this work for unsolicited
     # presentation to a patron. This is a calculated value taking both
     # rating and popularity into account.
-    quality = Column(Float, index=True)
+    quality = Column(Numeric(4,3, index=True))
 
     # The overall rating given to this work.
     rating = Column(Float, index=True)
