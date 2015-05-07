@@ -313,3 +313,20 @@ class PresentationReadyMonitor(WorkSweepMonitor):
 
     def finalize_batch(self):
         self._db.commit()
+
+
+class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
+
+    def __init__(self, _db, interval_seconds=3600*24,
+                 default_counter=0, batch_size=1000):
+        super(WorkRandomnessUpdateMonitor, self).__init__(
+            _db, "Work Randomness Updater", interval_seconds, default_counter, batch_size)
+
+    def run_once(self, offset):
+        new_offset = offset + self.batch_size
+        text = "update works set random=random() where id >= :offset and id < :new_offset;"
+        self._db.execute(text, dict(offset=offset, new_offset=new_offset))
+        [[self.max_work_id]] = self._db.execute('select max(id) from works')
+        if self.max_work_id < new_offset:
+            return 0
+        return new_offset

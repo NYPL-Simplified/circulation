@@ -1,4 +1,4 @@
-import copy
+and falseimport copy
 from collections import (
     defaultdict,
     Counter,
@@ -21,6 +21,7 @@ import requests
 
 from lxml import builder, etree
 
+from classifier import Classifier
 from model import (
     CustomList,
     CustomListEntry,
@@ -419,13 +420,17 @@ class AcquisitionFeed(OPDSFeed):
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
+            quality_min = 0.65
+
             works = l.quality_sample(
-                languages, 0.65, quality_cutoff, feed_size,
+                languages, quality_min, quality_cutoff, feed_size,
                 Work.CURRENTLY_AVAILABLE)
+
             for work in works:
                 annotator.lane_by_work[work] = l
                 all_works.append(work)
-        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages:
+
+        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages and False:
             # If lane.parent is None, this is the very top level.
             # If lane.parent.parent is None, this is a top-level
             #  lane (e.g. "Young Adult Fiction").
@@ -439,7 +444,10 @@ class AcquisitionFeed(OPDSFeed):
             q = l.works(languages, availability=Work.ALL)
             q = Work.restrict_to_custom_lists_from_data_source(
                 _db, q, nyt, cutoff_point)
+            a = time.time()
             page = q.all()
+            b = time.time()
+            print "Got best sellers for %s in %.2f" % (lane.name, (b-a))
             if len(page) > 20:
                 sample = random.sample(page, 20)
             else:

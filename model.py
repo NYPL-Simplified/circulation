@@ -2083,6 +2083,9 @@ class Work(Base):
     # The overall current popularity of this work.
     popularity = Column(Float, index=True)
 
+    # A random number associated with this work, used for sampling/
+    random = Column(Numeric(4,3), index=True)
+
     appeal_type = Enum(CHARACTER_APPEAL, LANGUAGE_APPEAL, SETTING_APPEAL,
                        STORY_APPEAL, NOT_APPLICABLE_APPEAL, NO_APPEAL,
                        UNKNOWN_APPEAL, name="appeal")
@@ -2627,6 +2630,7 @@ class Work(Base):
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
+        self.random = random.random()
 
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
@@ -3965,32 +3969,24 @@ class Lane(object):
             query = query.filter(
                 Work.quality >= quality_min,
             )
+            offset = random.random()
+            print "Offset: %.2f" % offset
+            if offset < 0.5:
+                query = query.filter(Work.random >= offset)
+            else:
+                query = query.filter(Work.random <= offset)
 
             if previous_quality_min is not None:
                 query = query.filter(
                     Work.quality < previous_quality_min)
-                
-            # How many are there?
-            start = time.time()
-            count = query.count()
-            max_subset = 100
-            if count > 0:
-                if count <= 100:
-                    random_offset = 0
-                else:
-                    random_offset = random.randint(0, count-100)
+            query = query.limit(int(remaining*1.3))
 
-                # Pick up a subset of at most 250 items.
-                query = query.offset(random_offset).limit(100)
-                r = query.all()
-                sample_size = min(remaining, len(r))
-                print "Sampling %d from %d" % (sample_size, len(r))
-                sample = random.sample(r, sample_size)
-                results.extend(sample)
-                # query = query.order_by(func.random()).limit(remaining)
-                print "Quality %.1f got %d results for %s in %.2fsec" % (
-                    quality_min, len(results), self.name, time.time()-start
-                )
+            start = time.time()
+            r = query.all()
+            results.extend(r[:remaining])
+            print "Quality %.1f got us up to %d results for %s in %.2fsec" % (
+                quality_min, len(results), self.name, time.time()-start
+            )
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
