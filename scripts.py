@@ -342,6 +342,9 @@ class CacheIndividualLaneFeaturedFeeds(CacheRepresentationPerLane):
 class CacheBestSellerFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of best-sellers for each top-level lanes."""
 
+    # We only have best-seller data for English.
+    LANGUAGE_SETS = [['eng']]
+
     def cache_url(self, annotator, lane, languages):
         return app.popular_feed_cache_url(annotator, lane, languages)
 

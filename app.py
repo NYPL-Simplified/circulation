@@ -257,24 +257,35 @@ def popular_feed_cache_url(annotator, lane, languages):
     return url + "languages=%s" % ",".join(languages)
 
 def make_popular_feed(_db, annotator, lane, languages):
+
+    # Do some preliminary data checking to avoid generating expensive
+    # feeds that contain nothing.
+    if lane.parent:
+        # We only show a best-seller list for the top-level lanes.
+        return problem(None, "No such feed", 404)
+
+    if 'eng' not in languages:
+        # We only have information about English best-sellers.
+        return problem(None, "No such feed", 404)
+
     if not lane:
         lane_name = lane
         lane_display_name = lane
-        title = "Best Sellers"
     else:
         lane_name = lane.name
         lane_display_name = lane.display_name
+
+    if lane_display_name:
         title = "%s: Best Sellers" % lane_display_name
+    else:
+        title = "Best Sellers"
+        lane = None
+
+    as_of = (datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
     nyt = DataSource.lookup(_db, DataSource.NYT)
     work_feed = CustomListFeed(
-        _db, DataSource.NYT, languages,
-        availability=CustomListFeed.ALL)
-    a = time.time()
-    page = work_feed.page_query(_db, None, 200).all()
-    b = time.time()
-    print "Best-seller feed created in %.2f sec" % (b-a)
-    page = random.sample(page, min(len(page), 20))
-
+        lane, nyt, languages, as_of, availability=CustomListFeed.ALL)
+    page = work_feed.page_query(_db, None, None).all()
     this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
