@@ -411,8 +411,8 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def featured_blocks(
-            cls, url, best_sellers_url, languages, lane, annotator,
-            quality_cutoff=0.3):
+            cls, url, best_sellers_url, staff_picks_url, languages, lane,
+            annotator, quality_cutoff=0.3):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane blocks.
         """
@@ -456,6 +456,24 @@ class AcquisitionFeed(OPDSFeed):
             for work in sample:
                 annotator.lane_by_work[work] = (
                     best_sellers_url, 'Best Sellers')
+                all_works.append(work)
+
+            # Do the same for staff picks.
+            library_staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
+            q = l.works(languages, availability=Work.ALL)
+            q = Work.restrict_to_custom_lists_from_data_source(
+                _db, q, library_staff)
+            a = time.time()
+            page = q.all()
+            b = time.time()
+            print "Got staff picks for %s in %.2f" % (lane.name, (b-a))
+            if len(page) > 20:
+                sample = random.sample(page, 20)
+            else:
+                sample = page
+            for work in sample:
+                annotator.lane_by_work[work] = (
+                    staff_picks_url, 'Staff Picks')
                 all_works.append(work)
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,

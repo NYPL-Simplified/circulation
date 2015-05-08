@@ -4237,6 +4237,9 @@ class CustomListFeed(WorkFeed):
                 self.languages, availability=self.availability)
         else:
             q = Work.feed_query(_db, self.languages, self.availability)
+        return self.restrict(_db, q)
+
+    def restrict(self, _db, q):
         return Work.restrict_to_custom_lists_from_data_source(
             _db, q, self.custom_list_data_source, self.on_list_as_of)
 
