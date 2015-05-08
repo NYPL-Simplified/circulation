@@ -275,6 +275,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
                 self._db, cache_url, get_method,
                 accept=self.ACCEPT_HEADER, max_age=0)
             b = time.time()
+            if feed_rep.fetch_exception:
+                print "!!! EXCEPTION: %s" % feed_rep.fetch_exception
             if feed_rep.content:
                 content_bytes = len(feed_rep.content)
             else:

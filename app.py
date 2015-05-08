@@ -232,7 +232,7 @@ def make_acquisition_blocks(annotator, lane, languages):
         lane_name = lane.name
     url = url_for("acquisition_blocks", lane=lane_name, _external=True)
     best_sellers_url = url_for("popular_feed", lane=lane_name, _external=True)
-    staff_picks = url_for("staff_picks", lane=lane_name, _external=True)
+    staff_picks_url = url_for("staff_picks_feed", lane=lane_name, _external=True)
     feed = AcquisitionFeed.featured_blocks(
         url, best_sellers_url, staff_picks_url, languages, lane, annotator)
     feed.add_link(
