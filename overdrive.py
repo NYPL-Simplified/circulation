@@ -106,6 +106,15 @@ class OverdriveAPI(BaseOverdriveAPI):
             code = error['errorCode']
             if code == 'NoCopiesAvailable':
                 raise NoAvailableCopies()
+            if code == 'TitleAlreadyCheckedOut':
+                # Client should have used a fulfill link instead, but
+                # we can handle it.
+                loan = self.get_loan(patron, pin, identifier.identifier)
+                expires = self.extract_expiration_date(loan)
+                content_link, content_type, content = self.fulfill(
+                    patron, pin, identifier, format_type)
+                set_trace()
+                return content_link, None, None, expires
 
         expires, download_link = self.extract_data_from_checkout_response(
             response.json(), format_type, self.DEFAULT_ERROR_URL)
@@ -150,13 +159,15 @@ class OverdriveAPI(BaseOverdriveAPI):
         return url, media_type, None
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
-        """Get the link to the ACSM file corresponding to an existing loan."""
+        """Get the link to the ACSM file corresponding to an existing loan.
+        """
         loan = self.get_loan(patron, pin, overdrive_id)
         if not loan:
             raise ValueError("Could not find active loan for %s" % overdrive_id)
         if not 'formats' in loan:
             raise ValueError("Loan for %s has no formats" % overdrive_id)
 
+        expires = loan.get('expires')
         format = None
         format_names = []
 
@@ -203,13 +214,18 @@ class OverdriveAPI(BaseOverdriveAPI):
     def extract_data_from_checkout_response(cls, checkout_response_json,
                                             format_type, error_url):
 
-        if not 'expires' in checkout_response_json:
+        expires = cls.extract_expiration_date(checkout_response_json)
+        return expires, cls.get_download_link(
+            checkout_response_json, format_type, error_url)
+
+    @classmethod
+    def extract_expiration_date(cls, data):
+        if not 'expires' in data:
             expires = None
         else:
             expires = datetime.datetime.strptime(
-                checkout_response_json['expires'], cls.TIME_FORMAT)
-        return expires, cls.get_download_link(
-            checkout_response_json, format_type, error_url)
+                data['expires'], cls.TIME_FORMAT)
+        return expires
 
     def get_patron_information(self, patron, pin):
         return self.patron_request(patron, pin, self.ME_ENDPOINT).json()
@@ -466,7 +482,7 @@ class OverdriveAPI(BaseOverdriveAPI):
     def get_download_link(self, checkout_response, format_type, error_url):
         link = None
         format = None
-        for f in checkout_response['formats']:
+        for f in checkout_response.get('formats', []):
             if f['formatType'] == format_type:
                 format = f
                 break
