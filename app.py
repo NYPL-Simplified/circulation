@@ -533,18 +533,6 @@ def feed(lane):
 
     key = (lane, ",".join(languages), order)
     feed_xml = None
-    if not last_seen_id and key in feed_cache:
-        chance = random.random()
-        feed, created_at = feed_cache.get(key)
-        elapsed = time.time()-created_at
-        # An old feed is almost certain to be regenerated.
-        if elapsed > 1800:
-            chance = chance / 5
-        elif elapsed > 3600:
-            chance = 0
-        if chance > 0.10:
-            # Return the cached version.
-            return feed_response(feed)
 
     search_link = dict(
         rel="search",
@@ -559,7 +547,7 @@ def feed(lane):
             return make_featured_feed(annotator, lane, languages)
         feed_rep, cached = Representation.get(
             Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-            max_age=60*60)
+            max_age=None)
         feed_xml = feed_rep.content
     elif order == 'title':
         work_feed = LaneFeed(lane, languages, Edition.sort_title)
@@ -607,8 +595,6 @@ def feed(lane):
 
     if not feed_xml:
         feed_xml = unicode(opds_feed)
-    if not last_seen_id:
-        feed_cache[key] = (feed_xml, time.time())
     return feed_response(feed_xml)
 
 @app.route('/staff_picks', defaults=dict(lane_name=None))
