@@ -230,8 +230,10 @@ def make_acquisition_blocks(annotator, lane, languages):
         lane_name = lane
     else:
         lane_name = lane.name
-    url = url_for("acquisition_blocks", lane=lane_name)
-    feed = AcquisitionFeed.featured_blocks(url, languages, lane, annotator)
+    url = url_for("acquisition_blocks", lane=lane_name, _external=True)
+    best_sellers_url = url_for("popular_feed", lane=lane_name, _external=True)
+    feed = AcquisitionFeed.featured_blocks(
+        url, best_sellers_url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
