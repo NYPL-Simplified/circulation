@@ -25,6 +25,7 @@ from classifier import Classifier
 from model import (
     CustomList,
     CustomListEntry,
+    CustomListFeed,
     DataSource,
     Hyperlink,
     Resource,
@@ -410,7 +411,8 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def featured_blocks(
-            cls, url, languages, lane, annotator, quality_cutoff=0.3):
+            cls, url, best_sellers_url, languages, lane, annotator,
+            quality_cutoff=0.3):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane blocks.
         """
@@ -430,17 +432,16 @@ class AcquisitionFeed(OPDSFeed):
                 annotator.lane_by_work[work] = l
                 all_works.append(work)
 
-        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages and False:
+        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages:
             # If lane.parent is None, this is the very top level.
             # If lane.parent.parent is None, this is a top-level
             #  lane (e.g. "Young Adult Fiction").
             #
             # These are the only lanes that get Staff Picks and
             # Best-Sellers.
-            best_seller_uri = "tag:Best%20Sellers"
             nyt = DataSource.lookup(_db, DataSource.NYT)
             cutoff_point = (
-                datetime.datetime.utcnow() - datetime.timedelta(days=365*5))
+                datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
             q = l.works(languages, availability=Work.ALL)
             q = Work.restrict_to_custom_lists_from_data_source(
                 _db, q, nyt, cutoff_point)
@@ -453,11 +454,9 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 sample = page
             for work in sample:
-                annotator.lane_by_work[work] = (best_seller_uri, 'Best Sellers')
+                annotator.lane_by_work[work] = (
+                    best_sellers_url, 'Best Sellers')
                 all_works.append(work)
-            # TODO: As long as we've got this info, let's make the complete 
-            # feed and send it back so we can have the block URI be something
-            # other than a tag, and the best seller list will be browsable.
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])
