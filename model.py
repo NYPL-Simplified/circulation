@@ -4196,7 +4196,8 @@ class WorkFeed(object):
             query = query.distinct(*self.order_by)
         else:
             query = query.distinct(Work.id)
-        query = query.limit(page_size)
+        if page_size:
+            query = query.limit(page_size)
         query = query.options(joinedload('license_pools').joinedload('edition'))
         return query
 
@@ -4216,14 +4217,26 @@ class CustomListFeed(WorkFeed):
 
     """A WorkFeed where all the works come from one or more custom lists."""
 
-    def __init__(self, custom_list_data_source, languages, on_list_as_of=None, 
+    # Treat a work as a best-seller if it was last on the best-seller
+    # list two years ago.
+    best_seller_cutoff = datetime.timedelta(days=730)
+
+    def __init__(self, lane, custom_list_data_source, languages,
+                 on_list_as_of=None, 
                  **kwargs):
+        self.lane = lane
         self.custom_list_data_source = custom_list_data_source
         self.on_list_as_of = on_list_as_of
+        if not 'order_by' in kwargs:
+            kwargs['order_by'] = [Edition.sort_title]
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
-        q = Work.feed_query(_db, self.languages, self.availability)
+        if self.lane:
+            q = self.lane.works(
+                self.languages, availability=self.availability)
+        else:
+            q = Work.feed_query(_db, self.languages, self.availability)
         return Work.restrict_to_custom_lists_from_data_source(
             _db, q, self.custom_list_data_source, self.on_list_as_of)
 
