@@ -1,5 +1,6 @@
 from functools import wraps
 from nose.tools import set_trace
+import datetime
 import random
 import time
 import os
@@ -40,7 +41,7 @@ from threem import (
 from core.model import (
     get_one,
     get_one_or_create,
-    AllCustomListsFromDataSourceFeed,
+    CustomListFeed,
     DataSource,
     production_session,
     Hold,
@@ -107,10 +108,10 @@ class Conf:
         else:
             _db = production_session()
             lanes = make_lanes(_db)
-            for lane in lanes.lanes:
-                print lane.name
-                for sublane in lane.sublanes:
-                    print "", sublane.display_name
+            #for lane in lanes.lanes:
+            #    print lane.name
+            #    for sublane in lane.sublanes:
+            #        print "", sublane.display_name
             cls.db = _db
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)
@@ -225,12 +226,16 @@ def acquisition_blocks_cache_url(annotator, lane, languages):
     return url + "languages=%s" % ",".join(languages)
 
 def make_acquisition_blocks(annotator, lane, languages):
-    url = url_for("acquisition_blocks", lane=lane)
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    url = url_for("acquisition_blocks", lane=lane_name)
     feed = AcquisitionFeed.featured_blocks(url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=None, _external=True))
+        href=url_for('lane_search', lane=lane_name, _external=True))
     feed.add_link(
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
@@ -260,11 +265,14 @@ def make_popular_feed(_db, annotator, lane, languages):
         lane_name = lane.name
         lane_display_name = lane.display_name
         title = "%s: Best Sellers" % lane_display_name
-    # TODO: Can't sort by most recent appearance.
-    work_feed = AllCustomListsFromDataSourceFeed(
-        _db, [DataSource.NYT], languages,
-        availability=AllCustomListsFromDataSourceFeed.ALL)
-    page = work_feed.page_query(_db, None, 100).all()
+    nyt = DataSource.lookup(_db, DataSource.NYT)
+    work_feed = CustomListFeed(
+        _db, DataSource.NYT, languages,
+        availability=CustomListFeed.ALL)
+    a = time.time()
+    page = work_feed.page_query(_db, None, 200).all()
+    b = time.time()
+    print "Best-seller feed created in %.2f sec" % (b-a)
     page = random.sample(page, min(len(page), 20))
 
     this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
@@ -519,6 +527,8 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
+@app.route('/feed', defaults=dict(lane=None))
+@app.route('/feed/', defaults=dict(lane=None))
 @app.route('/feed/<lane>')
 def feed(lane):
     languages = languages_for_request()

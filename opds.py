@@ -65,6 +65,9 @@ class CirculationManagerAnnotator(Annotator):
             url = url_for('acquisition_blocks', lane=None, _external=True)
             title = "All Books"
             return url, title
+        if isinstance(lane, tuple):
+            # A block URI has been provided directly.
+            return lane
         lane_name = lane.name
         # If the lane has sublanes, the URL identifying the block will
         # take the user to another set of blocks for the

@@ -198,10 +198,12 @@ class ContentOPDSImporter(BaseOPDSImporter):
 
 class PrecalculateFeaturedFeedsScript(Script):
 
-    def __init__(self, language_sets=[["eng"], ["spa"]]):
+    def __init__(self, language_sets=[["eng"]]):#language_sets=[["eng"], ["spa"]]):
         self.lanes = make_lanes(self._db)
         self.language_sets = language_sets
         class DummyConf:
+            db = None
+            parent = None
             sublanes = self.lanes
             name = None
             display_name = None
@@ -228,6 +230,64 @@ class PrecalculateFeaturedFeedsScript(Script):
             b = time.time()
             print "!!! Built %r feed for %s in %.2fsec" % (
                 languages, lane.name, b-a)
+            print "Content: %d bytes" % len(feed_rep.content)
+            print
+
+    def run(self):
+        client = app.app.test_client()
+        ctx = app.app.test_request_context(base_url=self.base_url)
+        ctx.push()
+        queue = [self.conf]
+        while queue:
+            new_queue = []
+            print "!! Beginning of loop: %d lanes to process" % len(queue)
+            for l in queue:
+                self.make_lane(l)
+                self._db.commit()
+                for sublane in l.sublanes:
+                    if sublane.sublanes:
+                        new_queue.append(sublane)
+            queue = new_queue
+        ctx.pop()
+
+class PrecalculateOldStyleFeedsScript(Script):
+
+    def __init__(self, language_sets=[["eng"]]):
+        self.lanes = make_lanes(self._db)
+        self.language_sets = language_sets
+        class DummyConf:
+            db = None
+            parent = None
+            sublanes = self.lanes
+            name = None
+            display_name = None
+
+        self.conf = DummyConf
+
+        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+
+    def make_lane(self, lane):
+        if not lane.name:
+            return
+        annotator = CirculationManagerAnnotator(lane)
+        for languages in self.language_sets:
+            cache_url = app.featured_feed_cache_url(
+                annotator, lane, languages)
+            def get(*args, **kwargs):
+                return app.make_featured_feed(annotator, lane, languages)
+
+            a = time.time()
+            feed_rep, ignore = Representation.get(
+                self._db, cache_url, get,
+                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+                max_age=0)
+            b = time.time()
+            print "!!! Built %r feed for %s in %.2fsec" % (
+                languages, lane.name, b-a)
+            if feed_rep.content:
+                print "Content: %d bytes" % len(feed_rep.content)
+            else:
+                print "ERROR building feed."
             print
 
     def run(self):
@@ -259,7 +319,6 @@ class PrecalculatePopularFeedsScript(Script):
     def make_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.language_sets:
-            set_trace()
             cache_url = app.popular_feed_cache_url(
                 annotator, lane, languages)
             def get(*args, **kwargs):
