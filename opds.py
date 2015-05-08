@@ -439,42 +439,30 @@ class AcquisitionFeed(OPDSFeed):
             #
             # These are the only lanes that get Staff Picks and
             # Best-Sellers.
-            nyt = DataSource.lookup(_db, DataSource.NYT)
-            cutoff_point = (
+            best_seller_cutoff = (
                 datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-            q = l.works(languages, availability=Work.ALL)
-            q = Work.restrict_to_custom_lists_from_data_source(
-                _db, q, nyt, cutoff_point)
-            a = time.time()
-            page = q.all()
-            b = time.time()
-            print "Got best sellers for %s in %.2f" % (lane.name, (b-a))
-            if len(page) > 20:
-                sample = random.sample(page, 20)
-            else:
-                sample = page
-            for work in sample:
-                annotator.lane_by_work[work] = (
-                    best_sellers_url, 'Best Sellers')
-                all_works.append(work)
-
-            # Do the same for staff picks.
-            library_staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
-            q = l.works(languages, availability=Work.ALL)
-            q = Work.restrict_to_custom_lists_from_data_source(
-                _db, q, library_staff)
-            a = time.time()
-            page = q.all()
-            b = time.time()
-            print "Got staff picks for %s in %.2f" % (lane.name, (b-a))
-            if len(page) > 20:
-                sample = random.sample(page, 20)
-            else:
-                sample = page
-            for work in sample:
-                annotator.lane_by_work[work] = (
-                    staff_picks_url, 'Staff Picks')
-                all_works.append(work)
+            for block_uri, title, data_source_name, cutoff_point in (
+                    (best_sellers_url, "Best Sellers", 
+                     DataSource.NYT, best_seller_cutoff), 
+                    (staff_picks_url, "Staff Picks", 
+                     DataSource.LIBRARY_STAFF, None),
+            ):
+                data_source = DataSource.lookup(_db, data_source_name)
+                q = l.works(languages, availability=Work.ALL)
+                q = Work.restrict_to_custom_lists_from_data_source(
+                    _db, q, data_source, cutoff_point)
+                a = time.time()
+                page = q.all()
+                b = time.time()
+                print "Got %s for %s in %.2f" % (title, lane.name, (b-a))
+                if len(page) > 20:
+                    sample = random.sample(page, 20)
+                else:
+                    sample = page
+                for work in sample:
+                    annotator.lane_by_work[work] = (
+                        block_uri, title)
+                    all_works.append(work)
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])

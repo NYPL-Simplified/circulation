@@ -4957,7 +4957,7 @@ class Representation(Base):
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
             # condition.
-            exception = str(e)
+            exception = traceback.format_exc()
             status_code = None
             headers = None
             content = None
