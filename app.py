@@ -232,8 +232,9 @@ def make_acquisition_blocks(annotator, lane, languages):
         lane_name = lane.name
     url = url_for("acquisition_blocks", lane=lane_name, _external=True)
     best_sellers_url = url_for("popular_feed", lane=lane_name, _external=True)
+    staff_picks = url_for("staff_picks", lane=lane_name, _external=True)
     feed = AcquisitionFeed.featured_blocks(
-        url, best_sellers_url, languages, lane, annotator)
+        url, best_sellers_url, staff_picks_url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
@@ -309,25 +310,33 @@ def staff_picks_feed_cache_url(annotator, lane, languages):
     return url + "languages=%s" % ",".join(languages)
 
 def make_staff_picks_feed(_db, annotator, lane, languages):
+    # Do some preliminary data checking to avoid generating expensive
+    # feeds that contain nothing.
+    if lane.parent:
+        # We only show a best-seller list for the top-level lanes.
+        return problem(None, "No such feed", 404)
+
+    if 'eng' not in languages:
+        # We only have information about English best-sellers.
+        return problem(None, "No such feed", 404)
+
     if not lane:
         lane_name = lane
         lane_display_name = lane
-        title = "Staff Picks"
     else:
         lane_name = lane.name
         lane_display_name = lane.display_name
+
+    if lane_display_name:
         title = "%s: Staff Picks" % lane_display_name
+    else:
+        title = "Staff Picks"
+        lane = None
 
-    custom_list = _db.query(CustomList).filter(
-        CustomList.name==CustomList.STAFF_PICKS_NAME).one()
-    if not custom_list:
-        print "No staff picks list."
-        return (200, {}, "")
-
+    staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
     work_feed = CustomListFeed(
-        _db, [custom_list], languages, availability=CustomListFeed.ALL)
-    page = work_feed.page_query(_db, None, 100).all()
-    page = random.sample(page, min(len(page), 20))
+        lane, staff, languages, availability=CustomListFeed.ALL)
+    page = work_feed.page_query(_db, None, None).all()
 
     this_url = url_for('staff_picks_feed', lane_name=lane_name, _external=True)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,

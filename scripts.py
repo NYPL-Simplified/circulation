@@ -356,3 +356,22 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
     def should_process_lane(self, lane):
         # Only process the top-level lanes.
         return not lane.parent
+
+class CacheStaffPicksFeeds(CacheRepresentationPerLane):
+    """Cache the complete feed of staff picks for each top-level lane."""
+
+    # We only have staff picks for English.
+    LANGUAGE_SETS = [['eng']]
+
+    def cache_url(self, annotator, lane, languages):
+        return app.staff_picks_feed_cache_url(annotator, lane, languages)
+
+    def make_get_method(self, annotator, lane, languages):
+        def get_method(*args, **kwargs):
+            return app.make_staff_picks_feed(
+                self._db, annotator, lane, languages)
+        return get_method
+
+    def should_process_lane(self, lane):
+        # Only process the top-level lanes.
+        return not lane.parent
