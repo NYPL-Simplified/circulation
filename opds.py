@@ -578,6 +578,13 @@ class AcquisitionFeed(OPDSFeed):
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
+        block_uri, block_title = self.annotator.block_uri(
+            work, license_pool, identifier)
+        if block_uri:
+            self.add_link_to_entry(
+                xml, rel=OPDSFeed.BLOCK_REL, href=block_uri,
+                title=block_title)
+
         after = time.time()
         if edition:
             title = edition.title + " "
@@ -604,12 +611,6 @@ class AcquisitionFeed(OPDSFeed):
         if work:
             qualities.append(("Work quality", work.quality))
         full_url = None
-
-        block_uri, block_title = self.annotator.block_uri(
-            work, license_pool, identifier)
-        if block_uri:
-            links.append(E.link(rel=OPDSFeed.BLOCK_REL, href=block_uri,
-                                title=block_title))
 
         thumbnail_urls, full_urls = self.annotator.cover_links(work)
         for rel, urls in (
