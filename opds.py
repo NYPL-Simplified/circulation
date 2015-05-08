@@ -1,4 +1,4 @@
-and falseimport copy
+import copy
 from collections import (
     defaultdict,
     Counter,
