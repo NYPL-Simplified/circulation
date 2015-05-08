@@ -2976,7 +2976,9 @@ class Work(Base):
             ==Edition.permanent_work_id)
         q = q.join(subquery, has_same_pwid)
         return q
-Index("ix_works_audience_target_age", Work.audience, Work.target_age)
+# Used for quality filter queries.
+Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
+Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
 
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
