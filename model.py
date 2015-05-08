@@ -3972,7 +3972,7 @@ class Lane(object):
                 Work.quality >= quality_min,
             )
             offset = random.random()
-            print "Offset: %.2f" % offset
+            # print "Offset: %.2f" % offset
             if offset < 0.5:
                 query = query.filter(Work.random >= offset)
             else:
