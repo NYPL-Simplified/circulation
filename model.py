@@ -3997,7 +3997,7 @@ class Lane(object):
             # Lower the bar, in case we didn't get enough results.
             previous_quality_min = quality_min
 
-            if results:
+            if results or quality_min_rock_bottom < 0.1:
                 quality_min *= 0.5
             else:
                 # We got absolutely no results. Lower the bar all the
