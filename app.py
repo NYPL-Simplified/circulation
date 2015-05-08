@@ -527,6 +527,8 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
+@app.route('/feed', defaults=dict(lane=None))
+@app.route('/feed/', defaults=dict(lane=None))
 @app.route('/feed/<lane>')
 def feed(lane):
     languages = languages_for_request()
