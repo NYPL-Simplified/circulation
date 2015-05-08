@@ -193,47 +193,38 @@ class ContentOPDSImporter(BaseOPDSImporter):
     OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS_DOWNLOAD]
 
     def __init__(self, _db, feed):
-        super(ContentOPDSImporter, self).__init__(_db, feed, overwrite_rels=self.OVERWRITE_RELS)
+        super(ContentOPDSImporter, self).__init__(
+            _db, feed, overwrite_rels=self.OVERWRITE_RELS)
 
 
-class PrecalculateFeaturedFeedsScript(Script):
+class StandaloneApplicationConf(object):
+    """A fake application config object.
 
-    def __init__(self, language_sets=[["eng"]]):#language_sets=[["eng"], ["spa"]]):
-        self.lanes = make_lanes(self._db)
-        self.language_sets = language_sets
-        class DummyConf:
-            db = None
-            parent = None
-            sublanes = self.lanes
-            name = None
-            display_name = None
+    This lets us pretend to be a running application and generate
+    the URLs the application would generate.
+    """
 
-        self.conf = DummyConf
+    def __init__(self, _db):
+        self.db = _db
+        self.parent = None
+        self.sublanes = make_lanes(self.db)
+        self.name = None
+        self.display_name = None
 
+
+class LaneSweeperScript(Script):
+    """Do something to each lane in the application."""
+
+    # These languages are NYPL's four major ebook collections.
+    LANGUAGE_SETS = [[x] for x in ['eng', 'rus', 'chi', 'spa']]
+
+    def __init__(self, language_sets=None):
+        self.conf = StandaloneApplicationConf(self._db)
+        self.language_sets = language_sets or self.LANGUAGE_SETS
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
 
-    def make_lane(self, lane):
-        if not lane.sublanes:
-            return
-        annotator = CirculationManagerAnnotator(lane)
-        for languages in self.language_sets:
-            cache_url = app.acquisition_blocks_cache_url(
-                annotator, lane, languages)
-            def get(*args, **kwargs):
-                return app.make_acquisition_blocks(annotator, lane, languages)
-
-            a = time.time()
-            feed_rep, ignore = Representation.get(
-                self._db, cache_url, get,
-                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-                max_age=0)
-            b = time.time()
-            print "!!! Built %r feed for %s in %.2fsec" % (
-                languages, lane.name, b-a)
-            print "Content: %d bytes" % len(feed_rep.content)
-            print
-
     def run(self):
+        begin = time.time()
         client = app.app.test_client()
         ctx = app.app.test_request_context(base_url=self.base_url)
         ctx.push()
@@ -242,100 +233,123 @@ class PrecalculateFeaturedFeedsScript(Script):
             new_queue = []
             print "!! Beginning of loop: %d lanes to process" % len(queue)
             for l in queue:
-                self.make_lane(l)
-                self._db.commit()
+                if self.should_process_lane(l):
+                    self.process_lane(l)
+                    self._db.commit()
                 for sublane in l.sublanes:
-                    if sublane.sublanes:
-                        new_queue.append(sublane)
+                    new_queue.append(sublane)
             queue = new_queue
         ctx.pop()
+        end = time.time()
+        print "!!! Entire process took %.2fsec" % (end-begin)
 
-class PrecalculateOldStyleFeedsScript(Script):
+    def should_process_lane(self, lane):
+        return True
 
-    def __init__(self, language_sets=[["eng"]]):
-        self.lanes = make_lanes(self._db)
-        self.language_sets = language_sets
-        class DummyConf:
-            db = None
-            parent = None
-            sublanes = self.lanes
-            name = None
-            display_name = None
+    def process_lane(self, lane):
+        pass
 
-        self.conf = DummyConf
 
-        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+class CacheRepresentationPerLane(LaneSweeperScript):
 
-    def make_lane(self, lane):
-        if not lane.name:
-            return
+    def cache_url(self, annotator, lane, languages):
+        raise NotImplementedError()
+
+    def generate_representation(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    # The generated document will probably be an OPDS acquisition
+    # feed.
+    ACCEPT_HEADER = OPDSFeed.ACQUISITION_FEED_TYPE
+
+    cache_url_method = None
+
+    def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.language_sets:
-            cache_url = app.featured_feed_cache_url(
-                annotator, lane, languages)
-            def get(*args, **kwargs):
-                return app.make_featured_feed(annotator, lane, languages)
-
+            cache_url = self.cache_url(annotator, lane, languages)
+            get_method = self.make_get_method(annotator, lane, languages)
             a = time.time()
+            print "!!! Generating %s for %s." % (languages, lane.name)
             feed_rep, ignore = Representation.get(
-                self._db, cache_url, get,
-                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-                max_age=0)
+                self._db, cache_url, get_method,
+                accept=self.ACCEPT_HEADER, max_age=0)
             b = time.time()
-            print "!!! Built %r feed for %s in %.2fsec" % (
-                languages, lane.name, b-a)
             if feed_rep.content:
-                print "Content: %d bytes" % len(feed_rep.content)
+                content_bytes = len(feed_rep.content)
             else:
-                print "ERROR building feed."
+                content_bytes = 0
+            print "!!! Generated %r for %s. Took %.2fsec to make %d bytes." % (
+                languages, lane.name, (b-a), content_bytes)
             print
 
-    def run(self):
-        client = app.app.test_client()
-        ctx = app.app.test_request_context(base_url=self.base_url)
-        ctx.push()
-        queue = [self.conf]
-        while queue:
-            new_queue = []
-            print "!! Beginning of loop: %d lanes to process" % len(queue)
-            for l in queue:
-                self.make_lane(l)
-                self._db.commit()
-                for sublane in l.sublanes:
-                    if sublane.sublanes:
-                        new_queue.append(sublane)
-            queue = new_queue
-        ctx.pop()
+
+class CacheOPDSBlockFeedPerLane(CacheRepresentationPerLane):
+
+    def should_process_lane(self, lane):
+        # OPDS block feeds are only generated for lanes that have sublanes.
+        return lane.sublanes
+
+    def cache_url(self, annotator, lane, languages):
+        return app.acquisition_blocks_cache_url(annotator, lane, languages)
+
+    def make_get_method(self, annotator, lane, languages):
+        def get_method(*args, **kwargs):
+            return app.make_acquisition_blocks(annotator, lane, languages)
+        return get_method
 
 
-class PrecalculatePopularFeedsScript(Script):
+class CacheTopLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
+    """Refresh the cache of top-level OPDS blocks.
 
-    def __init__(self, language_sets=[["eng"]]):
-        self.lanes = make_lanes(self._db)
-        self.language_sets = language_sets
+    These are frequently accessed, so should be updated more often.
+    """
 
-        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+    def should_process_lane(self, lane):
+        # Only handle the top-level lanes
+        return (super(
+            CacheTopLevelOPDSBlockFeeds, self).should_process_lane(lane) 
+                and not lane.parent)
 
-    def make_lane(self, lane):
-        annotator = CirculationManagerAnnotator(lane)
-        for languages in self.language_sets:
-            cache_url = app.popular_feed_cache_url(
-                annotator, lane, languages)
-            def get(*args, **kwargs):
-                return app.make_popular_feed(
-                    self._db, annotator, lane, languages)
 
-            feed_rep, ignore = Representation.get(
-                self._db, cache_url, get,
-                accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-                max_age=0)
+class CacheLowLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
+    """Refresh the cache of lower-level OPDS blocks.
 
-    def run(self):
-        client = app.app.test_client()
-        ctx = app.app.test_request_context(base_url=self.base_url)
-        ctx.push()
-        queue = [None] + self.lanes.lanes
-        for l in queue:
-            self.make_lane(l)
-            self._db.commit()
-        ctx.pop()
+    These are less frequently accessed, so can be updated less often.
+    """
+
+    def should_process_lane(self, lane):
+        # Only handle the lower-level lanes
+        return (super(
+            CacheLowLevelOPDSBlockFeeds, self).should_process_lane(lane) 
+                and lane.parent)
+
+
+class CacheIndividualLaneFeaturedFeeds(CacheRepresentationPerLane):
+
+    def cache_url(self, annotator, lane, languages):
+        return app.featured_feed_cache_url(annotator, lane, languages)
+
+    def make_get_method(self, annotator, lane, languages):
+        def get_method(*args, **kwargs):
+            return app.make_featured_feed(annotator, lane, languages)
+        return get_method
+
+    def should_process_lane(self, lane):
+        # Every lane deserves a featured feed.
+        return True
+
+class CacheBestSellerFeeds(CacheRepresentationPerLane):
+    """Cache the complete feed of best-sellers for each top-level lanes."""
+
+    def cache_url(self, annotator, lane, languages):
+        return app.popular_feed_cache_url(annotator, lane, languages)
+
+    def make_get_method(self, annotator, lane, languages):
+        def get_method(*args, **kwargs):
+            return app.make_popular_feed(self._db, annotator, lane, languages)
+        return get_method
+
+    def should_process_lane(self, lane):
+        # Only process the top-level lanes.
+        return not lane.parent
