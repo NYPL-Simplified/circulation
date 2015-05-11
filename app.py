@@ -549,6 +549,83 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
+order_field_to_database_field = {
+    'title' : Edition.title,
+    'author' : Edition.author,
+}
+database_field_to_order_field = {}
+for k, v in order_field_to_database_field.items():
+    database_field_to_order_field[v] = k
+
+
+def feed_url(lane, order_field, last_work_seen, size):
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.name
+    if last_work_seen:
+        after = last_work_seen.id
+    else:
+        after = None
+    if not isinstance(order_field, basestring):
+        order_field = database_field_to_order_field[order_field]
+    return url_for('feed', lane=lane_name,
+                  order=order_field,
+                  after=after,
+                  size=size,
+                  _external=True)
+
+def feed_cache_url(lane, languages, order_field, 
+                   last_seen_work_id, size):
+    url = feed_url(lane, order_field, last_seen_work_id, size)
+    if '?' in url:
+        url += '&'
+    else:
+        url += '?'
+    return url + "languages=%s" % ",".join(languages)
+    
+
+def make_feed(_db, annotator, lane, languages, order_field,
+              last_work_seen, size):
+
+    if isinstance(order_field, basestring):
+        order_field = order_field_to_database_field[order_field]
+    if order_field.name == Edition.title.name:
+        title = "%s: By title" % lane.name
+    elif order_field.name == Edition.author.name:
+        title = "%s: By author" % lane.name
+
+    # Get a list of works.
+    work_feed = LaneFeed(lane, languages, order_field)
+    a = time.time()
+    query = work_feed.page_query(_db, last_work_seen, size)
+    page = query.all()
+    b = time.time()
+    print "Got %d results in %.2fsec." % (len(page), b-a)
+
+    # Turn the set of works into an OPDS feed.
+    this_url = feed_url(lane, order_field, last_work_seen, size)
+    opds_feed = AcquisitionFeed(_db, title, this_url, page,
+                                annotator, work_feed.active_facet)
+
+    # Add a 'next' link unless this page is empty.
+    if len(page) > 0:
+        next_url = feed_url(lane, order_field, page[-1], size)
+        opds_feed.add_link(rel="next", href=next_url)
+
+    # Add a 'search' link.
+    search_link = dict(
+        rel="search",
+        type="application/opensearchdescription+xml",
+        href=url_for('lane_search', lane=lane.name, _external=True))
+    opds_feed.add_link(**search_link)
+
+    return (200,
+            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+            unicode(opds_feed)
+    )
+
+
 @app.route('/feed', defaults=dict(lane=None))
 @app.route('/feed/', defaults=dict(lane=None))
 @app.route('/feed/<lane>')
@@ -565,33 +642,22 @@ def feed(lane):
 
     key = (lane, ",".join(languages), order)
     feed_xml = None
-
-    search_link = dict(
-        rel="search",
-        type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=lane.name, _external=True))
-
     annotator = CirculationManagerAnnotator(lane)
-    work_feed = None
+
+    feed_xml = None
     if order == 'recommended':
         cache_url = featured_feed_cache_url(annotator, lane, languages)
         def get(*args, **kwargs):
             return make_featured_feed(annotator, lane, languages)
-        feed_rep, cached = Representation.get(
-            Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-            max_age=None)
-        feed_xml = feed_rep.content
-    elif order == 'title':
-        work_feed = LaneFeed(lane, languages, Edition.sort_title)
-        title = "%s: By title" % lane.name
-    elif order == 'author':
-        work_feed = LaneFeed(lane, languages, Edition.sort_author)
-        title = "%s: By author" % lane.name
+        # Recommended feeds are cached until explicitly updated by 
+        # something running outside of this web app.
+        max_age = None
     else:
-        return problem(None, "I don't know how to order a feed by '%s'" % order, 400)
+        if not order in order_field_to_database_field:
+            return problem(
+                None, "I don't know how to order a feed by '%s'" % order, 400)
+        order_field = order_field_to_database_field[order]
 
-    if work_feed:
-        # Turn the work feed into an acquisition feed.
         size = arg('size', '50')
         try:
             size = int(size)
@@ -611,22 +677,23 @@ def feed(lane):
             except NoResultFound:
                 return problem(None, "No such work id: %s" % last_id, 400)
 
-        this_url = url_for('feed', lane=lane.name, order=order, _external=True)
-        page = work_feed.page_query(Conf.db, last_work_seen, size).all()
+        cache_url = feed_cache_url(
+            lane, languages, order_field, last_work_seen, size)
+        def get(*args, **kwargs):
+            return make_feed(
+                Conf.db, annotator, lane, languages, order_field,
+                last_work_seen, size)
+        # Normal feeds are cached inside the database for only two
+        # minutes. There are far too many of these to update them all
+        # outside the web app in a reasonable time.
+        max_age = 60*2
 
-        opds_feed = AcquisitionFeed(Conf.db, title, this_url, page,
-                                    annotator, work_feed.active_facet)
-        # Add a 'next' link if appropriate.
-        if len(page) > 0:
-            after = page[-1].id
-            next_url = url_for(
-                'feed', lane=lane.name, order=order, after=after, _external=True)
-            opds_feed.add_link(rel="next", href=next_url)
-
-        opds_feed.add_link(**search_link)
-
-    if not feed_xml:
-        feed_xml = unicode(opds_feed)
+    feed_rep, cached = Representation.get(
+        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
+        max_age=max_age)
+    if feed_rep.fetch_exception:
+        print "ERROR:", feed_rep.fetch_exception
+    feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
 @app.route('/staff_picks', defaults=dict(lane_name=None))
