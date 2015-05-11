@@ -4074,7 +4074,6 @@ class Lane(object):
                             "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
             if genres:
                 q = q.join(Work.work_genres)
-                q = q.options(joinedload('work_genres'))
                 q = q.options(contains_eager(Work.work_genres))
                 q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
 
@@ -4097,6 +4096,7 @@ class Lane(object):
             q = q.filter(Work.fiction==None)
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
+
         return q
 
 
@@ -4196,9 +4196,12 @@ class WorkFeed(object):
             query = query.distinct(*self.order_by)
         else:
             query = query.distinct(Work.id)
+
         if page_size:
             query = query.limit(page_size)
-        query = query.options(joinedload('license_pools').joinedload('edition'))
+
+        query = query.options(contains_eager(Work.license_pools),
+                              contains_eager(Work.primary_edition))
         return query
 
 class LaneFeed(WorkFeed):
