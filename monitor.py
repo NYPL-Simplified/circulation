@@ -10,6 +10,7 @@ from sqlalchemy.sql.expression import (
 
 from model import (
     get_one_or_create,
+    Edition,
     Identifier,
     LicensePool,
     Subject,
@@ -19,6 +20,7 @@ from model import (
 from external_search import (
     ExternalSearchIndex,
 )
+from util.permanent_work_id import WorkIDCalculator
 
 class Monitor(object):
 
@@ -147,6 +149,33 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
     def subject_query(self):
         return self._db.query(Subject)
 
+
+class EditionSweepMonitor(IdentifierSweepMonitor):
+
+    def run_once(self, offset):
+        if offset is None:
+            offset = 0
+        q = self.edition_query().filter(
+            Edition.id > offset).order_by(
+            Edition.id).limit(self.batch_size)
+        editions = q.all()
+        if editions:
+            self.process_batch(editions)
+            return editions[-1].id
+        else:
+            return 0
+
+    def edition_query(self):
+        return self._db.query(Edition)
+
+    def process_batch(self, batch):
+        for edition in batch:
+            self.process_edition(edition)
+
+    def process_edition(self, work):
+        raise NotImplementedError()
+
+
 class WorkSweepMonitor(IdentifierSweepMonitor):
 
     def run_once(self, offset):
@@ -231,6 +260,28 @@ class SubjectAssignmentMonitor(SubjectSweepMonitor):
                 highest_id = subject.id
             subject.assign_to_genre()
         return highest_id
+
+class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
+    """Recalculate the permanent work ID for every edition."""
+
+    def __init__(self, _db, interval_seconds=3600*24*7):
+        super(PermanentWorkIDRefreshMonitor, self).__init__(
+            _db, "Permanent Work ID refresh", interval_seconds)
+
+    def process_edition(self, edition):
+        old_id = edition.permanent_work_id
+        edition.calculate_permanent_work_id()
+        new_id = edition.permanent_work_id
+        if old_id != new_id:
+            w = WorkIDCalculator
+            title = edition.title_for_permanent_work_id
+            author = edition.author_for_permanent_work_id
+            norm_title = w.normalize_title(title)
+            norm_author = w.normalize_author(author)
+            print "%d: %s/%s -> %s/%s -> %s (was %s)" % (
+                edition.id, title, author, norm_title, norm_author,
+                edition.permanent_work_id, old_id)
+
 
 class PresentationReadyMonitor(WorkSweepMonitor):
     """A monitor that makes works presentation ready.

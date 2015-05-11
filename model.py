@@ -1922,18 +1922,30 @@ class Edition(Base):
 
         return Identifier.best_cover_for(_db, flattened_data)
 
-    def calculate_permanent_work_id(self):
-        w = WorkIDCalculator
+    @property
+    def title_for_permanent_work_id(self):
         title = self.title
         if self.subtitle:
             title += (": " + self.subtitle)
+        return title
+
+    @property
+    def author_for_permanent_work_id(self):
         authors = self.author_contributors
         if authors:
-            # Only use the primary author.
+            # Use the sort name of the primary author.
             author = authors[0].name
         else:
-            author = None
+            # This may be an Edition that represents an item on a best-seller list
+            # or something like that. In this case it wouldn't have any Contributor
+            # objects, just an author string. Use that.
+            author = self.sort_author or self.author
+        return author
 
+    def calculate_permanent_work_id(self):
+        w = WorkIDCalculator
+        title = self.title_for_permanent_work_id
+        author = self.author_for_permanent_work_id
         title = w.normalize_title(title)
         author = w.normalize_author(author)
 
