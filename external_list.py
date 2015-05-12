@@ -154,6 +154,10 @@ class TitleFromExternalList(object):
         return list_entry, is_new
 
     def find_sort_name(self, _db):
+        return self.display_name_to_sort_name(_db, self.display_author)
+
+    @classmethod
+    def display_name_to_sort_name(self, _db, display_name):
         """Find the sort name for this book's author, assuming it's easy.
 
         'Easy' means we already have an established sort name for a
@@ -167,7 +171,7 @@ class TitleFromExternalList(object):
         easy.
         """
         contributors = _db.query(Contributor).filter(
-            Contributor.display_name==self.display_author).filter(
+            Contributor.display_name==display_name).filter(
                 Contributor.name != None).all()
         if contributors:
             return contributors[0].name

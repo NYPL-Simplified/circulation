@@ -16,14 +16,26 @@ from model import (
     Work,
 )
 
-def feed_response(feed, acquisition=True):
+def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
     if not isinstance(feed, basestring):
         feed = unicode(feed)
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
     else:
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
-    return make_response(feed, 200, {"Content-Type": content_type})
+
+    if isinstance(cache_for, int):
+        # A CDN should hold on to the cached representation only half
+        # as long as the end-user.
+        client_cache = cache_for
+        cdn_cache = cache_for / 2
+        cache_control = "public, no-transform, max-age: %d, s-maxage: %d" % (
+            client_cache, cdn_cache)
+    else:
+        cache_control = "private, no-cache"
+
+    return make_response(feed, 200, {"Content-Type": content_type,
+                                     "Cache-Control": cache_control})
 
 class HeartbeatController(object):
 

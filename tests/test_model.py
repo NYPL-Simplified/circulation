@@ -17,12 +17,12 @@ from sqlalchemy.orm.exc import (
 )
 
 from model import (
-    AllCustomListsFromDataSourceFeed,
     CirculationEvent,
     Contributor,
     CoverageRecord,
     CustomListFeed,
     DataSource,
+    EnumeratedCustomListFeed,
     Genre,
     Hyperlink,
     Lane,
@@ -1658,7 +1658,7 @@ class TestCustomList(DatabaseTest):
         w2.primary_edition.permanent_work_id = "totally different work id"
 
         # Now create a custom list feed.
-        feed = CustomListFeed([custom_list], ["eng"])
+        feed = EnumeratedCustomListFeed(None, [custom_list], ["eng"])
 
         # There is one match -- the work whose permament work ID overlaps
         # with a permanent work ID on the custom list.
@@ -1681,7 +1681,8 @@ class TestCustomList(DatabaseTest):
         w2.primary_edition.permanent_work_id = edition2.permanent_work_id
 
         # Now create a custom list feed with both lists.
-        feed = CustomListFeed([customlist1, customlist2], ["eng"])
+        feed = EnumeratedCustomListFeed(
+            None, [customlist1, customlist2], ["eng"])
 
         # Both works match.
         matches = set(feed.base_query(self._db).all())
@@ -1706,8 +1707,8 @@ class TestCustomList(DatabaseTest):
 
         # Let's ask for a complete feed of NYT lists.
         self._db.commit()
-        feed = AllCustomListsFromDataSourceFeed(
-            self._db, DataSource.NYT, ['eng'])
+        nyt = DataSource.lookup(self._db, DataSource.NYT)
+        feed = CustomListFeed(None, nyt, ['eng'])
 
         # The two works on the NYT list are in the feed. The work from
         # the Bibliocommons feed is not.
@@ -1726,7 +1727,8 @@ class TestCustomList(DatabaseTest):
         # Create a feed for works whose last appearance on the list
         # was no more than one day ago.
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        feed = CustomListFeed([customlist], ["eng"],  one_day_ago)
+        feed = EnumeratedCustomListFeed(
+            None, [customlist], ["eng"],  one_day_ago)
 
         # The work shows up.
         eq_([work], feed.base_query(self._db).all())

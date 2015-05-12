@@ -4,14 +4,21 @@ import os
 import time
 import traceback
 from sqlalchemy.sql.functions import func
+from sqlalchemy.sql.expression import (
+    or_,
+)
 
 from model import (
     get_one_or_create,
+    Edition,
     Identifier,
     LicensePool,
     Subject,
     Timestamp,
     Work,
+)
+from external_search import (
+    ExternalSearchIndex,
 )
 
 class Monitor(object):
@@ -141,6 +148,33 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
     def subject_query(self):
         return self._db.query(Subject)
 
+
+class EditionSweepMonitor(IdentifierSweepMonitor):
+
+    def run_once(self, offset):
+        if offset is None:
+            offset = 0
+        q = self.edition_query().filter(
+            Edition.id > offset).order_by(
+            Edition.id).limit(self.batch_size)
+        editions = q.all()
+        if editions:
+            self.process_batch(editions)
+            return editions[-1].id
+        else:
+            return 0
+
+    def edition_query(self):
+        return self._db.query(Edition)
+
+    def process_batch(self, batch):
+        for edition in batch:
+            self.process_edition(edition)
+
+    def process_edition(self, work):
+        raise NotImplementedError()
+
+
 class WorkSweepMonitor(IdentifierSweepMonitor):
 
     def run_once(self, offset):
@@ -226,6 +260,17 @@ class SubjectAssignmentMonitor(SubjectSweepMonitor):
             subject.assign_to_genre()
         return highest_id
 
+class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
+    """Recalculate the permanent work ID for every edition."""
+
+    def __init__(self, _db, interval_seconds=3600*24*7):
+        super(PermanentWorkIDRefreshMonitor, self).__init__(
+            _db, "Permanent Work ID refresh", interval_seconds)
+
+    def process_edition(self, edition):
+        edition.calculate_permanent_work_id()
+
+
 class PresentationReadyMonitor(WorkSweepMonitor):
     """A monitor that makes works presentation ready.
 
@@ -242,9 +287,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
 
     def work_query(self):
-        return self._db.query(Work).filter(
-            Work.presentation_ready==False).filter(
-            Work.presentation_ready_exception==None)
+        not_presentation_ready = or_(
+            Work.presentation_ready==False,
+            Work.presentation_ready==None)
+        return self._db.query(Work).filter(not_presentation_ready)
 
     def run_once(self, offset):
         # Consolidate works.
@@ -252,13 +298,16 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             self._db,
             calculate_work_even_if_no_author=self.calculate_work_even_if_no_author)
 
-        super(PresentationReadyMonitor, self).run_once(offset)
+        return super(PresentationReadyMonitor, self).run_once(offset)
 
     def process_batch(self, batch):
+        max_id = 0
         one_success = False
         for work in batch:
             failures = None
             exception = None
+            if work.id > max_id:
+                max_id = work.id
             try:
                 failures = self.prepare(work)
             except Exception, e:
@@ -285,10 +334,12 @@ class PresentationReadyMonitor(WorkSweepMonitor):
                 work.set_presentation_ready()                    
                 one_success = True
         self.finalize_batch()
-        return one_success
+        return max_id
 
     def prepare(self, work):
         edition = work.primary_edition
+        if not edition:
+            work = work.calculate_presentation()
         identifier = edition.primary_identifier
         overall_success = True
         failures = []
@@ -301,3 +352,20 @@ class PresentationReadyMonitor(WorkSweepMonitor):
 
     def finalize_batch(self):
         self._db.commit()
+
+
+class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
+
+    def __init__(self, _db, interval_seconds=3600*24,
+                 default_counter=0, batch_size=1000):
+        super(WorkRandomnessUpdateMonitor, self).__init__(
+            _db, "Work Randomness Updater", interval_seconds, default_counter, batch_size)
+
+    def run_once(self, offset):
+        new_offset = offset + self.batch_size
+        text = "update works set random=random() where id >= :offset and id < :new_offset;"
+        self._db.execute(text, dict(offset=offset, new_offset=new_offset))
+        [[self.max_work_id]] = self._db.execute('select max(id) from works')
+        if self.max_work_id < new_offset:
+            return 0
+        return new_offset
