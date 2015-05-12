@@ -350,7 +350,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
 
 @app.route('/')
 def index():    
-    return redirect(url_for('.navigation_feed'))
+    return redirect(cdn_url_for('.navigation_feed'))
 
 @app.route('/heartbeat')
 def hearbeat():
