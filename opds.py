@@ -571,7 +571,7 @@ class AcquisitionFeed(OPDSFeed):
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
-        if field and work and not force_create and False:
+        if field and work and not force_create:
             xml = getattr(work, field)
 
         if xml:
