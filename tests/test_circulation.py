@@ -110,7 +110,7 @@ class TestNavigationFeed(CirculationAppTest):
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
             response = self.circulation.navigation_feed(None)
-            feed = feedparser.parse(response)
+            feed = feedparser.parse(response.data)
             links = feed['feed']['links']
             for expect_rel, expect_href_end in (
                     ('search', '/search/'), 
@@ -132,7 +132,7 @@ class TestNavigationFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):
             response = self.circulation.feed('Fiction')
-            parsed = feedparser.parse(unicode(response))
+            parsed = feedparser.parse(unicode(response.data))
             [author_facet, title_facet, next_link, search] = sorted(
                 [(x['rel'], x['href'])
                  for x in parsed['feed']['links']
@@ -148,7 +148,7 @@ class TestNavigationFeed(CirculationAppTest):
 
             eq_("next", next_link[0])
             assert "?after=" in next_link[1]
-            assert next_link[1].endswith("order=author")
+            assert "&order=author" in next_link[1]
 
             eq_("search", search[0])
             assert search[1].endswith('/search/Fiction')
@@ -156,9 +156,9 @@ class TestNavigationFeed(CirculationAppTest):
     def test_lane_without_language_preference_uses_default_language(self):
         with self.app.test_request_context("/"):
             response = self.circulation.feed('Nonfiction')
-            assert "Totally American" in response
-            assert "Quite British" not in response # Wrong lane
-            assert u"Tr&#232;s Fran&#231;ais" not in response # Wrong language
+            assert "Totally American" in response.data
+            assert "Quite British" not in response.data # Wrong lane
+            assert u"Tr&#232;s Fran&#231;ais" not in response.data # Wrong language
 
         # Now change the default language.
         old_default = os.environ.get('DEFAULT_LANGUAGES', 'eng')
@@ -166,8 +166,8 @@ class TestNavigationFeed(CirculationAppTest):
         os.environ['DEFAULT_LANGUAGES'] = "fre"
         with self.app.test_request_context("/"):
             response = self.circulation.feed('Nonfiction')
-            assert "Totally American" not in response
-            assert u"Tr&#232;s Fran&#231;ais" in response
+            assert "Totally American" not in response.data
+            assert u"Tr&#232;s Fran&#231;ais" in response.data
         os.environ['DEFAULT_LANGUAGES'] = old_default
 
     def test_lane_with_language_preference(self):
@@ -175,14 +175,14 @@ class TestNavigationFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", headers={"Accept-Language": "fr"}):
             response = self.circulation.feed('Nonfiction')
-            assert "Totally American" not in response
-            assert "Tr&#232;s Fran&#231;ais" in response
+            assert "Totally American" not in response.data
+            assert "Tr&#232;s Fran&#231;ais" in response.data
 
         with self.app.test_request_context(
                 "/", headers={"Accept-Language": "fr,en-us"}):
             response = self.circulation.feed('Nonfiction')
-            assert "Totally American" in response
-            assert "Tr&#232;s Fran&#231;ais" in response
+            assert "Totally American" in response.data
+            assert "Tr&#232;s Fran&#231;ais" in response.data
 
 
 class TestAcquisitionFeed(CirculationAppTest):
@@ -202,7 +202,7 @@ class TestAcquisitionFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
-            assert not "<entry>" in response
+            assert not "<entry>" in response.data
 
         # A number of loans and holds.
         overdrive.queue_response(
@@ -250,18 +250,18 @@ class TestAcquisitionFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
-            assert ">loan<" in response
+            assert ">loan<" in response.data
             for loan in patron.loans:
                 expect_title = loan.license_pool.work.title
-                assert "title>%s</title" % expect_title in response
+                assert "title>%s</title" % expect_title in response.data
 
-            assert ">hold<" in response
+            assert ">hold<" in response.data
             for hold in patron.holds:
                 expect_title = hold.license_pool.work.title
-                assert "title>%s</title" % expect_title in response
+                assert "title>%s</title" % expect_title in response.data
 
             # Each entry must have a 'revoke' link.
-            feed = feedparser.parse(response)
+            feed = feedparser.parse(response.data)
             for entry in feed['entries']:
                 revoke_link = [x for x in entry['links']
                                if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
