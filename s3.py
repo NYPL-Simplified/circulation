@@ -104,7 +104,8 @@ class S3Uploader(MirrorUploader):
                 representation.mirror_url)
             fh = representation.content_fh()
             filehandles.append(fh)
-            request = self.pool.upload(remote_filename, fh, bucket=bucket)
+            request = self.pool.upload(remote_filename, fh, bucket=bucket,
+                                       content_type=representation.media_type)
             requests.append(request)
         # Do the upload.
 
