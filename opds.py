@@ -388,12 +388,13 @@ class OPDSFeed(AtomFeed):
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
 
+    FEED_CACHE_TIME = int(os.environ.get('FEED_CACHE_TIME', "600"))
+
     def __init__(self, title, url, annotator):
         if not annotator:
             annotator = Annotator()
         self.annotator = annotator
         super(OPDSFeed, self).__init__(title, url)
-
 
 class AcquisitionFeed(OPDSFeed):
 

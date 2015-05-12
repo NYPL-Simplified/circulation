@@ -4700,7 +4700,7 @@ class CirculationEvent(Base):
     license_pool_id = Column(
         Integer, ForeignKey('licensepools.id'), index=True)
 
-    type = Column(String(32))
+    type = Column(String(32), index=True)
     start = Column(DateTime, index=True)
     end = Column(DateTime)
     old_value = Column(Integer)
