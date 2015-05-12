@@ -35,6 +35,7 @@ from model import (
     Subject,
     Work,
     )
+from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
 app_ns = 'http://www.w3.org/2007/app'
@@ -101,12 +102,13 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
+        cdn_host = os.environ.get('BOOK_COVERS_CDN_HOST')
         if work:
             if work.cover_thumbnail_url:
-                thumbnails = [work.cover_thumbnail_url]
+                thumbnails = [cdnify(work.cover_thumbnail_url, cdn_host)]
 
             if work.cover_full_url:
-                full = [work.cover_full_url]
+                full = [cdnify(work.cover_full_url, cdn_host)]
         return thumbnails, full
 
     @classmethod
@@ -569,8 +571,8 @@ class AcquisitionFeed(OPDSFeed):
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
-        if field and work and not force_create:
-                xml = getattr(work, field)
+        if field and work and not force_create and False:
+            xml = getattr(work, field)
 
         if xml:
             cache_hit = True
