@@ -25,6 +25,7 @@ from circulation_exceptions import (
     NoAvailableCopies,
 )
 from core.app_server import (
+    cdn_url_for,
     feed_response,
     HeartbeatController,
     URNLookupController,
@@ -195,7 +196,7 @@ def requires_auth(f):
     return decorated
 
 def featured_feed_cache_url(annotator, lane, languages):
-    url = annotator.featured_feed_url(lane)
+    url = annotator.featured_feed_url(lane, cdn=False)
     if '?' in url:
         url += '&'
     else:
@@ -207,7 +208,7 @@ def make_featured_feed(annotator, lane, languages):
         rel="search",
         type="application/opensearchdescription+xml",
         href=url_for('lane_search', lane=lane.name,
-                     _external=True))
+                         _external=True))
     opds_feed = AcquisitionFeed.featured(
         languages, lane, annotator, quality_cutoff=0.0)
     opds_feed.add_link(**search_link)
@@ -230,9 +231,9 @@ def make_acquisition_blocks(annotator, lane, languages):
         lane_name = lane
     else:
         lane_name = lane.name
-    url = url_for("acquisition_blocks", lane=lane_name, _external=True)
-    best_sellers_url = url_for("popular_feed", lane=lane_name, _external=True)
-    staff_picks_url = url_for("staff_picks_feed", lane=lane_name, _external=True)
+    url = cdn_url_for("acquisition_blocks", lane=lane_name, _external=True)
+    best_sellers_url = cdn_url_for("popular_feed", lane=lane_name, _external=True)
+    staff_picks_url = cdn_url_for("staff_picks_feed", lane=lane_name, _external=True)
     feed = AcquisitionFeed.featured_blocks(
         url, best_sellers_url, staff_picks_url, languages, lane, annotator)
     feed.add_link(
@@ -289,7 +290,7 @@ def make_popular_feed(_db, annotator, lane, languages):
     work_feed = CustomListFeed(
         lane, nyt, languages, as_of, availability=CustomListFeed.ALL)
     page = work_feed.page_query(_db, None, None).all()
-    this_url = url_for('popular_feed', lane_name=lane_name, _external=True)
+    this_url = cdn_url_for('popular_feed', lane_name=lane_name, _external=True)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
     return (200,
@@ -338,7 +339,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
         lane, staff, languages, availability=CustomListFeed.ALL)
     page = work_feed.page_query(_db, None, None).all()
 
-    this_url = url_for('staff_picks_feed', lane_name=lane_name, _external=True)
+    this_url = cdn_url_for('staff_picks_feed', lane_name=lane_name, _external=True)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
     return (200,
@@ -368,7 +369,7 @@ def navigation_feed(lane):
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
-    this_url = url_for("navigation_feed", lane=lane_name, _external=True)
+    this_url = cdn_url_for("navigation_feed", lane=lane_name, _external=True)
     key = (",".join(languages), this_url)
     # This feed will not change unless the application is upgraded,
     # so there's no need to expire the cache.
@@ -383,11 +384,11 @@ def navigation_feed(lane):
         feed.add_link(
             rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
             type=NavigationFeed.ACQUISITION_FEED_TYPE,
-            href=url_for('popular_feed', lane_name=lane.name, _external=True))
+            href=cdn_url_for('popular_feed', lane_name=lane.name, _external=True))
         feed.add_link(
             rel=NavigationFeed.RECOMMENDED_REL, title="Staff Picks",
             type=NavigationFeed.ACQUISITION_FEED_TYPE,
-            href=url_for('staff_picks_feed', lane_name=lane.name, _external=True))
+            href=cdn_url_for('staff_picks_feed', lane_name=lane.name, _external=True))
 
     feed.add_link(
         rel="search", 
@@ -402,7 +403,7 @@ def navigation_feed(lane):
     return feed_response(feed, acquisition=False, cache_for=7200)
 
 def lane_url(cls, lane, order=None):
-    return url_for('feed', lane=lane.name, order=order, _external=True)
+    return cdn_url_for('feed', lane=lane.name, order=order, _external=True)
 
 @app.route('/blocks', defaults=dict(lane=None))
 @app.route('/blocks/', defaults=dict(lane=None))
@@ -558,7 +559,7 @@ for k, v in order_field_to_database_field.items():
     database_field_to_order_field[v] = k
 
 
-def feed_url(lane, order_field, last_work_seen, size):
+def feed_url(lane, order_field, last_work_seen, size, cdn=True):
     if not lane:
         lane_name = lane
     else:
@@ -569,15 +570,16 @@ def feed_url(lane, order_field, last_work_seen, size):
         after = None
     if not isinstance(order_field, basestring):
         order_field = database_field_to_order_field[order_field]
-    return url_for('feed', lane=lane_name,
-                  order=order_field,
-                  after=after,
-                  size=size,
-                  _external=True)
+    if cdn:
+        m = cdn_url_for
+    else:
+        m = url_for
+    return m('feed', lane=lane_name, order=order_field,
+             after=after, size=size, _external=True)
 
 def feed_cache_url(lane, languages, order_field, 
                    last_seen_work_id, size):
-    url = feed_url(lane, order_field, last_seen_work_id, size)
+    url = feed_url(lane, order_field, last_seen_work_id, size, cdn=False)
     if '?' in url:
         url += '&'
     else:

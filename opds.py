@@ -10,6 +10,7 @@ from core.opds import (
 from core.model import (
     Session
 )
+from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -22,15 +23,19 @@ class CirculationManagerAnnotator(Annotator):
     def facet_url(self, order):
         if not self.lane:
             return None
-        return url_for(
+        return cdn_url_for(
             'feed', lane=self.lane.name, order=order, _external=True)
 
     def permalink_for(self, work, license_pool, identifier):
         return url_for('work', urn=identifier.urn, _external=True)
 
     @classmethod
-    def featured_feed_url(cls, lane, order=None):
-        return url_for('feed', lane=lane.name, order=order, _external=True)
+    def featured_feed_url(cls, lane, order=None, cdn=True):
+        if cdn:
+            m = cdn_url_for
+        else:
+            m = url_for
+        return m('feed', lane=lane.name, order=order, _external=True)
 
     @classmethod
     def navigation_feed_url(self, lane):
@@ -38,7 +43,7 @@ class CirculationManagerAnnotator(Annotator):
             lane_name = None
         else:
             lane_name = lane.name
-        return url_for('navigation_feed', lane=lane_name, _external=True)
+        return cdn_url_for('navigation_feed', lane=lane_name, _external=True)
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -62,7 +67,7 @@ class CirculationManagerAnnotator(Annotator):
         if not lane:
             # I don't think this should ever happen?
             lane_name = None
-            url = url_for('acquisition_blocks', lane=None, _external=True)
+            url = cdn_url_for('acquisition_blocks', lane=None, _external=True)
             title = "All Books"
             return url, title
         if isinstance(lane, tuple):
@@ -74,9 +79,9 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes:
-            url = url_for('acquisition_blocks', lane=lane.display_name, _external=True)
+            url = cdn_url_for('acquisition_blocks', lane=lane.display_name, _external=True)
         else:
-            url = url_for('feed', lane=lane.display_name, order='author', _external=True)
+            url = cdn_url_for('feed', lane=lane.display_name, order='author', _external=True)
         return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
