@@ -20,7 +20,6 @@ from model import (
 from external_search import (
     ExternalSearchIndex,
 )
-from util.permanent_work_id import WorkIDCalculator
 
 class Monitor(object):
 
@@ -269,18 +268,7 @@ class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
             _db, "Permanent Work ID refresh", interval_seconds)
 
     def process_edition(self, edition):
-        old_id = edition.permanent_work_id
         edition.calculate_permanent_work_id()
-        new_id = edition.permanent_work_id
-        if old_id != new_id:
-            w = WorkIDCalculator
-            title = edition.title_for_permanent_work_id
-            author = edition.author_for_permanent_work_id
-            norm_title = w.normalize_title(title)
-            norm_author = w.normalize_author(author)
-            print "%d: %s/%s -> %s/%s -> %s (was %s)" % (
-                edition.id, title, author, norm_title, norm_author,
-                edition.permanent_work_id, old_id)
 
 
 class PresentationReadyMonitor(WorkSweepMonitor):

@@ -398,13 +398,14 @@ class OPDSFeed(AtomFeed):
 class AcquisitionFeed(OPDSFeed):
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3,
+                 availability=Work.CURRENTLY_AVAILABLE, random_sample=True):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
         feed_size = 20
         works = lane.quality_sample(languages, 0.65, quality_cutoff, feed_size,
-                                    "currently_available")
+                                    availability, random_sample)
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
             sublanes=lane.sublanes)

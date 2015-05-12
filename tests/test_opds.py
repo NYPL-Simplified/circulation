@@ -63,7 +63,7 @@ class TestAnnotatorWithBlock(TestAnnotator):
 
     @classmethod
     def block_uri(cls, work, license_pool, identifier):
-        return "http://block/" + str(work.id)
+        return "http://block/" + str(work.id), "Block Title!"
 
 
 class TestAnnotators(DatabaseTest):
@@ -322,9 +322,11 @@ class TestOPDS(DatabaseTest):
         u = unicode(feed)
         parsed = feedparser.parse(u)
         [block_link] = parsed.entries[0].links
-        expect = TestAnnotatorWithBlock.block_uri(work, lp, lp.identifier)
+        expect_uri, expect_title = TestAnnotatorWithBlock.block_uri(
+            work, lp, lp.identifier)
         eq_(OPDSFeed.BLOCK_REL, block_link['rel'])
-        eq_(expect, block_link['href'])
+        eq_(expect_uri, block_link['href'])
+        eq_(expect_title, block_link['title'])
 
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -557,13 +559,15 @@ class TestOPDS(DatabaseTest):
         lane=self.lanes.by_name['Fantasy']
         good = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        good.quality = 100
+        good.quality = 1
         bad = self._work(genre=Fantasy, language="eng",
                          with_open_access_download=True)
         bad.quality = 0
 
         # We get the good one and omit the bad one.
-        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+        feed = AcquisitionFeed.featured(
+            "eng", lane, TestAnnotator, availability=Work.ALL, 
+            random_sample=False)
         feed = feedparser.parse(unicode(feed))
         eq_([good.title], [x['title'] for x in feed['entries']])
 

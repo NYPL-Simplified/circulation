@@ -1942,12 +1942,12 @@ class Edition(Base):
             author = self.sort_author or self.author
         return author
 
-    def calculate_permanent_work_id(self):
+    def calculate_permanent_work_id(self, debug=False):
         w = WorkIDCalculator
         title = self.title_for_permanent_work_id
         author = self.author_for_permanent_work_id
-        title = w.normalize_title(title)
-        author = w.normalize_author(author)
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
             medium = "book"
@@ -1960,8 +1960,15 @@ class Edition(Base):
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
+        old_id = self.permanent_work_id
         self.permanent_work_id = WorkIDCalculator.permanent_id(
-            title, author, medium)
+            norm_title, norm_author, medium)
+        new_id = self.permanent_work_id
+        if debug or old_id != new_id:
+            print "%d: %s/%s -> %s/%s/%s -> %s (was %s)" % (
+                self.id, title, author, norm_title, norm_author, medium,
+                new_id, old_id)
+
 
     def calculate_presentation(self, calculate_opds_entry=True, debug=False):
 
@@ -2967,27 +2974,49 @@ class Work(Base):
             cls, _db, base_query, data_source, on_list_as_of=None):
         """Annotate a query that joins Work against Edition to match only
         Works that are on a custom list from the given data source."""
-        # Find works...
-        q = base_query
 
-        # Find editions that are on a list from the given data source.
+        condition = CustomList.data_source==data_source
+        return cls._restrict_to_customlist_subquery_condition(
+            _db, base_query, condition, on_list_as_of)
+
+    @classmethod
+    def restrict_to_custom_lists(
+            cls, _db, base_query, custom_lists, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on one of the given custom lists."""
+        condition = CustomList.id.in_([x.id for x in custom_lists])
+        return cls._restrict_to_customlist_subquery_condition(
+            _db, base_query, condition, on_list_as_of)
+
+    @classmethod
+    def _restrict_to_customlist_subquery_condition(
+            cls, _db, base_query, condition, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on a custom list from the given data source."""
+        # Find works that are on a list that meets the given condition.
         subquery = _db.query(Edition.permanent_work_id).join(
             Edition.custom_list_entries).join(
-            CustomListEntry.customlist).filter(
-                CustomList.data_source==data_source)
+            CustomListEntry.customlist).filter(condition)
         if on_list_as_of:
-            # The work must have been seen on the given list as
+            # The Edition must have been seen on the given list as
             # recently as the given date.
             on_list_clause = (
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
             subquery = subquery.filter(on_list_clause)
         subquery = subquery.distinct(Edition.permanent_work_id)
-        subquery = subquery.subquery('nyt')
+        subquery = subquery.subquery('customlists')
+
+        # Find Works whose permanent work ID is the same as one of the Editions
+        # in the subquery.
         has_same_pwid = (
             subquery.c.permanent_work_id
             ==Edition.permanent_work_id)
-        q = q.join(subquery, has_same_pwid)
+        q = base_query.join(subquery, has_same_pwid)
         return q
+
+
+
+
 # Used for quality filter queries.
 Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
 Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
@@ -3960,7 +3989,8 @@ class Lane(object):
 
     def quality_sample(
             self, languages, quality_min_start,
-            quality_min_rock_bottom, target_size, availability):
+            quality_min_rock_bottom, target_size, availability,
+            random_sample=True):
         """Randomly select Works from this Lane that meet minimum quality
         criteria.
 
@@ -3983,12 +4013,13 @@ class Lane(object):
             query = query.filter(
                 Work.quality >= quality_min,
             )
-            offset = random.random()
-            # print "Offset: %.2f" % offset
-            if offset < 0.5:
-                query = query.filter(Work.random >= offset)
-            else:
-                query = query.filter(Work.random <= offset)
+            if random_sample:
+                offset = random.random()
+                # print "Offset: %.2f" % offset
+                if offset < 0.5:
+                    query = query.filter(Work.random >= offset)
+                else:
+                    query = query.filter(Work.random <= offset)
 
             if previous_quality_min is not None:
                 query = query.filter(
@@ -4230,7 +4261,9 @@ class LaneFeed(WorkFeed):
 
 class CustomListFeed(WorkFeed):
 
-    """A WorkFeed where all the works come from one or more custom lists."""
+    """A WorkFeed where all the works come from a given data source's
+    custom lists.
+    """
 
     # Treat a work as a best-seller if it was last on the best-seller
     # list two years ago.
@@ -4257,6 +4290,23 @@ class CustomListFeed(WorkFeed):
     def restrict(self, _db, q):
         return Work.restrict_to_custom_lists_from_data_source(
             _db, q, self.custom_list_data_source, self.on_list_as_of)
+
+
+class EnumeratedCustomListFeed(CustomListFeed):
+
+    """A WorkFeed where all the works come from an enumerated set of
+    custom lists.
+    """
+    def __init__(self, lane, custom_lists, languages,
+                 on_list_as_of=None, 
+                 **kwargs):
+        super(EnumeratedCustomListFeed, self).__init__(
+            lane, None, languages, on_list_as_of, **kwargs)
+        self.custom_lists = custom_lists
+
+    def restrict(self, _db, q):
+        return Work.restrict_to_custom_lists(
+            _db, q, self.custom_lists, self.on_list_as_of)
 
 
 class LicensePool(Base):
