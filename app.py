@@ -373,7 +373,7 @@ def navigation_feed(lane):
     # This feed will not change unless the application is upgraded,
     # so there's no need to expire the cache.
     if key in feed_cache:
-        return feed_response(feed_cache[key], acquisition=False)
+        return feed_response(feed_cache[key], acquisition=False, cache_for=7200)
         
     feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
 
@@ -399,7 +399,7 @@ def navigation_feed(lane):
 
     feed = unicode(feed)
     feed_cache[key] = feed
-    return feed_response(feed, acquisition=False)
+    return feed_response(feed, acquisition=False, cache_for=7200)
 
 def lane_url(cls, lane, order=None):
     return url_for('feed', lane=lane.name, order=order, _external=True)
@@ -465,7 +465,7 @@ def active_loans():
 
     # Then make the feed.
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
-    return feed_response(feed)
+    return feed_response(feed, cache_for=None)
 
 @app.route('/loans/<data_source>/<identifier>/revoke')
 @requires_auth
@@ -544,7 +544,7 @@ def loan_or_hold_detail(data_source, identifier):
         else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             hold)
-        return feed_response(feed)
+        return feed_response(feed, None)
 
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)

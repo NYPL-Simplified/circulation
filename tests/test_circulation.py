@@ -110,6 +110,8 @@ class TestNavigationFeed(CirculationAppTest):
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
             response = self.circulation.navigation_feed(None)
+            cache_control = response.headers['Cache-Control']
+            eq_('public, no-transform, max-age: 7200, s-maxage: 3600', cache_control)
             feed = feedparser.parse(response.data)
             links = feed['feed']['links']
             for expect_rel, expect_href_end in (
@@ -132,6 +134,7 @@ class TestNavigationFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):
             response = self.circulation.feed('Fiction')
+            assert response.headers['Cache-Control'].startswith('public,')
             parsed = feedparser.parse(unicode(response.data))
             [author_facet, title_facet, next_link, search] = sorted(
                 [(x['rel'], x['href'])
@@ -203,6 +206,7 @@ class TestAcquisitionFeed(CirculationAppTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
             assert not "<entry>" in response.data
+            assert response.headers['Cache-Control'].startswith('private,')
 
         # A number of loans and holds.
         overdrive.queue_response(
