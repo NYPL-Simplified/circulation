@@ -18,6 +18,7 @@ from core.model import (
 class MilleniumPatronAPI(Authenticator, XMLParser):
 
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
+    PATRON_TYPE_FIELD = 'P TYPE[p47]'
     EXPIRATION_FIELD = 'EXP DATE[p43]'
     BARCODE_FIELD = 'P BARCODE[pb]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
@@ -83,6 +84,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         if not dump:
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
+        patron.external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
         expires = datetime.datetime.strptime(
             expires, self.EXPIRATION_DATE_FORMAT).date()
