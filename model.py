@@ -203,6 +203,11 @@ class Patron(Base):
     # system, probably never seen by the patron.
     external_identifier = Column(Unicode, unique=True, index=True)
 
+    # The patron's account type, as reckoned by an external library
+    # system. Different account types may be subject to different
+    # library policies.
+    external_type = Column(Unicode, index=True)
+
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
     authorization_identifier = Column(Unicode, unique=True, index=True)

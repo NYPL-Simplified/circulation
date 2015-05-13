@@ -416,7 +416,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def featured_blocks(
             cls, url, best_sellers_url, staff_picks_url, languages, lane,
-            annotator, quality_cutoff=0.3):
+            annotator, quality_cutoff=0.0):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane blocks.
         """
