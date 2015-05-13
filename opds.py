@@ -105,10 +105,14 @@ class Annotator(object):
         cdn_host = os.environ.get('BOOK_COVERS_CDN_HOST')
         if work:
             if work.cover_thumbnail_url:
-                thumbnails = [cdnify(work.cover_thumbnail_url, cdn_host)]
+                thumb = work.cover_thumbnail_url
+                thumb = thumb.replace("/book-covers.nypl.org/", "/")
+                thumbnails = [cdnify(thumb, cdn_host)]
 
             if work.cover_full_url:
-                full = [cdnify(work.cover_full_url, cdn_host)]
+                full = work.cover_full_url
+                full = full.replace("/book-covers.nypl.org/", "/")
+                full = [cdnify(full, cdn_host)]
         return thumbnails, full
 
     @classmethod
