@@ -25,6 +25,7 @@ from circulation_exceptions import (
     NoAvailableCopies,
 )
 from core.app_server import (
+    load_lending_policy,
     cdn_url_for,
     feed_response,
     HeartbeatController,
@@ -93,6 +94,7 @@ class Conf:
     threem = None
     auth = None
     search = None
+    policy = None
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -106,6 +108,7 @@ class Conf:
             cls.threem = DummyThreeMAPI(cls.db)
             cls.auth = DummyMilleniumPatronAPI()
             cls.search = DummyExternalSearchIndex()
+            cls.policy = {}
         else:
             _db = production_session()
             lanes = make_lanes(_db)
@@ -120,6 +123,7 @@ class Conf:
             cls.threem = ThreeMAPI(cls.db)
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
+            cls.policy = load_lending_policy()
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -146,6 +150,7 @@ NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-h
 NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
 NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
+FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -795,6 +800,15 @@ def _load_licensepool(data_source, identifier):
     pool = id_obj.licensed_through
     return pool
 
+def _apply_borrowing_policy(patron, license_pool):
+    if not patron.can_borrow(license_pool.work, Conf.policy):
+        return problem(
+            FORBIDDEN_BY_POLICY_PROBLEM, 
+            "Library policy prohibits us from lending you this book.",
+            451
+        )
+    return None
+
 def _api_for_license_pool(license_pool):
     if license_pool.data_source.name==DataSource.OVERDRIVE:
         api = Conf.overdrive
@@ -891,6 +905,10 @@ def borrow(data_source, identifier):
         return problem(
             NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that book.", 404)
+
+    problem = _apply_borrowing_policy(patron, pool)
+    if problem:
+        return problem
 
     # Try to find an existing loan.
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
