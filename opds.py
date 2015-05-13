@@ -430,6 +430,7 @@ class AcquisitionFeed(OPDSFeed):
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
+
             quality_min = 0.65
 
             works = l.quality_sample(
@@ -462,7 +463,8 @@ class AcquisitionFeed(OPDSFeed):
                 a = time.time()
                 page = q.all()
                 b = time.time()
-                print "Got %s for %s in %.2f" % (title, lane.name, (b-a))
+                print "Got %s %s for %s in %.2f" % (
+                    len(page), title, lane.name, (b-a))
                 if len(page) > 20:
                     sample = random.sample(page, 20)
                 else:
