@@ -1,6 +1,7 @@
 """Implement logic common to more than one of the Simplified applications."""
 from nose.tools import set_trace
 import flask
+import json
 import os
 from flask import url_for, make_response
 from util.flask_util import problem
@@ -12,15 +13,34 @@ from opds import (
 from model import (
     Edition,
     Identifier,
+    Patron,
     UnresolvedIdentifier,
     Work,
 )
-from core.util.cdn import cdnify
+from util.cdn import cdnify
+from classifier import Classifier
 
 opds_cdn_host = os.environ.get('OPDS_FEEDS_CDN_HOST')
 def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
     return cdnify(base_url, opds_cdn_host)
+
+def load_lending_policy(policy=None):
+    policy = policy or os.environ.get('LENDING_POLICY')
+    if not policy:
+        print "No lending policy."
+        return {}
+    policy = json.loads(policy)
+    #print "Lending policy:"
+    for external_type, p in policy.items():
+        #print "", external_type, p
+        if Patron.AUDIENCE_RESTRICTION_POLICY in p:
+            for audience in p[Patron.AUDIENCE_RESTRICTION_POLICY]:
+                if not audience in Classifier.AUDIENCES:
+                    raise ValueError(
+                        "Unrecognized audience in lending policy: %s" % 
+                        audience)
+    return policy
 
 def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
     if not isinstance(feed, basestring):

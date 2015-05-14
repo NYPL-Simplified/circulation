@@ -63,6 +63,8 @@ class Classifier(object):
     AUDIENCE_CHILDREN = "Children"
 
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
+    AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
+                     AUDIENCE_CHILDREN])
 
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()

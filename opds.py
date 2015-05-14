@@ -105,10 +105,14 @@ class Annotator(object):
         cdn_host = os.environ.get('BOOK_COVERS_CDN_HOST')
         if work:
             if work.cover_thumbnail_url:
-                thumbnails = [cdnify(work.cover_thumbnail_url, cdn_host)]
+                thumb = work.cover_thumbnail_url
+                thumb = thumb.replace("/book-covers.nypl.org/", "/")
+                thumbnails = [cdnify(thumb, cdn_host)]
 
             if work.cover_full_url:
-                full = [cdnify(work.cover_full_url, cdn_host)]
+                full = work.cover_full_url
+                full = full.replace("/book-covers.nypl.org/", "/")
+                full = [cdnify(full, cdn_host)]
         return thumbnails, full
 
     @classmethod
@@ -416,7 +420,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def featured_blocks(
             cls, url, best_sellers_url, staff_picks_url, languages, lane,
-            annotator, quality_cutoff=0.3):
+            annotator, quality_cutoff=0.0):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane blocks.
         """
@@ -426,6 +430,7 @@ class AcquisitionFeed(OPDSFeed):
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
+
             quality_min = 0.65
 
             works = l.quality_sample(
@@ -458,7 +463,8 @@ class AcquisitionFeed(OPDSFeed):
                 a = time.time()
                 page = q.all()
                 b = time.time()
-                print "Got %s for %s in %.2f" % (title, lane.name, (b-a))
+                print "Got %s %s for %s in %.2f" % (
+                    len(page), title, lane.name, (b-a))
                 if len(page) > 20:
                     sample = random.sample(page, 20)
                 else:
