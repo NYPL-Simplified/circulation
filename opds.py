@@ -446,9 +446,8 @@ class AcquisitionFeed(OPDSFeed):
                 all_works.append(work)
 
         if lane.parent is None:
-            # If lane.parent is None, this is the very top level.
-            # If lane.parent.parent is None, this is a top-level
-            #  lane (e.g. "Young Adult Fiction").
+            # If lane.parent is None, this is the very top level or a
+            # top-level lane (e.g. "Young Adult Fiction").
             #
             # These are the only lanes that get Staff Picks and
             # Best-Sellers.
@@ -463,8 +462,8 @@ class AcquisitionFeed(OPDSFeed):
                      self.STAFF_PICKS_LANGUAGES),
             ):
                 available = False
-                for l in languages:
-                    if l in available_languages:
+                for lang in languages:
+                    if lang in available_languages:
                         available = True
                         break
                 if not available:
