@@ -60,6 +60,7 @@ class OverdriveAPI(BaseOverdriveAPI):
                 return self.patron_request(
                     patron, pin, url, extra_headers, data, True)
         else:
+            print "%s: %s" % (url, response.status_code)
             return response
 
     def get_patron_credential(self, patron, pin):
@@ -113,7 +114,6 @@ class OverdriveAPI(BaseOverdriveAPI):
                 expires = self.extract_expiration_date(loan)
                 content_link, content_type, content = self.fulfill(
                     patron, pin, identifier, format_type)
-                set_trace()
                 return content_link, None, None, expires
 
         expires, download_link = self.extract_data_from_checkout_response(
