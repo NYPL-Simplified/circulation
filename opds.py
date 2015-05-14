@@ -456,10 +456,10 @@ class AcquisitionFeed(OPDSFeed):
             for block_uri, title, data_source_name, cutoff_point, available_languages in (
                     (best_sellers_url, "Best Sellers", 
                      DataSource.NYT, best_seller_cutoff,
-                     self.BEST_SELLER_LANGUAGES), 
+                     cls.BEST_SELLER_LANGUAGES), 
                     (staff_picks_url, "Staff Picks", 
                      DataSource.LIBRARY_STAFF, None,
-                     self.STAFF_PICKS_LANGUAGES),
+                     cls.STAFF_PICKS_LANGUAGES),
             ):
                 available = False
                 for lang in languages:

@@ -4160,6 +4160,20 @@ class Lane(object):
                 q = q.filter(Work.audience.in_(self.audience))
             else:
                 q = q.filter(Work.audience==self.audience)
+                if self.audience in (
+                        Classifier.AUDIENCE_CHILDREN, 
+                        Classifier.AUDIENCE_YOUNG_ADULT):
+                    gutenberg = DataSource.lookup(
+                        self._db, DataSource.GUTENBERG)
+                    # TODO: A huge hack to exclude Project Gutenberg
+                    # books (which were deemed appropriate for
+                    # pre-1923 children but are not necessarily so for
+                    # 21st-century children.)
+                    #
+                    # This hack should be removed in favor of a
+                    # whitelist system and some way of allowing adults
+                    # to see books aimed at pre-1923 children.
+                    q = q.filter(Edition.data_source_id != gutenberg.id)
 
         if self.appeal != None:
             q = q.filter(Work.primary_appeal==self.appeal)
