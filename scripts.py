@@ -22,7 +22,10 @@ from core.opds_import import (
     DetailedOPDSImporter,
     BaseOPDSImporter,
 )
-from core.opds import OPDSFeed
+from core.opds import (
+    OPDSFeed,
+    AcquisitionFeed,
+)
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
@@ -221,8 +224,8 @@ class LaneSweeperScript(Script):
 
     def __init__(self, language_sets=None):
         self.conf = StandaloneApplicationConf(self._db)
-        self.language_sets = language_sets or [
-            self.PRIMARY_COLLECTIONS + self.OTHER_COLLECTIONS]
+        self.language_sets = language_sets or (
+            self.PRIMARY_COLLECTIONS + self.OTHER_COLLECTIONS)
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
 
     def run(self):
@@ -346,8 +349,8 @@ class CacheIndividualLaneFeaturedFeeds(CacheRepresentationPerLane):
 class CacheBestSellerFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of best-sellers for each top-level lanes."""
 
-    # We only have best-seller data for English.
-    LANGUAGE_SETS = [['eng']]
+    PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.BEST_SELLER_LANGUAGES]
+    OTHER_COLLECTIONS = []
 
     def cache_url(self, annotator, lane, languages):
         return app.popular_feed_cache_url(annotator, lane, languages)
@@ -364,8 +367,8 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
 class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of staff picks for each top-level lane."""
 
-    # We only have staff picks for English.
-    LANGUAGE_SETS = [['eng']]
+    PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.STAFF_PICKS_LANGUAGES]
+    OTHER_COLLECTIONS = []
 
     def cache_url(self, annotator, lane, languages):
         return app.staff_picks_feed_cache_url(annotator, lane, languages)
