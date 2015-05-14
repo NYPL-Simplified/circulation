@@ -404,6 +404,10 @@ class OPDSFeed(AtomFeed):
 
 class AcquisitionFeed(OPDSFeed):
 
+    # The languages in which we have best-seller and staff picks information
+    BEST_SELLER_LANGUAGES = ['eng']
+    STAFF_PICKS_LANGUAGES = ['eng']
+
     @classmethod
     def featured(cls, languages, lane, annotator, quality_cutoff=0.3,
                  availability=Work.CURRENTLY_AVAILABLE, random_sample=True):
@@ -441,7 +445,7 @@ class AcquisitionFeed(OPDSFeed):
                 annotator.lane_by_work[work] = l
                 all_works.append(work)
 
-        if (lane.parent is None or lane.parent.parent is None) and 'eng' in languages:
+        if (lane.parent is None or lane.parent.parent is None):
             # If lane.parent is None, this is the very top level.
             # If lane.parent.parent is None, this is a top-level
             #  lane (e.g. "Young Adult Fiction").
@@ -450,12 +454,21 @@ class AcquisitionFeed(OPDSFeed):
             # Best-Sellers.
             best_seller_cutoff = (
                 datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-            for block_uri, title, data_source_name, cutoff_point in (
+            for block_uri, title, data_source_name, cutoff_point, available_languages in (
                     (best_sellers_url, "Best Sellers", 
-                     DataSource.NYT, best_seller_cutoff), 
+                     DataSource.NYT, best_seller_cutoff,
+                     self.BEST_SELLER_LANGUAGES), 
                     (staff_picks_url, "Staff Picks", 
-                     DataSource.LIBRARY_STAFF, None),
+                     DataSource.LIBRARY_STAFF, None,
+                     self.STAFF_PICKS_LANGUAGES),
             ):
+                available = False
+                for l in languages:
+                    if l in available_languages:
+                        available = True
+                        break
+                if not available:
+                    continue
                 data_source = DataSource.lookup(_db, data_source_name)
                 q = l.works(languages, availability=Work.ALL)
                 q = Work.restrict_to_custom_lists_from_data_source(

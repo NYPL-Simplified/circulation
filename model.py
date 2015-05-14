@@ -288,6 +288,9 @@ class Loan(Base):
     start = Column(DateTime)
     end = Column(DateTime)
 
+    __table_args__ = (
+        UniqueConstraint('patron_id', 'license_pool_id'),
+    )
 
 class Hold(Base):
     """A patron is in line to check out a book.
@@ -313,6 +316,10 @@ class Hold(Base):
         else:
             self.end = None
         self.position = position
+
+    __table_args__ = (
+        UniqueConstraint('patron_id', 'license_pool_id'),
+    )
 
 
 class DataSource(Base):
