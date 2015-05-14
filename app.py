@@ -13,7 +13,7 @@ from sqlalchemy.orm.exc import (
 )
 
 import flask
-from flask import Flask, url_for, redirect, Response
+from flask import Flask, url_for, redirect, Response, make_response
 
 from core.external_search import (
     ExternalSearchIndex,
@@ -360,6 +360,58 @@ def index():
 @app.route('/heartbeat')
 def hearbeat():
     return HeartbeatController().heartbeat()
+
+@app.route('/service_status')
+def service_status():
+    barcode = os.environ['TEST_CREDENTIAL_USERNAME']
+    pin = os.environ['TEST_CREDENTIAL_PASSWORD']
+
+    template = """<!DOCTYPE HTML>
+<html lang="en" class="">
+<head>
+<meta charset="utf8">
+</head>
+<body>
+<ul>
+%(statuses)s
+</ul>
+</body>
+</html>
+"""
+    timings = dict()
+
+    patrons = []
+    def _add_timing(k, x):
+        try:
+            a = time.time()
+            x()
+            b = time.time()
+            result = b-a
+        except Exception, e:
+            result = e
+        if isinstance(result, float):
+            timing = "SUCCESS: %.2fsec" % result
+        else:
+            timing = "FAILURE: %s" % result
+        timings[k] = timing
+
+    do_patron = lambda : patrons.append(Conf.auth.authenticated_patron(Conf.db, barcode, pin))
+    _add_timing('Patron authentication', do_patron)
+
+    patron = patrons[0]
+    do_overdrive = lambda : Conf.overdrive.get_patron_checkouts(patron, pin)
+    _add_timing('Overdrive patron account', do_overdrive)
+
+    do_threem = lambda : Conf.threem.get_patron_checkouts(patron)
+    _add_timing('3M patron account', do_threem)
+
+    statuses = []
+    for k, v in sorted(timings.items()):
+        statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
+
+    doc = template % dict(statuses="\n".join(statuses))
+    return make_response(doc, 200, {"Content-Type": "text/html"})
+
 
 @app.route('/lanes', defaults=dict(lane=None))
 @app.route('/lanes/', defaults=dict(lane=None))
