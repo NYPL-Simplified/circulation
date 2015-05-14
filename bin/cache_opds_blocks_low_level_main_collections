@@ -8,4 +8,4 @@ sys.path.append(os.path.abspath(package_dir))
 from scripts import (
      CacheLowLevelOPDSBlockFeeds
 )
-CacheLowLevelOPDSBlockFeeds().run()
+CacheLowLevelOPDSBlockFeeds(CacheTopLevelOPDSBlockFeeds.MAIN_COLLECTIONS).run()
