@@ -1,11 +1,13 @@
 import pkgutil
 import os
+from datetime import date
 from nose.tools import (
     eq_,
     set_trace,
 )
 
 from ..millenium_patron import MilleniumPatronAPI
+from . import DatabaseTest
 
 class DummyResponse(object):
     def __init__(self, content):
@@ -33,9 +35,10 @@ class DummyAPI(MilleniumPatronAPI):
         return DummyResponse(self.queue.pop())
 
 
-class TestMilleniumPatronAPI(object):
+class TestMilleniumPatronAPI(DatabaseTest):
 
-    def setUp(self):
+    def setup(self):
+        super(TestMilleniumPatronAPI, self).setup()
         self.api = DummyAPI()
 
     def test_dump_no_such_barcode(self):
@@ -62,3 +65,12 @@ class TestMilleniumPatronAPI(object):
     def test_pintest_correct_pin(self):
         self.api.enqueue("pintest.good.html")
         eq_(True, self.api.pintest("barcode1234567", "correct pin"))
+
+    def test_update_patron(self):
+        self.api.enqueue("dump.success.html")
+        p = self._patron()
+        self.api.update_patron(p, "12345678901234")
+        eq_("10", p.external_type)
+        eq_("44444444444447", p.authorization_identifier)
+        expiration = date(1999, 4, 1)
+        eq_(expiration, p.authorization_expires)
