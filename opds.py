@@ -445,7 +445,7 @@ class AcquisitionFeed(OPDSFeed):
                 annotator.lane_by_work[work] = l
                 all_works.append(work)
 
-        if (lane.parent is None or lane.parent.parent is None):
+        if lane.parent is None:
             # If lane.parent is None, this is the very top level.
             # If lane.parent.parent is None, this is a top-level
             #  lane (e.g. "Young Adult Fiction").
