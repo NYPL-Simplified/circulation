@@ -75,7 +75,7 @@ class ThreeMAPI(BaseThreeMAPI):
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
-    def checkout(self, patron_obj, patron_password, identifier, format=None):
+    def checkout(self, patron_obj, patron_password, identifier, format_type=None):
 
         threem_id = identifier.identifier
         patron_identifier = patron_obj.authorization_identifier
