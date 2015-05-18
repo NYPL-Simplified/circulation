@@ -614,7 +614,7 @@ class AcquisitionFeed(OPDSFeed):
 
         after = time.time()
         if edition:
-            title = edition.title + " "
+            title = (edition.title or "") + " "
         else:
             title = ""
         if cache_hit:
@@ -668,6 +668,7 @@ class AcquisitionFeed(OPDSFeed):
                     edition.medium)
             additional_type_field = "{%s}additionalType" % schema_ns
             kw[additional_type_field] = additional_type
+
         entry = E.entry(
             E.id(permalink),
             E.title(edition.title or '[Unknown title]'),
@@ -675,6 +676,11 @@ class AcquisitionFeed(OPDSFeed):
         )
         if edition.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
+
+        if license_pool:
+            data_source_tag = E._makeelement("{%s}license_source" % simplified_ns)
+            data_source_tag.text = license_pool.data_source.name
+            entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)

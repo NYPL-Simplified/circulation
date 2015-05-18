@@ -339,6 +339,13 @@ class TestOPDS(DatabaseTest):
         [with_author] = parsed['entries']
         eq_("Alice", with_author['authors'][0]['name'])
 
+    def test_acquisition_feed_includes_license_source(self):
+        work = self._work(with_open_access_download=True)
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               [work])
+        parsed = feedparser.parse(unicode(feed))
+        eq_(DataSource.GUTENBERG, parsed.entries[0]['simplified_license_source'])
+
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
