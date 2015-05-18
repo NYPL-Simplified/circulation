@@ -21,7 +21,10 @@ class S3Uploader(MirrorUploader):
         """The URL to a resource on S3 identified by bucket and path."""
         if path.startswith('/'):
             path = path[1:]
-        url = cls.S3_BASE + bucket
+        if bucket.startswith('http://') or bucket.startswith('https://'):
+            url = bucket
+        else:
+            url = cls.S3_BASE + bucket
         if not url.endswith('/'):
             url += '/'
         return url + path
