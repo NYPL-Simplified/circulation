@@ -328,6 +328,7 @@ class DataSource(Base):
 
     GUTENBERG = "Gutenberg"
     OVERDRIVE = "Overdrive"
+    PROJECT_GITENBERG = "Project GITenberg"
     THREEM = "3M"
     OCLC = "OCLC Classify"
     OCLC_LINKED_DATA = "OCLC Linked Data"
@@ -431,6 +432,7 @@ class DataSource(Base):
                 (cls.NYT, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
                 (cls.METADATA_WRANGLER, False, Identifier.URI, None),
+                (cls.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID, None),
         ):
 
             extra = dict()
