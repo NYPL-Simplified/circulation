@@ -69,6 +69,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Index,
+    Numeric,
     String,
     Table,
     Unicode,
@@ -202,6 +203,11 @@ class Patron(Base):
     # system, probably never seen by the patron.
     external_identifier = Column(Unicode, unique=True, index=True)
 
+    # The patron's account type, as reckoned by an external library
+    # system. Different account types may be subject to different
+    # library policies.
+    external_type = Column(Unicode, index=True)
+
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
     authorization_identifier = Column(Unicode, unique=True, index=True)
@@ -224,6 +230,8 @@ class Patron(Base):
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
 
+    AUDIENCE_RESTRICTION_POLICY = 'audiences'
+
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
@@ -237,6 +245,27 @@ class Patron(Base):
                  if hold.license_pool.work]
         loans = self.works_on_loan()
         return set(holds + loans)
+
+    def can_borrow(self, work, policy):
+        """Return true if the given policy allows this patron to borrow the
+        given work.
+        
+        This will return False when the policy for this patron's
+        .external_type prevents access to this book's audience.
+        """
+        if not self.external_type in policy:
+            return True
+        if not work:
+            # Shouldn't happen, but not this method's problem.
+            return True
+        p = policy[self.external_type]
+        if not self.AUDIENCE_RESTRICTION_POLICY in p:
+            return True
+        allowed = p[self.AUDIENCE_RESTRICTION_POLICY]
+        if work.audience in allowed:
+            return True
+        return False
+
 
     @property
     def authorization_is_active(self):
@@ -259,6 +288,9 @@ class Loan(Base):
     start = Column(DateTime)
     end = Column(DateTime)
 
+    __table_args__ = (
+        UniqueConstraint('patron_id', 'license_pool_id'),
+    )
 
 class Hold(Base):
     """A patron is in line to check out a book.
@@ -284,6 +316,10 @@ class Hold(Base):
         else:
             self.end = None
         self.position = position
+
+    __table_args__ = (
+        UniqueConstraint('patron_id', 'license_pool_id'),
+    )
 
 
 class DataSource(Base):
@@ -1535,7 +1571,7 @@ class Edition(Base):
     # This is not a foreign key per se; it's a calculated UUID-like
     # identifier for this work based on its title and author, used to
     # group together different editions of the same work.
-    permanent_work_id = Column(Unicode, index=True)
+    permanent_work_id = Column(String(36), index=True)
 
     # A string depiction of the authors' names.
     author = Column(Unicode, index=True)
@@ -1921,20 +1957,32 @@ class Edition(Base):
 
         return Identifier.best_cover_for(_db, flattened_data)
 
-    def calculate_permanent_work_id(self):
-        w = WorkIDCalculator
+    @property
+    def title_for_permanent_work_id(self):
         title = self.title
         if self.subtitle:
             title += (": " + self.subtitle)
+        return title
+
+    @property
+    def author_for_permanent_work_id(self):
         authors = self.author_contributors
         if authors:
-            # Only use the primary author.
+            # Use the sort name of the primary author.
             author = authors[0].name
         else:
-            author = None
+            # This may be an Edition that represents an item on a best-seller list
+            # or something like that. In this case it wouldn't have any Contributor
+            # objects, just an author string. Use that.
+            author = self.sort_author or self.author
+        return author
 
-        title = w.normalize_title(title)
-        author = w.normalize_author(author)
+    def calculate_permanent_work_id(self, debug=False):
+        w = WorkIDCalculator
+        title = self.title_for_permanent_work_id
+        author = self.author_for_permanent_work_id
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
             medium = "book"
@@ -1947,8 +1995,15 @@ class Edition(Base):
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
+        old_id = self.permanent_work_id
         self.permanent_work_id = WorkIDCalculator.permanent_id(
-            title, author, medium)
+            norm_title, norm_author, medium)
+        new_id = self.permanent_work_id
+        if debug or old_id != new_id:
+            print "%d: %s/%s -> %s/%s/%s -> %s (was %s)" % (
+                self.id, title, author, norm_title, norm_author, medium,
+                new_id, old_id)
+
 
     def calculate_presentation(self, calculate_opds_entry=True, debug=False):
 
@@ -2004,7 +2059,8 @@ class Edition(Base):
             if self.cover:
                 print " cover=" + self.cover.representation.mirror_url
             print
-
+Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
+Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -2073,13 +2129,16 @@ class Work(Base):
     # The overall suitability of this work for unsolicited
     # presentation to a patron. This is a calculated value taking both
     # rating and popularity into account.
-    quality = Column(Float, index=True)
+    quality = Column(Numeric(4,3), index=True)
 
     # The overall rating given to this work.
     rating = Column(Float, index=True)
 
     # The overall current popularity of this work.
     popularity = Column(Float, index=True)
+
+    # A random number associated with this work, used for sampling/
+    random = Column(Numeric(4,3), index=True)
 
     appeal_type = Enum(CHARACTER_APPEAL, LANGUAGE_APPEAL, SETTING_APPEAL,
                        STORY_APPEAL, NOT_APPLICABLE_APPEAL, NO_APPEAL,
@@ -2216,13 +2275,13 @@ class Work(Base):
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
         """Return a query against Work suitable for using in OPDS feeds."""
         q = _db.query(Work).join(Work.primary_edition)
-        q = q.join(Work.license_pools).join(LicensePool.data_source)
+        q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
             contains_eager(Work.primary_edition),
             contains_eager(Work.license_pools),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
-            joinedload('work_genres')
+            contains_eager(Work.license_pools, LicensePool.identifier),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
@@ -2625,6 +2684,7 @@ class Work(Base):
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
+        self.random = random.random()
 
     def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
@@ -2944,6 +3004,58 @@ class Work(Base):
         #                  weight=weight))
         return doc
 
+    @classmethod
+    def restrict_to_custom_lists_from_data_source(
+            cls, _db, base_query, data_source, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on a custom list from the given data source."""
+
+        condition = CustomList.data_source==data_source
+        return cls._restrict_to_customlist_subquery_condition(
+            _db, base_query, condition, on_list_as_of)
+
+    @classmethod
+    def restrict_to_custom_lists(
+            cls, _db, base_query, custom_lists, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on one of the given custom lists."""
+        condition = CustomList.id.in_([x.id for x in custom_lists])
+        return cls._restrict_to_customlist_subquery_condition(
+            _db, base_query, condition, on_list_as_of)
+
+    @classmethod
+    def _restrict_to_customlist_subquery_condition(
+            cls, _db, base_query, condition, on_list_as_of=None):
+        """Annotate a query that joins Work against Edition to match only
+        Works that are on a custom list from the given data source."""
+        # Find works that are on a list that meets the given condition.
+        subquery = _db.query(Edition.permanent_work_id).join(
+            Edition.custom_list_entries).join(
+            CustomListEntry.customlist).filter(condition)
+        if on_list_as_of:
+            # The Edition must have been seen on the given list as
+            # recently as the given date.
+            on_list_clause = (
+                CustomListEntry.most_recent_appearance >= on_list_as_of)
+            subquery = subquery.filter(on_list_clause)
+        subquery = subquery.distinct(Edition.permanent_work_id)
+        subquery = subquery.subquery('customlists')
+
+        # Find Works whose permanent work ID is the same as one of the Editions
+        # in the subquery.
+        has_same_pwid = (
+            subquery.c.permanent_work_id
+            ==Edition.permanent_work_id)
+        q = base_query.join(subquery, has_same_pwid)
+        return q
+
+
+
+
+# Used for quality filter queries.
+Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
+Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
+
 class Measurement(Base):
     """A  measurement of some numeric quantity associated with a
     Identifier.
@@ -2976,7 +3088,7 @@ class Measurement(Base):
         # Data.
         #
         # TODO: Calculate a separate distribution for more modern works.
-        DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
+        # DataSource.OCLC_LINKED_DATA : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 15, 18, 21, 29, 41, 81],
     }
 
     DOWNLOAD_PERCENTILES = {
@@ -3063,11 +3175,18 @@ class Measurement(Base):
             return quality
 
         # We have both popularity and rating.
-        final = (popularity * popularity_weight) + (rating * rating_weight)
+        if popularity is None:
+            final = rating
+        if rating is None:
+            final = popularity
+        else:
+            final = (popularity * popularity_weight) + (rating * rating_weight)
+            print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
+                popularity, popularity_weight, rating, rating_weight, final)
         if quality:
+            print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
             final = (final / 2) + (quality / 2)
-        print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
-            popularity, popularity_weight, rating, rating_weight, final)
+            print "Final value: %.2f" % final
         return final
 
     @classmethod
@@ -3712,6 +3831,9 @@ class LaneList(object):
         self.lanes = []
         self.by_name = dict()
 
+    def __len__(self):
+        return len(self.lanes)
+
     def __iter__(self):
         return self.lanes.__iter__()
 
@@ -3902,7 +4024,8 @@ class Lane(object):
 
     def quality_sample(
             self, languages, quality_min_start,
-            quality_min_rock_bottom, target_size, availability):
+            quality_min_rock_bottom, target_size, availability,
+            random_sample=True):
         """Randomly select Works from this Lane that meet minimum quality
         criteria.
 
@@ -3925,31 +4048,25 @@ class Lane(object):
             query = query.filter(
                 Work.quality >= quality_min,
             )
+            if random_sample:
+                offset = random.random()
+                # print "Offset: %.2f" % offset
+                if offset < 0.5:
+                    query = query.filter(Work.random >= offset)
+                else:
+                    query = query.filter(Work.random <= offset)
 
             if previous_quality_min is not None:
                 query = query.filter(
                     Work.quality < previous_quality_min)
+            query = query.limit(int(remaining*1.3))
 
-            # How many are there?
             start = time.time()
-            count = query.count()
-            if count > 0:
-                if count <= 250:
-                    random_offset = 0
-                else:
-                    random_offset = random.randint(0, count-250)
-
-                # Pick up a subset of at most 250 items.
-                query = query.offset(random_offset).limit(250)
-                r = query.all()
-                sample_size = min(remaining, len(r))
-                print "Sampling %d from %d" % (sample_size, len(r))
-                sample = random.sample(r, sample_size)
-                results.extend(sample)
-                # query = query.order_by(func.random()).limit(remaining)
-                print "Quality %.1f got %d results for %s in %.2fsec" % (
-                    quality_min, len(results), self.name, time.time()-start
-                )
+            r = query.all()
+            results.extend(r[:remaining])
+            print "Quality %.1f got us up to %d results for %s in %.2fsec" % (
+                quality_min, len(results), self.name, time.time()-start
+            )
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
@@ -3957,7 +4074,14 @@ class Lane(object):
 
             # Lower the bar, in case we didn't get enough results.
             previous_quality_min = quality_min
-            quality_min *= 0.5
+
+            if results or quality_min_rock_bottom < 0.1:
+                quality_min *= 0.5
+            else:
+                # We got absolutely no results. Lower the bar all the
+                # way immediately.
+                quality_min = quality_min_rock_bottom
+
             if quality_min < quality_min_rock_bottom:
                 quality_min = quality_min_rock_bottom
         return results
@@ -3965,11 +4089,12 @@ class Lane(object):
     @property
     def all_matching_genres(self):
         genres = set()
-        for genre in self.genres:
-            if self.subgenre_books_go == self.IN_SAME_LANE:
-                genres = genres.union(genre.self_and_subgenres)
-            else:
-                genres.add(genre)
+        if self.genres:
+            for genre in self.genres:
+                if self.subgenre_books_go == self.IN_SAME_LANE:
+                    genres = genres.union(genre.self_and_subgenres)
+                else:
+                    genres.add(genre)
         return genres
 
     def works(self, languages, fiction=None, availability=Work.ALL):
@@ -3997,7 +4122,6 @@ class Lane(object):
 
         """
         q = Work.feed_query(self._db, languages, availability)
-
         audience = self.audience
         if fiction is None:
             if self.fiction is not None:
@@ -4005,11 +4129,11 @@ class Lane(object):
             else:
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
 
-        if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
-            # No genre plus a boolean value for `fiction` means
-            # fiction or nonfiction not associated with any genre.
-            q = Work.with_no_genres(q)
-        elif self.genres is not None:
+        #if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
+        #    # No genre plus a boolean value for `fiction` means
+        #    # fiction or nonfiction not associated with any genre.
+        #    q = Work.with_no_genres(q)
+        if self.genres is not None:
             # Find works that are assigned to the given genres. This
             # may also turn into a restriction on the fiction status.
             fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
@@ -4036,14 +4160,35 @@ class Lane(object):
                 q = q.filter(Work.audience.in_(self.audience))
             else:
                 q = q.filter(Work.audience==self.audience)
+                if self.audience in (
+                        Classifier.AUDIENCE_CHILDREN, 
+                        Classifier.AUDIENCE_YOUNG_ADULT):
+                    gutenberg = DataSource.lookup(
+                        self._db, DataSource.GUTENBERG)
+                    # TODO: A huge hack to exclude Project Gutenberg
+                    # books (which were deemed appropriate for
+                    # pre-1923 children but are not necessarily so for
+                    # 21st-century children.)
+                    #
+                    # This hack should be removed in favor of a
+                    # whitelist system and some way of allowing adults
+                    # to see books aimed at pre-1923 children.
+                    q = q.filter(Edition.data_source_id != gutenberg.id)
 
         if self.appeal != None:
             q = q.filter(Work.primary_appeal==self.appeal)
+
+        if self.age_range != None:
+            age_range = sorted(self.age_range)
+            q = q.filter(Work.target_age >= age_range[0])
+            if age_range[-1] != age_range[0]:
+                q = q.filter(Work.target_age <= age_range[-1])
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(Work.fiction==None)
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
+
         return q
 
 
@@ -4143,8 +4288,12 @@ class WorkFeed(object):
             query = query.distinct(*self.order_by)
         else:
             query = query.distinct(Work.id)
-        query = query.limit(page_size)
-        query = query.options(joinedload('license_pools').joinedload('edition'))
+
+        if page_size:
+            query = query.limit(page_size)
+
+        query = query.options(contains_eager(Work.license_pools),
+                              contains_eager(Work.primary_edition))
         return query
 
 class LaneFeed(WorkFeed):
@@ -4161,56 +4310,52 @@ class LaneFeed(WorkFeed):
 
 class CustomListFeed(WorkFeed):
 
-    """A WorkFeed where all the works come from one or more custom lists."""
+    """A WorkFeed where all the works come from a given data source's
+    custom lists.
+    """
 
-    def __init__(self, custom_lists, languages, on_list_as_of=None, 
+    # Treat a work as a best-seller if it was last on the best-seller
+    # list two years ago.
+    best_seller_cutoff = datetime.timedelta(days=730)
+
+    def __init__(self, lane, custom_list_data_source, languages,
+                 on_list_as_of=None, 
                  **kwargs):
-        self.custom_lists = custom_lists
+        self.lane = lane
+        self.custom_list_data_source = custom_list_data_source
         self.on_list_as_of = on_list_as_of
+        if not 'order_by' in kwargs:
+            kwargs['order_by'] = [Edition.sort_title]
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):
+        if self.lane:
+            q = self.lane.works(
+                self.languages, availability=self.availability)
+        else:
+            q = Work.feed_query(_db, self.languages, self.availability)
+        return self.restrict(_db, q)
 
-        # TODO: The simplest way to do this is two queries, but it can
-        # be optimized to one if it becomes a problem.
-
-        # First, find all works in one of the given lists which also
-        # have a permanent work ID.
-        custom_list_ids = [x.id for x in self.custom_lists]
-        q = _db.query(CustomListEntry).join(CustomListEntry.edition).filter(
-            CustomListEntry.list_id.in_(custom_list_ids)).filter(
-                Edition.permanent_work_id != None)
-        q = q.options(joinedload(CustomListEntry.edition))
-
-        if self.on_list_as_of:
-            # The work must have been seen on the given list as
-            # recently as the given date.
-            on_list_clause = (
-                CustomListEntry.most_recent_appearance >= self.on_list_as_of)
-            q = q.filter(on_list_clause)
-        permanent_work_ids = set([x.edition.permanent_work_id for x in q])
-        print "Potentially %s permanent work IDs." % len(permanent_work_ids)
-
-        # Now the second query. Find all works where the primary edition's
-        # permanent work ID is in the big list of IDs we got earlier.
-        q = Work.feed_query(_db, self.languages, self.availability)
-        q = q.join(Work.primary_edition).filter(
-            Edition.permanent_work_id.in_(permanent_work_ids))
-        return q
+    def restrict(self, _db, q):
+        return Work.restrict_to_custom_lists_from_data_source(
+            _db, q, self.custom_list_data_source, self.on_list_as_of)
 
 
-class AllCustomListsFromDataSourceFeed(CustomListFeed):
+class EnumeratedCustomListFeed(CustomListFeed):
 
-    """A WorkFeed consolidating all custom lists from a given data source."""
-
-    def __init__(self, _db, data_sources, languages, on_list_as_of=None, 
+    """A WorkFeed where all the works come from an enumerated set of
+    custom lists.
+    """
+    def __init__(self, lane, custom_lists, languages,
+                 on_list_as_of=None, 
                  **kwargs):
-        if isinstance(data_sources, basestring):
-            data_sources = [data_sources]
-        sources = [DataSource.lookup(_db, x).id for x in data_sources]
-        lists = _db.query(CustomList).filter(CustomList.data_source_id.in_(sources))
-        super(AllCustomListsFromDataSourceFeed, self).__init__(
-            lists, languages, on_list_as_of, **kwargs)
+        super(EnumeratedCustomListFeed, self).__init__(
+            lane, None, languages, on_list_as_of, **kwargs)
+        self.custom_lists = custom_lists
+
+    def restrict(self, _db, q):
+        return Work.restrict_to_custom_lists(
+            _db, q, self.custom_lists, self.on_list_as_of)
 
 
 class LicensePool(Base):
@@ -4250,20 +4395,24 @@ class LicensePool(Base):
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
 
+    # Index the combination of DataSource and Identifier to make joins easier.
+
     clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
     edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined',
         foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id])
 
-    open_access = Column(Boolean)
+    open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
-    licenses_available = Column(Integer,default=0)
+    licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
 
     # A Identifier should have at most one LicensePool.
-    __table_args__ = (UniqueConstraint('identifier_id'),)
+    __table_args__ = (
+        UniqueConstraint('identifier_id'),
+    )
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):
@@ -4549,7 +4698,7 @@ class LicensePool(Base):
             if link:
                 return pool, link
         return self, None
-
+Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
 class RightsStatus(Base):
 
@@ -4600,7 +4749,7 @@ class CirculationEvent(Base):
     license_pool_id = Column(
         Integer, ForeignKey('licensepools.id'), index=True)
 
-    type = Column(String(32))
+    type = Column(String(32), index=True)
     start = Column(DateTime, index=True)
     end = Column(DateTime)
     old_value = Column(Integer)
@@ -4922,7 +5071,7 @@ class Representation(Base):
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
             # condition.
-            exception = str(e)
+            exception = traceback.format_exc()
             status_code = None
             headers = None
             content = None
@@ -5240,6 +5389,18 @@ class CustomList(Base):
     # TODO: It should be possible to associate a CustomList with an
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
+
+    @classmethod
+    def all_from_data_sources(cls, _db, data_sources):
+        """All custom lists from the given data sources."""
+        if not isinstance(data_sources, list):
+            data_sources = [data_sources]
+        ids = []
+        for ds in data_sources:
+            if isinstance(ds, basestring):
+                ds = DataSource.lookup(_db, ds)
+            ids.append(ds.id)
+        return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     def add_entry(self, edition, annotation=None, first_appearance=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()

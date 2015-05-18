@@ -1,29 +1,67 @@
 """Implement logic common to more than one of the Simplified applications."""
 from nose.tools import set_trace
 import flask
+import json
+import os
 from flask import url_for, make_response
 from util.flask_util import problem
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
     OPDSFeed,
-
 )
 from model import (
     Edition,
     Identifier,
+    Patron,
     UnresolvedIdentifier,
     Work,
 )
+from util.cdn import cdnify
+from classifier import Classifier
 
-def feed_response(feed, acquisition=True):
+opds_cdn_host = os.environ.get('OPDS_FEEDS_CDN_HOST')
+def cdn_url_for(*args, **kwargs):
+    base_url = url_for(*args, **kwargs)
+    return cdnify(base_url, opds_cdn_host)
+
+def load_lending_policy(policy=None):
+    policy = policy or os.environ.get('LENDING_POLICY')
+    if not policy:
+        print "No lending policy."
+        return {}
+    policy = json.loads(policy)
+    #print "Lending policy:"
+    for external_type, p in policy.items():
+        #print "", external_type, p
+        if Patron.AUDIENCE_RESTRICTION_POLICY in p:
+            for audience in p[Patron.AUDIENCE_RESTRICTION_POLICY]:
+                if not audience in Classifier.AUDIENCES:
+                    raise ValueError(
+                        "Unrecognized audience in lending policy: %s" % 
+                        audience)
+    return policy
+
+def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
     if not isinstance(feed, basestring):
         feed = unicode(feed)
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
     else:
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
-    return make_response(feed, 200, {"Content-Type": content_type})
+
+    if isinstance(cache_for, int):
+        # A CDN should hold on to the cached representation only half
+        # as long as the end-user.
+        client_cache = cache_for
+        cdn_cache = cache_for / 2
+        cache_control = "public, no-transform, max-age: %d, s-maxage: %d" % (
+            client_cache, cdn_cache)
+    else:
+        cache_control = "private, no-cache"
+
+    return make_response(feed, 200, {"Content-Type": content_type,
+                                     "Cache-Control": cache_control})
 
 class HeartbeatController(object):
 
@@ -121,7 +159,7 @@ class URNLookupController(object):
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
-        this_url = url_for(controller_name, _external=True, urn=urns)
+        this_url = cdn_url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
             code, message = self.process_urn(urn)
             if code:
@@ -139,7 +177,7 @@ class URNLookupController(object):
 
     def permalink(self, urn, annotator):
         """Generate an OPDS feed for looking up a single work by identifier."""
-        this_url = url_for('work', _external=True, urn=urn)
+        this_url = cdn_url_for('work', _external=True, urn=urn)
         messages_by_urn = dict()
         code, message = self.process_urn(urn)
         if code:

@@ -101,9 +101,13 @@ class DatabaseTest(object):
             wr.language = language
         if authors is None:
             authors = self._str
+        if isinstance(authors, basestring):
+            authors = [authors]
         if authors != []:
-            wr.add_contributor(unicode(authors), Contributor.PRIMARY_AUTHOR_ROLE)
-            wr.author = unicode(authors)
+            wr.add_contributor(unicode(authors[0]), Contributor.PRIMARY_AUTHOR_ROLE)
+            wr.author = unicode(authors[0])
+        for author in authors[1:]:
+            wr.add_contributor(unicode(authors[0]), Contributor.AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
@@ -143,6 +147,7 @@ class DatabaseTest(object):
         if not isinstance(genre, Genre):
             genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
         work.genres = [genre]
+        work.random = 0.5
         if with_license_pool:
             work.license_pools.append(pool)
             # This is probably going to be used in an OPDS feed, so

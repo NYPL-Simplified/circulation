@@ -192,8 +192,8 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
-            self._db, "Hawkins, Paula")
-        contributor.display_name = "Paula Hawkins"
+            self._db, u"Hawkins, Paula")
+        contributor.display_name = u"Paula Hawkins"
 
         title = NYTBestSellerListTitle(self.one_list_title)
         edition = title.to_edition(self._db, self.metadata_client)

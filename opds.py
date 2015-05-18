@@ -21,7 +21,11 @@ import requests
 
 from lxml import builder, etree
 
+from classifier import Classifier
 from model import (
+    CustomList,
+    CustomListEntry,
+    CustomListFeed,
     DataSource,
     Hyperlink,
     Resource,
@@ -31,6 +35,7 @@ from model import (
     Subject,
     Work,
     )
+from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
 app_ns = 'http://www.w3.org/2007/app'
@@ -70,6 +75,8 @@ class Annotator(object):
     application context.
     """
 
+    opds_cache_field = Work.simple_opds_entry.name
+
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
                             entry):
@@ -77,6 +84,10 @@ class Annotator(object):
         OPDS entry into the application's workflow.
         """
         pass
+
+    @classmethod
+    def block_uri(cls, work, license_pool, identifier):
+        return None, ""
 
     @classmethod
     def cover_links(cls, work):
@@ -91,12 +102,17 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
+        cdn_host = os.environ.get('BOOK_COVERS_CDN_HOST')
         if work:
             if work.cover_thumbnail_url:
-                thumbnails = [work.cover_thumbnail_url]
+                thumb = work.cover_thumbnail_url
+                thumb = thumb.replace("/book-covers.nypl.org/", "/")
+                thumbnails = [cdnify(thumb, cdn_host)]
 
             if work.cover_full_url:
-                full = [work.cover_full_url]
+                full = work.cover_full_url
+                full = full.replace("/book-covers.nypl.org/", "/")
+                full = [cdnify(full, cdn_host)]
         return thumbnails, full
 
     @classmethod
@@ -244,6 +260,8 @@ class VerboseAnnotator(Annotator):
     in great detail.
     """
 
+    opds_cache_field = Work.verbose_opds_entry.name
+
     @classmethod
     def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
                             entry):
@@ -364,6 +382,7 @@ class OPDSFeed(AtomFeed):
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
 
+    BLOCK_REL = "http://opds-spec.org/block"
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
@@ -375,29 +394,110 @@ class OPDSFeed(AtomFeed):
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
 
+    FEED_CACHE_TIME = int(os.environ.get('FEED_CACHE_TIME', "600"))
+
     def __init__(self, title, url, annotator):
         if not annotator:
             annotator = Annotator()
         self.annotator = annotator
         super(OPDSFeed, self).__init__(title, url)
 
-
 class AcquisitionFeed(OPDSFeed):
 
+    # The languages in which we have best-seller and staff picks information
+    BEST_SELLER_LANGUAGES = ['eng']
+    STAFF_PICKS_LANGUAGES = ['eng']
+
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3):
+    def featured(cls, languages, lane, annotator, quality_cutoff=0.3,
+                 availability=Work.CURRENTLY_AVAILABLE, random_sample=True):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
         feed_size = 20
         works = lane.quality_sample(languages, 0.65, quality_cutoff, feed_size,
-                                    "currently_available")
+                                    availability, random_sample)
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
             sublanes=lane.sublanes)
 
+    @classmethod
+    def featured_blocks(
+            cls, url, best_sellers_url, staff_picks_url, languages, lane,
+            annotator, quality_cutoff=0.0):
+        """The acquisition feed for 'featured' items from a given lane's
+        sublanes, organized into per-lane blocks.
+        """
+        feed_size = 20
+        _db = None
+        all_works = []
+        for l in lane.sublanes:
+            if not _db:
+                _db = l._db
+
+            quality_min = 0.65
+
+            works = l.quality_sample(
+                languages, quality_min, quality_cutoff, feed_size,
+                Work.CURRENTLY_AVAILABLE)
+
+            for work in works:
+                annotator.lane_by_work[work] = l
+                all_works.append(work)
+
+        if lane.parent is None:
+            # If lane.parent is None, this is the very top level or a
+            # top-level lane (e.g. "Young Adult Fiction").
+            #
+            # These are the only lanes that get Staff Picks and
+            # Best-Sellers.
+            best_seller_cutoff = (
+                datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
+            for block_uri, title, data_source_name, cutoff_point, available_languages in (
+                    (best_sellers_url, "Best Sellers", 
+                     DataSource.NYT, best_seller_cutoff,
+                     cls.BEST_SELLER_LANGUAGES), 
+                    (staff_picks_url, "Staff Picks", 
+                     DataSource.LIBRARY_STAFF, None,
+                     cls.STAFF_PICKS_LANGUAGES),
+            ):
+                available = False
+                for lang in languages:
+                    if lang in available_languages:
+                        available = True
+                        break
+                if not available:
+                    continue
+                data_source = DataSource.lookup(_db, data_source_name)
+                q = l.works(languages, availability=Work.ALL)
+                q = Work.restrict_to_custom_lists_from_data_source(
+                    _db, q, data_source, cutoff_point)
+                a = time.time()
+                page = q.all()
+                b = time.time()
+                print "Got %s %s for %s in %.2f" % (
+                    len(page), title, lane.name, (b-a))
+                if len(page) > 20:
+                    sample = random.sample(page, 20)
+                else:
+                    sample = page
+                for work in sample:
+                    annotator.lane_by_work[work] = (
+                        block_uri, title)
+                    all_works.append(work)
+
+        feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
+                               facet_groups=[])
+        return feed
+
+    DEFAULT_FACET_GROUPS = [
+        ('Title', 'title', 'Sort by'),
+        ('Author', 'author', 'Sort by')
+    ]
+
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={}):
+                 active_facet=None, sublanes=[], messages_by_urn={},
+                 facet_groups=DEFAULT_FACET_GROUPS):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
@@ -423,9 +523,7 @@ class AcquisitionFeed(OPDSFeed):
 
         print "Feed built in %.2f" % (time.time()-first_time)
 
-        for title, order, facet_group, in [
-                ('Title', 'title', 'Sort by'),
-                ('Author', 'author', 'Sort by')]:
+        for title, order, facet_group, in facet_groups:
             url = self.annotator.facet_url(order)
             if not url:
                 continue
@@ -490,11 +588,9 @@ class AcquisitionFeed(OPDSFeed):
         before = time.time()
         xml = None
         cache_hit = False
-        if work and not force_create:
-            if self.annotator == Annotator:
-                xml = work.simple_opds_entry
-            elif self.annotator == VerboseAnnotator:
-                xml = work.verbose_opds_entry            
+        field = self.annotator.opds_cache_field
+        if field and work and not force_create and False:
+            xml = getattr(work, field)
 
         if xml:
             cache_hit = True
@@ -503,20 +599,29 @@ class AcquisitionFeed(OPDSFeed):
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
             data = etree.tostring(xml)
-            if self.annotator == Annotator:
-                work.simple_opds_entry = data
-            elif self.annotator == VerboseAnnotator:
-                work.verbose_opds_entry = data
+            if field:
+                setattr(work, field, data)
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
+
+        block_uri, block_title = self.annotator.block_uri(
+            work, license_pool, identifier)
+        if block_uri:
+            self.add_link_to_entry(
+                xml, rel=OPDSFeed.BLOCK_REL, href=block_uri,
+                title=block_title)
 
         after = time.time()
         if edition:
             title = edition.title + " "
         else:
             title = ""
-        print "%s %r %.2f" % (title.encode("utf8"), cache_hit, after-before)
+        if cache_hit:
+            cache_hit = "Cached"
+        else:
+            cache_hit = "Uncached"
+        print "%s %s %.2f" % (title.encode("utf8"), cache_hit, after-before)
 
         return xml
 
