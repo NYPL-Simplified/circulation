@@ -27,11 +27,12 @@ class Monitor(object):
 
     def __init__(
             self, _db, name, interval_seconds=1*60,
-            default_start_time=None):
+            default_start_time=None, keep_timestamp=True):
         self._db = _db
         self.service_name = name
         self.interval_seconds = interval_seconds
         self.stop_running = False
+        self.keep_timestamp = keep_timestamp
 
         url = os.environ.get('SEARCH_SERVER_URL')
         if url:
@@ -47,22 +48,26 @@ class Monitor(object):
         self.default_start_time = default_start_time
 
     def run(self):        
-        self.timestamp, new = get_one_or_create(
-            self._db, Timestamp,
-            service=self.service_name,
-            create_method_kwargs=dict(
-                timestamp=self.default_start_time
+        if self.keep_timestamp:
+            self.timestamp, new = get_one_or_create(
+                self._db, Timestamp,
+                service=self.service_name,
+                create_method_kwargs=dict(
+                    timestamp=self.default_start_time
+                    )
             )
-        )
-        start = self.timestamp.timestamp or self.default_start_time
+            start = self.timestamp.timestamp or self.default_start_time
+        else:
+            start = self.default_start_time
 
         while not self.stop_running:
-            cutoff = datetime.datetime.utcnow()
+            cutoff = datetime.datetime.utcnow()           
             new_timestamp = self.run_once(start, cutoff) or cutoff
             duration = datetime.datetime.utcnow() - cutoff
             to_sleep = self.interval_seconds-duration.seconds-1
             self.cleanup()
-            self.timestamp.timestamp = new_timestamp
+            if self.keep_timestamp:
+                self.timestamp.timestamp = new_timestamp
             self._db.commit()
             if to_sleep > 0:
                 print "Sleeping for %.1f" % to_sleep

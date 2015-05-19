@@ -107,6 +107,7 @@ class BaseOPDSImporter(object):
             if not edition and status_code == 200:
                 print "EDITION NOT CREATED: %s" % message
                 print "Raw data: %r" % entry
+            set_trace()
             if edition:
                 imported.append(edition)
 
@@ -487,11 +488,13 @@ class OPDSImportMonitor(Monitor):
     it mentions.
     """
     
-    def __init__(self, _db, feed_url, import_class, interval_seconds=3600):
+    def __init__(self, _db, feed_url, import_class, interval_seconds=3600,
+                 keep_timestamp=True):
         self.feed_url = feed_url
         self.import_class = import_class
         super(OPDSImportMonitor, self).__init__(
-            _db, "OPDS Import %s" % feed_url, interval_seconds)
+            _db, "OPDS Import %s" % feed_url, interval_seconds,
+            keep_timestamp=keep_timestamp)
 
     def run_once(self, start, cutoff):
         next_link = self.feed_url

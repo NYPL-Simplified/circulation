@@ -212,12 +212,15 @@ class PermanentWorkIDCalculationScript(Script):
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
-    def __init__(self, feed_url, importer_class):
+    def __init__(self, feed_url, importer_class, keep_timestamp=True):
         self.feed_url = feed_url
         self.importer_class = importer_class
+        self.keep_timestamp = keep_timestamp
 
     def run(self):
-        monitor = OPDSImportMonitor(self._db, self.feed_url, self.importer_class)
+        monitor = OPDSImportMonitor(
+            self._db, self.feed_url, self.importer_class,
+            keep_timestamp=self.keep_timestamp)
         monitor.run()
         
 
