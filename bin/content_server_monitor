@@ -8,5 +8,10 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 from core.scripts import OPDSImportScript
 from scripts import ContentOPDSImporter
-content_server_url = os.environ['CONTENT_WEB_APP_URL']
+if len(sys.argv) > 1 and sys.argv[1].startswith('http'):
+    content_server_url = sys.argv[1]
+else:
+    content_server_url = os.environ['CONTENT_WEB_APP_URL']
+
+print "Importing from %s" % content_server_url
 OPDSImportScript(content_server_url, ContentOPDSImporter).run()
