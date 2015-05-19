@@ -10,8 +10,10 @@ from core.scripts import OPDSImportScript
 from scripts import ContentOPDSImporter
 if len(sys.argv) > 1 and sys.argv[1].startswith('http'):
     content_server_url = sys.argv[1]
+    register_timestamp = False
 else:
     content_server_url = os.environ['CONTENT_WEB_APP_URL']
+    register_timestamp = True
 
 print "Importing from %s" % content_server_url
-OPDSImportScript(content_server_url, ContentOPDSImporter).run()
+OPDSImportScript(content_server_url, ContentOPDSImporter, register_timestamp).run()
