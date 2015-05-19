@@ -537,6 +537,9 @@ class Identifier(Base):
 
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
+    GUTENBERG_URN_SCHEME_PREFIX = "http://www.gutenberg.org/ebooks/"
+    GUTENBERG_URN_SCHEME_RE = re.compile(
+        GUTENBERG_URN_SCHEME_PREFIX + "([0-9]+)")
 
     __tablename__ = 'identifiers'
     id = Column(Integer, primary_key=True)
@@ -650,6 +653,8 @@ class Identifier(Base):
             return self.ISBN_URN_SCHEME_PREFIX + identifier_text
         elif self.type == Identifier.URI:
             return self.identifier
+        elif self.type == Identifier.GUTENBERG_ID:
+            return self.GUTENBERG_URN_SCHEME_PREFIX + identifier_text
         else:
             identifier_type = urllib.quote(self.type)
             return self.URN_SCHEME_PREFIX + "%s/%s" % (
@@ -662,7 +667,11 @@ class Identifier(Base):
 
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
-        if identifier_string.startswith("http:") or identifier_string.startswith("https:"):
+        m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
+        if m:
+            type = Identifier.GUTENBERG_ID
+            identifier_string = m.groups()[0]            
+        elif identifier_string.startswith("http:") or identifier_string.startswith("https:"):
             type = Identifier.URI
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
             identifier_string = identifier_string[len(Identifier.URN_SCHEME_PREFIX):]

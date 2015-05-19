@@ -178,8 +178,13 @@ class TestIdentifier(DatabaseTest):
             self._db, Identifier.URI, "http://example.com/")
         eq_(identifier.identifier, identifier.urn)
 
+        # Gutenberg identifiers use Gutenberg's URL-based sceheme
+        identifier = self._identifier(Identifier.GUTENBERG_ID)
+        eq_(Identifier.GUTENBERG_URN_SCHEME_PREFIX + identifier.identifier,
+            identifier.urn)
+
         # All other identifiers use our custom URN scheme.
-        identifier = self._identifier()
+        identifier = self._identifier(Identifier.OVERDRIVE_ID)
         assert identifier.urn.startswith(Identifier.URN_SCHEME_PREFIX)
 
     def test_parse_urn(self):
