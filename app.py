@@ -219,27 +219,27 @@ def make_featured_feed(annotator, lane, languages):
     opds_feed.add_link(**search_link)
     return 200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
-def acquisition_blocks_cache_url(annotator, lane, languages):
+def acquisition_groups_cache_url(annotator, lane, languages):
     if not lane:
         lane_name = lane
     else:
         lane_name = lane.name
-    url = url_for('acquisition_blocks', lane_name=lane_name, _external=True)
+    url = url_for('acquisition_groups', lane_name=lane_name, _external=True)
     if '?' in url:
         url += '&'
     else:
         url += '?'
     return url + "languages=%s" % ",".join(languages)
 
-def make_acquisition_blocks(annotator, lane, languages):
+def make_acquisition_groups(annotator, lane, languages):
     if not lane:
         lane_name = lane
     else:
         lane_name = lane.name
-    url = cdn_url_for("acquisition_blocks", lane=lane_name, _external=True)
+    url = cdn_url_for("acquisition_groups", lane=lane_name, _external=True)
     best_sellers_url = cdn_url_for("popular_feed", lane=lane_name, _external=True)
     staff_picks_url = cdn_url_for("staff_picks_feed", lane=lane_name, _external=True)
-    feed = AcquisitionFeed.featured_blocks(
+    feed = AcquisitionFeed.featured_groups(
         url, best_sellers_url, staff_picks_url, languages, lane, annotator)
     feed.add_link(
         rel="search", 
@@ -462,10 +462,10 @@ def navigation_feed(lane):
 def lane_url(cls, lane, order=None):
     return cdn_url_for('feed', lane=lane.name, order=order, _external=True)
 
-@app.route('/blocks', defaults=dict(lane=None))
-@app.route('/blocks/', defaults=dict(lane=None))
-@app.route('/blocks/<lane>')
-def acquisition_blocks(lane):
+@app.route('/groups', defaults=dict(lane=None))
+@app.route('/groups/', defaults=dict(lane=None))
+@app.route('/groups/<lane>')
+def acquisition_groups(lane):
     lane_name = lane
     if lane is None:
         lane = Conf
@@ -477,9 +477,9 @@ def acquisition_blocks(lane):
     languages = languages_for_request()
     annotator = CirculationManagerAnnotator(lane)
 
-    cache_url = acquisition_blocks_cache_url(annotator, lane, languages)
+    cache_url = acquisition_groups_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
-        make_acquisition_blocks(annotator, lane, languages)
+        make_acquisition_groups(annotator, lane, languages)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=None)

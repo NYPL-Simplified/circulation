@@ -59,7 +59,7 @@ class CirculationManagerAnnotator(Annotator):
             return super(
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
 
-    def block_uri(self, work, license_pool, identifier):
+    def group_uri(self, work, license_pool, identifier):
         if not work in self.lane_by_work:
             return None, ""
 
@@ -67,19 +67,19 @@ class CirculationManagerAnnotator(Annotator):
         if not lane:
             # I don't think this should ever happen?
             lane_name = None
-            url = cdn_url_for('acquisition_blocks', lane=None, _external=True)
+            url = cdn_url_for('acquisition_groups', lane=None, _external=True)
             title = "All Books"
             return url, title
         if isinstance(lane, tuple):
-            # A block URI has been provided directly.
+            # A group URI has been provided directly.
             return lane
         lane_name = lane.name
-        # If the lane has sublanes, the URL identifying the block will
-        # take the user to another set of blocks for the
+        # If the lane has sublanes, the URL identifying the group will
+        # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes:
-            url = cdn_url_for('acquisition_blocks', lane=lane.display_name, _external=True)
+            url = cdn_url_for('acquisition_groups', lane=lane.display_name, _external=True)
         else:
             url = cdn_url_for('feed', lane=lane.display_name, order='author', _external=True)
         return url, lane_name

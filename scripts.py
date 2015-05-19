@@ -291,23 +291,23 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             print
 
 
-class CacheOPDSBlockFeedPerLane(CacheRepresentationPerLane):
+class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
     def should_process_lane(self, lane):
-        # OPDS block feeds are only generated for lanes that have sublanes.
+        # OPDS group feeds are only generated for lanes that have sublanes.
         return lane.sublanes
 
     def cache_url(self, annotator, lane, languages):
-        return app.acquisition_blocks_cache_url(annotator, lane, languages)
+        return app.acquisition_groups_cache_url(annotator, lane, languages)
 
     def make_get_method(self, annotator, lane, languages):
         def get_method(*args, **kwargs):
-            return app.make_acquisition_blocks(annotator, lane, languages)
+            return app.make_acquisition_groups(annotator, lane, languages)
         return get_method
 
 
-class CacheTopLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
-    """Refresh the cache of top-level OPDS blocks.
+class CacheTopLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
+    """Refresh the cache of top-level OPDS groups.
 
     These are frequently accessed, so should be updated more often.
     """
@@ -315,12 +315,12 @@ class CacheTopLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
     def should_process_lane(self, lane):
         # Only handle the top-level lanes
         return (super(
-            CacheTopLevelOPDSBlockFeeds, self).should_process_lane(lane) 
+            CacheTopLevelOPDSGroupFeeds, self).should_process_lane(lane) 
                 and not lane.parent)
 
 
-class CacheLowLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
-    """Refresh the cache of lower-level OPDS blocks.
+class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
+    """Refresh the cache of lower-level OPDS groups.
 
     These are less frequently accessed, so can be updated less often.
     """
@@ -328,7 +328,7 @@ class CacheLowLevelOPDSBlockFeeds(CacheOPDSBlockFeedPerLane):
     def should_process_lane(self, lane):
         # Only handle the lower-level lanes
         return (super(
-            CacheLowLevelOPDSBlockFeeds, self).should_process_lane(lane) 
+            CacheLowLevelOPDSGroupFeeds, self).should_process_lane(lane) 
                 and lane.parent)
 
 
