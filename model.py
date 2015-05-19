@@ -328,6 +328,9 @@ class DataSource(Base):
 
     GUTENBERG = "Gutenberg"
     OVERDRIVE = "Overdrive"
+    PROJECT_GITENBERG = "Project GITenberg"
+    STANDARD_EBOOKS = "Standard Ebooks"
+    UNGLUE_IT = "unglue.it"
     THREEM = "3M"
     OCLC = "OCLC Classify"
     OCLC_LINKED_DATA = "OCLC Linked Data"
@@ -431,6 +434,7 @@ class DataSource(Base):
                 (cls.NYT, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
                 (cls.METADATA_WRANGLER, False, Identifier.URI, None),
+                (cls.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID, None),
         ):
 
             extra = dict()
@@ -698,7 +702,10 @@ class Identifier(Base):
                 DataSource.license_source_for(_db, type)
             except NoResultFound:
                 raise Identifier.UnresolvableIdentifierException()
-            
+            except MultipleResultsFound:
+                 # This is fine.
+                pass
+
         return cls.for_foreign_id(_db, type, identifier_string)
 
     def equivalent_to(self, data_source, identifier, strength):
@@ -1936,7 +1943,6 @@ class Edition(Base):
                 similarity = self.similarity_to(candidate)
                 if similarity >= threshold:
                     yield candidate
-
     @property
     def best_open_access_link(self):
         """Find the best open-access Resource for this LicensePool."""
@@ -1944,16 +1950,35 @@ class Edition(Base):
 
         _db = Session.object_session(self)
         best = None
+        best_priority = None
         q = Identifier.resources_for_identifier_ids(
             _db, [self.primary_identifier.id], open_access)
-        for l in q:
-            
-            if l.representation.media_type.startswith(Representation.EPUB_MEDIA_TYPE):
-                best = l
-                # A Project Gutenberg-ism: if we find a 'noimages' epub,
-                # we'll keep looking in hopes of finding a better one.
-                if not 'noimages' in best.representation.mirror_url:
-                    break
+        for resource in q:
+            if not any(
+                    [resource.representation.media_type.startswith(x) 
+                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
+                # This representation is not in a media type we 
+                # support. We can't serve it, so we won't consider it.
+                continue
+                
+            data_source_priority = resource.open_access_source_priority
+            if not best or data_source_priority > best_priority:
+                # Something is better than nothing.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
+            if (best.data_source.name==DataSource.GUTENBERG
+                and resource.data_source.name==DataSource.GUTENBERG
+                and 'noimages' in best.representation.mirror_url
+                and not 'noimages' in resource.representation.mirror_url):
+                # A Project Gutenberg-ism: an epub without 'noimages'
+                # in the filename is better than an epub with
+                # 'noimages' in the filename.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
         return best
 
     def best_cover_within_distance(self, distance, threshold=0.5):
@@ -2479,57 +2504,87 @@ class Work(Base):
         old_primary = self.primary_edition
         champion = None
         old_champion = None
+        champion_book_source_priority = None
+        best_text_source = None
 
-        for wr in self.editions:
+        for edition in self.editions:
             # Something is better than nothing.
             if not champion:
-                champion = wr
+                champion = edition
                 continue
 
             # A edition with no license pool will only be chosen if
             # there is no other alternatice.
-            pool = wr.license_pool
+            pool = edition.license_pool
             if not pool:
                 continue
 
-            # An open-access edition with no usable download link will
-            # only be chosen if there is no alternative.
-            if pool.open_access and not wr.best_open_access_link:
-                continue
-
-            # Open access is better than not.
-            if (wr.license_pool.open_access
-                and not champion.license_pool.open_access):
-                champion = wr
-                continue
-
-            # Higher Gutenberg numbers beat lower Gutenberg numbers.
-            if (wr.data_source.name == DataSource.GUTENBERG
-                and champion.data_source.name == DataSource.GUTENBERG):
-
-                champion_id = int(champion.primary_identifier.identifier)
-                competitor_id = int(wr.primary_identifier.identifier)
-
-                if competitor_id > champion_id:
-                    champion = wr
+            if pool.open_access:
+                # Keep track of where the best open-access link for
+                # this license pool comes from. It may affect which
+                # license pool to use.
+                open_access_resource = edition.best_open_access_link
+                if not open_access_resource:
+                    # An open-access edition with no usable download link will
+                    # only be chosen if there is no alternative.
                     continue
 
+                if not champion.license_pool.open_access:
+                    # Open access is better than not.
+                    champion = edition
+                    continue
+
+                # Both this pool and the champion are open access. But
+                # open-access with a high-quality text beats open
+                # access with a low-quality text.
+                champion_resource = champion.best_open_access_link
+                if not champion.best_open_access_link:
+                    champion_book_source_priority = -100
+                else:
+                    champion_book_source_priority = champion_resource.open_access_source_priority
+                book_source_priority = open_access_resource.open_access_source_priority
+                if book_source_priority > champion_book_source_priority:
+                    if champion_resource:
+                        champion_resource_url = champion_resource.url
+                    else:
+                        champion_resource_url = 'None'
+                    print "%s beats %s" % (
+                        open_access_resource.url, champion_resource_url)
+                    champion = edition
+                    continue
+                elif book_source_priority < champion_book_source_priority:
+                    continue
+                elif (edition.data_source.name == DataSource.GUTENBERG
+                      and champion.data_source.name == DataSource.GUTENBERG):
+                    # Higher Gutenberg numbers beat lower Gutenberg numbers.
+                    champion_id = int(
+                        champion.primary_identifier.identifier)
+                    competitor_id = int(
+                        edition.primary_identifier.identifier)
+
+                    if competitor_id > champion_id:
+                        champion = edition
+                        champion_book_source_priority = book_source_priority
+                        print "Gutenberg %d beats Gutenberg %d" % (
+                            competitor_id, champion_id)
+                        continue
+
             # More licenses is better than fewer.
-            if (wr.license_pool.licenses_owned
+            if (edition.license_pool.licenses_owned
                 > champion.license_pool.licenses_owned):
-                champion = wr
+                champion = edition
                 continue
 
             # More available licenses is better than fewer.
-            if (wr.license_pool.licenses_available
+            if (edition.license_pool.licenses_available
                 > champion.license_pool.licenses_available):
-                champion = wr
+                champion = edition
                 continue
 
             # Fewer patrons in the hold queue is better than more.
-            if (wr.license_pool.patrons_in_hold_queue
+            if (edition.license_pool.patrons_in_hold_queue
                 < champion.license_pool.patrons_in_hold_queue):
-                champion = wr
+                champion = edition
                 continue
 
         for edition in self.editions:
@@ -2538,6 +2593,7 @@ class Work(Base):
                 edition.is_primary_for_work = False
             else:
                 edition.is_primary_for_work = True
+                self.primary_edition = edition
 
     def calculate_presentation(self, choose_edition=True,
                                classify=True, choose_summary=True,
@@ -3363,6 +3419,20 @@ class Resource(Base):
         UniqueConstraint('url'),
     )
 
+
+    # Some sources of open-access ebooks are better than others. This
+    # list shows which sources we prefer, in ascending order of
+    # priority. unglue.it is lowest priority because it tends to
+    # aggregate books from other sources. We prefer books from their
+    # original sources.
+    OPEN_ACCESS_SOURCE_PRIORITY = [
+        DataSource.UNGLUE_IT,
+        DataSource.GUTENBERG,
+        DataSource.GUTENBERG_EPUB_GENERATOR,
+        DataSource.PROJECT_GITENBERG,
+        DataSource.STANDARD_EBOOKS,
+    ]
+
     @property
     def final_url(self):        
         """URL to the final, mirrored version of this resource, suitable
@@ -3420,6 +3490,25 @@ class Resource(Base):
         self.votes_for_quality += weight
         self.voted_quality = total_quality / float(self.votes_for_quality)
         self.update_quality()
+
+    @property
+    def open_access_source_priority(self):
+        """What priority does this resource's source have in
+        our list of open-access content sources?
+        
+        e.g. GITenberg books are prefered over Gutenberg books,
+        because there's a defined process for fixing errors and they
+        are more likely to have good cover art.
+        """
+        try:
+            priority = self.OPEN_ACCESS_SOURCE_PRIORITY.index(
+                self.data_source.name)
+        except ValueError, e:
+            # The source of this download is not mentioned in our
+            # priority list. Treat it as the lowest priority.
+            priority = -1
+        return priority
+
 
     def update_quality(self):
         """Combine `estimated_quality` with `voted_quality` to form `quality`.
@@ -4878,6 +4967,10 @@ class Representation(Base):
     TEXT_XML_MEDIA_TYPE = "text/xml"
     APPLICATION_XML_MEDIA_TYPE = "application/xml"
     JPEG_MEDIA_TYPE = "image/jpeg"
+
+    SUPPORTED_BOOK_MEDIA_TYPES = [
+        EPUB_MEDIA_TYPE
+    ]
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)

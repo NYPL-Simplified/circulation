@@ -72,11 +72,15 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(Edition.PERIODICAL_MEDIUM, imported[0].medium)
         eq_(Edition.BOOK_MEDIUM, imported[1].medium)
 
-        [has_measurements] = [
-            x for x in imported if x.primary_identifier.measurements]
-        pop, qual, rating = sorted(
-            has_measurements.primary_identifier.measurements,
+        [has_rating, no_rating] = imported
+        num_editions, pop, qual, rating = sorted(
+            [x for x in has_rating.primary_identifier.measurements
+             if x.is_most_recent],
             key=lambda x: x.quantity_measured)
+        eq_(DataSource.OCLC_LINKED_DATA, num_editions.data_source.name)
+        eq_(Measurement.PUBLISHED_EDITIONS, num_editions.quantity_measured)
+        eq_(1, num_editions.value)
+
         eq_(DataSource.METADATA_WRANGLER, pop.data_source.name)
         eq_(Measurement.POPULARITY, pop.quantity_measured)
         eq_(0.25, pop.value)
@@ -90,12 +94,12 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.6, rating.value)
 
         # Not every imported edition has measurements.
-        no_measurements = [
-            x for x in imported if not x.primary_identifier.measurements][0]
-        eq_([], x.primary_identifier.measurements)
+        #no_measurements = [
+        #    x for x in imported if not x.primary_identifier.measurements][0]
+        #eq_([], x.primary_identifier.measurements)
 
         seven, children, courtship, fantasy, magic, new_york, pz = sorted(
-            has_measurements.primary_identifier.classifications,
+            has_rating.primary_identifier.classifications,
             key=lambda x: x.subject.identifier)
         eq_('7', seven.subject.identifier)
         eq_(100, seven.weight)
@@ -103,7 +107,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
         from classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
-        work = has_measurements.work
+        work = has_rating.work
         work.calculate_presentation()
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
