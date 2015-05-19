@@ -5,7 +5,10 @@ import os
 from urlparse import urlsplit
 import urllib
 from util.mirror import MirrorUploader
-from requests.exceptions import ConnectionError
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError,
+)
 
 class S3Uploader(MirrorUploader):
 
@@ -14,14 +17,18 @@ class S3Uploader(MirrorUploader):
         secret_key = secret_key or os.environ['AWS_SECRET_ACCESS_KEY']
         self.pool = tinys3.Pool(access_key, secret_key)
 
-    S3_BASE = "http://s3.amazonaws.com/"
+    S3_HOSTNAME = "s3.amazonaws.com"
+    S3_BASE = "http://%s/" % S3_HOSTNAME
 
     @classmethod
     def url(cls, bucket, path):
         """The URL to a resource on S3 identified by bucket and path."""
         if path.startswith('/'):
             path = path[1:]
-        url = cls.S3_BASE + bucket
+        if bucket.startswith('http://') or bucket.startswith('https://'):
+            url = bucket
+        else:
+            url = cls.S3_BASE + bucket
         if not url.endswith('/'):
             url += '/'
         return url + path
@@ -62,27 +69,38 @@ class S3Uploader(MirrorUploader):
         return cls.url(bucket, '/')
 
     @classmethod
-    def book_url(cls, identifier, extension='epub', open_access=True):
+    def book_url(cls, identifier, extension='epub', open_access=True, 
+                 data_source=None):
         """The path to the hosted EPUB file for the given identifier."""
         root = cls.content_root(open_access)
         args = [identifier.type, identifier.identifier]
         args = [urllib.quote(x) for x in args]
-        return root + "%s/%s.%s" % tuple(args + [extension])
+        if data_source:
+            args.insert(0, urllib.quote(data_source.name))
+            template = "%s/%s/%s.%s"
+        else:
+            template = "%s/%s.%s"
+        return root + template % tuple(args + [extension])
 
     @classmethod
-    def cover_image_url(cls, data_source, identifier, filename=None, scaled_size=None):
+    def cover_image_url(cls, data_source, identifier, filename=None,
+                        scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
         root = cls.cover_image_root(data_source, scaled_size)
-        args = [identifier.identifier, filename]
+        args = [identifier.type, identifier.identifier, filename]
         args = [urllib.quote(x) for x in args]
-        return root + "%s/%s" % tuple(args)
+        return root + "%s/%s/%s" % tuple(args)
 
     @classmethod
     def bucket_and_filename(cls, url):
         scheme, netloc, path, query, fragment = urlsplit(url)
-        if path.startswith('/'):
-            path = path[1:]
-        bucket, filename = path.split("/", 1)
+        if netloc == 's3.amazonaws.com':
+            if path.startswith('/'):
+                path = path[1:]
+            bucket, filename = path.split("/", 1)
+        else:
+            bucket = netloc
+            filename = path[1:]        
         return bucket, filename
 
     def mirror_one(self, representation):
@@ -93,12 +111,17 @@ class S3Uploader(MirrorUploader):
         """Mirror a bunch of Representations at once."""
         filehandles = []
         requests = []
-        representations_by_mirror_url = dict()
+        representations_by_response_url = dict()
         
         for representation in representations:
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
-            representations_by_mirror_url[representation.mirror_url] = (
+            # Turn the mirror URL into an s3.amazonaws.com URL.
+            bucket, filename = self.bucket_and_filename(
+                representation.mirror_url
+            )
+            response_url = self.url(bucket, filename)
+            representations_by_response_url[response_url] = (
                 representation)
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
@@ -110,7 +133,7 @@ class S3Uploader(MirrorUploader):
         # Do the upload.
 
         def process_response(response):
-            representation = representations_by_mirror_url[response.url]
+            representation = representations_by_response_url[response.url]
             if response.status_code == 200:
                 source = representation.local_content_path
                 if representation.url != representation.mirror_url:
@@ -131,10 +154,12 @@ class S3Uploader(MirrorUploader):
                 process_response(response)
         except ConnectionError, e:
             # This is a transient error; we can just try again.
+            print e
             pass
         except HTTPError, e:
             # Probably also a transient error. In any case
             # there's nothing we can do about it but try again.
+            print e
             pass
 
         # Close the filehandles

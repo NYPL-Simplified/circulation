@@ -86,7 +86,7 @@ class Annotator(object):
         pass
 
     @classmethod
-    def block_uri(cls, work, license_pool, identifier):
+    def group_uri(cls, work, license_pool, identifier):
         return None, ""
 
     @classmethod
@@ -382,7 +382,7 @@ class OPDSFeed(AtomFeed):
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
 
-    BLOCK_REL = "http://opds-spec.org/block"
+    GROUP_REL = "http://opds-spec.org/group"
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
@@ -422,11 +422,11 @@ class AcquisitionFeed(OPDSFeed):
             sublanes=lane.sublanes)
 
     @classmethod
-    def featured_blocks(
+    def featured_groups(
             cls, url, best_sellers_url, staff_picks_url, languages, lane,
             annotator, quality_cutoff=0.0):
         """The acquisition feed for 'featured' items from a given lane's
-        sublanes, organized into per-lane blocks.
+        sublanes, organized into per-lane groups.
         """
         feed_size = 20
         _db = None
@@ -453,13 +453,13 @@ class AcquisitionFeed(OPDSFeed):
             # Best-Sellers.
             best_seller_cutoff = (
                 datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-            for block_uri, title, data_source_name, cutoff_point, available_languages in (
+            for group_uri, title, data_source_name, cutoff_point, available_languages in (
                     (best_sellers_url, "Best Sellers", 
                      DataSource.NYT, best_seller_cutoff,
-                     self.BEST_SELLER_LANGUAGES), 
+                     cls.BEST_SELLER_LANGUAGES), 
                     (staff_picks_url, "Staff Picks", 
                      DataSource.LIBRARY_STAFF, None,
-                     self.STAFF_PICKS_LANGUAGES),
+                     cls.STAFF_PICKS_LANGUAGES),
             ):
                 available = False
                 for lang in languages:
@@ -483,7 +483,7 @@ class AcquisitionFeed(OPDSFeed):
                     sample = page
                 for work in sample:
                     annotator.lane_by_work[work] = (
-                        block_uri, title)
+                        group_uri, title)
                     all_works.append(work)
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
@@ -605,16 +605,16 @@ class AcquisitionFeed(OPDSFeed):
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
-        block_uri, block_title = self.annotator.block_uri(
+        group_uri, group_title = self.annotator.group_uri(
             work, license_pool, identifier)
-        if block_uri:
+        if group_uri:
             self.add_link_to_entry(
-                xml, rel=OPDSFeed.BLOCK_REL, href=block_uri,
-                title=block_title)
+                xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
+                title=group_title)
 
         after = time.time()
         if edition:
-            title = edition.title + " "
+            title = (edition.title or "") + " "
         else:
             title = ""
         if cache_hit:
@@ -668,6 +668,7 @@ class AcquisitionFeed(OPDSFeed):
                     edition.medium)
             additional_type_field = "{%s}additionalType" % schema_ns
             kw[additional_type_field] = additional_type
+
         entry = E.entry(
             E.id(permalink),
             E.title(edition.title or '[Unknown title]'),
@@ -675,6 +676,11 @@ class AcquisitionFeed(OPDSFeed):
         )
         if edition.subtitle:
             entry.extend([E.alternativeHeadline(edition.subtitle)])
+
+        if license_pool:
+            data_source_tag = E._makeelement("{%s}license_source" % simplified_ns)
+            data_source_tag.text = license_pool.data_source.name
+            entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)

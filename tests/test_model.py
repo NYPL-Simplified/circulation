@@ -68,6 +68,7 @@ class TestDataSource(DatabaseTest):
 
         expect = [
             (DataSource.GUTENBERG, True, Identifier.GUTENBERG_ID),
+            (DataSource.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID),
             (DataSource.OVERDRIVE, True, Identifier.OVERDRIVE_ID),
             (DataSource.THREEM, True, Identifier.THREEM_ID),
             (DataSource.AXIS_360, True, Identifier.AXIS_360_ID),
@@ -98,14 +99,14 @@ class TestDataSource(DatabaseTest):
             self._db, "No such data source " + self._str))
 
     def test_license_source_for(self):
-        identifier = self._identifier()
+        identifier = self._identifier(Identifier.OVERDRIVE_ID)
         source = DataSource.license_source_for(self._db, identifier)
-        eq_(DataSource.GUTENBERG, source.name)
+        eq_(DataSource.OVERDRIVE, source.name)
 
     def test_license_source_for_string(self):
-        identifier = self._identifier()
-        source = DataSource.license_source_for(self._db, identifier.type)
-        eq_(DataSource.GUTENBERG, source.name)
+        source = DataSource.license_source_for(
+            self._db, Identifier.THREEM_ID)
+        eq_(DataSource.THREEM, source.name)
 
     def test_license_source_fails_if_identifier_type_does_not_provide_licenses(self):
         identifier = self._identifier(DataSource.MANUAL)
@@ -1117,7 +1118,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(None, work)
 
-        edition.author = u"bar"
+        edition.add_contributor(u"bar", Contributor.PRIMARY_AUTHOR_ROLE)
         work, created = pool.calculate_work()
         eq_(True, created)
 
@@ -1125,6 +1126,7 @@ class TestWorkConsolidation(DatabaseTest):
         # the primary for the work.
         eq_(work, edition.work)
         eq_(True, edition.is_primary_for_work)
+        eq_(edition, work.primary_edition)
 
         # But without this commit, the join for the .primary_edition
         # won't succeed and work.title won't work.

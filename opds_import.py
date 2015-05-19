@@ -146,8 +146,6 @@ class BaseOPDSImporter(object):
 
     def import_from_feedparser_entry(self, entry):
         identifier, ignore = Identifier.parse_urn(self._db, entry.get('id'))
-        license_data_source = DataSource.license_source_for(self._db, identifier)
-
         status_code = entry.get('simplified_status_code', 200)
         message = entry.get('simplified_message', None)
         try:
@@ -162,6 +160,14 @@ class BaseOPDSImporter(object):
             # through with the import, even if there is data in the
             # entry.
             return identifier, None, False, status_code, message
+
+        license_source_name = entry.get('simplified_license_source', None)
+        if license_source_name:
+            license_data_source = DataSource.lookup(
+                self._db, license_source_name)
+        else:
+            license_data_source = DataSource.license_source_for(
+                self._db, identifier)
 
         title = entry.get('title', None)
         updated = entry.get('updated_parsed', None)
@@ -252,10 +258,7 @@ class BaseOPDSImporter(object):
         edition.publisher = publisher
 
         # Assign the LicensePool to a Work.
-        try:
-            work = pool.calculate_work(known_edition=edition)
-        except Exception, e:
-            set_trace()
+        work = pool.calculate_work(known_edition=edition)
 
         return identifier, edition, edition_was_new, status_code, message
 
