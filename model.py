@@ -4287,6 +4287,7 @@ class Lane(object):
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
 
+        print q
         return q
 
 
