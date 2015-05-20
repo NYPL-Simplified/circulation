@@ -106,12 +106,10 @@ class Annotator(object):
         if work:
             if work.cover_thumbnail_url:
                 thumb = work.cover_thumbnail_url
-                thumb = thumb.replace("/book-covers.nypl.org/", "/")
                 thumbnails = [cdnify(thumb, cdn_host)]
 
             if work.cover_full_url:
                 full = work.cover_full_url
-                full = full.replace("/book-covers.nypl.org/", "/")
                 full = [cdnify(full, cdn_host)]
         return thumbnails, full
 
