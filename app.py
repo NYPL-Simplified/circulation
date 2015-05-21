@@ -479,7 +479,7 @@ def acquisition_groups(lane):
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
-        make_acquisition_groups(annotator, lane, languages)
+        return make_acquisition_groups(annotator, lane, languages)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=None)
