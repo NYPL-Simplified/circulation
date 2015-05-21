@@ -4,6 +4,8 @@ import requests
 import os
 import json
 
+from util.xmlparser import XMLParser
+
 class Axis360API(object):
 
     DEFAULT_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
@@ -85,9 +87,44 @@ class Axis360API(object):
             url=url, method=method, headers=headers, data=data)
 
 
-from datetime import datetime, timedelta
-one_year_ago = datetime.utcnow() - timedelta(days=365)
-api = Axis360API(None)
-response = api.availability(one_year_ago)
+class AvailabilityParser(XMLParser):
 
+    NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
 
+    def __init__(self, include_availability=True, include_metadata=True):
+        self.include_availability = include_availability
+        self.include_metadata = include_metadata
+
+    def process_all(self, string):
+
+        for i in super(AvailabilityParser, self).process_all(
+                string, "//bt:title", self.NS):
+            print i
+
+    def process_one(self, element, ns):
+        identifier = self.text_of_subtag(element, 'bt:titleId', ns)
+        title = self.text_of_subtag(element, 'bt:productTitle', ns)
+        isbn = self.text_of_optional_subtag(element, 'bt:isbn', ns)
+        subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
+        publication_date = self.text_of_optional_subtag(
+            element, 'bt:publicationDate', ns)
+        series = self.text_of_optional_subtag('series')
+        publisher = self.text_of_optional_subtag('publisher')
+        imprint = self.text_of_optional_subtag('imprint')
+        audience = self.text_of_optional_subtag('audience')
+        contributor = self.text_of_optional_subtag('contributor')
+
+        # TODO: 
+        from lxml import etree
+        print etree.tostring(element)
+        set_trace()
+        pass
+
+data = open("tests/files/axis/collection.xml").read()
+parser = AvailabilityParser()
+parser.process_all(data)
+
+# from datetime import datetime, timedelta
+# one_year_ago = datetime.utcnow() - timedelta(days=365)
+# api = Axis360API(None)
+# response = api.availability(one_year_ago)
