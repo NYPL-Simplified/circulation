@@ -4608,6 +4608,8 @@ class LicensePool(Base):
                 [self.licenses_owned, new_licenses_owned,
                  CirculationEvent.LICENSE_ADD,
                  CirculationEvent.LICENSE_REMOVE]):
+            if new_value is None:
+                continue
             if old_value == new_value:
                 continue
 
