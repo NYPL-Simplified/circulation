@@ -623,7 +623,12 @@ class ThreeMEventMonitor(Monitor):
                     end=license_pool.last_checked,
                 )
             )
-        print "%r %s: %s" % (start_time, edition.title.encode("utf8"), internal_event_type)
+        title = edition.title
+        if title:
+            title = title.encode("utf8")
+        else:
+            title = "[no title]"
+        print "%r %s: %s" % (start_time, title, internal_event_type)
         return start_time
 
 
