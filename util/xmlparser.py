@@ -22,18 +22,18 @@ class XMLParser(object):
         """Return an XPath expression that will find a tag with the given CSS class."""
         return 'descendant-or-self::node()/%s[contains(concat(" ", normalize-space(@class), " "), " %s ")]' % (tag_name, class_name)
 
-    def text_of_optional_subtag(self, tag, name):
-        tag = self._xpath1(tag, name)
+    def text_of_optional_subtag(self, tag, name, namespaces={}):
+        tag = self._xpath1(tag, name, namespaces=namespaces)
         if tag is None or tag.text is None:
             return None
         else:
             return unicode(tag.text)
       
-    def text_of_subtag(self, tag, name):
-        return unicode(tag.xpath(name)[0].text)
+    def text_of_subtag(self, tag, name, namespaces={}):
+        return unicode(tag.xpath(name, namespaces=namespaces)[0].text)
 
-    def int_of_subtag(self, tag, name):
-        return int(self.text_of_subtag(tag, name))
+    def int_of_subtag(self, tag, name, namespaces={}):
+        return int(self.text_of_subtag(tag, name, namespaces=namespaces))
 
     def process_all(self, xml, xpath, namespaces={}, handler=None, parser=None):
         if not parser:
