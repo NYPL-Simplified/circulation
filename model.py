@@ -3918,11 +3918,15 @@ class LaneList(object):
                             age_range=l.get('age_range', None),
                             exclude_genres=l.get('exclude_genres', []),
                         )                            
-            lanes.add(lane)
-            for sublane in lane.sublanes.lanes:
-                lanes.add(sublane)
+
+            def _add_recursively(l):
+                lanes.add(l)
+                for sl in l.sublanes.lanes:
+                    _add_recursively(sl)
+            _add_recursively(lane)
 
         return lanes
+
 
     def __init__(self, parent=None):
         self.parent = parent
@@ -3938,7 +3942,7 @@ class LaneList(object):
     def add(self, lane):
         if lane.parent == self.parent:
             self.lanes.append(lane)
-        if lane.name in self.by_name:
+        if lane.name in self.by_name and self.by_name[lane.name] is not lane:
             raise ValueError("Duplicate lane: %s" % lane.name)
         self.by_name[lane.name] = lane
 
