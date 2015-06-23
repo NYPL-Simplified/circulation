@@ -4101,9 +4101,14 @@ class Lane(object):
             if docs:
                 doc_ids = [int(x['_id']) for x in docs['hits']['hits']]
                 q = self._db.query(Work).filter(Work.id.in_(doc_ids))
+                print "Trying to match Elasticsearch hits to Work objects."
+                print q
+                print q.count()
                 work_by_id = dict()
                 for w in q:
                     work_by_id[w.id] = w
+                print "Work by id:", work_by_id
+                print "Doc IDs:", doc_ids
                 results = [work_by_id[x] for x in doc_ids if x in work_by_id]
 
         if not results:
