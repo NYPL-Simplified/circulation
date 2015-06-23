@@ -5,15 +5,19 @@ class XMLParser(object):
 
     """Helper functions to process XML data."""
 
-    @classmethod
-    def _xpath(cls, tag, expression):
-        """Wrapper to do a namespaced XPath expression."""
-        return tag.xpath(expression, namespaces=cls.NAMESPACES)
+    NAMESPACES = {}
 
     @classmethod
-    def _xpath1(cls, tag, expression):
+    def _xpath(cls, tag, expression, namespaces=None):
+        if not namespaces:
+            namespaces = cls.NAMESPACES
         """Wrapper to do a namespaced XPath expression."""
-        values = cls._xpath(tag, expression)
+        return tag.xpath(expression, namespaces=namespaces)
+
+    @classmethod
+    def _xpath1(cls, tag, expression, namespaces=None):
+        """Wrapper to do a namespaced XPath expression."""
+        values = cls._xpath(tag, expression, namespaces=namespaces)
         if not values:
             return None
         return values[0]
@@ -22,20 +26,26 @@ class XMLParser(object):
         """Return an XPath expression that will find a tag with the given CSS class."""
         return 'descendant-or-self::node()/%s[contains(concat(" ", normalize-space(@class), " "), " %s ")]' % (tag_name, class_name)
 
-    def text_of_optional_subtag(self, tag, name, namespaces={}):
+    def text_of_optional_subtag(self, tag, name, namespaces=None):
         tag = self._xpath1(tag, name, namespaces=namespaces)
         if tag is None or tag.text is None:
             return None
         else:
             return unicode(tag.text)
       
-    def text_of_subtag(self, tag, name, namespaces={}):
+    def text_of_subtag(self, tag, name, namespaces=None):
         return unicode(tag.xpath(name, namespaces=namespaces)[0].text)
 
-    def int_of_subtag(self, tag, name, namespaces={}):
+    def int_of_subtag(self, tag, name, namespaces=None):
         return int(self.text_of_subtag(tag, name, namespaces=namespaces))
 
-    def process_all(self, xml, xpath, namespaces={}, handler=None, parser=None):
+    def int_of_optional_subtag(self, tag, name, namespaces=None):
+        v = self.text_of_optional_subtag(tag, name, namespaces=namespaces)
+        if not v:
+            return v
+        return int(v)
+
+    def process_all(self, xml, xpath, namespaces=None, handler=None, parser=None):
         if not parser:
             parser = etree.XMLParser()
         if not handler:

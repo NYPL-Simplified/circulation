@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import datetime
 import base64
 import requests
 import os
@@ -91,6 +92,18 @@ class AvailabilityParser(XMLParser):
 
     NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
 
+    SHORT_DATE_FORMAT = "%m/%d/%Y"
+    FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
+
+    @classmethod
+    def parse_list(self, l):
+        """Turn strings like this into lists:
+
+        FICTION / Thrillers; FICTION / Suspense; FICTION / General
+        Ursu, Anne ; Fortune, Eric (ILT)
+        """
+        return [x.strip() for x in l.split(";")]
+
     def __init__(self, include_availability=True, include_metadata=True):
         self.include_availability = include_availability
         self.include_metadata = include_metadata
@@ -102,21 +115,52 @@ class AvailabilityParser(XMLParser):
             print i
 
     def process_one(self, element, ns):
+
+        from lxml import etree
+        print etree.tostring(element, pretty_print=True)
+        
         identifier = self.text_of_subtag(element, 'bt:titleId', ns)
         title = self.text_of_subtag(element, 'bt:productTitle', ns)
         isbn = self.text_of_optional_subtag(element, 'bt:isbn', ns)
         subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
         publication_date = self.text_of_optional_subtag(
             element, 'bt:publicationDate', ns)
-        series = self.text_of_optional_subtag('series')
-        publisher = self.text_of_optional_subtag('publisher')
-        imprint = self.text_of_optional_subtag('imprint')
-        audience = self.text_of_optional_subtag('audience')
-        contributor = self.text_of_optional_subtag('contributor')
+        if publication_date:
+            publication_date = datetime.datetime.strptime(
+                publication_date, self.SHORT_DATE_FORMAT)
+        series = self.text_of_optional_subtag(element, 'bt:series', ns)
+        publisher = self.text_of_optional_subtag(element, 'bt:publisher', ns)
+        imprint = self.text_of_optional_subtag(element, 'bt:imprint', ns)
+        audience = self.text_of_optional_subtag(element, 'bt:audience', ns)
+        contributor = self.text_of_optional_subtag(element, 'bt:contributor', ns)
+        language = self.text_of_subtag(element, 'bt:language', ns)
+        isbn = self.text_of_subtag(element, 'bt:isbn', ns)
+
+        availability = self._xpath1(element, 'bt:availability', ns)
+        from lxml import etree
+        print etree.tostring(availability, pretty_print=True)
+        total_copies = self.int_of_subtag(availability, 'bt:totalCopies', ns)
+        available_copies = self.int_of_subtag(
+            availability, 'bt:availableCopies', ns)
+        size_of_hold_queue = self.int_of_subtag(
+            availability, 'bt:holdsQueueSize', ns)
+
+        availability_updated = self.text_of_optional_subtag(element, 'bt:updateDate')
+        if availability_updated:
+            availability_updated = datetime.strptime(
+                availability_updated, self.FULL_DATE_FORMAT)
+
+        # Checkouts
+        # Holds
+
+        # annotation
+        # edition
+        # narrator
+        # runtime
+        file_size = self.int_of_optional_subtag(element, 'bt:fileSize', ns)
 
         # TODO: 
         from lxml import etree
-        print etree.tostring(element)
         set_trace()
         pass
 
