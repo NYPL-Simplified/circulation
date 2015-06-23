@@ -10,12 +10,17 @@ class ExternalSearchIndex(Elasticsearch):
         url = url or os.environ.get('SEARCH_SERVER_URL')
         self.works_index = works_index or os.environ.get('SEARCH_WORKS_INDEX')
         use_ssl = url and url.startswith('https://')
+        print "Connecting to Elasticsearch cluster at %s" % url
         super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
+        if self.works_index:
+            print ("Does the index already exist? %r" % self.indices.exists(
+                self.works_index))
         if self.works_index and not self.indices.exists(self.works_index):
             self.indices.create(self.works_index)
 
     def query_works(self, query_string, medium, languages, fiction, audience,
                     in_any_of_these_genres=[], fields=None):
+        print "Performing Elasticsearch query for %s" % query_string
         if not self.works_index:
             return []
         q = dict(
@@ -33,7 +38,9 @@ class ExternalSearchIndex(Elasticsearch):
         )
         if fields is not None:
             args['fields'] = fields
-        return self.search(**args)
+        print "Args looks like: %r" % args
+        results = self.search(**args)
+        print "Results: %r" % results
 
     def make_query(self, query_string):
         must_multi_match = dict(
