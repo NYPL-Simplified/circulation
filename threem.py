@@ -263,16 +263,27 @@ class CirculationParser(XMLParser):
         identifiers[Identifier.ISBN] = value("ISBN13")
         
         item[LicensePool.licenses_owned] = intvalue("TotalCopies")
-        item[LicensePool.licenses_available] = intvalue("AvailableCopies")
+        try:
+            item[LicensePool.licenses_available] = intvalue("AvailableCopies")
+        except IndexError:
+            print "WARNING: No information on available copies for %s" % (
+                identifiers[Identifier.THREEM_ID]
+            )
+            pass
 
         # Counts of patrons who have the book in a certain state.
         for threem_key, simplified_key in [
                 ("Holds", LicensePool.patrons_in_hold_queue),
                 ("Reserves", LicensePool.licenses_reserved)
         ]:
-            t = tag.xpath(threem_key)[0]
-            value = int(t.xpath("count(Patron)"))
-            item[simplified_key] = value
+            t = tag.xpath(threem_key)
+            if t:
+                t = t[0]
+                value = int(t.xpath("count(Patron)"))
+                item[simplified_key] = value
+            else:
+                print "WARNING: No circulation information provided for %s %s" % (
+                    identifiers[Identifier.THREEM_ID], threem_key)
 
         return item
 
@@ -496,10 +507,10 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                 print "Updating unknown work %s" % identifier.identifier
             # Update availability and send out notifications.
             pool.update_availability(
-                circ[LicensePool.licenses_owned],
-                circ[LicensePool.licenses_available],
-                circ[LicensePool.licenses_reserved],
-                circ[LicensePool.patrons_in_hold_queue])
+                circ.get(LicensePool.licenses_owned),
+                circ.get(LicensePool.licenses_available),
+                circ.get(LicensePool.licenses_reserved),
+                circ.get(LicensePool.patrons_in_hold_queue))
 
 
         # At this point there may be some license pools left over

@@ -839,7 +839,7 @@ def lane_search(lane):
     info = OpenSearchDocument.search_info(lane)
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
-        this_url + "?q=" + urllib.quote(query),
+        this_url + "?q=" + urllib.quote(query.encode("utf8")),
         results, CirculationManagerAnnotator(lane))
     return feed_response(opds_feed)
 
