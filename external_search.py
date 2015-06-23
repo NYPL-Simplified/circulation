@@ -41,6 +41,7 @@ class ExternalSearchIndex(Elasticsearch):
         print "Args looks like: %r" % args
         results = self.search(**args)
         print "Results: %r" % results
+        return results
 
     def make_query(self, query_string):
         must_multi_match = dict(
