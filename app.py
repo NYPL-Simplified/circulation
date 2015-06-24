@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 import urlparse
+import uuid
 
 from sqlalchemy.orm.exc import (
     NoResultFound
@@ -77,6 +78,7 @@ from core.util.flask_util import (
     problem_raw,
     languages_for_request
 )
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from millenium_patron import (
     DummyMilleniumPatronAPI,
     MilleniumPatronAPI,
@@ -128,6 +130,30 @@ class Conf:
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
+            cls.make_authentication_document()
+
+    @classmethod
+    def make_authentication_document(cls):
+        login_label = os.environ.get(
+            'OPDS_AUTHENTICATION_LOGIN_LABEL', 'Barcode')
+        password_label = os.environ.get(
+            'OPDS_AUTHENTICATION_PASSWORD_LABEL', 'PIN')
+        opds_id = os.environ.get('OPDS_AUTHENTICATION_ID', None)
+        if not opds_id:
+            content_server_url = os.environ['CIRCULATION_WEB_APP_URL']
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(
+                content_server_url)
+            opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
+
+        title = os.environ.get(
+            'OPDS_AUTHENTICATION_TITLE', 'Library')
+        text = os.environ.get(
+            'OPDS_AUTHENTICATION_TEXT', None)
+        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
+        doc = OPDSAuthenticationDocument.create(
+            auth_type, title, opds_id, text, login_label, password_label)
+        print doc
+        cls.opds_authentication_document = json.dumps(doc)
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -182,10 +208,11 @@ def authenticated_patron(barcode, pin):
 
 
 def authenticate(uri, title):
-    """Sends a 401 response that enables basic auth"""
-    return problem(
-        uri, title, 401,
-        headers= { 'WWW-Authenticate' : 'Basic realm="Library card"'})
+    """Sends a 401 response that demands basic auth."""
+    data = Conf.opds_authentication_document
+    headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
+               'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+    return Response(data, 401, headers)
 
 def requires_auth(f):
     @wraps(f)
@@ -484,8 +511,6 @@ def acquisition_groups(lane):
     annotator = CirculationManagerAnnotator(lane)
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
-    class RefusalToGenerateFeed(Exception):
-        pass
     def get(*args, **kwargs):
         for l in languages:
             if l in Conf.primary_collection_languages:
