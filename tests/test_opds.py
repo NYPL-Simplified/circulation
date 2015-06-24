@@ -59,11 +59,11 @@ class TestAnnotator(Annotator):
         return "http://facet/" + facet
 
 
-class TestAnnotatorWithBlock(TestAnnotator):
+class TestAnnotatorWithGroup(TestAnnotator):
 
     @classmethod
-    def block_uri(cls, work, license_pool, identifier):
-        return "http://block/" + str(work.id), "Block Title!"
+    def group_uri(cls, work, license_pool, identifier):
+        return "http://group/" + str(work.id), "Group Title!"
 
 
 class TestAnnotators(DatabaseTest):
@@ -313,20 +313,20 @@ class TestOPDS(DatabaseTest):
         eq_("alternate", alternate_link['rel'])
         eq_(NavigationFeed.ACQUISITION_FEED_TYPE, alternate_link['type'])
 
-    def test_block(self):
+    def test_group(self):
         work = self._work(with_open_access_download=True, authors="Alice")
         [lp] = work.license_pools
 
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               [work], TestAnnotatorWithBlock)
+                               [work], TestAnnotatorWithGroup)
         u = unicode(feed)
         parsed = feedparser.parse(u)
-        [block_link] = parsed.entries[0].links
-        expect_uri, expect_title = TestAnnotatorWithBlock.block_uri(
+        [group_link] = parsed.entries[0]['links']
+        expect_uri, expect_title = TestAnnotatorWithGroup.group_uri(
             work, lp, lp.identifier)
-        eq_(OPDSFeed.BLOCK_REL, block_link['rel'])
-        eq_(expect_uri, block_link['href'])
-        eq_(expect_title, block_link['title'])
+        eq_(OPDSFeed.GROUP_REL, group_link['rel'])
+        eq_(expect_uri, group_link['href'])
+        eq_(expect_title, group_link['title'])
 
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")
