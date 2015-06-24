@@ -1,6 +1,11 @@
 # encoding: utf-8
 from collections import defaultdict
-from nose.tools import eq_, set_trace
+import json
+from nose.tools import (
+    assert_raises,
+    eq_, 
+    set_trace,
+)
 
 from util import (
     Bigrams,
@@ -9,6 +14,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from util.opds_authentication_document import OPDSAuthenticationDocument
 
 class TestLanguageCodes(object):
 
@@ -367,3 +373,48 @@ class TestEnglishDetector(object):
         diff = (dutch.difference_from(english_bigrams) -
             english_bigrams.difference_from(dutch))
         eq_(round(diff, 7), 0)
+
+
+class TestOPDSAuthenticationDocument(object):
+
+    def test_bad_documents(self):
+        assert_raises(
+            ValueError, OPDSAuthenticationDocument.create, 
+            OPDSAuthenticationDocument.BASIC_AUTH_FLOW,
+            "A title", "An id"
+        )
+
+        assert_raises(
+            ValueError, OPDSAuthenticationDocument.create, [],
+            "A title", "An id"
+        )
+
+        assert_raises(
+            ValueError, OPDSAuthenticationDocument.create, 
+            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+            None, "An id"
+        )
+
+        assert_raises(
+            ValueError, OPDSAuthenticationDocument.create, 
+            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+            "A title", None
+        )
+
+    def test_document_labels(self):
+
+        doc = OPDSAuthenticationDocument.create(
+            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+            "A title", "An ID", "A text description", "Barcode", "PIN")
+        data = json.dumps(doc, sort_keys=True)
+        eq_('{"id": "An ID", "labels": {"login": "Barcode", "password": "PIN"}, "text": "A text description", "type": ["http://opds-spec.org/auth/basic"]}', 
+            data)
+
+    def test_document_no_labels(self):
+
+        doc = OPDSAuthenticationDocument.create(
+            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+            "A title", "An ID")
+        data = json.dumps(doc, sort_keys=True)
+        eq_('{"id": "An ID", "type": ["http://opds-spec.org/auth/basic"]}', 
+            data)
