@@ -2,7 +2,7 @@
 
 from nose.tools import set_trace
 import urlparse
-from .. import s3
+from s3 import S3Uploader
 
 def cdnify(url, cdn_host):
     if not cdn_host:
@@ -16,7 +16,7 @@ def cdnify(url, cdn_host):
         # It should be CDNified to "http://cdn/foo".
         #
         # i.e. eliminate the bucket name.
-        bucket, path = s3.S3Uploader.bucket_and_filename(
+        bucket, path = S3Uploader.bucket_and_filename(
             url)
 
     return urlparse.urlunsplit((cdn_scheme, cdn_netloc, path, query, fragment))

@@ -107,7 +107,6 @@ class BaseOPDSImporter(object):
             if not edition and status_code == 200:
                 print "EDITION NOT CREATED: %s" % message
                 print "Raw data: %r" % entry
-            set_trace()
             if edition:
                 imported.append(edition)
 
