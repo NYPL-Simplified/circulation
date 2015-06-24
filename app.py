@@ -1,6 +1,7 @@
 from functools import wraps
 from nose.tools import set_trace
 import datetime
+import json
 import random
 import time
 import os
@@ -73,6 +74,7 @@ from core.opds import (
 import urllib
 from core.util.flask_util import (
     problem,
+    problem_raw,
     languages_for_request
 )
 from millenium_patron import (
@@ -95,6 +97,8 @@ class Conf:
     auth = None
     search = None
     policy = None
+    primary_collection_languages = json.loads(
+        os.environ['PRIMARY_COLLECTION_LANGUAGES'])
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -136,6 +140,7 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.debug = True
 
+CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
 INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
 EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-expired"
@@ -151,6 +156,7 @@ NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-
 COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
 NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
+
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -478,7 +484,20 @@ def acquisition_groups(lane):
     annotator = CirculationManagerAnnotator(lane)
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
+    class RefusalToGenerateFeed(Exception):
+        pass
     def get(*args, **kwargs):
+        for l in languages:
+            if l in Conf.primary_collection_languages:
+                # Attempting to create a groups feed for a primary
+                # collection language will hang the database. It also
+                # should never be necessary, since that stuff is
+                # supposed to be precalculated by a script. It's
+                # better to just refuse to do the work.
+                return problem_raw(
+                    CANNOT_GENERATE_FEED_PROBLEM,
+                    "Refusing to dynamically create a groups feed for a primary collection language (%s). This feed must be precalculated." % l, 400)
+
         return make_acquisition_groups(annotator, lane, languages)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,

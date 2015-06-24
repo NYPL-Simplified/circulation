@@ -219,8 +219,8 @@ class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
     # These languages are NYPL's four major ebook collections.
-    PRIMARY_COLLECTIONS = [['eng']]
-    OTHER_COLLECTIONS = [[x] for x in ['rus', 'chi', 'spa']]
+    PRIMARY_COLLECTIONS = json.loads(os.environ['PRIMARY_COLLECTION_LANGUAGES'])
+    OTHER_COLLECTIONS = json.loads(os.environ['OTHER_COLLECTION_LANGUAGES'])
 
     def __init__(self, language_sets=None):
         self.conf = StandaloneApplicationConf(self._db)
