@@ -15,7 +15,7 @@ class OPDSAuthenticationDocument(object):
             raise ValueError('`title` must be specified.')
         if not id:
             raise ValueError('`id` must be specified.')
-        data = dict(id=id, type=type)
+        data = dict(id=id, type=type, title=title)
         if text:
             data['text'] = text
         if login_label or password_label:

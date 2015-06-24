@@ -407,7 +407,7 @@ class TestOPDSAuthenticationDocument(object):
             [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", "An ID", "A text description", "Barcode", "PIN")
         data = json.dumps(doc, sort_keys=True)
-        eq_('{"id": "An ID", "labels": {"login": "Barcode", "password": "PIN"}, "text": "A text description", "type": ["http://opds-spec.org/auth/basic"]}', 
+        eq_('{"id": "An ID", "labels": {"login": "Barcode", "password": "PIN"}, "text": "A text description", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}', 
             data)
 
     def test_document_no_labels(self):
@@ -416,5 +416,5 @@ class TestOPDSAuthenticationDocument(object):
             [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", "An ID")
         data = json.dumps(doc, sort_keys=True)
-        eq_('{"id": "An ID", "type": ["http://opds-spec.org/auth/basic"]}', 
+        eq_('{"id": "An ID", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}', 
             data)

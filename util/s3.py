@@ -4,7 +4,7 @@ import tinys3
 import os
 from urlparse import urlsplit
 import urllib
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
