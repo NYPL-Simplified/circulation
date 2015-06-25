@@ -1037,9 +1037,10 @@ class ThreeMClassifier(Classifier):
 
 class BISACClassifier(ThreeMClassifier):
 
+    @classmethod
     def scrub_identifier(cls, identifier):
-        identifier = super(Axis360Classifier, self).scrub_identifier(identifier)
-        return identifier.replace(' / ', '/')
+        identifier = identifier.replace(' / ', '/')
+        return ThreeMClassifier.scrub_identifier(identifier)
 
 
 class OverdriveClassifier(Classifier):

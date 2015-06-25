@@ -280,6 +280,36 @@ class TestKeyword(object):
         eq_(classifier.Humorous_Fiction, self.genre("Humorous stories"))
 
 
+class TestBISAC(object):
+
+    def test_is_fiction(self):
+        def fic(bisac):
+            return BISAC.is_fiction(BISAC.scrub_identifier(bisac), None)
+
+        eq_(True, fic("FICTION / Classics"))
+        eq_(True, fic("JUVENILE FICTION / Concepts / Date & Time"))
+        eq_(False, fic("HISTORY / General"))
+
+
+    def test_audience(self):
+
+        young_adult = Classifier.AUDIENCE_YOUNG_ADULT
+        adult = Classifier.AUDIENCE_ADULT
+        def aud(bisac):
+            return BISAC.audience(BISAC.scrub_identifier(bisac), None)
+            
+        eq_(adult, aud("FAMILY & RELATIONSHIPS / Love & Romance"))
+        eq_(young_adult, aud("JUVENILE FICTION / Action & Adventure / General"))
+
+    def test_genre(self):
+        def gen(bisac):
+            return BISAC.genre(BISAC.scrub_identifier(bisac), None)
+        eq_(classifier.Adventure, 
+            gen("JUVENILE FICTION / Action & Adventure / General"))
+        eq_(classifier.Erotica, gen("FICTION / Erotica"))
+        eq_(classifier.Religion, 
+            gen("RELIGION / Biblical Studies / Prophecy"))
+
 class TestAxis360Classifier(object):
 
     def test_audience(self):
