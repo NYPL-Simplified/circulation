@@ -166,10 +166,10 @@ class BibliographicParser(XMLParser):
             element, 'bt:contributor', ns)
         if contributor:
             contributors = self.parse_list(contributor)
-            primary_author = contributors[0]
+            primary_author = [contributors[0]]
             other_authors = contributors[1:]
         else:
-            primary_author = None
+            primary_author = []
             other_authors = []
 
         subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
