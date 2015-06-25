@@ -5,7 +5,15 @@ import requests
 import os
 import json
 
+from util import LanguageCodes
 from util.xmlparser import XMLParser
+from model import (
+    Contributor,
+    LicensePool,
+    Edition,
+    Identifier,
+    Subject,
+)
 
 class Axis360API(object):
 
@@ -109,66 +117,129 @@ class AvailabilityParser(XMLParser):
         self.include_metadata = include_metadata
 
     def process_all(self, string):
-
         for i in super(AvailabilityParser, self).process_all(
                 string, "//bt:title", self.NS):
-            print i
+            yield i
 
-    def process_one(self, element, ns):
-
-        from lxml import etree
-        print etree.tostring(element, pretty_print=True)
-        
-        identifier = self.text_of_subtag(element, 'bt:titleId', ns)
-        title = self.text_of_subtag(element, 'bt:productTitle', ns)
-        isbn = self.text_of_optional_subtag(element, 'bt:isbn', ns)
-        subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
-        publication_date = self.text_of_optional_subtag(
-            element, 'bt:publicationDate', ns)
-        if publication_date:
-            publication_date = datetime.datetime.strptime(
-                publication_date, self.SHORT_DATE_FORMAT)
-        series = self.text_of_optional_subtag(element, 'bt:series', ns)
-        publisher = self.text_of_optional_subtag(element, 'bt:publisher', ns)
-        imprint = self.text_of_optional_subtag(element, 'bt:imprint', ns)
-        audience = self.text_of_optional_subtag(element, 'bt:audience', ns)
-        contributor = self.text_of_optional_subtag(element, 'bt:contributor', ns)
-        language = self.text_of_subtag(element, 'bt:language', ns)
-        isbn = self.text_of_subtag(element, 'bt:isbn', ns)
+    def extract_availability(self, element, ns):
+        # TODO: There are also empty tags:
+        #  Checkouts
+        #  Holds
+        # Presumably these contain information about active loans and holds.
 
         availability = self._xpath1(element, 'bt:availability', ns)
-        from lxml import etree
-        print etree.tostring(availability, pretty_print=True)
         total_copies = self.int_of_subtag(availability, 'bt:totalCopies', ns)
         available_copies = self.int_of_subtag(
             availability, 'bt:availableCopies', ns)
         size_of_hold_queue = self.int_of_subtag(
             availability, 'bt:holdsQueueSize', ns)
 
-        availability_updated = self.text_of_optional_subtag(element, 'bt:updateDate')
+        availability_updated = self.text_of_optional_subtag(
+            availability, 'bt:updateDate', ns)
         if availability_updated:
-            availability_updated = datetime.strptime(
+            availability_updated = datetime.datetime.strptime(
                 availability_updated, self.FULL_DATE_FORMAT)
+        return {
+            LicensePool.licenses_owned : total_copies,
+            LicensePool.licenses_available : available_copies,
+            LicensePool.patrons_in_hold_queue : size_of_hold_queue,
+            LicensePool.last_checked : availability_updated,
+        }
 
-        # Checkouts
-        # Holds
+    def extract_bibliographic(self, element, ns):
 
+        # TODO: These are consistently empty (some are clearly for
+        # audiobooks) so I don't know what they do and/or what format
+        # they're in.
+        #
         # annotation
         # edition
         # narrator
         # runtime
-        file_size = self.int_of_optional_subtag(element, 'bt:fileSize', ns)
 
-        # TODO: 
-        from lxml import etree
-        set_trace()
-        pass
+        identifier = self.text_of_subtag(element, 'bt:titleId', ns)
+        isbn = self.text_of_optional_subtag(element, 'bt:isbn', ns)
+
+        title = self.text_of_subtag(element, 'bt:productTitle', ns)
+
+        contributor = self.text_of_optional_subtag(
+            element, 'bt:contributor', ns)
+        if contributor:
+            contributors = self.parse_list(contributor)
+            primary_author = contributors[0]
+            other_authors = contributors[1:]
+        else:
+            primary_author = None
+            other_authors = []
+
+        subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
+        subjects = []
+        if subject:
+            for subject_identifier in self.parse_list(subject):
+                subjects.append( { Subject.type : Subject.BISAC,
+                                   Subject.identifier: subject_identifier } )
+
+        publication_date = self.text_of_optional_subtag(
+            element, 'bt:publicationDate', ns)
+        if publication_date:
+            publication_date = datetime.datetime.strptime(
+                publication_date, self.SHORT_DATE_FORMAT)
+
+        series = self.text_of_optional_subtag(element, 'bt:series', ns)
+        publisher = self.text_of_optional_subtag(element, 'bt:publisher', ns)
+        imprint = self.text_of_optional_subtag(element, 'bt:imprint', ns)
+
+        audience = self.text_of_optional_subtag(element, 'bt:audience', ns)
+        if audience:
+            subjects.append({ Subject.type : Subject.AXIS_360_AUDIENCE,
+                              Subject.identifier: audience })
+
+        language = self.text_of_subtag(element, 'bt:language', ns)
+        language = language.lower()
+        language = LanguageCodes.english_names_to_three.get(language, None)
+
+        # We don't use this for anything.
+        # file_size = self.int_of_optional_subtag(element, 'bt:fileSize', ns)
+
+        identifiers = [
+            { Identifier.type : Identifier.AXIS_360_ID,
+              Identifier.identifier : identifier }
+        ]
+        if isbn:
+            identifiers.append(
+                { Identifier.type : Identifier.ISBN,
+                  Identifier.identifier : isbn }
+            )
+
+        data = {
+            Edition.title : title,
+            Edition.published : publication_date,
+            Edition.series : series,
+            Edition.publisher : publisher,
+            Edition.imprint : imprint,
+            Edition.language : language,
+            Identifier : identifiers,
+            Subject : subjects,
+            Contributor : { 
+                Contributor.PRIMARY_AUTHOR_ROLE : primary_author,
+                Contributor.AUTHOR_ROLE : other_authors,
+            }
+        }
+        return data
+
+    def process_one(self, element, ns):
+        bibliographic = self.extract_bibliographic(element, ns)
+        availability = self.extract_availability(element, ns)
+        return bibliographic, availability
 
 data = open("tests/files/axis/collection.xml").read()
-parser = AvailabilityParser()
-parser.process_all(data)
 
-# from datetime import datetime, timedelta
-# one_year_ago = datetime.utcnow() - timedelta(days=365)
-# api = Axis360API(None)
-# response = api.availability(one_year_ago)
+from datetime import timedelta
+one_year_ago = datetime.datetime.utcnow() - timedelta(days=365)
+api = Axis360API(None)
+response = api.availability(one_year_ago)
+parser = AvailabilityParser()
+for bibliographic, availability in parser.process_all(response.content):
+    for i in bibliographic[Subject]:
+        if i[Subject.type] == Subject.AXIS_360_AUDIENCE:
+            print i[Subject.identifier]

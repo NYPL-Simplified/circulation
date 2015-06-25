@@ -3591,9 +3591,11 @@ class Subject(Base):
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
     THREEM = Classifier.THREEM  # 3M's classification system
+    BISAC = Classifier.BISAC
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
 
+    AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
@@ -3810,6 +3812,7 @@ class Classification(Base):
     _quality_as_indicator_of_target_age = {
         # These measure age appropriateness.
         (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
+        Subject.AXIS_360_AUDIENCE : 30,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
         Subject.OVERDRIVE : 15,
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,

@@ -7,6 +7,7 @@ from ..classifier import (
     Classifier,
     DeweyDecimalClassifier as DDC,
     LCCClassifier as LCC,
+    BISACClassifier as BISAC,
     LCSHClassifier as LCSH,
     OverdriveClassifier as Overdrive,
     FASTClassifier as FAST,
@@ -14,6 +15,7 @@ from ..classifier import (
     GradeLevelClassifier,
     AgeClassifier,
     InterestLevelClassifier,
+    Axis360AudienceClassifier,
     )
 
 class TestClassifierLookup(object):
@@ -100,6 +102,7 @@ class TestTargetAge(object):
         eq_(None, f("Third-graders"))
         eq_(None, f("First graders"))
         eq_(None, f("Fifth grade (Education)--Curricula"))
+
 
 class TestInterestLevelClassifier(object):
 
@@ -275,6 +278,36 @@ class TestKeyword(object):
     def test_classification_may_depend_on_fiction_status(self):
         eq_(classifier.Humorous_Nonfiction, self.genre("Humor (Nonfiction)"))
         eq_(classifier.Humorous_Fiction, self.genre("Humorous stories"))
+
+
+class TestAxis360Classifier(object):
+
+    def test_audience(self):
+        def f(t):
+            return Axis360AudienceClassifier.audience(t, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, 
+            f("Children's - Kindergarten, Age 5-6"))
+        eq_(Classifier.AUDIENCE_CHILDREN,
+            f("Children's - Grade 2-3, Age 7-8"))
+        eq_(Classifier.AUDIENCE_CHILDREN,
+            f("Children's - Grade 4-6, Age 9-11"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
+            f("Teen - Grade 7-9, Age 12-14"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            f("Teen - Grade 10-12, Age 15-18"))
+        eq_(Classifier.AUDIENCE_ADULT, f("General Adult"))
+        eq_(None, f(""))
+        eq_(None, f(None))
+
+    def test_age(self):
+        def f(t):
+            return Axis360AudienceClassifier.target_age(t, None)
+        eq_(5, f("Children's - Kindergarten, Age 5-6"))
+        eq_(7, f("Children's - Grade 2-3, Age 7-8"))
+        eq_(9, f("Children's - Grade 4-6, Age 9-11"))
+        eq_(12, f("Teen - Grade 7-9, Age 12-14"))
+        eq_(15, f("Teen - Grade 10-12, Age 15-18"))
+        eq_(None, f("General Adult"))
 
 class TestNestedSubgenres(object):
 

@@ -38,10 +38,12 @@ class Classifier(object):
     FAST = "FAST"
     OVERDRIVE = "Overdrive"
     THREEM = "3M"
+    BISAC = "BISAC"
     TAG = "tag"   # Folksonomic tags.
 
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
+    AXIS_360_AUDIENCE = "AXIS 360 Audience"
 
     # We know this says something about the audience but we're not sure what.
     # Could be any of the values from GRADE_LEVEL or AGE_RANGE, plus
@@ -365,6 +367,36 @@ class AgeClassifier(Classifier):
                     if age:
                         return int(age)
         return None
+
+
+class Axis360AudienceClassifier(Classifier):
+
+    TEEN_PREFIX = "Teen -"
+    CHILDRENS_PREFIX = "Children's -"
+
+    age_re = re.compile("Age ([0-9]+)-([0-9]+)$")
+
+    @classmethod
+    def audience(cls, identifier, name, require_explicit_age_marker=False):
+        if not identifier:
+            return None
+        if identifier == 'General Adult':
+            return Classifier.AUDIENCE_ADULT
+        elif identifier.startswith(cls.TEEN_PREFIX):
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        elif identifier.startswith(cls.CHILDRENS_PREFIX):
+            return Classifier.AUDIENCE_CHILDREN
+        return None
+
+    @classmethod
+    def target_age(cls, identifier, name, require_explicit_age_marker=False):
+        if (not identifier.startswith(cls.TEEN_PREFIX)
+            and not identifier.startswith(cls.CHILDRENS_PREFIX)):
+            return None
+        m = cls.age_re.search(identifier)
+        if not m:
+            return None
+        return int(m.groups()[0])
 
 
 # This is the large-scale structure of our classification system.
@@ -958,8 +990,7 @@ class ThreeMClassifier(Classifier):
     def scrub_identifier(cls, identifier):
         if not identifier.endswith('/'):
             return identifier + '/'
-        else:
-            return identifier
+        return identifier
 
     @classmethod
     def is_fiction(cls, identifier, name):    
@@ -1003,6 +1034,12 @@ class ThreeMClassifier(Classifier):
                             return l
 
         return None
+
+class BISACClassifier(ThreeMClassifier):
+
+    def scrub_identifier(cls, identifier):
+        identifier = super(Axis360Classifier, self).scrub_identifier(identifier)
+        return identifier.replace(' / ', '/')
 
 
 class OverdriveClassifier(Classifier):
@@ -2944,6 +2981,7 @@ Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
 Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
+Classifier.classifiers[Classifier.BISAC] = BISACClassifier
 Classifier.classifiers[Classifier.AGE_RANGE] = AgeClassifier
 Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
