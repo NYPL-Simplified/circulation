@@ -241,5 +241,5 @@ response = api.availability(one_year_ago)
 parser = AvailabilityParser()
 for bibliographic, availability in parser.process_all(response.content):
     for i in bibliographic[Subject]:
-        if i[Subject.type] == Subject.AXIS_360_AUDIENCE:
+        if i[Subject.type] != Subject.AXIS_360_AUDIENCE:
             print i[Subject.identifier]
