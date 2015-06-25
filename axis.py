@@ -96,7 +96,7 @@ class Axis360API(object):
             url=url, method=method, headers=headers, data=data)
 
 
-class AvailabilityParser(XMLParser):
+class BibliographicParser(XMLParser):
 
     NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
 
@@ -112,12 +112,12 @@ class AvailabilityParser(XMLParser):
         """
         return [x.strip() for x in l.split(";")]
 
-    def __init__(self, include_availability=True, include_metadata=True):
+    def __init__(self, include_availability=True, include_bibliographic=True):
         self.include_availability = include_availability
-        self.include_metadata = include_metadata
+        self.include_bibliographic = include_bibliographic
 
     def process_all(self, string):
-        for i in super(AvailabilityParser, self).process_all(
+        for i in super(BibliographicParser, self).process_all(
                 string, "//bt:title", self.NS):
             yield i
 
@@ -228,18 +228,23 @@ class AvailabilityParser(XMLParser):
         return data
 
     def process_one(self, element, ns):
-        bibliographic = self.extract_bibliographic(element, ns)
-        availability = self.extract_availability(element, ns)
+        if self.include_bibliographic:
+            bibliographic = self.extract_bibliographic(element, ns)
+        else:
+            bibliographic = None
+        if self.include_availability:
+            availability = self.extract_availability(element, ns)
+        else:
+            availability = None
         return bibliographic, availability
 
-data = open("tests/files/axis/collection.xml").read()
 
-from datetime import timedelta
-one_year_ago = datetime.datetime.utcnow() - timedelta(days=365)
-api = Axis360API(None)
-response = api.availability(one_year_ago)
-parser = AvailabilityParser()
-for bibliographic, availability in parser.process_all(response.content):
-    for i in bibliographic[Subject]:
-        if i[Subject.type] != Subject.AXIS_360_AUDIENCE:
-            print i[Subject.identifier]
+# from datetime import timedelta
+# one_year_ago = datetime.datetime.utcnow() - timedelta(days=365)
+# api = Axis360API(None)
+# response = api.availability(one_year_ago)
+# parser = AvailabilityParser()
+# for bibliographic, availability in parser.process_all(response.content):
+#     for i in bibliographic[Subject]:
+#         if i[Subject.type] != Subject.AXIS_360_AUDIENCE:
+#             print i[Subject.identifier]

@@ -307,7 +307,7 @@ class TestBISAC(object):
         eq_(classifier.Adventure, 
             gen("JUVENILE FICTION / Action & Adventure / General"))
         eq_(classifier.Erotica, gen("FICTION / Erotica"))
-        eq_(classifier.Religion, 
+        eq_(classifier.Religion_Spirituality, 
             gen("RELIGION / Biblical Studies / Prophecy"))
 
 class TestAxis360Classifier(object):
