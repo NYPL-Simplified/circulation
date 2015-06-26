@@ -1,6 +1,7 @@
 # encoding: utf-8
 import operator
 import md5
+import uuid
 from collections import (
     Counter,
     defaultdict,
@@ -201,6 +202,10 @@ class Patron(Base):
 
     # The patron's permanent unique identifier in an external library
     # system, probably never seen by the patron.
+    #
+    # This is not stored as a ForeignIdentifier because it corresponds
+    # to the patron's identifier in the library responsible for the
+    # Simplified instance, not a third party.
     external_identifier = Column(Unicode, unique=True, index=True)
 
     # The patron's account type, as reckoned by an external library
@@ -340,7 +345,7 @@ class DataSource(Base):
     WEB = "Web"
     OPEN_LIBRARY = "Open Library"
     CONTENT_CAFE = "Content Cafe"
-    VIAF = "Content Cafe"
+    VIAF = "VIAF"
     GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
@@ -348,6 +353,7 @@ class DataSource(Base):
     MANUAL = "Manual intervention"
     NYT = "New York Times"
     LIBRARY_STAFF = "Library staff"
+    ADOBE = "Adobe DRM"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -435,6 +441,7 @@ class DataSource(Base):
                 (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
                 (cls.METADATA_WRANGLER, False, Identifier.URI, None),
                 (cls.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID, None),
+                (cls.ADOBE, False, None, None),
         ):
 
             extra = dict()
@@ -4926,24 +4933,58 @@ class Credential(Base):
     id = Column(Integer, primary_key=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    type = Column(String(255), index=True)
     credential = Column(String)
     expires = Column(DateTime)
 
     __table_args__ = (
-        UniqueConstraint('data_source_id', 'patron_id'),
+        UniqueConstraint('data_source_id', 'patron_id', 'type'),
     )
 
     @classmethod
-    def lookup(self, _db, data_source, patron, refresher_method):
+    def lookup(self, _db, data_source, type, patron, refresher_method):
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
-            _db, Credential, data_source=data_source, patron=patron)
+            _db, Credential, data_source=data_source, type=type, patron=patron)
         if (is_new or not credential.expires 
             or credential.expires <= datetime.datetime.utcnow()):
             refresher_method(credential)
         return credential
 
+    @classmethod
+    def temporary_token_lookup(self, _db, data_source, type, token):
+        """Look up a temporary token."""
+
+        credential = get_one(
+            _db, Credential, data_source=data_source, type=type, 
+            credential=token)
+
+        if not token:
+            # No matching token.
+            return None
+
+        if not token.expires or token.expires <= datetime.datetime.utcnow():
+            # Token has expired, or was incorrectly set to never expire.
+            return None
+
+        return token
+
+    @classmethod
+    def temporary_token_create(self, _db, data_source, type, patron, duration):
+        """Create a temporary token for the given data_source/type/patron.
+
+        The token will be good for the specified `duration`.
+        """
+        expires = datetime.datetime.utcnow() + duration
+        token_string = str(uuid.uuid1())
+        token = Credential(data_source=data_source, type=type, patron=patron,
+                           credential=token_string,
+                           expires=expires)
+        return token
+
+# Index to make temporary_token_lookup() fast.
+Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
 class Timestamp(Base):
     """A general-purpose timestamp for external services."""

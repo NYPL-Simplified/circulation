@@ -68,7 +68,7 @@ class OverdriveAPI(object):
             refresh_on_lookup = self.refresh_creds
 
         credential = Credential.lookup(
-            self._db, DataSource.OVERDRIVE, None, refresh_on_lookup)
+            self._db, DataSource.OVERDRIVE, None, None, refresh_on_lookup)
         if force_refresh:
             self.refresh_creds(credential)
         self.token = credential.credential

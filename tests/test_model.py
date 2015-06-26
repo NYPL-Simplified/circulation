@@ -20,6 +20,7 @@ from model import (
     CirculationEvent,
     Contributor,
     CoverageRecord,
+    Credential,
     CustomListFeed,
     DataSource,
     EnumeratedCustomListFeed,
@@ -86,6 +87,7 @@ class TestDataSource(DatabaseTest):
             (DataSource.NYT, False, Identifier.ISBN),
             (DataSource.LIBRARY_STAFF, False, Identifier.ISBN),
             (DataSource.METADATA_WRANGLER, False, Identifier.URI),
+            (DataSource.ADOBE, False, None),
         ]
         eq_(set(sources), set(expect))
 
@@ -1954,3 +1956,46 @@ class TestScaleRepresentation(DatabaseTest):
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
 
+
+class TestCredentials(DatabaseTest):
+    
+    def test_temporary_token(self):
+
+        # Create a temporary token good for one hour.
+        duration = datetime.timedelta(hours=1)
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        now = datetime.datetime.utcnow() 
+        expect_expires = now + duration
+        token = Credential.temporary_token_create(
+            self._db, data_source, "some random type", patron, duration)
+        eq_(data_source, token.data_source)
+        eq_("some random type", token.type)
+        eq_(patron, token.patron)
+        expires_difference = abs((token.expires-expect_expires).seconds)
+        assert expires_difference < 2
+
+        # Now try to look up the credential based solely on the UUID.
+        new_token = Credential.temporary_token_lookup(
+            self._db, data_source, token.type, token.credential)
+        eq_(new_token, token)
+
+        # Once the token expires, we cannot look it up anymore.
+        token.expires = now - duration
+        self._db.commit()
+        new_token = Credential.temporary_token_lookup(
+            self._db, data_source, token.type, token.credential)
+        eq_(None, token)
+ 
+        # A token with no expiration date is treated as expired.
+        token.expires = None
+        self._db.commit()
+        new_token = Credential.temporary_token_lookup(
+            self._db, data_source, token.type, token.credential)
+        eq_(None, token)
+
+    def test_cannot_look_up_nonexistent_token(self):
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        new_token = Credential.temporary_token_lookup(
+            self._db, data_source, "no such type", "no such credential")
+        eq_(None, new_token)
