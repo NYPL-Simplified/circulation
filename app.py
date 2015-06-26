@@ -130,29 +130,28 @@ class Conf:
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
-            cls.make_authentication_document()
+        cls.make_authentication_document()
 
     @classmethod
     def make_authentication_document(cls):
-        login_label = os.environ.get(
-            'OPDS_AUTHENTICATION_LOGIN_LABEL', 'Barcode')
-        password_label = os.environ.get(
-            'OPDS_AUTHENTICATION_PASSWORD_LABEL', 'PIN')
-        opds_id = os.environ.get('OPDS_AUTHENTICATION_ID', None)
-        if not opds_id:
-            content_server_url = os.environ['CIRCULATION_WEB_APP_URL']
-            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(
-                content_server_url)
-            opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
+        base_opds_document = os.environ.get(
+            'OPDS_AUTHENTICATION_DOCUMENT')
+        if base_opds_document:
+            base_opds_document = json.loads(base_opds_document)
+        else:
+            base_opds_document = {}
 
-        title = os.environ.get(
-            'OPDS_AUTHENTICATION_TITLE', 'Library')
-        text = os.environ.get(
-            'OPDS_AUTHENTICATION_TEXT', None)
         auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-        doc = OPDSAuthenticationDocument.create(
-            auth_type, title, opds_id, text, login_label, password_label)
-        print doc
+        content_server_url = os.environ['CIRCULATION_WEB_APP_URL']
+        scheme, netloc, path, parameters, query, fragment = (
+            urlparse.urlparse(content_server_url))
+        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
+
+        doc = OPDSAuthenticationDocument.fill_in(
+            base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
+            "PIN",
+            )
+
         cls.opds_authentication_document = json.dumps(doc)
 
 if os.environ.get('TESTING') == "True":

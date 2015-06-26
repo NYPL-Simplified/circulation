@@ -30,6 +30,10 @@ from ..core.model import (
 from ..core.opds import (
     OPDSFeed,
 )
+from ..core.util.opds_authentication_document import (
+    OPDSAuthenticationDocument
+)
+
 
 class CirculationTest(DatabaseTest):
 
@@ -286,8 +290,11 @@ class TestCheckout(CirculationAppTest):
             response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
             eq_(401, response.status_code)
+            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, 
+                response.headers['Content-Type'])
             detail = json.loads(response.data)
-            eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+            assert 'id' in detail
+            assert 'labels' in detail
 
     def test_checkout_with_bad_authentication_fails(self):
         with self.app.test_request_context(
@@ -295,8 +302,11 @@ class TestCheckout(CirculationAppTest):
             response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
         eq_(401, response.status_code)
+        eq_(OPDSAuthenticationDocument.MEDIA_TYPE, 
+            response.headers['Content-Type'])
         detail = json.loads(response.data)
-        eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+        assert 'id' in detail
+        assert 'labels' in detail
         
     def test_checkout_success(self):
         with self.app.test_request_context(
