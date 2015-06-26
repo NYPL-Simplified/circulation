@@ -4960,15 +4960,16 @@ class Credential(Base):
             _db, Credential, data_source=data_source, type=type, 
             credential=token)
 
-        if not token:
+        if not credential:
             # No matching token.
             return None
 
-        if not token.expires or token.expires <= datetime.datetime.utcnow():
+        if (not credential.expires
+            or credential.expires <= datetime.datetime.utcnow()):
             # Token has expired, or was incorrectly set to never expire.
             return None
 
-        return token
+        return credential
 
     @classmethod
     def temporary_token_create(self, _db, data_source, type, patron, duration):
@@ -4978,10 +4979,11 @@ class Credential(Base):
         """
         expires = datetime.datetime.utcnow() + duration
         token_string = str(uuid.uuid1())
-        token = Credential(data_source=data_source, type=type, patron=patron,
-                           credential=token_string,
-                           expires=expires)
-        return token
+        credential = Credential(
+            data_source=data_source, type=type, patron=patron,
+            credential=token_string,
+            expires=expires)
+        return credential
 
 # Index to make temporary_token_lookup() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)

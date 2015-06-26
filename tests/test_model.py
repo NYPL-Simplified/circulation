@@ -87,6 +87,7 @@ class TestDataSource(DatabaseTest):
             (DataSource.NYT, False, Identifier.ISBN),
             (DataSource.LIBRARY_STAFF, False, Identifier.ISBN),
             (DataSource.METADATA_WRANGLER, False, Identifier.URI),
+            (DataSource.VIAF, False, None),
             (DataSource.ADOBE, False, None),
         ]
         eq_(set(sources), set(expect))
@@ -1985,14 +1986,14 @@ class TestCredentials(DatabaseTest):
         self._db.commit()
         new_token = Credential.temporary_token_lookup(
             self._db, data_source, token.type, token.credential)
-        eq_(None, token)
+        eq_(None, new_token)
  
         # A token with no expiration date is treated as expired.
         token.expires = None
         self._db.commit()
-        new_token = Credential.temporary_token_lookup(
+        no_expiration_token = Credential.temporary_token_lookup(
             self._db, data_source, token.type, token.credential)
-        eq_(None, token)
+        eq_(None, no_expiration_token)
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
