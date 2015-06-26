@@ -379,32 +379,40 @@ class TestOPDSAuthenticationDocument(object):
 
     def test_bad_documents(self):
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.create, 
-            OPDSAuthenticationDocument.BASIC_AUTH_FLOW,
+            ValueError, OPDSAuthenticationDocument.fill_in, 
+            {}, OPDSAuthenticationDocument.BASIC_AUTH_FLOW,
             "A title", "An id"
         )
 
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.create, [],
+            ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
             "A title", "An id"
         )
 
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.create, 
+            ValueError, OPDSAuthenticationDocument.fill_in, {}, 
             [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             None, "An id"
         )
 
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.create, 
+            ValueError, OPDSAuthenticationDocument.fill_in, {},
             [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", None
         )
 
+    def test_fill_in_does_not_change_already_set_values(self):
+
+        doc1 = {"id": "An ID", "labels": {"login": "Barcode", "password": "PIN"}, "text": "A text description", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}
+
+        doc2 = OPDSAuthenticationDocument.fill_in(
+            doc1, [], "Bla1", "Bla2", "Bla3", "Bla4", "Bla5")
+        eq_(doc2, doc1)
+
     def test_document_labels(self):
 
-        doc = OPDSAuthenticationDocument.create(
-            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+        doc = OPDSAuthenticationDocument.fill_in(
+            {}, [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", "An ID", "A text description", "Barcode", "PIN")
         data = json.dumps(doc, sort_keys=True)
         eq_('{"id": "An ID", "labels": {"login": "Barcode", "password": "PIN"}, "text": "A text description", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}', 
@@ -412,8 +420,8 @@ class TestOPDSAuthenticationDocument(object):
 
     def test_document_no_labels(self):
 
-        doc = OPDSAuthenticationDocument.create(
-            [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+        doc = OPDSAuthenticationDocument.fill_in(
+            {}, [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", "An ID")
         data = json.dumps(doc, sort_keys=True)
         eq_('{"id": "An ID", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}', 

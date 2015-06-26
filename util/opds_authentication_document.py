@@ -5,24 +5,39 @@ class OPDSAuthenticationDocument(object):
     BASIC_AUTH_FLOW = "http://opds-spec.org/auth/basic"
 
     @classmethod
-    def create(self, type, title, id, text=None,
-               login_label=None, password_label=None):
-        if not isinstance(type, list):
+    def fill_in(self, document, type=None, title=None, id=None, text=None,
+                login_label=None, password_label=None):
+        """Fill in any missing fields of an OPDS Authentication Document
+        with the given values.
+        """
+
+        if document:
+            data = dict(document)
+        else:
+            data = {}
+
+        for key, value in (
+                ('id', id), 
+                ('title', title), 
+                ('type', type)
+        ):
+            if value and (not key in data or not data[key]):
+                data[key] = value
+            if not key in data or not data[key]:
+                raise ValueError('`%s` must be specified.' % key)
+
+        if not isinstance(data['type'], list):
             raise ValueError('`type` must be a List.')
-        if not type:
-            raise ValueError('`type` cannot be empty.')
-        if not title:
-            raise ValueError('`title` must be specified.')
-        if not id:
-            raise ValueError('`id` must be specified.')
-        data = dict(id=id, type=type, title=title)
-        if text:
+
+        if not 'labels' in data and (password_label or login_label):
+            data['labels'] = {}
+
+        for name, value in (
+                ('password', password_label), ('login', login_label)):
+            if value and (not name in data['labels'] 
+                          or not data['labels'][name]):
+                data['labels'][name] = value
+
+        if text and (not 'text' in data or not data['text']):
             data['text'] = text
-        if login_label or password_label:
-            labels = dict()
-            if login_label:
-                labels['login'] = login_label
-            if password_label:
-                labels['password'] = password_label
-            data['labels'] = labels
         return data
