@@ -4953,8 +4953,13 @@ class Credential(Base):
         return credential
 
     @classmethod
-    def temporary_token_lookup(self, _db, data_source, type, token):
-        """Look up a temporary token."""
+    def lookup_by_token(self, _db, data_source, type, token,
+                               allow_permanent_token=False):
+        """Look up a unique token.
+
+        Lookup will fail on expired tokens. Unless permanent tokens
+        are specifically allowed, lookup will fail on permanent tokens.
+        """
 
         credential = get_one(
             _db, Credential, data_source=data_source, type=type, 
@@ -4964,12 +4969,18 @@ class Credential(Base):
             # No matching token.
             return None
 
-        if (not credential.expires
-            or credential.expires <= datetime.datetime.utcnow()):
-            # Token has expired, or was incorrectly set to never expire.
+        if not credential.expires:
+            if allow_permanent_token:
+                return credential
+            else:
+                # It's an error that this token never expires. It's invalid.
+                return None
+        elif credential.expires > datetime.datetime.utcnow():
+            return credential
+        else:
+            # Token has expired.
             return None
 
-        return credential
 
     @classmethod
     def temporary_token_create(self, _db, data_source, type, patron, duration):

@@ -1977,26 +1977,31 @@ class TestCredentials(DatabaseTest):
         assert expires_difference < 2
 
         # Now try to look up the credential based solely on the UUID.
-        new_token = Credential.temporary_token_lookup(
+        new_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(new_token, token)
 
         # Once the token expires, we cannot look it up anymore.
         token.expires = now - duration
         self._db.commit()
-        new_token = Credential.temporary_token_lookup(
+        new_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
  
         # A token with no expiration date is treated as expired.
         token.expires = None
         self._db.commit()
-        no_expiration_token = Credential.temporary_token_lookup(
+        no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, no_expiration_token)
 
+        no_expiration_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, True)
+        eq_(token, no_expiration_token)
+
+
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
-        new_token = Credential.temporary_token_lookup(
+        new_token = Credential.lookup_by_token(
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
