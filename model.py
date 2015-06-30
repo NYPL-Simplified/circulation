@@ -4942,13 +4942,15 @@ class Credential(Base):
     )
 
     @classmethod
-    def lookup(self, _db, data_source, type, patron, refresher_method):
+    def lookup(self, _db, data_source, type, patron, refresher_method,
+               allow_permanent_token=False):
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
-        if (is_new or not credential.expires 
-            or credential.expires <= datetime.datetime.utcnow()):
+        if (is_new or (not credential.expires and not allow_permanent_token)
+            or (credential.expires 
+                and credential.expires <= datetime.datetime.utcnow())):
             if refresher_method:
                 refresher_method(credential)
         return credential
