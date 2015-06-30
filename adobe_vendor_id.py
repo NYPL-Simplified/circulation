@@ -24,19 +24,19 @@ class AdobeVendorIDController(object):
 
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron."""
-        output = self.model.create_authdata(patron)
+        credential = self.model.create_authdata(patron)
         return Response(credential.credential, 200, {"Content-Type": "text/plain"})
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
         output = self.request_handler.handle_signin_request(
-            data, self.model.standard_lookup, self.model_authdata_lookup)
+            flask.request.data, self.model.standard_lookup, self.model_authdata_lookup)
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def userinfo_handler(self):
         """Process an incoming userInfoRequest document."""
         output = self.request_handler.handle_accountinfo_request(
-            data, self.model.urn_to_label)
+            flask.request.data, self.model.urn_to_label)
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def status_handler(self):

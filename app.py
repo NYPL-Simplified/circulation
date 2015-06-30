@@ -33,6 +33,7 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
+from adobe_vendor_id import AdobeVendorIDController
 from overdrive import (
     OverdriveAPI,
     DummyOverdriveAPI,
@@ -130,6 +131,20 @@ class Conf:
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
+
+        vendor_id = os.environ.get('ADOBE_VENDOR_ID')
+        node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
+        if vendor_id and node_value:
+            cls.adobe_vendor_id = AdobeVendorIDController(
+                cls.db,
+                vendor_id,
+                node_value,
+                cls.auth
+            )
+        else:
+            print "Adobe Vendor ID controller is disabled due to absence of ADOBE_VENDOR_ID or ADOBE_VENDOR_ID_NODE_VALUE environment variables."
+            cls.adobe_vendor_id = None
+
         cls.make_authentication_document()
 
     @classmethod
@@ -1077,6 +1092,25 @@ def borrow(data_source, identifier):
     #feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
     #content = unicode(feed)
     #return Response(content, status_code, headers)
+
+# Adobe Vendor ID implementation
+@app.route('/AdobeAuth/authdata')
+@requires_auth
+def adobe_vendor_id_get_token():
+    return Conf.adobe_vendor_id.create_authdata_handler(flask.request.patron)
+
+@app.route('/AdobeAuth/SignIn', methods=['POST'])
+def adobe_vendor_id_signin():
+    return Conf.adobe_vendor_id.signin_handler()
+
+@app.route('/AdobeAuth/AccountInfo', methods=['POST'])
+def adobe_vendor_id_accountinfo():
+    return Conf.adobe_vendor_id.userinfo_handler()
+
+@app.route('/AdobeAuth/Status')
+def adobe_vendor_id_status():
+    return Conf.adobe_vendor_id.status_handler()
+
 
 print __name__
 if __name__ == '__main__':
