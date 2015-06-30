@@ -1,6 +1,7 @@
 import base64
 from nose.tools import set_trace, eq_
 import re
+import datetime
 
 from ..adobe_vendor_id import (
     AdobeSignInRequestParser,
@@ -11,6 +12,11 @@ from ..adobe_vendor_id import (
 
 from . import (
     DatabaseTest,
+)
+
+from ..core.model import (
+    Credential,
+    DataSource,
 )
 
 from ..millenium_patron import DummyMilleniumPatronAPI
@@ -24,11 +30,12 @@ class TestVendorIDModel(DatabaseTest):
         self.authenticator = DummyMilleniumPatronAPI()
         self.model = AdobeVendorIDModel(self._db, self.authenticator,
                                         self.TEST_NODE_VALUE)
+        self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         # Normally this test patron doesn't have an authorization identifier.
-        # Let's make sure there is onw.
-        bob_patron = self.authenticator.authenticated_patron(
+        # Let's make sure there is one so it'll show up as the label.
+        self.bob_patron = self.authenticator.authenticated_patron(
             self._db, "5", "5555")
-        bob_patron.authorization_identifier = "5"
+        self.bob_patron.authorization_identifier = "5"
 
     def test_uuid(self):
         u = self.model.uuid()
@@ -39,13 +46,61 @@ class TestVendorIDModel(DatabaseTest):
 
     def test_standard_lookup_success(self):
         urn, label = self.model.standard_lookup("5", "5555")
+
+        # There is now a UUID associated with Bob's patron account,
+        # and that's the UUID returned by standard_lookup().
+        bob_uuid = Credential.lookup(
+            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
+            self.bob_patron, None)
         eq_("Card number 5", label)
+        eq_(urn, bob_uuid.credential)
         assert urn.startswith("urn:uuid:0")
         assert urn.endswith('685b35c00f0')
 
-    def test_standard_lookup_failure(self):
-        urn, label = self.model.standard_lookup("5", "5554")
+    def test_authdata_lookup_success(self):
+        now = datetime.datetime.utcnow()
+        temp_token = Credential.temporary_token_create(
+            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
+            self.bob_patron, datetime.timedelta(seconds=60))
+        old_expires = temp_token.expires
+        assert temp_token.expires > now
+        urn, label = self.model.authdata_lookup(temp_token.credential)
+
+        # There is now a UUID associated with Bob's patron account,
+        # and that's the UUID returned by standard_lookup().
+        bob_uuid = Credential.lookup(
+            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
+            self.bob_patron, None)
+        eq_(urn, bob_uuid.credential)
+        eq_("Card number 5", label)
+
+        # Having been used once, the temporary token has been expired.
+        assert temp_token.expires < now
+
+    def test_authdata_lookup_failure_no_token(self):
+        urn, label = self.model.authdata_lookup("nosuchauthdata")
         eq_(None, urn)
+        eq_(None, label)
+
+    def test_authdata_lookup_failure_wrong_token(self):
+        temp_token = Credential.temporary_token_create(
+            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
+            self.bob_patron, datetime.timedelta(seconds=60))
+        urn, label = self.model.authdata_lookup("nosuchauthdata")
+        eq_(None, urn)
+        eq_(None, label)
+
+    def test_urn_to_label_success(self):
+        urn, label = self.model.standard_lookup("5", "5555")
+        eq_("Card number 5", label)
+
+    def test_urn_to_label_failure_no_active_credential(self):
+        label = self.model.urn_to_label("bad urn")
+        eq_(None, label)
+
+    def test_urn_to_label_failure_incorrect_urn(self):
+        urn, label = self.model.standard_lookup("5", "5555")
+        label = self.model.urn_to_label("bad urn")
         eq_(None, label)
 
 

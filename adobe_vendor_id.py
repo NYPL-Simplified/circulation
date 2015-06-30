@@ -218,17 +218,19 @@ class AdobeVendorIDModel(object):
         """Look up a patron by a temporary Adobe Vendor ID token. Return their
         Vendor ID UUID and their human-readable label.
         """
-        credential = Credential.lookup_by_token(
-            self.data_source, self.TEMPORARY_TOKEN_TYPE, 
-            authdata, False)
+        credential = Credential.lookup_by_temporary_token(
+            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE, 
+            authdata)
         if not credential:
             return None, None
         return self.uuid_and_label(credential.patron)
 
     def urn_to_label(self, urn):
         credential = Credential.lookup_by_token(
-            self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
-            authdata, True)
+            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
+            urn, True)
+        if not credential:
+            return None
         patron = credential.patron
         uuid, label = self.uuid_and_label(crdential.patron)[1]
         return label
