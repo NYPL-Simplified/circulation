@@ -44,6 +44,12 @@ class TestVendorIDModel(DatabaseTest):
         assert u.startswith('urn:uuid:0')
         assert u.endswith('685b35c00f0')
 
+    def test_uuid_and_label_respects_existing_id(self):
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
+        eq_(uuid, uuid2)
+        eq_(label, label2)
+
     def test_create_authdata(self):
         credential = self.model.create_authdata(self.bob_patron)
 

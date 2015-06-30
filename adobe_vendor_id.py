@@ -25,12 +25,15 @@ class AdobeVendorIDController(object):
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron."""
         credential = self.model.create_authdata(patron)
+        self._db.commit()
         return Response(credential.credential, 200, {"Content-Type": "text/plain"})
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
         output = self.request_handler.handle_signin_request(
-            flask.request.data, self.model.standard_lookup, self.model_authdata_lookup)
+            flask.request.data, self.model.standard_lookup,
+            self.model.authdata_lookup)
+        self._db.commit()
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def userinfo_handler(self):
@@ -198,11 +201,12 @@ class AdobeVendorIDModel(object):
             # This is the first time a credential has ever been
             # created for this patron. Set the value of the 
             # credential to a new UUID.
+            print "GENERATING NEW UUID"
             credential.credential = self.uuid()
 
         credential = Credential.lookup(
             self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE,
-            patron, generate_uuid)
+            patron, generate_uuid, True)
 
         identifier = patron.authorization_identifier          
         if not identifier:
@@ -247,7 +251,7 @@ class AdobeVendorIDModel(object):
         if not credential:
             return None
         patron = credential.patron
-        uuid, label = self.uuid_and_label(crdential.patron)[1]
+        uuid, label = self.uuid_and_label(credential.patron)[1]
         return label
 
     def uuid(self):
