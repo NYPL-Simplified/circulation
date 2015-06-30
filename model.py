@@ -4949,7 +4949,8 @@ class Credential(Base):
             _db, Credential, data_source=data_source, type=type, patron=patron)
         if (is_new or not credential.expires 
             or credential.expires <= datetime.datetime.utcnow()):
-            refresher_method(credential)
+            if refresher_method:
+                refresher_method(credential)
         return credential
 
     @classmethod
@@ -4981,6 +4982,16 @@ class Credential(Base):
             # Token has expired.
             return None
 
+    @classmethod
+    def lookup_by_temporary_token(cls, _db, data_source, type, token):
+        """Look up a temporary token and expire it immediately."""
+        credential = cls.lookup_by_token(_db, data_source, type, token)
+        if not credential:
+            return None
+        credential.expires = datetime.datetime.utcnow() - datetime.timedelta(
+            seconds=5)
+        _db.commit()
+        return credential
 
     @classmethod
     def temporary_token_create(self, _db, data_source, type, patron, duration):
