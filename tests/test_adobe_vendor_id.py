@@ -108,6 +108,8 @@ class TestVendorIDModel(DatabaseTest):
 
     def test_urn_to_label_success(self):
         urn, label = self.model.standard_lookup("5", "5555")
+        label2 = self.model.urn_to_label(urn)
+        eq_(label, label2)
         eq_("Card number 5", label)
 
     def test_urn_to_label_failure_no_active_credential(self):

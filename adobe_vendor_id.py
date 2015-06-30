@@ -251,7 +251,7 @@ class AdobeVendorIDModel(object):
         if not credential:
             return None
         patron = credential.patron
-        uuid, label = self.uuid_and_label(credential.patron)[1]
+        uuid, label = self.uuid_and_label(credential.patron)
         return label
 
     def uuid(self):
