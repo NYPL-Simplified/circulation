@@ -5001,11 +5001,12 @@ class Credential(Base):
         """
         expires = datetime.datetime.utcnow() + duration
         token_string = str(uuid.uuid1())
-        credential = Credential(
-            data_source=data_source, type=type, patron=patron,
-            credential=token_string,
-            expires=expires)
-        return credential
+        credential, is_new = get_one_or_create(
+            _db, Credential, data_source=data_source, type=type, patron=patron)
+        credential.credential=token_string
+        credential.expires=expires
+        _db.commit()
+        return credential, is_new
 
 # Index to make temporary_token_lookup() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)

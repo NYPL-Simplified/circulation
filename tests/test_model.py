@@ -1968,7 +1968,7 @@ class TestCredentials(DatabaseTest):
         patron = self._patron()
         now = datetime.datetime.utcnow() 
         expect_expires = now + duration
-        token = Credential.temporary_token_create(
+        token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
         eq_(data_source, token.data_source)
         eq_("some random type", token.type)
@@ -2007,6 +2007,21 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential, True)
         eq_(token, no_expiration_token)
 
+    def test_temporary_token_overwrites_old_token(self):
+        duration = datetime.timedelta(hours=1)
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        old_token, is_new = Credential.temporary_token_create(
+            self._db, data_source, "some random type", patron, duration)
+        eq_(True, is_new)
+        old_credential = old_token.credential
+
+        # Creating a second temporary token overwrites the first.
+        token, is_new = Credential.temporary_token_create(
+            self._db, data_source, "some random type", patron, duration)
+        eq_(False, is_new)
+        eq_(token.id, old_token.id)
+        assert old_credential != token.credential
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
