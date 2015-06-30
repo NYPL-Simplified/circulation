@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import uuid
 import base64
 import os
+import datetime
 
 import flask
 from flask import Response
@@ -20,6 +21,11 @@ class AdobeVendorIDController(object):
         self._db = _db
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
         self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
+
+    def create_authdata_handler(self, patron):
+        """Create an authdata token for the given patron."""
+        output = self.model.create_authdata(patron)
+        return Response(credential.credential, 200, {"Content-Type": "text/plain"})
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
@@ -170,10 +176,13 @@ class AdobeVendorIDModel(object):
     TEMPORARY_TOKEN_TYPE = "Temporary token for Adobe Vendor ID"
     VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
-    def __init__(self, _db, authenticator, node_value=None):
+    def __init__(self, _db, authenticator, node_value=None,
+                 temporary_token_duration=None):
         self._db = _db
         self.authenticator = authenticator
         self.data_source = DataSource.lookup(_db, DataSource.ADOBE)
+        self.temporary_token_duration = (
+            temporary_token_duration or datetime.timedelta(minutes=10))
         node_value = (
             node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
         self.node_value = int(node_value)
@@ -203,6 +212,12 @@ class AdobeVendorIDModel(object):
             # their credential.
             return "Unknown card number."
         return credential.credential, "Card number " + identifier
+
+    def create_authdata(self, patron):
+        credential, is_new = Credential.temporary_token_create(
+            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE,
+            patron, self.temporary_token_duration)
+        return credential
 
     def standard_lookup(self, username, password):       
         """Look up a patron by username and password. Return their Vendor ID

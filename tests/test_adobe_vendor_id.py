@@ -19,7 +19,7 @@ from ..core.model import (
     DataSource,
 )
 
-from ..millenium_patron import DummyMilleniumPatronAPI
+from ..millenium_patron import DummyMilleniumPatronAPI       
 
 class TestVendorIDModel(DatabaseTest):
 
@@ -44,6 +44,16 @@ class TestVendorIDModel(DatabaseTest):
         assert u.startswith('urn:uuid:0')
         assert u.endswith('685b35c00f0')
 
+    def test_create_authdata(self):
+        credential = self.model.create_authdata(self.bob_patron)
+
+        # There's now a temporary token associated with Bob's
+        # patron account, and that's the token returned by create_authdata()
+        bob_authdata = Credential.lookup(
+            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
+            self.bob_patron, None)
+        eq_(credential.credential, bob_authdata.credential)
+
     def test_standard_lookup_success(self):
         urn, label = self.model.standard_lookup("5", "5555")
 
@@ -59,7 +69,7 @@ class TestVendorIDModel(DatabaseTest):
 
     def test_authdata_lookup_success(self):
         now = datetime.datetime.utcnow()
-        temp_token = Credential.temporary_token_create(
+        temp_token, ignore = Credential.temporary_token_create(
             self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
             self.bob_patron, datetime.timedelta(seconds=60))
         old_expires = temp_token.expires
@@ -83,7 +93,7 @@ class TestVendorIDModel(DatabaseTest):
         eq_(None, label)
 
     def test_authdata_lookup_failure_wrong_token(self):
-        temp_token = Credential.temporary_token_create(
+        temp_token, ignore = Credential.temporary_token_create(
             self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
             self.bob_patron, datetime.timedelta(seconds=60))
         urn, label = self.model.authdata_lookup("nosuchauthdata")
