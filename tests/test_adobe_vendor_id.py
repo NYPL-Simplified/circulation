@@ -6,7 +6,47 @@ from ..adobe_vendor_id import (
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDRequestHandler,
+    AdobeVendorIDModel,
 )
+
+from . import (
+    DatabaseTest,
+)
+
+from ..millenium_patron import DummyMilleniumPatronAPI
+
+class TestVendorIDModel(DatabaseTest):
+
+    TEST_NODE_VALUE = 114740953091845
+
+    def setup(self):
+        super(TestVendorIDModel, self).setup()
+        self.authenticator = DummyMilleniumPatronAPI()
+        self.model = AdobeVendorIDModel(self._db, self.authenticator,
+                                        self.TEST_NODE_VALUE)
+        # Normally this test patron doesn't have an authorization identifier.
+        # Let's make sure there is onw.
+        bob_patron = self.authenticator.authenticated_patron(
+            self._db, "5", "5555")
+        bob_patron.authorization_identifier = "5"
+
+    def test_uuid(self):
+        u = self.model.uuid()
+        # All UUIDs need to start with a 0 and end with the same node
+        # value.
+        assert u.startswith('urn:uuid:0')
+        assert u.endswith('685b35c00f0')
+
+    def test_standard_lookup_success(self):
+        urn, label = self.model.standard_lookup("5", "5555")
+        eq_("Card number 5", label)
+        assert urn.startswith("urn:uuid:0")
+        assert urn.endswith('685b35c00f0')
+
+    def test_standard_lookup_failure(self):
+        urn, label = self.model.standard_lookup("5", "5554")
+        eq_(None, urn)
+        eq_(None, label)
 
 
 class TestVendorIDRequestParsers(object):
@@ -58,10 +98,9 @@ class TestVendorIDRequestHandler(object):
 <user>%(uuid)s</user>
 </accountInfoRequest >"""
 
-    TEST_NODE_VALUE = 114740953091845
     TEST_VENDOR_ID = "1045"
 
-    user1_uuid = AdobeVendorIDRequestHandler(TEST_NODE_VALUE, None).uuid()
+    user1_uuid = "test-uuid"
     user1_label = "Human-readable label for user1"
     username_password_lookup = {
         ("user1", "pass1") : (user1_uuid, user1_label)
@@ -76,7 +115,7 @@ class TestVendorIDRequestHandler(object):
     @property
     def _handler(self):
         return AdobeVendorIDRequestHandler(
-            self.TEST_NODE_VALUE, self.TEST_VENDOR_ID)
+            self.TEST_VENDOR_ID)
 
     @classmethod
     def _standard_login(cls, username, password):
@@ -91,13 +130,6 @@ class TestVendorIDRequestHandler(object):
     def _userinfo(cls, uuid):
         return cls.userinfo_lookup.get(uuid)
 
-    def test_uuid(self):
-        u = self._handler.uuid()
-        # All UUIDs need to start with a 0 and end with the same node
-        # value.
-        assert u.startswith('urn:uuid:0')
-        assert u.endswith('685b35c00f0')
-
     def test_error_document(self):
         doc = self._handler.error_document(
             "VENDORID", "Some random error")
@@ -108,8 +140,7 @@ class TestVendorIDRequestHandler(object):
             username="user1", password="pass1")
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
-        assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>urn:uuid:0')
-        assert result.endswith('-685b35c00f0</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
+        assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
 
     def test_handle_username_sign_in_request_failure(self):
         doc = self.username_sign_in_request % dict(
@@ -123,8 +154,7 @@ class TestVendorIDRequestHandler(object):
             authdata=base64.b64encode("The secret token"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
-        assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>urn:uuid:0')
-        assert result.endswith('-685b35c00f0</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
+        assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
 
     def test_handle_username_authdata_request_invalid(self):
         doc = self.authdata_sign_in_request % dict(

@@ -1,6 +1,11 @@
 from nose.tools import set_trace, eq_
 import datetime
 import pkgutil
+from ..threem import (
+    CirculationParser,
+    EventParser,
+    ErrorParser,
+)
 from ..core.model import (
     CirculationEvent,
     Contributor,
@@ -9,11 +14,6 @@ from ..core.model import (
     Resource,
     Identifier,
     Edition,
-)
-from ..threem import (
-    CirculationParser,
-    EventParser,
-    ErrorParser,
 )
 from ..circulation_exceptions import *
 

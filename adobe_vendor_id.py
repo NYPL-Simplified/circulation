@@ -6,30 +6,35 @@ import os
 import flask
 from flask import Response
 from core.util.xmlparser import XMLParser
+from core.model import (
+    Credential,
+    DataSource,
+)
 
-class AdobeVendorIDHandler(object):
-    """Implement the Account Service and Authorization Service
-    portions of the Adobe Vendor ID protocol.
+class AdobeVendorIDController(object):
+
+    """Flask controllers that implement the Account Service and
+    Authorization Service portions of the Adobe Vendor ID protocol.
     """
-
-    def __init__(self, vendor_id, node_value):
-        self.vendor_id = vendor_id
-        self.node_value = node_value
+    def __init__(self, _db, vendor_id, node_value, authenticator):
+        self._db = _db
+        self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
+        self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
-        pass
+        output = self.request_handler.handle_signin_request(
+            data, self.model.standard_lookup, self.model_authdata_lookup)
+        return Response(output, 200, {"Content-Type": "application/xml"})
 
-    def account_info_handler(self):
-        """Process an incoming accountInfoRequest document."""
-        pass
+    def userinfo_handler(self):
+        """Process an incoming userInfoRequest document."""
+        output = self.request_handler.handle_accountinfo_request(
+            data, self.model.urn_to_label)
+        return Response(output, 200, {"Content-Type": "application/xml"})
 
     def status_handler(self):
         return Response("UP", 200, {"Content-Type": "text/plain"})
-
-    def error_response(self, message):
-        return self.ERORR_RESPONSE_TEMPLATE % dict(
-            vendor_id=self.vendor_id, message=message)
 
 
 class AdobeVendorIDRequestHandler(object):
@@ -56,23 +61,8 @@ class AdobeVendorIDRequestHandler(object):
     AUTHENTICATION_FAILURE = 'Incorrect barcode or PIN.'
     URN_LOOKUP_FAILURE = 'Could not identify patron.'
 
-    def __init__(self, node_value=None, vendor_id=None):
-        node_value = (
-            node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
-        self.node_value = int(node_value)
+    def __init__(self, vendor_id=None):
         self.vendor_id = vendor_id or os.environ.get('ADOBE_VENDOR_ID')
-
-    def uuid(self):
-        """Create a new UUID URN compatible with the Vendor ID system."""
-        u = str(uuid.uuid1(self.node_value))
-        # This chop is required by the spec. I have no idea why, but
-        # since the first part of the UUID is the least significant,
-        # it doesn't do much damage.
-        return "urn:uuid:0" + u[:-1]
-
-    def error_document(self, type, message):
-        return self.ERROR_RESPONSE_TEMPLATE % dict(
-            vendor_id=self.vendor_id, type=type, message=message)
 
     def handle_signin_request(self, data, standard_lookup, authdata_lookup):
         parser = AdobeSignInRequestParser()
@@ -111,6 +101,10 @@ class AdobeVendorIDRequestHandler(object):
         else:
             return self.error_document(
                 self.ACCOUNT_INFO_ERROR_TYPE, self.URN_LOOKUP_FAILURE)        
+
+    def error_document(self, type, message):
+        return self.ERROR_RESPONSE_TEMPLATE % dict(
+            vendor_id=self.vendor_id, type=type, message=message)
 
 
 class AdobeRequestParser(XMLParser):
@@ -165,3 +159,84 @@ class AdobeAccountInfoRequestParser(AdobeRequestParser):
         data = dict(method=method)
         self._add(data, tag, 'user', namespaces)
         return data
+
+
+class AdobeVendorIDModel(object):
+
+    """Implement Adobe Vendor ID within the Simplified database
+    model.
+    """
+
+    TEMPORARY_TOKEN_TYPE = "Temporary token for Adobe Vendor ID"
+    VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
+
+    def __init__(self, _db, authenticator, node_value=None):
+        self._db = _db
+        self.authenticator = authenticator
+        self.data_source = DataSource.lookup(_db, DataSource.ADOBE)
+        node_value = (
+            node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
+        self.node_value = int(node_value)
+
+    def uuid_and_label(self, patron):
+        """Create or retrieve a Vendor ID UUID and human-readable Vendor ID
+        label for the given patron.
+        """
+        if not patron:
+            return None, None
+
+        def generate_uuid(credential):
+            # This is the first time a credential has ever been
+            # created for this patron. Set the value of the 
+            # credential to a new UUID.
+            credential.credential = self.uuid()
+
+        credential = Credential.lookup(
+            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE,
+            patron, generate_uuid)
+
+        identifier = patron.authorization_identifier          
+        if not identifier:
+            # Maybe this should be an error, but even though the lack
+            # of an authorization identifier is a problem, the problem
+            # should manifest when the patron tries to actually use
+            # their credential.
+            return "Unknown card number."
+        return credential.credential, "Card number " + identifier
+
+    def standard_lookup(self, username, password):       
+        """Look up a patron by username and password. Return their Vendor ID
+        UUID and their human-readable label, creating a Credential
+        object to hold the UUID if necessary.
+        """
+
+        patron = self.authenticator.authenticated_patron(
+            self._db, username, password)
+        return self.uuid_and_label(patron)
+
+    def authdata_lookup(self, authdata):
+        """Look up a patron by a temporary Adobe Vendor ID token. Return their
+        Vendor ID UUID and their human-readable label.
+        """
+        credential = Credential.lookup_by_token(
+            self.data_source, self.TEMPORARY_TOKEN_TYPE, 
+            authdata, False)
+        if not credential:
+            return None, None
+        return self.uuid_and_label(credential.patron)
+
+    def urn_to_label(self, urn):
+        credential = Credential.lookup_by_token(
+            self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
+            authdata, True)
+        patron = credential.patron
+        uuid, label = self.uuid_and_label(crdential.patron)[1]
+        return label
+
+    def uuid(self):
+        """Create a new UUID URN compatible with the Vendor ID system."""
+        u = str(uuid.uuid1(self.node_value))
+        # This chop is required by the spec. I have no idea why, but
+        # since the first part of the UUID is the least significant,
+        # it doesn't do much damage.
+        return "urn:uuid:0" + u[:-1]
