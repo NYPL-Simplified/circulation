@@ -37,6 +37,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import (
     aliased,
     backref,
+    defer,
     contains_eager,
     joinedload,
 )
@@ -2323,6 +2324,8 @@ class Work(Base):
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
+            defer(Work.verbose_opds_entry),
+            defer(Work.primary_edition, Edition.simple_opds_entry),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
