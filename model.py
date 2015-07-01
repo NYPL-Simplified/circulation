@@ -31,9 +31,13 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (
     backref,
+    defer,
     relationship,
 )
-from sqlalchemy import or_
+from sqlalchemy import (
+    or_,
+    MetaData,
+)
 from sqlalchemy.orm import (
     aliased,
     backref,
@@ -117,6 +121,11 @@ def production_session():
     print "MODIFIED: %s" % url
     return SessionManager.session(url)
 
+class BaseMaterializedWork(object):
+    """A mixin class for materialized views that incorporate Work and Edition."""
+    pass
+
+
 class SessionManager(object):
 
     @classmethod
@@ -128,6 +137,17 @@ class SessionManager(object):
     def initialize(cls, url):
         engine = cls.engine(url)
         Base.metadata.create_all(engine)
+        class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
+            __table__ = Table(
+                'mv_works_editions_full', 
+                Base.metadata, 
+                Column('works_id', Integer, primary_key=True),
+                Column('editions_id', Integer, primary_key=True),
+                Column('workgeneres_id', Integer, primary_key=True),
+                autoload=True,
+                autoload_with=engine
+            )
+        globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         return engine, engine.connect()
 
     @classmethod
