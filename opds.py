@@ -106,7 +106,11 @@ class Annotator(object):
         if work:
             if work.cover_thumbnail_url:
                 thumb = work.cover_thumbnail_url
+                old_thumb = thumb
                 thumbnails = [cdnify(thumb, cdn_host)]
+                if old_thumb != thumbnails[0]:
+                    print "Thumbnail URL changed %s => %s" % (
+                        old_thumb, thumbnails[0])
 
             if work.cover_full_url:
                 full = work.cover_full_url
