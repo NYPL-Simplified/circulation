@@ -1111,8 +1111,6 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return Conf.adobe_vendor_id.status_handler()
 
-
-print __name__
 if __name__ == '__main__':
     debug = True
     url = os.environ['CIRCULATION_WEB_APP_URL']
