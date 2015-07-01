@@ -253,6 +253,8 @@ def featured_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_featured_feed(annotator, lane, languages):
@@ -276,6 +278,8 @@ def acquisition_groups_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_acquisition_groups(annotator, lane, languages):
@@ -310,6 +314,8 @@ def popular_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_popular_feed(_db, annotator, lane, languages):
@@ -360,6 +366,8 @@ def staff_picks_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_staff_picks_feed(_db, annotator, lane, languages):
@@ -711,6 +719,8 @@ def feed_cache_url(lane, languages, order_field,
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
     
 

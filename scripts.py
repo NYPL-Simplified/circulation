@@ -223,9 +223,9 @@ class LaneSweeperScript(Script):
     PRIMARY_COLLECTIONS = json.loads(os.environ['PRIMARY_COLLECTION_LANGUAGES'])
     OTHER_COLLECTIONS = json.loads(os.environ['OTHER_COLLECTION_LANGUAGES'])
 
-    def __init__(self, language_sets=None):
+    def __init__(self, languages=None):
         self.conf = StandaloneApplicationConf(self._db)
-        self.language_sets = language_sets or (
+        self.languages = languages or (
             self.PRIMARY_COLLECTIONS + self.OTHER_COLLECTIONS)
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
 
@@ -272,7 +272,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
-        for languages in self.language_sets:
+        for languages in self.languages:
             cache_url = self.cache_url(annotator, lane, languages)
             get_method = self.make_get_method(annotator, lane, languages)
             a = time.time()
