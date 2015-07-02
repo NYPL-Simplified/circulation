@@ -102,6 +102,7 @@ class IdentifierSweepMonitor(Monitor):
 
         started_at = datetime.datetime.utcnow()
         while not self.stop_running:
+            a = time.time()
             print "Old offset: %s" % offset
             new_offset = self.run_once(offset)
             to_sleep = 0
@@ -115,6 +116,8 @@ class IdentifierSweepMonitor(Monitor):
             self.timestamp.counter = self.counter
             self._db.commit()
             print "New offset: %s" % new_offset
+            b = time.time()
+            print "Elapsed: %.2f sec" % (b-a)
             if to_sleep > 0:
                 print "Sleeping for %.1f" % to_sleep
                 time.sleep(to_sleep)
