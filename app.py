@@ -735,6 +735,12 @@ def feed_cache_url(lane, languages, order_field,
 def make_feed(_db, annotator, lane, languages, order_field,
               last_work_seen, size):
 
+    return feed_and_last_work_seen(_db, annotator, lane, languages, order_field,
+                                   last_work_seen, size)[0]
+
+
+def feed_and_last_work_seen(_db, annotator, lane, languages, order_field,
+                            last_work_seen, size):
     if isinstance(order_field, basestring):
         order_field = order_field_to_database_field[order_field]
     if order_field.name == Edition.title.name:
@@ -756,8 +762,9 @@ def make_feed(_db, annotator, lane, languages, order_field,
                                 annotator, work_feed.active_facet)
 
     # Add a 'next' link unless this page is empty.
+    last_work_seen = page[-1]
     if len(page) > 0:
-        next_url = feed_url(lane, order_field, page[-1], size)
+        next_url = feed_url(lane, order_field, last_work_seen, size)
         opds_feed.add_link(rel="next", href=next_url)
 
     # Add a 'search' link.
@@ -767,10 +774,13 @@ def make_feed(_db, annotator, lane, languages, order_field,
         href=url_for('lane_search', lane=lane.name, _external=True))
     opds_feed.add_link(**search_link)
 
-    return (200,
-            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-            unicode(opds_feed)
-    )
+    return [
+        (200,
+         {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+         unicode(opds_feed),
+     ),
+        last_work_seen
+    ]
 
 
 @app.route('/feed', defaults=dict(lane=None))
@@ -830,10 +840,10 @@ def feed(lane):
             return make_feed(
                 Conf.db, annotator, lane, languages, order_field,
                 last_work_seen, size)
-        # Normal feeds are cached inside the database for only two
+        # Normal feeds are cached inside the database for only ten
         # minutes. There are far too many of these to update them all
         # outside the web app in a reasonable time.
-        max_age = 60*2
+        max_age = 60*10
 
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
