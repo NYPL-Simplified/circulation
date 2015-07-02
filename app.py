@@ -827,9 +827,14 @@ def feed(lane):
         # outside the web app in a reasonable time.
         max_age = 60*2
 
+    #print "Getting feed."
+    #a = time.time()
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=max_age)
+    #b = time.time()
+    #print "That took %.2f, cached=%r" % (b-a, cached)
+
     if feed_rep.fetch_exception:
         print "ERROR:", feed_rep.fetch_exception
     feed_xml = feed_rep.content
