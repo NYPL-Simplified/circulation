@@ -1649,7 +1649,7 @@ class Edition(Base):
     
     # This lets us avoid a lot of work figuring out the best open
     # access link for this Edition.
-    open_access_full_url = Column(Unicode)
+    open_access_download_url = Column(Unicode)
 
     # This is set to True if we know there just isn't a cover for this
     # edition. That lets us know it's okay to set the corresponding
@@ -1840,7 +1840,7 @@ class Edition(Base):
             url = resource.representation.mirror_url
         else:
             url = None
-        self.open_access_full_url = url
+        self.open_access_download_url = url
 
     def set_cover(self, resource):
         self.cover = resource
