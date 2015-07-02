@@ -2339,13 +2339,65 @@ class Work(Base):
         q = _db.query(Work).join(Work.primary_edition)
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
-            contains_eager(Work.primary_edition),
             contains_eager(Work.license_pools),
-            contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
+            contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.identifier),
+            defer(Work.audience),
+            defer(Work.target_age),
+            defer(Work.fiction),
+            defer(Work.summary_id),
+            defer(Work.summary_text),
+            defer(Work.quality),
+            defer(Work.rating),
+            defer(Work.popularity),
+            defer(Work.random),
+            defer(Work.primary_appeal),
+            defer(Work.secondary_appeal),
+            defer(Work.appeal_character),
+            defer(Work.appeal_language),
+            defer(Work.appeal_setting),
+            defer(Work.appeal_story),
+            defer(Work.last_update_time),
+            defer(Work.presentation_ready),
+            defer(Work.presentation_ready_attempt),
+            defer(Work.presentation_ready_exception),
+            defer(Work.was_merged_into_id),
             defer(Work.verbose_opds_entry),
+            defer(Work.primary_edition, Edition.is_primary_for_work),
+            defer(Work.primary_edition, Edition.sort_title),
+            defer(Work.primary_edition, Edition.subtitle),
+            defer(Work.primary_edition, Edition.series),
+            defer(Work.primary_edition, Edition.permanent_work_id),
+            defer(Work.primary_edition, Edition.author),
+            defer(Work.primary_edition, Edition.sort_author),
+            defer(Work.primary_edition, Edition.language),
+            defer(Work.primary_edition, Edition.publisher),
+            defer(Work.primary_edition, Edition.imprint),
+            defer(Work.primary_edition, Edition.issued),
+            defer(Work.primary_edition, Edition.published),
+            defer(Work.primary_edition, Edition.medium),
+            defer(Work.primary_edition, Edition.cover_full_url),
+            defer(Work.primary_edition, Edition.cover_thumbnail_url),
             defer(Work.primary_edition, Edition.simple_opds_entry),
+            defer(Work.primary_edition, Edition.extra),
+            defer(Work.license_pools, LicensePool.edition, Edition.sort_title),
+            defer(Work.license_pools, LicensePool.edition, Edition.subtitle),
+            defer(Work.license_pools, LicensePool.edition, Edition.series),
+            defer(Work.license_pools, LicensePool.edition, Edition.permanent_work_id),
+            defer(Work.license_pools, LicensePool.edition, Edition.author),
+            defer(Work.license_pools, LicensePool.edition, Edition.sort_author),
+            defer(Work.license_pools, LicensePool.edition, Edition.language),
+            defer(Work.license_pools, LicensePool.edition, Edition.publisher),
+            defer(Work.license_pools, LicensePool.edition, Edition.imprint),
+            defer(Work.license_pools, LicensePool.edition, Edition.issued),
+            defer(Work.license_pools, LicensePool.edition, Edition.published),
+            defer(Work.license_pools, LicensePool.edition, Edition.medium),
+            defer(Work.license_pools, LicensePool.edition, Edition.cover_full_url),
+            defer(Work.license_pools, LicensePool.edition, Edition.cover_thumbnail_url),
+            defer(Work.license_pools, LicensePool.edition, Edition.simple_opds_entry),
+            defer(Work.license_pools, LicensePool.edition, Edition.extra),
+            defer(Work.license_pools, LicensePool.edition, Edition.no_known_cover),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
@@ -4433,8 +4485,7 @@ class WorkFeed(object):
         if page_size:
             query = query.limit(page_size)
 
-        query = query.options(contains_eager(Work.license_pools),
-                              contains_eager(Work.primary_edition))
+        query = query.options(contains_eager(Work.license_pools))
         return query
 
 class LaneFeed(WorkFeed):
