@@ -427,7 +427,7 @@ fiction_genres = [
         "Werewolves",
         "Occult Horror",
     ]),
-    dict(full_name="Humorous Fiction", display_name="Humor"),
+    dict(full_name="Humorous Fiction", genres=["Humorous Fiction"]),
     "Literary Fiction",
     ("LGBTQ Fiction", [], Classifier.AUDIENCE_YOUNG_ADULT),
     ("Mystery", [
@@ -457,7 +457,7 @@ fiction_genres = [
         "Alternative History",
         "Steampunk",
         "Romantic SF",
-        dict(full_name="Media Tie-in SF", display_name="Movie and TV Novelizations")
+        dict(full_name="Media Tie-in SF", display_name="Movie and TV Novelizations", genres=["Media Tie-in SF"])
     ]),
     "Short Stories",
     ("Suspense/Thriller", [
@@ -528,7 +528,8 @@ nonfiction_genres = [
         "House & Home",
         "Pets",
     ]),
-    dict(full_name="Humorous Nonfiction", display_name="Humor"),
+    dict(full_name="Humorous Nonfiction", display_name="Humor",
+         genres=["Humorous Nonfiction"]),
     ("Entertainment", [
         "Film & TV",
         "Music",
@@ -621,8 +622,9 @@ class GenreData(object):
         """Create a GenreData object for every genre and subgenre in the given
         list of fiction and nonfiction genres.
         """
-        for source in fiction_source, nonfiction_source:
-            fiction = (source is fiction_source)
+        for source, fiction in (
+                (fiction_source, True),
+                (nonfiction_source, False)):
             for item in source:
                 subgenres = []
                 audience_restriction = None
