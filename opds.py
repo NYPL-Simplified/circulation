@@ -230,7 +230,7 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition and edition.license_pool and edition.best_open_access_link and edition.title:
+            if edition and edition.license_pool and edition.open_access_download_url and edition.title:
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -243,7 +243,7 @@ class Annotator(object):
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
-                    if edition and edition.best_open_access_link:
+                    if edition and edition.open_access_download_url:
                         open_access_license_pool = p
                 elif edition and edition.title:
                     # TODO: It's OK to have a non-open-access license pool,
