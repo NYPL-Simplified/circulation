@@ -298,7 +298,15 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
 
     def should_process_lane(self, lane):
-        return lane.name is not None
+        if lane.name is None:
+            return False
+            
+        # TODO: This implies we're never showing "all young adult fiction",
+        # which will change eventually.
+        if lane.parent is None:
+            return False
+
+        return True
 
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
