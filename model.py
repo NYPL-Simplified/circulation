@@ -139,7 +139,7 @@ class SessionManager(object):
         Base.metadata.create_all(engine)
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_works_editions_full', 
+                'mv_work_editions_full', 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
                 Column('editions_id', Integer, primary_key=True),
@@ -147,6 +147,16 @@ class SessionManager(object):
                 autoload=True,
                 autoload_with=engine
             )
+        class MaterializedWork(Base, BaseMaterializedWork):
+            __table__ = Table(
+                'mv_work_editions_nogenre', 
+                Base.metadata, 
+                Column('works_id', Integer, primary_key=True),
+                Column('editions_id', Integer, primary_key=True),
+                autoload=True,
+                autoload_with=engine
+            )
+        globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         return engine, engine.connect()
 
@@ -4301,6 +4311,80 @@ class Lane(object):
                     genres.add(genre)
         return genres
 
+    def materialized_works(self, languages, fiction=None, availability=Work.ALL):
+        """Find MaterializedWorks that will go together in this Lane."""
+        audience = self.audience
+
+        if fiction is None:
+            if self.fiction is not None:
+                fiction = self.fiction
+            else:
+                fiction = self.FICTION_DEFAULT_FOR_GENRE
+        if self.genres is not None:
+            genres = self.gather_matching_genres(fiction)
+
+        if genres:
+            mw = MaterializedWorkWithGenre
+            q = self._db.query(cl)
+            q = q.filter(mw.genre_id.in_([g.id for g in genres]))
+        else:
+            mw = MaterializedWork
+            q = self._db.query(mw)
+
+        if self.audience != None:
+            if isinstance(self.audience, list):
+                q = q.filter(mw.audience.in_(self.audience))
+            else:
+                q = q.filter(mw.audience==self.audience)
+                if self.audience in (
+                        Classifier.AUDIENCE_CHILDREN, 
+                        Classifier.AUDIENCE_YOUNG_ADULT):
+                    gutenberg = DataSource.lookup(
+                        self._db, DataSource.GUTENBERG)
+                    # TODO: A huge hack to exclude Project Gutenberg
+                    # books (which were deemed appropriate for
+                    # pre-1923 children but are not necessarily so for
+                    # 21st-century children.)
+                    #
+                    # This hack should be removed in favor of a
+                    # whitelist system and some way of allowing adults
+                    # to see books aimed at pre-1923 children.
+                    q = q.filter(mw.data_source_id != gutenberg.id)
+
+        if self.age_range != None:
+            age_range = sorted(self.age_range)
+            q = q.filter(mw.target_age >= age_range[0])
+            if age_range[-1] != age_range[0]:
+                q = q.filter(mw.target_age <= age_range[-1])
+
+        if fiction == self.UNCLASSIFIED:
+            q = q.filter(mw.fiction==None)
+        elif fiction != self.BOTH_FICTION_AND_NONFICTION:
+            q = q.filter(mw.fiction==fiction)
+
+        return q
+
+
+    def gather_matching_genres(self, fiction):
+        """Find all subgenres managed by this lane which match the
+        given fiction status.
+        """
+        fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
+        if fiction_default_by_genre:
+            # Unset `fiction`. We'll set it again when we find out
+            # whether we've got fiction or nonfiction genres.
+            fiction = None
+
+        genres = self.all_matching_genres
+        for genre in self.genres:
+            if fiction_default_by_genre:
+                if fiction is None:
+                    fiction = genre.default_fiction
+                elif fiction != genre.default_fiction:
+                    raise ValueError(
+                        "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
+        return genres
+
     def works(self, languages, fiction=None, availability=Work.ALL):
         """Find Works that will go together in this Lane.
 
@@ -4338,22 +4422,7 @@ class Lane(object):
         #    # fiction or nonfiction not associated with any genre.
         #    q = Work.with_no_genres(q)
         if self.genres is not None:
-            # Find works that are assigned to the given genres. This
-            # may also turn into a restriction on the fiction status.
-            fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
-            if fiction_default_by_genre:
-                # Unset `fiction`. We'll set it again when we find out
-                # whether we've got fiction or nonfiction genres.
-                fiction = None
-
-            genres = self.all_matching_genres
-            for genre in self.genres:
-                if fiction_default_by_genre:
-                    if fiction is None:
-                        fiction = genre.default_fiction
-                    elif fiction != genre.default_fiction:
-                        raise ValueError(
-                            "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
+            genres = self.gather_matching_genres(fiction)
             if genres:
                 q = q.join(Work.work_genres)
                 q = q.options(contains_eager(Work.work_genres))
@@ -4393,7 +4462,6 @@ class Lane(object):
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
 
-        print q
         return q
 
 
@@ -4456,6 +4524,11 @@ class WorkFeed(object):
         """
 
         query = self.base_query(_db)
+        set_trace()
+        a = time.time()
+        count = query.count()
+        b = time.time()
+        print "Found %d materialized works in %.2f" % (count, b-a)
         primary_order_field = self.order_by[0]
         if last_work_seen:
             # Only find records that show up after the last one seen.
@@ -4509,7 +4582,7 @@ class LaneFeed(WorkFeed):
         super(LaneFeed, self).__init__(*args, **kwargs)
 
     def base_query(self, _db):
-        return self.lane.works(self.languages, availability=self.availability)
+        return self.lane.materialized_works(self.languages, availability=self.availability)
 
 
 class CustomListFeed(WorkFeed):
