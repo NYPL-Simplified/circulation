@@ -280,26 +280,59 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     cache_url_method = None
 
+    def generate_feed(self, cache_url, get_method, max_age=0):
+        a = time.time()
+        print "!!! Generating %s." % (cache_url)
+        feed_rep, ignore = Representation.get(
+            self._db, cache_url, get_method,
+            accept=self.ACCEPT_HEADER, max_age=0)
+        b = time.time()
+        if feed_rep.fetch_exception:
+            print "!!! EXCEPTION: %s" % feed_rep.fetch_exception
+        if feed_rep.content:
+            content_bytes = len(feed_rep.content)
+        else:
+            content_bytes = 0
+        print "!!! Generated %r. Took %.2fsec to make %d bytes." % (
+            cache_url, (b-a), content_bytes)
+        print        
+
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
         for languages in self.languages:
             cache_url = self.cache_url(annotator, lane, languages)
             get_method = self.make_get_method(annotator, lane, languages)
-            a = time.time()
-            print "!!! Generating %s for %s." % (languages, lane.name)
-            feed_rep, ignore = Representation.get(
-                self._db, cache_url, get_method,
-                accept=self.ACCEPT_HEADER, max_age=0)
-            b = time.time()
-            if feed_rep.fetch_exception:
-                print "!!! EXCEPTION: %s" % feed_rep.fetch_exception
-            if feed_rep.content:
-                content_bytes = len(feed_rep.content)
-            else:
-                content_bytes = 0
-            print "!!! Generated %r for %s. Took %.2fsec to make %d bytes." % (
-                languages, lane.name, (b-a), content_bytes)
-            print
+            self.generate_feed(cache_url, get_method)
+
+class CacheFacetListsPerLane(CacheRepresentationPerLane):
+    """Cache the first two pages of every facet list for this lane."""
+
+    def should_process_lane(self, lane):
+        if lane.name is None:
+            return False
+            
+        # TODO: This implies we're never showing "all young adult fiction",
+        # which will change eventually.
+        if lane.parent is None:
+            return False
+
+        return True
+
+    def process_lane(self, lane):
+        annotator = CirculationManagerAnnotator(lane)
+        size = 50
+        for languages in self.languages:
+            for facet in app.order_field_to_database_field.keys():
+                self.last_work_seen = None
+                for i in range(2):
+                    url = app.feed_cache_url(
+                        lane, languages, facet, self.last_work_seen, size)
+                    def get_method(*args, **kwargs):
+                        feed, self.last_work_seen = app.feed_and_last_work_seen(
+                            self._db, annotator, lane, languages, facet,
+                            self.last_work_seen, size)
+                        return feed
+                    self.generate_feed(url, get_method, 10*60)
 
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
