@@ -86,6 +86,11 @@ from millenium_patron import (
 )
 from lanes import make_lanes
 
+if False:
+    import logging
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 feed_cache = dict()
 
 class Conf:
@@ -546,10 +551,13 @@ def acquisition_groups(lane):
                     "Refusing to dynamically create a groups feed for a primary collection language (%s). This feed must be precalculated." % l, 400)
 
         return make_acquisition_groups(annotator, lane, languages)
+    a = time.time()
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=None)
     feed_xml = feed_rep.content
+    b = time.time()
+    print "That took %.2f, cached=%r" % (b-a, cached)
     return feed_response(feed_xml, acquisition=True)
 
 
