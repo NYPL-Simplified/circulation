@@ -1646,6 +1646,10 @@ class Edition(Base):
     # every time.
     cover_full_url = Column(Unicode)
     cover_thumbnail_url = Column(Unicode)
+    
+    # This lets us avoid a lot of work figuring out the best open
+    # access link for this Edition.
+    open_access_full_url = Column(Unicode)
 
     # This is set to True if we know there just isn't a cover for this
     # edition. That lets us know it's okay to set the corresponding
@@ -1829,6 +1833,14 @@ class Edition(Base):
         else:
             type = "text"
         return dict(type=type, value=content)
+
+    def set_open_access_link(self):
+        resource = self.best_open_access_link
+        if resource and resource.representation:
+            url = resource.representation.mirror_url
+        else:
+            url = None
+        self.open_access_full_url = url
 
     def set_cover(self, resource):
         self.cover = resource
@@ -2067,9 +2079,9 @@ class Edition(Base):
             sort_names.append(author.name)
         self.author = ", ".join([x[1] for x in sorted(display_names)])
         self.sort_author = " ; ".join(sorted(sort_names))
-
         self.calculate_permanent_work_id()
 
+        self.set_open_access_link()
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
