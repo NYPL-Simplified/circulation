@@ -421,6 +421,14 @@ def index():
 def hearbeat():
     return HeartbeatController().heartbeat()
 
+ping_controller_path = os.environ.get('PING_CONTROLLER_PATH')
+if ping_controller_path:
+    print "Setting up ping controller at %s" % ping_controller_path
+    @app.route(ping_controller_path)
+    def ping():
+        return HeartbeatController().heartbeat()
+
+
 @app.route('/service_status')
 def service_status():
     barcode = os.environ['TEST_CREDENTIAL_USERNAME']
