@@ -23,6 +23,7 @@ from lxml import builder, etree
 
 from classifier import Classifier
 from model import (
+    BaseMaterializedWork,
     CustomList,
     CustomListEntry,
     CustomListFeed,
@@ -574,6 +575,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool and not even_if_no_license_pool:
+            print "NO ACTIVE LICENSE POOL FOR %r" % work
             return None
 
         if not active_edition:
@@ -598,6 +600,9 @@ class AcquisitionFeed(OPDSFeed):
             cache_hit = True
             xml = etree.fromstring(xml)
         else:
+            if isinstance(work, BaseMaterializedWork):
+                raise Exception(
+                    "Cannot build an OPDS entry for a MaterializedWork.")
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
             data = etree.tostring(xml)

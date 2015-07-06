@@ -139,7 +139,7 @@ class SessionManager(object):
         Base.metadata.create_all(engine)
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_work_editions_full', 
+                'mv_works_editions_workgenres', 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
                 Column('editions_id', Integer, primary_key=True),
@@ -149,7 +149,7 @@ class SessionManager(object):
             )
         class MaterializedWork(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_work_editions_nogenre', 
+                'mv_works_editions', 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
                 Column('editions_id', Integer, primary_key=True),
@@ -4322,11 +4322,12 @@ class Lane(object):
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
         if self.genres is not None:
             genres = self.gather_matching_genres(fiction)
-
+            
         if genres:
-            mw = MaterializedWorkWithGenre
-            q = self._db.query(cl)
+            mw =MaterializedWorkWithGenre
+            q = self._db.query(mw).distinct()
             q = q.filter(mw.genre_id.in_([g.id for g in genres]))
+            
         else:
             mw = MaterializedWork
             q = self._db.query(mw)
