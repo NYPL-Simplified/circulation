@@ -243,6 +243,20 @@ class TestVendorIDRequestHandler(object):
             doc, self._standard_login, self._authdata_login)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>', result)
 
+    def test_failure_send_login_request_to_accountinfo(self):
+        doc = self.authdata_sign_in_request % dict(
+            authdata=base64.b64encode("incorrect"))
+        result = self._handler.handle_accountinfo_request(
+            doc, self._userinfo)
+        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>', result)
+
+    def test_failure_send_accountinfo_request_to_login(self):
+        doc = self.accountinfo_request % dict(
+            uuid=self.user1_uuid)
+        result = self._handler.handle_signin_request(
+            doc, self._standard_login, self._authdata_login)
+        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Request document in wrong format."/>', result)
+
     def test_handle_accountinfo_success(self):
         doc = self.accountinfo_request % dict(
             uuid=self.user1_uuid)

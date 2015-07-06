@@ -80,6 +80,12 @@ class AdobeVendorIDRequestHandler(object):
         except Exception, e:
             return self.error_document(self.AUTH_ERROR_TYPE, str(e))
         user_id = label = None
+        if not data:
+            return self.error_document(
+                self.AUTH_ERROR_TYPE, "Request document in wrong format.")
+        if not 'method' in data:
+            return self.error_document(
+                self.AUTH_ERROR_TYPE, "No method specified")
         if data['method'] == parser.STANDARD:
             username = data['username']
             password = data['password']
@@ -100,6 +106,14 @@ class AdobeVendorIDRequestHandler(object):
         label = None
         try:
             data = parser.process(data)
+            if not data:
+                return self.error_document(
+                    self.ACCOUNT_INFO_ERROR_TYPE,
+                    "Request document in wrong format.")
+            if not 'user' in data:
+                return self.error_document(
+                    self.ACCOUNT_INFO_ERROR_TYPE,
+                    "Could not find user identifer in request document.")
             label = urn_to_label(data['user'])
         except Exception, e:
             return self.error_document(

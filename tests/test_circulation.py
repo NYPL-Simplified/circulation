@@ -106,10 +106,10 @@ class CirculationAppTest(CirculationTest):
 
 class TestNavigationFeed(CirculationAppTest):
 
-    def test_root_redirects_to_navigation_feed(self):
+    def test_root_redirects_to_groups_feed(self):
         response = self.client.get('/')
         eq_(302, response.status_code)
-        assert response.headers['Location'].endswith('/lanes/')
+        assert response.headers['Location'].endswith('/groups/')
 
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
