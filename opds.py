@@ -90,11 +90,11 @@ class CirculationManagerAnnotator(Annotator):
         active_hold = self.active_holds_by_work.get(work)
 
         if isinstance(work, BaseMaterializedWork):
-            identifier = work.identifier
-            data_source = work.data_source
+            identifier_identifier = work.identifier
+            data_source_name = work.name
         else:
-            identifier = active_license_pool.identifier
-            data_source = active_license_pool.data_source
+            identifier_identifier = active_license_pool.identifier.identifier
+            data_source_name = active_license_pool.data_source.name
 
         can_borrow = False
         can_fulfill = False
@@ -143,22 +143,22 @@ class CirculationManagerAnnotator(Annotator):
 
         if can_fulfill:
             fulfill_url = url_for(
-                "fulfill", data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                "fulfill", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
             feed.add_link_to_entry(entry, rel=OPDSFeed.ACQUISITION_REL,
                                    href=fulfill_url)
 
         if can_borrow:
             borrow_url = url_for(
-                "borrow", data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                "borrow", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
             feed.add_link_to_entry(entry, rel=OPDSFeed.BORROW_REL,
                                    href=borrow_url)
 
         if can_revoke:
             url = url_for(
-                'revoke_loan_or_hold', data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                'revoke_loan_or_hold', data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
 
             feed.add_link_to_entry(entry, rel=OPDSFeed.REVOKE_LOAN_REL,
                                    href=url)
