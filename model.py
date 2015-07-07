@@ -140,24 +140,14 @@ class SessionManager(object):
         Base.metadata.create_all(engine)
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_works_editions_workgenres', 
+                'mv_works_editions_workgenres_datasources_identifiers', 
                 Base.metadata, 
-                Column('data_source_id', Integer, ForeignKey('datasources.id')),
                 Column('works_id', Integer, primary_key=True),
                 Column('workgeneres_id', Integer, primary_key=True),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-                Column('primary_identifier_id', Integer, ForeignKey('identifiers.id')),
                 autoload=True,
                 autoload_with=engine
             )
-            data_source = relationship(
-                DataSource, 
-                primaryjoin="DataSource.id==MaterializedWorkWithGenre.data_source_id",
-                foreign_keys=DataSource.id, lazy='joined', uselist=False)
-            identifier = relationship(
-                Identifier, 
-                primaryjoin="Identifier.id==MaterializedWorkWithGenre.primary_identifier_id",
-                foreign_keys=Identifier.id, lazy='joined', uselist=False)
             license_pool = relationship(
                 LicensePool, 
                 primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
@@ -165,23 +155,13 @@ class SessionManager(object):
 
         class MaterializedWork(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_works_editions', 
+                'mv_works_editions_datasources_identifiers', 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
-                Column('data_source_id', Integer, ForeignKey('datasources.id')),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-                Column('primary_identifier_id', Integer, ForeignKey('identifiers.id')),  
               autoload=True,
                 autoload_with=engine
             )
-            data_source = relationship(
-                DataSource, 
-                primaryjoin="DataSource.id==MaterializedWork.data_source_id",
-                foreign_keys=DataSource.id, lazy='joined', uselist=False)
-            identifier = relationship(
-                Identifier, 
-                primaryjoin="Identifier.id==MaterializedWork.primary_identifier_id",
-                foreign_keys=Identifier.id, lazy='joined', uselist=False)
             license_pool = relationship(
                 LicensePool, 
                 primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
@@ -207,6 +187,7 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Create all genres.
+        Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
         session.commit()
@@ -3640,17 +3621,33 @@ class Genre(Base):
             len(classifier.genres[self.name].subgenres))
 
     @classmethod
+    def load_all(cls, _db):
+        """Load all Genre objects into the cache associated with the
+        database connection.
+        """
+        if not hasattr(_db, '_genre_cache'):
+            _db._genre_cache = dict()
+        for g in _db.query(Genre):
+            _db._genre_cache[g.name] = g
+
+    @classmethod
     def lookup(cls, _db, name, autocreate=False):
+        if not hasattr(_db, '_genre_cache'):
+            _db._genre_cache = dict()
+        if isinstance(name, GenreData):
+            name = name.name
+        if name in _db._genre_cache:
+            return _db._genre_cache[name], False
         if autocreate:
             m = get_one_or_create
         else:
             m = get_one
-        if isinstance(name, GenreData):
-            name = name.name
         result = m(_db, Genre, name=name)
         if isinstance(result, tuple):
+            _db._genre_cache[name] = result[0]
             return result
         else:
+            _db._genre_cache[name] = result
             return result, False
 
     @property
@@ -4322,8 +4319,6 @@ class Lane(object):
         # Avoid eager loading of objects that are contained in the 
         # materialized view.
         q = q.options(
-            lazyload(mw.identifier, Identifier.licensed_through),
-            lazyload(mw.identifier, Identifier.primarily_identifies),
             lazyload(mw.license_pool, LicensePool.data_source),
             lazyload(mw.license_pool, LicensePool.identifier),
             lazyload(mw.license_pool, LicensePool.edition),
@@ -4372,7 +4367,6 @@ class Lane(object):
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-
         genres = self.all_matching_genres
         for genre in self.genres:
             if fiction_default_by_genre:
