@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
     defer,
     contains_eager,
     joinedload,
+    lazyload,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -141,21 +142,51 @@ class SessionManager(object):
             __table__ = Table(
                 'mv_works_editions_workgenres', 
                 Base.metadata, 
+                Column('data_source_id', Integer, ForeignKey('datasources.id')),
                 Column('works_id', Integer, primary_key=True),
-                Column('editions_id', Integer, primary_key=True),
                 Column('workgeneres_id', Integer, primary_key=True),
+                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+                Column('primary_identifier_id', Integer, ForeignKey('identifiers.id')),
                 autoload=True,
                 autoload_with=engine
             )
+            data_source = relationship(
+                DataSource, 
+                primaryjoin="DataSource.id==MaterializedWorkWithGenre.data_source_id",
+                foreign_keys=DataSource.id, lazy='joined', uselist=False)
+            identifier = relationship(
+                Identifier, 
+                primaryjoin="Identifier.id==MaterializedWorkWithGenre.primary_identifier_id",
+                foreign_keys=Identifier.id, lazy='joined', uselist=False)
+            license_pool = relationship(
+                LicensePool, 
+                primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
+                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
+
         class MaterializedWork(Base, BaseMaterializedWork):
             __table__ = Table(
                 'mv_works_editions', 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
-                Column('editions_id', Integer, primary_key=True),
-                autoload=True,
+                Column('data_source_id', Integer, ForeignKey('datasources.id')),
+                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+                Column('primary_identifier_id', Integer, ForeignKey('identifiers.id')),  
+              autoload=True,
                 autoload_with=engine
             )
+            data_source = relationship(
+                DataSource, 
+                primaryjoin="DataSource.id==MaterializedWork.data_source_id",
+                foreign_keys=DataSource.id, lazy='joined', uselist=False)
+            identifier = relationship(
+                Identifier, 
+                primaryjoin="Identifier.id==MaterializedWork.primary_identifier_id",
+                foreign_keys=Identifier.id, lazy='joined', uselist=False)
+            license_pool = relationship(
+                LicensePool, 
+                primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
+                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
+
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         return engine, engine.connect()
@@ -2362,64 +2393,13 @@ class Work(Base):
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
             contains_eager(Work.license_pools),
-            contains_eager(Work.license_pools, LicensePool.edition),
+            contains_eager(Work.primary_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
+            contains_eager(Work.license_pools, LicensePool.edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.audience),
-            defer(Work.target_age),
-            defer(Work.fiction),
-            defer(Work.summary_id),
-            defer(Work.summary_text),
-            defer(Work.quality),
-            defer(Work.rating),
-            defer(Work.popularity),
-            defer(Work.random),
-            defer(Work.primary_appeal),
-            defer(Work.secondary_appeal),
-            defer(Work.appeal_character),
-            defer(Work.appeal_language),
-            defer(Work.appeal_setting),
-            defer(Work.appeal_story),
-            defer(Work.last_update_time),
-            defer(Work.presentation_ready),
-            defer(Work.presentation_ready_attempt),
-            defer(Work.presentation_ready_exception),
-            defer(Work.was_merged_into_id),
             defer(Work.verbose_opds_entry),
-            defer(Work.primary_edition, Edition.is_primary_for_work),
-            defer(Work.primary_edition, Edition.sort_title),
-            defer(Work.primary_edition, Edition.subtitle),
-            defer(Work.primary_edition, Edition.series),
-            defer(Work.primary_edition, Edition.permanent_work_id),
-            defer(Work.primary_edition, Edition.author),
-            defer(Work.primary_edition, Edition.sort_author),
-            defer(Work.primary_edition, Edition.language),
-            defer(Work.primary_edition, Edition.publisher),
-            defer(Work.primary_edition, Edition.imprint),
-            defer(Work.primary_edition, Edition.issued),
-            defer(Work.primary_edition, Edition.published),
-            defer(Work.primary_edition, Edition.medium),
-            defer(Work.primary_edition, Edition.cover_full_url),
-            defer(Work.primary_edition, Edition.cover_thumbnail_url),
-            defer(Work.primary_edition, Edition.simple_opds_entry),
             defer(Work.primary_edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.edition, Edition.sort_title),
-            defer(Work.license_pools, LicensePool.edition, Edition.subtitle),
-            defer(Work.license_pools, LicensePool.edition, Edition.series),
-            defer(Work.license_pools, LicensePool.edition, Edition.permanent_work_id),
-            defer(Work.license_pools, LicensePool.edition, Edition.author),
-            defer(Work.license_pools, LicensePool.edition, Edition.sort_author),
-            defer(Work.license_pools, LicensePool.edition, Edition.language),
-            defer(Work.license_pools, LicensePool.edition, Edition.publisher),
-            defer(Work.license_pools, LicensePool.edition, Edition.imprint),
-            defer(Work.license_pools, LicensePool.edition, Edition.issued),
-            defer(Work.license_pools, LicensePool.edition, Edition.published),
-            defer(Work.license_pools, LicensePool.edition, Edition.medium),
-            defer(Work.license_pools, LicensePool.edition, Edition.cover_full_url),
-            defer(Work.license_pools, LicensePool.edition, Edition.cover_thumbnail_url),
-            defer(Work.license_pools, LicensePool.edition, Edition.simple_opds_entry),
             defer(Work.license_pools, LicensePool.edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.edition, Edition.no_known_cover),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
@@ -4311,7 +4291,8 @@ class Lane(object):
                     genres.add(genre)
         return genres
 
-    def materialized_works(self, languages, fiction=None, availability=Work.ALL):
+    def materialized_works(self, languages=None, fiction=None, 
+                           availability=Work.ALL):
         """Find MaterializedWorks that will go together in this Lane."""
         audience = self.audience
 
@@ -4320,18 +4301,33 @@ class Lane(object):
                 fiction = self.fiction
             else:
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
+        genres = []
         if self.genres is not None:
             genres = self.gather_matching_genres(fiction)
-            
+            print [g.id for g in genres]
+
         if genres:
             mw =MaterializedWorkWithGenre
-            q = self._db.query(mw).distinct()
-            q = q.filter(mw.genre_id.in_([g.id for g in genres]))
-            
+            q = self._db.query(mw)
+            q = q.filter(mw.genre_id.in_([g.id for g in genres]))            
         else:
             mw = MaterializedWork
             q = self._db.query(mw)
+        
+        q = q.with_labels()
 
+        if languages:
+            q = q.filter(mw.language.in_(languages))
+
+        # Avoid eager loading of objects that are contained in the 
+        # materialized view.
+        q = q.options(
+            lazyload(mw.identifier, Identifier.licensed_through),
+            lazyload(mw.identifier, Identifier.primarily_identifies),
+            lazyload(mw.license_pool, LicensePool.data_source),
+            lazyload(mw.license_pool, LicensePool.identifier),
+            lazyload(mw.license_pool, LicensePool.edition),
+        )
         if self.audience != None:
             if isinstance(self.audience, list):
                 q = q.filter(mw.audience.in_(self.audience))
@@ -4362,7 +4358,8 @@ class Lane(object):
             q = q.filter(mw.fiction==None)
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(mw.fiction==fiction)
-
+        q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
+        q = q.options(contains_eager(mw.license_pool))
         return q
 
 
@@ -4471,11 +4468,12 @@ class WorkFeed(object):
     """Identify a certain page in a certain feed."""
 
     active_facet_for_field = {
-        Edition.title : "title",
-        Edition.sort_title : "title",
-        Edition.sort_author : "author",
-        Edition.author : "author"
+        Work.title : "title",
+        Work.sort_title : "title",
+        Work.sort_author : "author",
+        Work.author : "author"
     }
+    default_sort_order = [ Work.sort_title, Work.sort_author, Work.id]
 
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"
@@ -4500,9 +4498,7 @@ class WorkFeed(object):
             self.sort_operator = operator.__lt__
         # In addition to the given order, we order by author,
         # then title, then work ID.
-        for i in (Edition.sort_author, 
-                  Edition.sort_title, 
-                  Work.id):
+        for i in self.default_sort_order:
             if not i in self.order_by:
                 self.order_by.append(i)
         self.active_facet = self.active_facet_for_field.get(order_by[0], None)
@@ -4525,11 +4521,6 @@ class WorkFeed(object):
         """
 
         query = self.base_query(_db)
-        set_trace()
-        a = time.time()
-        count = query.count()
-        b = time.time()
-        print "Found %d materialized works in %.2f" % (count, b-a)
         primary_order_field = self.order_by[0]
         if last_work_seen:
             # Only find records that show up after the last one seen.
@@ -4566,13 +4557,17 @@ class WorkFeed(object):
         if order_by:
             query = query.distinct(*self.order_by)
         else:
-            query = query.distinct(Work.id)
+            set_trace()
+            # query = query.distinct(MaterializedWork.work_id)
+
+        #query = query.options(contains_eager(Work.license_pools),
+        #                      contains_eager(Work.primary_edition))
 
         if page_size:
             query = query.limit(page_size)
 
-        query = query.options(contains_eager(Work.license_pools))
         return query
+
 
 class LaneFeed(WorkFeed):
 
@@ -4583,7 +4578,7 @@ class LaneFeed(WorkFeed):
         super(LaneFeed, self).__init__(*args, **kwargs)
 
     def base_query(self, _db):
-        return self.lane.materialized_works(self.languages, availability=self.availability)
+        return self.lane.works(self.languages, availability=self.availability)
 
 
 class CustomListFeed(WorkFeed):

@@ -226,6 +226,10 @@ class Annotator(object):
         if not work:
             return None
 
+        if isinstance(work, BaseMaterializedWork):
+            # Active license pool is preloaded from database.
+            return work.license_pool
+            
         if work.has_open_access_license:
             # All licenses are issued from the license pool associated with
             # the work's primary edition.
@@ -505,6 +509,12 @@ class AcquisitionFeed(OPDSFeed):
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
         totals = []
+        a = time.time()
+        works = works.all()
+        b = time.time()
+        print "Query executed in %.2f" % (b-a)
+        annotator.cached_record = []
+        annotator.uncached_record = []
         for work in works:
             a = time.time()
             self.add_entry(work, lane_link)
@@ -524,7 +534,11 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(message_tag)
             self.feed.append(entry)
 
-        print "Feed built in %.2f" % (time.time()-first_time)
+        total_entries = len(self.feed)
+        import numpy
+        print "Feed contains %d entries, median build time %.2f" % (
+            len(totals), numpy.median(totals))
+        print "Total time to build feed: %.2f" % (time.time()-first_time)
 
         for title, order, facet_group, in facet_groups:
             url = self.annotator.facet_url(order)
@@ -566,7 +580,10 @@ class AcquisitionFeed(OPDSFeed):
                 # metadata for this work yet.
                 return None
 
-            if active_license_pool:        
+            if isinstance(work, BaseMaterializedWork):
+                identifier = work.identifier
+                active_edition = None
+            elif active_license_pool:        
                 identifier = active_license_pool.identifier
                 active_edition = active_license_pool.edition
             else:
@@ -578,7 +595,7 @@ class AcquisitionFeed(OPDSFeed):
             print "NO ACTIVE LICENSE POOL FOR %r" % work
             return None
 
-        if not active_edition:
+        if not active_edition and not isinstance(work, BaseMaterializedWork):
             print "NO ACTIVE EDITION FOR %r" % active_license_pool
             return None
 
@@ -625,10 +642,10 @@ class AcquisitionFeed(OPDSFeed):
         else:
             title = ""
         if cache_hit:
-            cache_hit = "Cached"
+            record = self.annotator.cached_record
         else:
-            cache_hit = "Uncached"
-        print "%s %s %.2f" % (title.encode("utf8"), cache_hit, after-before)
+            record = self.annotator.uncached_record
+        record.append((title, after-before))
 
         return xml
 
