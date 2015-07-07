@@ -8,7 +8,8 @@ from core.opds import (
     OPDSFeed,
 )
 from core.model import (
-    Session
+    Session,
+    BaseMaterializedWork,
 )
 from core.app_server import cdn_url_for
 
@@ -87,8 +88,13 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
-        identifier = active_license_pool.identifier
-        data_source = active_license_pool.data_source
+
+        if isinstance(work, BaseMaterializedWork):
+            identifier = work.identifier
+            data_source = work.data_source
+        else:
+            identifier = active_license_pool.identifier
+            data_source = active_license_pool.data_source
 
         can_borrow = False
         can_fulfill = False
@@ -113,14 +119,25 @@ class CirculationManagerAnnotator(Annotator):
 
 
         if active_license_pool.open_access:
-            rel = OPDSFeed.OPEN_ACCESS_REL
-            best_pool, best_link = active_license_pool.best_license_link
-            if best_link:
-                representation = best_link.representation
-                if representation.mirror_url:
-                    feed.add_link_to_entry(
-                        entry, rel=rel, href=representation.mirror_url,
-                        type=representation.media_type)
+            open_access_url = open_access_media_type = None
+            if isinstance(work, BaseMaterializedWork):
+                open_access_url = work.open_access_download_url
+                # TODO: This is a bad heuristic.
+                if open_access_url and open_access_url.endswith('.epub'):
+                    open_access_media_type = OPDSFeed.EPUB_MEDIA_TYPE
+            else:
+                best_pool, best_link = active_license_pool.best_license_link
+                if best_link:
+                    representation = best_link.representation
+                    if representation.mirror_url:
+                        open_access_url = representation.mirror_url
+                    open_access_media_type = representation.media_type
+
+            if open_access_url:
+                feed.add_link_to_entry(
+                    entry, rel=OPDSFeed.OPEN_ACCESS_REL, 
+                    href=open_access_url,
+                    type=open_access_media_type)
         else:
             entry.extend(feed.license_tags(active_license_pool))
 
