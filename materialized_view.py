@@ -12,13 +12,24 @@ class MaterializedWorkLaneFeed(WorkFeed):
         MaterializedWork.sort_title : "title",
         MaterializedWork.sort_author : "author",
     }
-    field_for_active_facet = dict(
-        (v,k) for k,v in active_facet_for_field.items())
+    order_facet_to_database_field = {
+        "title" : MaterializedWork.sort_title,
+        "author" : MaterializedWork.sort_author,
+    }
     default_sort_order = [
         MaterializedWork.sort_title, MaterializedWork.sort_author,
         MaterializedWork.works_id]
 
     license_pool_field = MaterializedWork.license_pool
+
+    @classmethod
+    def factory(self, lane, *args, **kwargs):
+        if lane.genres:
+            feed = MaterializedWorkWithGenreLaneFeed(
+                lane, *args, **kwargs)
+        else:
+            feed = MaterializedWorkLaneFeed(lane, *args, **kwargs)
+        return feed
 
     def __init__(self, lane, *args, **kwargs):
         self.lane = lane
@@ -35,8 +46,10 @@ class MaterializedWorkWithGenreLaneFeed(MaterializedWorkLaneFeed):
         MaterializedWorkWithGenre.sort_title : "title",
         MaterializedWorkWithGenre.sort_author : "author",
     }
-    field_for_active_facet = dict(
-        (v,k) for k,v in active_facet_for_field.items())
+    order_facet_to_database_field = {
+        "title" : MaterializedWorkWithGenre.sort_title,
+        "author" : MaterializedWorkWithGenre.sort_author,
+    }
     default_sort_order = [
         MaterializedWorkWithGenre.sort_title,
         MaterializedWorkWithGenre.sort_author,

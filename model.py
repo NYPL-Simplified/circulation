@@ -159,7 +159,6 @@ class SessionManager(object):
                 continue
             if not connection:
                 connection = engine.connect()
-            set_trace()
             resource_file = os.path.join(resource_path, filename)
             if not os.path.exists(resource_file):
                 raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
@@ -4501,18 +4500,23 @@ class WorkFeed(object):
     
     """Identify a certain page in a certain feed."""
 
+    order_facet_to_database_field = {
+        'title' : Edition.sort_title,
+        'author' : Edition.sort_author,
+    }
+
     active_facet_for_field = {
         Edition.title : "title",
         Edition.sort_title : "title",
         Edition.sort_author : "author",
         Edition.author : "author"
     }
-    default_sort_order = [ Edition.sort_title, Edition.sort_author, Work.id]
+    default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
 
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"
 
-    def __init__(self, languages, order_by=None,
+    def __init__(self, languages, order_facet=None,
                  sort_ascending=True,
                  availability=CURRENTLY_AVAILABLE):
         if isinstance(languages, basestring):
@@ -4520,11 +4524,11 @@ class WorkFeed(object):
         elif not isinstance(languages, list):
             raise ValueError("Invalid value for languages: %r" % languages)
         self.languages = languages
-        if not order_by:
-            order_by = []
-        elif not isinstance(order_by, list):
-            order_by = [order_by]
-        self.order_by = order_by
+        if not order_facet:
+            order_facet = []
+        elif not isinstance(order_facet, list):
+            order_facet = [order_facet]
+        self.order_by = [self.order_facet_to_database_field[x] for x in order_facet]
         self.sort_ascending = sort_ascending
         if sort_ascending:
             self.sort_operator = operator.__gt__
@@ -4535,9 +4539,15 @@ class WorkFeed(object):
         for i in self.default_sort_order:
             if not i in self.order_by:
                 self.order_by.append(i)
-        self.active_facet = self.active_facet_for_field.get(order_by[0], None)
 
         self.availability = availability
+
+    @property
+    def active_facet(self):
+        """The active sort facet for this feed."""
+        if not self.order_by:
+            return None
+        return self.active_facet_for_field.get(self.order_by[0], None)
 
     def base_query(self, _db):
         """A query that will return every work that should go in this feed.
@@ -4585,6 +4595,7 @@ class WorkFeed(object):
         else:
             m = lambda x: x.desc()
 
+        set_trace()
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by)
 
@@ -4592,7 +4603,7 @@ class WorkFeed(object):
             query = query.distinct(*self.order_by)
         else:
             set_trace()
-            # query = query.distinct(MaterializedWork.work_id)
+            # query = query.distinct(MaterializedWork.works_id)
 
         #query = query.options(contains_eager(Work.license_pools),
         #                      contains_eager(Work.primary_edition))
