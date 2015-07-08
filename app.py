@@ -850,11 +850,10 @@ def feed(lane):
             return make_feed(
                 Conf.db, annotator, lane, languages, order_facet,
                 offset, size)
-        # Normal feeds are cached inside the database for only ten
+        # Normal feeds are cached inside the database for only five
         # minutes. There are far too many of these to update them all
         # outside the web app in a reasonable time.
-        max_age = 60*10
-        max_age = 0
+        max_age = 60*5
 
     #print "Getting feed."
     #a = time.time()
