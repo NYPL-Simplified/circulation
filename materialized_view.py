@@ -55,7 +55,7 @@ class MaterializedWorkWithGenreLaneFeed(MaterializedWorkLaneFeed):
     default_sort_order = [
         MaterializedWorkWithGenre.sort_title,
         MaterializedWorkWithGenre.sort_author,
-        MaterializedWork.license_pool_id,
+        MaterializedWorkWithGenre.license_pool_id,
     ]
 
     license_pool_field = MaterializedWorkWithGenre.license_pool
