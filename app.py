@@ -852,16 +852,10 @@ def feed(lane):
             except ValueError:
                 return problem(None, "Invalid offset: %s" % offset, 400)
 
-        cache_url = feed_cache_url(
-            lane, languages, order_facet, offset, size)
-        def get(*args, **kwargs):
-            return make_feed(
-                Conf.db, annotator, lane, languages, order_facet,
-                offset, size)
-        # Normal feeds are cached inside the database for only five
-        # minutes. There are far too many of these to update them all
-        # outside the web app in a reasonable time.
-        max_age = 60*5
+        status, media_type, feed_xml = make_feed(
+            Conf.db, annotator, lane, languages, order_facet,
+            offset, size)
+        return feed_response(feed_xml)
 
     #print "Getting feed."
     #a = time.time()
