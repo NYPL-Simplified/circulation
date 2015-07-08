@@ -25,6 +25,7 @@ from ..core.model import (
     Patron,
     Resource,
     Edition,
+    SessionManager,
 )
 
 from ..core.opds import (
@@ -130,10 +131,15 @@ class TestNavigationFeed(CirculationAppTest):
             "Quite British 2: British Harder", "John Bull", language="eng",
             fiction=True, with_open_access_download=True
         )
+        self.english_2.calculate_opds_entries()
         self.english_3 = self._work(
             "Quite British 3: Live Free or Die British", "John Bull", 
             language="eng", fiction=True, with_open_access_download=True
         )
+
+        # Force a refresh of the materialized view so that the new
+        # books show up.
+        SessionManager.refresh_materialized_views(self._db)
 
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):

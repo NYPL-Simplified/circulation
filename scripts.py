@@ -30,7 +30,7 @@ from core.opds import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
-import app
+import os
 import time
 
 class CreateWorksForIdentifiersScript(Script):
@@ -228,11 +228,21 @@ class LaneSweeperScript(Script):
         self.languages = languages or (
             self.PRIMARY_COLLECTIONS + self.OTHER_COLLECTIONS)
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+        old_testing = os.environ.get('TESTING')
+        # TODO: An awful hack to prevent the database from being
+        # initialized twice.
+        os.environ['TESTING'] = 'True'
+        import app
+        self.app = app
+        if old_testing:
+            os.environ['TESTING'] = old_testing
+        else:
+            del os.environ['TESTING']
 
     def run(self):
         begin = time.time()
-        client = app.app.test_client()
-        ctx = app.app.test_request_context(base_url=self.base_url)
+        client = self.app.app.test_client()
+        ctx = self.app.app.test_request_context(base_url=self.base_url)
         ctx.push()
         queue = [self.conf]
         while queue:
@@ -312,16 +322,15 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         annotator = CirculationManagerAnnotator(lane)
         size = 50
         for languages in self.languages:
-            for facet in app.order_field_to_database_field.keys():
+            for facet in ('title', 'author'):
                 self.last_work_seen = None
-                for i in range(2):
-                    url = app.feed_cache_url(
-                        lane, languages, facet, self.last_work_seen, size)
+                for offset in (0, size):
+                    url = self.app.feed_cache_url(
+                        lane, languages, facet, offset, size)
                     def get_method(*args, **kwargs):
-                        feed, self.last_work_seen = app.feed_and_last_work_seen(
+                        return self.app.make_feed(
                             self._db, annotator, lane, languages, facet,
-                            self.last_work_seen, size)
-                        return feed
+                            offset, size)
                     self.generate_feed(url, get_method, 10*60)
 
 
@@ -332,11 +341,11 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         return lane.sublanes
 
     def cache_url(self, annotator, lane, languages):
-        return app.acquisition_groups_cache_url(annotator, lane, languages)
+        return self.app.acquisition_groups_cache_url(annotator, lane, languages)
 
     def make_get_method(self, annotator, lane, languages):
         def get_method(*args, **kwargs):
-            return app.make_acquisition_groups(annotator, lane, languages)
+            return self.app.make_acquisition_groups(annotator, lane, languages)
         return get_method
 
 
@@ -369,11 +378,11 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
 class CacheIndividualLaneFeaturedFeeds(CacheRepresentationPerLane):
 
     def cache_url(self, annotator, lane, languages):
-        return app.featured_feed_cache_url(annotator, lane, languages)
+        return self.app.featured_feed_cache_url(annotator, lane, languages)
 
     def make_get_method(self, annotator, lane, languages):
         def get_method(*args, **kwargs):
-            return app.make_featured_feed(annotator, lane, languages)
+            return self.app.make_featured_feed(annotator, lane, languages)
         return get_method
 
     def should_process_lane(self, lane):
@@ -387,11 +396,11 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
     OTHER_COLLECTIONS = []
 
     def cache_url(self, annotator, lane, languages):
-        return app.popular_feed_cache_url(annotator, lane, languages)
+        return self.app.popular_feed_cache_url(annotator, lane, languages)
 
     def make_get_method(self, annotator, lane, languages):
         def get_method(*args, **kwargs):
-            return app.make_popular_feed(self._db, annotator, lane, languages)
+            return self.app.make_popular_feed(self._db, annotator, lane, languages)
         return get_method
 
     def should_process_lane(self, lane):
@@ -405,11 +414,11 @@ class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     OTHER_COLLECTIONS = []
 
     def cache_url(self, annotator, lane, languages):
-        return app.staff_picks_feed_cache_url(annotator, lane, languages)
+        return self.app.staff_picks_feed_cache_url(annotator, lane, languages)
 
     def make_get_method(self, annotator, lane, languages):
         def get_method(*args, **kwargs):
-            return app.make_staff_picks_feed(
+            return self.app.make_staff_picks_feed(
                 self._db, annotator, lane, languages)
         return get_method
 

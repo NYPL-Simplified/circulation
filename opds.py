@@ -8,7 +8,8 @@ from core.opds import (
     OPDSFeed,
 )
 from core.model import (
-    Session
+    Session,
+    BaseMaterializedWork,
 )
 from core.app_server import cdn_url_for
 
@@ -87,8 +88,13 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
-        identifier = active_license_pool.identifier
-        data_source = active_license_pool.data_source
+
+        if isinstance(work, BaseMaterializedWork):
+            identifier_identifier = work.identifier
+            data_source_name = work.name
+        else:
+            identifier_identifier = active_license_pool.identifier.identifier
+            data_source_name = active_license_pool.data_source.name
 
         can_borrow = False
         can_fulfill = False
@@ -113,35 +119,47 @@ class CirculationManagerAnnotator(Annotator):
 
 
         if active_license_pool.open_access:
-            rel = OPDSFeed.OPEN_ACCESS_REL
-            best_pool, best_link = active_license_pool.best_license_link
-            if best_link:
-                representation = best_link.representation
-                if representation.mirror_url:
-                    feed.add_link_to_entry(
-                        entry, rel=rel, href=representation.mirror_url,
-                        type=representation.media_type)
+            open_access_url = open_access_media_type = None
+            if isinstance(work, BaseMaterializedWork):
+                open_access_url = work.open_access_download_url
+                # TODO: This is a bad heuristic.
+                if open_access_url and open_access_url.endswith('.epub'):
+                    open_access_media_type = OPDSFeed.EPUB_MEDIA_TYPE
+            else:
+                best_pool, best_link = active_license_pool.best_license_link
+                if best_link:
+                    representation = best_link.representation
+                    if representation.mirror_url:
+                        open_access_url = representation.mirror_url
+                    open_access_media_type = representation.media_type
+
+            if open_access_url:
+                kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
+                          href=open_access_url)
+                if open_access_media_type:
+                    kw['type'] = open_access_media_type
+                feed.add_link_to_entry(entry, **kw)
         else:
             entry.extend(feed.license_tags(active_license_pool))
 
         if can_fulfill:
             fulfill_url = url_for(
-                "fulfill", data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                "fulfill", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
             feed.add_link_to_entry(entry, rel=OPDSFeed.ACQUISITION_REL,
                                    href=fulfill_url)
 
         if can_borrow:
             borrow_url = url_for(
-                "borrow", data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                "borrow", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
             feed.add_link_to_entry(entry, rel=OPDSFeed.BORROW_REL,
                                    href=borrow_url)
 
         if can_revoke:
             url = url_for(
-                'revoke_loan_or_hold', data_source=data_source.name,
-                identifier=identifier.identifier, _external=True)
+                'revoke_loan_or_hold', data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
 
             feed.add_link_to_entry(entry, rel=OPDSFeed.REVOKE_LOAN_REL,
                                    href=url)
