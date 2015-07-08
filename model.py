@@ -4209,6 +4209,7 @@ class Lane(object):
         results = None
         if search_client:
             docs = None
+            a = time.time()
             try:
                 docs = search_client.query_works(
                     query, Edition.BOOK_MEDIUM, languages, fiction,
@@ -4218,6 +4219,8 @@ class Lane(object):
                 print (
                     "Could not connect to Elasticsearch; falling back to database search."
                 )
+            b = time.time()
+            print "Elasticsearch query completed in %.2fsec" % (b-a)
 
             if docs:
                 doc_ids = [int(x['_id']) for x in docs['hits']['hits']]
