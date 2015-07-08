@@ -4621,8 +4621,8 @@ class CustomListFeed(WorkFeed):
         self.lane = lane
         self.custom_list_data_source = custom_list_data_source
         self.on_list_as_of = on_list_as_of
-        if not 'order_by' in kwargs:
-            kwargs['order_by'] = [Edition.sort_title]
+        if not 'order_facet' in kwargs:
+            kwargs['order_facet'] = ['title']
         super(CustomListFeed, self).__init__(languages, **kwargs)
 
     def base_query(self, _db):

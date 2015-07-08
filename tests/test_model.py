@@ -1577,7 +1577,7 @@ class TestWorkFeed(DatabaseTest):
 
     def test_setup(self):
         by_author = LaneFeed(self.fantasy_lane, "eng",
-                             order_by=Edition.sort_author)
+                             order_facet='author')
 
         eq_(["eng"], by_author.languages)
         eq_(self.fantasy_lane, by_author.lane)
@@ -1585,7 +1585,7 @@ class TestWorkFeed(DatabaseTest):
             by_author.order_by)
 
         by_title = LaneFeed(self.fantasy_lane, ["eng", "spa"],
-                            order_by=[Edition.sort_title])
+                            order_facet='title')
         eq_(["eng", "spa"], by_title.languages)
         eq_([Edition.sort_title, Edition.sort_author, Work.id],
             by_title.order_by)
@@ -1613,18 +1613,18 @@ class TestWorkFeed(DatabaseTest):
         eq_("Author, Another", w4.sort_author)
 
         # Order them by title, and everything's fine.
-        feed = LaneFeed(self.fantasy_lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(self.fantasy_lane, language, order_facet='title')
         eq_("title", feed.active_facet)
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
-        eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
+        eq_([w3, w4], feed.page_query(self._db, 2, 10).all())
 
         # Order them by author, and they're secondarily ordered by title.
-        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_facet='author')
         eq_("author", feed.active_facet)
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
-        eq_([w3], feed.page_query(self._db, w1, 10).all())
+        eq_([w3], feed.page_query(self._db, 3, 10).all())
 
-        eq_([], feed.page_query(self._db, w3, 10).all())
+        eq_([], feed.page_query(self._db, 4, 10).all())
 
     def test_several_books_different_authors(self):
         title = "The Title"
@@ -1645,16 +1645,16 @@ class TestWorkFeed(DatabaseTest):
                         with_license_pool=True)
 
         # Order them by author, and everything's fine.
-        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_facet='author')
         eq_([w2, w1, w3, w4], feed.page_query(self._db, None, 10).all())
-        eq_([w3, w4], feed.page_query(self._db, w1, 10).all())
+        eq_([w3, w4], feed.page_query(self._db, 2, 10).all())
 
         # Order them by title, and they're secondarily ordered by author.
-        feed = LaneFeed(lane, language, order_by=Edition.sort_title)
+        feed = LaneFeed(lane, language, order_facet='title')
         eq_([w4, w2, w1, w3], feed.page_query(self._db, None, 10).all())
-        eq_([w3], feed.page_query(self._db, w1, 10).all())
+        eq_([w3], feed.page_query(self._db, 3, 10).all())
 
-        eq_([], feed.page_query(self._db, w3, 10).all())
+        eq_([], feed.page_query(self._db, 4, 10).all())
 
     def test_several_books_same_author_and_title(self):
         
@@ -1673,22 +1673,22 @@ class TestWorkFeed(DatabaseTest):
             for i in range(4)]
 
         # WorkFeed orders them by the ID of their Editions.
-        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_facet='author')
         query = feed.page_query(self._db, None, 10)
         eq_([w1, w2, w3, w4], query.all())
 
-        # If we provide a last seen work, we only get the works
-        # after that one.
-        query = feed.page_query(self._db, w2, 10)
+        # If we provide an offset, we only get the works after the
+        # offset.
+        query = feed.page_query(self._db, 2, 10)
         eq_([w3, w4], query.all())
 
-        eq_([], feed.page_query(self._db, w4, 10).all())
+        eq_([], feed.page_query(self._db, 4, 10).all())
 
     def test_page_query_custom_filter(self):
         work = self._work()
         lane = self.fantasy_lane
         language = "eng"
-        feed = LaneFeed(lane, language, order_by=Edition.sort_author)
+        feed = LaneFeed(lane, language, order_facet='author')
         # Let's exclude the only work.
         q = feed.page_query(self._db, None, 10, Work.title != work.title)
         
