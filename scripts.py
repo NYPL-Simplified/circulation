@@ -324,14 +324,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         for languages in self.languages:
             for facet in app.order_field_to_database_field.keys():
                 self.last_work_seen = None
-                for i in range(2):
+                for offset in (0, size):
                     url = app.feed_cache_url(
-                        lane, languages, facet, self.last_work_seen, size)
+                        lane, languages, facet, offset, size)
                     def get_method(*args, **kwargs):
-                        feed, self.last_work_seen = app.feed_and_last_work_seen(
+                        return app.make_feed(
                             self._db, annotator, lane, languages, facet,
-                            self.last_work_seen, size)
-                        return feed
+                            offset, size)
                     self.generate_feed(url, get_method, 10*60)
 
 

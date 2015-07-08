@@ -721,19 +721,11 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
-def feed_url(lane, order_facet, last_work_seen, size, cdn=True):
+def feed_url(lane, order_facet, offset, size, cdn=True):
     if not lane:
         lane_name = lane
     else:
         lane_name = lane.name
-    if last_work_seen:
-        if isinstance(last_work_seen, Work):
-            after = last_work_seen.id
-        else:
-            # This is a composite object from a materialized view.
-            after = last_work_seen.works_id
-    else:
-        after = None
     if not isinstance(order_facet, basestring):
         order_facet = Conf.database_field_to_order_facet[order_facet]
     if cdn:
@@ -741,11 +733,11 @@ def feed_url(lane, order_facet, last_work_seen, size, cdn=True):
     else:
         m = url_for
     return m('feed', lane=lane_name, order=order_facet,
-             after=after, size=size, _external=True)
+             after=offset, size=size, _external=True)
 
 def feed_cache_url(lane, languages, order_facet, 
-                   last_seen_work_id, size):
-    url = feed_url(lane, order_facet, last_seen_work_id, size, cdn=False)
+                   offset, size):
+    url = feed_url(lane, order_facet, offset, size, cdn=False)
     if '?' in url:
         url += '&'
     else:
@@ -756,14 +748,7 @@ def feed_cache_url(lane, languages, order_facet,
     
 
 def make_feed(_db, annotator, lane, languages, order_facet,
-              last_work_seen, size):
-
-    return feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
-                                   last_work_seen, size)[0]
-
-
-def feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
-                            last_work_seen, size):
+              offset, size):
 
     from core.materialized_view import (
         MaterializedWorkLaneFeed,
@@ -777,7 +762,7 @@ def feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
         title = lane.name
 
     a = time.time()
-    query = work_feed.page_query(_db, last_work_seen, size)
+    query = work_feed.page_query(_db, offset, size)
     from core.model import dump_query
     print dump_query(query)
     page = query.all()
@@ -785,16 +770,17 @@ def feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
     print "Got %d results in %.2fsec." % (len(page), b-a)
 
     # Turn the set of works into an OPDS feed.
-    this_url = feed_url(lane, order_facet, last_work_seen, size)
+    this_url = feed_url(lane, order_facet, offset, size)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
 
     # Add a 'next' link unless this page is empty.
     if len(page) == 0:
-        last_work_seen = None
+        offset = None
     else:
-        last_work_seen = page[-1]
-        next_url = feed_url(lane, order_facet, last_work_seen, size)
+        offset = offset or 0
+        offset += size
+        next_url = feed_url(lane, order_facet, offset, size)
         opds_feed.add_link(rel="next", href=next_url)
 
     # Add a 'search' link.
@@ -804,13 +790,10 @@ def feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
         href=url_for('lane_search', lane=lane.name, _external=True))
     opds_feed.add_link(**search_link)
 
-    return [
-        (200,
-         {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-         unicode(opds_feed),
-     ),
-        last_work_seen
-    ]
+    return (200,
+            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+            unicode(opds_feed),
+        )
 
 
 @app.route('/feed', defaults=dict(lane=None))
@@ -820,7 +803,7 @@ def feed(lane):
     languages = languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'recommended')
-    last_seen_id = arg('after', None)
+    offset = arg('after', None)
 
     if lane not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
@@ -854,27 +837,24 @@ def feed(lane):
         size = min(size, 100)
 
         last_work_seen = None
-        last_id = arg('after', None)
-        if last_id:
+        offset = arg('after', None)
+        if offset:
             try:
-                last_id = int(last_id)
+                offset = int(offset)
             except ValueError:
-                return problem(None, "Invalid work ID: %s" % last_id, 400)
-            try:
-                last_work_seen = Conf.db.query(Work).filter(Work.id==last_id).one()
-            except NoResultFound:
-                return problem(None, "No such work id: %s" % last_id, 400)
+                return problem(None, "Invalid offset: %s" % offset, 400)
 
         cache_url = feed_cache_url(
-            lane, languages, order_facet, last_work_seen, size)
+            lane, languages, order_facet, offset, size)
         def get(*args, **kwargs):
             return make_feed(
                 Conf.db, annotator, lane, languages, order_facet,
-                last_work_seen, size)
+                offset, size)
         # Normal feeds are cached inside the database for only ten
         # minutes. There are far too many of these to update them all
         # outside the web app in a reasonable time.
         max_age = 60*10
+        max_age = 0
 
     #print "Getting feed."
     #a = time.time()
