@@ -4332,7 +4332,7 @@ class Lane(object):
                 fiction = self.FICTION_DEFAULT_FOR_GENRE
         genres = []
         if self.genres is not None:
-            genres = self.gather_matching_genres(fiction)
+            genres, fiction = self.gather_matching_genres(fiction)
             print [g.id for g in genres]
 
         if genres:
@@ -4393,6 +4393,9 @@ class Lane(object):
     def gather_matching_genres(self, fiction):
         """Find all subgenres managed by this lane which match the
         given fiction status.
+        
+        This may also turn into an additional restriction on the
+        fiction status.
         """
         fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
         if fiction_default_by_genre:
@@ -4407,7 +4410,7 @@ class Lane(object):
                 elif fiction != genre.default_fiction:
                     raise ValueError(
                         "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
-        return genres
+        return genres, fiction
 
     def works(self, languages, fiction=None, availability=Work.ALL):
         """Find Works that will go together in this Lane.
@@ -4446,7 +4449,7 @@ class Lane(object):
         #    # fiction or nonfiction not associated with any genre.
         #    q = Work.with_no_genres(q)
         if self.genres is not None:
-            genres = self.gather_matching_genres(fiction)
+            genres, fiction = self.gather_matching_genres(fiction)
             if genres:
                 q = q.join(Work.work_genres)
                 q = q.options(contains_eager(Work.work_genres))
