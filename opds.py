@@ -134,10 +134,11 @@ class CirculationManagerAnnotator(Annotator):
                     open_access_media_type = representation.media_type
 
             if open_access_url:
-                feed.add_link_to_entry(
-                    entry, rel=OPDSFeed.OPEN_ACCESS_REL, 
-                    href=open_access_url,
-                    type=open_access_media_type)
+                kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
+                          href=open_access_url)
+                if open_access_media_type:
+                    kw['type'] = open_access_media_type
+                feed.add_link_to_entry(entry, **kw)
         else:
             entry.extend(feed.license_tags(active_license_pool))
 

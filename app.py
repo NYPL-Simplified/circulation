@@ -108,6 +108,20 @@ class Conf:
     primary_collection_languages = json.loads(
         os.environ['PRIMARY_COLLECTION_LANGUAGES'])
 
+
+    # When constructing URLs, this dictionary says which value for
+    # 'order' to use, given a WorkFeed ordered by the given database
+    # field.
+    #
+    # Once the database is intialized, MaterializedWork and
+    # MaterializedWorkWithGenre will add to this dictionary.
+    database_field_to_order_facet = {
+        Edition.sort_title : "title",
+        Edition.title : "title",
+        Edition.sort_author : "author",
+        Edition.author : "author",
+    }
+
     @classmethod
     def initialize(cls, _db=None, lanes=None):
         if cls.testing:
@@ -151,6 +165,20 @@ class Conf:
             cls.adobe_vendor_id = None
 
         cls.make_authentication_document()
+
+        # Now that the database is initialized, we can import the
+        # classes based on materialized views and work with them.
+        # 
+        from core.model import (
+            MaterializedWork,
+            MaterializedWorkWithGenre,
+        )
+        df = Conf.database_field_to_order_facet
+        df[MaterializedWork.sort_title] = "title"
+        df[MaterializedWorkWithGenre.sort_title] = "title"
+        df[MaterializedWork.sort_author] = "author"
+        df[MaterializedWorkWithGenre.sort_author] = "author"
+
 
     @classmethod
     def make_authentication_document(cls):
@@ -693,36 +721,31 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
-order_field_to_database_field = {
-    'title' : Edition.title,
-    'author' : Edition.author,
-}
-database_field_to_order_field = {}
-for k, v in order_field_to_database_field.items():
-    database_field_to_order_field[v] = k
-
-
-def feed_url(lane, order_field, last_work_seen, size, cdn=True):
+def feed_url(lane, order_facet, last_work_seen, size, cdn=True):
     if not lane:
         lane_name = lane
     else:
         lane_name = lane.name
     if last_work_seen:
-        after = last_work_seen.id
+        if isinstance(last_work_seen, Work):
+            after = last_work_seen.id
+        else:
+            # This is a composite object from a materialized view.
+            after = last_work_seen.works_id
     else:
         after = None
-    if not isinstance(order_field, basestring):
-        order_field = database_field_to_order_field[order_field]
+    if not isinstance(order_facet, basestring):
+        order_facet = Conf.database_field_to_order_facet[order_facet]
     if cdn:
         m = cdn_url_for
     else:
         m = url_for
-    return m('feed', lane=lane_name, order=order_field,
+    return m('feed', lane=lane_name, order=order_facet,
              after=after, size=size, _external=True)
 
-def feed_cache_url(lane, languages, order_field, 
+def feed_cache_url(lane, languages, order_facet, 
                    last_seen_work_id, size):
-    url = feed_url(lane, order_field, last_seen_work_id, size, cdn=False)
+    url = feed_url(lane, order_facet, last_seen_work_id, size, cdn=False)
     if '?' in url:
         url += '&'
     else:
@@ -732,39 +755,46 @@ def feed_cache_url(lane, languages, order_field,
     return url + "languages=%s" % ",".join(languages)
     
 
-def make_feed(_db, annotator, lane, languages, order_field,
+def make_feed(_db, annotator, lane, languages, order_facet,
               last_work_seen, size):
 
-    return feed_and_last_work_seen(_db, annotator, lane, languages, order_field,
+    return feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
                                    last_work_seen, size)[0]
 
 
-def feed_and_last_work_seen(_db, annotator, lane, languages, order_field,
+def feed_and_last_work_seen(_db, annotator, lane, languages, order_facet,
                             last_work_seen, size):
-    if isinstance(order_field, basestring):
-        order_field = order_field_to_database_field[order_field]
-    if order_field.name == Edition.title.name:
-        title = "%s: By title" % lane.name
-    elif order_field.name == Edition.author.name:
-        title = "%s: By author" % lane.name
 
-    # Get a list of works.
-    work_feed = LaneFeed(lane, languages, order_field)
+    from core.materialized_view import (
+        MaterializedWorkLaneFeed,
+    )
+    work_feed = MaterializedWorkLaneFeed.factory(lane, languages, order_facet)
+    if order_facet == 'title':
+        title = "%s: By title" % lane.name
+    elif order_facet == 'author':
+        title = "%s: By author" % lane.name
+    else:
+        title = lane.name
+
     a = time.time()
     query = work_feed.page_query(_db, last_work_seen, size)
+    from core.model import dump_query
+    print dump_query(query)
     page = query.all()
     b = time.time()
     print "Got %d results in %.2fsec." % (len(page), b-a)
 
     # Turn the set of works into an OPDS feed.
-    this_url = feed_url(lane, order_field, last_work_seen, size)
+    this_url = feed_url(lane, order_facet, last_work_seen, size)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
 
     # Add a 'next' link unless this page is empty.
-    last_work_seen = page[-1]
-    if len(page) > 0:
-        next_url = feed_url(lane, order_field, last_work_seen, size)
+    if len(page) == 0:
+        last_work_seen = None
+    else:
+        last_work_seen = page[-1]
+        next_url = feed_url(lane, order_facet, last_work_seen, size)
         opds_feed.add_link(rel="next", href=next_url)
 
     # Add a 'search' link.
@@ -789,7 +819,7 @@ def feed_and_last_work_seen(_db, annotator, lane, languages, order_field,
 def feed(lane):
     languages = languages_for_request()
     arg = flask.request.args.get
-    order = arg('order', 'recommended')
+    order_facet = arg('order', 'recommended')
     last_seen_id = arg('after', None)
 
     if lane not in Conf.sublanes.by_name:
@@ -797,12 +827,12 @@ def feed(lane):
 
     lane = Conf.sublanes.by_name[lane]
 
-    key = (lane, ",".join(languages), order)
+    key = (lane, ",".join(languages), order_facet)
     feed_xml = None
     annotator = CirculationManagerAnnotator(lane)
 
     feed_xml = None
-    if order == 'recommended':
+    if order_facet == 'recommended':
         cache_url = featured_feed_cache_url(annotator, lane, languages)
         def get(*args, **kwargs):
             return make_featured_feed(annotator, lane, languages)
@@ -810,10 +840,11 @@ def feed(lane):
         # something running outside of this web app.
         max_age = None
     else:
-        if not order in order_field_to_database_field:
+        if not order_facet in ('title', 'author'):
             return problem(
-                None, "I don't know how to order a feed by '%s'" % order, 400)
-        order_field = order_field_to_database_field[order]
+                None,
+                "I don't know how to order a feed by '%s'" % order_facet,
+                400)
 
         size = arg('size', '50')
         try:
@@ -835,10 +866,10 @@ def feed(lane):
                 return problem(None, "No such work id: %s" % last_id, 400)
 
         cache_url = feed_cache_url(
-            lane, languages, order_field, last_work_seen, size)
+            lane, languages, order_facet, last_work_seen, size)
         def get(*args, **kwargs):
             return make_feed(
-                Conf.db, annotator, lane, languages, order_field,
+                Conf.db, annotator, lane, languages, order_facet,
                 last_work_seen, size)
         # Normal feeds are cached inside the database for only ten
         # minutes. There are far too many of these to update them all
