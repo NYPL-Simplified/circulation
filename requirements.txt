@@ -3,7 +3,7 @@ elasticsearch
 pillow
 psycopg2
 requests
-sqlalchemy
+sqlalchemy==1.0.7
 lxml
 flask
 isbnlib
