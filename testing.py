@@ -135,8 +135,11 @@ class DatabaseTest(object):
                 authors=authors,
                 with_license_pool=with_license_pool,
                 with_open_access_download=with_open_access_download)
+
         if with_license_pool:
             primary_edition, pool = primary_edition
+        if with_open_access_download:
+            primary_edition.set_open_access_link()
         if new_edition:
             primary_edition.calculate_presentation()
         work, ignore = get_one_or_create(
@@ -153,8 +156,10 @@ class DatabaseTest(object):
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
+            work.calculate_opds_entries(verbose=False)
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
+        work.primary_edition = primary_edition
         return work
 
     def _coverage_record(self, edition, coverage_source):

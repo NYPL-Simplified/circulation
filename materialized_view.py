@@ -17,8 +17,9 @@ class MaterializedWorkLaneFeed(WorkFeed):
         "author" : MaterializedWork.sort_author,
     }
     default_sort_order = [
-        MaterializedWork.sort_title, MaterializedWork.sort_author,
-        MaterializedWork.works_id]
+        MaterializedWork.sort_title, MaterializedWork.sort_author, 
+        MaterializedWork.license_pool_id
+    ]
 
     license_pool_field = MaterializedWork.license_pool
 
@@ -38,6 +39,7 @@ class MaterializedWorkLaneFeed(WorkFeed):
     def base_query(self, _db):
         return self.lane.materialized_works(self.languages)
 
+
 class MaterializedWorkWithGenreLaneFeed(MaterializedWorkLaneFeed):
 
     """A WorkFeed where all the works come from a predefined lane."""
@@ -53,6 +55,7 @@ class MaterializedWorkWithGenreLaneFeed(MaterializedWorkLaneFeed):
     default_sort_order = [
         MaterializedWorkWithGenre.sort_title,
         MaterializedWorkWithGenre.sort_author,
-        MaterializedWorkWithGenre.works_id]
+        MaterializedWork.license_pool_id,
+    ]
 
     license_pool_field = MaterializedWorkWithGenre.license_pool

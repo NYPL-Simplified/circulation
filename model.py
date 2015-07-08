@@ -4511,6 +4511,7 @@ class WorkFeed(object):
         Edition.sort_author : "author",
         Edition.author : "author"
     }
+
     default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
 
     CURRENTLY_AVAILABLE = "available"
@@ -4534,8 +4535,6 @@ class WorkFeed(object):
             self.sort_operator = operator.__gt__
         else:
             self.sort_operator = operator.__lt__
-        # In addition to the given order, we order by author,
-        # then title, then work ID.
         for i in self.default_sort_order:
             if not i in self.order_by:
                 self.order_by.append(i)
@@ -4559,34 +4558,13 @@ class WorkFeed(object):
         # By default, return every Work in the entire database.
         return Work.feed_query(_db, self.languages, self.availability)
 
-    def page_query(self, _db, last_work_seen, page_size, extra_filter=None):
+    def page_query(self, _db, offset, page_size, extra_filter=None):
         """Turn the base query into a query that retrieves a particular page 
         of works.
         """
 
         query = self.base_query(_db)
         primary_order_field = self.order_by[0]
-        if last_work_seen:
-            # Only find records that show up after the last one seen.
-            last_value = getattr(last_work_seen, primary_order_field.name)
-            if last_value is not None:
-                # This means works where the primary ordering field has a
-                # higher value.
-                clause = self.sort_operator(primary_order_field, last_value)
-
-                base_and_clause = (primary_order_field == last_value)
-                for next_order_field in self.order_by[1:]:
-                    # OR, it means works where all the previous ordering
-                    # fields have the same value as the last work seen,
-                    # and this next ordering field has a higher value.
-                    new_value = getattr(last_work_seen, next_order_field.name)
-                    if new_value != None:
-                        clause = or_(clause,
-                                     and_(base_and_clause, 
-                                          self.sort_operator(next_order_field, new_value)))
-                    base_and_clause = and_(base_and_clause,
-                                           (next_order_field == new_value))
-                query = query.filter(clause)
 
         if extra_filter is not None:
             query = query.filter(extra_filter)
@@ -4595,19 +4573,20 @@ class WorkFeed(object):
         else:
             m = lambda x: x.desc()
 
-        set_trace()
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by)
 
         if order_by:
             query = query.distinct(*self.order_by)
         else:
-            set_trace()
+            print "WARNING: No order by for feed!"
             # query = query.distinct(MaterializedWork.works_id)
 
         #query = query.options(contains_eager(Work.license_pools),
         #                      contains_eager(Work.primary_edition))
 
+        if offset:
+            query = query.offset(offset)
         if page_size:
             query = query.limit(page_size)
 
