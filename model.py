@@ -175,7 +175,7 @@ class SessionManager(object):
                 cls.MATERIALIZED_VIEW_WORKS_WORKGENRES, 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
-                Column('workgeneres_id', Integer, primary_key=True),
+                Column('workgenres_id', Integer, primary_key=True),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
                 autoload=True,
                 autoload_with=engine
@@ -202,6 +202,12 @@ class SessionManager(object):
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         return engine, engine.connect()
+
+    @classmethod
+    def refresh_materialized_views(self, _db):
+        for view_name in self.MATERIALIZED_VIEWS.keys():
+            _db.execute("refresh materialized view %s;" % view_name)
+            _db.commit()
 
     @classmethod
     def session(cls, url):
@@ -4333,7 +4339,6 @@ class Lane(object):
         genres = []
         if self.genres is not None:
             genres, fiction = self.gather_matching_genres(fiction)
-            print [g.id for g in genres]
 
         if genres:
             mw =MaterializedWorkWithGenre

@@ -538,9 +538,11 @@ class AcquisitionFeed(OPDSFeed):
             self.feed.append(entry)
 
         total_entries = len(self.feed)
-        import numpy
-        print "Feed contains %d entries, median build time %.2f" % (
-            len(totals), numpy.median(totals))
+        if len(totals):
+            print "Feed contains %d entries, build times: %r" % (
+                len(totals), totals)
+        else:
+            print "Feed is empty."
         print "Total time to build feed: %.2f" % (time.time()-first_time)
 
         for title, order, facet_group, in facet_groups:

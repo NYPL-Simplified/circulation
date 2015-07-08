@@ -31,6 +31,7 @@ from model import (
     LicensePool,
     Measurement,
     Representation,
+    SessionManager,
     Subject,
     Timestamp,
     UnresolvedIdentifier,
@@ -1475,6 +1476,51 @@ class TestLane(DatabaseTest):
         assert "Cyberpunk" in included_subgenres
         assert "Dystopian SF" not in included_subgenres
         assert "Steampunk" not in included_subgenres
+
+    def test_materialized_works(self):
+        from model import (
+            MaterializedWork,
+            MaterializedWorkWithGenre,
+        )
+
+        # Look up two genres.
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        cooking, ig = Genre.lookup(self._db, classifier.Cooking)
+
+        # Here's a fantasy book.
+        w1 = self._work(genre=fantasy, with_license_pool=True)
+        w1.simple_opds_entry = "foo"
+
+        # Here's a cooking book.
+        w2 = self._work(genre=cooking, fiction=False, with_license_pool=True)
+        w2.simple_opds_entry = "bar"
+        
+        # Refresh the materialized views so that both these books are
+        # included in the views.
+        SessionManager.refresh_materialized_views(self._db)
+
+        # Let's get materialized works from the Fantasy genre.
+        fantasy_lane = Lane(
+            self._db, full_name="Fantasy", genres=[classifier.Fantasy])
+        [materialized] = fantasy_lane.materialized_works(['eng']).all()
+
+        # This materialized work corresponds to the fantasy book. We
+        # did not get an entry for the cooking book.
+        assert isinstance(materialized, MaterializedWorkWithGenre)
+        eq_(materialized.works_id, w1.id)
+
+        # Let's get materialized works of nonfiction.
+        nonfiction_lane = Lane(
+            self._db, full_name="Nonfiction", genres=[], fiction=False)
+        [materialized] = nonfiction_lane.materialized_works().all()
+
+        # This materialized work corresponds to the fantasy book. We
+        # did not get an entry for the cooking book.
+        assert isinstance(materialized, MaterializedWork)
+        eq_(materialized.works_id, w2.id)
+
+        # Verify that the language restriction works.
+        eq_([], fantasy_lane.materialized_works(['fre']).all())
 
 class TestLaneList(DatabaseTest):
     
