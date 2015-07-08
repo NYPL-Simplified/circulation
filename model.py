@@ -129,6 +129,17 @@ class BaseMaterializedWork(object):
 
 class SessionManager(object):
 
+    # Materialized views need to be created and indexed from SQL
+    # commands kept in files. This dictionary maps the views to the
+    # SQL files.
+
+    MATERIALIZED_VIEW_WORKS = 'mv_works_editions_datasources_identifiers'
+    MATERIALIZED_VIEW_WORKS_WORKGENRES = 'mv_works_editions_workgenres_datasources_identifiers'
+    MATERIALIZED_VIEWS = {
+        MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
+        MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
+    }
+
     @classmethod
     def engine(cls, url=None):
         url = url or os.environ['DATABASE_URL']
@@ -138,9 +149,30 @@ class SessionManager(object):
     def initialize(cls, url):
         engine = cls.engine(url)
         Base.metadata.create_all(engine)
+
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files")
+
+        connection = None
+        for view_name, filename in cls.MATERIALIZED_VIEWS.items():
+            if engine.has_table(view_name):
+                continue
+            if not connection:
+                connection = engine.connect()
+            set_trace()
+            resource_file = os.path.join(resource_path, filename)
+            if not os.path.exists(resource_file):
+                raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
+            print "Loading materialized view %s from %s." % (
+                view_name, resource_file)
+            sql = open(resource_file).read()
+            connection.execute(sql)                
+        if connection:
+            connection.close()
+
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_works_editions_workgenres_datasources_identifiers', 
+                cls.MATERIALIZED_VIEW_WORKS_WORKGENRES, 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
                 Column('workgeneres_id', Integer, primary_key=True),
@@ -155,7 +187,7 @@ class SessionManager(object):
 
         class MaterializedWork(Base, BaseMaterializedWork):
             __table__ = Table(
-                'mv_works_editions_datasources_identifiers', 
+                cls.MATERIALIZED_VIEW_WORKS, 
                 Base.metadata, 
                 Column('works_id', Integer, primary_key=True),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
@@ -4462,12 +4494,12 @@ class WorkFeed(object):
     """Identify a certain page in a certain feed."""
 
     active_facet_for_field = {
-        Work.title : "title",
-        Work.sort_title : "title",
-        Work.sort_author : "author",
-        Work.author : "author"
+        Edition.title : "title",
+        Edition.sort_title : "title",
+        Edition.sort_author : "author",
+        Edition.author : "author"
     }
-    default_sort_order = [ Work.sort_title, Work.sort_author, Work.id]
+    default_sort_order = [ Edition.sort_title, Edition.sort_author, Work.id]
 
     CURRENTLY_AVAILABLE = "available"
     ALL = "all"

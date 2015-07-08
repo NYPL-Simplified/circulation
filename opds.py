@@ -15,6 +15,7 @@ import time
 import urllib
 from urlparse import urlparse, urljoin
 import md5
+from sqlalchemy.orm.query import Query
 from sqlalchemy.sql.expression import func
 from sqlalchemy.orm.session import Session
 import requests
@@ -509,12 +510,14 @@ class AcquisitionFeed(OPDSFeed):
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
         totals = []
-        a = time.time()
-        works = works.all()
-        b = time.time()
-        print "Query executed in %.2f" % (b-a)
-        annotator.cached_record = []
-        annotator.uncached_record = []
+        if isinstance(works, Query):
+            a = time.time()
+            works = works.all()
+            b = time.time()
+            print "Query executed in %.2f" % (b-a)
+        if annotator:
+            annotator.cached_record = []
+            annotator.uncached_record = []
         for work in works:
             a = time.time()
             self.add_entry(work, lane_link)
@@ -641,11 +644,12 @@ class AcquisitionFeed(OPDSFeed):
             title = (edition.title or "") + " "
         else:
             title = ""
-        if cache_hit:
-            record = self.annotator.cached_record
-        else:
-            record = self.annotator.uncached_record
-        record.append((title, after-before))
+        if self.annotator:
+            if cache_hit:
+                record = self.annotator.cached_record
+            else:
+                record = self.annotator.uncached_record
+            record.append((title, after-before))
 
         return xml
 
