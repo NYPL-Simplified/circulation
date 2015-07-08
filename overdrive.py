@@ -69,7 +69,7 @@ class OverdriveAPI(BaseOverdriveAPI):
             return self.refresh_patron_access_token(
                 credential, patron, pin)
         return Credential.lookup(
-            self._db, DataSource.OVERDRIVE, patron, refresh)
+            self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
     def refresh_patron_access_token(self, credential, patron, pin):
         payload = dict(
