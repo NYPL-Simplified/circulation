@@ -322,13 +322,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         annotator = CirculationManagerAnnotator(lane)
         size = 50
         for languages in self.languages:
-            for facet in app.order_field_to_database_field.keys():
+            for facet in ('title', 'author'):
                 self.last_work_seen = None
                 for offset in (0, size):
-                    url = app.feed_cache_url(
+                    url = self.app.feed_cache_url(
                         lane, languages, facet, offset, size)
                     def get_method(*args, **kwargs):
-                        return app.make_feed(
+                        return self.app.make_feed(
                             self._db, annotator, lane, languages, facet,
                             offset, size)
                     self.generate_feed(url, get_method, 10*60)
