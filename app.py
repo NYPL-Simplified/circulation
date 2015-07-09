@@ -938,7 +938,7 @@ def lane_search(lane):
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)
     # Run a search.    
-    results = lane.search(languages, query, Conf.search, 50)
+    results = lane.search(languages, query, Conf.search, 30)
     info = OpenSearchDocument.search_info(lane)
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
