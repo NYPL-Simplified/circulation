@@ -29,7 +29,7 @@ class ExternalSearchIndex(Elasticsearch):
                 filter=self.make_filter(
                     medium, languages, fiction, audience,
                     in_any_of_these_genres),
-            )
+            ),
         )
         body = dict(query=q)
         args = dict(
@@ -47,7 +47,7 @@ class ExternalSearchIndex(Elasticsearch):
         must_multi_match = dict(
             multi_match=dict(
             query=query_string,
-            fields=["title^2", "author^2", "subtitle"],
+            fields=["title^4", "author^4", "subtitle^3"],
             type="best_fields"
         ))
         should_multi_match = dict(
@@ -57,7 +57,8 @@ class ExternalSearchIndex(Elasticsearch):
             type="best_fields"
         ))
         return dict(bool=dict(must=[must_multi_match],
-                              should=[should_multi_match]))
+                              should=[should_multi_match]),
+        )
 
     def make_filter(self, medium, languages, fiction, audience, genres):
         def _f(s):

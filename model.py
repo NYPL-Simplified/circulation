@@ -3120,6 +3120,7 @@ class Work(Base):
                    rating = self.rating,
                    popularity = self.popularity,
                    was_merged_into_id = self.was_merged_into_id,
+                   license_pool_id=self.primary_edition.license_pool.id
                )
 
         contribution_desc = []
@@ -4214,7 +4215,8 @@ class Lane(object):
                 docs = search_client.query_works(
                     query, Edition.BOOK_MEDIUM, languages, fiction,
                     self.audience,
-                    self.all_matching_genres, fields=["_id"])
+                    self.all_matching_genres,
+                    fields=["_id", "title", "author", "license_pool_id"])
             except elasticsearch.exceptions.ConnectionError, e:
                 print (
                     "Could not connect to Elasticsearch; falling back to database search."
