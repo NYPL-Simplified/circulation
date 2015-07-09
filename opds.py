@@ -439,6 +439,8 @@ class AcquisitionFeed(OPDSFeed):
         feed_size = 20
         _db = None
         all_works = []
+        if isinstance(languages, basestring):
+            languages = [languages]
         for l in lane.sublanes:
             if not _db:
                 _db = l._db
