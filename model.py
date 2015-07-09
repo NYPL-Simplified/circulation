@@ -3120,7 +3120,6 @@ class Work(Base):
                    rating = self.rating,
                    popularity = self.popularity,
                    was_merged_into_id = self.was_merged_into_id,
-                   license_pool_id=self.primary_edition.license_pool.id
                )
 
         contribution_desc = []
