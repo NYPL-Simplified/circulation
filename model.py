@@ -4216,7 +4216,9 @@ class Lane(object):
                     query, Edition.BOOK_MEDIUM, languages, fiction,
                     self.audience,
                     self.all_matching_genres,
-                    fields=["_id", "title", "author", "license_pool_id"])
+                    fields=["_id", "title", "author", "license_pool_id"],
+                    limit=limit
+                )
             except elasticsearch.exceptions.ConnectionError, e:
                 print (
                     "Could not connect to Elasticsearch; falling back to database search."
@@ -4224,23 +4226,24 @@ class Lane(object):
             b = time.time()
             print "Elasticsearch query completed in %.2fsec" % (b-a)
 
+            results = []
             if docs:
-                doc_ids = [int(x['_id']) for x in docs['hits']['hits']]
-                q = self._db.query(Work).filter(
-                    Work.id.in_(doc_ids)).options(
-                        defer(Work.verbose_opds_entry)
-                    )
-                print "Trying to match Elasticsearch hits to Work objects."
-                work_by_id = dict()
-                a = time.time()
-                works = q.all()
-                for w in works:
-                    work_by_id[w.id] = w
-                #print "Work by id:", work_by_id
-                print "Doc IDs:", doc_ids
-                results = [work_by_id[x] for x in doc_ids if x in work_by_id]
-                b = time.time()
-                print "Obtained Work objects in %.2fsec" % (b-a)
+                doc_ids = [
+                    int(x['_id']) for x in docs['hits']['hits']
+                ]
+                if doc_ids:
+                    from model import MaterializedWork
+                    q = self._db.query(MaterializedWork).filter(
+                        MaterializedWork.works_id.in_(doc_ids))
+                    work_by_id = dict()
+                    a = time.time()
+                    works = q.all()
+                    for mw in works:
+                        work_by_id[mw.works_id] = mw
+                    results = [work_by_id[x] for x in doc_ids if x in work_by_id]
+                    b = time.time()
+                    print "Obtained %d MaterializedWork objects in %.2fsec" % (
+                        len(results), b-a)
 
         if not results:
             results = self._search_database(languages, fiction, query).limit(limit)

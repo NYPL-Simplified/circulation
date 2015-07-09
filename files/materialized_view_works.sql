@@ -48,3 +48,4 @@ create index mv_works_editions_yachild_fiction_author_iden on mv_works_editions_
 create index mv_works_editions_yachild_nonfiction_author_iden on mv_works_editions_datasources_identifiers (sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 create index mv_works_editions_yachild_nonfiction_title_iden on mv_works_editions_datasources_identifiers (sort_title, sort_author, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 ;
+create index mv_works_editions_work_id on mv_works_editions_datasources_identifiers (works_id);

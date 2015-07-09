@@ -21,7 +21,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.indices.create(self.works_index)
 
     def query_works(self, query_string, medium, languages, fiction, audience,
-                    in_any_of_these_genres=[], fields=None):
+                    in_any_of_these_genres=[], fields=None, limit=50):
         print "Performing Elasticsearch query for %s" % query_string
         if not self.works_index:
             return []
@@ -36,7 +36,8 @@ class ExternalSearchIndex(Elasticsearch):
         body = dict(query=q)
         args = dict(
             index=self.works_index,
-            body=dict(query=q)
+            body=dict(query=q),
+            size=limit,
         )
         if fields is not None:
             args['fields'] = fields
