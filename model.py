@@ -4195,7 +4195,7 @@ class Lane(object):
                                 _db, self, genredata.subgenres)
 
 
-    def search(self, languages, query, search_client, limit=50):
+    def search(self, languages, query, search_client, limit=30):
         """Find works in this lane that match a search query.
         """        
         if isinstance(languages, basestring):
