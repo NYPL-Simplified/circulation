@@ -6,12 +6,14 @@ class ExternalSearchIndex(Elasticsearch):
     
     work_document_type = 'work-type'
     
-    def __init__(self, url=None, works_index=None):
+    def __init__(self, url=None, works_index=None, fallback_to_dummy=True):
         url = url or os.environ.get('SEARCH_SERVER_URL')
         self.works_index = works_index or os.environ.get('SEARCH_WORKS_INDEX')
         use_ssl = url and url.startswith('https://')
         print "Connecting to Elasticsearch cluster at %s" % url
         super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
+        if not url and not fallback_to_dummy:
+            raise Exception("Cannot connect to Elasticsearch cluster.")
         if self.works_index:
             print ("Does the index already exist? %r" % self.indices.exists(
                 self.works_index))
