@@ -4231,9 +4231,13 @@ class Lane(object):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    from model import MaterializedWork
-                    q = self._db.query(MaterializedWork).filter(
-                        MaterializedWork.works_id.in_(doc_ids))
+                    from model import MaterializedWork as mw
+                    q = self._db.query(mw).filter(mw.works_id.in_(doc_ids))
+                    q = q.options(
+                        lazyload(mw.license_pool, LicensePool.data_source),
+                        lazyload(mw.license_pool, LicensePool.identifier),
+                        lazyload(mw.license_pool, LicensePool.edition),
+                    )
                     work_by_id = dict()
                     a = time.time()
                     works = q.all()
