@@ -3,10 +3,12 @@ from nose.tools import set_trace
 import os
 from sqlalchemy import or_
 from core.monitor import (
+    EditionSweepMonitor,
     IdentifierSweepMonitor,
     WorkSweepMonitor,
 )
 from core.model import (
+    DataSource,
     Edition,
     Hyperlink,
     Identifier,
@@ -175,7 +177,7 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
             "Index Update Monitor", 
             interval_seconds)
         self.batch_size = batch_size
-        self.search_index_client = ExternalSearchIndex()
+        self.search_index_client = ExternalSearchIndex(fallback_to_dummy=False)
 
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)
@@ -303,3 +305,23 @@ class MakePresentationReady(object):
                 edition.work.presentation_ready_exception = message
                 edition.work.presentation_ready_attempt = now
         self._db.commit()
+
+class UpdateOpenAccessURL(EditionSweepMonitor):
+    """Set Edition.open_access_full_url for all Gutenberg works."""
+
+    def __init__(self, _db, batch_size=100, interval_seconds=600):
+        super(UpdateOpenAccessURL, self).__init__(
+            _db, 
+            "Update open access URLs for Gutenberg editions", 
+            interval_seconds)
+        self.make_presentation_ready = MakePresentationReady(self._db)
+        self.batch_size = batch_size
+    
+    def edition_query(self):
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        return self._db.query(Edition).filter(
+            Edition.data_source==gutenberg)
+
+    def process_edition(self, edition):
+        edition.set_open_access_link()
+

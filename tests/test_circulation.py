@@ -25,11 +25,16 @@ from ..core.model import (
     Patron,
     Resource,
     Edition,
+    SessionManager,
 )
 
 from ..core.opds import (
     OPDSFeed,
 )
+from ..core.util.opds_authentication_document import (
+    OPDSAuthenticationDocument
+)
+
 
 class CirculationTest(DatabaseTest):
 
@@ -102,10 +107,10 @@ class CirculationAppTest(CirculationTest):
 
 class TestNavigationFeed(CirculationAppTest):
 
-    def test_root_redirects_to_navigation_feed(self):
+    def test_root_redirects_to_groups_feed(self):
         response = self.client.get('/')
         eq_(302, response.status_code)
-        assert response.headers['Location'].endswith('/lanes/')
+        assert response.headers['Location'].endswith('/groups/')
 
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
@@ -126,10 +131,15 @@ class TestNavigationFeed(CirculationAppTest):
             "Quite British 2: British Harder", "John Bull", language="eng",
             fiction=True, with_open_access_download=True
         )
+        self.english_2.calculate_opds_entries()
         self.english_3 = self._work(
             "Quite British 3: Live Free or Die British", "John Bull", 
             language="eng", fiction=True, with_open_access_download=True
         )
+
+        # Force a refresh of the materialized view so that the new
+        # books show up.
+        SessionManager.refresh_materialized_views(self._db)
 
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):
@@ -286,8 +296,11 @@ class TestCheckout(CirculationAppTest):
             response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
             eq_(401, response.status_code)
+            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, 
+                response.headers['Content-Type'])
             detail = json.loads(response.data)
-            eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+            assert 'id' in detail
+            assert 'labels' in detail
 
     def test_checkout_with_bad_authentication_fails(self):
         with self.app.test_request_context(
@@ -295,8 +308,11 @@ class TestCheckout(CirculationAppTest):
             response = self.circulation.borrow(
                 self.data_source.name, self.identifier.identifier)
         eq_(401, response.status_code)
+        eq_(OPDSAuthenticationDocument.MEDIA_TYPE, 
+            response.headers['Content-Type'])
         detail = json.loads(response.data)
-        eq_(self.circulation.INVALID_CREDENTIALS_PROBLEM, detail['type'])
+        assert 'id' in detail
+        assert 'labels' in detail
         
     def test_checkout_success(self):
         with self.app.test_request_context(

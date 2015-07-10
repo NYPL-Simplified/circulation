@@ -167,7 +167,6 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         db.commit()
         return patron
 
-
 class DummyMilleniumPatronAPI(MilleniumPatronAPI):
 
 

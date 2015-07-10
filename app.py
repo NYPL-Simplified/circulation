@@ -1,12 +1,14 @@
 from functools import wraps
 from nose.tools import set_trace
 import datetime
+import json
 import random
 import time
 import os
 import sys
 import traceback
 import urlparse
+import uuid
 
 from sqlalchemy.orm.exc import (
     NoResultFound
@@ -31,6 +33,7 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
+from adobe_vendor_id import AdobeVendorIDController
 from overdrive import (
     OverdriveAPI,
     DummyOverdriveAPI,
@@ -73,13 +76,20 @@ from core.opds import (
 import urllib
 from core.util.flask_util import (
     problem,
+    problem_raw,
     languages_for_request
 )
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from millenium_patron import (
     DummyMilleniumPatronAPI,
     MilleniumPatronAPI,
 )
 from lanes import make_lanes
+
+if False:
+    import logging
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 feed_cache = dict()
 
@@ -95,6 +105,22 @@ class Conf:
     auth = None
     search = None
     policy = None
+    primary_collection_languages = json.loads(
+        os.environ['PRIMARY_COLLECTION_LANGUAGES'])
+
+
+    # When constructing URLs, this dictionary says which value for
+    # 'order' to use, given a WorkFeed ordered by the given database
+    # field.
+    #
+    # Once the database is intialized, MaterializedWork and
+    # MaterializedWorkWithGenre will add to this dictionary.
+    database_field_to_order_facet = {
+        Edition.sort_title : "title",
+        Edition.title : "title",
+        Edition.sort_author : "author",
+        Edition.author : "author",
+    }
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
@@ -125,6 +151,57 @@ class Conf:
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
 
+        vendor_id = os.environ.get('ADOBE_VENDOR_ID')
+        node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
+        if vendor_id and node_value:
+            cls.adobe_vendor_id = AdobeVendorIDController(
+                cls.db,
+                vendor_id,
+                node_value,
+                cls.auth
+            )
+        else:
+            print "Adobe Vendor ID controller is disabled due to absence of ADOBE_VENDOR_ID or ADOBE_VENDOR_ID_NODE_VALUE environment variables."
+            cls.adobe_vendor_id = None
+
+        cls.make_authentication_document()
+
+        # Now that the database is initialized, we can import the
+        # classes based on materialized views and work with them.
+        # 
+        from core.model import (
+            MaterializedWork,
+            MaterializedWorkWithGenre,
+        )
+        df = Conf.database_field_to_order_facet
+        df[MaterializedWork.sort_title] = "title"
+        df[MaterializedWorkWithGenre.sort_title] = "title"
+        df[MaterializedWork.sort_author] = "author"
+        df[MaterializedWorkWithGenre.sort_author] = "author"
+
+
+    @classmethod
+    def make_authentication_document(cls):
+        base_opds_document = os.environ.get(
+            'OPDS_AUTHENTICATION_DOCUMENT')
+        if base_opds_document:
+            base_opds_document = json.loads(base_opds_document)
+        else:
+            base_opds_document = {}
+
+        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
+        content_server_url = os.environ['CIRCULATION_WEB_APP_URL']
+        scheme, netloc, path, parameters, query, fragment = (
+            urlparse.urlparse(content_server_url))
+        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
+
+        doc = OPDSAuthenticationDocument.fill_in(
+            base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
+            "PIN",
+            )
+
+        cls.opds_authentication_document = json.dumps(doc)
+
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
     # It's the test's responsibility to call initialize()
@@ -136,6 +213,7 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.debug = True
 
+CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
 INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
 EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-expired"
@@ -151,6 +229,7 @@ NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-
 COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
 NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
+
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -176,10 +255,11 @@ def authenticated_patron(barcode, pin):
 
 
 def authenticate(uri, title):
-    """Sends a 401 response that enables basic auth"""
-    return problem(
-        uri, title, 401,
-        headers= { 'WWW-Authenticate' : 'Basic realm="Library card"'})
+    """Sends a 401 response that demands basic auth."""
+    data = Conf.opds_authentication_document
+    headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
+               'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+    return Response(data, 401, headers)
 
 def requires_auth(f):
     @wraps(f)
@@ -206,6 +286,8 @@ def featured_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_featured_feed(annotator, lane, languages):
@@ -229,6 +311,8 @@ def acquisition_groups_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_acquisition_groups(annotator, lane, languages):
@@ -263,6 +347,8 @@ def popular_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_popular_feed(_db, annotator, lane, languages):
@@ -313,6 +399,8 @@ def staff_picks_feed_cache_url(annotator, lane, languages):
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
 def make_staff_picks_feed(_db, annotator, lane, languages):
@@ -355,11 +443,19 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
 
 @app.route('/')
 def index():    
-    return redirect(cdn_url_for('navigation_feed'))
+    return redirect(cdn_url_for('acquisition_groups'))
 
 @app.route('/heartbeat')
 def hearbeat():
     return HeartbeatController().heartbeat()
+
+ping_controller_path = os.environ.get('PING_CONTROLLER_PATH')
+if ping_controller_path:
+    print "Setting up ping controller at %s" % ping_controller_path
+    @app.route(ping_controller_path)
+    def ping():
+        return HeartbeatController().heartbeat()
+
 
 @app.route('/service_status')
 def service_status():
@@ -479,11 +575,25 @@ def acquisition_groups(lane):
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
+        for l in languages:
+            if l in Conf.primary_collection_languages:
+                # Attempting to create a groups feed for a primary
+                # collection language will hang the database. It also
+                # should never be necessary, since that stuff is
+                # supposed to be precalculated by a script. It's
+                # better to just refuse to do the work.
+                return problem_raw(
+                    CANNOT_GENERATE_FEED_PROBLEM,
+                    "Refusing to dynamically create a groups feed for a primary collection language (%s). This feed must be precalculated." % l, 400)
+
         return make_acquisition_groups(annotator, lane, languages)
+    a = time.time()
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=None)
     feed_xml = feed_rep.content
+    b = time.time()
+    print "That took %.2f, cached=%r" % (b-a, cached)
     return feed_response(feed_xml, acquisition=True)
 
 
@@ -619,69 +729,66 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='DELETE':
         return revoke_loan_or_hold(data_source, identifier)
 
-order_field_to_database_field = {
-    'title' : Edition.title,
-    'author' : Edition.author,
-}
-database_field_to_order_field = {}
-for k, v in order_field_to_database_field.items():
-    database_field_to_order_field[v] = k
-
-
-def feed_url(lane, order_field, last_work_seen, size, cdn=True):
+def feed_url(lane, order_facet, offset, size, cdn=True):
     if not lane:
         lane_name = lane
     else:
         lane_name = lane.name
-    if last_work_seen:
-        after = last_work_seen.id
-    else:
-        after = None
-    if not isinstance(order_field, basestring):
-        order_field = database_field_to_order_field[order_field]
+    if not isinstance(order_facet, basestring):
+        order_facet = Conf.database_field_to_order_facet[order_facet]
     if cdn:
         m = cdn_url_for
     else:
         m = url_for
-    return m('feed', lane=lane_name, order=order_field,
-             after=after, size=size, _external=True)
+    return m('feed', lane=lane_name, order=order_facet,
+             after=offset, size=size, _external=True)
 
-def feed_cache_url(lane, languages, order_field, 
-                   last_seen_work_id, size):
-    url = feed_url(lane, order_field, last_seen_work_id, size, cdn=False)
+def feed_cache_url(lane, languages, order_facet, 
+                   offset, size):
+    url = feed_url(lane, order_facet, offset, size, cdn=False)
     if '?' in url:
         url += '&'
     else:
         url += '?'
+    if isinstance(languages, basestring):
+        languages = [languages]
     return url + "languages=%s" % ",".join(languages)
     
 
-def make_feed(_db, annotator, lane, languages, order_field,
-              last_work_seen, size):
+def make_feed(_db, annotator, lane, languages, order_facet,
+              offset, size):
 
-    if isinstance(order_field, basestring):
-        order_field = order_field_to_database_field[order_field]
-    if order_field.name == Edition.title.name:
+    from core.materialized_view import (
+        MaterializedWorkLaneFeed,
+    )
+    work_feed = MaterializedWorkLaneFeed.factory(lane, languages, order_facet)
+    if order_facet == 'title':
         title = "%s: By title" % lane.name
-    elif order_field.name == Edition.author.name:
+    elif order_facet == 'author':
         title = "%s: By author" % lane.name
+    else:
+        title = lane.name
 
-    # Get a list of works.
-    work_feed = LaneFeed(lane, languages, order_field)
     a = time.time()
-    query = work_feed.page_query(_db, last_work_seen, size)
+    query = work_feed.page_query(_db, offset, size)
+    from core.model import dump_query
+    print dump_query(query)
     page = query.all()
     b = time.time()
     print "Got %d results in %.2fsec." % (len(page), b-a)
 
     # Turn the set of works into an OPDS feed.
-    this_url = feed_url(lane, order_field, last_work_seen, size)
+    this_url = feed_url(lane, order_facet, offset, size)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
 
     # Add a 'next' link unless this page is empty.
-    if len(page) > 0:
-        next_url = feed_url(lane, order_field, page[-1], size)
+    if len(page) == 0:
+        offset = None
+    else:
+        offset = offset or 0
+        offset += size
+        next_url = feed_url(lane, order_facet, offset, size)
         opds_feed.add_link(rel="next", href=next_url)
 
     # Add a 'search' link.
@@ -693,8 +800,8 @@ def make_feed(_db, annotator, lane, languages, order_field,
 
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-            unicode(opds_feed)
-    )
+            unicode(opds_feed),
+        )
 
 
 @app.route('/feed', defaults=dict(lane=None))
@@ -703,20 +810,20 @@ def make_feed(_db, annotator, lane, languages, order_field,
 def feed(lane):
     languages = languages_for_request()
     arg = flask.request.args.get
-    order = arg('order', 'recommended')
-    last_seen_id = arg('after', None)
+    order_facet = arg('order', 'recommended')
+    offset = arg('after', None)
 
     if lane not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
 
     lane = Conf.sublanes.by_name[lane]
 
-    key = (lane, ",".join(languages), order)
+    key = (lane, ",".join(languages), order_facet)
     feed_xml = None
     annotator = CirculationManagerAnnotator(lane)
 
     feed_xml = None
-    if order == 'recommended':
+    if order_facet == 'recommended':
         cache_url = featured_feed_cache_url(annotator, lane, languages)
         def get(*args, **kwargs):
             return make_featured_feed(annotator, lane, languages)
@@ -724,10 +831,11 @@ def feed(lane):
         # something running outside of this web app.
         max_age = None
     else:
-        if not order in order_field_to_database_field:
+        if not order_facet in ('title', 'author'):
             return problem(
-                None, "I don't know how to order a feed by '%s'" % order, 400)
-        order_field = order_field_to_database_field[order]
+                None,
+                "I don't know how to order a feed by '%s'" % order_facet,
+                400)
 
         size = arg('size', '50')
         try:
@@ -737,31 +845,26 @@ def feed(lane):
         size = min(size, 100)
 
         last_work_seen = None
-        last_id = arg('after', None)
-        if last_id:
+        offset = arg('after', None)
+        if offset:
             try:
-                last_id = int(last_id)
+                offset = int(offset)
             except ValueError:
-                return problem(None, "Invalid work ID: %s" % last_id, 400)
-            try:
-                last_work_seen = Conf.db.query(Work).filter(Work.id==last_id).one()
-            except NoResultFound:
-                return problem(None, "No such work id: %s" % last_id, 400)
+                return problem(None, "Invalid offset: %s" % offset, 400)
 
-        cache_url = feed_cache_url(
-            lane, languages, order_field, last_work_seen, size)
-        def get(*args, **kwargs):
-            return make_feed(
-                Conf.db, annotator, lane, languages, order_field,
-                last_work_seen, size)
-        # Normal feeds are cached inside the database for only two
-        # minutes. There are far too many of these to update them all
-        # outside the web app in a reasonable time.
-        max_age = 60*2
+        status, media_type, feed_xml = make_feed(
+            Conf.db, annotator, lane, languages, order_facet,
+            offset, size)
+        return feed_response(feed_xml)
 
+    #print "Getting feed."
+    #a = time.time()
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=max_age)
+    #b = time.time()
+    #print "That took %.2f, cached=%r" % (b-a, cached)
+
     if feed_rep.fetch_exception:
         print "ERROR:", feed_rep.fetch_exception
     feed_xml = feed_rep.content
@@ -835,7 +938,7 @@ def lane_search(lane):
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)
     # Run a search.    
-    results = lane.search(languages, query, Conf.search, 50)
+    results = lane.search(languages, query, Conf.search, 30)
     info = OpenSearchDocument.search_info(lane)
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
@@ -1035,7 +1138,24 @@ def borrow(data_source, identifier):
     #content = unicode(feed)
     #return Response(content, status_code, headers)
 
-print __name__
+# Adobe Vendor ID implementation
+@app.route('/AdobeAuth/authdata')
+@requires_auth
+def adobe_vendor_id_get_token():
+    return Conf.adobe_vendor_id.create_authdata_handler(flask.request.patron)
+
+@app.route('/AdobeAuth/SignIn', methods=['POST'])
+def adobe_vendor_id_signin():
+    return Conf.adobe_vendor_id.signin_handler()
+
+@app.route('/AdobeAuth/AccountInfo', methods=['POST'])
+def adobe_vendor_id_accountinfo():
+    return Conf.adobe_vendor_id.userinfo_handler()
+
+@app.route('/AdobeAuth/Status')
+def adobe_vendor_id_status():
+    return Conf.adobe_vendor_id.status_handler()
+
 if __name__ == '__main__':
     debug = True
     url = os.environ['CIRCULATION_WEB_APP_URL']
