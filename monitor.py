@@ -110,7 +110,8 @@ class LicensePoolButNoEditionPresentationReadyMonitor(IdentifierSweepMonitor):
                 [
                     Identifier.GUTENBERG_ID, 
                     Identifier.OVERDRIVE_ID,
-                    Identifier.THREEM_ID
+                    Identifier.THREEM_ID,
+                    Identifier.AXIS_360_ID,
                     ]
                 )
             )
@@ -158,7 +159,8 @@ class LicensePoolButNoWorkPresentationReadyMonitor(IdentifierSweepMonitor):
                 [
                     Identifier.GUTENBERG_ID, 
                     Identifier.OVERDRIVE_ID,
-                    Identifier.THREEM_ID
+                    Identifier.THREEM_ID,
+                    Identifier.AXIS_360_ID,
                     ]
                 )
             )
@@ -211,7 +213,21 @@ class MakePresentationReady(object):
         self.content_lookup = SimplifiedOPDSLookup(content_server_url)
         self.search_index = ExternalSearchIndex()
 
+    def replace_ids(self, batch):
+        new_batch = []
+        for identifier in batch:
+            if identifier.type != Identifier.AXIS_360_ID:
+                new_batch.append(identifier)
+                continue
+            # The metadata wrangler can't look up Axis 360 identifiers,
+            # so look up the corresponding ISBNs instead.
+            for e in identifier.equivalencies:
+                if e.output.type == Identifier.ISBN:
+                    new_batch.append(e.output)
+        return new_batch
+
     def process_batch(self, batch):
+        batch = self.replace_ids(batch)
         print "%d batch" % len(batch)
         response = self.lookup.lookup(batch)
         print "Response!"

@@ -40,9 +40,6 @@ class Axis360CirculationMonitor(Monitor):
         super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
-        _db = self._db
-        added_books = 0
-        print start
         availability = self.api.availability(start)
         status_code = availability.status_code
         content = availability.content
