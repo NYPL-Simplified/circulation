@@ -557,6 +557,11 @@ class ThreeMEventMonitor(Monitor):
                              self.account_key)
 
     def slice_timespan(self, start, cutoff, increment):
+        """Slice a span of time into segements no large than [increment].
+
+        This lets you divide up a task like "gather the entire
+        circulation history for a collection" into chunks of one day.
+        """
         slice_start = start
         while slice_start < cutoff:
             full_slice = True
@@ -629,9 +634,9 @@ class ThreeMEventMonitor(Monitor):
                 type=CirculationEvent.TITLE_ADD,
                 license_pool=license_pool,
                 create_method_kwargs=dict(
-                    start=license_pool.last_checked,
+                    start=license_pool.last_checked or start_time,
                     delta=1,
-                    end=license_pool.last_checked,
+                    end=license_pool.last_checked or end_time,
                 )
             )
         title = edition.title
