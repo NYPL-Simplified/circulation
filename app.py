@@ -1073,9 +1073,9 @@ def borrow(data_source, identifier):
             NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that book.", 404)
 
-    problem = _apply_borrowing_policy(patron, pool)
-    if problem:
-        return problem
+    problem_doc = _apply_borrowing_policy(patron, pool)
+    if problem_doc:
+        return problem_doc
 
     # Try to find an existing loan.
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
