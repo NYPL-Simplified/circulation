@@ -475,11 +475,7 @@ class DataSource(Base):
 
     @classmethod
     def lookup(cls, _db, name):
-        try:
-            q = _db.query(cls).filter_by(name=name)
-            return q.one()
-        except NoResultFound:
-            return None
+        return _db.data_sources.get(name)
 
     @classmethod
     def license_source_for(cls, _db, identifier):
@@ -498,30 +494,47 @@ class DataSource(Base):
         return q.one()
 
     @classmethod
-    def well_known_sources(cls, _db):
-        """Make sure all the well-known sources exist."""
+    def metadata_sources_for(cls, _db, identifier):
+        """Finds the DataSources that provide metadata for books
+        identified by the given identifier.
+        """       
+        if isinstance(identifier, basestring):
+            type = identifier
+        else:
+            type = identifier.type
 
-        for (name, offers_licenses, primary_identifier_type, refresh_rate) in (
-                (cls.GUTENBERG, True, Identifier.GUTENBERG_ID, None),
-                (cls.OVERDRIVE, True, Identifier.OVERDRIVE_ID, 0),
-                (cls.THREEM, True, Identifier.THREEM_ID, 60*60*6),
-                (cls.AXIS_360, True, Identifier.AXIS_360_ID, 0),
-                (cls.OCLC, False, Identifier.OCLC_NUMBER, None),
-                (cls.OCLC_LINKED_DATA, False, Identifier.OCLC_NUMBER, None),
-                (cls.AMAZON, False, Identifier.ASIN, None),
-                (cls.OPEN_LIBRARY, False, Identifier.OPEN_LIBRARY_ID, None),
-                (cls.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID, None),
-                (cls.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID, None),
-                (cls.WEB, True, Identifier.URI, None),
-                (cls.VIAF, False, None, None),
-                (cls.CONTENT_CAFE, False, None, None),
-                (cls.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID, None),
-                (cls.MANUAL, False, None, None),
-                (cls.NYT, False, Identifier.ISBN, None),
-                (cls.LIBRARY_STAFF, False, Identifier.ISBN, None),
-                (cls.METADATA_WRANGLER, False, Identifier.URI, None),
-                (cls.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID, None),
-                (cls.ADOBE, False, None, None),
+        return _db.metadata_lookups_by_identifier_type[identifier.type]
+
+    @classmethod
+    def well_known_sources(cls, _db):
+        """Make sure all the well-known sources exist and are loaded into
+        the cache associated with the database connection.
+        """
+
+        _db.data_sources = dict()
+        _db.metadata_lookups_by_identifier_type = defaultdict(list)
+
+        for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
+                (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
+                (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
+                (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
+                (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
+                (cls.OCLC, False, False, Identifier.OCLC_NUMBER, None),
+                (cls.OCLC_LINKED_DATA, False, False, Identifier.OCLC_NUMBER, None),
+                (cls.AMAZON, False, False, Identifier.ASIN, None),
+                (cls.OPEN_LIBRARY, False, False, Identifier.OPEN_LIBRARY_ID, None),
+                (cls.GUTENBERG_COVER_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
+                (cls.GUTENBERG_EPUB_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
+                (cls.WEB, True, False, Identifier.URI, None),
+                (cls.VIAF, False, False, None, None),
+                (cls.CONTENT_CAFE, True, True, Identifier.ISBN, None),
+                (cls.BIBLIOCOMMONS, False, False, Identifier.BIBLIOCOMMONS_ID, None),
+                (cls.MANUAL, False, False, None, None),
+                (cls.NYT, False, False, Identifier.ISBN, None),
+                (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
+                (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
+                (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
+                (cls.ADOBE, False, False, None, None),
         ):
 
             extra = dict()
@@ -537,6 +550,11 @@ class DataSource(Base):
                     extra=extra,
                 )
             )
+
+            _db.data_sources[obj.name] = obj
+            if offers_metadata_lookup:
+                l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
+                l.append(obj)
             yield obj
 
 
@@ -786,7 +804,7 @@ class Identifier(Base):
 
         if must_support_license_pools:
             try:
-                DataSource.license_source_for(_db, type)
+                ls = DataSource.license_source_for(_db, type)
             except NoResultFound:
                 raise Identifier.UnresolvableIdentifierException()
             except MultipleResultsFound:
@@ -1305,15 +1323,20 @@ class UnresolvedIdentifier(Base):
             raise ValueError(
                 "%r has already been resolved. Not creating an UnresolvedIdentifier record for it." % identifier)
 
-        try:
-            datasource = DataSource.license_source_for(_db, identifier)
-        except MultipleResultsFound:
-            # This is fine--we'll just try every source we know of until
-            # we find one.
-            pass
-        except NoResultFound:
-            # This is not okay--we have no way of resolving this identifier.
-            raise Identifier.UnresolvableIdentifierException()
+        # There must be some way of 'resolving' the work to be done
+        # here: either a license source or a metadata lookup.
+        has_metadata_lookup = DataSource.metadata_sources_for(_db, identifier)
+
+        if not has_metadata_lookup:
+            try:
+                datasource = DataSource.license_source_for(_db, identifier)
+            except MultipleResultsFound:
+                # This is fine--we'll just try every source we know of until
+                # we find one.
+                pass
+            except NoResultFound:
+                # This is not okay--we have no way of resolving this identifier.
+                raise Identifier.UnresolvableIdentifierException()
 
         return get_one_or_create(
             _db, UnresolvedIdentifier, identifier=identifier,

@@ -10,7 +10,13 @@ from opds import (
     LookupAcquisitionFeed,
     OPDSFeed,
 )
+from sqlalchemy.orm.exc import (
+    NoResultFound,
+)
 from model import (
+    get_one,
+    CoverageRecord,
+    DataSource,
     Edition,
     Identifier,
     Patron,
@@ -73,7 +79,7 @@ class URNLookupController(object):
 
     INVALID_URN = "Could not parse identifier."
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
-    UNRESOLVABLE_URN = "I don't know how to resolve an identifier of this type into a work."
+    UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
     WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
@@ -84,20 +90,37 @@ class URNLookupController(object):
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
         self.works = []
+        self.prebuilt_entries = []
         self.unresolved_identifiers = []
         self.can_resolve_identifiers = can_resolve_identifiers
+        self.content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
 
     @classmethod
-    def parse_urn(self, _db, urn, must_support_license_pools=True):
+    def parse_urn(self, _db, urn, must_support_metadata=True):
+
         try:
             identifier, is_new = Identifier.parse_urn(
-                _db, urn,
-                must_support_license_pools=must_support_license_pools)
+                _db, urn)
         except ValueError, e:
             return (400, self.INVALID_URN)
-        except Identifier.UnresolvableIdentifierException, e:
-            return (400, self.UNRESOLVABLE_URN)
-        return identifier
+
+        if not must_support_metadata:
+            return identifier
+
+        # We support any identifier that can support a metadata
+        # lookup.
+        if DataSource.metadata_sources_for(_db, identifier):
+            return identifier
+
+        # Failing that, we support any identifier that can support a
+        # license pool.
+        try:
+            source = DataSource.license_source_for(_db, identifier)
+            return identifier
+        except NoResultFound, e:
+            pass
+
+        return (400, self.UNRESOLVABLE_URN)
 
     def process_urn(self, urn):
         """Turn a URN into a Work suitable for use in an OPDS feed.
@@ -111,9 +134,6 @@ class URNLookupController(object):
             # Error.
             return identifier
 
-        # We were able to parse the URN into an identifier, and it's
-        # of a type that should in theory be resolvable into a
-        # LicensePool.
         if identifier.licensed_through:
             # There is a LicensePool for this identifier!
             work = identifier.licensed_through.work
@@ -129,13 +149,70 @@ class URNLookupController(object):
                 # There is a LicensePool but no Work. 
                 return (202, self.WORK_NOT_CREATED)
 
-        # This identifier has yet to be resolved into a LicensePool.
-        # If this application is capable of resolving identifiers, then
-        # create or retrieve an UnresolvedIdentifier object for it.
-        if self.can_resolve_identifiers:
+        # This identifier has yet to be resolved into a LicensePool. Or maybe
+        # the best we can do is metadata lookups.
+        if not self.can_resolve_identifiers:
+            # This app can't resolve identifiers, so the best thing to
+            # do is to treat this identifier as a 404 error.
+            #
+            # TODO: We should delete the original Identifier object as it
+            # is not properly part of the dataset and never will be.
+            return (404, self.UNRECOGNIZED_IDENTIFIER)
+
+        try:
+            license_source = DataSource.license_source_for(self._db, identifier)
+            return self.register_identifier_as_unresolved(identifier)
+        except NoResultFound, e:
+            return self.make_opds_entry_from_metadata_lookups(identifier)
+
+    def register_identifier_as_unresolved(self, identifier):
+        # This identifier could have a LicensePool associated with
+        # it. If this application is capable of resolving identifiers,
+        # then create or retrieve an UnresolvedIdentifier object for
+        # it.
+        unresolved_identifier, is_new = UnresolvedIdentifier.register(
+            self._db, identifier)
+        self.unresolved_identifiers.append(unresolved_identifier)
+        if is_new:
+            # We just found out about this identifier, or rather,
+            # we just found out that someone expects it to be associated
+            # with a LicensePool.
+            return (201, self.IDENTIFIER_REGISTERED)
+        else:
+            # There is a pending attempt to resolve this identifier.
+            message = (unresolved_identifier.exception 
+                           or self.WORKING_TO_RESOLVE_IDENTIFIER)
+            return (unresolved_identifier.status, message)
+
+    def make_opds_entry_from_metadata_lookups(self, identifier):
+        """This identifier cannot be resolved into a LicensePool,
+        but maybe we can make an OPDS entry based on metadata
+        lookups.
+        """
+
+        # We can only create an OPDS entry if all the lookups have
+        # in fact been done.
+        metadata_sources = DataSource.metadata_sources_for(
+            self._db, identifier)
+        q = self._db.query(
+            CoverageRecord).filter(
+                CoverageRecord.identifier==identifier).filter(
+                    CoverageRecord.data_source_id.in_(
+                        [x.id for x in metadata_sources]))
+        coverage_records = q.all()
+        unaccounted_for = set(metadata_sources)
+        for r in coverage_records:
+            if r.data_source in unaccounted_for:
+                unaccounted_for.remove(r.data_source)
+
+        if unaccounted_for:
+            # At least one metadata lookup has not successfully
+            # completed.
+            names = [x.name for x in unaccounted_for]
+            print "Cannot build metadata-based OPDS feed for %r: missing coverage records for %s" % (
+                identifier, ", ".join(names))
             unresolved_identifier, is_new = UnresolvedIdentifier.register(
                 self._db, identifier)
-            self.unresolved_identifiers.append(unresolved_identifier)
             if is_new:
                 # We just found out about this identifier, or rather,
                 # we just found out that someone expects it to be associated
@@ -146,13 +223,24 @@ class URNLookupController(object):
                 message = (unresolved_identifier.exception 
                            or self.WORKING_TO_RESOLVE_IDENTIFIER)
                 return (unresolved_identifier.status, message)
-        else:
-            # This app can't resolve identifiers, so the best thing to
-            # do is to treat this identifier as a 404 error.
+
+        if success:
+            entry = self.make_opds_entry(identifier)
+
+        if not entry:
+            # This app can't do lookups on an identifier of this
+            # type, so the best thing to do is to treat this
+            # identifier as a 404 error.
             return (404, self.UNRECOGNIZED_IDENTIFIER)
 
-            # TODO: We should delete the original Identifier object as it
-            # is not properly part of the dataset and never will be.
+        # We made it!
+        self.entries.append((identifier, entry))
+        return None, None
+
+    def make_opds_entry(self, identifier):
+        set_trace()
+        self.prebuilt_entries.append(entry)
+
 
     def work_lookup(self, annotator, controller_name='lookup'):
         """Generate an OPDS feed describing works identified by identifier."""
