@@ -61,8 +61,11 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 d[k] = v
         return d
 
+    def is_test_identifier(self, barcode):
+        return len(barcode) < 7
+
     def pintest(self, barcode, pin):
-        if len(barcode) != 14:
+        if self.is_test_identifier(barcode):
             # TODO: This is dummy code to allow people to test random
             # barcodes. You will not be able to check out licensed
             # books but you will be able to get public domain books.
@@ -78,7 +81,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     def update_patron(self, patron, identifier, dump=None):
         """Update a Patron record with information from a data dump."""
-        if len(identifier) != 14:
+        if self.is_test_identifier(identifier):
             # TODO: This is a test identifier.
             return
         if not dump:
