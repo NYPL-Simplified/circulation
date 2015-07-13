@@ -4804,13 +4804,14 @@ class LicensePool(Base):
 
     def update_availability(
             self, new_licenses_owned, new_licenses_available, 
-            new_licenses_reserved, new_patrons_in_hold_queue):
+            new_licenses_reserved, new_patrons_in_hold_queue, as_of=None):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
 
         _db = Session.object_session(self)
-        now = datetime.datetime.utcnow()
+        if not as_of:
+            as_of = datetime.datetime.utcnow()
 
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
@@ -4836,14 +4837,14 @@ class LicensePool(Base):
                 continue
 
             CirculationEvent.log(
-                _db, self, event_name, old_value, new_value, now)
+                _db, self, event_name, old_value, new_value, as_of)
 
         # Update the license pool with the latest information.
         self.licenses_owned = new_licenses_owned
         self.licenses_available = new_licenses_available
         self.licenses_reserved = new_licenses_reserved
         self.patrons_in_hold_queue = new_patrons_in_hold_queue
-        self.last_checked = now
+        self.last_checked = as_of
 
         # Update the last update time of the Work.
         if self.work:

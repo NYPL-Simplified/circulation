@@ -9,6 +9,7 @@ from util import LanguageCodes
 from util.xmlparser import XMLParser
 from model import (
     Contributor,
+    DataSource,
     LicensePool,
     Edition,
     Identifier,
@@ -17,7 +18,7 @@ from model import (
 
 class Axis360API(object):
 
-    DEFAULT_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
+    DEFAULT_BASE_URL = "https://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
     
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
@@ -32,7 +33,7 @@ class Axis360API(object):
         self.password = password or os.environ['AXIS_360_PASSWORD']
         self.base_url = base_url
         self.token = None
-        #self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
 
     @property
     def authorization_headers(self):
@@ -101,7 +102,7 @@ class BibliographicParser(XMLParser):
     NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
-    FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
+    FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p +00:00"
 
     @classmethod
     def parse_list(self, l):
@@ -201,15 +202,11 @@ class BibliographicParser(XMLParser):
         # We don't use this for anything.
         # file_size = self.int_of_optional_subtag(element, 'bt:fileSize', ns)
 
-        identifiers = [
-            { Identifier.type : Identifier.AXIS_360_ID,
-              Identifier.identifier : identifier }
-        ]
+        identifiers = { 
+            Identifier.AXIS_360_ID : [ { Identifier.identifier : identifier } ]
+        }
         if isbn:
-            identifiers.append(
-                { Identifier.type : Identifier.ISBN,
-                  Identifier.identifier : isbn }
-            )
+            identifiers[Identifier.ISBN] = [ {Identifier.identifier : isbn } ]
 
         data = {
             Edition.title : title,
@@ -237,14 +234,3 @@ class BibliographicParser(XMLParser):
         else:
             availability = None
         return bibliographic, availability
-
-
-# from datetime import timedelta
-# one_year_ago = datetime.datetime.utcnow() - timedelta(days=365)
-# api = Axis360API(None)
-# response = api.availability(one_year_ago)
-# parser = AvailabilityParser()
-# for bibliographic, availability in parser.process_all(response.content):
-#     for i in bibliographic[Subject]:
-#         if i[Subject.type] != Subject.AXIS_360_AUDIENCE:
-#             print i[Subject.identifier]
