@@ -1050,7 +1050,7 @@ def fulfill(data_source, identifier):
     return Response(content, status_code, headers)
 
 
-@app.route('/works/<data_source>/<identifier>/borrow')
+@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
 @requires_auth
 def borrow(data_source, identifier):
     """Create a new loan or hold for a book.

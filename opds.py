@@ -216,8 +216,8 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         db = Session.object_session(loan)
         work = loan.license_pool.work
         url = url_for(
-            'loan_or_hold_detail', data_source=loan.license_pool.data_source,
-            identifier=loan.license_pool.identifier, _external=True)
+            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
+            identifier=loan.license_pool.identifier.identifier, _external=True)
         active_loans_by_work = { work : loan }
         annotator = cls(None, active_loans_by_work, {})
         works = [work]
