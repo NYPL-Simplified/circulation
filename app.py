@@ -1050,10 +1050,10 @@ def fulfill(data_source, identifier):
     return Response(content, status_code, headers)
 
 
-@app.route('/works/<data_source>/<identifier>/borrow')
+@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
 @requires_auth
 def borrow(data_source, identifier):
-    """Create a new loan for a book.
+    """Create a new loan or hold for a book.
 
     Return an OPDS Acquisition feed that includes a link of rel
     "http://opds-spec.org/acquisition", which can be used to fetch the
@@ -1073,9 +1073,9 @@ def borrow(data_source, identifier):
             NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that book.", 404)
 
-    problem = _apply_borrowing_policy(patron, pool)
-    if problem:
-        return problem
+    problem_doc = _apply_borrowing_policy(patron, pool)
+    if problem_doc:
+        return problem_doc
 
     # Try to find an existing loan.
     loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
@@ -1096,9 +1096,10 @@ def borrow(data_source, identifier):
             content_expires = None
         else:
             api, possible_formats = _api_for_license_pool(pool)
-            # At this point there must be a license free to assign to
-            # this patron.
+            # If there is a license free to assign to this patron, so
+            # so. Otherwise, create a hold.
             if pool.licenses_available < 1:
+                # TODO: Create a hold instead.
                 return problem(
                     NO_AVAILABLE_LICENSE_PROBLEM,
                     "Sorry, all copies of this book are checked out.", 400)
@@ -1132,11 +1133,11 @@ def borrow(data_source, identifier):
     # fulfill the loan.
     
     # TODO: No, actually, we auto-fulfill the loan.
-    return fulfill(data_source, identifier)
+    #return fulfill(data_source, identifier)
 
-    #feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
-    #content = unicode(feed)
-    #return Response(content, status_code, headers)
+    feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
+    content = unicode(feed)
+    return Response(content, status_code, headers)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')

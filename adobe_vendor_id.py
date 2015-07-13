@@ -202,7 +202,7 @@ class AdobeVendorIDModel(object):
             temporary_token_duration or datetime.timedelta(minutes=10))
         node_value = (
             node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
-        self.node_value = int(node_value)
+        self.node_value = int(node_value, 16)
 
     def uuid_and_label(self, patron):
         """Create or retrieve a Vendor ID UUID and human-readable Vendor ID
@@ -228,7 +228,7 @@ class AdobeVendorIDModel(object):
             # of an authorization identifier is a problem, the problem
             # should manifest when the patron tries to actually use
             # their credential.
-            return "Unknown card number."
+            return "Unknown card number.", "Unknown card number"
         return credential.credential, "Card number " + identifier
 
     def create_authdata(self, patron):

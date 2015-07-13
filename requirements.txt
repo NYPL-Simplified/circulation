@@ -21,3 +21,6 @@ textblob
 # Requirements for circulation
 # feedparser is only used in tests.
 feedparser
+
+# A NYPL-specific requirement
+newrelic
