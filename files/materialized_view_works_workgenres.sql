@@ -50,3 +50,4 @@ create index mv_works_editions_yachild_fiction_author_wg_iden on mv_works_editio
 create index mv_works_editions_yachild_fiction_title_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_title, sort_author, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = true;
 create index mv_works_editions_yachild_nonfiction_author_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 create index mv_works_editions_yachild_nonfiction_title_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_title, sort_author, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
+create unique index mv_works_workgenres_work_id_genre_id on mv_works_editions_workgenres_datasources_identifiers (works_id, genre_id);

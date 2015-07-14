@@ -266,6 +266,6 @@ class RefreshMaterializedViewsScript(Script):
         for i in (MaterializedWork, MaterializedWorkWithGenre):
             view_name = i.__table__.name
             a = time.time()
-            db.execute("REFRESH MATERIALIZED VIEW %s" % view_name)
+            db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
             print "%s refreshed in %.2f sec" % (view_name, b-a)
