@@ -1290,6 +1290,36 @@ class Identifier(Base):
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 
+    def opds_entry(self):
+        """Create an OPDS entry using only resources directly
+        associated with this Identifier.
+
+        This makes it possible to create an OPDS entry even when there
+        is no Edition.
+
+        Currently the only things in this OPDS entry will be description
+        and cover image.
+        """
+        id = self.urn
+        cover_image = None
+        description = None
+        for link in self.links:
+            resource = link.resource
+            if link.rel == Hyperlink.IMAGE:
+                if not cover_image or (
+                        not cover_image.representation.thumbnails and
+                        resource.representation.thumbnails):
+                    cover_image = resource
+            elif link.rel == Hyperlink.DESCRIPTION:
+                if not description or resource.quality > description.quality:
+                    description = resource
+
+        from opds import AcquisitionFeed
+        return AcquisitionFeed.minimal_opds_entry(
+            identifier=self, cover=cover_image, 
+            description=description)
+
+
 class UnresolvedIdentifier(Base):
     """An identifier that the metadata wrangler has heard of but hasn't
     yet been able to connect with a book being offered by someone.

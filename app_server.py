@@ -223,8 +223,9 @@ class URNLookupController(object):
                 message = (unresolved_identifier.exception 
                            or self.WORKING_TO_RESOLVE_IDENTIFIER)
                 return (unresolved_identifier.status, message)
-
-        if success:
+        else:
+            # All metadata lookups have completed. Create that OPDS
+            # entry!
             entry = self.make_opds_entry(identifier)
 
         if not entry:
@@ -238,9 +239,7 @@ class URNLookupController(object):
         return None, None
 
     def make_opds_entry(self, identifier):
-        set_trace()
-        self.prebuilt_entries.append(entry)
-
+        self.prebuilt_entries.append(identifier.opds_entry())
 
     def work_lookup(self, annotator, controller_name='lookup'):
         """Generate an OPDS feed describing works identified by identifier."""

@@ -786,6 +786,38 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
+    def minimal_opds_entry(cls, identifier, cover, description):
+        
+        elements = []
+        set_trace()
+        if cover:
+            cover_representation = cover.representation
+            cover_link = E._makeelement(
+                "link", href=cover_representation.mirror_url,
+                type=cover_representation.media_type, rel=Hyperlink.IMAGE)
+            elements.append(cover_link)
+            if cover_representation.thumbnails:
+                thumbnail = cover_representation.thumbnails[0]
+                thumbnail_link = E._makeelement(
+                    "link", href=thumbnail.mirror_url,
+                    type=thumbnail.media_type,
+                    rel=Hyperlink.THUMBNAIL_IMAGE
+                )
+                elements.append(thumbnail_link)
+        if description:
+            content = description.representation.content
+            if isinstance(content, str):
+                content = content.decode("utf8")
+            description_e = E.summary(content, type='html')
+            elements.append(description_e)
+        entry = E.entry(
+            E.id(identifier.urn),
+            E.title('[Unknown title]'),
+            *elements
+        )
+        return etree.tostring(entry)
+
+    @classmethod
     def acquisition_link(cls, rel, href, types):
         if len(types) == 0:
             raise ValueError("Acquisition link must specify at least one type.")
