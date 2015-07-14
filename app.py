@@ -647,7 +647,7 @@ def active_loans():
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
     return feed_response(feed, cache_for=None)
 
-@app.route('/loans/<data_source>/<identifier>/revoke')
+@app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 def revoke_loan_or_hold(data_source, identifier):
     patron = flask.request.patron
