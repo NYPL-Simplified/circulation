@@ -53,6 +53,11 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         url = self.root + path
         print url
         response = self.request(url)
+        if response.status_code != 200:
+            msg = "Got unexpected response code %d. Content: %s" % (
+                response.status_code, response.content
+            )
+            raise Exception(msg)
         d = dict()
         for k, v in self._extract_text_nodes(response.content):
             if k in self.MULTIVALUE_FIELDS:
@@ -74,6 +79,11 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
         url = self.root + path
         response = self.request(url)
+        if response.status_code != 200:
+            msg = "Got unexpected response code %d. Content: %s" % (
+                response.status_code, response.content
+            )
+            raise Exception(msg)
         data = dict(self._extract_text_nodes(response.content))
         if data.get('RETCOD') == '0':
             return True
