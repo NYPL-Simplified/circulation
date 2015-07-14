@@ -5001,6 +5001,8 @@ class LicensePool(Base):
         with this LicensePool.
         """
         wr = self.edition
+        if not wr:
+            return self, None
         link = wr.best_open_access_link
         if link:
             return self, link
