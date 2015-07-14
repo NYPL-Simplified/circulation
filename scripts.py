@@ -5,6 +5,7 @@ from sqlalchemy.sql.functions import func
 from external_search import (
     ExternalSearchIndex,
 )
+import time
 
 from model import (
     production_session,
@@ -250,3 +251,21 @@ class NYTBestSellerListsScript(Script):
             customlist = best.to_customlist(self._db)
             print "Now %s entries in the list." % len(customlist.entries)
             self._db.commit()
+
+
+class RefreshMaterializedViewsScript(Script):
+    """Refresh all materialized views."""
+    
+    def run(self):
+        # Initialize database
+        db = self._db
+        from model import (
+            MaterializedWork,
+            MaterializedWorkWithGenre,
+        )
+        for i in (MaterializedWork, MaterializedWorkWithGenre):
+            view_name = i.__table__.name
+            a = time.time()
+            db.execute("REFRESH MATERIALIZED VIEW %s" % view_name)
+            b = time.time()
+            print "%s refreshed in %.2f sec" % (view_name, b-a)
