@@ -1078,7 +1078,10 @@ def borrow(data_source, identifier):
         return problem_doc
 
     # Try to find an existing loan.
-    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+    loan = get_one(
+        Conf.db, Loan, patron=patron, license_pool=pool,
+        on_multiple='interchangeable'
+    )
     header = flask.request.authorization
     content_link = None
     if loan:
