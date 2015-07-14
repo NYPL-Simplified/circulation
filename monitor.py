@@ -72,13 +72,6 @@ class MetadataRefreshMonitor(CirculationPresentationReadyMonitor):
     def work_query(self):
         # Only get works that are already presentation-ready
         q = self._db.query(Work).filter(Work.presentation_ready==True)
-
-        # TODO: This is a temporary measure to improve the
-        # classification of childrens' books.
-        from core.classifier import Classifier
-        q = q.filter(Work.audience.in_(
-            [Classifier.AUDIENCE_CHILDREN,
-             Classifier.AUDIENCE_YOUNG_ADULT]))
         return q
 
 
