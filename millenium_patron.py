@@ -78,6 +78,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
         url = self.root + path
+        print url
         response = self.request(url)
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
