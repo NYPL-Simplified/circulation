@@ -5,6 +5,7 @@ import json
 import os
 from flask import url_for, make_response
 from util.flask_util import problem
+import traceback
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
@@ -62,6 +63,22 @@ def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
 
     return make_response(feed, 200, {"Content-Type": content_type,
                                      "Cache-Control": cache_control})
+
+class ErrorHandler(object):
+    def __init__(self, conf, debug):
+        self.conf = conf
+        self.debug = debug
+
+    def handle(self, exception):
+        self.conf.db.rollback()
+        print "EXCEPTION HANDLER TRIGGERED"
+        tb = traceback.format_exc()
+        print tb
+        if self.debug:
+            body = tb
+        else:
+            body = "An internal error occured."
+        return make_response(body, 500, {"Content-Type": "text/plain"})
 
 class HeartbeatController(object):
 
