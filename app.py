@@ -1143,6 +1143,8 @@ def borrow(data_source, identifier):
         # We've done any necessary work on the back-end to secure the loan.
         # Now create it in our database.
         loan, ignore = pool.loan_to(patron, end=content_expires)
+        Conf.db.flush()
+        Conf.db.commit()
 
     # At this point we have a loan. (We may have had one to start
     # with, but whatever.) Serve a feed that tells the patron how to
