@@ -255,13 +255,17 @@ def get_one_or_create(db, model, create_method='',
     if one:
         return one, False
     else:
+        __transaction = db.begin_nested()
         try:
             if 'on_multiple' in kwargs:
                 # This kwarg is supported by get_one() but not by create().
                 del kwargs['on_multiple']
-            return create(db, model, create_method, create_method_kwargs, **kwargs)
+            obj = create(db, model, create_method, create_method_kwargs, **kwargs)
+            __transaction.commit()
+            return obj
         except IntegrityError:
-            db.rollback()
+            print "INTEGRITY ERROR!"
+            __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
 def create(db, model, create_method='',
