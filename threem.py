@@ -84,16 +84,28 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         response = self.request('checkout', body, method="PUT")
         loan_expires = CheckoutResponseParser().process_all(response.content)
+        needs_fulfillment = False
         if response.status_code in (200, 201):
+            needs_fulfillment = True
             response = self.get_fulfillment_file(
                 patron_identifier, threem_id)
             return None, response.headers.get('Content-Type'), response.content, loan_expires
         else:
-            print "Unexpected response!"
-            print response.status_code
-            print "", response.headers
-            print "", response.content
-            raise Exception(response.content)
+            error = ErrorParser().process_all(response.content)
+            if error.message == 'Unknown error':
+                raise ThreeMException(response.content)
+            if isinstance(error, AlreadyCheckedOut):
+                # It's already checked out. We just need to fulfill it.
+                needs_fulfillment = True
+            else:
+                raise error
+
+        if needs_fulfillment:
+            response = self.get_fulfillment_file(
+                patron_identifier, threem_id)
+            return None, response.headers.get('Content-Type'), response.content, loan_expires
+        else:
+            raise ThreeMException(response.content)
 
     def fulfill(self, patron, password, identifier, format):
         response = self.get_fulfillment_file(
