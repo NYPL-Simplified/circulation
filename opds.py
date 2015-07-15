@@ -220,6 +220,9 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             identifier=loan.license_pool.identifier.identifier, _external=True)
         active_loans_by_work = { work : loan }
         annotator = cls(None, active_loans_by_work, {})
+        if not work:
+            return AcquisitionFeed(
+                db, "Active loan for unknown work", url, [], annotator)
         works = [work]
         return AcquisitionFeed(
             db, "Active loan for %s" % work.title, url, works, annotator)

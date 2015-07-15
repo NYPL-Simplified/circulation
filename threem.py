@@ -89,7 +89,11 @@ class ThreeMAPI(BaseThreeMAPI):
                 patron_identifier, threem_id)
             return None, response.headers.get('Content-Type'), response.content, loan_expires
         else:
-            raise CheckoutException(response.content)
+            print "Unexpected response!"
+            print response.status_code
+            print "", response.headers
+            print "", response.content
+            raise Exception(response.content)
 
     def fulfill(self, patron, password, identifier, format):
         response = self.get_fulfillment_file(

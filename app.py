@@ -661,9 +661,13 @@ def revoke_loan_or_hold(data_source, identifier):
         hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
 
     if not loan and not hold:
+        if not pool.work:
+            title = 'this book'
+        else:
+            title = '"%s"' % pool.work.title
         return problem(
             NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
-            'You have no active loan or hold for "%s".' % pool.work.title,
+            'You have no active loan or hold for %s.' % title,
             404)
 
     pin = flask.request.authorization.password
@@ -1111,9 +1115,7 @@ def borrow(data_source, identifier):
                 header = flask.request.authorization
 
                 format_to_use = possible_formats[0]
-                content_link, content_type, content, content_expires = api.checkout(
-                    patron, header.password, pool.identifier,
-                    format_type=format_to_use)
+                content_link, content_type, content, content_expires = api.checkout(patron, header.password, pool.identifier,format_type=format_to_use)
             except NoAvailableCopies:
                 # Most likely someone checked out the book and the
                 # circulation manager is not yet aware of it.
