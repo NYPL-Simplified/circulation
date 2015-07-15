@@ -3,6 +3,8 @@ import datetime
 import json
 import requests
 
+from sqlalchemy.orm import contains_eager
+
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -20,7 +22,10 @@ from core.model import (
     Session,
 )
 
-from core.monitor import Monitor
+from core.monitor import (
+    Monitor,
+    IdentifierSweepMonitor,
+)
 
 from circulation_exceptions import (
     NoAvailableCopies,
@@ -106,6 +111,14 @@ class OverdriveAPI(BaseOverdriveAPI):
             error = response.json()
             code = error['errorCode']
             if code == 'NoCopiesAvailable':
+                set_trace()
+                try:
+                    self.update_licensepool(identifier.identifier)
+                except Exception, e:
+                    import traceback
+                    msg = traceback.format_exc()
+                    set_trace()
+                    self.update_licensepool(identifier.identifier)
                 raise NoAvailableCopies()
             if code == 'TitleAlreadyCheckedOut':
                 # Client should have used a fulfill link instead, but
@@ -408,6 +421,10 @@ class OverdriveAPI(BaseOverdriveAPI):
                     new_licenses_available.append(collection['copiesAvailable'])
                 if 'numberOfHolds' in collection:
                     new_number_of_holds.append(collection['numberOfHolds'])
+        elif book.get('isOwnedByCollections') is False:
+            new_licenses_owned = [0]
+            new_licenses_available = [0]
+            new_number_of_holds = [0]
 
         if new_licenses_owned:
             new_licenses_owned = sum(new_licenses_owned)
@@ -627,7 +644,11 @@ class OverdriveCirculationMonitor(Monitor):
             print "Processed %d books total." % total_books
 
 class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
-    """Monitor every single book in the Overdrive collection."""
+    """Monitor every single book in the Overdrive collection.
+
+    This tells us about books added to the Overdrive collection that
+    are not found in our collection.
+    """
 
     def __init__(self, _db, interval_seconds=3600*4):
         super(FullOverdriveCollectionMonitor, self).__init__(
@@ -637,6 +658,28 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         """Ignore the dates and return all IDs."""
         return self.api.all_ids()
 
+class OverdriveCollectionReaper(IdentifierSweepMonitor):
+    """Check for books that are in the local collection but have left our
+    Overdrive collection.
+    """
+
+    def __init__(self, _db, interval_seconds=3600*4):
+        super(OverdriveCollectionReaper, self).__init__(
+            _db, "Overdrive Collection Reaper", interval_seconds)
+
+    def run(self):
+        self.api = OverdriveAPI(self._db)
+        super(OverdriveCollectionReaper, self).run()
+
+    def identifier_query(self):
+        return self._db.query(Identifier).join(
+            Identifier.licensed_through).filter(
+                Identifier.type==Identifier.OVERDRIVE_ID).options(
+                    contains_eager(Identifier.licensed_through))
+
+    def process_batch(self, identifiers):
+        for i in identifiers:
+            self.api.update_licensepool(i.identifier)
 
 class RecentOverdriveCollectionMonitor(FullOverdriveCollectionMonitor):
     """Monitor recently changed books in the Overdrive collection."""
