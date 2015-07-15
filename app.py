@@ -32,6 +32,7 @@ from core.app_server import (
     feed_response,
     HeartbeatController,
     URNLookupController,
+    ErrorHandler,
 )
 from adobe_vendor_id import AdobeVendorIDController
 from overdrive import (
@@ -212,6 +213,11 @@ else:
 app = Flask(__name__)
 app.config['DEBUG'] = True
 app.debug = True
+
+h = ErrorHandler(Conf, app.config['DEBUG'])
+@app.errorhandler(Exception)
+def exception_handler(exception):
+    return h.handle(exception)
 
 CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
 INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
@@ -683,11 +689,16 @@ def revoke_loan_or_hold(data_source, identifier):
         elif pool.data_source.name==DataSource.THREEM:
             response = Conf.threem.checkin(patron.authorization_identifier,
                                                pool.identifier.identifier)
-            
-        if response and response.status_code == 400:
-            uri = COULD_NOT_MIRROR_TO_REMOTE
-            title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-            return problem(uri, title, 400)
+
+        if response:
+            if response.status_code == 400:
+                uri = COULD_NOT_MIRROR_TO_REMOTE
+                title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
+                return problem(uri, title, 400)
+            elif response.status_code % 100 not in (2,3):
+                uri = COULD_NOT_MIRROR_TO_REMOTE
+                title = "Loan deleted locally but remote gave a %d error." % response.status_code
+                return problem(uri, title, response.status_code)
 
     if hold:
         Conf.db.delete(hold)

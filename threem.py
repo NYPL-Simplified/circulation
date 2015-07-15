@@ -101,10 +101,10 @@ class ThreeMAPI(BaseThreeMAPI):
                 raise error
 
         if needs_fulfillment:
-            print "Fulfilling %s" % threem_id
+            print "Fulfilling %s for %s" % (patron_identifier, threem_id)
             response = self.get_fulfillment_file(
                 patron_identifier, threem_id)
-            print "All done."
+            print "Done fulfilling %s for %s" % (patron_identifier, threem_id)
             return None, response.headers.get('Content-Type'), response.content, loan_expires
         else:
             raise ThreeMException(response.content)
