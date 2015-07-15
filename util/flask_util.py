@@ -16,7 +16,7 @@ def problem_raw(type, title, status, detail=None, instance=None, headers={}):
 def problem(type, title, status, detail=None, instance=None, headers={}):
     """Create a Response that includes a Problem Detail Document."""
     status, headers, data = problem_raw(
-        title, status, detail, instance, headers)
+        type, title, status, detail, instance, headers)
     return Response(data, status, headers)
     
 def languages_for_request():
