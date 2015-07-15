@@ -4848,7 +4848,7 @@ class LicensePool(Base):
 
         # Update the last update time of the Work.
         if self.work:
-            self.work.last_update_time = now
+            self.work.last_update_time = as_of
 
     def set_rights_status(self, uri, name=None):
         _db = Session.object_session(self)
