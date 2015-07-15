@@ -111,7 +111,6 @@ class OverdriveAPI(BaseOverdriveAPI):
             error = response.json()
             code = error['errorCode']
             if code == 'NoCopiesAvailable':
-                set_trace()
                 try:
                     self.update_licensepool(identifier.identifier)
                 except Exception, e:
