@@ -695,7 +695,7 @@ def revoke_loan_or_hold(data_source, identifier):
                 uri = COULD_NOT_MIRROR_TO_REMOTE
                 title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
                 return problem(uri, title, 400)
-            elif response.status_code % 100 not in (2,3):
+            elif response.status_code / 100 not in (2,3):
                 uri = COULD_NOT_MIRROR_TO_REMOTE
                 title = "Loan deleted locally but remote gave a %d error." % response.status_code
                 return problem(uri, title, response.status_code)
