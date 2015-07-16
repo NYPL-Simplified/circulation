@@ -441,7 +441,16 @@ class AcquisitionFeed(OPDSFeed):
         all_works = []
         if isinstance(languages, basestring):
             languages = [languages]
-        for l in lane.sublanes:
+
+        sublanes = list(lane.sublanes)
+        if lane and lane.display_name:
+            # Everything except the very top level gets an 'all' group.
+            sublanes.append(lane)
+            all_group_label = 'All ' + lane.display_name
+        else:
+            all_group_label = None
+
+        for l in sublanes:
             if not _db:
                 _db = l._db
 
@@ -452,7 +461,11 @@ class AcquisitionFeed(OPDSFeed):
                 Work.CURRENTLY_AVAILABLE)
 
             for work in works:
-                annotator.lane_by_work[work] = l
+                if l == lane:
+                    v = (l, all_group_label)
+                else:
+                    v = l                   
+                annotator.lane_by_work[work] = v
                 all_works.append(work)
 
         if lane.parent is None:
@@ -642,6 +655,7 @@ class AcquisitionFeed(OPDSFeed):
             self.add_link_to_entry(
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=group_title)
+
 
         after = time.time()
         if edition:
