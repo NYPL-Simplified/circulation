@@ -443,8 +443,9 @@ class AcquisitionFeed(OPDSFeed):
             languages = [languages]
 
         sublanes = list(lane.sublanes)
-        if lane and lane.display_name:
-            # Everything except the very top level gets an 'all' group.
+        if lane and lane.sublanes and lane.display_name:
+            # Every lane that has sublanes also gets an 'all' group,
+            # except the very top level.
             sublanes.append(lane)
             all_group_label = 'All ' + lane.display_name
         else:
@@ -462,7 +463,15 @@ class AcquisitionFeed(OPDSFeed):
 
             for work in works:
                 if l == lane:
-                    v = (l, all_group_label)
+                    # This work is in the (e.g.) 'All Science Fiction'
+                    # group. Whether or not this lane has sublanes,
+                    # the group URI will point to a linear feed, not a
+                    # groups feed.
+                    v = dict(
+                        lane=lane,
+                        label=all_group_label,
+                        link_to_list_feed=True,
+                    )
                 else:
                     v = l                   
                 annotator.lane_by_work[work] = v
