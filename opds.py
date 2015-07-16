@@ -446,6 +446,7 @@ class AcquisitionFeed(OPDSFeed):
         if lane and lane.sublanes and lane.display_name:
             # Every lane that has sublanes also gets an 'all' group,
             # except the very top level.
+            print "I intend to create an 'all' group for %s" % lane.name
             sublanes.append(lane)
             all_group_label = 'All ' + lane.display_name
         else:
