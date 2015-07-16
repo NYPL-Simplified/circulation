@@ -73,8 +73,14 @@ class CirculationManagerAnnotator(Annotator):
             return url, title
 
         lane_name = None
+        show_feed = False
         if isinstance(lane, tuple):
             lane, lane_name = lane
+        elif isinstance(lane, dict):
+            show_feed = lane.get('link_to_list_feed', show_feed)
+            lane_name = lane.get('label', lane_name)
+            lane = lane['lane']
+            
         lane_name = lane_name or lane.display_name
 
         if isinstance(lane, basestring):
@@ -84,7 +90,7 @@ class CirculationManagerAnnotator(Annotator):
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
-        if lane.sublanes:
+        if lane.sublanes and not show_feed:
             url = cdn_url_for('acquisition_groups', lane=lane.name, _external=True)
         else:
             url = cdn_url_for('feed', lane=lane.name, order='author', _external=True)
