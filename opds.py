@@ -71,10 +71,15 @@ class CirculationManagerAnnotator(Annotator):
             url = cdn_url_for('acquisition_groups', lane=None, _external=True)
             title = "All Books"
             return url, title
+
+        lane_name = None
         if isinstance(lane, tuple):
-            # A group URI has been provided directly.
-            return lane
-        lane_name = lane.display_name
+            lane, lane_name = lane
+        lane_name = lane_name or lane.display_name
+
+        if isinstance(lane, basestring):
+            return lane, lane_name
+
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
