@@ -6,7 +6,7 @@ import requests
 from sqlalchemy.orm import contains_eager
 
 from circulation import (
-    
+    HoldInfo,
     FulfillmentInfo,
 )
 from core.overdrive import (
@@ -32,8 +32,13 @@ from core.monitor import (
 )
 
 from circulation_exceptions import (
+    NoActiveLoan,
     NoAvailableCopies,
+    CannotRenew,
+    CannotHold,
+    CannotFulfill,
     CouldCheckOut,
+    CannotReleaseHold,
 )
 
 class OverdriveAPI(BaseOverdriveAPI):
@@ -97,7 +102,7 @@ class OverdriveAPI(BaseOverdriveAPI):
             raise IOError(response['error'] + "/" + response['error_description'])
         return credential
 
-    def checkout(self, patron, pin, identifier, 
+    def checkout(self, patron, pin, licensepool, 
                  format_type='ebook-epub-adobe'):
 
         """Check out a book on behalf of a patron.
@@ -111,12 +116,10 @@ class OverdriveAPI(BaseOverdriveAPI):
 
         :param format_type: The patron's desired book format.
 
-        :return: a 4-tuple (content_link, content_type, content,
-        expires) content_link is a link to the ACSM file. content_type
-        and content are always None. expires is the datetime at which
-        the loan expires.
+        :return: a FulfillmentInfo object.
         """
         
+        identifier = licensepool.identifier
         overdrive_id=identifier.identifier
         headers = {"Content-Type": "application/json"}
         payload = dict(fields=[dict(name="reserveId", value=overdrive_id)])
@@ -160,9 +163,10 @@ class OverdriveAPI(BaseOverdriveAPI):
         # a link to the file.
         return FulfillmentInfo(content_link, None, None, expires)
 
-    def checkin(self, patron, pin, identifier):
+    def checkin(self, patron, pin, licensepool):
+        overdrive_id = licensepool.identifier.identifier
         url = self.CHECKOUT_ENDPOINT % dict(
-            overdrive_id=identifier.identifier)
+            overdrive_id=overdrive_id)
         return self.patron_request(patron, pin, url, method='DELETE')
 
     def fill_out_form(self, **values):
@@ -188,16 +192,18 @@ class OverdriveAPI(BaseOverdriveAPI):
     def fulfill(self, patron, pin, licensepool, format_type):
         url, media_type = self.get_fulfillment_link(
             patron, pin, licensepool.identifier.identifier, format_type)
-        return url, media_type, None
+        return FulfillmentInfo(
+            content_link=url, content_type=media_type, content=None, 
+            expires=None)
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.
         """
         loan = self.get_loan(patron, pin, overdrive_id)
         if not loan:
-            raise ValueError("Could not find active loan for %s" % overdrive_id)
+            raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         if not 'formats' in loan:
-            raise ValueError("Loan for %s has no formats" % overdrive_id)
+            raise CannotFulfill("Loan for %s has no formats" % overdrive_id)
 
         expires = loan.get('expires')
         format = None
@@ -212,13 +218,13 @@ class OverdriveAPI(BaseOverdriveAPI):
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
-                raise ValueError("Could not lock in format %s" % format_type)
+                raise CannotFulfill("Could not lock in format %s" % format_type)
 
         if format_type:
             download_link = self.get_download_link(
                 loan, format_type, self.DEFAULT_ERROR_URL)
             if not download_link:
-                raise ValueError(
+                raise CannotFulfill(
                     "No download link for %s, format %s" % (
                         overdrive_id, format_type))
             return self.get_fulfillment_link_from_download_link(
@@ -278,11 +284,14 @@ class OverdriveAPI(BaseOverdriveAPI):
     def get_patron_holds(self, patron, pin):
         return self.patron_request(patron, pin, self.HOLDS_ENDPOINT).json()
 
-    def place_hold(self, patron, pin, overdrive_id, notification_email_address):
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object
         """
+        if not notification_email_address:
+            raise CannotHold("No notification email address provided.")
+        overdrive_id = licensepool.identifier.identifier
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)
         response = self.patron_request(
@@ -290,15 +299,16 @@ class OverdriveAPI(BaseOverdriveAPI):
             document)
         if response.status_code == 400:
             error = response.json()
+            if not error or not 'errorCode' in error:
+                raise CannotHold()
             code = error['errorCode']
-            set_trace()
             if code == 'AlreadyOnWaitList':
                 # There's nothing we can do but refresh the queue info.
                 hold = self.get_hold(patron, pin, overdrive_id)
                 position, start_date = self.extract_data_from_hold_response(
                     hold)
                 return HoldInfo(start_date=start_date, end_date=None,
-                                position=position)
+                                hold_position=position)
             elif code == 'NotWithinRenewalWindow':
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
@@ -313,16 +323,25 @@ class OverdriveAPI(BaseOverdriveAPI):
             return HoldInfo(start_date=start_date, end_date=None,
                             hold_position=position)
 
-    def release_hold(self, patron, pin, identifier):
+    def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.
 
         :raises CannotReleaseHold: If there is an error communicating
         with Overdrive, or Overdrive refuses to release the hold for
         any reason.
         """
-        url = self.HOLD_ENDPOINT % dict(product_id=identifier)
+        url = self.HOLD_ENDPOINT % dict(
+            product_id=licensepool.identifier.identifier)
         response = self.patron_request(patron, pin, url, method='DELETE')
-        if response.status_code in (200, 201, 404):
+        if response.status_code / 100 == 2 or response.status_code == 404:
+            return True
+        if not response.content:
+            raise CannotReleaseHold()
+        data = response.json()
+        if not 'errorCode' in data:
+            raise CannotReleaseHold()
+        if data['errorCode'] == 'PatronDoesntHaveTitleOnHold':
+            # There was never a hold to begin with, so we're fine.
             return True
         raise CannotReleaseHold(response.content)
 
