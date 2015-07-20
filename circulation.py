@@ -89,7 +89,11 @@ class CirculationAPI(object):
         content_link = content_expires = None
         if licensepool.open_access:
             # We can handle open-access content ourselves.
-            return self.borrow_open_access(patron, licensepool)
+            best_pool, best_link = licensepool.best_license_link
+            if not best_link:
+                raise NoOpenAccessDownload()
+            loan, ignore = licensepool.loan_to(patron, end=None)
+            return loan, None, self.fulfill_open_access(licensepool, best_link)
 
         # We need to go to an API to carry out the loan.
         api, possible_formats = self.api_for_license_pool(licensepool)
@@ -130,15 +134,6 @@ class CirculationAPI(object):
                 self._db.delete(loan)
             loan = None
         return loan, hold, fulfillment
-
-    def borrow_open_access(self, patron, licensepool):
-        """Give this patron a permanent loan for an open-access work.
-        """
-        best_pool, best_link = licensepool.best_license_link
-        if not best_link:
-            raise NoOpenAccessDownload()
-        loan, ignore = licensepool.loan_to(patron, end=None)
-        return loan, None, self.fulfill_open_access(licensepool, best_link)
 
     def fulfill(self, patron, pin, licensepool):
         """Fulfil a book that a patron has checked out.
@@ -186,32 +181,40 @@ class CirculationAPI(object):
 
     def revoke_loan(self, patron, pin, licensepool):
         """Revoke a patron's loan for a book."""
-        if licensepool.open_access:
-            # Nothing special needs to be done--just delete the local loan.
-            return True
-        api, possible_formats = self.api_for_license_pool(licensepool)
-        try:
-            api.checkin(patron, pin, licensepool)
-        except NotCheckedOut, e:
-            # The book wasn't checked out in the first
-            # place. Everything's fine.
-            pass
-        # Any other CannotReturn exception will be propagated upwards.
+        loan = get_one(
+            self._db, Loan, patron=patron, license_pool=licensepool,
+            on_multiple='interchangeable'
+        )
+        if not licensepool.open_access:
+            api, possible_formats = self.api_for_license_pool(licensepool)
+            try:
+                api.checkin(patron, pin, licensepool)
+            except NotCheckedOut, e:
+                # The book wasn't checked out in the first
+                # place. Everything's fine.
+                pass
+        # Any other CannotReturn exception will be propagated upwards
+        # at this point.
+        if loan:
+            self._db.delete(loan)
         return True
 
     def release_hold(self, patron, pin, licensepool):
         """Remove a patron's hold on a book."""
-        if licensepool.open_access:
-            # You can't have a hold on an open access book.
-            # Do nothing.
-            return True
-        api, possible_formats = self.api_for_license_pool(licensepool)
-        try:
-            api.release_hold(patron, pin, licensepool)
-        except NotOnHold, e:
-            # The book wasn't on hold in the first place. Everything's
-            # fine.
-            pass
+        hold = get_one(
+            self._db, Hold, patron=patron, license_pool=licensepool,
+            on_multiple='interchangeable'
+        )
+        if not licensepool.open_access:
+            api, possible_formats = self.api_for_license_pool(licensepool)
+            try:
+                api.release_hold(patron, pin, licensepool)
+            except NotOnHold, e:
+                # The book wasn't on hold in the first place. Everything's
+                # fine.
+                pass
         # Any other CannotReleaseHold exception will be propagated
-        # upwards.
+        # upwards at this point
+        if hold:
+            self._db.delete(hold)
         return True
