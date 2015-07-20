@@ -54,9 +54,11 @@ class CirculationAPI(object):
         if licensepool.data_source.name==DataSource.OVERDRIVE:
             api = self.overdrive
             possible_formats = ["ebook-epub-adobe", "ebook-epub-open"]
-        else:
+        elif licensepool.data_source.name==DataSource.THREEM:
             api = self.threem
             possible_formats = [None]
+        else:
+            return None, None
 
         return api, possible_formats
 
@@ -132,11 +134,11 @@ class CirculationAPI(object):
     def borrow_open_access(self, patron, licensepool):
         """Give this patron a permanent loan for an open-access work.
         """
-        best_pool, best_link = pool.best_license_link
+        best_pool, best_link = licensepool.best_license_link
         if not best_link:
             raise NoOpenAccessDownload()
-        loan, ignore = pool.loan_to(patron, end=None)
-        return loan, None, self.fulfill_open_access()
+        loan, ignore = licensepool.loan_to(patron, end=None)
+        return loan, None, self.fulfill_open_access(licensepool, best_link)
 
     def fulfill(self, patron, pin, licensepool):
         """Fulfil a book that a patron has checked out.
@@ -165,8 +167,11 @@ class CirculationAPI(object):
                 raise NoAcceptableFormat()
         return fulfillment
 
-    def fulfill_open_access(self, licensepool):
-        best_pool, best_link = pool.best_license_link
+    def fulfill_open_access(self, licensepool, cached_best_link=None):
+        if cached_best_link:
+            best_pool, best_link = licensepool, cached_best_link
+        else:
+            best_pool, best_link = licensepool.best_license_link
         if not best_link:
             raise NoOpenAccessDownload()
 
@@ -175,10 +180,15 @@ class CirculationAPI(object):
             content_link = r.url
 
         media_type = best_link.representation.media_type
-        return FulfillmentInfo(best_link, media_type, None, None)
+        return FulfillmentInfo(
+            content_link=content_link, content_type=media_type, content=None, 
+            content_expires=None)
 
     def revoke_loan(self, patron, pin, licensepool):
         """Revoke a patron's loan for a book."""
+        if licensepool.open_access:
+            # Nothing special needs to be done--just delete the local loan.
+            return True
         api, possible_formats = self.api_for_license_pool(licensepool)
         try:
             api.checkin(patron, pin, licensepool)
@@ -191,6 +201,10 @@ class CirculationAPI(object):
 
     def release_hold(self, patron, pin, licensepool):
         """Remove a patron's hold on a book."""
+        if licensepool.open_access:
+            # You can't have a hold on an open access book.
+            # Do nothing.
+            return True
         api, possible_formats = self.api_for_license_pool(licensepool)
         try:
             api.release_hold(patron, pin, licensepool)
