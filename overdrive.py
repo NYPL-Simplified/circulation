@@ -5,6 +5,7 @@ import requests
 
 from sqlalchemy.orm import contains_eager
 
+from circulation import FulfillmentInfo
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -29,6 +30,7 @@ from core.monitor import (
 
 from circulation_exceptions import (
     NoAvailableCopies,
+    CouldCheckOut,
 )
 
 class OverdriveAPI(BaseOverdriveAPI):
@@ -94,6 +96,23 @@ class OverdriveAPI(BaseOverdriveAPI):
 
     def checkout(self, patron, pin, identifier, 
                  format_type='ebook-epub-adobe'):
+
+        """Check out a book on behalf of a patron.
+
+        :param patron_obj: a Patron object for the patron who wants
+        to check out the book.
+
+        :param patron_password: The patron's alleged password.
+
+        :param identifier: Identifier of the book to be checked out.
+
+        :param format_type: The patron's desired book format.
+
+        :return: a 4-tuple (content_link, content_type, content,
+        expires) content_link is a link to the ACSM file. content_type
+        and content are always None. expires is the datetime at which
+        the loan expires.
+        """
         
         overdrive_id=identifier.identifier
         headers = {"Content-Type": "application/json"}
@@ -111,13 +130,8 @@ class OverdriveAPI(BaseOverdriveAPI):
             error = response.json()
             code = error['errorCode']
             if code == 'NoCopiesAvailable':
-                try:
-                    self.update_licensepool(identifier.identifier)
-                except Exception, e:
-                    import traceback
-                    msg = traceback.format_exc()
-                    set_trace()
-                    self.update_licensepool(identifier.identifier)
+                # Clearly our info is out of date.
+                self.update_licensepool(identifier.identifier)
                 raise NoAvailableCopies()
             if code == 'TitleAlreadyCheckedOut':
                 # Client should have used a fulfill link instead, but
@@ -126,23 +140,22 @@ class OverdriveAPI(BaseOverdriveAPI):
                 expires = self.extract_expiration_date(loan)
                 content_link, content_type, content = self.fulfill(
                     patron, pin, identifier, format_type)
-                return content_link, None, None, expires
+                return FulfillmentInfo(content_link, None, None, expires)
 
         expires, download_link = self.extract_data_from_checkout_response(
             response.json(), format_type, self.DEFAULT_ERROR_URL)
-        print download_link
 
         # Now turn the download link into a fulfillment link, which
         # will give us the ACSM file or equivalent.
         if not format_type:
             # Again, this would only be used in a test scenario.
-            return None, "text/plain", "", expires
+            return FulfillmentInfo(None, "text/plain", "", expires)
         content_link, content_type = self.get_fulfillment_link_from_download_link(
             patron, pin, download_link)
         # Even though we're given the media type of the ACSM file, we
         # don't send it because we don't have the actual file, only
         # a link to the file.
-        return content_link, None, None, expires
+        return FulfillmentInfo(content_link, None, None, expires)
 
     def checkin(self, patron, pin, identifier):
         url = self.CHECKOUT_ENDPOINT % dict(
@@ -160,14 +173,18 @@ class OverdriveAPI(BaseOverdriveAPI):
         url = self.CHECKOUTS_ENDPOINT + "/" + overdrive_id.upper()
         return self.patron_request(patron, pin, url).json()
 
+    def get_hold(self, patron, pin, overdrive_id):
+        url = self.HOLD_ENDPOINT % dict(product_id=overdrive_id.upper())
+        return self.patron_request(patron, pin, url).json()
+
     def get_loans(self, patron, pin):
         """Get a JSON structure describing all of a patron's outstanding
         loans."""
         return self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
 
-    def fulfill(self, patron, pin, identifier, format_type):
+    def fulfill(self, patron, pin, licensepool, format_type):
         url, media_type = self.get_fulfillment_link(
-            patron, pin, identifier.identifier, format_type)
+            patron, pin, licensepool.identifier.identifier, format_type)
         return url, media_type, None
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
@@ -231,13 +248,23 @@ class OverdriveAPI(BaseOverdriveAPI):
             checkout_response_json, format_type, error_url)
 
     @classmethod
+    def extract_data_from_hold_response(cls, hold_response_json):
+        position = hold_response_json['holdListPosition']
+        placed = cls._extract_date(hold_response_json, 'holdPlacedDate')
+        return position, placed
+
+    @classmethod
     def extract_expiration_date(cls, data):
-        if not 'expires' in data:
-            expires = None
+        return cls._extract_date(data, 'expires')
+
+    @classmethod
+    def _extract_date(cls, data, field_name):
+        if not field_name in data:
+            d = None
         else:
-            expires = datetime.datetime.strptime(
-                data['expires'], cls.TIME_FORMAT)
-        return expires
+            d = datetime.datetime.strptime(
+                data[field_name], cls.TIME_FORMAT)
+        return d
 
     def get_patron_information(self, patron, pin):
         return self.patron_request(patron, pin, self.ME_ENDPOINT).json()
@@ -249,14 +276,54 @@ class OverdriveAPI(BaseOverdriveAPI):
         return self.patron_request(patron, pin, self.HOLDS_ENDPOINT).json()
 
     def place_hold(self, patron, pin, overdrive_id, notification_email_address):
+        """Place a book on hold.
+
+        :return: 3-tuple (position, start_date, end_date) `position`
+        is the current hold position. `start_date` is the datetime at
+        which the hold was first created. `end_date` is always null
+        for Overdrive.
+        """
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)
-        return self.patron_request(patron, pin, self.HOLDS_ENDPOINT, headers, 
-                                   document)
+        response = self.patron_request(
+            patron, pin, self.HOLDS_ENDPOINT, headers, 
+            document)
+        if response.status_code == 400:
+            error = response.json()
+            code = error['errorCode']
+            set_trace()
+            if code == 'AlreadyOnWaitList':
+                # There's nothing we can do but refresh the queue info.
+                hold = self.get_hold(patron, pin, overdrive_id)
+                position, start_date = self.extract_data_from_hold_response(
+                    hold)
+                return position, start_date, None
+            elif code == 'NotWithinRenewalWindow':
+                # The patron has this book checked out and cannot yet
+                # renew their loan.
+                raise CannotRenew()
+            else:
+                raise CannotHold(code)
+        else:
+            # The book was placed on hold.
+            data = response.json()
+            position, start_date = self.extract_data_from_hold_response(
+                data)
+            return position, start_date, None
 
     def release_hold(self, patron, pin, identifier):
-        url = self.HOLD_ENDPOINT % dict(product_id=identifier.identifier)
-        return self.patron_request(patron, pin, url, method='DELETE')
+        """Release a patron's hold on a book.
+
+        :raises CannotReleaseHold: If there is an error communicating
+        with Overdrive, or Overdrive refuses to release the hold for
+        any reason.
+        """
+        url = self.HOLD_ENDPOINT % dict(product_id=identifier)
+        response = self.patron_request(patron, pin, url, method='DELETE')
+        if response.status_code in (200, 201, 404):
+            return True
+        raise CannotReleaseHold(response.content)
+
 
     @classmethod
     def sync_bookshelf(cls, patron, remote_view_loans, remote_view_holds):

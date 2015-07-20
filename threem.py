@@ -8,6 +8,7 @@ from nose.tools import set_trace
 
 from sqlalchemy import or_
 
+from circulation import FulfillmentInfo
 from core.model import (
     CirculationEvent,
     DataSource,
@@ -75,9 +76,27 @@ class ThreeMAPI(BaseThreeMAPI):
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
-    def checkout(self, patron_obj, patron_password, identifier, format_type=None):
+    def checkout(
+            self, patron_obj, patron_password, licensepool, format_type=None):
 
-        threem_id = identifier.identifier
+        """Check out a book on behalf of a patron.
+
+        :param patron_obj: a Patron object for the patron who wants
+        to check out the book.
+
+        :param patron_password: The patron's alleged password.  Not
+        used here since 3M trusts Simplified to do the check ahead of
+        time.
+
+        :param licensepool: LicensePool for the book to be checked out.
+
+        :param format_type: The patron's desired book format. Not
+        used since 3M doesn't offer a choice.
+
+        :return: a FulfillmentInfo object
+        """
+
+        threem_id = licensepool.identifier.identifier
         patron_identifier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
                     item_id=threem_id, patron_id=patron_identifier)
@@ -89,7 +108,9 @@ class ThreeMAPI(BaseThreeMAPI):
             needs_fulfillment = True
             response = self.get_fulfillment_file(
                 patron_identifier, threem_id)
-            return None, response.headers.get('Content-Type'), response.content, loan_expires
+            return FulfillmentInfo(
+                None, response.headers.get('Content-Type'), response.content,
+                loan_expires)
         else:
             error = ErrorParser().process_all(response.content)
             if error.message == 'Unknown error':
@@ -105,14 +126,17 @@ class ThreeMAPI(BaseThreeMAPI):
             response = self.get_fulfillment_file(
                 patron_identifier, threem_id)
             print "Done fulfilling %s for %s" % (patron_identifier, threem_id)
-            return None, response.headers.get('Content-Type'), response.content, loan_expires
+            return FulfillmentInfo(
+                None, response.headers.get('Content-Type'), response.content, 
+                loan_expires)
         else:
             raise ThreeMException(response.content)
 
     def fulfill(self, patron, password, identifier, format):
         response = self.get_fulfillment_file(
             patron.authorization_identifier, identifier.identifier)
-        return None, response.headers.get('Content-Type'), response.content
+        return FulfillmentInfo(
+            None, response.headers.get('Content-Type'), response.content, None)
 
     def get_fulfillment_file(self, patron_id, threem_id):
         args = dict(request_type='ACSMRequest',
@@ -120,23 +144,49 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
 
-    def checkin(self, patron_id, threem_id):
+    def checkin(self, patron, pin, licensepool):
+        patron_id = patron.authorization_identifier
+        item_id = licensepool.identifier.identifier
         args = dict(request_type='CheckinRequest',
-                   item_id=threem_id, patron_id=patron_id)
+                   item_id=item_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('checkin', body, method="PUT")
 
-    def place_hold(self, patron_id, threem_id):
-        args = dict(request_type='PlaceHoldRequest',
-                   item_id=threem_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
-        return self.request('placehold', body, method="PUT")
+    def place_hold(self, patron, pin, licensepool, hold_notification_email=None):
+        """Place a hold.
 
-    def release_hold(self, patron_id, threem_id):
-        args = dict(request_type='CancelHoldRequest',
-                   item_id=threem_id, patron_id=patron_id)
+        :return: 3-tuple (position, start_date, end_date) `position`
+        is always null for 3M. `start_date` is the datetime at which
+        the hold was first created. `end_date` is this patron's
+        estimated availability date for the book.
+        """
+        patron_id = patron.authorization_identifier
+        item_id = licensepool.identifier.identifier
+        args = dict(request_type='PlaceHoldRequest',
+                   item_id=item_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
-        return self.request('cancelhold', body, method="PUT")
+        response = self.request('placehold', body, method="PUT")
+        if response.status_code in (200, 201):
+            start_date = datetime.datetime.utcnow()
+            end_date = HoldResponseParser().process_all(response.content)
+            return None, start_date, end_date
+        else:
+            if not response.content:
+                raise CannotHold()
+            error = ErrorParser().process_all(response.content)
+            raise error
+
+    def release_hold(self, patron, pin, licensepool):
+        patron_id = patron.authorization_identifier
+        item_id = licensepool.identifier.identifier        
+        args = dict(request_type='CancelHoldRequest',
+                   item_id=item_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        response = self.request('cancelhold', body, method="PUT")
+        if response.status_code in (200, 404):
+            return True
+        else:
+            raise CannotReleaseHold()
 
     @classmethod
     def sync_bookshelf(cls, patron, remote_loans, remote_holds, remote_reserves):
@@ -212,6 +262,7 @@ class ThreeMAPI(BaseThreeMAPI):
                 pool, new = LicensePool.for_foreign_id(
                     _db, threem_source, identifier.type,
                     identifier.identifier)
+                set_trace()
                 hold, new = pool.on_hold_to(patron, start, end, position)
                 active_holds.append(loan)
 
@@ -410,14 +461,15 @@ class PatronCirculationParser(XMLParser):
             item[source_class.position] = self.int_of_subtag(tag, "Position")
         return item
 
-class CheckoutResponseParser(XMLParser):
-
-    """Extract due date from a checkout response."""
+class DateResponseParser(XMLParser):
+    """Extract a date from a response."""
+    RESULT_TAG_NAME = None
+    DATE_TAG_NAME = None
 
     def process_all(self, string):
         parser = etree.XMLParser()
         root = etree.parse(StringIO(string), parser)
-        m = root.xpath("/CheckoutResult/DueDateInUTC")
+        m = root.xpath("/%s/%s" % (self.RESULT_TAG_NAME, self.DATE_TAG_NAME))
         if not m:
             return None
         due_date = m[0].text
@@ -425,6 +477,20 @@ class CheckoutResponseParser(XMLParser):
             return None
         return datetime.datetime.strptime(
                 due_date, EventParser.INPUT_TIME_FORMAT)
+
+
+class CheckoutResponseParser(DateResponseParser):
+
+    """Extract due date from a checkout response."""
+    RESULT_TAG_NAME = "CheckoutResult"
+    DATE_TAG_NAME = "DueDateInUTC"
+
+
+class HoldResponseParser(DateResponseParser):
+
+    """Extract availability date from a hold response."""
+    RESULT_TAG_NAME = "PlaceHoldResult"
+    DATE_TAG_NAME = "AvailabilityDateInUTC"
 
 
 class EventParser(XMLParser):
