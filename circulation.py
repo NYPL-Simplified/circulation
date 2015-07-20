@@ -78,7 +78,7 @@ class CirculationAPI(object):
         )
 
         now = datetime.datetime.utcnow()
-        if loan and loan.end < now:
+        if loan and (not loan.end or loan.end < now):
             # We already have an active loan. Just return it and be
             # done.
             return loan, None, None
@@ -157,8 +157,7 @@ class CirculationAPI(object):
         else:
             api, possible_formats = self.api_for_license_pool(licensepool)
             for f in possible_formats:
-                fulfillment = api.fulfill(
-                    patron, pin, licensepool.identifier, f)
+                fulfillment = api.fulfill(patron, pin, licensepool, f)
                 if fulfillment and (
                         fulfillment.content_link or fulfillment.content):
                     break

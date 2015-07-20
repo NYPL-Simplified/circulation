@@ -144,9 +144,8 @@ class OverdriveAPI(BaseOverdriveAPI):
                 # we can handle it.
                 loan = self.get_loan(patron, pin, identifier.identifier)
                 expires = self.extract_expiration_date(loan)
-                content_link, content_type, content = self.fulfill(
-                    patron, pin, identifier, format_type)
-                return FulfillmentInfo(content_link, None, None, expires)
+                return self.fulfill(
+                    patron, pin, licensepool, format_type)
 
         expires, download_link = self.extract_data_from_checkout_response(
             response.json(), format_type, self.DEFAULT_ERROR_URL)
@@ -194,7 +193,7 @@ class OverdriveAPI(BaseOverdriveAPI):
             patron, pin, licensepool.identifier.identifier, format_type)
         return FulfillmentInfo(
             content_link=url, content_type=media_type, content=None, 
-            expires=None)
+            content_expires=None)
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.

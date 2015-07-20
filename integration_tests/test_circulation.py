@@ -36,25 +36,25 @@ threem = ThreeMAPI(_db)
 overdrive = OverdriveAPI(_db)
 circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem)
 
-# licensepool = borrow_pool
-# print "Attempting to borrow", licensepool.work
-# print "Initial revoke loan"
-# print circulation.revoke_loan(patron, pin, licensepool)
-# print "Fulfill with no loan"
-# try:
-#     circulation.fulfill(patron, pin, licensepool)
-# except NoActiveLoan, e:
-#     print " Exception as expected."
-# print "Borrow"
-# print circulation.borrow(patron, pin, licensepool, email)
-# print "Borrow again!"
-# print circulation.borrow(patron, pin, licensepool, email)
-# print "Fulfill with loan"
-# print circulation.fulfill(patron, pin, licensepool)
-# print "Revoke loan"
-# print circulation.revoke_loan(patron, pin, licensepool)
-# print "Revoke already revoked loan"
-# print circulation.revoke_loan(patron, pin, licensepool)
+licensepool = borrow_pool
+print "Attempting to borrow", licensepool.work
+print "Initial revoke loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+print "Fulfill with no loan"
+try:
+    circulation.fulfill(patron, pin, licensepool)
+except NoActiveLoan, e:
+    print " Exception as expected."
+print "Borrow"
+print circulation.borrow(patron, pin, licensepool, email)
+print "Borrow again!"
+print circulation.borrow(patron, pin, licensepool, email)
+print "Fulfill with loan"
+print circulation.fulfill(patron, pin, licensepool)
+print "Revoke loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+print "Revoke already revoked loan"
+print circulation.revoke_loan(patron, pin, licensepool)
 
 licensepool = hold_pool
 print "Attempting to place hold on", licensepool.work
