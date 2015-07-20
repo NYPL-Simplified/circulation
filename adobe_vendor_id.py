@@ -202,7 +202,9 @@ class AdobeVendorIDModel(object):
             temporary_token_duration or datetime.timedelta(minutes=10))
         node_value = (
             node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
-        self.node_value = int(node_value, 16)
+        if isinstance(node_value, basestring):
+            node_value = int(node_value, 16)
+        self.node_value = node_value
 
     def uuid_and_label(self, patron):
         """Create or retrieve a Vendor ID UUID and human-readable Vendor ID

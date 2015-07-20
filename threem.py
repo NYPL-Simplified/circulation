@@ -263,9 +263,8 @@ class ThreeMAPI(BaseThreeMAPI):
                 pool, new = LicensePool.for_foreign_id(
                     _db, threem_source, identifier.type,
                     identifier.identifier)
-                set_trace()
                 hold, new = pool.on_hold_to(patron, start, end, position)
-                active_holds.append(loan)
+                active_holds.append(hold)
 
         # Every hold remaining in holds_by_identifier is a hold that
         # 3M doesn't know about, which means it's expired and we

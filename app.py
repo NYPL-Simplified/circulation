@@ -22,12 +22,7 @@ from core.external_search import (
     DummyExternalSearchIndex,
 )
 from circulation import CirculationAPI
-from circulation_exceptions import (
-    CannotLoan,
-    CannotHold,
-    AlreadyCheckedOut,
-    NoAvailableCopies,
-)
+from circulation_exceptions import *
 from core.app_server import (
     load_lending_policy,
     cdn_url_for,
@@ -110,7 +105,8 @@ class Conf:
     policy = None
     primary_collection_languages = json.loads(
         os.environ['PRIMARY_COLLECTION_LANGUAGES'])
-
+    hold_notification_email_address = os.environ.get(
+        'DEFAULT_NOTIFICATION_EMAIL_ADDRESS')
 
     # When constructing URLs, this dictionary says which value for
     # 'order' to use, given a WorkFeed ordered by the given database
@@ -155,7 +151,7 @@ class Conf:
             cls.policy = load_lending_policy()
 
         cls.circulation = CirculationAPI(
-            threem=cls.threem, overdrive=cls.overdrive)
+            _db=cls.db, threem=cls.threem, overdrive=cls.overdrive)
 
         vendor_id = os.environ.get('ADOBE_VENDOR_ID')
         node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
@@ -1007,7 +1003,7 @@ def fulfill(data_source, identifier):
     if isinstance(pool, Response):
         return pool
     try:
-        fulfillment = Conf.circulation.fulfill(patron, pin, licensepool)
+        fulfillment = Conf.circulation.fulfill(patron, pin, pool)
     except NoActiveLoan, e:
         return problem(
             NO_ACTIVE_LOAN_PROBLEM, 
@@ -1019,11 +1015,11 @@ def fulfill(data_source, identifier):
     headers = dict()
     if fulfillment.content_link:
         status_code = 302
-        headers["Location"] = content_link
+        headers["Location"] = fulfillment.content_link
     else:
         status_code = 200
-    if fulfillment.media_type:
-        headers['Content-Type'] = media_type
+    if fulfillment.content_type:
+        headers['Content-Type'] = fulfillment.content_type
     return Response(fulfillment.content, status_code, headers)
 
 
@@ -1060,7 +1056,8 @@ def borrow(data_source, identifier):
     pin = flask.request.authorization.password
     problem_doc = None
     try:
-        loan, hold, fulfillment = Conf.circulation.borrow(patron, pin, pool)
+        loan, hold, fulfillment, is_new = Conf.circulation.borrow(
+            patron, pin, pool, Conf.hold_notification_email_address)
     except NoOpenAccessDownload, e:
         problem_doc = problem(
             NO_LICENSES_PROBLEM,
@@ -1085,6 +1082,10 @@ def borrow(data_source, identifier):
         # error earlier.
         return problem(HOLD_FAILED_PROBLEM, "", 400)
     content = unicode(feed)
+    if is_new:
+        status_code = 201
+    else:
+        status_code = 200
     return Response(content, status_code, headers)
 
 # Adobe Vendor ID implementation

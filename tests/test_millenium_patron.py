@@ -11,6 +11,7 @@ from . import DatabaseTest
 
 class DummyResponse(object):
     def __init__(self, content):
+        self.status_code = 200
         self.content = content
 
 class DummyAPI(MilleniumPatronAPI):

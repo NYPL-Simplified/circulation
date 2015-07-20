@@ -66,7 +66,7 @@ class CirculationAPI(object):
         """Either borrow a book or put it on hold. If the book is borrowed,
         also fulfill the loan.
         
-        :return: A 3-tuple (borrow, hold, fulfillment). Either
+        :return: A 4-tuple (borrow, hold, fulfillment, is_new). Either
         `borrow` or `hold` must be None, but not both. If `borrow` is
         present, `fulfillment` must be a `FulfillmentInfo` object.
         """
@@ -83,7 +83,7 @@ class CirculationAPI(object):
         if loan and (not loan.end or loan.end < now):
             # We already have an active loan. Just return it and be
             # done.
-            return loan, None, None
+            return loan, None, None, False
     
         fallback_to_hold = False
         content_link = content_expires = None
@@ -92,8 +92,8 @@ class CirculationAPI(object):
             best_pool, best_link = licensepool.best_license_link
             if not best_link:
                 raise NoOpenAccessDownload()
-            loan, ignore = licensepool.loan_to(patron, end=None)
-            return loan, None, self.fulfill_open_access(licensepool, best_link)
+            loan, is_new = licensepool.loan_to(patron, end=None)
+            return loan, None, self.fulfill_open_access(licensepool, best_link), is_new
 
         # We need to go to an API to carry out the loan.
         api, possible_formats = self.api_for_license_pool(licensepool)
@@ -113,7 +113,7 @@ class CirculationAPI(object):
             # We successfuly secured a loan.  Now create it in our
             # database.
             __transaction = self._db.begin_nested()
-            loan, ignore = licensepool.loan_to(
+            loan, is_new = licensepool.loan_to(
                 patron, end=fulfillment.content_expires)
             if hold:
                 # The book was on hold, and now it's checked out.
@@ -124,11 +124,11 @@ class CirculationAPI(object):
         else:
             # Checking out a book didn't work, so let's try putting
             # the book on hold.
-            __transaction = self._db.begin_nested()
             hold_info = api.place_hold(
                 patron, pin, licensepool, hold_notification_email)
             start_date = hold_info.start_date or now
-            hold, ignore = licensepool.on_hold_to(
+            __transaction = self._db.begin_nested()
+            hold, is_new = licensepool.on_hold_to(
                 patron, start_date, hold_info.end_date, 
                 hold_info.hold_position)
             if loan:
@@ -137,7 +137,7 @@ class CirculationAPI(object):
                 self._db.delete(loan)
             __transaction.commit()
             loan = None
-        return loan, hold, fulfillment
+        return loan, hold, fulfillment, is_new
 
     def fulfill(self, patron, pin, licensepool):
         """Fulfil a book that a patron has checked out.
