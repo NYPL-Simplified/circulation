@@ -21,6 +21,7 @@ from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
 )
+from circulation import CirculationAPI
 from circulation_exceptions import (
     CannotLoan,
     CannotHold,
@@ -152,6 +153,9 @@ class Conf:
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
+
+        cls.circulation = CirculationAPI(
+            threem=cls.threem, overdrive=cls.overdrive)
 
         vendor_id = os.environ.get('ADOBE_VENDOR_ID')
         node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
@@ -681,9 +685,6 @@ def revoke_loan_or_hold(data_source, identifier):
 
     pin = flask.request.authorization.password
     if loan:
-        __transaction = Conf.db.begin_nested()
-        Conf.db.delete(loan)
-        __transaction.commit()
         try:
             Conf.circulation.revoke_loan(patron, pin, pool)
         except RemoteRefusedReturn, e:
@@ -694,9 +695,6 @@ def revoke_loan_or_hold(data_source, identifier):
             title = "Loan deleted locally but remote failed: %s" % str(e)
             return problem(uri, title, 500)
     elif hold:
-        __transaction = Conf.db.begin_nested()
-        Conf.db.delete(hold)
-        __transaction.commit()
         try:
             Conf.circulation.release_hold(patron, pin, pool, loan)
         except CannotRelease, e:
@@ -960,13 +958,19 @@ def work():
     # Conf.urn_lookup_controller.permalink(urn, annotator)
 
 def _load_licensepool(data_source, identifier):
-    source = DataSource.lookup(Conf.db, data_source)
+    if isinstance(data_source, DataSource):
+        source = data_source
+    else:
+        source = DataSource.lookup(Conf.db, data_source)
     if source is None:
-        return problem(None, "No such data source!", 404)
-    identifier_type = source.primary_identifier_type
+        return problem(None, "No such data source: %s" % data_source, 404)
 
-    id_obj, ignore = Identifier.for_foreign_id(
-        Conf.db, identifier_type, identifier, autocreate=False)
+    if isinstance(identifier, Identifier):
+        id_obj = identifier
+    else:
+        identifier_type = source.primary_identifier_type
+        id_obj, ignore = Identifier.for_foreign_id(
+            Conf.db, identifier_type, identifier, autocreate=False)
     if not id_obj:
         # TODO
         return problem(
@@ -1032,8 +1036,6 @@ def borrow(data_source, identifier):
     "http://opds-spec.org/acquisition", which can be used to fetch the
     book or the license file.
     """
-    patron = flask.request.patron
-
     headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
 
     # Turn source + identifier into a LicensePool
@@ -1048,6 +1050,7 @@ def borrow(data_source, identifier):
             NO_LICENSES_PROBLEM, 
             "I don't have any licenses for that work.", 404)
 
+    patron = flask.request.patron
     problem_doc = _apply_borrowing_policy(patron, pool)
     if problem_doc:
         # As a matter of policy, the patron is not allowed to check
@@ -1057,9 +1060,7 @@ def borrow(data_source, identifier):
     pin = flask.request.authorization.password
     problem_doc = None
     try:
-        __transaction = Conf.db.begin_nested()
         loan, hold, fulfillment = Conf.circulation.borrow(patron, pin, pool)
-        __transaction.commit()
     except NoOpenAccessDownload, e:
         problem_doc = problem(
             NO_LICENSES_PROBLEM,

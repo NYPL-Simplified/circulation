@@ -112,16 +112,19 @@ class CirculationAPI(object):
         if fulfillment:
             # We successfuly secured a loan.  Now create it in our
             # database.
+            __transaction = self._db.begin_nested()
             loan, ignore = licensepool.loan_to(
                 patron, end=fulfillment.content_expires)
             if hold:
                 # The book was on hold, and now it's checked out.
                 # Delete the hold in-database.
-                self._db.delete(existing_hold)
+                self._db.delete(hold)
                 hold = None
+            __transaction.commit()
         else:
             # Checking out a book didn't work, so let's try putting
             # the book on hold.
+            __transaction = self._db.begin_nested()
             hold_info = api.place_hold(
                 patron, pin, licensepool, hold_notification_email)
             start_date = hold_info.start_date or now
@@ -132,6 +135,7 @@ class CirculationAPI(object):
                 # No reason this should happen, but we can't have
                 # loan and hold simultaneously.
                 self._db.delete(loan)
+            __transaction.commit()
             loan = None
         return loan, hold, fulfillment
 
@@ -185,6 +189,10 @@ class CirculationAPI(object):
             self._db, Loan, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
         )
+        if loan:
+            __transaction = self._db.begin_nested()
+            self._db.delete(loan)
+            __transaction.commit()
         if not licensepool.open_access:
             api, possible_formats = self.api_for_license_pool(licensepool)
             try:
@@ -195,8 +203,6 @@ class CirculationAPI(object):
                 pass
         # Any other CannotReturn exception will be propagated upwards
         # at this point.
-        if loan:
-            self._db.delete(loan)
         return True
 
     def release_hold(self, patron, pin, licensepool):
@@ -216,5 +222,7 @@ class CirculationAPI(object):
         # Any other CannotReleaseHold exception will be propagated
         # upwards at this point
         if hold:
+            __transaction = self._db.begin_nested()
             self._db.delete(hold)
+            __transaction.commit()
         return True
