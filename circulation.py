@@ -28,6 +28,16 @@ class FulfillmentInfo(object):
         return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, expires: %r>" % (
             self.content_link, self.content_type, blength, self.content_expires)
 
+class HoldInfo(object):
+
+    """A record of a hold."""
+
+    def __init__(self, start_date, end_date, hold_position):
+        self.start_date = start_date
+        self.end_date = end_date
+        self.hold_position = hold_position
+
+
 class CirculationAPI(object):
     """Implement basic circulation logic and abstract away the details
     between different circulation APIs.
@@ -92,7 +102,6 @@ class CirculationAPI(object):
         except NoAvailableCopies:
             # That's fine, we'll just place a hold.
             pass
-        set_trace()
 
         if fulfillment:
             # We successfuly secured a loan.  Now create it in our
@@ -102,20 +111,21 @@ class CirculationAPI(object):
             if hold:
                 # The book was on hold, and now it's checked out.
                 # Delete the hold in-database.
-                Conf.db.delete(existing_hold)
+                self._db.delete(existing_hold)
                 hold = None
         else:
             # Checking out a book didn't work, so let's try putting
             # the book on hold.
-            start_date, end_date, hold_position = api.place_hold(
+            hold_info = api.place_hold(
                 patron, pin, licensepool, hold_notification_email)
-            start_date = start_date or now
+            start_date = hold_info.start_date or now
             hold, ignore = licensepool.on_hold_to(
-                patron, start_date, end_date, hold_position)
+                patron, start_date, hold_info.end_date, 
+                hold_info.hold_position)
             if loan:
                 # No reason this should happen, but we can't have
                 # loan and hold simultaneously.
-                Conf.db.delete(loan)
+                self._db.delete(loan)
             loan = None
         return loan, hold, fulfillment
 
@@ -137,7 +147,7 @@ class CirculationAPI(object):
         # The patron must have a loan for this book. We'll try
         # fulfilling it even if the loan has expired--they may have
         # renewed it out-of-band.
-        loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+        loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
         if not loan:
             raise NoActiveLoan()
 
@@ -148,13 +158,12 @@ class CirculationAPI(object):
             api, possible_formats = self.api_for_license_pool(licensepool)
             for f in possible_formats:
                 fulfillment = api.fulfill(
-                    patron, pin, pool.identifier, f)
-                if fulfillment.content_link or fulfillment.content:
+                    patron, pin, licensepool.identifier, f)
+                if fulfillment and (
+                        fulfillment.content_link or fulfillment.content):
                     break
             else:
                 raise NoAcceptableFormat()
-            fulfillment = FulfillmentInfo(
-                content_link, media_type, content, content_expires)
         return fulfillment
 
     def fulfill_open_access(self, licensepool):

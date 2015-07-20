@@ -5,7 +5,10 @@ import requests
 
 from sqlalchemy.orm import contains_eager
 
-from circulation import FulfillmentInfo
+from circulation import (
+    
+    FulfillmentInfo,
+)
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -278,10 +281,7 @@ class OverdriveAPI(BaseOverdriveAPI):
     def place_hold(self, patron, pin, overdrive_id, notification_email_address):
         """Place a book on hold.
 
-        :return: 3-tuple (position, start_date, end_date) `position`
-        is the current hold position. `start_date` is the datetime at
-        which the hold was first created. `end_date` is always null
-        for Overdrive.
+        :return: A HoldInfo object
         """
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)
@@ -297,7 +297,8 @@ class OverdriveAPI(BaseOverdriveAPI):
                 hold = self.get_hold(patron, pin, overdrive_id)
                 position, start_date = self.extract_data_from_hold_response(
                     hold)
-                return position, start_date, None
+                return HoldInfo(start_date=start_date, end_date=None,
+                                position=position)
             elif code == 'NotWithinRenewalWindow':
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
@@ -309,7 +310,8 @@ class OverdriveAPI(BaseOverdriveAPI):
             data = response.json()
             position, start_date = self.extract_data_from_hold_response(
                 data)
-            return position, start_date, None
+            return HoldInfo(start_date=start_date, end_date=None,
+                            hold_position=position)
 
     def release_hold(self, patron, pin, identifier):
         """Release a patron's hold on a book.

@@ -8,7 +8,10 @@ from nose.tools import set_trace
 
 from sqlalchemy import or_
 
-from circulation import FulfillmentInfo
+from circulation import (
+    FulfillmentInfo,
+    HoldInfo,
+)
 from core.model import (
     CirculationEvent,
     DataSource,
@@ -155,10 +158,7 @@ class ThreeMAPI(BaseThreeMAPI):
     def place_hold(self, patron, pin, licensepool, hold_notification_email=None):
         """Place a hold.
 
-        :return: 3-tuple (position, start_date, end_date) `position`
-        is always null for 3M. `start_date` is the datetime at which
-        the hold was first created. `end_date` is this patron's
-        estimated availability date for the book.
+        :return: a HoldInfo object.
         """
         patron_id = patron.authorization_identifier
         item_id = licensepool.identifier.identifier
@@ -169,12 +169,13 @@ class ThreeMAPI(BaseThreeMAPI):
         if response.status_code in (200, 201):
             start_date = datetime.datetime.utcnow()
             end_date = HoldResponseParser().process_all(response.content)
-            return None, start_date, end_date
+            return HoldInfo(start_date=start_date, end_date=end_date,
+                            hold_position=None)
         else:
             if not response.content:
                 raise CannotHold()
             error = ErrorParser().process_all(response.content)
-            raise error
+            raise CannotHold(error)
 
     def release_hold(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
