@@ -18,7 +18,7 @@ from model import (
 
 class Axis360API(object):
 
-    DEFAULT_BASE_URL = "https://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
+    DEFAULT_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
     
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
@@ -102,6 +102,7 @@ class BibliographicParser(XMLParser):
     NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
+    FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %H:%M:%S %p"
     FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p +00:00"
 
     @classmethod
@@ -138,8 +139,14 @@ class BibliographicParser(XMLParser):
         availability_updated = self.text_of_optional_subtag(
             availability, 'bt:updateDate', ns)
         if availability_updated:
+            try:
+                attempt = datetime.datetime.strptime(
+                    availability_updated, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
+                availability_updated += ' +00:00'
+            except ValueError:
+                pass
             availability_updated = datetime.datetime.strptime(
-                availability_updated, self.FULL_DATE_FORMAT)
+                    availability_updated, self.FULL_DATE_FORMAT)
         return {
             LicensePool.licenses_owned : total_copies,
             LicensePool.licenses_available : available_copies,

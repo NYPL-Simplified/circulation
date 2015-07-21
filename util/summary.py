@@ -24,7 +24,7 @@ class SummaryEvaluator(object):
 
     # These phrases are indicative of a description we can't use for
     # whatever reason.
-    bad_phrases = set([
+    default_bad_phrases = set([
         "version of",
         "retelling of",
         "abridged",
@@ -54,7 +54,7 @@ class SummaryEvaluator(object):
     ])
 
     def __init__(self, optimal_number_of_sentences=4,
-                 noun_phrases_to_consider=10):
+                 noun_phrases_to_consider=10, bad_phrases=None):
         self.optimal_number_of_sentences=optimal_number_of_sentences
         self.summaries = []
         self.noun_phrases = Counter()
@@ -62,6 +62,10 @@ class SummaryEvaluator(object):
         self.scores = dict()
         self.noun_phrases_to_consider = float(noun_phrases_to_consider)
         self.top_noun_phrases = None
+        if bad_phrases is None:
+            self.bad_phrases = self.default_bad_phrases
+        else:
+            self.bad_phrases = bad_phrases
 
     def add(self, summary):
         if isinstance(summary, str):

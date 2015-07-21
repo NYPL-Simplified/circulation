@@ -86,11 +86,12 @@ class BaseOPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None):
+                 overwrite_rels=None, identifier_mapping=None):
         self._db = _db
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
         self.data_source = DataSource.lookup(self._db, data_source_name)
+        self.identifier_mapping = identifier_mapping
         if overwrite_rels is None:
             overwrite_rels = [
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
@@ -145,7 +146,14 @@ class BaseOPDSImporter(object):
         return links_by_rel
 
     def import_from_feedparser_entry(self, entry):
-        identifier, ignore = Identifier.parse_urn(self._db, entry.get('id'))
+        external_identifier, ignore = Identifier.parse_urn(
+            self._db, entry.get('id'))
+        # if self.identifier_mapping:
+        #     identifier = self.identifier_mapping.get(
+        #         external_identifier, external_identifier)
+        # else:
+        #     identifier = external_identifier
+        identifier = external_identifier
         status_code = entry.get('simplified_status_code', 200)
         message = entry.get('simplified_message', None)
         try:
@@ -163,10 +171,10 @@ class BaseOPDSImporter(object):
 
         license_source_name = entry.get('simplified_license_source', None)
         if license_source_name:
-            license_data_source = DataSource.lookup(
-                self._db, license_source_name)
+            license_data_sources = [DataSource.lookup(
+                self._db, license_source_name)]
         else:
-            license_data_source = DataSource.license_source_for(
+            license_data_sources = DataSource.license_sources_for(
                 self._db, identifier)
 
         title = entry.get('title', None)
@@ -182,9 +190,12 @@ class BaseOPDSImporter(object):
         summary_detail = entry.get('summary_detail', None)
 
         # Get an existing LicensePool for this book.
-        pool = get_one(
-            self._db, LicensePool, data_source=license_data_source,
-            identifier=identifier)
+        for source in license_data_sources:
+            pool = get_one(
+                self._db, LicensePool, data_source=source,
+                identifier=identifier)
+            if pool:
+                break
 
         links_by_rel = self.links_by_rel(entry)
         if pool:
@@ -259,7 +270,7 @@ class BaseOPDSImporter(object):
 
         # Assign the LicensePool to a Work.
         work = pool.calculate_work(known_edition=edition)
-
+        set_trace()
         return identifier, edition, edition_was_new, status_code, message
 
     def destroy_resources(self, identifier, rels):
@@ -335,16 +346,17 @@ class DetailedOPDSImporter(BaseOPDSImporter):
 
     def __init__(self, _db, feed,
                  data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None):
-        super(DetailedOPDSImporter, self).__init__(_db, feed, data_source_name, overwrite_rels)
+                 overwrite_rels=None, identifier_mapping=None):
+        super(DetailedOPDSImporter, self).__init__(
+            _db, feed, data_source_name, overwrite_rels, identifier_mapping)
         self.lxml_parsed = etree.fromstring(self.raw_feed)
         self.medium_by_id, self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
             _db, self.lxml_parsed)
 
     def import_from_feedparser_entry(self, entry):
         identifier, edition, edition_was_new, status_code, message = super(
-            DetailedOPDSImporter, self).import_from_feedparser_entry(entry)
-
+            DetailedOPDSImporter, self).import_from_feedparser_entry(
+                entry)
         if not edition:
             # No edition was created. Nothing to do.
             return identifier, edition, edition_was_new, status_code, message
