@@ -29,6 +29,7 @@ from model import (
     Resource,
     Subject,
 )
+from opds import OPDSFeed
 
 class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
@@ -103,7 +104,7 @@ class BaseOPDSImporter(object):
         imported = []
         messages_by_id = dict()
         for entry in self.feedparser_parsed['entries']:
-            opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
+            internal_id, opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
             if not edition and status_code == 200:
                 print "EDITION NOT CREATED: %s" % message
@@ -166,7 +167,7 @@ class BaseOPDSImporter(object):
             # There was an error or the data is not complete. Don't go
             # through with the import, even if there is data in the
             # entry.
-            return internal_identifier, None, False, status_code, message
+            return internal_identifier, external_identifier, None, False, status_code, message
 
         license_source_name = entry.get('simplified_license_source', None)
         if license_source_name:
@@ -192,9 +193,10 @@ class BaseOPDSImporter(object):
 
         # Get an existing LicensePool for this book.
         pool = None
-        for source in license_data_sources:
+        license_data_source = None
+        for license_data_source in license_data_sources:
             pool = get_one(
-                self._db, LicensePool, data_source=source,
+                self._db, LicensePool, data_source=license_data_source,
                 identifier=internal_identifier)
             if pool:
                 break
@@ -214,11 +216,11 @@ class BaseOPDSImporter(object):
             else:
                 # No, we can't. This most likely indicates a problem.
                 message = message or self.COULD_NOT_CREATE_LICENSE_POOL
-                return (internal_identifier, None, False, status_code, message)
+                return (internal_identifier, external_identifier, None,
+                        False, status_code, message)
 
         if pool_was_new:
             pool.open_access = True
-        set_trace()
 
         # Create or retrieve an Edition for this book.
         #
@@ -235,25 +237,28 @@ class BaseOPDSImporter(object):
         # TODO: I'm not really happy with this but it will work as long
         # as the times are in UTC, possibly as long as the times are in
         # the same timezone.
-        source_last_updated = datetime.datetime(*source_last_updated[:6])
-        if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated:
-            # The metadata has not changed since last time
-            return identifier, edition, False, status_code, message
+        if source_last_updated:
+            source_last_updated = datetime.datetime(*source_last_updated[:6])
+            if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated:
+                # The metadata has not changed since last time
+                return (internal_identifier, external_identifier, edition, 
+                        False, status_code, message)
 
-        self.destroy_resources(identifier, self.overwrite_rels)
+        self.destroy_resources(internal_identifier, self.overwrite_rels)
 
         # Again, the links come from the OPDS feed, not from the entity
         # providing the original license.
         download_links, image_link, thumbnail_link = self.set_resources(
-            self.data_source, identifier, pool, links_by_rel)
+            self.data_source, internal_identifier, pool, links_by_rel)
 
         # If there's a summary, add it to the identifier.
         summary = entry.get('summary_detail', {})
         rel = Hyperlink.DESCRIPTION
         if 'value' in summary and summary['value']:
             value = summary['value']
-            uri = Hyperlink.generic_uri(self.data_source, identifier, rel,
-                                        value)
+            uri = Hyperlink.generic_uri(
+                self.data_source, internal_identifier, rel,
+                value)
             pool.add_link(
                 rel, uri, self.data_source,
                 summary.get('type', 'text/plain'), value)
@@ -261,21 +266,23 @@ class BaseOPDSImporter(object):
             value = content['value']
             if not value:
                 continue
-            uri = Hyperlink.generic_uri(self.data_source, identifier, rel,
-                                        value)
+            uri = Hyperlink.generic_uri(
+                self.data_source, internal_identifier, rel, value)
             pool.add_link(
                 rel, uri, self.data_source,
                 summary.get('type', 'text/html'), value)
             
-
-        edition.title = title
-        edition.language = language
-        edition.publisher = publisher
+        if title:
+            edition.title = title
+        if language:
+            edition.language = language
+        if publisher:
+            edition.publisher = publisher
 
         # Assign the LicensePool to a Work.
         work = pool.calculate_work(known_edition=edition)
-        set_trace()
-        return identifier, edition, edition_was_new, status_code, message
+        return (internal_identifier, external_identifier, edition, 
+                edition_was_new, status_code, message)
 
     def destroy_resources(self, identifier, rels):
         # Remove all existing downloads and images, and descriptions
@@ -358,12 +365,13 @@ class DetailedOPDSImporter(BaseOPDSImporter):
             _db, self.lxml_parsed)
 
     def import_from_feedparser_entry(self, entry):
-        identifier, edition, edition_was_new, status_code, message = super(
+        identifier, opds_identifier, edition, edition_was_new, status_code, message = super(
             DetailedOPDSImporter, self).import_from_feedparser_entry(
                 entry)
-        if not edition:
+        if not edition or opds_identifier.type == Identifier.ISBN:
             # No edition was created. Nothing to do.
-            return identifier, edition, edition_was_new, status_code, message
+            return identifier, opds_identifier, edition, edition_was_new, status_code, message
+            
 
         edition.medium = self.medium_by_id.get(entry.id)
 
@@ -408,7 +416,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 rel = Measurement.RATING
             identifier.add_measurement(self.data_source, rel, value)
 
-        return identifier, edition, edition_was_new, status_code, message
+        return identifier, opds_identifier, edition, edition_was_new, status_code, message
 
     @classmethod
     def authors_and_subjects_by_id(cls, _db, root):
