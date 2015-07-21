@@ -817,14 +817,18 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def minimal_opds_entry(cls, identifier, cover, description):        
         elements = []
+        representations = []
+        most_recent_update = None
         if cover:
             cover_representation = cover.representation
+            representations.append(cover.representation)
             cover_link = E._makeelement(
                 "link", href=cover_representation.mirror_url,
                 type=cover_representation.media_type, rel=Hyperlink.IMAGE)
             elements.append(cover_link)
             if cover_representation.thumbnails:
                 thumbnail = cover_representation.thumbnails[0]
+                representations.append(thumbnail)
                 thumbnail_link = E._makeelement(
                     "link", href=thumbnail.mirror_url,
                     type=thumbnail.media_type,
@@ -837,6 +841,18 @@ class AcquisitionFeed(OPDSFeed):
                 content = content.decode("utf8")
             description_e = E.summary(content, type='html')
             elements.append(description_e)
+            representations.append(description.representation)
+
+        # The update date is the most recent date any of these
+        # resources were mirrored/fetched.
+        potential_update_dates = [
+            r.mirrored_at or r.fetched_at for r in representations
+            if r.mirrored_at or r.fetched_at
+        ]
+        
+        if potential_update_dates:
+            update_date = max(potential_update_dates)
+            elements.append(E.updated(_strftime(update_date)))
         entry = E.entry(
             E.id(identifier.urn),
             E.title(OPDSFeed.NO_TITLE),
