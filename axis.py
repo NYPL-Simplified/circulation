@@ -30,10 +30,11 @@ class Axis360CirculationMonitor(Monitor):
     """
 
     def __init__(self, _db, name="Axis 360 Circulation Monitor",
-                 interval_seconds=60):
+                 interval_seconds=60, batch_size=50):
         super(Axis360CirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds,
             default_start_time = datetime.utcnow() - Monitor.ONE_YEAR_AGO)
+        self.batch_size = batch_size
 
     def run(self):
         self.api = Axis360API(self._db)
@@ -43,13 +44,16 @@ class Axis360CirculationMonitor(Monitor):
         availability = self.api.availability(start)
         status_code = availability.status_code
         content = availability.content
-        print content
         if status_code != 200:
             raise Exception(
                 "Got status code %d from API: %s" % (status_code, content))
+        count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
                 content):
             self.process_book(bibliographic, circulation)
+            count += 1
+            if count % self.batch_size == 0:
+                self._db.commit()
 
     def process_book(self, bibliographic, availability):
         [axis_id] = bibliographic[Identifier][Identifier.AXIS_360_ID]
@@ -80,6 +84,7 @@ class Axis360CirculationMonitor(Monitor):
         if new_license_pool or new_edition:
             # Add bibliographic information to the Edition.
             edition.title = bibliographic.get(Edition.title)
+            print "NEW EDITION: %s" % edition.title
             edition.subtitle = bibliographic.get(Edition.subtitle)
             edition.series = bibliographic.get(Edition.series)
             edition.published = bibliographic.get(Edition.published)

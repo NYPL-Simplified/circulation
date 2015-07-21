@@ -206,21 +206,23 @@ class MakePresentationReady(object):
         self.content_lookup = SimplifiedOPDSLookup(content_server_url)
         self.search_index = ExternalSearchIndex()
 
-    def replace_ids(self, batch):
-        new_batch = []
+    def create_id_mapping(self, batch):
+        mapping = dict()
         for identifier in batch:
-            if identifier.type != Identifier.AXIS_360_ID:
-                new_batch.append(identifier)
-                continue
-            # The metadata wrangler can't look up Axis 360 identifiers,
-            # so look up the corresponding ISBNs instead.
-            for e in identifier.equivalencies:
-                if e.output.type == Identifier.ISBN:
-                    new_batch.append(e.output)
-        return new_batch
+            if identifier.type == Identifier.AXIS_360_ID:
+                # The metadata wrangler can't look up Axis 360
+                # identifiers, so look up the corresponding ISBNs
+                # instead.
+                for e in identifier.equivalencies:
+                    if e.output.type == Identifier.ISBN:
+                        mapping[e.output] = identifier
+            else:
+                mapping[identifier] = identifier
+        return mapping
 
     def process_batch(self, batch):
-        batch = self.replace_ids(batch)
+        id_mapping = self.create_id_mapping(batch)
+        batch = id_mapping.keys()
         print "%d batch" % len(batch)
         response = self.lookup.lookup(batch)
         print "Response!"
@@ -236,7 +238,8 @@ class MakePresentationReady(object):
         
         importer = DetailedOPDSImporter(
             self._db, response.text,
-            overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION])
+            overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION],
+            identifier_mapping=id_mapping)
         imported, messages_by_id = importer.import_from_feed()
 
         # Look up any open-access works for which there is no
