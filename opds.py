@@ -404,6 +404,8 @@ class OPDSFeed(AtomFeed):
 
     FEED_CACHE_TIME = int(os.environ.get('FEED_CACHE_TIME', "600"))
 
+    NO_TITLE = "http://librarysimplified.org/terms/problem/no-title"
+
     def __init__(self, title, url, annotator):
         if not annotator:
             annotator = Annotator()
@@ -730,7 +732,7 @@ class AcquisitionFeed(OPDSFeed):
 
         entry = E.entry(
             E.id(permalink),
-            E.title(edition.title or '[Unknown title]'),
+            E.title(edition.title or OPDSFeed.NO_TITLE),
             **kw
         )
         if edition.subtitle:
@@ -837,7 +839,7 @@ class AcquisitionFeed(OPDSFeed):
             elements.append(description_e)
         entry = E.entry(
             E.id(identifier.urn),
-            E.title('[Unknown title]'),
+            E.title(OPDSFeed.NO_TITLE),
             *elements
         )
         return entry

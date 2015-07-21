@@ -148,12 +148,11 @@ class BaseOPDSImporter(object):
     def import_from_feedparser_entry(self, entry):
         external_identifier, ignore = Identifier.parse_urn(
             self._db, entry.get('id'))
-        # if self.identifier_mapping:
-        #     identifier = self.identifier_mapping.get(
-        #         external_identifier, external_identifier)
-        # else:
-        #     identifier = external_identifier
-        identifier = external_identifier
+        if self.identifier_mapping:
+             internal_identifier = self.identifier_mapping.get(
+                 external_identifier, external_identifier)
+        else:
+            internal_identifier = external_identifier
         status_code = entry.get('simplified_status_code', 200)
         message = entry.get('simplified_message', None)
         try:
@@ -167,7 +166,7 @@ class BaseOPDSImporter(object):
             # There was an error or the data is not complete. Don't go
             # through with the import, even if there is data in the
             # entry.
-            return identifier, None, False, status_code, message
+            return internal_identifier, None, False, status_code, message
 
         license_source_name = entry.get('simplified_license_source', None)
         if license_source_name:
@@ -175,9 +174,11 @@ class BaseOPDSImporter(object):
                 self._db, license_source_name)]
         else:
             license_data_sources = DataSource.license_sources_for(
-                self._db, identifier)
+                self._db, internal_identifier)
 
         title = entry.get('title', None)
+        if title == OPDSFeed.NO_TITLE:
+            title = None
         updated = entry.get('updated_parsed', None)
         publisher = entry.get('dcterms_publisher', None)
         language = entry.get('dcterms_language', None)
@@ -190,10 +191,11 @@ class BaseOPDSImporter(object):
         summary_detail = entry.get('summary_detail', None)
 
         # Get an existing LicensePool for this book.
+        pool = None
         for source in license_data_sources:
             pool = get_one(
                 self._db, LicensePool, data_source=source,
-                identifier=identifier)
+                identifier=internal_identifier)
             if pool:
                 break
 
@@ -207,15 +209,16 @@ class BaseOPDSImporter(object):
                 # Yes. This is an open-access book and we know where
                 # you can download it.
                 pool, pool_was_new = LicensePool.for_foreign_id(
-                    self._db, license_data_source, identifier.type,
+                    self._db, license_data_source, internal_identifier.type,
                     identifier.identifier)
             else:
                 # No, we can't. This most likely indicates a problem.
                 message = message or self.COULD_NOT_CREATE_LICENSE_POOL
-                return (identifier, None, False, status_code, message)
+                return (internal_identifier, None, False, status_code, message)
 
         if pool_was_new:
             pool.open_access = True
+        set_trace()
 
         # Create or retrieve an Edition for this book.
         #
@@ -225,7 +228,8 @@ class BaseOPDSImporter(object):
         # we can't currently associate an Edition from one data source
         # with a LicensePool from another data source.
         edition, edition_was_new = Edition.for_foreign_id(
-            self._db, license_data_source, identifier.type, identifier.identifier)
+            self._db, license_data_source, internal_identifier.type,
+            internal_identifier.identifier)
 
         source_last_updated = entry.get('updated_parsed')
         # TODO: I'm not really happy with this but it will work as long
