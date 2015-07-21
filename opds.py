@@ -485,8 +485,8 @@ class AcquisitionFeed(OPDSFeed):
                 a = time.time()
                 page = q.all()
                 b = time.time()
-                print "Got %s %s for %s in %.2f" % (
-                    len(page), title, lane.name, (b-a))
+                #print "Got %s %s for %s in %.2f" % (
+                #    len(page), title, lane.name, (b-a))
                 if len(page) > 20:
                     sample = random.sample(page, 20)
                 else:
@@ -507,7 +507,7 @@ class AcquisitionFeed(OPDSFeed):
 
     def __init__(self, _db, title, url, works, annotator=None,
                  active_facet=None, sublanes=[], messages_by_urn={},
-                 facet_groups=DEFAULT_FACET_GROUPS):
+                 facet_groups=DEFAULT_FACET_GROUPS, precomposed_entries=[]):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
@@ -516,7 +516,7 @@ class AcquisitionFeed(OPDSFeed):
             a = time.time()
             works = works.all()
             b = time.time()
-            print "Query executed in %.2f" % (b-a)
+            # print "Query executed in %.2f" % (b-a)
         if annotator:
             annotator.cached_record = []
             annotator.uncached_record = []
@@ -524,6 +524,8 @@ class AcquisitionFeed(OPDSFeed):
             a = time.time()
             self.add_entry(work, lane_link)
             totals.append(time.time()-a)
+        for entry in precomposed_entries:
+            self.feed.append(entry)
 
         # Add minimal entries for the messages.
         for urn, (status, message) in messages_by_urn.items():
@@ -539,13 +541,14 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(message_tag)
             self.feed.append(entry)
 
-        total_entries = len(self.feed)
-        if len(totals):
-            print "Feed contains %d entries, build times: %r" % (
-                len(totals), totals)
-        else:
-            print "Feed is empty."
-        print "Total time to build feed: %.2f" % (time.time()-first_time)
+        total_entries = len(totals) + len(precomposed_entries)
+        #if total_entries:
+        #    print "Feed contains %d entries, build times: %r" % (
+        #        len(totals), totals)
+        #else:
+        #    print "Feed is empty."
+        print "Built feed of %d entries in %.2f sec" % (
+            total_entries, time.time()-first_time)
 
         for title, order, facet_group, in facet_groups:
             url = self.annotator.facet_url(order)
@@ -786,10 +789,8 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
-    def minimal_opds_entry(cls, identifier, cover, description):
-        
+    def minimal_opds_entry(cls, identifier, cover, description):        
         elements = []
-        set_trace()
         if cover:
             cover_representation = cover.representation
             cover_link = E._makeelement(
@@ -815,7 +816,7 @@ class AcquisitionFeed(OPDSFeed):
             E.title('[Unknown title]'),
             *elements
         )
-        return etree.tostring(entry)
+        return entry
 
     @classmethod
     def acquisition_link(cls, rel, href, types):

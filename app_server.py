@@ -90,7 +90,7 @@ class URNLookupController(object):
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
         self.works = []
-        self.prebuilt_entries = []
+        self.precomposed_entries = []
         self.unresolved_identifiers = []
         self.can_resolve_identifiers = can_resolve_identifiers
         self.content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
@@ -162,7 +162,13 @@ class URNLookupController(object):
         if license_sources.count():
             return self.register_identifier_as_unresolved(identifier)
         else:
-            return self.make_opds_entry_from_metadata_lookups(identifier)
+            entry = self.make_opds_entry_from_metadata_lookups(identifier)
+            if isinstance(entry, tuple):
+                # Alleged 'entry' is actually a message
+                return entry
+            else:
+                self.precomposed_entries.append(entry)
+                return None, None
 
     def register_identifier_as_unresolved(self, identifier):
         # This identifier could have a LicensePool associated with
@@ -225,20 +231,16 @@ class URNLookupController(object):
         else:
             # All metadata lookups have completed. Create that OPDS
             # entry!
-            entry = self.make_opds_entry(identifier)
+            entry = identifier.opds_entry()
 
-        if not entry:
+        if entry is None:
             # This app can't do lookups on an identifier of this
             # type, so the best thing to do is to treat this
             # identifier as a 404 error.
             return (404, self.UNRECOGNIZED_IDENTIFIER)
 
         # We made it!
-        self.entries.append((identifier, entry))
-        return None, None
-
-    def make_opds_entry(self, identifier):
-        self.prebuilt_entries.append(identifier.opds_entry())
+        return entry
 
     def work_lookup(self, annotator, controller_name='lookup'):
         """Generate an OPDS feed describing works identified by identifier."""
@@ -257,7 +259,8 @@ class URNLookupController(object):
 
         opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, self.works, annotator,
-            messages_by_urn=messages_by_urn)
+            messages_by_urn=messages_by_urn, 
+            precomposed_entries=self.precomposed_entries)
 
         return feed_response(opds_feed)
 

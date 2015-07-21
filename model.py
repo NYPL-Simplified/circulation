@@ -212,10 +212,8 @@ class SessionManager(object):
     def session(cls, url):
         engine, connection = cls.initialize(url)
         session = Session(connection)
-        print "INITIALIZING DATA"
         cls.initialize_data(session)
         session.commit()
-        print "DONE INITIALIZING DATA"
         return session
 
     @classmethod
@@ -1560,11 +1558,11 @@ class Contributor(Base):
             else:
                 contribution.contributor_id = destination.id
             contribution.contributor_id = destination.id
-        print "Commit before deletion."
+        # print "Commit before deletion."
         _db.commit()
-        print "Final deletion."
+        # print "Final deletion."
         _db.delete(self)
-        print "Committing after deletion."
+        # print "Committing after deletion."
         _db.commit()
         # _db.query(Contributor).filter(Contributor.id==self.id).delete()
         #_db.commit()
@@ -2885,7 +2883,7 @@ class Work(Base):
                                                force_create=True)
         if verbose is not None:
             self.verbose_opds_entry = etree.tostring(verbose)
-        print self.id, self.simple_opds_entry, self.verbose_opds_entry
+        # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
 
     def update_external_index(self, client):
