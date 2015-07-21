@@ -114,11 +114,9 @@ class URNLookupController(object):
 
         # Failing that, we support any identifier that can support a
         # license pool.
-        try:
-            source = DataSource.license_source_for(_db, identifier)
+        source = DataSource.license_sources_for(_db, identifier)
+        if source.count() > 0:
             return identifier
-        except NoResultFound, e:
-            pass
 
         return (400, self.UNRESOLVABLE_URN)
 
@@ -159,10 +157,11 @@ class URNLookupController(object):
             # is not properly part of the dataset and never will be.
             return (404, self.UNRECOGNIZED_IDENTIFIER)
 
-        try:
-            license_source = DataSource.license_source_for(self._db, identifier)
+        license_sources = DataSource.license_sources_for(
+            self._db, identifier)
+        if license_sources.count():
             return self.register_identifier_as_unresolved(identifier)
-        except NoResultFound, e:
+        else:
             return self.make_opds_entry_from_metadata_lookups(identifier)
 
     def register_identifier_as_unresolved(self, identifier):

@@ -479,11 +479,19 @@ class DataSource(Base):
 
     @classmethod
     def license_source_for(cls, _db, identifier):
-        """Finds the DataSource that provide licenses for books identified
+        """Find the ont DataSource that provides licenses for books identified
         by the given identifier.
 
         If there is no such DataSource, or there is more than one,
         raises an exception.
+        """
+        sources = cls.license_sources_for(_db, identifier)
+        return sources.one()
+
+    @classmethod
+    def license_sources_for(cls, _db, identifier):
+        """A query that locates all DataSources that provide licenses for
+        books identified by the given identifier.
         """
         if isinstance(identifier, basestring):
             type = identifier
@@ -491,7 +499,8 @@ class DataSource(Base):
             type = identifier.type
         q =_db.query(DataSource).filter(DataSource.offers_licenses==True).filter(
             DataSource.primary_identifier_type==type)
-        return q.one()
+        return q
+
 
     @classmethod
     def metadata_sources_for(cls, _db, identifier):
