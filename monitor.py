@@ -24,6 +24,7 @@ from external_search import (
 class Monitor(object):
 
     ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
+    ONE_YEAR_AGO = datetime.timedelta(seconds=60*60*24*365)
 
     def __init__(
             self, _db, name, interval_seconds=1*60,

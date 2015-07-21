@@ -43,7 +43,7 @@ class Classifier(object):
 
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
-    AXIS_360_AUDIENCE = "AXIS 360 Audience"
+    AXIS_360_AUDIENCE = "Axis 360 Audience"
 
     # We know this says something about the audience but we're not sure what.
     # Could be any of the values from GRADE_LEVEL or AGE_RANGE, plus
