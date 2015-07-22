@@ -45,10 +45,19 @@ class Axis360API(BaseAxis360API):
             raise InternalServerError(response.content)
 
     def fulfill(self, patron, pin, licensepool, format_type):
-        """We need to get the list of the patron's checkouts. Each will have a
-        download URL.
+        """Fulfill a patron's request for a specific book.
         """
-        pass
+        identifier = licensepool.identifier.identifier
+        # It's inefficient, but we need to get the patron's activity to
+        # fulfill this request.
+        activity = self.patron_activity(patron, pin)
+        status = activity.get(identifier)
+        if not isinstance(status, LoanInfo):
+            raise CannotFulfillNotCheckedOut()
+        fulfillment = status.fulfillment_info
+        if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
+            raise CannotFulfill()
+        return fulfillment
 
     def checkin(self, patron, pin, licensepool):
         pass
@@ -64,13 +73,20 @@ class Axis360API(BaseAxis360API):
         return HoldResponseParser().process_all(response.content)
 
     def release_hold(self, patron, pin, licensepool):
-        pass
+        url = self.base_url + "removeHold/v2"
+        title_id = licensepool.identifier.identifier
+        patron_id = patron.authorization_identifier
+        params = dict(titleId=title_id, patronId=patron_id)
+        response = self.request(url, params=params)
+        HoldReleaseResponseParser().process_all(response.content)
+        # If we didn't raise an exception, we're fine.
+        return True
 
     def patron_activity(self, patron, pin):
-        set_trace()
         availability = self.availability(
             patron_id=patron.authorization_identifier)
-        return AvailabilityParser().process_all(availability.content)
+        return dict(AvailabilityResponseParser().process_all(
+            availability.content))
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -212,7 +228,7 @@ class ResponseParser(Axis360Parser):
         3105 : PatronAuthorizationFailedException, # Invalid Account Credentials
         3106 : InvalidInputException, # Loan Period is out of bounds
         3108 : InvalidInputException, # DRM Credentials Required
-        3109 : AlreadyOnHold,
+        3109 : InvalidInputException, # Hold already exists or hold does not exist, depending.
         3110 : AlreadyCheckedOut,
         3111 : CouldCheckOut,
         3112 : CannotFulfill,
@@ -236,7 +252,7 @@ class ResponseParser(Axis360Parser):
         5000 : InternalServerError,
     }
 
-    def raise_exception_on_error(self, e, ns):
+    def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
         condition.
         """
@@ -257,10 +273,12 @@ class ResponseParser(Axis360Parser):
             # Non-numeric code? Inconcievable!
             raise InternalServerError(
                 "Invalid response code from Axis 360: %s" % code)
-        if code in self.code_to_exception:
-            # Something went wrong and we know how to turn it into a
-            # specific exception.
-            raise self.code_to_exception[code](message)
+
+        for d in custom_error_classes, self.code_to_exception:
+            if code in d:
+                # Something went wrong and we know how to turn it into a
+                # specific exception.
+                raise d[code](message)
         return code, message
         
 
@@ -308,7 +326,8 @@ class HoldResponseParser(ResponseParser):
         """Either turn the given document into a HoldInfo
         object, or raise an appropriate exception.
         """
-        self.raise_exception_on_error(e, namespaces)
+        self.raise_exception_on_error(
+            e, namespaces, {3109 : AlreadyOnHold})
 
         # If we get to this point it's because the hold place succeeded.
         queue_position = self._xpath1(
@@ -327,9 +346,67 @@ class HoldResponseParser(ResponseParser):
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
 
+class HoldReleaseResponseParser(ResponseParser):
 
-class AvailibilityParser(Axis360Parser):
+    def process_all(self, string):
+        for i in super(HoldReleaseResponseParser, self).process_all(
+                string, "//axis:removeholdResult", self.NS):
+            return i
+
+    def process_one(self, e, namespaces):
+        # There's no data to gather here. Either there was an error
+        # or we were successful
+        self.raise_exception_on_error(
+            e, namespaces, {3109 : NotOnHold})
+        return True
+
+class AvailabilityResponseParser(ResponseParser):
     
     def process_all(self, string):
-        set_trace()
-        pass
+        for identifier, info in super(AvailabilityResponseParser, self).process_all(
+                string, "//axis:title", self.NS):
+            # Filter out books where nothing in particular is
+            # happening.
+            if info:
+                yield identifier, info
+
+    def process_one(self, e, ns):
+
+        # Figure out which book we're talking about.
+        identifier = self.text_of_subtag(e, "axis:titleId", ns)
+
+        availability = self._xpath1(e, 'axis:availability', ns)
+        if availability is None:
+            return None
+        reserved = self._xpath1_boolean(availability, 'axis:isReserved', ns)
+        checked_out = self._xpath1_boolean(availability, 'axis:isCheckedout', ns)
+        on_hold = self._xpath1_boolean(availability, 'axis:isInHoldQueue', ns)
+
+        info = None
+        if checked_out:
+            start_date = self._xpath1_date(
+                availability, 'axis:checkoutStartDate', ns)
+            end_date = self._xpath1_date(
+                availability, 'axis:checkoutEndDate', ns)
+            download_url = self.text_of_optional_subtag(
+                availability, 'axis:downloadUrl', ns)
+            if download_url:
+                fulfillment = FulfillmentInfo(
+                    content_link=download_url, content_type=None,
+                    content=None, content_expires=None)
+            info = LoanInfo(
+                start_date=start_date, end_date=end_date,
+                fulfillment_info=fulfillment)
+
+        elif reserved:
+            end_date = self._xpath1_date(
+                availability, 'axis:reservedEndDate', ns)
+            info = HoldInfo(start_date=None, end_date=end_date,
+                            hold_position=0)
+        elif on_hold:
+            position = self.int_of_optional_subtag(
+                availability, 'axis:holdsQueuePosition', ns)
+            info = HoldInfo(start_date=None, end_date=None,
+                            hold_position=position)
+        return identifier, info
+

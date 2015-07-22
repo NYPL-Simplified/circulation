@@ -17,8 +17,10 @@ from ..core.model import (
 from ..axis import (
     Axis360CirculationMonitor,
     Axis360API,
+    AvailabilityResponseParser,
     CheckoutResponseParser,
     HoldResponseParser,
+    HoldReleaseResponseParser,
 )
 
 from . import (
@@ -151,3 +153,33 @@ class TestHoldResponseParser(TestResponseParser):
         parser = HoldResponseParser()
         assert_raises(AlreadyOnHold, parser.process_all, data)
 
+class TestHoldReleaseResponseParser(TestResponseParser):
+
+    def test_success(self):
+        data = self.sample_data("release_hold_success.xml")
+        parser = HoldReleaseResponseParser()
+        eq_(True, parser.process_all(data))
+
+    def test_failure(self):
+        data = self.sample_data("release_hold_failure.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises(NotOnHold, parser.process_all, data)
+
+class TestAvailabilityResponseParser(TestResponseParser):
+
+    def test_parse_loan_and_hold(self):
+        data = self.sample_data("availability_with_loan_and_hold.xml")
+        parser = AvailabilityResponseParser()
+        (hold_id, hold), (loan_id, loan), (reserved_id, reserved) = sorted(
+            list(parser.process_all(data)))
+        eq_("0012533119", hold_id)
+        eq_(1, hold.hold_position)
+        eq_(None, hold.end_date)
+
+        eq_("0015176429", loan_id)
+        eq_("http://fulfillment/", loan.fulfillment_info.content_link)
+        eq_(datetime.datetime(2015, 8, 12, 5, 40, 27), loan.end_date)
+
+        eq_("1111111111", reserved_id)
+        eq_(datetime.datetime(2015, 1, 1, 1, 11, 11), reserved.end_date)
+        eq_(0, reserved.hold_position)

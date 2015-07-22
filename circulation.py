@@ -32,7 +32,7 @@ class LoanInfo(object):
 
     """A record of a loan."""
 
-    def __init__(self, start_date, end_date, fulfillment_info):
+    def __init__(self, start_date, end_date, fulfillment_info=None):
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
