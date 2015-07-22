@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from datetime import datetime
 
+from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
     BibliographicParser,
@@ -19,10 +20,38 @@ from core.model import (
     Subject,
 )
 
+from core.util.xmlparser import XMLParser
+
+from circulation import FulfillmentInfo
+from circulation_exceptions import *
+
+
 class Axis360API(BaseAxis360API):
 
-    def update_licensepool(self, data):
+    allowable_formats = ["ePub"]
+
+    def checkout(self, patron, pin, licensepool, format_type):
+        title_id = licensepool.identifier.identifier
+        patron_id = patron.authorization_identifier
+        args = dict(titleId=title_id, patronId=patron_id, format=format_type,
+                    loanPeriod=1)
+        url = self.base_url + "checkout/v2" 
+        response = self.request(url, data=args, method="POST")
+        set_trace()
         pass
+
+    def checkin(self, patron, pin, licensepool):
+        pass
+
+    def fulfill(self, patron, pin, licensepool, format_type):
+        pass
+
+    def place_hold(self, patron, pin, licensepool, hold_notification_email):
+        pass
+
+    def release_hold(self, patron, pin, licensepool):
+        pass
+    
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -136,3 +165,106 @@ class Axis360CirculationMonitor(Monitor):
             new_patrons_in_hold_queue, last_checked)
 
         return edition, license_pool
+
+class ResponseParser(XMLParser):
+
+    # Map Axis 360 error codes to our circulation exceptions.
+    code_to_exception = {
+        315  : InvalidInputException, # Bad password
+        316  : InvalidInputException, # DRM account already exists
+        1000 : PatronAuthorizationFailedException,
+        1001 : PatronAuthorizationFailedException,
+        1002 : PatronAuthorizationFailedException,
+        1003 : PatronAuthorizationFailedException,
+        2000 : LibraryAuthorizationFailedException,
+        2001 : LibraryAuthorizationFailedException,
+        2002 : LibraryAuthorizationFailedException,
+        2003 : LibraryAuthorizationFailedException, # "Encoded input parameters exceed limit", whatever that meaus
+        2004 : LibraryAuthorizationFailedException,
+        2005 : LibraryAuthorizationFailedException, # Invalid credentials
+        2005 : LibraryAuthorizationFailedException, # Wrong library ID
+        2007 : LibraryAuthorizationFailedException, # Invalid library ID
+        2008 : LibraryAuthorizationFailedException, # Invalid library ID
+        3100 : LibraryInvalidInputException, # Missing title ID
+        3101 : LibraryInvalidInputException, # Missing patron ID
+        3102 : LibraryInvalidInputException, # Missing email address (for hold notification)
+        3103 : LibraryInvalidInputException, # Invalid title ID
+        3104 : LibraryInvalidInputException, # Invalid Email Address (for hold notification)
+        3105 : PatronAuthorizationFailedException, # Invalid Account Credentials
+        3106 : InvalidInputException, # Loan Period is out of bounds
+        3108 : InvalidInputException, # DRM Credentials Required
+        3109 : AlreadyOnHold,
+        3110 : AlreadyCheckedOut,
+        3111 : CouldCheckOut,
+        3112 : CannotFulfill,
+        3113 : CannotLoan,
+        3114 : PatronLoanLimitReached, 
+        3115 : LibraryInvalidInputException, # Missing DRM format
+        3117 : LibraryInvalidInputException, # Invalid DRM format
+        3118 : LibraryInvalidInputException, # Invalid Patron credentials
+        3119 : LibraryAuthorizationFailedException, # No Blio account
+        3120 : LibraryAuthorizationFailedException, # No Acoustikaccount
+        3123 : PatronAuthorizationFailedException, # Patron Session ID expired
+        3126 : LibraryInvalidInputException, # Invalid checkout format
+        3127 : InvalidInputException, # First name is required
+        3128 : InvalidInputException, # Last name is required
+        3130 : LibraryInvalidInputException, # Invalid hold format (?)
+        3131 : InternalServerError, # Custom error message (?)
+        3132 : LibraryInvalidInputException, # Invalid delta datetime format
+        3134 : LibraryInvalidInputException, # Delta datetime format must not be in the future
+        3135 : NoAcceptableFormat,
+        3136 : LibraryInvalidInputException, # Missing checkout format
+        5000 : InternalServerError,
+    }
+
+
+class CheckoutResponseParser(ResponseParser):
+
+    NAMESPACES = {"axis" : "http://axis360api.baker-taylor.com/vendorAPI"}
+
+    def process_all(self, string):
+        for i in super(CheckoutResponseParser, self).process_all(
+                string, "//axis:checkoutResult", self.NAMESPACES):
+            return i
+
+    def process_one(self, e, namespaces):
+        """Either turn the given document into a FulfillmentInfo
+        object, or raise an appropriate exception.
+        """
+        code = self._xpath1(e, '//axis:status/axis:code', namespaces)
+        message = self._xpath1(e, '//axis:status/axis:statusMessage', namespaces)
+        expiration_date = self._xpath1(e, '//axis:expirationDate', namespaces)
+        fulfillment_url = self._xpath1(e, '//axis:url', namespaces)
+
+        if message:
+            message = message.text
+        else:
+            message = etree.tostring(e)
+
+        if code is None:
+            # Something is so wrong that we don't know what to do.
+            raise InternalServerError(message)
+        code = code.text
+        try:
+            code = int(code)
+        except ValueError:
+            # Non-numeric code? Inconcievable!
+            raise InternalServerError(message)
+        if code in self.code_to_exception:
+            # Something went wrong and we know how to turn it into a
+            # specific exception.
+            raise self.code_to_exception[code](message)
+
+        # We have a non-error condition, which means the checkout succeeded.
+        # Set up a FulfillmentInfo.
+        if fulfillment_url is not None:
+            fulfillment_url = fulfillment_url.text
+
+        if expiration_date is not None:
+            expiration_date = expiration_date.text
+            expiration_date = datetime.strptime(
+                expiration_date, BibliographicParser.FULL_DATE_FORMAT)
+            
+        return FulfillmentInfo(
+            content_link=fulfillment_url, content_type=None, content=None,
+            content_expires=expiration_date)

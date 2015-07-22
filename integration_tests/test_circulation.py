@@ -18,12 +18,13 @@ from core.model import (
     )
 from threem import ThreeMAPI
 from overdrive import OverdriveAPI
+from axis import Axis360API
 
 from circulation import CirculationAPI
 from circulation_exceptions import *
 
 barcode, pin, borrow_urn, hold_urn = sys.argv[1:5]
-email = os.environ['OVERDRIVE_NOTIFICATION_EMAIL_ADDRESS']
+email = os.environ['DEFAULT_NOTIFICATION_EMAIL_ADDRESS']
 
 _db = production_session()
 patron, ignore = get_one_or_create(
@@ -34,7 +35,9 @@ hold_pool = Identifier.parse_urn(_db, hold_urn, True)[0].licensed_through
 
 threem = ThreeMAPI(_db)
 overdrive = OverdriveAPI(_db)
-circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem)
+axis = Axis360API(_db)
+circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem,
+                             axis=axis)
 
 licensepool = borrow_pool
 print "Attempting to borrow", licensepool.work

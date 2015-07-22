@@ -1,5 +1,10 @@
 import datetime
-from nose.tools import eq_, set_trace
+from nose.tools import (
+    eq_, 
+    assert_raises,
+    set_trace,
+)
+import os
 
 from ..core.model import (
     Edition,
@@ -12,12 +17,15 @@ from ..core.model import (
 from ..axis import (
     Axis360CirculationMonitor,
     Axis360API,
+    CheckoutResponseParser,
 )
 
 from . import (
     DatabaseTest,
 )
 
+from ..circulation import FulfillmentInfo
+from ..circulation_exceptions import *
 
 class TestCirculationMonitor(DatabaseTest):
 
@@ -90,7 +98,30 @@ class TestCirculationMonitor(DatabaseTest):
         # last_checked date of the license pool.
         events = license_pool.circulation_events
         eq_([u'title_add', u'check_in', u'license_add'], 
-            [x.title for x in events])
+            [x.type for x in events])
         for e in events:
             eq_(e.start, license_pool.last_checked)
 
+class TestResponseParser(object):
+
+    base_path = os.path.split(__file__)[0]
+    resource_path = os.path.join(base_path, "files", "axis")
+
+    @classmethod
+    def sample_data(self, filename):
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data
+
+    def test_parse_checkout_success(self):
+        data = self.sample_data("checkout_success.xml")
+        parser = CheckoutResponseParser()
+        parsed = parser.process_all(data)
+        assert isinstance(parsed, FulfillmentInfo)
+        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", parsed.content_link)
+        eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), parsed.content_expires)
+
+    def test_parse_already_checked_out(self):
+        data = self.sample_data("already_checked_out.xml")
+        parser = CheckoutResponseParser()
+        assert_raises(AlreadyCheckedOut, parser.process_all, data)

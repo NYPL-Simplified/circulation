@@ -32,6 +32,9 @@ from core.app_server import (
     ErrorHandler,
 )
 from adobe_vendor_id import AdobeVendorIDController
+from axis import (
+    Axis360API,
+)
 from overdrive import (
     OverdriveAPI,
     DummyOverdriveAPI,
@@ -131,6 +134,7 @@ class Conf:
             cls.urn_lookup_controller = URNLookupController(cls.db)
             cls.overdrive = DummyOverdriveAPI(cls.db)
             cls.threem = DummyThreeMAPI(cls.db)
+            cls.axis = None
             cls.auth = DummyMilleniumPatronAPI()
             cls.search = DummyExternalSearchIndex()
             cls.policy = {}
@@ -146,12 +150,14 @@ class Conf:
             cls.urn_lookup_controller = URNLookupController(cls.db)
             cls.overdrive = OverdriveAPI(cls.db)
             cls.threem = ThreeMAPI(cls.db)
+            cls.axis = Axis360API(cls.db)
             cls.auth = MilleniumPatronAPI()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
 
         cls.circulation = CirculationAPI(
-            _db=cls.db, threem=cls.threem, overdrive=cls.overdrive)
+            _db=cls.db, threem=cls.threem, overdrive=cls.overdrive,
+            axis=cls.axis)
 
         vendor_id = os.environ.get('ADOBE_VENDOR_ID')
         node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
@@ -1008,9 +1014,9 @@ def fulfill(data_source, identifier):
         return problem(
             NO_ACTIVE_LOAN_PROBLEM, 
             "Can't fulfill request because you have no active loan for this work.",
-            400)
+            e.status_code)
     except CannotFulfill, e:
-        return problem(CANNOT_FULFILL_PROBLEM, str(e), 500)
+        return problem(CANNOT_FULFILL_PROBLEM, str(e), e.status_code)
     
     headers = dict()
     if fulfillment.content_link:

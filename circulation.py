@@ -43,11 +43,12 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
-    def __init__(self, _db, overdrive, threem):
+    def __init__(self, _db, overdrive, threem, axis):
         self._db = _db
         self.overdrive = overdrive
         self.threem = threem
-        self.apis = [overdrive, threem]
+        self.axis = axis
+        self.apis = [overdrive, threem, axis]
 
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
@@ -57,6 +58,9 @@ class CirculationAPI(object):
         elif licensepool.data_source.name==DataSource.THREEM:
             api = self.threem
             possible_formats = [None]
+        elif licensepool.data_source.name==DataSource.AXIS_360:
+            api = self.axis
+            possible_formats = api.allowable_formats
         else:
             return None, None
 

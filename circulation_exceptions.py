@@ -1,70 +1,115 @@
-class NoOpenAccessDownload(Exception):
-    """We expected a book to have an open-access download, but it didn't."""
-
 class CirculationException(Exception):
-    pass
+    """An exception occured when carrying out a circulation operation.
+
+    `status_code` is the status code that should be returned to the patron.
+    """
+    status_code = 400
+
+class InternalServerError(Exception):
+    status_code = 500
+
+class NoOpenAccessDownload(CirculationException):
+    """We expected a book to have an open-access download, but it didn't."""
+    status_code = 500
+
+class AuthorizationFailedException(CirculationException):
+    status_code = 401
+
+class PatronAuthorizationFailedException(AuthorizationFailedException):
+    status_code = 400
+
+class LibraryAuthorizationFailedException(CirculationException):
+    status_code = 500
+
+class InvalidInputException(CirculationException):
+    """The patron gave invalid input to the library."""
+    status_code = 400
+
+class LibraryInvalidInputException(InvalidInputException):
+    """The library gave invalid input to the book provider."""
+    status_code = 500
 
 class CannotLoan(CirculationException):
-    pass
+    status_code = 500
+
+class PatronLoanLimitReached(CannotLoan):
+    status_code = 403
 
 class CannotReturn(CirculationException):
-    pass
+    status_code = 500
 
 class CannotHold(CirculationException):
-    pass
+    status_code = 500
+
+class PatronHoldLimitReached(CannotHold):
+    status_code = 403
 
 class CannotReleaseHold(CirculationException):
-    pass
+    status_code = 500
 
 class CannotFulfill(CirculationException):
-    pass
+    status_code = 500
 
 class CannotRenew(CirculationException):
-    """The patron can't renew their loan on this book."""
+    """The patron can't renew their loan on this book.
+
+    Probably because it's not available for renewal.
+    """
+    status_code = 400
 
 class NoAvailableCopies(CannotLoan):
     """The patron can't check this book out because all available
     copies are already checked out.
     """
+    status_code = 400
 
 class AlreadyCheckedOut(CannotLoan):
     """The patron can't put check this book out because they already have
     it checked out.
     """
+    status_code = 400
 
 class AlreadyOnHold(CannotHold):
     """The patron can't put this book on hold because they already have
     it on hold.
     """
+    status_code = 400
 
 class CouldCheckOut(CannotHold):
     """The patron can't put this book on hold because they could
     just check it out.
     """
+    status_code = 400
 
 class NotCheckedOut(CannotReturn):
     """The patron can't return this book because they don't
     have it checked out in the first place.
     """
+    status_code = 400
 
 class RemoteRefusedReturn(CannotReturn):
     """The remote refused to count this book as returned.
     """
+    status_code = 500
 
 class NotOnHold(CannotReleaseHold):
     """The patron can't release a hold for this book because they don't
     have it on hold in the first place.
     """
+    status_code = 400
 
 class CurrentlyAvailable(CannotHold):
     """The patron can't put this book on hold because it's available now."""
+    status_code = 400
 
 class NoAcceptableFormat(CannotFulfill):
     """We can't fulfill the patron's loan because the book is not available
     in an acceptable format.
     """
+    status_code = 500
 
 class NoActiveLoan(CannotFulfill):
     """We can't fulfill the patron's loan because they don't have an
     active loan.
     """
+    status_code = 400
