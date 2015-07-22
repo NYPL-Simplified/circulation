@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 from lxml import etree
 from StringIO import StringIO
 

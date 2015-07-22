@@ -54,7 +54,7 @@ class Axis360API(object):
         return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
-                exception_on_401=False):
+                params=None, exception_on_401=False):
         """Make an HTTP request, acquiring/refreshing a bearer token
         if necessary.
         """
@@ -64,7 +64,7 @@ class Axis360API(object):
         headers = dict(extra_headers)
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
-        response = self._make_request(url, method, headers, data)
+        response = self._make_request(url, method, headers, data, params)
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -77,33 +77,58 @@ class Axis360API(object):
         else:
             return response
 
-    def availability(self, since=None):
+    def availability(self, patron_id=None, since=None):
         url = self.base_url + self.availability_endpoint
+        args = dict()
         if since:
             since = since.strftime(self.DATE_FORMAT)
-            url += "?updatedDate=%s" % since
-        print url
-        return self.request(url)
+            args['updatedDate'] = since
+        if patron_id:
+            args['patronId'] = patron_id
+        return self.request(url, params=args)
 
     @classmethod
     def parse_token(cls, token):
         data = json.loads(token)
         return data['access_token']
 
-    def _make_request(self, url, method, headers, data=None):
+    def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        print url, headers
+        print url, headers, params
         return requests.request(
-            url=url, method=method, headers=headers, data=data)
+            url=url, method=method, headers=headers, data=data,
+            params=params)
 
+class Axis360Parser(XMLParser):
 
-class BibliographicParser(XMLParser):
-
-    NS = {"bt": "http://axis360api.baker-taylor.com/vendorAPI"}
+    NS = {"axis": "http://axis360api.baker-taylor.com/vendorAPI"}
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
     FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %H:%M:%S %p"
     FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p +00:00"
+
+    def _xpath1_boolean(self, e, target, ns, default=False):
+        text = self.text_of_optional_subtag(e, target, ns)
+        if text is None:
+            return default
+        if text == 'true':
+            return True
+        else:
+            return False
+
+    def _xpath1_date(self, e, target, ns):
+        value = self.text_of_optional_subtag(e, target, ns)
+        if value is None:
+            return value
+        try:
+            attempt = datetime.datetime.strptime(
+                value, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
+            value += ' +00:00'
+        except ValueError:
+            pass
+        return datetime.datetime.strptime(value, self.FULL_DATE_FORMAT)
+
+class BibliographicParser(Axis360Parser):
 
     @classmethod
     def parse_list(self, l):
@@ -120,7 +145,7 @@ class BibliographicParser(XMLParser):
 
     def process_all(self, string):
         for i in super(BibliographicParser, self).process_all(
-                string, "//bt:title", self.NS):
+                string, "//axis:title", self.NS):
             yield i
 
     def extract_availability(self, element, ns):
@@ -129,15 +154,15 @@ class BibliographicParser(XMLParser):
         #  Holds
         # Presumably these contain information about active loans and holds.
 
-        availability = self._xpath1(element, 'bt:availability', ns)
-        total_copies = self.int_of_subtag(availability, 'bt:totalCopies', ns)
+        availability = self._xpath1(element, 'axis:availability', ns)
+        total_copies = self.int_of_subtag(availability, 'axis:totalCopies', ns)
         available_copies = self.int_of_subtag(
-            availability, 'bt:availableCopies', ns)
+            availability, 'axis:availableCopies', ns)
         size_of_hold_queue = self.int_of_subtag(
-            availability, 'bt:holdsQueueSize', ns)
+            availability, 'axis:holdsQueueSize', ns)
 
         availability_updated = self.text_of_optional_subtag(
-            availability, 'bt:updateDate', ns)
+            availability, 'axis:updateDate', ns)
         if availability_updated:
             try:
                 attempt = datetime.datetime.strptime(
@@ -165,13 +190,13 @@ class BibliographicParser(XMLParser):
         # narrator
         # runtime
 
-        identifier = self.text_of_subtag(element, 'bt:titleId', ns)
-        isbn = self.text_of_optional_subtag(element, 'bt:isbn', ns)
+        identifier = self.text_of_subtag(element, 'axis:titleId', ns)
+        isbn = self.text_of_optional_subtag(element, 'axis:isbn', ns)
 
-        title = self.text_of_subtag(element, 'bt:productTitle', ns)
+        title = self.text_of_subtag(element, 'axis:productTitle', ns)
 
         contributor = self.text_of_optional_subtag(
-            element, 'bt:contributor', ns)
+            element, 'axis:contributor', ns)
         if contributor:
             contributors = self.parse_list(contributor)
             primary_author = [contributors[0]]
@@ -180,7 +205,7 @@ class BibliographicParser(XMLParser):
             primary_author = []
             other_authors = []
 
-        subject = self.text_of_optional_subtag(element, 'bt:subject', ns)
+        subject = self.text_of_optional_subtag(element, 'axis:subject', ns)
         subjects = []
         if subject:
             for subject_identifier in self.parse_list(subject):
@@ -188,26 +213,26 @@ class BibliographicParser(XMLParser):
                                    Subject.identifier: subject_identifier } )
 
         publication_date = self.text_of_optional_subtag(
-            element, 'bt:publicationDate', ns)
+            element, 'axis:publicationDate', ns)
         if publication_date:
             publication_date = datetime.datetime.strptime(
                 publication_date, self.SHORT_DATE_FORMAT)
 
-        series = self.text_of_optional_subtag(element, 'bt:series', ns)
-        publisher = self.text_of_optional_subtag(element, 'bt:publisher', ns)
-        imprint = self.text_of_optional_subtag(element, 'bt:imprint', ns)
+        series = self.text_of_optional_subtag(element, 'axis:series', ns)
+        publisher = self.text_of_optional_subtag(element, 'axis:publisher', ns)
+        imprint = self.text_of_optional_subtag(element, 'axis:imprint', ns)
 
-        audience = self.text_of_optional_subtag(element, 'bt:audience', ns)
+        audience = self.text_of_optional_subtag(element, 'axis:audience', ns)
         if audience:
             subjects.append({ Subject.type : Subject.AXIS_360_AUDIENCE,
                               Subject.identifier: audience })
 
-        language = self.text_of_subtag(element, 'bt:language', ns)
+        language = self.text_of_subtag(element, 'axis:language', ns)
         language = language.lower()
         language = LanguageCodes.english_names_to_three.get(language, None)
 
         # We don't use this for anything.
-        # file_size = self.int_of_optional_subtag(element, 'bt:fileSize', ns)
+        # file_size = self.int_of_optional_subtag(element, 'axis:fileSize', ns)
 
         identifiers = { 
             Identifier.AXIS_360_ID : [ { Identifier.identifier : identifier } ]
