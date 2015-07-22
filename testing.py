@@ -304,7 +304,6 @@ class DummyHTTPClient(object):
     def do_get(self, url, headers, **kwargs):
         return self.responses.pop()
 
-from nose.tools import set_trace
 import os
 from sqlalchemy.orm.session import Session
 

@@ -212,7 +212,7 @@ class BaseOPDSImporter(object):
                 # you can download it.
                 pool, pool_was_new = LicensePool.for_foreign_id(
                     self._db, license_data_source, internal_identifier.type,
-                    identifier.identifier)
+                    internal_identifier)
             else:
                 # No, we can't. This most likely indicates a problem.
                 message = message or self.COULD_NOT_CREATE_LICENSE_POOL

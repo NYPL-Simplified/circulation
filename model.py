@@ -477,7 +477,11 @@ class DataSource(Base):
 
     @classmethod
     def lookup(cls, _db, name):
-        return _db.data_sources.get(name)
+        if hasattr(_db, 'data_sources'):
+            return _db.data_sources.get(name)
+        else:
+            # This should only happen during tests.
+            return get_one(_db, DataSource, name=name)
 
     @classmethod
     def license_source_for(cls, _db, identifier):
@@ -514,6 +518,9 @@ class DataSource(Base):
         else:
             type = identifier.type
 
+        if not hasattr(_db, 'metadata_lookups_by_identifier_type'):
+            # This should only happen during testing.
+            list(DataSource.well_known_sources(_db))
         return _db.metadata_lookups_by_identifier_type[identifier.type]
 
     @classmethod
