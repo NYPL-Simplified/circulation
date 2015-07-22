@@ -28,6 +28,15 @@ class FulfillmentInfo(object):
         return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, expires: %r>" % (
             self.content_link, self.content_type, blength, self.content_expires)
 
+class LoanInfo(object):
+
+    """A record of a loan."""
+
+    def __init__(self, start_date, end_date, fulfillment_info):
+        self.start_date = start_date
+        self.end_date = end_date
+        self.fulfillment_info = fulfillment_info
+
 class HoldInfo(object):
 
     """A record of a hold."""
@@ -128,8 +137,10 @@ class CirculationAPI(object):
         else:
             # Checking out a book didn't work, so let's try putting
             # the book on hold.
+            format_to_use = possible_formats[0]
             hold_info = api.place_hold(
-                patron, pin, licensepool, hold_notification_email)
+                patron, pin, licensepool, format_to_use, 
+                hold_notification_email)
             start_date = hold_info.start_date or now
             __transaction = self._db.begin_nested()
             hold, is_new = licensepool.on_hold_to(
@@ -152,9 +163,9 @@ class CirculationAPI(object):
         # The patron must have a loan for this book. We'll try
         # fulfilling it even if the loan has expired--they may have
         # renewed it out-of-band.
-        loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
-        if not loan:
-            raise NoActiveLoan()
+        #loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
+        #if not loan:
+        #    raise NoActiveLoan()
 
         fulfillment = None
         if licensepool.open_access:

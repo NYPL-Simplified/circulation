@@ -40,6 +40,11 @@ circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem,
                              axis=axis)
 
 licensepool = borrow_pool
+try:
+    circulation.fulfill(patron, pin, licensepool)
+except NoActiveLoan, e:
+    print " No active loan..."
+circulation.borrow(patron, pin, licensepool, email)
 print "Attempting to borrow", licensepool.work
 print "Initial revoke loan"
 print circulation.revoke_loan(patron, pin, licensepool)

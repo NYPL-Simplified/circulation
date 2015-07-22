@@ -283,7 +283,8 @@ class OverdriveAPI(BaseOverdriveAPI):
     def get_patron_holds(self, patron, pin):
         return self.patron_request(patron, pin, self.HOLDS_ENDPOINT).json()
 
-    def place_hold(self, patron, pin, licensepool, notification_email_address):
+    def place_hold(self, patron, pin, licensepool, format_type, 
+                   notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object

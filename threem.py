@@ -155,7 +155,8 @@ class ThreeMAPI(BaseThreeMAPI):
         body = self.TEMPLATE % args 
         return self.request('checkin', body, method="PUT")
 
-    def place_hold(self, patron, pin, licensepool, hold_notification_email=None):
+    def place_hold(self, patron, pin, licensepool, 
+                   format_type=None, hold_notification_email=None):
         """Place a hold.
 
         :return: a HoldInfo object.

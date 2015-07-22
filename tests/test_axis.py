@@ -18,13 +18,18 @@ from ..axis import (
     Axis360CirculationMonitor,
     Axis360API,
     CheckoutResponseParser,
+    HoldResponseParser,
 )
 
 from . import (
     DatabaseTest,
 )
 
-from ..circulation import FulfillmentInfo
+from ..circulation import (
+    LoanInfo,
+    HoldInfo,
+    FulfillmentInfo,
+)
 from ..circulation_exceptions import *
 
 class TestCirculationMonitor(DatabaseTest):
@@ -113,15 +118,36 @@ class TestResponseParser(object):
         data = open(path).read()
         return data
 
+class TestCheckoutResponseParser(TestResponseParser):
+
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
         parser = CheckoutResponseParser()
         parsed = parser.process_all(data)
-        assert isinstance(parsed, FulfillmentInfo)
-        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", parsed.content_link)
-        eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), parsed.content_expires)
+        assert isinstance(parsed, LoanInfo)
+        eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), 
+            parsed.end_date)
+
+        assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
+        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", 
+            parsed.fulfillment_info.content_link)
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
         parser = CheckoutResponseParser()
         assert_raises(AlreadyCheckedOut, parser.process_all, data)
+
+class TestHoldResponseParser(TestResponseParser):
+
+    def test_parse_hold_success(self):
+        data = self.sample_data("place_hold_success.xml")
+        parser = HoldResponseParser()
+        parsed = parser.process_all(data)
+        assert isinstance(parsed, HoldInfo)
+        eq_(1, parsed.hold_position)
+
+    def test_parse_already_on_hold(self):
+        data = self.sample_data("already_on_hold.xml")
+        parser = HoldResponseParser()
+        assert_raises(AlreadyOnHold, parser.process_all, data)
+

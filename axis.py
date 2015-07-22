@@ -4,7 +4,7 @@ from datetime import datetime
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
-    BibliographicParser,
+    Axis360Parser,
 )
 
 from core.monitor import Monitor
@@ -20,9 +20,11 @@ from core.model import (
     Subject,
 )
 
-from core.util.xmlparser import XMLParser
-
-from circulation import FulfillmentInfo
+from circulation import (
+    LoanInfo,
+    FulfillmentInfo,
+    HoldInfo,
+)
 from circulation_exceptions import *
 
 
@@ -31,27 +33,44 @@ class Axis360API(BaseAxis360API):
     allowable_formats = ["ePub"]
 
     def checkout(self, patron, pin, licensepool, format_type):
+        url = self.base_url + "checkout/v2" 
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
         args = dict(titleId=title_id, patronId=patron_id, format=format_type,
                     loanPeriod=1)
-        url = self.base_url + "checkout/v2" 
         response = self.request(url, data=args, method="POST")
-        set_trace()
+        try:
+            return CheckoutResponseParser().process_all(response.content)
+        except etree.XMLSyntaxError, e:
+            raise InternalServerError(response.content)
+
+    def fulfill(self, patron, pin, licensepool, format_type):
+        """We need to get the list of the patron's checkouts. Each will have a
+        download URL.
+        """
         pass
 
     def checkin(self, patron, pin, licensepool):
         pass
 
-    def fulfill(self, patron, pin, licensepool, format_type):
-        pass
-
-    def place_hold(self, patron, pin, licensepool, hold_notification_email):
-        pass
+    def place_hold(self, patron, pin, licensepool, format_type,
+                   hold_notification_email):
+        url = self.base_url + "addtoHold/v2" 
+        title_id = licensepool.identifier.identifier
+        patron_id = patron.authorization_identifier
+        params = dict(titleId=title_id, patronId=patron_id, format=format_type,
+                    email=hold_notification_email)
+        response = self.request(url, params=params)
+        return HoldResponseParser().process_all(response.content)
 
     def release_hold(self, patron, pin, licensepool):
         pass
-    
+
+    def patron_activity(self, patron, pin):
+        set_trace()
+        availability = self.availability(
+            patron_id=patron.authorization_identifier)
+        return AvailabilityParser().process_all(availability.content)
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -166,7 +185,7 @@ class Axis360CirculationMonitor(Monitor):
 
         return edition, license_pool
 
-class ResponseParser(XMLParser):
+class ResponseParser(Axis360Parser):
 
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
@@ -217,29 +236,16 @@ class ResponseParser(XMLParser):
         5000 : InternalServerError,
     }
 
-
-class CheckoutResponseParser(ResponseParser):
-
-    NAMESPACES = {"axis" : "http://axis360api.baker-taylor.com/vendorAPI"}
-
-    def process_all(self, string):
-        for i in super(CheckoutResponseParser, self).process_all(
-                string, "//axis:checkoutResult", self.NAMESPACES):
-            return i
-
-    def process_one(self, e, namespaces):
-        """Either turn the given document into a FulfillmentInfo
-        object, or raise an appropriate exception.
+    def raise_exception_on_error(self, e, ns):
+        """Raise an error if the given lxml node represents an Axis 360 error
+        condition.
         """
-        code = self._xpath1(e, '//axis:status/axis:code', namespaces)
-        message = self._xpath1(e, '//axis:status/axis:statusMessage', namespaces)
-        expiration_date = self._xpath1(e, '//axis:expirationDate', namespaces)
-        fulfillment_url = self._xpath1(e, '//axis:url', namespaces)
-
-        if message:
-            message = message.text
-        else:
+        code = self._xpath1(e, '//axis:status/axis:code', ns)
+        message = self._xpath1(e, '//axis:status/axis:statusMessage', ns)
+        if message is None:
             message = etree.tostring(e)
+        else:
+            message = message.text
 
         if code is None:
             # Something is so wrong that we don't know what to do.
@@ -249,22 +255,81 @@ class CheckoutResponseParser(ResponseParser):
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
-            raise InternalServerError(message)
+            raise InternalServerError(
+                "Invalid response code from Axis 360: %s" % code)
         if code in self.code_to_exception:
             # Something went wrong and we know how to turn it into a
             # specific exception.
             raise self.code_to_exception[code](message)
+        return code, message
+        
 
-        # We have a non-error condition, which means the checkout succeeded.
-        # Set up a FulfillmentInfo.
+class CheckoutResponseParser(ResponseParser):
+
+    def process_all(self, string):
+        for i in super(CheckoutResponseParser, self).process_all(
+                string, "//axis:checkoutResult", self.NS):
+            return i
+
+    def process_one(self, e, namespaces):
+
+        """Either turn the given document into a LoanInfo
+        object, or raise an appropriate exception.
+        """
+        self.raise_exception_on_error(e, namespaces)
+
+        # If we get to this point it's because the checkout succeeded.
+        expiration_date = self._xpath1(e, '//axis:expirationDate', namespaces)
+        fulfillment_url = self._xpath1(e, '//axis:url', namespaces)
         if fulfillment_url is not None:
             fulfillment_url = fulfillment_url.text
 
         if expiration_date is not None:
             expiration_date = expiration_date.text
             expiration_date = datetime.strptime(
-                expiration_date, BibliographicParser.FULL_DATE_FORMAT)
+                expiration_date, self.FULL_DATE_FORMAT)
             
-        return FulfillmentInfo(
+        fulfillment = FulfillmentInfo(
             content_link=fulfillment_url, content_type=None, content=None,
-            content_expires=expiration_date)
+            content_expires=None)
+        loan_start = datetime.utcnow()
+        loan = LoanInfo(start_date=loan_start, end_date=expiration_date,
+                        fulfillment_info=fulfillment)
+        return loan
+
+class HoldResponseParser(ResponseParser):
+
+    def process_all(self, string):
+        for i in super(HoldResponseParser, self).process_all(
+                string, "//axis:addtoholdResult", self.NS):
+            return i
+
+    def process_one(self, e, namespaces):
+        """Either turn the given document into a HoldInfo
+        object, or raise an appropriate exception.
+        """
+        self.raise_exception_on_error(e, namespaces)
+
+        # If we get to this point it's because the hold place succeeded.
+        queue_position = self._xpath1(
+            e, '//axis:holdsQueuePosition', namespaces)
+        if queue_position is None:
+            queue_position = None
+        else:
+            try:
+                queue_position = int(queue_position.text)
+            except ValueError:
+                print "Invalid queue position: %s" % queue_position
+                queue_position = None
+
+        hold_start = datetime.utcnow()
+        hold = HoldInfo(
+            start_date=hold_start, end_date=None, hold_position=queue_position)
+        return hold
+
+
+class AvailibilityParser(Axis360Parser):
+    
+    def process_all(self, string):
+        set_trace()
+        pass
