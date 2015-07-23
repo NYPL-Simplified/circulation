@@ -6,6 +6,7 @@ import requests
 from sqlalchemy.orm import contains_eager
 
 from circulation import (
+    LoanInfo,
     HoldInfo,
     FulfillmentInfo,
 )
@@ -31,15 +32,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
 )
 
-from circulation_exceptions import (
-    NoActiveLoan,
-    NoAvailableCopies,
-    CannotRenew,
-    CannotHold,
-    CannotFulfill,
-    CouldCheckOut,
-    CannotReleaseHold,
-)
+from circulation_exceptions import *
 
 class OverdriveAPI(BaseOverdriveAPI):
 
@@ -144,23 +137,55 @@ class OverdriveAPI(BaseOverdriveAPI):
                 # we can handle it.
                 loan = self.get_loan(patron, pin, identifier.identifier)
                 expires = self.extract_expiration_date(loan)
-                return self.fulfill(
+                fulfillment = self.fulfill(
                     patron, pin, licensepool, format_type)
+                return LoanInfo(
+                    licensepool.identifier.type,
+                    licensepool.identifier.identifier,
+                    None,
+                    expires,
+                    fulfillment,
+                )
 
         expires, download_link = self.extract_data_from_checkout_response(
             response.json(), format_type, self.DEFAULT_ERROR_URL)
 
+        # Here's the loan info. The job of the rest of this method
+        # is to fill in loan.fulfillment with a FulfillmentInfo.
+        loan = LoanInfo(
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            None,
+            expires,
+            None,
+        )
+
         # Now turn the download link into a fulfillment link, which
         # will give us the ACSM file or equivalent.
-        if not format_type:
-            # Again, this would only be used in a test scenario.
-            return FulfillmentInfo(None, "text/plain", "", expires)
-        content_link, content_type = self.get_fulfillment_link_from_download_link(
+        if format_type:
+            content_link, content_type = self.get_fulfillment_link_from_download_link(
             patron, pin, download_link)
-        # Even though we're given the media type of the ACSM file, we
-        # don't send it because we don't have the actual file, only
-        # a link to the file.
-        return FulfillmentInfo(content_link, None, None, expires)
+            # Even though we're given the media type of the ACSM file, we
+            # don't send it because we don't have the actual file, only
+            # a link to the file.
+            content_type = None
+            content = None
+        else:
+            # Again, this would only be used in a test scenario.
+            content_link = None
+            content_type = "text/plain"
+            content = ""
+
+        fulfillment = FulfillmentInfo(
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            content_link, 
+            content_type,
+            content,
+            None
+        )
+        loan.fulfillment_info = fulfillment
+        return loan
 
     def checkin(self, patron, pin, licensepool):
         overdrive_id = licensepool.identifier.identifier
@@ -175,25 +200,49 @@ class OverdriveAPI(BaseOverdriveAPI):
         headers = {"Content-Type": "application/json; charset=utf-8"}
         return headers, json.dumps(dict(fields=fields))
 
+    error_to_exception = {
+        "TitleNotCheckedOut" : NoActiveLoan
+    }
+
+    def raise_exception_on_error(self, data, custom_error_to_exception={}):
+        if not 'errorCode' in data:
+            return
+        error = data['errorCode']
+        message = data.get('message') or ''
+        for d in custom_error_to_exception, self.error_to_exception:
+            if error in d:
+                raise d[error](message)
+
     def get_loan(self, patron, pin, overdrive_id):
         url = self.CHECKOUTS_ENDPOINT + "/" + overdrive_id.upper()
-        return self.patron_request(patron, pin, url).json()
+        data = self.patron_request(patron, pin, url).json()
+        self.raise_exception_on_error(data)
+        return data
 
     def get_hold(self, patron, pin, overdrive_id):
         url = self.HOLD_ENDPOINT % dict(product_id=overdrive_id.upper())
-        return self.patron_request(patron, pin, url).json()
+        data = self.patron_request(patron, pin, url).json()
+        self.raise_exception_on_error(data)
+        return data
 
     def get_loans(self, patron, pin):
         """Get a JSON structure describing all of a patron's outstanding
         loans."""
-        return self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+        data = self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+        self.raise_exception_on_error(data)
+        return data
 
     def fulfill(self, patron, pin, licensepool, format_type):
         url, media_type = self.get_fulfillment_link(
             patron, pin, licensepool.identifier.identifier, format_type)
         return FulfillmentInfo(
-            content_link=url, content_type=media_type, content=None, 
-            content_expires=None)
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            content_link=url,
+            content_type=media_type, 
+            content=None, 
+            content_expires=None
+        )
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.
@@ -203,10 +252,6 @@ class OverdriveAPI(BaseOverdriveAPI):
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         if not 'formats' in loan:
             raise CannotFulfill("Loan for %s has no formats" % overdrive_id)
-
-        expires = loan.get('expires')
-        format = None
-        format_names = []
 
         if not loan['isFormatLockedIn']:
             # The format is not locked in. Lock it in.
@@ -275,13 +320,61 @@ class OverdriveAPI(BaseOverdriveAPI):
         return d
 
     def get_patron_information(self, patron, pin):
-        return self.patron_request(patron, pin, self.ME_ENDPOINT).json()
+        data = self.patron_request(patron, pin, self.ME_ENDPOINT).json()
+        self.raise_exception_on_error(data)
+        return data
 
     def get_patron_checkouts(self, patron, pin):
-        return self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+        data = self.patron_request(patron, pin, self.CHECKOUTS_ENDPOINT).json()
+        self.raise_exception_on_error(data)
+        return data
 
     def get_patron_holds(self, patron, pin):
-        return self.patron_request(patron, pin, self.HOLDS_ENDPOINT).json()
+        data = self.patron_request(patron, pin, self.HOLDS_ENDPOINT).json()
+        self.raise_exception_on_error(data)
+        return data
+
+    def patron_activity(self, patron, pin):
+
+        def pd(d):
+            """Stupid method to parse a date.""" 
+            if not d:
+                return d
+            return datetime.datetime.strptime(d, self.TIME_FORMAT)
+
+        loans = self.get_patron_checkouts(patron, pin)
+        holds = self.get_patron_holds(patron, pin)
+
+        for checkout in loans.get('checkouts', []):
+            overdrive_identifier = checkout['reserveId'].lower()
+            start = pd(checkout.get('checkoutDate'))
+            end = pd(checkout.get('expires'))
+            yield LoanInfo(
+                Identifier.OVERDRIVE_ID,
+                overdrive_identifier,
+                start_date=start,
+                end_date=end,
+                fulfillment_info=None
+            )
+
+        for hold in holds.get('holds', []):
+            overdrive_identifier = hold['reserveId'].lower()
+            start = pd(hold.get('holdPlacedDate'))
+            end = pd(hold.get('holdExpires'))
+            position = hold.get('holdListPosition')
+            if position is not None:
+                position = int(position)
+            if position == 1 and 'checkout' in hold.get('actions', {}):
+                # This patron needs to decide whether to check the
+                # book out. By our reckoning, their position is 0, not 1.
+                position = 0
+            yield HoldInfo(
+                Identifier.OVERDRIVE_ID,
+                overdrive_identifier,
+                start_date=start,
+                end_date=end,
+                hold_position=position
+            )
 
     def place_hold(self, patron, pin, licensepool, format_type, 
                    notification_email_address):
@@ -307,8 +400,13 @@ class OverdriveAPI(BaseOverdriveAPI):
                 hold = self.get_hold(patron, pin, overdrive_id)
                 position, start_date = self.extract_data_from_hold_response(
                     hold)
-                return HoldInfo(start_date=start_date, end_date=None,
-                                hold_position=position)
+                return HoldInfo(
+                    licensepool.identifier.type,
+                    licensepool.identifier.identifier,
+                    start_date=start_date, 
+                    end_date=None,
+                    hold_position=position
+                )
             elif code == 'NotWithinRenewalWindow':
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
@@ -320,8 +418,13 @@ class OverdriveAPI(BaseOverdriveAPI):
             data = response.json()
             position, start_date = self.extract_data_from_hold_response(
                 data)
-            return HoldInfo(start_date=start_date, end_date=None,
-                            hold_position=position)
+            return HoldInfo(
+                licensepool.identifier.type,
+                licensepool.identifier.identifier,
+                start_date=start_date,
+                end_date=None,
+                hold_position=position
+            )
 
     def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.

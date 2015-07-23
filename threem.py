@@ -1,5 +1,6 @@
 from lxml import etree
 from cStringIO import StringIO
+import itertools
 import datetime
 import os
 import re
@@ -11,6 +12,7 @@ from sqlalchemy import or_
 from circulation import (
     FulfillmentInfo,
     HoldInfo,
+    LoanInfo,
 )
 from core.model import (
     CirculationEvent,
@@ -71,8 +73,8 @@ class ThreeMAPI(BaseThreeMAPI):
             if circ:
                 yield circ
 
-    def get_patron_checkouts(self, patron_obj):
-        patron_id = patron_obj.authorization_identifier
+    def patron_activity(self, patron, pin):
+        patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
         return PatronCirculationParser().process_all(response.content)
@@ -96,7 +98,7 @@ class ThreeMAPI(BaseThreeMAPI):
         :param format_type: The patron's desired book format. Not
         used since 3M doesn't offer a choice.
 
-        :return: a FulfillmentInfo object
+        :return: a LoanInfo object
         """
 
         threem_id = licensepool.identifier.identifier
@@ -105,16 +107,14 @@ class ThreeMAPI(BaseThreeMAPI):
                     item_id=threem_id, patron_id=patron_identifier)
         body = self.TEMPLATE % args 
         response = self.request('checkout', body, method="PUT")
-        loan_expires = CheckoutResponseParser().process_all(response.content)
-        needs_fulfillment = False
-        if response.status_code in (200, 201):
-            needs_fulfillment = True
-            response = self.get_fulfillment_file(
-                patron_identifier, threem_id)
-            return FulfillmentInfo(
-                None, response.headers.get('Content-Type'), response.content,
-                loan_expires)
+        if response.status_code == 201:
+            # New loan
+            start_date = datetime.datetime.utcnow()
+        elif response.status_code == 200:
+            # Old loan -- we don't know the start date
+            start_date = None
         else:
+            # Error condition
             error = ErrorParser().process_all(response.content)
             if error.message == 'Unknown error':
                 raise ThreeMException(response.content)
@@ -124,22 +124,30 @@ class ThreeMAPI(BaseThreeMAPI):
             else:
                 raise error
 
-        if needs_fulfillment:
-            print "Fulfilling %s for %s" % (patron_identifier, threem_id)
-            response = self.get_fulfillment_file(
-                patron_identifier, threem_id)
-            print "Done fulfilling %s for %s" % (patron_identifier, threem_id)
-            return FulfillmentInfo(
-                None, response.headers.get('Content-Type'), response.content, 
-                loan_expires)
-        else:
-            raise ThreeMException(response.content)
+        # At this point we know we have a loan.
+        loan_expires = CheckoutResponseParser().process_all(response.content)
+        fulfillment = self.fulfill(
+            patron_obj, patron_password, licensepool, format_type)
+        loan = LoanInfo(
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            start_date=None,
+            end_date=loan_expires,
+            fulfillment_info=fulfillment
+        )
+        return loan
 
-    def fulfill(self, patron, password, identifier, format):
+    def fulfill(self, patron, password, pool, format):
         response = self.get_fulfillment_file(
-            patron.authorization_identifier, identifier.identifier)
+            patron.authorization_identifier, pool.identifier)
         return FulfillmentInfo(
-            None, response.headers.get('Content-Type'), response.content, None)
+            pool.identifier.type,
+            pool.identifier.identifier,
+            content_link=None,
+            content_type=response.headers.get('Content-Type'),
+            content=response.content,
+            content_expires=None,
+        )
 
     def get_fulfillment_file(self, patron_id, threem_id):
         args = dict(request_type='ACSMRequest',
@@ -170,8 +178,13 @@ class ThreeMAPI(BaseThreeMAPI):
         if response.status_code in (200, 201):
             start_date = datetime.datetime.utcnow()
             end_date = HoldResponseParser().process_all(response.content)
-            return HoldInfo(start_date=start_date, end_date=end_date,
-                            hold_position=None)
+            return HoldInfo(
+                licensepool.identifier.type,
+                licensepool.identifier.identifier,
+                start_date=start_date, 
+                end_date=end_date,
+                hold_position=None
+            )
         else:
             if not response.content:
                 raise CannotHold()
@@ -421,25 +434,31 @@ class ErrorParser(XMLParser):
 
 class PatronCirculationParser(XMLParser):
 
-    """Parse 3M's patron circulation status document into something we can apply to a Patron."""
+    """Parse 3M's patron circulation status document into a list of
+    LoanInfo and HoldInfo objects.
+    """
+
+    id_type = Identifier.THREEM_ID
 
     def process_all(self, string):
         parser = etree.XMLParser()
         root = etree.parse(StringIO(string), parser)
         sup = super(PatronCirculationParser, self)
-        loans = [x for x in sup.process_all(
-            root, "//Checkouts/Item", handler=self.process_one_loan) if x]
-        holds = [x for x in sup.process_all(
-            root, "//Holds/Item", handler=self.process_one_hold) if x]
-        reserves = [x for x in sup.process_all(
-            root, "//Reserves/Item", handler=self.process_one_hold) if x]
-        return loans, holds, reserves
+        loans = sup.process_all(
+            root, "//Checkouts/Item", handler=self.process_one_loan)
+        holds = sup.process_all(
+            root, "//Holds/Item", handler=self.process_one_hold)
+        reserves = sup.process_all(
+            root, "//Reserves/Item", handler=self.process_one_hold)
+
+        everything = itertools.chain(loans, holds, reserves)
+        return [x for x in everything if x]
 
     def process_one_loan(self, tag, namespaces):
-        return self.process_one(tag, namespaces, Loan)
+        return self.process_one(tag, namespaces, LoanInfo)
 
     def process_one_hold(self, tag, namespaces):
-        return self.process_one(tag, namespaces, Hold)
+        return self.process_one(tag, namespaces, HoldInfo)
 
     def process_one(self, tag, namespaces, source_class):
         if not tag.xpath("ItemId"):
@@ -452,15 +471,17 @@ class PatronCirculationParser(XMLParser):
             return datetime.datetime.strptime(
                 value, ThreeMAPI.ARGUMENT_TIME_FORMAT)
 
-        identifiers = {}
-        item = { Identifier : identifiers }
-        identifiers[Identifier.THREEM_ID] = self.text_of_subtag(tag, "ItemId")
-        
-        item[source_class.start] = datevalue("EventStartDateInUTC")
-        item[source_class.end] = datevalue("EventEndDateInUTC")
+        identifier = self.text_of_subtag(tag, "ItemId")
+        start_date = datevalue("EventStartDateInUTC")
+        end_date = datevalue("EventEndDateInUTC")
+        a = [self.id_type, identifier, start_date, end_date]
         if source_class == Hold:
-            item[source_class.position] = self.int_of_subtag(tag, "Position")
-        return item
+            hold_position = self.int_of_subtag(tag, "Position")
+            a.append(hold_position)
+        else:
+            # Fulfillment info -- not available from this API
+            a.append(None)
+        return source_class(*a)
 
 class DateResponseParser(XMLParser):
     """Extract a date from a response."""

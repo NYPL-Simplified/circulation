@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from circulation_exceptions import *
 import datetime
+from threading import Thread
 
 from core.model import (
     get_one,
@@ -9,13 +10,21 @@ from core.model import (
     Hold,
 )
 
-class FulfillmentInfo(object):
+class CirculationInfo(object):
+    def fd(self, d):
+        # Stupid method to format a date
+        if not d:
+            return None
+        else:
+            return datetime.datetime.strftime(d, "%Y/%m/%d %H:%M:%S")
+
+class FulfillmentInfo(CirculationInfo):
 
     """A record of an attempt to fulfil a loan."""
 
-    def __init__(self, data_source, identifier, content_link, content_type, 
+    def __init__(self, identifier_type, identifier, content_link, content_type, 
                  content, content_expires):
-        self.data_source = data_source
+        self.identifier_type = identifier_type
         self.identifier = identifier
         self.content_link = content_link
         self.content_type = content_type
@@ -28,31 +37,51 @@ class FulfillmentInfo(object):
         else:
             blength = 0
         return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, expires: %r>" % (
-            self.content_link, self.content_type, blength, self.content_expires)
+            self.content_link, self.content_type, blength,
+            self.fd(self.content_expires))
 
-class LoanInfo(object):
+class LoanInfo(CirculationInfo):
 
     """A record of a loan."""
 
-    def __init__(self, data_source, identifier, start_date, end_date,
+    def __init__(self, identifier_type, identifier, start_date, end_date,
                  fulfillment_info=None):
-        self.data_source = data_source
+        self.identifier_type = identifier_type
         self.identifier = identifier
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
 
-class HoldInfo(object):
+    def __repr__(self):
+        if self.fulfillment_info:
+            fulfillment = " Fulfilled by: " + repr(self.fulfillment_info)
+        else:
+            fulfillment = ""
+        f = "%Y/%m/%d"
+        return "<LoanInfo for %s/%s, start=%s end=%s>%s" % (
+            self.identifier_type, self.identifier,
+            self.fd(self.start_date), self.fd(self.end_date), 
+            fulfillment
+        )
+
+class HoldInfo(CirculationInfo):
 
     """A record of a hold."""
 
-    def __init__(self, data_source, identifier, start_date, end_date, 
+    def __init__(self, identifier_type, identifier, start_date, end_date, 
                  hold_position):
-        self.data_source = data_source
+        self.identifier_type = identifier_type
         self.identifier = identifier
         self.start_date = start_date
         self.end_date = end_date
         self.hold_position = hold_position
+
+    def __repr__(self):
+        return "<HoldInfo for %s/%s, start=%s end=%s, position=%s>" % (
+            self.identifier_type, self.identifier,
+            self.fd(self.start_date), self.fd(self.end_date), 
+            self.hold_position
+        )
 
 
 class CirculationAPI(object):
@@ -142,12 +171,13 @@ class CirculationAPI(object):
                 # Delete the record of the hold.
                 self._db.delete(existing_hold)
             __transaction.commit()
-            if loan.fulfillment_info:
-                fulfillment = loan.fulfillment_info
+            if loan_info.fulfillment_info:
+                fulfillment = loan_info.fulfillment_info
             else:
                 # The checkout operation did not get us fulfillment
                 # information. We must fulfill as a separate step.
-                fulfillment = self.fulfill(patron, pin, licensepool)
+                fulfillment = self.fulfill(
+                    patron, pin, licensepool, format_to_use)
             return loan, None, fulfillment, is_new
 
         # Checking out a book didn't work, so let's try putting
@@ -216,8 +246,8 @@ class CirculationAPI(object):
 
         media_type = best_link.representation.media_type
         return FulfillmentInfo(
-            data_source=licensepool.data_source,
-            identifier=licensepool.identifier,
+            identifier_type=licensepool.identifier.type,
+            identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
             content_expires=None)
 
@@ -267,7 +297,35 @@ class CirculationAPI(object):
 
     def patron_activity(self, patron, pin):
         """Return a record of the patron's current activity
-        vis-a-vis this data source.
+        vis-a-vis all data sources.
 
-        :return: A mixed list of `HoldInfo` and `LoanInfo` objects.
+        We check each data source in a separate thread for speed.
+
+        :return: A consolidated list of `HoldInfo` and `LoanInfo` objects.
         """
+        class PatronActivityThread(Thread):
+            def __init__(self, api, patron, pin):
+                self.api = api
+                self.patron = patron
+                self.pin = pin
+                self.activity = None
+                super(PatronActivityThread, self).__init__()
+
+            def run(self):
+                self.activity = self.api.patron_activity(
+                    self.patron, self.pin)
+
+        threads = []
+        import time
+        for api in self.apis:
+            thread = PatronActivityThread(api, patron, pin)
+            threads.append(thread)
+        for thread in threads:
+            thread.start()
+            thread.join()
+        info_objects = []
+        for thread in threads:
+            if thread.activity:
+                info_objects.extend(list(thread.activity))
+        return info_objects
+

@@ -13,7 +13,6 @@ from core.model import (
     CirculationEvent,
     get_one_or_create,
     Contributor,
-    DataSource,
     Edition,
     Identifier,
     LicensePool,
@@ -211,7 +210,7 @@ class Axis360CirculationMonitor(Monitor):
 
 class ResponseParser(Axis360Parser):
 
-    data_source_name = DataSource.AXIS_360
+    id_type = Identifier.AXIS_360_ID
 
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
@@ -318,12 +317,12 @@ class CheckoutResponseParser(ResponseParser):
                 expiration_date, self.FULL_DATE_FORMAT)
             
         fulfillment = FulfillmentInfo(
-            data_source=self.data_source_name,
+            identifier_type=self.id_type,
             identifier=None, content_link=fulfillment_url,
             content_type=None, content=None, content_expires=None)
         loan_start = datetime.utcnow()
         loan = LoanInfo(
-            data_source=self.data_source_name, identifier=None,
+            identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
             fulfillment_info=fulfillment
@@ -358,7 +357,7 @@ class HoldResponseParser(ResponseParser):
 
         hold_start = datetime.utcnow()
         hold = HoldInfo(
-            data_source=self.data_source_name, identifier=None,
+            identifier_type=self.id_type, identifier=None,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
 
@@ -407,12 +406,12 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
-                    data_source=self.data_source_name,
+                    identifier_type=self.id_type,
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
                     content=None, content_expires=None)
             info = LoanInfo(
-                data_source=self.data_source_name,
+                identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
                 fulfillment_info=fulfillment)
@@ -421,7 +420,7 @@ class AvailabilityResponseParser(ResponseParser):
             end_date = self._xpath1_date(
                 availability, 'axis:reservedEndDate', ns)
             info = HoldInfo(
-                data_source=self.data_source_name,
+                identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, 
                 end_date=end_date,
@@ -431,7 +430,7 @@ class AvailabilityResponseParser(ResponseParser):
             position = self.int_of_optional_subtag(
                 availability, 'axis:holdsQueuePosition', ns)
             info = HoldInfo(
-                data_source=self.data_source_name,
+                identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, end_date=None,
                 hold_position=position)

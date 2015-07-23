@@ -39,6 +39,12 @@ axis = Axis360API(_db)
 circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem,
                              axis=axis)
 
+activity = circulation.patron_activity(patron, pin)
+print '-' * 80
+for i in activity:
+    print i
+print '-' * 80
+
 licensepool = borrow_pool
 try:
     circulation.fulfill(patron, pin, licensepool)
@@ -59,10 +65,7 @@ print "Borrow again!"
 print circulation.borrow(patron, pin, licensepool, email)
 print "Fulfill with loan"
 print circulation.fulfill(patron, pin, licensepool)
-print "Revoke loan"
-print circulation.revoke_loan(patron, pin, licensepool)
-print "Revoke already revoked loan"
-print circulation.revoke_loan(patron, pin, licensepool)
+
 
 licensepool = hold_pool
 print "Attempting to place hold on", licensepool.work
@@ -80,6 +83,18 @@ try:
     print circulation.fulfill(patron, pin, licensepool)
 except NoActiveLoan, e:
     print " Exception as expected"
+
+activity = circulation.patron_activity(patron, pin)
+print '-' * 80
+for i in activity:
+    print i
+print '-' * 80
+
+print "Revoke loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+print "Revoke already revoked loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+
 print "Release hold."
 print circulation.release_hold(patron, pin, licensepool)
 print "Release nonexistent hold."

@@ -87,12 +87,6 @@ class NotCheckedOut(CannotReturn):
     """
     status_code = 400
 
-class CannotFulfillNotCheckedOut(CannotFulfill):
-    """The patron can't return this book because they don't
-    have it checked out in the first place.
-    """
-    status_code = 400
-
 class RemoteRefusedReturn(CannotReturn):
     """The remote refused to count this book as returned.
     """
