@@ -77,7 +77,7 @@ class Axis360API(object):
         else:
             return response
 
-    def availability(self, patron_id=None, since=None):
+    def availability(self, patron_id=None, since=None, title_ids=[]):
         url = self.base_url + self.availability_endpoint
         args = dict()
         if since:
@@ -85,6 +85,8 @@ class Axis360API(object):
             args['updatedDate'] = since
         if patron_id:
             args['patronId'] = patron_id
+        if title_ids:
+            args['titleIds'] = ','.join(title_ids)
         return self.request(url, params=args)
 
     @classmethod
