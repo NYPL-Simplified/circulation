@@ -46,17 +46,26 @@ class Axis360API(BaseAxis360API):
     def fulfill(self, patron, pin, licensepool, format_type):
         """Fulfill a patron's request for a specific book.
         """
-        identifier = licensepool.identifier.identifier
+        identifier = licensepool.identifier
         # It's inefficient, but we need to get the patron's activity to
         # fulfill this request.
-        activity = self.patron_activity(patron, pin)
-        status = activity.get(identifier)
-        if not isinstance(status, LoanInfo):
-            raise CannotFulfillNotCheckedOut()
-        fulfillment = status.fulfillment_info
-        if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
-            raise CannotFulfill()
-        return fulfillment
+        activities = self.patron_activity(patron, pin)
+        
+        for loan in activities:
+            if not isinstance(loan, LoanInfo):
+                continue
+            if not (loan.identifier_type == identifier.type
+                    and loan.identifier == identifier.identifier):
+                continue
+            # We've found the remote loan corresponding to this
+            # license pool.
+            fulfillment = loan.fulfillment_info            
+            if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
+                raise CannotFulfill()
+            return fulfillment
+        # If we made it to this point, the patron does not have this
+        # book checked out.
+        raise CannotFulfillNotCheckedOut()
 
     def checkin(self, patron, pin, licensepool):
         pass
