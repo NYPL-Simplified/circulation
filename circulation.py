@@ -354,7 +354,7 @@ class CirculationAPI(object):
                         l = holds
                     else:
                         print "WARN: value %r from patron_activity is neither a loan nor a hold." % i
-                    if l:
+                    if l is not None:
                         l.append(i)
         return loans, holds
 
@@ -377,7 +377,7 @@ class CirculationAPI(object):
             i = l.license_pool.identifier
             key = (i.type, i.identifier)
             local_loans_by_identifier[key] = l
-        for h in remote_holds:
+        for h in local_holds:
             i = h.license_pool.identifier
             key = (i.type, i.identifier)
             local_holds_by_identifier[key] = h
@@ -391,7 +391,7 @@ class CirculationAPI(object):
             key = (loan.identifier_type, loan.identifier)
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, loan.identifier_type,
-                loan.identifier_identifier)
+                loan.identifier)
             start = loan.start_date or now
             end = loan.end_date
             local_loan, new = pool.loan_to(patron, start, end)
@@ -399,12 +399,13 @@ class CirculationAPI(object):
 
             # Remove the local loan from the list so that we don't
             # delete it later.
-            del local_loans_by_identifier[key]
+            if key in local_loans_by_identifier:
+                del local_loans_by_identifier[key]
 
         for hold in remote_holds:
             # This is a remote hold. Find or create the corresponding
             # local hold.
-            key = (hold.identifier_type, hold.identifier_identifier)
+            key = (hold.identifier_type, hold.identifier)
             source = self.identifier_type_to_data_source[hold.identifier_type]
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, hold.identifier_type,
@@ -412,25 +413,26 @@ class CirculationAPI(object):
             start = hold.start_date or now
             end = hold.end_date
             position = hold.hold_position
-            local_hold, new = pool.hold_to(patron, start, end, position)
+            local_hold, new = pool.on_hold_to(patron, start, end, position)
             active_holds.append(local_hold)
 
             # Remove the local hold from the list so that we don't
             # delete it later.
-            del holds_by_identifier[key]
+            if key in local_holds_by_identifier:
+                del local_holds_by_identifier[key]
 
         # Every loan remaining in loans_by_identifier is a hold that
         # the provider doesn't know about, which means it's expired
         # and we should get rid of it.
         for loan in local_loans_by_identifier.values():
-            if loan.data_source in self.data_sources_for_sync:
+            if loan.license_pool.data_source in self.data_sources_for_sync:
                 self._db.delete(loan)
 
         # Every hold remaining in holds_by_identifier is a hold that
         # Overdrive doesn't know about, which means it's expired and
         # we should get rid of it.
         for hold in local_holds_by_identifier.values():
-            if loan.data_source in self.data_sources_for_sync:
+            if loan.license_pool.data_source in self.data_sources_for_sync:
                 self._db.delete(hold)
         __transaction.commit()
 
