@@ -47,9 +47,8 @@ class Axis360API(BaseAxis360API):
         """Fulfill a patron's request for a specific book.
         """
         identifier = licensepool.identifier
-        # It's inefficient, but we need to get the patron's activity to
-        # fulfill this request.
-        activities = self.patron_activity(patron, pin)
+        # This should include only one 'activity'.
+        activities = self.patron_activity(patron, pin, licensepool.identifier)
         
         for loan in activities:
             if not isinstance(loan, LoanInfo):
@@ -98,9 +97,10 @@ class Axis360API(BaseAxis360API):
         # If we didn't raise an exception, we're fine.
         return True
 
-    def patron_activity(self, patron, pin):
+    def patron_activity(self, patron, pin, identifier=None):
         availability = self.availability(
-            patron_id=patron.authorization_identifier)
+            patron_id=patron.authorization_identifier, 
+            title_ids=[identifier.identifier])
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
