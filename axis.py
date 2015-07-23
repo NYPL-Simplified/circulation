@@ -203,6 +203,8 @@ class Axis360CirculationMonitor(Monitor):
 
 class ResponseParser(Axis360Parser):
 
+    data_source_name = DataSource.AXIS_360
+
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
         315  : InvalidInputException, # Bad password
@@ -280,9 +282,16 @@ class ResponseParser(Axis360Parser):
                 # specific exception.
                 raise d[code](message)
         return code, message
+
+class IdentifierScopedResponseParser(ResponseParser):
+    """When the response pertains to a specific license pool."""
+
+    def __init__(self, identifier, *args, **kwargs):
+        self.identifier = identifier
+        super(IdentifierScopedResponseParser, self).__init__(*args, **kwargs)
         
 
-class CheckoutResponseParser(ResponseParser):
+class CheckoutResponseParser(IdentifierScopedResponseParser):
 
     def process_all(self, string):
         for i in super(CheckoutResponseParser, self).process_all(
@@ -308,14 +317,20 @@ class CheckoutResponseParser(ResponseParser):
                 expiration_date, self.FULL_DATE_FORMAT)
             
         fulfillment = FulfillmentInfo(
-            content_link=fulfillment_url, content_type=None, content=None,
-            content_expires=None)
+            data_source=self.data_source_name,
+            identifier=self.identifier, content_link=fulfillment_url,
+            content_type=None, content=None, content_expires=None)
         loan_start = datetime.utcnow()
-        loan = LoanInfo(start_date=loan_start, end_date=expiration_date,
-                        fulfillment_info=fulfillment)
+        loan = LoanInfo(
+            data_source=self.data_source_name,
+            identifier=self.identifier,
+            start_date=loan_start,
+            end_date=expiration_date,
+            fulfillment_info=fulfillment
+        )
         return loan
 
-class HoldResponseParser(ResponseParser):
+class HoldResponseParser(IdentifierScopedResponseParser):
 
     def process_all(self, string):
         for i in super(HoldResponseParser, self).process_all(
@@ -343,10 +358,11 @@ class HoldResponseParser(ResponseParser):
 
         hold_start = datetime.utcnow()
         hold = HoldInfo(
+            data_source=self.data_source_name, identifier=self.identifier,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
 
-class HoldReleaseResponseParser(ResponseParser):
+class HoldReleaseResponseParser(IdentifierScopedResponseParser):
 
     def process_all(self, string):
         for i in super(HoldReleaseResponseParser, self).process_all(
@@ -361,20 +377,19 @@ class HoldReleaseResponseParser(ResponseParser):
         return True
 
 class AvailabilityResponseParser(ResponseParser):
-    
+   
     def process_all(self, string):
-        for identifier, info in super(AvailabilityResponseParser, self).process_all(
+        for info in super(AvailabilityResponseParser, self).process_all(
                 string, "//axis:title", self.NS):
             # Filter out books where nothing in particular is
             # happening.
             if info:
-                yield identifier, info
+                yield info
 
     def process_one(self, e, ns):
 
         # Figure out which book we're talking about.
-        identifier = self.text_of_subtag(e, "axis:titleId", ns)
-
+        axis_identifier = self.text_of_subtag(e, "axis:titleId", ns)
         availability = self._xpath1(e, 'axis:availability', ns)
         if availability is None:
             return None
@@ -392,21 +407,33 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
+                    data_source=self.data_source_name,
+                    identifier=axis_identifier,
                     content_link=download_url, content_type=None,
                     content=None, content_expires=None)
             info = LoanInfo(
+                data_source=self.data_source_name,
+                identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
                 fulfillment_info=fulfillment)
 
         elif reserved:
             end_date = self._xpath1_date(
                 availability, 'axis:reservedEndDate', ns)
-            info = HoldInfo(start_date=None, end_date=end_date,
-                            hold_position=0)
+            info = HoldInfo(
+                data_source=self.data_source_name,
+                identifier=axis_identifier,
+                start_date=None, 
+                end_date=end_date,
+                hold_position=0
+            )
         elif on_hold:
             position = self.int_of_optional_subtag(
                 availability, 'axis:holdsQueuePosition', ns)
-            info = HoldInfo(start_date=None, end_date=None,
-                            hold_position=position)
-        return identifier, info
+            info = HoldInfo(
+                data_source=self.data_source_name,
+                identifier=axis_identifier,
+                start_date=None, end_date=None,
+                hold_position=position)
+        return info
 

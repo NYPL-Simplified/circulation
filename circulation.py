@@ -13,8 +13,10 @@ class FulfillmentInfo(object):
 
     """A record of an attempt to fulfil a book."""
 
-    def __init__(self, content_link, content_type, content,
-                 content_expires):
+    def __init__(self, data_source, identifier, content_link, content_type, 
+                 content, content_expires):
+        self.data_source = data_source
+        self.identifier = identifier
         self.content_link = content_link
         self.content_type = content_type
         self.content = content
@@ -32,7 +34,10 @@ class LoanInfo(object):
 
     """A record of a loan."""
 
-    def __init__(self, start_date, end_date, fulfillment_info=None):
+    def __init__(self, data_source, identifier, start_date, end_date,
+                 fulfillment_info=None):
+        self.data_source = data_source
+        self.identifier = identifier
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
@@ -41,7 +46,10 @@ class HoldInfo(object):
 
     """A record of a hold."""
 
-    def __init__(self, start_date, end_date, hold_position):
+    def __init__(self, data_source, identifier, start_date, end_date, 
+                 hold_position):
+        self.data_source = data_source
+        self.identifier = identifier
         self.start_date = start_date
         self.end_date = end_date
         self.hold_position = hold_position
@@ -195,6 +203,8 @@ class CirculationAPI(object):
 
         media_type = best_link.representation.media_type
         return FulfillmentInfo(
+            data_source=licensepool.data_source,
+            identifier=licensepool.identifier,
             content_link=content_link, content_type=media_type, content=None, 
             content_expires=None)
 
