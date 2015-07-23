@@ -98,9 +98,13 @@ class Axis360API(BaseAxis360API):
         return True
 
     def patron_activity(self, patron, pin, identifier=None):
+        if identifier:
+            title_ids = [identifier.identifire]
+        else:
+            title_ids = None
         availability = self.availability(
             patron_id=patron.authorization_identifier, 
-            title_ids=[identifier.identifier])
+            title_ids=title_ids)
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 

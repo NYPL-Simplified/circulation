@@ -59,9 +59,6 @@ def make_lanes(_db):
                  subgenre_books_go=Lane.IN_SAME_LANE,
                  exclude_genres=[genres.Dystopian_SF, genres.Steampunk],
                  audience=YA),
-            Lane(_db, full_name="Middle grade", audience=CHILDREN,
-                 genres=None,
-                 age_range=[9,10,11,12], fiction=True),
             Lane(_db, "YA Steampunk", [genres.Steampunk],
                  subgenre_books_go=Lane.IN_SAME_LANE,
                  display_name="Steampunk", audience=YA),
@@ -89,7 +86,7 @@ def make_lanes(_db):
     )
 
     children = Lane(
-        _db, full_name="Children's Books", genres=None,
+        _db, full_name="Children and Middle Grade", genres=None,
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
         audience=genres.Classifier.AUDIENCE_CHILDREN,
         sublanes=[
@@ -118,8 +115,14 @@ def make_lanes(_db):
             Lane(_db, full_name="Realistic fiction", 
                  fiction=True, genres=[genres.Literary_Fiction],
                  subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
-            Lane(_db, full_name="Biography and historical fiction", 
-                 genres=[genres.Biography_Memoir, genres.Historical_Fiction],
+            Lane(_db, full_name="Children's Graphic Novels",
+                 display_name="Comics & Graphic Novels",
+                 genres=[genres.Comics_Graphic_Novels], audience=CHILDREN),
+            Lane(_db, full_name="Biography", 
+                 genres=[genres.Biography_Memoir],
+                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+            Lane(_db, full_name="Historical fiction", 
+                 genres=[genres.Historical_Fiction],
                  subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Informational books", genres=None,
                  fiction=False, exclude_genres=[genres.Biography_Memoir],
