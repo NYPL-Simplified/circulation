@@ -6,6 +6,7 @@ from threading import Thread
 from core.model import (
     get_one,
     DataSource,
+    LicensePool,
     Loan,
     Hold,
 )
@@ -95,6 +96,23 @@ class CirculationAPI(object):
         self.threem = threem
         self.axis = axis
         self.apis = [overdrive, threem, axis]
+
+        # When we get our view of a patron's loans and holds, we need
+        # to include loans from all licensed data sources.  We do not
+        # need to include loans from open-access sources because we
+        # are the authorities on those.
+        self.data_sources_for_sync = [
+            DataSource.lookup(_db, x) for x in 
+            DataSource.OVERDRIVE,
+            DataSource.THREEM,
+            DataSource.AXIS_360,
+        ]
+        self.identifier_type_to_data_source = dict(
+            (ds.primary_identifier_type, ds) 
+            for ds in self.data_sources_for_sync)
+        self.data_source_ids_for_sync = [
+            x.id for x in self.data_sources_for_sync
+        ]
 
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
@@ -301,7 +319,8 @@ class CirculationAPI(object):
 
         We check each data source in a separate thread for speed.
 
-        :return: A consolidated list of `HoldInfo` and `LoanInfo` objects.
+        :return: A 2-tuple (loans, holds) containing `HoldInfo` and
+        `LoanInfo` objects.
         """
         class PatronActivityThread(Thread):
             def __init__(self, api, patron, pin):
@@ -323,9 +342,96 @@ class CirculationAPI(object):
         for thread in threads:
             thread.start()
             thread.join()
-        info_objects = []
+        loans = []
+        holds = []
         for thread in threads:
             if thread.activity:
-                info_objects.extend(list(thread.activity))
-        return info_objects
+                for i in thread.activity:
+                    l = None
+                    if isinstance(i, LoanInfo):
+                        l = loans
+                    elif isinstance(i, HoldInfo):
+                        l = holds
+                    else:
+                        print "WARN: value %r from patron_activity is neither a loan nor a hold." % i
+                    if l:
+                        l.append(i)
+        return loans, holds
 
+    def sync_bookshelf(self, patron, pin):
+
+        # Get the external view of the patron's current state.
+        remote_loans, remote_holds = self.patron_activity(patron, pin)
+        
+        # Get our internal view of the patron's current state.
+        __transaction = self._db.begin_nested()
+        local_loans = self._db.query(Loan).join(Loan.license_pool).filter(
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+        local_holds = self._db.query(Hold).join(Hold.license_pool).filter(
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+
+        now = datetime.datetime.utcnow()
+        local_loans_by_identifier = {}
+        local_holds_by_identifier = {}
+        for l in local_loans:
+            i = l.license_pool.identifier
+            key = (i.type, i.identifier)
+            local_loans_by_identifier[key] = l
+        for h in remote_holds:
+            i = h.license_pool.identifier
+            key = (i.type, i.identifier)
+            local_holds_by_identifier[key] = h
+
+        active_loans = []
+        active_holds = []
+        for loan in remote_loans:
+            # This is a remote loan. Find or create the corresponding
+            # local loan.
+            source = self.identifier_type_to_data_source[loan.identifier_type]
+            key = (loan.identifier_type, loan.identifier)
+            pool, ignore = LicensePool.for_foreign_id(
+                self._db, source, loan.identifier_type,
+                loan.identifier_identifier)
+            start = loan.start_date or now
+            end = loan.end_date
+            local_loan, new = pool.loan_to(patron, start, end)
+            active_loans.append(local_loan)
+
+            # Remove the local loan from the list so that we don't
+            # delete it later.
+            del local_loans_by_identifier[key]
+
+        for hold in remote_holds:
+            # This is a remote hold. Find or create the corresponding
+            # local hold.
+            key = (hold.identifier_type, hold.identifier_identifier)
+            source = self.identifier_type_to_data_source[hold.identifier_type]
+            pool, ignore = LicensePool.for_foreign_id(
+                self._db, source, hold.identifier_type,
+                hold.identifier)
+            start = hold.start_date or now
+            end = hold.end_date
+            position = hold.hold_position
+            local_hold, new = pool.hold_to(patron, start, end, position)
+            active_holds.append(local_hold)
+
+            # Remove the local hold from the list so that we don't
+            # delete it later.
+            del holds_by_identifier[key]
+
+        # Every loan remaining in loans_by_identifier is a hold that
+        # the provider doesn't know about, which means it's expired
+        # and we should get rid of it.
+        for loan in local_loans_by_identifier.values():
+            if loan.data_source in self.data_sources_for_sync:
+                self._db.delete(loan)
+
+        # Every hold remaining in holds_by_identifier is a hold that
+        # Overdrive doesn't know about, which means it's expired and
+        # we should get rid of it.
+        for hold in local_holds_by_identifier.values():
+            if loan.data_source in self.data_sources_for_sync:
+                self._db.delete(hold)
+        __transaction.commit()
+
+        return active_loans, active_holds

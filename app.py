@@ -623,35 +623,14 @@ def active_loans():
 
     # First synchronize our local list of loans and holds with all
     # third-party loan providers.
-    if patron.authorization_identifier and len(patron.authorization_identifier) == 14:
-        # TODO: Barcodes that are not 14 digits are dummy code
-        # that allow the creation of arbitrary test accounts that
-        # are limited to public domain books. We cannot
-        # ask Overdrive or 3M about these barcodes. 
+    if patron.authorization_identifier and len(patron.authorization_identifier) >= 7:
+        # TODO: Barcodes less than 7 digits are dummy code that allow
+        # the creation of arbitrary test accounts that are limited to
+        # public domain books. We cannot ask Overdrive or 3M about
+        # these barcodes.
         header = flask.request.authorization
         try:
-            a = time.time()
-            overdrive_loans = Conf.overdrive.get_patron_checkouts(
-                patron, header.password)
-            b = time.time()
-            print "Got Overdrive loans in %.2fsec." % (b-a)
-            overdrive_holds = Conf.overdrive.get_patron_holds(
-                patron, header.password)
-            c = time.time()
-            print "Got Overdrive holds in %.2fsec." % (c-b)
-            threem_loans, threem_holds, threem_reserves = Conf.threem.get_patron_checkouts(
-            flask.request.patron)
-            d = time.time()
-            print "Got 3M loans and holds in %.2fsec." % (d-c)
-
-            Conf.overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
-            Conf.db.commit()
-            e = time.time()
-            print "Synced Overdrive bookshelf in %.2fsec." % (e-d)
-            Conf.threem.sync_bookshelf(patron, threem_loans, threem_holds, threem_reserves)
-            Conf.db.commit()
-            f = time.time()
-            print "Synced 3M bookshelf in %.2fsec." % (f-e)
+            Conf.circulation.sync_bookshelf(patron, header.password)
         except Exception, e:
             # If anything goes wrong, omit the sync step and just
             # display the current active loans, as we understand them.
