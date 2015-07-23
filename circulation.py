@@ -11,7 +11,7 @@ from core.model import (
 
 class FulfillmentInfo(object):
 
-    """A record of an attempt to fulfil a book."""
+    """A record of an attempt to fulfil a loan."""
 
     def __init__(self, data_source, identifier, content_link, content_type, 
                  content, content_expires):
@@ -87,80 +87,93 @@ class CirculationAPI(object):
         """Either borrow a book or put it on hold. If the book is borrowed,
         also fulfill the loan.
         
-        :return: A 4-tuple (borrow, hold, fulfillment, is_new). Either
-        `borrow` or `hold` must be None, but not both. If `borrow` is
-        present, `fulfillment` must be a `FulfillmentInfo` object.
+        :return: A 4-tuple (`Loan`, `Hold`, `FulfillmentInfo`,
+        `is_new`). Either `Loan` or `Hold` must be None, but not
+        both. If `Loan` is present, `FulfillmentInfo` must also be
+        present.
         """
-        loan = get_one(
-            self._db, Loan, patron=patron, license_pool=licensepool,
-            on_multiple='interchangeable'
-        )
-        hold = get_one(
-            self._db, Hold, patron=patron, license_pool=licensepool,
-            on_multiple='interchangeable'
-        )
-
         now = datetime.datetime.utcnow()
-        if loan and (not loan.end or loan.end < now):
-            # We already have an active loan. Just return it and be
-            # done.
-            return loan, None, None, False
-    
-        fallback_to_hold = False
-        content_link = content_expires = None
+
         if licensepool.open_access:
-            # We can handle open-access content ourselves.
+            # We can fulfill open-access content ourselves.
             best_pool, best_link = licensepool.best_license_link
             if not best_link:
                 raise NoOpenAccessDownload()
-            loan, is_new = licensepool.loan_to(patron, end=None)
-            return loan, None, self.fulfill_open_access(licensepool, best_link), is_new
+            now = datetime.datetime.utcnow()
+            __transaction = self._db.begin_nested()
+            loan, is_new = licensepool.loan_to(patron, start=now, end=None)
+            __transaction.commit()
+            fulfillment = self.fulfill_open_access(licensepool, best_link)
+            return loan, None, fulfillment, is_new
 
-        # We need to go to an API to carry out the loan.
+        # Okay, it's not an open-access book. This means we need to go
+        # to an external service to get the book. 
+        #
+        # This also means that our internal model of whether this book
+        # is currently on loan or on hold might be wrong.
         api, possible_formats = self.api_for_license_pool(licensepool)
+    
+        content_link = content_expires = None
 
         # First, try to check out the book.
         format_to_use = possible_formats[0]
-        fulfillment = None
+        loan_info = None
         try:
-            fulfillment = api.checkout(
+            loan_info = api.checkout(
                  patron, pin, licensepool,
                  format_type=format_to_use)
         except NoAvailableCopies:
             # That's fine, we'll just place a hold.
             pass
 
-        if fulfillment:
+        if loan_info:
             # We successfuly secured a loan.  Now create it in our
             # database.
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(
-                patron, end=fulfillment.content_expires)
-            if hold:
-                # The book was on hold, and now it's checked out.
-                # Delete the hold in-database.
-                self._db.delete(hold)
-                hold = None
+                patron, start=loan_info.start_date or now,
+                end=loan_info.end_date)
+            existing_hold = get_one(
+                self._db, Hold, patron=patron, license_pool=licensepool,
+                on_multiple='interchangeable'
+            )
+            if existing_hold:
+                # The book was on hold, and now we have a loan.
+                # Delete the record of the hold.
+                self._db.delete(existing_hold)
             __transaction.commit()
-        else:
-            # Checking out a book didn't work, so let's try putting
-            # the book on hold.
-            format_to_use = possible_formats[0]
-            hold_info = api.place_hold(
-                patron, pin, licensepool, format_to_use, 
-                hold_notification_email)
-            start_date = hold_info.start_date or now
-            __transaction = self._db.begin_nested()
-            hold, is_new = licensepool.on_hold_to(
-                patron, start_date, hold_info.end_date, 
-                hold_info.hold_position)
-            if loan:
-                # No reason this should happen, but we can't have
-                # loan and hold simultaneously.
-                self._db.delete(loan)
-            __transaction.commit()
-            loan = None
-        return loan, hold, fulfillment, is_new
+            if loan.fulfillment_info:
+                fulfillment = loan.fulfillment_info
+            else:
+                # The checkout operation did not get us fulfillment
+                # information. We must fulfill as a separate step.
+                fulfillment = self.fulfill(patron, pin, licensepool)
+            return loan, None, fulfillment, is_new
+
+        # Checking out a book didn't work, so let's try putting
+        # the book on hold.
+        hold_info = api.place_hold(
+            patron, pin, licensepool, format_to_use, 
+            hold_notification_email)
+
+        # It's pretty rare that we'd go from having a loan for a book
+        # to needing to put it on hold, but we do check for that case.
+        existing_loan = get_one(
+             self._db, Loan, patron=patron, license_pool=licensepool,
+             on_multiple='interchangeable'
+        )
+
+        __transaction = self._db.begin_nested()
+        hold, is_new = licensepool.on_hold_to(
+            patron,
+            hold_info.start_date or now,
+            hold_info.end_date, 
+            hold_info.hold_position
+        )
+        if existing_loan:
+            self._db.delete(existing_loan)
+        __transaction.commit()
+        return None, hold, None, is_new
 
     def fulfill(self, patron, pin, licensepool):
         """Fulfil a book that a patron has checked out.
@@ -251,3 +264,10 @@ class CirculationAPI(object):
             self._db.delete(hold)
             __transaction.commit()
         return True
+
+    def patron_activity(self, patron, pin):
+        """Return a record of the patron's current activity
+        vis-a-vis this data source.
+
+        :return: A mixed list of `HoldInfo` and `LoanInfo` objects.
+        """

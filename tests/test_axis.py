@@ -125,11 +125,10 @@ class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
-        parser = CheckoutResponseParser("test identifier")
+        parser = CheckoutResponseParser()
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
         eq_(DataSource.AXIS_360, parsed.data_source)
-        eq_("test identifier", parsed.identifier)
         eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), 
             parsed.end_date)
 
@@ -139,34 +138,33 @@ class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
-        parser = CheckoutResponseParser("test identiifer")
+        parser = CheckoutResponseParser()
         assert_raises(AlreadyCheckedOut, parser.process_all, data)
 
 class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_hold_success(self):
         data = self.sample_data("place_hold_success.xml")
-        parser = HoldResponseParser("test identifier")
+        parser = HoldResponseParser()
         parsed = parser.process_all(data)
         assert isinstance(parsed, HoldInfo)
-        eq_("test identifier", parsed.identifier)
         eq_(1, parsed.hold_position)
 
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
-        parser = HoldResponseParser("test identiifer")
+        parser = HoldResponseParser()
         assert_raises(AlreadyOnHold, parser.process_all, data)
 
 class TestHoldReleaseResponseParser(TestResponseParser):
 
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
-        parser = HoldReleaseResponseParser("test identiifer")
+        parser = HoldReleaseResponseParser()
         eq_(True, parser.process_all(data))
 
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
-        parser = HoldReleaseResponseParser("test identiifer")
+        parser = HoldReleaseResponseParser()
         assert_raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(TestResponseParser):
@@ -176,6 +174,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
         parser = AvailabilityResponseParser()
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
+        eq_(DataSource.AXIS_360, hold.data_source)
         eq_("0012533119", hold.identifier)
         eq_(1, hold.hold_position)
         eq_(None, hold.end_date)

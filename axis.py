@@ -65,27 +65,35 @@ class Axis360API(BaseAxis360API):
     def place_hold(self, patron, pin, licensepool, format_type,
                    hold_notification_email):
         url = self.base_url + "addtoHold/v2" 
-        title_id = licensepool.identifier.identifier
+        identifier = licensepool.identifier
+        title_id = identifier.identifier
         patron_id = patron.authorization_identifier
         params = dict(titleId=title_id, patronId=patron_id, format=format_type,
-                    email=hold_notification_email)
+                      email=hold_notification_email)
         response = self.request(url, params=params)
-        return HoldResponseParser().process_all(response.content)
+        return HoldResponseParser().process_all(
+                response.content)
 
     def release_hold(self, patron, pin, licensepool):
         url = self.base_url + "removeHold/v2"
-        title_id = licensepool.identifier.identifier
+        identifier = licensepool.identifier
+        title_id = identifier.identifier
         patron_id = patron.authorization_identifier
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
-        HoldReleaseResponseParser().process_all(response.content)
+        try:
+            HoldReleaseResponseParser().process_all(
+                response.content)
+        except NotOnHold:
+            # Fine, it wasn't on hold and now it's still not on hold.
+            pass
         # If we didn't raise an exception, we're fine.
         return True
 
     def patron_activity(self, patron, pin):
         availability = self.availability(
             patron_id=patron.authorization_identifier)
-        return dict(AvailabilityResponseParser().process_all(
+        return list(AvailabilityResponseParser().process_all(
             availability.content))
 
 class Axis360CirculationMonitor(Monitor):
@@ -283,15 +291,8 @@ class ResponseParser(Axis360Parser):
                 raise d[code](message)
         return code, message
 
-class IdentifierScopedResponseParser(ResponseParser):
-    """When the response pertains to a specific license pool."""
 
-    def __init__(self, identifier, *args, **kwargs):
-        self.identifier = identifier
-        super(IdentifierScopedResponseParser, self).__init__(*args, **kwargs)
-        
-
-class CheckoutResponseParser(IdentifierScopedResponseParser):
+class CheckoutResponseParser(ResponseParser):
 
     def process_all(self, string):
         for i in super(CheckoutResponseParser, self).process_all(
@@ -318,19 +319,18 @@ class CheckoutResponseParser(IdentifierScopedResponseParser):
             
         fulfillment = FulfillmentInfo(
             data_source=self.data_source_name,
-            identifier=self.identifier, content_link=fulfillment_url,
+            identifier=None, content_link=fulfillment_url,
             content_type=None, content=None, content_expires=None)
         loan_start = datetime.utcnow()
         loan = LoanInfo(
-            data_source=self.data_source_name,
-            identifier=self.identifier,
+            data_source=self.data_source_name, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
             fulfillment_info=fulfillment
         )
         return loan
 
-class HoldResponseParser(IdentifierScopedResponseParser):
+class HoldResponseParser(ResponseParser):
 
     def process_all(self, string):
         for i in super(HoldResponseParser, self).process_all(
@@ -358,11 +358,11 @@ class HoldResponseParser(IdentifierScopedResponseParser):
 
         hold_start = datetime.utcnow()
         hold = HoldInfo(
-            data_source=self.data_source_name, identifier=self.identifier,
+            data_source=self.data_source_name, identifier=None,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
 
-class HoldReleaseResponseParser(IdentifierScopedResponseParser):
+class HoldReleaseResponseParser(ResponseParser):
 
     def process_all(self, string):
         for i in super(HoldReleaseResponseParser, self).process_all(
