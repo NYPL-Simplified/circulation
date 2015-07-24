@@ -54,8 +54,8 @@ class CoverageProvider(object):
     def run(self):
         remaining = True
         failures = set([])
-        print "%d records need coverage." % (
-            self.editions_that_need_coverage.count())
+        logging.info("%d records need coverage.", (
+            self.editions_that_need_coverage.count()))
         offset = 0
         while remaining:
             successes = 0
@@ -66,14 +66,14 @@ class CoverageProvider(object):
             successes, new_failures = self.process_batch(batch)
             if len(successes) == 0 and len(new_failures) == 0:
                 # We did not see any new records.
-                print "No new records seen."
+                logging.info("No new records seen.")
                 break
             failures.update(new_failures)
             for success in successes:
                 self.add_coverage_record_for(success)
             # Finalize this batch before moving on to the next one.
             self.finalize_batch()
-            print "Batch processed with %d successes, %d failures." % (
+            logging.info("Batch processed with %d successes, %d failures.",
                 len(successes), len(new_failures))
             # Now that we're done, update the timestamp and commit the DB.
             Timestamp.stamp(self._db, self.service_name)

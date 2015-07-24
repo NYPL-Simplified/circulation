@@ -4,6 +4,7 @@ import base64
 import requests
 import os
 import json
+import logging
 
 from util import LanguageCodes
 from util.xmlparser import XMLParser
@@ -39,7 +40,6 @@ class Axis360API(object):
     def authorization_headers(self):
         authorization = u":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
-        print authorization
         authorization = base64.b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
@@ -96,7 +96,7 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        print url, headers, params
+        logging.debug("Making Axis 360 request to %s %r", url, params)
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)

@@ -1,23 +1,27 @@
-import copy
 from collections import (
     defaultdict,
     Counter,
 )
-from nose.tools import set_trace
+from urlparse import urlparse, urljoin
+import copy
+import datetime
 import feedparser
-import re
+import logging
+import md5
 import os
+import random
+import re
 import site
 import sys
-import datetime
-import random
 import time
 import urllib
-from urlparse import urlparse, urljoin
-import md5
+
+from nose.tools import set_trace
+
 from sqlalchemy.orm.query import Query
 from sqlalchemy.sql.expression import func
 from sqlalchemy.orm.session import Session
+
 import requests
 
 from lxml import builder, etree
@@ -111,8 +115,10 @@ class Annotator(object):
                 old_thumb = thumb
                 thumbnails = [cdnify(thumb, cdn_host)]
                 if old_thumb != thumbnails[0]:
-                    print "Thumbnail URL changed %s => %s" % (
-                        old_thumb, thumbnails[0])
+                    logging.debug(
+                        "Thumbnail URL changed %s => %s",
+                        old_thumb, thumbnails[0]
+                    )
 
             if work.cover_full_url:
                 full = work.cover_full_url
@@ -448,7 +454,9 @@ class AcquisitionFeed(OPDSFeed):
         if lane and lane.sublanes and lane.display_name:
             # Every lane that has sublanes also gets an 'all' group,
             # except the very top level.
-            print "I intend to create an 'all' group for %s" % lane.name
+            logging.info(
+                "I intend to create an 'all' group for %s" % lane.name,
+            )
             sublanes.append(lane)
             all_group_label = 'All ' + lane.display_name
         else:
@@ -572,8 +580,9 @@ class AcquisitionFeed(OPDSFeed):
         #        len(totals), totals)
         #else:
         #    print "Feed is empty."
-        print "Built feed of %d entries in %.2f sec" % (
-            total_entries, time.time()-first_time)
+        logging.info(
+            print "Built feed of %d entries in %.2f sec" % (
+                total_entries, time.time()-first_time))
 
         for title, order, facet_group, in facet_groups:
             url = self.annotator.facet_url(order)
@@ -627,11 +636,11 @@ class AcquisitionFeed(OPDSFeed):
 
         # There's no reason to present a book that has no active license pool.
         if not active_license_pool and not even_if_no_license_pool:
-            print "NO ACTIVE LICENSE POOL FOR %r" % work
+            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
             return None
 
         if not active_edition and not isinstance(work, BaseMaterializedWork):
-            print "NO ACTIVE EDITION FOR %r" % active_license_pool
+            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
@@ -725,8 +734,8 @@ class AcquisitionFeed(OPDSFeed):
             additional_type = Edition.medium_to_additional_type.get(
                 edition.medium)
             if not additional_type:
-                print "WARNING: No additionalType for medium %s" % (
-                    edition.medium)
+                logging.warn("No additionalType for medium %s",
+                             edition.medium)
             additional_type_field = "{%s}additionalType" % schema_ns
             kw[additional_type_field] = additional_type
 

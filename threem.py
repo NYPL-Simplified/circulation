@@ -6,6 +6,7 @@ import hmac
 import hashlib
 import os
 import requests
+import logging
 from datetime import timedelta
 
 from model import (
@@ -76,15 +77,14 @@ class ThreeMAPI(object):
             headers = {"Content-Type" : "application/xml"}
         self.sign(method, headers, path)
         # print headers
+        logging.info("3M request: %s %s", method, url)
         if max_age and method=='GET':
-            print "%s %s" % (method, url)
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
                 do_get=Representation.http_get_no_timeout, max_age=max_age)
             content = representation.content
             return content
         else:
-            print "Fetching", url
             response = requests.request(
                 method, url, data=body, headers=headers, allow_redirects=False)
             return response

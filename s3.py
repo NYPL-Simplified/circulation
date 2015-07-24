@@ -5,6 +5,8 @@ import os
 from urlparse import urlsplit
 import urllib
 from util.mirror import MirrorUploader
+
+import logging
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
@@ -139,10 +141,10 @@ class S3Uploader(MirrorUploader):
                 if representation.url != representation.mirror_url:
                     source = representation.url
                 if source:
-                    print "MIRRORED %s => %s" % (
-                        source, representation.mirror_url)
+                    logging.info("MIRRORED %s => %s",
+                                 source, representation.mirror_url)
                 else:
-                    print "MIRRORED %s" % representation.mirror_url
+                    logging.info("MIRRORED %s", representation.mirror_url)
                 representation.set_as_mirrored()
             else:
                 representation.mirrored_at = None
@@ -154,12 +156,12 @@ class S3Uploader(MirrorUploader):
                 process_response(response)
         except ConnectionError, e:
             # This is a transient error; we can just try again.
-            print e
+            logging.error("S3 connection error: %r", e, exc_info=e)
             pass
         except HTTPError, e:
             # Probably also a transient error. In any case
             # there's nothing we can do about it but try again.
-            print e
+            logging.error("S3 HTTP error: %r", e, exc_info=e)
             pass
 
         # Close the filehandles

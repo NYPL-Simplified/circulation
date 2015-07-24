@@ -3,6 +3,7 @@ import base64
 import datetime
 import os
 import json
+import logging
 import requests
 import urlparse
 import urllib
@@ -133,19 +134,16 @@ class OverdriveAPI(object):
         try:
             data = json.loads(content)
         except Exception, e:
-            print "ERROR: %r %r %r" % (status_code, headers, content)
+            logging.error("OVERDRIVE ERROR: %r %r %r",
+                          status_code, headers, content)
             return
         previous_link = OverdriveRepresentationExtractor.link(data, 'last')
 
         while previous_link:
-            try:
-                page_inventory, previous_link = self._get_book_list_page(
-                    previous_link, 'prev')
-                for i in page_inventory:
-                    yield i
-            except Exception, e:
-                print e
-                sys.exit()
+            page_inventory, previous_link = self._get_book_list_page(
+                previous_link, 'prev')
+            for i in page_inventory:
+                yield i
 
 
     def recently_changed_ids(self, start, cutoff):
@@ -156,7 +154,7 @@ class OverdriveAPI(object):
         # we can do is get events between the start time and now.
 
         last_update_time = start-self.EVENT_DELAY
-        print "Now: %s Asking for: %s" % (start, last_update_time)
+        logging.info("Now: %s Asking for: %s", start, last_update_time)
         params = dict(lastupdatetime=last_update_time,
                       sort="popularity:desc",
                       limit=self.PAGE_SIZE_LIMIT,
