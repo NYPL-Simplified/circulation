@@ -63,6 +63,7 @@ class SimplifiedOPDSLookup(object):
             urllib.quote(identifier.urn), urllib.quote(
                 working_display_name.encode("utf8")))
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
+        logging.info("GET %s", url)
         return requests.get(url)
 
 class OPDSXMLParser(XMLParser):

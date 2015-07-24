@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from collections import Counter
 import os
 import json
+import logging
 from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -148,16 +149,16 @@ class NYTBestSellerList(list):
                     book.get('primary_isbn13') or book.get('primary_isbn10'))
                 if key in self.items_by_isbn:
                     item = self.items_by_isbn[key]
-                    print "Found: %r" % key
+                    logging.debug("Previously seen ISBN: %r", key)
                 else:
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    print "New: %r, %s" % (key, len(self))
+                    logging.debug("Newly seen ISBN: %r, %s", key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
-                print "ERROR: No identifier for %r" % li_data
+                logging.wrror("No identifier for %r", li_data)
                 item = None
                 continue
 

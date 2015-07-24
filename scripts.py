@@ -84,6 +84,8 @@ class RunCoverageProviderScript(Script):
 
 class WorkProcessingScript(Script):
 
+    name = "Work processing script"
+
     def __init__(self, _db=None, force=False, restrict_to_source=None, 
                  specific_identifier=None, random_order=True,
                  batch_size=10):
@@ -108,12 +110,17 @@ class WorkProcessingScript(Script):
     def do_run(self):
         q = None
         if self.specific_works:
-            print "Processing specific works: %r" % self.specific_works.all()
+            logging.info(
+                "Processing specific works: %r", self.specific_works.all()
+            )
             q = self.specific_works
         elif self.restrict_to_source:
-            print "Processing %s works." % self.restrict_to_source.name
+            logging.info(
+                "Processing %s works.",
+                self.restrict_to_source.name,
+            )
         else:
-            print "Processing all works."
+            logging.info("Processing all works.")
 
         if not q:
             q = self.db.query(Work)
@@ -123,7 +130,7 @@ class WorkProcessingScript(Script):
             q = self.query_hook(q)
 
         q = q.order_by(Work.id)
-        print "That's %d works." % q.count()
+        logging.info("That's %d works.", q.count())
 
         works = True
         offset = 0
@@ -143,6 +150,8 @@ class WorkProcessingScript(Script):
 
 class WorkConsolidationScript(WorkProcessingScript):
 
+    name = "Work consolidation script"
+
     def do_run(self):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
@@ -150,10 +159,10 @@ class WorkConsolidationScript(WorkProcessingScript):
         if self.force:
             self.clear_existing_works()                  
 
-        print "Consolidating works."
+        logging.info("Consolidating works.")
         LicensePool.consolidate_works(self.db)
 
-        print "Deleting works with no editions."
+        logging.info("Deleting works with no editions.")
         for i in self.db.query(Work).filter(Work.primary_edition==None):
             self.db.delete(i)            
         self.db.commit()
@@ -198,13 +207,17 @@ class WorkConsolidationScript(WorkProcessingScript):
         if work_ids_to_delete:
             genres = self.db.query(WorkGenre)
             genres = genres.filter(WorkGenre.work_id.in_(work_ids_to_delete))
-            print "Deleting %d genre assignments." % genres.count()
+            logging.info(
+                "Deleting %d genre assignments.", genres.count()
+            )
             genres.delete(synchronize_session='fetch')
             self.db.flush()
 
         if work_ids_to_delete:
             works = self.db.query(Work)
-            print "Deleting %d works." % len(work_ids_to_delete)
+            logging.info(
+                "Deleting %d works.", len(work_ids_to_delete)
+            )
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
             self.db.commit()
@@ -247,7 +260,7 @@ class NYTBestSellerListsScript(Script):
         for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
 
             name = l['list_name_encoded']
-            print "Handling list %s" % name
+            logging.info("Handling list %s" % name)
             best = self.api.best_seller_list(l)
 
             if self.include_history:
@@ -257,7 +270,8 @@ class NYTBestSellerListsScript(Script):
 
             # Mirror the list to the database.
             customlist = best.to_customlist(self._db)
-            print "Now %s entries in the list." % len(customlist.entries)
+            logging.info(
+                "Now %s entries in the list.", len(customlist.entries))
             self._db.commit()
 
 

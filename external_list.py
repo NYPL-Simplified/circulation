@@ -7,6 +7,7 @@ import os
 from sqlalchemy.orm.session import Session
 
 from opds_import import SimplifiedOPDSLookup
+import logging
 from model import (
     get_one_or_create,
     CustomList,
@@ -97,17 +98,22 @@ class TitleFromExternalList(object):
         else:
             response = metadata_client.canonicalize_author_name(
                 self.primary_identifier, self.display_author)
-            #a = u"Trying to canonicalize %s, %s" % (
-            #    self.primary_identifier.identifier, self.display_author)
-            #print a.encode("utf8")
             if (response.status_code == 200 
                 and response.headers['Content-Type'].startswith('text/plain')):
                 edition.sort_author = response.content.decode("utf8")
-                # print "CANONICALIZER TO THE RESCUE: %s" % edition.sort_author
+                logging.info(
+                    "Canonicalizer to the rescue: %s, %s => %s",
+                        self.primary_identifier.identifier, 
+                        self.display_author,
+                        edition.sort_author
+                )
                 edition.calculate_permanent_work_id()
             else:
-                # print "CANONICALIZER FAILED ME."
-                pass
+                logging.info(
+                    "Canonicalizer failed me: %s, %s",
+                    self.primary_identifier.identifier,
+                    self.display_author
+                )
 
 
         # Set or update the description.
@@ -141,13 +147,20 @@ class TitleFromExternalList(object):
         if (not list_entry.first_appearance 
             or list_entry.first_appearance > self.first_appearance):
             if list_entry.first_appearance:
-                print "I thought %s first showed up at %s, but then I saw it earlier, at %s!" % (title, list_entry.first_appearance, self.first_appearance)
+                logging.info(
+                    "I thought %s first showed up at %s, but then I saw it earlier, at %s!",
+                    title, list_entry.first_appearance, self.first_appearance
+                )
             list_entry.first_appearance = self.first_appearance
 
         if (not list_entry.most_recent_appearance 
             or list_entry.most_recent_appearance < self.most_recent_appearance):
             if list_entry.most_recent_appearance:
-                print "I thought %s most recently showed up at %s, but then I saw it later, at %s!" % (title, list_entry.most_recent_appearance, self.most_recent_appearance)
+                logging.info(
+                    "I thought %s most recently showed up at %s, but then I saw it later, at %s!",
+                    title, list_entry.most_recent_appearance, 
+                    self.most_recent_appearance
+                )
             list_entry.most_recent_appearance = self.most_recent_appearance
             
         list_entry.annotation = self.description

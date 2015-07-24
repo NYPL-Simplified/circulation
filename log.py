@@ -50,5 +50,8 @@ for handler in logger.handlers:
     set_formatter(handler)
 
 database_log_level = os.environ.get('SIMPLIFIED_DATABASE_LOG_LEVEL', 'WARN')
-logging.getLogger('sqlalchemy.engine').setLevel(database_log_level)
-logging.getLogger('elasticsearch').setLevel(database_log_level)
+for logger in (
+        'sqlalchemy.engine', 'elasticsearch', 
+        'requests.packages.urllib3.connectionpool'
+):
+    logging.getLogger(logger).setLevel(database_log_level)
