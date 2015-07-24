@@ -6,6 +6,7 @@ import os
 from flask import url_for, make_response
 from util.flask_util import problem
 import traceback
+import logging
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
@@ -35,12 +36,10 @@ def cdn_url_for(*args, **kwargs):
 def load_lending_policy(policy=None):
     policy = policy or os.environ.get('LENDING_POLICY')
     if not policy:
-        print "No lending policy."
+        logging.info("No lending policy.")
         return {}
     policy = json.loads(policy)
-    #print "Lending policy:"
     for external_type, p in policy.items():
-        #print "", external_type, p
         if Patron.AUDIENCE_RESTRICTION_POLICY in p:
             for audience in p[Patron.AUDIENCE_RESTRICTION_POLICY]:
                 if not audience in Classifier.AUDIENCES:
@@ -77,9 +76,9 @@ class ErrorHandler(object):
 
     def handle(self, exception):
         self.conf.db.rollback()
-        print "EXCEPTION HANDLER TRIGGERED"
+        logging.error(
+            "Exception in web app: %s" % exception, exc_info=exception)
         tb = traceback.format_exc()
-        print tb
         if self.debug:
             body = tb
         else:
@@ -231,8 +230,11 @@ class URNLookupController(object):
             # At least one metadata lookup has not successfully
             # completed.
             names = [x.name for x in unaccounted_for]
-            print "Cannot build metadata-based OPDS feed for %r: missing coverage records for %s" % (
-                identifier, ", ".join(names))
+            log.info(
+                "Cannot build metadata-based OPDS feed for %r: missing coverage records for %s",
+                identifier,
+                ", ".join(names)
+            )
             unresolved_identifier, is_new = UnresolvedIdentifier.register(
                 self._db, identifier)
             if is_new:
