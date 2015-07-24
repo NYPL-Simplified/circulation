@@ -5,6 +5,7 @@ from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
     Axis360Parser,
+    BibliographicParser,
 )
 
 from core.monitor import Monitor
@@ -125,7 +126,7 @@ class Axis360CirculationMonitor(Monitor):
         super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
-        availability = self.api.availability(start)
+        availability = self.api.availability(since=start)
         status_code = availability.status_code
         content = availability.content
         if status_code != 200:
