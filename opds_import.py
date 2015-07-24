@@ -6,6 +6,7 @@ from collections import (
 )
 import datetime
 import feedparser
+import logging
 import requests
 import urllib
 from sqlalchemy.orm.session import Session
@@ -46,7 +47,7 @@ class SimplifiedOPDSLookup(object):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
         args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
-        print "Lookup URL: %s" % url
+        logging.info("Lookup URL: %s", url)
         return requests.get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
@@ -107,8 +108,8 @@ class BaseOPDSImporter(object):
             internal_id, opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
             if not edition and status_code == 200:
-                print "EDITION NOT CREATED: %s" % message
-                print "Raw data: %r" % entry
+                logging.info("EDITION NOT CREATED: %s. Raw data: %r",
+                             message, entry)
             if edition:
                 imported.append(edition)
 
@@ -393,8 +394,9 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 new_set.append(classification)
         identifier.classifications = new_set
 
-        print "Deleted %d contributions and %d classifications." % (
-            removed_contributions, removed_classifications)
+        self.log.debug(
+            "%r: deleted %d contributions and %d classifications.",
+            edition, removed_contributions, removed_classifications)
 
         for contributor in self.authors_by_id.get(entry.id, []):
             edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
@@ -406,9 +408,10 @@ class DetailedOPDSImporter(BaseOPDSImporter):
             identifier.classify(
                 self.data_source, type, term, name, weight=weight)
 
-        print "Added %d contributions and %d classifications." % (
-            len(edition.contributors), len(identifier.classifications)
-        )
+        self.log.debug(
+            "%r: added back %d contributions and %d classifications.",
+            edition, len(edition.contributors), 
+            len(identifier.classifications))
 
         ratings = self.ratings_by_id.get(entry.id, {})
         for rel, value in ratings.items():
@@ -523,13 +526,15 @@ class OPDSImportMonitor(Monitor):
         next_link = self.feed_url
         seen_links = set([next_link])
         while next_link:
-            print next_link
+            self.log.info("Following next link: %s", next_link)
             importer, imported = self.process_one_page(next_link)
             self._db.commit()
-            #if len(imported) == 0:
-            #    # We did not see a single book on this page we haven't
-            #    # already seen. There's no need to keep going.
-            #    break
+            if len(imported) == 0:
+                # We did not see a single book on this page we haven't
+                # already seen. There's no need to keep going.
+                self.log.info(
+                    "Saw a full page with no new books. Stopping.")
+                break
             next_links = importer.links_by_rel()['next']
             if not next_links:
                 # We're at the end of the list. There are no more books

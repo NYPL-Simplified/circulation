@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import os
+import logging
 import time
 import traceback
 from sqlalchemy.sql.functions import func
@@ -8,6 +9,7 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
+import log # This sets the appropriate log format and level.
 from model import (
     get_one_or_create,
     Edition,
@@ -48,6 +50,12 @@ class Monitor(object):
                  datetime.datetime.utcnow() - self.ONE_MINUTE_AGO)
         self.default_start_time = default_start_time
 
+    @property
+    def log(self):
+        if not hasattr(self, '_log'):
+            self._log = logging.getLogger(self.service_name)
+        return self._log        
+
     def run(self):        
         if self.keep_timestamp:
             self.timestamp, new = get_one_or_create(
@@ -55,7 +63,7 @@ class Monitor(object):
                 service=self.service_name,
                 create_method_kwargs=dict(
                     timestamp=self.default_start_time
-                    )
+                )
             )
             start = self.timestamp.timestamp or self.default_start_time
         else:
@@ -71,7 +79,7 @@ class Monitor(object):
                 self.timestamp.timestamp = new_timestamp
             self._db.commit()
             if to_sleep > 0:
-                print "Sleeping for %.1f" % to_sleep
+                self.log.debug("Sleeping for %.1f", to_sleep)
                 time.sleep(to_sleep)
             start = new_timestamp
 
@@ -83,6 +91,10 @@ class Monitor(object):
 
 
 class IdentifierSweepMonitor(Monitor):
+
+    # The completion of each individual item should be logged at
+    # this log level.
+    COMPLETION_LOG_LEVEL = logging.DEBUG
 
     def __init__(self, _db, name, interval_seconds=3600,
                  default_counter=0, batch_size=100):
@@ -104,23 +116,31 @@ class IdentifierSweepMonitor(Monitor):
         started_at = datetime.datetime.utcnow()
         while not self.stop_running:
             a = time.time()
-            print "Old offset: %s" % offset
-            new_offset = self.run_once(offset)
+            self.log.debug("Old offset: %s" % offset)
+            try:
+                new_offset = self.run_once(offset)
+            except Exception, e:
+                self.log.error("Error during run: %s", e, exc_info=e)
+                break
             to_sleep = 0
             if new_offset == 0:
                 # We completed a sweep. Sleep until the next sweep
                 # begins.
-                duration = datetime.datetime.now() - started_at
-                to_sleep = self.interval_seconds - duration.seconds
+                if self.interval_seconds is None:
+                    self.stop_running = True
+                    self.to_sleep = 0
+                else:
+                    duration = datetime.datetime.now() - started_at
+                    to_sleep = self.interval_seconds - duration.seconds
                 self.cleanup()
             self.counter = new_offset
             self.timestamp.counter = self.counter
             self._db.commit()
-            print "New offset: %s" % new_offset
+            self.log.debug("New offset: %s", new_offset)
             b = time.time()
-            print "Elapsed: %.2f sec" % (b-a)
+            self.log.debug("Elapsed: %.2f sec" % (b-a))
             if to_sleep > 0:
-                print "Sleeping for %.1f" % to_sleep
+                self.log.debug("Sleeping for %.1f", to_sleep)
                 time.sleep(to_sleep)
             offset = new_offset
 
@@ -179,6 +199,7 @@ class EditionSweepMonitor(IdentifierSweepMonitor):
     def process_batch(self, batch):
         for edition in batch:
             self.process_edition(edition)
+            self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", edition)
 
     def process_edition(self, work):
         raise NotImplementedError()
@@ -205,6 +226,7 @@ class WorkSweepMonitor(IdentifierSweepMonitor):
     def process_batch(self, batch):
         for work in batch:
             self.process_work(work)
+            self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", work)
 
     def process_work(self, work):
         raise NotImplementedError()
@@ -241,7 +263,7 @@ class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
 
-    def __init__(self, _db, interval_seconds=3600*24,
+    def __init__(self, _db, interval_seconds=None,
                  include_verbose_entry=True):
         super(OPDSEntryCacheMonitor, self).__init__(
             _db, "ODPS Entry Cache Monitor", interval_seconds)
@@ -251,13 +273,13 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
         work.calculate_opds_entries(verbose=self.include_verbose_entry)
 
 class SimpleOPDSEntryCacheMonitor(OPDSEntryCacheMonitor):
-    def __init__(self, _db, interval_seconds=3600*24):
+    def __init__(self, _db, interval_seconds=None):
         super(SimpleOPDSEntryCacheMonitor, self).__init__(
             _db, interval_seconds, False)
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
-    def __init__(self, _db, interval_seconds=3600*24):
+    def __init__(self, _db, interval_seconds=None):
         super(SubjectAssignmentMonitor, self).__init__(
             _db, "Subject assignment monitor", interval_seconds)
 
@@ -267,18 +289,18 @@ class SubjectAssignmentMonitor(SubjectSweepMonitor):
             if subject.id > highest_id:
                 highest_id = subject.id
             subject.assign_to_genre()
+        self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", subject)
         return highest_id
 
 class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
     """Recalculate the permanent work ID for every edition."""
 
-    def __init__(self, _db, interval_seconds=3600*24*7):
+    def __init__(self, _db, interval_seconds=None):
         super(PermanentWorkIDRefreshMonitor, self).__init__(
             _db, "Permanent Work ID refresh", interval_seconds)
 
     def process_edition(self, edition):
         edition.calculate_permanent_work_id()
-
 
 class PresentationReadyMonitor(WorkSweepMonitor):
     """A monitor that makes works presentation ready.
@@ -320,9 +342,9 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             try:
                 failures = self.prepare(work)
             except Exception, e:
-                tb = traceback.format_exc()
-                print "[PRESENTATION READY MONITOR] Caught exception %s" % tb
-                failures = True
+                log.error(
+                    "Exception %s when processing work %r", e, r, exc_info=e)
+                failures = e
             if failures and failures not in (None, True):
                 if isinstance(failures, list):
                     # This is a list of providers that failed.

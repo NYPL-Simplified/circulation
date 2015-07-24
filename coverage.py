@@ -1,7 +1,10 @@
 from nose.tools import set_trace
 import datetime
+import logging
+
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
+
 from model import (
     get_one,
     get_one_or_create,
@@ -10,6 +13,7 @@ from model import (
     Identifier,
     Timestamp,
 )
+import log # This sets the appropriate log format.
 
 class CoverageProvider(object):
 
@@ -29,6 +33,12 @@ class CoverageProvider(object):
         self.input_sources = input_sources
         self.output_source = output_source
         self.workset_size = workset_size
+
+    @property
+    def log(self):
+        if not hasattr(self, '_log'):
+            self._log = logging.getLogger(self.service_name)
+        return self._log        
 
     @property
     def editions_that_need_coverage(self):

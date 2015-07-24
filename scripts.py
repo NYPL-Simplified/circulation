@@ -1,12 +1,11 @@
 import os
+import logging
 import sys
 from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
-from external_search import (
-    ExternalSearchIndex,
-)
 import time
 
+import log # This sets the appropriate log format and level.
 from model import (
     production_session,
     CustomList,
@@ -16,6 +15,9 @@ from model import (
     Subject,
     Work,
     WorkGenre,
+)
+from external_search import (
+    ExternalSearchIndex,
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
@@ -30,12 +32,21 @@ class Script(object):
         return self._session
 
     @property
+    def log(self):
+        if not hasattr(self, '_log'):
+            logger_name = getattr(self, 'name', None)
+            self._log = logging.getLogger(logger_name)
+        return self._log        
+
+    @property
     def data_directory(self):
         return self.required_environment_variable('DATA_DIRECTORY')
 
     def required_environment_variable(self, name):
         if not name in os.environ:
-            print "Missing required environment variable: %s" % name
+            logging.error(
+                "Missing required environment variable: %(name)s",
+                name=name)
             sys.exit()
         return os.environ[name]
 
@@ -48,6 +59,7 @@ class RunMonitorScript(Script):
         if callable(monitor):
             monitor = monitor(self._db)
         self.monitor = monitor
+        self.name = self.monitor.service_name
 
     def run(self):
         self.monitor.run()
@@ -58,6 +70,7 @@ class RunCoverageProviderScript(Script):
         if callable(provider):
             provider = provider(self._db)
         self.provider = provider
+        self.name = self.monitor.service_name
 
     def run(self):
         self.provider.run()
@@ -197,18 +210,6 @@ class WorkPresentationScript(WorkProcessingScript):
         work.calculate_presentation(
             choose_edition=True, classify=True, choose_summary=True,
             calculate_quality=True)
-
-class PermanentWorkIDCalculationScript(Script):
-    """Calculate the permanent work ID for all Editions."""
-
-    def run(self):
-        counter = 0
-        for edition in self._db.query(Edition):
-            edition.calculate_permanent_work_id()
-            counter += 1
-            if not counter % 1000:
-                print counter
-        self._db.commit()
 
 
 class OPDSImportScript(Script):

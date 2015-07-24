@@ -83,6 +83,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
+import log # Make sure logging is set up properly.
 from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
@@ -96,10 +97,6 @@ from util import (
 )
 from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
-
-#import logging
-#logging.basicConfig()
-#logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 from sqlalchemy.orm.session import Session
 
