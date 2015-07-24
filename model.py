@@ -1,26 +1,26 @@
 # encoding: utf-8
-import operator
-import md5
-import uuid
+from cStringIO import StringIO
 from collections import (
     Counter,
     defaultdict,
 )
-import bisect
-from cStringIO import StringIO
-import datetime
-import json
-import os
-from nose.tools import set_trace
 from lxml import etree
+from nose.tools import set_trace
+import bisect
+import datetime
+import isbnlib
+import json
+import logging
 import md5
+import operator
+import os
 import random
 import re
 import requests
 import time
-import isbnlib
-import urllib
 import traceback
+import urllib
+import uuid
 
 from PIL import (
     Image,
@@ -112,11 +112,9 @@ DEBUG = False
 
 def production_session():
     url = os.environ['DATABASE_URL']
-    print url
     if url.startswith('"'):
         url = url[1:]
-    print "ENVIRONMENT: %s" % os.environ['DATABASE_URL'] 
-    print "MODIFIED: %s" % url
+    logging.info("Database url: %s", os.environ['DATABASE_URL'])
     return SessionManager.session(url)
 
 class BaseMaterializedWork(object):
@@ -159,7 +157,8 @@ class SessionManager(object):
             resource_file = os.path.join(resource_path, filename)
             if not os.path.exists(resource_file):
                 raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
-            print "Loading materialized view %s from %s." % (
+            logging.info(
+                "Loading materialized view %s from %s.",
                 view_name, resource_file)
             sql = open(resource_file).read()
             connection.execute(sql)                
@@ -259,7 +258,9 @@ def get_one_or_create(db, model, create_method='',
             __transaction.commit()
             return obj
         except IntegrityError:
-            print "INTEGRITY ERROR!"
+            logging.error(
+                "INTEGRITY ERROR on %r %r, %r", model, create_method_kwargs, 
+                kwargs)
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
@@ -841,7 +842,8 @@ class Identifier(Base):
             input=self,
             output=identifier,
             create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
-        # print "%r==%r p=%.2f" % (self, identifier, strength)
+        logging.debug(
+            "Identifier equivalency: %r==%r p=%.2f", self, identifier, strength)
         return eq
 
     @classmethod
@@ -869,12 +871,13 @@ class Identifier(Base):
 
         (working_set, seen_equivalency_ids, seen_identifier_ids,
          equivalents) = cls._recursively_equivalent_identifier_ids(
-             _db, identifier_ids, identifier_ids, levels, threshold, debug)
+             _db, identifier_ids, identifier_ids, levels, threshold)
 
-        if debug and working_set:
+        if working_set:
             # This is not a big deal, but it means we could be getting
             # more IDs by increasing the level.
-            print "Leftover working set at level %d." % levels
+            logging.warn(
+                "Leftover working set at level %d: %r", levels, working_set)
 
         return equivalents
 
@@ -909,7 +912,7 @@ class Identifier(Base):
             _db, working_set, seen_equivalency_ids)
         for e in equivalencies:
             if debug:
-                print "%r => %r" % (e.input, e.output)
+                logging.debug("%r => %r", e.input, e.output)
             seen_equivalency_ids.add(e.id)
 
             # Signal strength decreases monotonically, so
@@ -920,7 +923,7 @@ class Identifier(Base):
             # equal to the I->O strength."
             if e.strength > threshold:
                 if debug:
-                    print "Strong signal: %r" % e
+                    logging.debug("Strong signal: %r", e)
                 
                 cls._update_equivalents(
                     equivalents, e.output_id, e.input_id, e.strength, e.votes)
@@ -928,7 +931,7 @@ class Identifier(Base):
                     equivalents, e.input_id, e.output_id, e.strength, e.votes)
             else:
                 if debug:
-                    print "Ignoring signal below threshold: %r" % e
+                    logging.debug("Ignoring signal below threshold: %r", e)
 
             if e.output_id not in seen_identifier_ids:
                 # This is our first time encountering the
@@ -944,16 +947,19 @@ class Identifier(Base):
                 new_working_set.add(e.input_id)
 
         if debug:
-            print "At level %d."
-            print " New working set: %r" % sorted(new_working_set)
-            print " %d equivalencies seen so far." % len(seen_equivalency_ids)
-            print " %d identifiers seen so far." % len(seen_identifier_ids)
-            print " %d equivalents" % len(equivalents)
+            logging.debug("At level %d.", level)
+            logging.debug(" New working set: %r", sorted(new_working_set))
+            logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
+            logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
+            logging.debug(" %d equivalents", len(equivalents))
 
         if debug and new_working_set:
-            print " Here's the new working set:",
-            for i in _db.query(Identifier).filter(Identifier.id.in_(new_working_set)):
-                print "", i
+
+            q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
+            new_identifiers = [repr(i) for i in q]
+            new_working_set_repr = ", ".join(new_identifiers)
+            logging.debug(
+                " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -978,7 +984,10 @@ class Identifier(Base):
                             surviving_working_set.add(new_id)
 
         if debug:
-            print "Pruned %d from working set" % len(surviving_working_set.intersection(new_working_set))
+            logging.debug(
+                "Pruned %d from working set",
+                len(surviving_working_set.intersection(new_working_set))
+            )
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -1051,7 +1060,8 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
-        print "MEASUREMENT: %s on %s/%s: %s == %s (wt=%d)" % (
+        logging.info(
+            "MEASUREMENT: %s on %s/%s: %s == %s (wt=%d)",
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
@@ -1101,10 +1111,11 @@ class Identifier(Base):
         #if is_new:
         #    print repr(subject)
 
-        msg = "CLASSIFICATION: %s on %s/%s: %s %s/%s" % (
+        logging.info(
+            "CLASSIFICATION: %s on %s/%s: %s %s/%s",
             data_source.name, self.type, self.identifier,
-            subject.type, subject.identifier, subject.name)
-        print msg.encode("utf8")
+            subject.type, subject.identifier, subject.name
+        )
 
         # Use a Classification to connect the Identifier to the
         # Subject.
@@ -1514,11 +1525,13 @@ class Contributor(Base):
         if self == destination:
             # They're already the same.
             return
-        msg = u"MERGING %s (%s) into %s (%s)" % (
-            repr(self).decode("utf8"), self.viaf,
-            repr(destination).decode("utf8"),
-            destination.viaf)
-        print msg.encode("utf8")
+        logging.info(
+            u"MERGING %r (%s) into %r (%s)",
+            self,
+            self.viaf,
+            destination,
+            destination.viaf
+        )
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.name] + self.aliases:
@@ -1541,7 +1554,6 @@ class Contributor(Base):
             destination.wikipedia_name = self.wikipedia_name
 
         _db = Session.object_session(self)
-        print " Merging edition contributions."
         for contribution in self.contributions:
             # Is the new contributor already associated with this
             # Edition in the given role (in which case we delete
@@ -1555,7 +1567,6 @@ class Contributor(Base):
                 _db.delete(contribution)
             else:
                 contribution.contributor_id = destination.id
-        print " Merging work contributions."
         for contribution in self.work_contributions:
             existing_record = _db.query(WorkContribution).filter(
                 WorkContribution.contributor_id==destination.id,
@@ -1574,7 +1585,7 @@ class Contributor(Base):
         _db.commit()
         # _db.query(Contributor).filter(Contributor.id==self.id).delete()
         #_db.commit()
-        print "All done."
+        #print "All done."
 
     # Regular expressions used by default_names().
     PARENTHETICAL = re.compile("\([^)]*\)")
@@ -2006,7 +2017,9 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
-        print self.cover_full_url, self.cover_thumbnail_url
+        logging.info(
+            "Setting cover for %r: full=%s thumb=%s", 
+            self, self.cover_full_url, self.cover_thumbnail_url)
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,
                         **kwargs):
@@ -2200,13 +2213,16 @@ class Edition(Base):
         self.permanent_work_id = WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
         new_id = self.permanent_work_id
-        if debug or old_id != new_id:
-            print "%d: %s/%s -> %s/%s/%s -> %s (was %s)" % (
+        args = ("Permanent work ID for %d: %s/%s -> %s/%s/%s -> %s (was %s)",
                 self.id, title, author, norm_title, norm_author, medium,
                 new_id, old_id)
+        if debug:
+            logging.debug(*args)
+        elif old_id != new_id:
+            logging.info(*args)
 
 
-    def calculate_presentation(self, calculate_opds_entry=True, debug=False):
+    def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
         # Calling calculate_presentation() on NYT data will actually
@@ -2236,11 +2252,18 @@ class Edition(Base):
             best_cover, covers = self.best_cover_within_distance(distance)
             if best_cover:
                 if not best_cover.representation:
-                    print "WARN: Best cover for %s/%s has no representation!" % (self.primary_identifier.type, self.primary_identifier.identifier)
+                    logging.warn(
+                        "Best cover for %r has no representation!",
+                        self.primary_identifier,
+                    )
                 else:
                     rep = best_cover.representation
                     if not rep.mirrored_at and not rep.thumbnails:
-                        print "WARN: Best cover for %s/%s (%s) was never mirrored or thumbnailed!" % (self.primary_identifier.type, self.primary_identifier.identifier, rep.url)
+                        logging.warn(
+                            "Best cover for %r (%s) was never mirrored or thumbnailed!",
+                            self.primary_identiifer, 
+                            rep.url
+                        )
                 self.set_cover(best_cover)
                 break
 
@@ -2251,15 +2274,11 @@ class Edition(Base):
         #self.simple_opds_entry = etree.tostring(
         #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
-        # Now that everything's calculated, print it out.
-        if debug:
-            t = u"%s (by %s, pub=%s, pwid=%s)" % (
-                self.title, self.author, self.publisher, self.permanent_work_id)
-            print t.encode("utf8")
-            print " language=%s" % self.language
-            if self.cover:
-                print " cover=" + self.cover.representation.mirror_url
-            print
+        # Now that everything's calculated, log it.
+        msg = "Calculated presentation for %s (by %s, pub=%s, pwid=%s, language=%s, cover=%r)"
+        args = (self.title, self.author, self.publisher, self.permanent_work_id, self.language, self.cover.representation.mirror_url)
+        logging.info(msg, *args)
+
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
@@ -2629,15 +2648,20 @@ class Work(Base):
         _db = Session.object_session(self)
         similarity = self.similarity_to(target_work)
         if similarity < similarity_threshold:
-            print "NOT MERGING %r into %r, similarity is only %.3f." % (
-                self, target_work, similarity)
+            logging.info(
+                "NOT MERGING %r into %r, similarity is only %.3f.",
+                self, target_work, similarity
+            )
         else:
-            print "MERGING %r into %r, similarity is %.3f." % (
-                self, target_work, similarity)
+            logging.info(
+                "MERGING %r into %r, similarity is %.3f.",
+                self, target_work, similarity
+            )
             target_work.license_pools.extend(list(self.license_pools))
             target_work.editions.extend(list(self.editions))
             target_work.calculate_presentation()
-            print "The resulting work: %r" % target_work
+            logging.info(
+                "The resulting work from merge: %r", target_work)
             self.was_merged_into = target_work
             self.license_pools = []
             self.editions = []
@@ -2718,8 +2742,10 @@ class Work(Base):
                         champion_resource_url = champion_resource.url
                     else:
                         champion_resource_url = 'None'
-                    print "%s beats %s" % (
-                        open_access_resource.url, champion_resource_url)
+                    logging.info(
+                        "%s beats %s",
+                        open_access_resource.url, champion_resource_url
+                    )
                     champion = edition
                     continue
                 elif book_source_priority < champion_book_source_priority:
@@ -2735,8 +2761,10 @@ class Work(Base):
                     if competitor_id > champion_id:
                         champion = edition
                         champion_book_source_priority = book_source_priority
-                        print "Gutenberg %d beats Gutenberg %d" % (
-                            competitor_id, champion_id)
+                        logging.info(
+                            "Gutenberg %d beats Gutenberg %d",
+                            competitor_id, champion_id
+                        )
                         continue
 
             # More licenses is better than fewer.
@@ -2850,31 +2878,33 @@ class Work(Base):
 
         # Now that everything's calculated, print it out.
         if debug:
-            t = u"WORK %s (by %s)" % (self.title, self.author)
-            print t.encode("utf8")
-            print " language=%s" % self.language
-            print " quality=%s" % self.quality
-            if self.fiction:
-                fiction = "Fiction"
-            elif self.fiction == False:
-                fiction = "Nonfiction"
-            else:
-                fiction = "???"
-            if self.target_age:
-                target_age = " age=" + str(self.target_age)
-            else:
-                target_age = ""
-            print " %(fiction)s a=%(audience)s%(target_age)s" % (
+            logging.info(self.detailed_representation)
+
+    @property
+    def detailed_representation(self):
+        """A description of this work more detailed than repr()"""
+        l = ["%s (by %s)" % (self.title, self.author)]
+        l.append(" language=%s" % self.language)
+        l.append(" quality=%s" % self.quality)
+        if self.fiction:
+            fiction = "Fiction"
+        elif self.fiction == False:
+            fiction = "Nonfiction"
+        else:
+            fiction = "???"
+        if self.target_age:
+            target_age = " age=" + str(self.target_age)
+        else:
+            target_age = ""
+        l.append(" %(fiction)s a=%(audience)s%(target_age)s" % (
                 dict(fiction=fiction,
-                     audience=self.audience, target_age=target_age))
-            print " " + ", ".join(repr(wg) for wg in self.work_genres)
-            if self.summary:
-                d = " Description (%.2f) %s" % (
-                    self.summary.quality, self.summary.representation.content[:100])
-                if isinstance(d, unicode):
-                    d = d.encode("utf8")
-                print d
-            print
+                     audience=self.audience, target_age=target_age)))
+        l.append(" " + ", ".join(repr(wg) for wg in self.work_genres))
+        if self.summary:
+            d = " Description (%.2f) %s" % (
+                self.summary.quality, self.summary.representation.content[:100])
+            l.append(d)
+        return "\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
         from opds import (
@@ -2905,10 +2935,18 @@ class Work(Base):
             doc = self.to_search_document()
             if doc:
                 args['body'] = doc
-                print self.id, doc
+                if logging.getLogger().level == logging.DEBUG:
+                    logging.debug(
+                        "Indexed work %d (%s): %r", self.id, self.title, doc
+                    )
+                else:
+                    logging.info("Indexed work %d (%s)", self.id, self.title)
                 client.index(**args)
             else:
-                print "WARNING: Could not generate a search document for allegedly presentation-ready work %d." % self.id
+                logging.warn(
+                    "Could not generate a search document for allegedly presentation-ready work %d (%s).",
+                    self.id, self.title
+                )
         else:
             if client.exists(**args):
                 client.delete(**args)
@@ -3416,12 +3454,12 @@ class Measurement(Base):
             final = popularity
         else:
             final = (popularity * popularity_weight) + (rating * rating_weight)
-            print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
-                popularity, popularity_weight, rating, rating_weight, final)
-        if quality:
-            print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
-            final = (final / 2) + (quality / 2)
-            print "Final value: %.2f" % final
+            #print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
+            #    popularity, popularity_weight, rating, rating_weight, final)
+        #if quality:
+        #    print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
+        #    final = (final / 2) + (quality / 2)
+        #    print "Final value: %.2f" % final
         return final
 
     @classmethod
@@ -3970,8 +4008,8 @@ class Subject(Base):
             self.fiction = fiction
         if target_age is not None:
             self.target_age = target_age
-        if genredata or audience or target_age or fiction:
-            print self
+        #if genredata or audience or target_age or fiction:
+        #    print self
 
 
 class Classification(Base):
@@ -4287,11 +4325,11 @@ class Lane(object):
                     limit=limit
                 )
             except elasticsearch.exceptions.ConnectionError, e:
-                print (
+                logging.error(
                     "Could not connect to Elasticsearch; falling back to database search."
                 )
             b = time.time()
-            print "Elasticsearch query completed in %.2fsec" % (b-a)
+            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
 
             results = []
             if docs:
@@ -4313,8 +4351,10 @@ class Lane(object):
                         work_by_id[mw.works_id] = mw
                     results = [work_by_id[x] for x in doc_ids if x in work_by_id]
                     b = time.time()
-                    print "Obtained %d MaterializedWork objects in %.2fsec" % (
-                        len(results), b-a)
+                    logging.debug(
+                        "Obtained %d MaterializedWork objects in %.2fsec",
+                        len(results), b-a
+                    )
 
         if not results:
             results = self._search_database(languages, fiction, query).limit(limit)
@@ -4376,8 +4416,9 @@ class Lane(object):
             start = time.time()
             r = query.all()
             results.extend(r[:remaining])
-            print "Quality %.1f got us up to %d results for %s in %.2fsec" % (
-                quality_min, len(results), self.name, time.time()-start
+            logging.debug(
+                "%s: Quality %.1f got us to %d results in %.2fsec",
+                self.name, quality_min, len(results), time.time()-start
             )
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
@@ -4663,7 +4704,7 @@ class WorkFeed(object):
         if order_by:
             query = query.distinct(*self.order_by)
         else:
-            print "WARNING: No order by for feed!"
+            logging.warn("Doing page query for feed with no order-by clause!")
             # query = query.distinct(MaterializedWork.works_id)
 
         #query = query.options(contains_eager(Work.license_pools),
@@ -4955,7 +4996,7 @@ class LicensePool(Base):
                 # associated Edition.
                 continue
             a += 1
-            print "Created %r" % etext
+            logging.info("Created %r", etext)
             if a and not a % 100:
                 _db.commit()
 
@@ -4978,10 +5019,14 @@ class LicensePool(Base):
 
         primary_edition = known_edition or self.edition
         
-        print "Calculating work for %r" % primary_edition
+        logging.info("Calculating work for %r", primary_edition)
         if self.work:
             # The work has already been done.
-            print " Already got one."
+            logging.info(
+                "Never mind, %r already has a work: %r", 
+                primary_edition, 
+                self.work
+            )
             return self.work, False
 
         primary_edition = known_edition or self.edition
@@ -4989,8 +5034,8 @@ class LicensePool(Base):
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
-            print "WARN: NO EDITION for %s, cowardly refusing to create work." % (
-                self.identifier)
+            logging.warn("NO EDITION for %s, cowardly refusing to create work.",
+                     self.identifier)
 
             return None, False
 
@@ -4999,15 +5044,15 @@ class LicensePool(Base):
                 "Primary edition's license pool is not the license pool for which work is being calculated!")
 
         if not primary_edition.title or not primary_edition.author:
-            print " Calculating presentation."
             primary_edition.calculate_presentation()
-
-
 
         if not primary_edition.work and (
                 not primary_edition.title or (
                     not primary_edition.author and not even_if_no_author)):
-            print " Edition has no author or title, not assigning Work to Edition."
+            logging.warn(
+                "Edition %r has no author or title, not assigning Work to Edition.", 
+                primary_edition
+            )
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
             #    self.identifier.type, self.identifier.identifier,
             #    primary_edition.title, primary_edition.author)
@@ -5043,7 +5088,7 @@ class LicensePool(Base):
         else:
             # There is no better choice than creating a brand new Work.
             created = True
-            print " NEW WORK for %r" % primary_edition.title
+            logging.info("NEW WORK for %s" % primary_edition.title)
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
@@ -5059,7 +5104,7 @@ class LicensePool(Base):
         work.calculate_presentation(search_index_client=search_index_client)
 
         if created:
-            print " Created %r" % work
+            logging.info("Created a new work: %r", work)
         # All done!
         return work, created
 
@@ -5180,7 +5225,7 @@ class CirculationEvent(Base):
             start = datetime.datetime.utcnow()
         if not end:
             end = start
-        print " EVENT %s %s=>%s" % (event_name, old_value, new_value)
+        logging.info("EVENT %s %s=>%s", event_name, old_value, new_value)
         event, was_new = get_one_or_create(
             _db, CirculationEvent, license_pool=license_pool,
             type=event_name, start=start, foreign_patron_id=foreign_patron_id,
@@ -5481,15 +5526,22 @@ class Representation(Base):
             usable_representation and (
                 max_age is None or max_age > representation.age))
 
+        if debug is True:
+            debug_level = logging.DEBUG
+        elif debug is False:
+            debug_level = None
+        else:
+            debug_level = debug
+
         if fresh_representation:
-            if debug:
-                print "Cached %s" % url
+            if debug_level is not None:
+                logging.info("Cached %s", url)
             return representation, True
 
         # We have a representation that is either not fresh or not usable.
         # We must make an HTTP request.
-        if debug:
-            print "Fetching %s" % url
+        if debug_level is not None:
+            logging.log(debug_level, "Fetching %s", url)
         headers = {}
         if extra_request_headers:
             headers.update(extra_request_headers)
@@ -5744,7 +5796,7 @@ class Representation(Base):
             # phrase.
             self.fetch_exception = "Error found while scaling: %s" % (
                 self.scale_exception)
-            print self.scale_exception
+            logging.error("Error found while scaling %r", self, exc_info=e)
             return self, False
 
         # Now that we've loaded the image, take the opportunity to set

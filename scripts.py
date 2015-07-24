@@ -51,7 +51,14 @@ class Script(object):
         return os.environ[name]
 
     def run(self):
-        pass
+        try:
+            self.do_run()
+        except Exception, e:
+            logging.error(
+                "Fatal exception while running script: %s", e,
+                exc_info=e
+            )
+            raise e
 
 class RunMonitorScript(Script):
 
@@ -61,7 +68,7 @@ class RunMonitorScript(Script):
         self.monitor = monitor
         self.name = self.monitor.service_name
 
-    def run(self):
+    def do_run(self):
         self.monitor.run()
 
 class RunCoverageProviderScript(Script):
@@ -72,7 +79,7 @@ class RunCoverageProviderScript(Script):
         self.provider = provider
         self.name = self.monitor.service_name
 
-    def run(self):
+    def do_run(self):
         self.provider.run()
 
 class WorkProcessingScript(Script):
@@ -98,7 +105,7 @@ class WorkProcessingScript(Script):
 
         self.batch_size = batch_size
 
-    def run(self):
+    def do_run(self):
         q = None
         if self.specific_works:
             print "Processing specific works: %r" % self.specific_works.all()
@@ -136,7 +143,7 @@ class WorkProcessingScript(Script):
 
 class WorkConsolidationScript(WorkProcessingScript):
 
-    def run(self):
+    def do_run(self):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
 
@@ -219,7 +226,7 @@ class OPDSImportScript(Script):
         self.importer_class = importer_class
         self.keep_timestamp = keep_timestamp
 
-    def run(self):
+    def do_run(self):
         monitor = OPDSImportMonitor(
             self._db, self.feed_url, self.importer_class,
             keep_timestamp=self.keep_timestamp)
@@ -232,7 +239,7 @@ class NYTBestSellerListsScript(Script):
         super(NYTBestSellerListsScript, self).__init__()
         self.include_history = include_history
     
-    def run(self):
+    def do_run(self):
         self.api = NYTBestSellerAPI(self._db)
         self.data_source = DataSource.lookup(self._db, DataSource.NYT)
         # For every best-seller list...
@@ -257,7 +264,7 @@ class NYTBestSellerListsScript(Script):
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
     
-    def run(self):
+    def do_run(self):
         # Initialize database
         db = self._db
         from model import (

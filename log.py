@@ -51,3 +51,4 @@ for handler in logger.handlers:
 
 database_log_level = os.environ.get('SIMPLIFIED_DATABASE_LOG_LEVEL', 'WARN')
 logging.getLogger('sqlalchemy.engine').setLevel(database_log_level)
+logging.getLogger('elasticsearch').setLevel(database_log_level)
