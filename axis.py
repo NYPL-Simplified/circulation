@@ -169,7 +169,7 @@ class Axis360CirculationMonitor(Monitor):
         if new_license_pool or new_edition:
             # Add bibliographic information to the Edition.
             edition.title = bibliographic.get(Edition.title)
-            print "NEW EDITION: %s" % edition.title
+            print "NEW EDITION: %s" % edition.title.encode("utf8")
             edition.subtitle = bibliographic.get(Edition.subtitle)
             edition.series = bibliographic.get(Edition.series)
             edition.published = bibliographic.get(Edition.published)
