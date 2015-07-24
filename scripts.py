@@ -307,9 +307,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             content_bytes = len(feed_rep.content)
         else:
             content_bytes = 0
-        self.log.info("Generated %s. Took %.2fsec to make %d bytes." % (
+        self.log.info("Generated %s. Took %.2fsec to make %d bytes.",
             cache_url, (b-a), content_bytes)
-        print        
 
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(lane)
@@ -399,6 +398,8 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
 class CacheBestSellerFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of best-sellers for each top-level lanes."""
 
+    name = "Cache best-seller feeds"
+
     PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.BEST_SELLER_LANGUAGES]
     OTHER_COLLECTIONS = []
 
@@ -416,6 +417,8 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
 
 class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of staff picks for each top-level lane."""
+
+    name = "Cache staff picks feeds"
 
     PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.STAFF_PICKS_LANGUAGES]
     OTHER_COLLECTIONS = []

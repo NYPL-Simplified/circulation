@@ -184,10 +184,10 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
             if work.id > highest_id:
                 highest_id = work.id
             work.update_external_index(self.search_index_client)
-            if work.title:
-                print work.title.encode("utf8")
-            else:
-                print "WARN: Work %d is presentation-ready but has no title?" % work.id
+            if not work.title:
+                logging.warn(
+                    "Work %d is presentation-ready but has no title?" % work.id
+                )
         return highest_id
 
 class MakePresentationReady(object):
