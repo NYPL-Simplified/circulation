@@ -1,13 +1,17 @@
-from nose.tools import set_trace
 from cStringIO import StringIO
+from datetime import timedelta
+from nose.tools import set_trace
 import csv
 import json
 import os
 import sys
-from datetime import timedelta
-from sqlalchemy import or_
-from lanes import make_lanes
+import time
 import urlparse
+
+from sqlalchemy import or_
+
+from lanes import make_lanes
+from core import log
 from core.model import (
     Contribution,
     CustomList,
@@ -30,8 +34,6 @@ from core.opds import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
-import os
-import time
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -42,6 +44,7 @@ class CreateWorksForIdentifiersScript(Script):
     to_check = [Identifier.OVERDRIVE_ID, Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID]
     BATCH_SIZE = 100
+    name = "Create works for identifiers"
 
     def __init__(self, metadata_web_app_url=None):
         self.metadata_url = (metadata_web_app_url
@@ -68,9 +71,12 @@ class CreateWorksForIdentifiersScript(Script):
             Identifier.primarily_identifies==None).filter(
                 Identifier.type.in_(self.to_check))
 
-        for q in (edition_missing_title_or_author, no_edition):
+        for q, descr in (
+                (edition_missing_title_or_author,
+                 "identifiers whose edition is missing title or author"),
+                (no_edition, "identifiers with no edition")):
             batch = []
-            print "%d total." % q.count()
+            self.log.debug("Trying to fix %d %s", q.count(), descr)
             for i in q:
                 batch.append(i)
                 if len(batch) >= self.BATCH_SIZE:
@@ -78,9 +84,7 @@ class CreateWorksForIdentifiersScript(Script):
                     batch = []
 
     def process_batch(self, batch):
-        print "%d batch" % len(batch)
         response = self.lookup.lookup(batch)
-        print "Response!"
 
         if response.status_code != 200:
             raise Exception(response.text)
@@ -93,7 +97,8 @@ class CreateWorksForIdentifiersScript(Script):
             self._db, response.text,
             overwrite_rels=[Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
         imported, messages_by_id = importer.import_from_feed()
-        print "%d successes, %d failures." % (len(imported), len(messages_by_id))
+        self.log.info("%d successes, %d failures.", 
+                      len(imported), len(messages_by_id))
         self._db.commit()
 
 class MetadataCalculationScript(Script):
@@ -110,13 +115,15 @@ class MetadataCalculationScript(Script):
 
     """
 
+    name = "Metadata calculation script"
+
     def q(self):
         raise NotImplementedError()
 
     def run(self):
         q = self.q()
         search_index_client = ExternalSearchIndex()
-        print "Attempting to repair %d" % q.count()
+        self.log.info("Attempting to repair metadata for %d works" % q.count())
 
         success = 0
         failure = 0
@@ -124,8 +131,8 @@ class MetadataCalculationScript(Script):
 
         def checkpoint():
             self._db.commit()
-            print "%d successes, %d failures, %d new works." % (
-                success, failure, also_created_work)
+            self.log.info("%d successes, %d failures, %d new works.",
+                          success, failure, also_created_work)
 
         i = 0
         for edition in q:
@@ -152,6 +159,8 @@ class FillInAuthorScript(MetadataCalculationScript):
     This is a data repair script that should not need to be run
     regularly.
     """
+
+    name = "Fill in missing authors"
 
     def q(self):
         return self._db.query(Edition).join(
@@ -247,7 +256,7 @@ class LaneSweeperScript(Script):
         queue = [self.conf]
         while queue:
             new_queue = []
-            print "!! Beginning of loop: %d lanes to process" % len(queue)
+            self.log.debug("Beginning of loop: %d lanes to process", len(queue))
             for l in queue:
                 if self.should_process_lane(l):
                     self.process_lane(l)
@@ -257,7 +266,7 @@ class LaneSweeperScript(Script):
             queue = new_queue
         ctx.pop()
         end = time.time()
-        print "!!! Entire process took %.2fsec" % (end-begin)
+        self.log.debug("Entire process took %.2fsec", (end-begin))
 
     def should_process_lane(self, lane):
         return True
@@ -267,6 +276,8 @@ class LaneSweeperScript(Script):
 
 
 class CacheRepresentationPerLane(LaneSweeperScript):
+
+    name = "Cache one representation per lane"
 
     def cache_url(self, annotator, lane, languages):
         raise NotImplementedError()
@@ -282,18 +293,21 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     def generate_feed(self, cache_url, get_method, max_age=0):
         a = time.time()
-        print "!!! Generating %s." % (cache_url)
+        self.log.debug("Generating %s.", cache_url)
         feed_rep, ignore = Representation.get(
             self._db, cache_url, get_method,
             accept=self.ACCEPT_HEADER, max_age=0)
         b = time.time()
         if feed_rep.fetch_exception:
-            print "!!! EXCEPTION: %s" % feed_rep.fetch_exception
+            self.log.error(
+                "Exception caching feed representation for %s: %s.",
+                cache_url, feed_rep.fetch_exception
+                )
         if feed_rep.content:
             content_bytes = len(feed_rep.content)
         else:
             content_bytes = 0
-        print "!!! Generated %r. Took %.2fsec to make %d bytes." % (
+        self.log.info("Generated %s. Took %.2fsec to make %d bytes." % (
             cache_url, (b-a), content_bytes)
         print        
 
@@ -306,6 +320,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
+
+    name = "Cache first two pages of every facet list for each lane"
 
     def should_process_lane(self, lane):
         if lane.name is None:
@@ -336,6 +352,8 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
+    name = "Cache opds group feed for each lane"
+
     def should_process_lane(self, lane):
         # OPDS group feeds are only generated for lanes that have sublanes.
         return lane.sublanes
@@ -355,6 +373,8 @@ class CacheTopLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
     These are frequently accessed, so should be updated more often.
     """
 
+    name = "Cache top-level OPDS group feeds"
+
     def should_process_lane(self, lane):
         # Only handle the top-level lanes
         return (super(
@@ -367,6 +387,7 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
 
     These are less frequently accessed, so can be updated less often.
     """
+    name = "Cache low-level OPDS group feeds"
 
     def should_process_lane(self, lane):
         # Only handle the lower-level lanes
@@ -374,20 +395,6 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
             CacheLowLevelOPDSGroupFeeds, self).should_process_lane(lane) 
                 and lane.parent)
 
-
-class CacheIndividualLaneFeaturedFeeds(CacheRepresentationPerLane):
-
-    def cache_url(self, annotator, lane, languages):
-        return self.app.featured_feed_cache_url(annotator, lane, languages)
-
-    def make_get_method(self, annotator, lane, languages):
-        def get_method(*args, **kwargs):
-            return self.app.make_featured_feed(annotator, lane, languages)
-        return get_method
-
-    def should_process_lane(self, lane):
-        # Every lane deserves a featured feed.
-        return True
 
 class CacheBestSellerFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of best-sellers for each top-level lanes."""
