@@ -227,7 +227,7 @@ class OverdriveRepresentationExtractor(object):
                 link = links['availability']['href']
                 data['availability_link'] = OverdriveAPI.make_link_safe(link)
             else:
-                log.warn("No availability link for %s" % book_id)
+                logging.warn("No availability link for %s", book_id)
             l.append(data)
         return l
 

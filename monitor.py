@@ -342,7 +342,7 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             try:
                 failures = self.prepare(work)
             except Exception, e:
-                log.error(
+                self.log.error(
                     "Exception %s when processing work %r", e, r, exc_info=e)
                 failures = e
             if failures and failures not in (None, True):
