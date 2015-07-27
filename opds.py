@@ -813,13 +813,18 @@ class AcquisitionFeed(OPDSFeed):
         # Entry.published if not. In general this means we use issued
         # date for Gutenberg and published date for other sources.
         issued = edition.published
-        if issued and (
-                (isinstance(issued, datetime.datetime) and issued <= now)
-                or (isinstance(issued, datetime.date) and issued <= today)):
-            issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
-            # TODO: convert to local timezone, not that it matters much.
-            issued_tag.text = issued.strftime("%Y-%m-%d")
-            entry.extend([issued_tag])
+        if (isinstance(issued, datetime.datetime) 
+            or isinstance(issued, datetime.date)):
+            issued_already = False
+            if isinstance(issued, datetime.datetime) and issued <= now:
+                issued_already = True
+            elif isinstance(issued, datetime.date) and issued <= today:
+                issued_already = True
+            if issued_already:
+                issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
+                # TODO: convert to local timezone, not that it matters much.
+                issued_tag.text = issued.strftime("%Y-%m-%d")
+                entry.extend([issued_tag])
 
         return entry
 

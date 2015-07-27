@@ -2905,7 +2905,7 @@ class Work(Base):
             d = " Description (%.2f) %s" % (
                 self.summary.quality, self.summary.representation.content[:100])
             l.append(d)
-        return "\n".join(l)
+        return u"\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
         from opds import (
