@@ -2913,7 +2913,7 @@ class Work(Base):
             elif isinstance(s, unicode):
                 return s
             else:
-                return x.decode("utf8")
+                return s.decode("utf8")
         l = [_ensure(s) for s in l]
         return u"\n".join(l)
 
