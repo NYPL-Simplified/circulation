@@ -580,7 +580,7 @@ class AcquisitionFeed(OPDSFeed):
         #        len(totals), totals)
         #else:
         #    print "Feed is empty."
-        logging.info(
+        logging.debug(
             "Built feed of %d entries in %.2f sec" % (
                 total_entries, time.time()-first_time))
 
@@ -816,10 +816,10 @@ class AcquisitionFeed(OPDSFeed):
         if (isinstance(issued, datetime.datetime) 
             or isinstance(issued, datetime.date)):
             issued_already = False
-            if isinstance(issued, datetime.datetime) and issued <= now:
-                issued_already = True
-            elif isinstance(issued, datetime.date) and issued <= today:
-                issued_already = True
+            if isinstance(issued, datetime.datetime):
+                issued_already = (issued <= now)
+            elif isinstance(issued, datetime.date):
+                issued_already = (issued <= today)
             if issued_already:
                 issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
                 # TODO: convert to local timezone, not that it matters much.

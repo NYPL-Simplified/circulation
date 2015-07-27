@@ -114,7 +114,7 @@ def production_session():
     url = os.environ['DATABASE_URL']
     if url.startswith('"'):
         url = url[1:]
-    logging.info("Database url: %s", os.environ['DATABASE_URL'])
+    logging.debug("Database url: %s", os.environ['DATABASE_URL'])
     return SessionManager.session(url)
 
 class BaseMaterializedWork(object):
@@ -2881,6 +2881,7 @@ class Work(Base):
         if debug:
             logging.info(self.detailed_representation)
 
+
     @property
     def detailed_representation(self):
         """A description of this work more detailed than repr()"""
@@ -2905,6 +2906,15 @@ class Work(Base):
             d = " Description (%.2f) %s" % (
                 self.summary.quality, self.summary.representation.content[:100])
             l.append(d)
+
+        def _ensure(s):
+            if not s:
+                return ""
+            elif isinstance(s, unicode):
+                return s
+            else:
+                return x.decode("utf8")
+        l = [_ensure(s) for s in l]
         return u"\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
