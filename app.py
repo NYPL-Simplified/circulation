@@ -2,6 +2,7 @@ from functools import wraps
 from nose.tools import set_trace
 import datetime
 import json
+import logging
 import random
 import time
 import os
@@ -87,11 +88,6 @@ from millenium_patron import (
 )
 from lanes import make_lanes
 
-if False:
-    import logging
-    logging.basicConfig()
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-
 feed_cache = dict()
 
 class Conf:
@@ -158,7 +154,7 @@ class Conf:
         cls.circulation = CirculationAPI(
             _db=cls.db, threem=cls.threem, overdrive=cls.overdrive,
             axis=cls.axis)
-
+        cls.log = logging.getLogger("Circulation web app")
         vendor_id = os.environ.get('ADOBE_VENDOR_ID')
         node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
         if vendor_id and node_value:
@@ -169,7 +165,7 @@ class Conf:
                 cls.auth
             )
         else:
-            print "Adobe Vendor ID controller is disabled due to absence of ADOBE_VENDOR_ID or ADOBE_VENDOR_ID_NODE_VALUE environment variables."
+            Conf.log.warn("Adobe Vendor ID controller is disabled due to absence of ADOBE_VENDOR_ID or ADOBE_VENDOR_ID_NODE_VALUE environment variables.")
             cls.adobe_vendor_id = None
 
         cls.make_authentication_document()
@@ -466,7 +462,7 @@ def hearbeat():
 
 ping_controller_path = os.environ.get('PING_CONTROLLER_PATH')
 if ping_controller_path:
-    print "Setting up ping controller at %s" % ping_controller_path
+    Conf.log.info("Setting up ping controller at %s" % ping_controller_path)
     @app.route(ping_controller_path)
     def ping():
         return HeartbeatController().heartbeat()
@@ -608,7 +604,7 @@ def acquisition_groups(lane):
         max_age=None)
     feed_xml = feed_rep.content
     b = time.time()
-    print "That took %.2f, cached=%r" % (b-a, cached)
+    Conf.log.info("That took %.2f, cached=%r" % (b-a, cached))
     return feed_response(feed_xml, acquisition=True)
 
 
@@ -634,8 +630,7 @@ def active_loans():
         except Exception, e:
             # If anything goes wrong, omit the sync step and just
             # display the current active loans, as we understand them.
-            print "ERROR DURING SYNC"
-            print traceback.format_exc()            
+            Conf.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
 
     # Then make the feed.
     feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
@@ -758,10 +753,10 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     a = time.time()
     query = work_feed.page_query(_db, offset, size)
     from core.model import dump_query
-    print dump_query(query)
+    Conf.log.debug(dump_query(query))
     page = query.all()
     b = time.time()
-    print "Got %d results in %.2fsec." % (len(page), b-a)
+    Conf.log.info("Got %d results in %.2fsec." % (len(page), b-a))
 
     # Turn the set of works into an OPDS feed.
     this_url = feed_url(lane, order_facet, offset, size)
@@ -852,7 +847,7 @@ def feed(lane):
     #print "That took %.2f, cached=%r" % (b-a, cached)
 
     if feed_rep.fetch_exception:
-        print "ERROR:", feed_rep.fetch_exception
+        Conf.log.error("ERROR: getting feed %s: %s", cache_url, feed_rep.fetch_exception)
     feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
@@ -1101,5 +1096,5 @@ if __name__ == '__main__':
     else:
         host = netloc
         port = 80
-    print host, port
+    Conf.log.info("Starting app on %s:%s", host, port)
     app.run(debug=debug, host=host, port=port)
