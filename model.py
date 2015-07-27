@@ -3455,12 +3455,14 @@ class Measurement(Base):
             final = popularity
         else:
             final = (popularity * popularity_weight) + (rating * rating_weight)
-            #print "(%.2f * %.2f) + (%.2f * %.2f) = %.2f" % (
-            #    popularity, popularity_weight, rating, rating_weight, final)
-        #if quality:
-        #    print "Popularity+Rating: %.2f, Quality: %.2f" % (final, quality)
-        #    final = (final / 2) + (quality / 2)
-        #    print "Final value: %.2f" % final
+            logging.debug(
+                "(%.2f * %.2f) + (%.2f * %.2f) = %.2f", 
+                popularity, popularity_weight, rating, rating_weight, final
+            )
+        if quality:
+            logging.debug("Popularity+Rating: %.2f, Quality: %.2f" % (final, quality))
+            final = (final / 2) + (quality / 2)
+            logging.debug("Final value: %.2f" % final)
         return final
 
     @classmethod
