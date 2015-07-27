@@ -78,7 +78,12 @@ class Monitor(object):
             if self.keep_timestamp:
                 self.timestamp.timestamp = new_timestamp
             self._db.commit()
-            if to_sleep > 0:
+
+            # TODO: This could be a little nicer, but basically we now
+            # want monitors to run through once and then stop.
+            if True:
+                self.stop_running = True
+            elif to_sleep > 0:
                 self.log.debug("Sleeping for %.1f", to_sleep)
                 time.sleep(to_sleep)
             start = new_timestamp
@@ -129,7 +134,9 @@ class IdentifierSweepMonitor(Monitor):
                 if self.interval_seconds is None:
                     self.stop_running = True
                     self.to_sleep = 0
-                else:
+                elif False: 
+                    # TODO Again, we want monitors to stop when 
+                    # we're done, so this can't happen.
                     duration = datetime.datetime.now() - started_at
                     to_sleep = self.interval_seconds - duration.seconds
                 self.cleanup()
