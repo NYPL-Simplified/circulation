@@ -581,7 +581,7 @@ class AcquisitionFeed(OPDSFeed):
         #else:
         #    print "Feed is empty."
         logging.info(
-            print "Built feed of %d entries in %.2f sec" % (
+            "Built feed of %d entries in %.2f sec" % (
                 total_entries, time.time()-first_time))
 
         for title, order, facet_group, in facet_groups:
