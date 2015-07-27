@@ -27,10 +27,12 @@ class TestURNLookupController(DatabaseTest):
         eq_(400, code)
         eq_(URNLookupController.INVALID_URN, message)
 
-    def test_process_urn_unresolvable_urn(self):
-        code, message = self.controller.process_urn("urn:isbn:9781449358068")
-        eq_(400, code)
-        eq_(URNLookupController.UNRESOLVABLE_URN, message)
+    # We can't run this test at the moment because we actually can
+    # get info from an ISBN.
+    #def test_process_urn_unresolvable_urn(self):
+    #    code, message = self.controller.process_urn("urn:isbn:9781449358068")
+    #    eq_(400, code)
+    #    eq_(URNLookupController.UNRESOLVABLE_URN, message)
 
     def test_process_urn_initial_registration(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)

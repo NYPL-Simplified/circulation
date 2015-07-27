@@ -91,6 +91,7 @@ class BaseOPDSImporter(object):
     def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
                  overwrite_rels=None, identifier_mapping=None):
         self._db = _db
+        self.log = logging.getLogger("OPDS Importer")
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
         self.data_source = DataSource.lookup(self._db, data_source_name)
@@ -109,8 +110,8 @@ class BaseOPDSImporter(object):
             internal_id, opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
                 entry)
             if not edition and status_code == 200:
-                logging.info("EDITION NOT CREATED: %s. Raw data: %r",
-                             message, entry)
+                self.log.info("EDITION NOT CREATED: %s. Raw data: %r",
+                              message, entry)
             if edition:
                 imported.append(edition)
 
@@ -214,7 +215,7 @@ class BaseOPDSImporter(object):
                 # you can download it.
                 pool, pool_was_new = LicensePool.for_foreign_id(
                     self._db, license_data_source, internal_identifier.type,
-                    internal_identifier)
+                    internal_identifier.identifier)
             else:
                 # No, we can't. This most likely indicates a problem.
                 message = message or self.COULD_NOT_CREATE_LICENSE_POOL

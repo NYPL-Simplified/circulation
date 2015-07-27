@@ -842,7 +842,7 @@ class Identifier(Base):
             input=self,
             output=identifier,
             create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
-        logging.debug(
+        logging.info(
             "Identifier equivalency: %r==%r p=%.2f", self, identifier, strength)
         return eq
 
@@ -883,7 +883,7 @@ class Identifier(Base):
 
     @classmethod
     def _recursively_equivalent_identifier_ids(
-            cls, _db, original_working_set, working_set, levels, threshold, debug):
+            cls, _db, original_working_set, working_set, levels, threshold):
 
         if levels == 0:
             equivalents = defaultdict(lambda : defaultdict(list))
@@ -898,7 +898,7 @@ class Identifier(Base):
         # First make the recursive call.        
         (working_set, seen_equivalency_ids, seen_identifier_ids,
          equivalents) = cls._recursively_equivalent_identifier_ids(
-             _db, original_working_set, working_set, levels-1, threshold, debug)
+             _db, original_working_set, working_set, levels-1, threshold)
 
         if not working_set:
             # We're done.
@@ -911,8 +911,7 @@ class Identifier(Base):
         equivalencies = Equivalency.for_identifiers(
             _db, working_set, seen_equivalency_ids)
         for e in equivalencies:
-            if debug:
-                logging.debug("%r => %r", e.input, e.output)
+            #logging.debug("%r => %r", e.input, e.output)
             seen_equivalency_ids.add(e.id)
 
             # Signal strength decreases monotonically, so
@@ -922,16 +921,14 @@ class Identifier(Base):
             # I -> O becomes "I is a precursor of O with distance
             # equal to the I->O strength."
             if e.strength > threshold:
-                if debug:
-                    logging.debug("Strong signal: %r", e)
+                #logging.debug("Strong signal: %r", e)
                 
                 cls._update_equivalents(
                     equivalents, e.output_id, e.input_id, e.strength, e.votes)
                 cls._update_equivalents(
                     equivalents, e.input_id, e.output_id, e.strength, e.votes)
             else:
-                if debug:
-                    logging.debug("Ignoring signal below threshold: %r", e)
+                logging.debug("Ignoring signal below threshold: %r", e)
 
             if e.output_id not in seen_identifier_ids:
                 # This is our first time encountering the
@@ -946,14 +943,14 @@ class Identifier(Base):
                 # in the next round.
                 new_working_set.add(e.input_id)
 
-        if debug:
-            logging.debug("At level %d.", level)
-            logging.debug(" New working set: %r", sorted(new_working_set))
-            logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
-            logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
-            logging.debug(" %d equivalents", len(equivalents))
+        #logging.debug("At level %d.", levels)
+        #logging.debug(" Original working set: %r", sorted(original_working_set))
+        #logging.debug(" New working set: %r", sorted(new_working_set))
+        #logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
+        #logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
+        #logging.debug(" %d equivalents", len(equivalents))
 
-        if debug and new_working_set:
+        if new_working_set:
 
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
@@ -983,11 +980,10 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        if debug:
-            logging.debug(
-                "Pruned %d from working set",
-                len(surviving_working_set.intersection(new_working_set))
-            )
+        logging.debug(
+            "Pruned %d from working set",
+            len(surviving_working_set.intersection(new_working_set))
+        )
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -2276,7 +2272,12 @@ class Edition(Base):
 
         # Now that everything's calculated, log it.
         msg = "Calculated presentation for %s (by %s, pub=%s, pwid=%s, language=%s, cover=%r)"
-        args = (self.title, self.author, self.publisher, self.permanent_work_id, self.language, self.cover.representation.mirror_url)
+        args = [self.title, self.author, self.publisher, 
+                self.permanent_work_id, self.language]
+        if self.cover and self.cover.representation:
+            args.append(self.cover.representation.mirror_url)
+        else:
+            args.append(None)
         logging.info(msg, *args)
 
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
@@ -2826,7 +2827,7 @@ class Work(Base):
 
         if self.primary_edition:
             self.primary_edition.calculate_presentation(
-                debug=debug, calculate_opds_entry=calculate_opds_entry)
+                calculate_opds_entry=calculate_opds_entry)
 
         if not (classify or choose_summary or calculate_quality):
             return

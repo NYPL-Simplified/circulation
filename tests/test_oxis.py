@@ -52,8 +52,7 @@ class TestParsers(object):
         eq_(["Pollero, Rhonda"], cont2[Contributor.PRIMARY_AUTHOR_ROLE])
         eq_([], cont2[Contributor.AUTHOR_ROLE])
 
-        axis_id, isbn = sorted(
-            bib1[Identifier], key = lambda x: x[Identifier.type])
+        axis_id, isbn = [x[1][0] for x in sorted(bib1[Identifier].items())]
         eq_(u'0003642860', axis_id[Identifier.identifier])
         eq_(u'9780375504587', isbn[Identifier.identifier])
 

@@ -87,7 +87,8 @@ class Axis360API(object):
             args['patronId'] = patron_id
         if title_ids:
             args['titleIds'] = ','.join(title_ids)
-        return self.request(url, params=args)
+        response = self.request(url, params=args)
+        return response
 
     @classmethod
     def parse_token(cls, token):
@@ -96,7 +97,7 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        logging.debug("Making Axis 360 request to %s %r", url, params)
+        logging.debug("Making Axis 360 request to %s params=%r", url, params)
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)

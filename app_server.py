@@ -230,7 +230,7 @@ class URNLookupController(object):
             # At least one metadata lookup has not successfully
             # completed.
             names = [x.name for x in unaccounted_for]
-            log.info(
+            logging.info(
                 "Cannot build metadata-based OPDS feed for %r: missing coverage records for %s",
                 identifier,
                 ", ".join(names)

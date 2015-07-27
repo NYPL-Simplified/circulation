@@ -82,7 +82,7 @@ class TestDataSource(DatabaseTest):
             (DataSource.AMAZON, False, Identifier.ASIN),
             (DataSource.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID),
             (DataSource.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID),
-            (DataSource.CONTENT_CAFE, False, None),
+            (DataSource.CONTENT_CAFE, True, None),
             (DataSource.MANUAL, False, None),
             (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
             (DataSource.NYT, False, Identifier.ISBN),
@@ -258,7 +258,7 @@ class TestUnresolvedIdentifier(DatabaseTest):
             pool.identifier)
     
     def test_register_fails_for_unresolvable_identifier(self):
-        identifier = self._identifier(Identifier.ISBN)
+        identifier = self._identifier(Identifier.ASIN)
         assert_raises(
             Identifier.UnresolvableIdentifierException,
             UnresolvedIdentifier.register, self._db, identifier)
