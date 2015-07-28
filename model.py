@@ -2902,10 +2902,6 @@ class Work(Base):
                 dict(fiction=fiction,
                      audience=self.audience, target_age=target_age)))
         l.append(" " + ", ".join(repr(wg) for wg in self.work_genres))
-        if self.summary:
-            d = " Description (%.2f) %s" % (
-                self.summary.quality, self.summary.representation.content[:100])
-            l.append(d)
 
         def _ensure(s):
             if not s:
@@ -2913,7 +2909,13 @@ class Work(Base):
             elif isinstance(s, unicode):
                 return s
             else:
-                return s.decode("utf8")
+                return s.decode("utf8", "replace")
+
+        if self.summary:
+            snippet = _ensure(self.summary.representation.content)[:100]
+            d = " Description (%.2f) %s" % (self.summary.quality, snippet)
+            l.append(d)
+
         l = [_ensure(s) for s in l]
         return u"\n".join(l)
 
