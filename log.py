@@ -31,7 +31,7 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
-log_level = os.environ.get('SIMPLIFIED_LOG_LEVEL', 'INFO')
+log_level = os.environ.get('SIMPLIFIED_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(format=DEFAULT_FORMAT)
 
 def set_formatter(handler):
