@@ -10,6 +10,10 @@ from ..overdrive import (
     DummyOverdriveAPI,
 )
 
+from ..circulation import (
+    CirculationAPI,
+)
+
 from . import (
     DatabaseTest,
 )
@@ -125,33 +129,51 @@ class TestOverdriveAPI(DatabaseTest):
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
 
     def test_sync_bookshelf_creates_local_loans(self):
-        loans, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
-        holds, json_holds = self.sample_json("no_holds.json")
+        loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        holds_data, json_holds = self.sample_json("no_holds.json")
+
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+
+        patron = self.default_patron
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
 
         # All four loans in the sample data were created.
-        patron = self.default_patron
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
         eq_(4, len(loans))
         eq_(loans, patron.loans)
 
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(loans))
         eq_(loans, patron.loans)        
 
     def test_sync_bookshelf_removes_loans_not_present_on_remote(self):
-        data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
-        data, json_holds = self.sample_json("no_holds.json")
-        
-        patron = self.default_patron
-        overdrive, new = self._edition(data_source_name=DataSource.OVERDRIVE,
-                                       with_license_pool=True)
-        overdrive_loan, new = overdrive.license_pool.loan_to(patron)
+        loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        holds_data, json_holds = self.sample_json("no_holds.json")
 
-        # The loan not present in the sample data has been removed
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=loans_data)
+        overdrive.queue_response(content=holds_data)
+
+        # Create a loan not present in the sample data.
+        patron = self.default_patron
+        overdrive_edition, new = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+        overdrive_loan, new = overdrive_edition.license_pool.loan_to(patron)
+
+        # Sync with Overdrive, and the loan not present in the sample
+        # data is removed.
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+
         eq_(4, len(loans))
         eq_(loans, patron.loans)
         assert overdrive_loan not in patron.loans

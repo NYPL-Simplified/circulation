@@ -128,7 +128,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         parser = CheckoutResponseParser()
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
-        eq_(DataSource.AXIS_360, parsed.data_source)
+        eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
         eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), 
             parsed.end_date)
 
@@ -174,7 +174,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
         parser = AvailabilityResponseParser()
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
-        eq_(DataSource.AXIS_360, hold.data_source)
+        eq_(Identifier.AXIS_360_ID, hold.identifier_type)
         eq_("0012533119", hold.identifier)
         eq_(1, hold.hold_position)
         eq_(None, hold.end_date)

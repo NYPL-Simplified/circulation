@@ -679,7 +679,8 @@ class DummyOverdriveAPI(OverdriveAPI):
         return self.responses.pop()
 
     def patron_request(self, *args, **kwargs):
-        return DummyOverdriveResponse(*self.responses.pop())
+        value = self.responses.pop()
+        return DummyOverdriveResponse(*value)
 
 
 class OverdriveCirculationMonitor(Monitor):
