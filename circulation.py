@@ -101,12 +101,19 @@ class CirculationAPI(object):
         # to include loans from all licensed data sources.  We do not
         # need to include loans from open-access sources because we
         # are the authorities on those.
-        self.data_sources_for_sync = [
-            DataSource.lookup(_db, x) for x in 
-            DataSource.OVERDRIVE,
-            DataSource.THREEM,
-            DataSource.AXIS_360,
-        ]
+        self.data_sources_for_sync = []
+        if self.overdrive:
+            self.data_sources_for_sync.append(
+                DataSource.lookup(_db, DataSource.OVERDRIVE)
+            )
+        if self.threem:
+            self.data_sources_for_sync.append(
+                DataSource.lookup(_db, DataSource.THREEM)
+            )
+        if self.axis:
+            self.data_sources_for_sync.append(
+                DataSource.lookup(_db, DataSource.AXIS_360)
+            )
         self.identifier_type_to_data_source = dict(
             (ds.primary_identifier_type, ds) 
             for ds in self.data_sources_for_sync)

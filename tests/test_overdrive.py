@@ -158,8 +158,8 @@ class TestOverdriveAPI(DatabaseTest):
         holds_data, json_holds = self.sample_json("no_holds.json")
 
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=loans_data)
         overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
 
         # Create a loan not present in the sample data.
         patron = self.default_patron
