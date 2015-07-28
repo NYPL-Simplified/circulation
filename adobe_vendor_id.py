@@ -280,4 +280,5 @@ class AdobeVendorIDModel(object):
         # This chop is required by the spec. I have no idea why, but
         # since the first part of the UUID is the least significant,
         # it doesn't do much damage.
-        return "urn:uuid:0" + u[:-1]
+        value = "urn:uuid:0" + u[1:]
+        return value

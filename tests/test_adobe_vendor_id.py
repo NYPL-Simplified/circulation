@@ -42,7 +42,7 @@ class TestVendorIDModel(DatabaseTest):
         # All UUIDs need to start with a 0 and end with the same node
         # value.
         assert u.startswith('urn:uuid:0')
-        assert u.endswith('685b35c00f0')
+        assert u.endswith('685b35c00f05')
 
     def test_uuid_and_label_respects_existing_id(self):
         uuid, label = self.model.uuid_and_label(self.bob_patron)
@@ -71,7 +71,7 @@ class TestVendorIDModel(DatabaseTest):
         eq_("Card number 5", label)
         eq_(urn, bob_uuid.credential)
         assert urn.startswith("urn:uuid:0")
-        assert urn.endswith('685b35c00f0')
+        assert urn.endswith('685b35c00f05')
 
     def test_authdata_lookup_success(self):
         now = datetime.datetime.utcnow()
