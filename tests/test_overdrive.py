@@ -183,12 +183,18 @@ class TestOverdriveAPI(DatabaseTest):
         gutenberg, new = self._edition(data_source_name=DataSource.GUTENBERG,
                                        with_license_pool=True)
         gutenberg_loan, new = gutenberg.license_pool.loan_to(patron)
-        data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
-        data, json_holds = self.sample_json("no_holds.json")     
+        loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
+        holds_data, json_holds = self.sample_json("no_holds.json")     
    
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        patron = self.default_patron
+        
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans
 
@@ -217,31 +223,42 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(holds, patron.holds)        
 
     def test_sync_bookshelf_removes_holds_not_present_on_remote(self):
-        loans, json_loans = self.sample_json("no_loans.json")
-        holds, json_holds = self.sample_json("holds.json")
+        loans_data, json_loans = self.sample_json("no_loans.json")
+        holds_data, json_holds = self.sample_json("holds.json")
         
         patron = self.default_patron
-        overdrive, new = self._edition(data_source_name=DataSource.OVERDRIVE,
+        overdrive_edition, new = self._edition(data_source_name=DataSource.OVERDRIVE,
                                        with_license_pool=True)
-        overdrive_hold, new = overdrive.license_pool.on_hold_to(patron)
+        overdrive_hold, new = overdrive_edition.license_pool.on_hold_to(patron)
+
+
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
 
         # The hold not present in the sample data has been removed
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
         eq_(holds, patron.holds)
         assert overdrive_hold not in patron.loans
 
     def test_sync_bookshelf_ignores_holds_from_other_sources(self):
-        loans, json_loans = self.sample_json("no_loans.json")
-        holds, json_holds = self.sample_json("holds.json")
+        loans_data, json_loans = self.sample_json("no_loans.json")
+        holds_data, json_holds = self.sample_json("holds.json")
 
         patron = self.default_patron
         threem, new = self._edition(data_source_name=DataSource.THREEM,
                                     with_license_pool=True)
         threem_hold, new = threem.license_pool.on_hold_to(patron)
    
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+
         # Overdrive doesn't know about the 3M hold, but it was
         # not destroyed, because it came from another source.
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert threem_hold in patron.holds

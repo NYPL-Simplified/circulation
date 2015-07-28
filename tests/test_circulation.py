@@ -17,6 +17,10 @@ from . import (
     DatabaseTest,
 )
 
+from ..circulation import (
+    CirculationAPI,
+)
+
 from ..core.model import (
     get_one,
     DataSource,
@@ -229,17 +233,11 @@ class TestAcquisitionFeed(CirculationAppTest):
         patron = get_one(self._db, Patron,
             authorization_identifier="200")
 
+        circulation = CirculationAPI(
+            self._db, overdrive=overdrive, threem=threem)
+
         # Sync the bookshelf so we can create works for the loans.
-        pin = 'foo'
-        overdrive_loans = overdrive.get_patron_checkouts(patron, pin)
-        overdrive_holds = overdrive.get_patron_holds(patron, pin)
-
-        threem_loans, threem_holds, threem_reserves = threem.get_patron_checkouts(
-            patron)
-
-        overdrive.sync_bookshelf(patron, overdrive_loans, overdrive_holds)
-        threem.sync_bookshelf(
-            patron, threem_loans, threem_holds, threem_reserves)
+        circulation.sync_bookshelf(patron, "dummy pin")
 
         # Super hacky--make sure the loans and holds have works that
         # will show up in the feed.

@@ -429,10 +429,10 @@ class CirculationAPI(object):
                 self._db.delete(loan)
 
         # Every hold remaining in holds_by_identifier is a hold that
-        # Overdrive doesn't know about, which means it's expired and
-        # we should get rid of it.
+        # the provider doesn't know about, which means it's expired
+        # and we should get rid of it.
         for hold in local_holds_by_identifier.values():
-            if loan.license_pool.data_source in self.data_sources_for_sync:
+            if hold.license_pool.data_source in self.data_sources_for_sync:
                 self._db.delete(hold)
         __transaction.commit()
 
