@@ -194,18 +194,25 @@ class TestOverdriveAPI(DatabaseTest):
 
     def test_sync_bookshelf_creates_local_holds(self):
         
-        loans, json_loans = self.sample_json("no_loans.json")
-        holds, json_holds = self.sample_json("holds.json")
+        loans_data, json_loans = self.sample_json("no_loans.json")
+        holds_data, json_holds = self.sample_json("holds.json")
 
-        # All four loans in the sample data were created.
+        overdrive = DummyOverdriveAPI(self._db)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
         patron = self.default_patron
-        loans, holds = DummyOverdriveAPI.sync_bookshelf(
-            patron, json_loans, json_holds)
+
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        # All four loans in the sample data were created.
         eq_(4, len(holds))
         eq_(holds, patron.holds)
 
         # Running the sync again leaves all four holds in place.
-        loans = DummyOverdriveAPI.sync_bookshelf(patron, json_loans, json_holds)
+        overdrive.queue_response(content=holds_data)
+        overdrive.queue_response(content=loans_data)
+        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
         eq_(holds, patron.holds)        
 
