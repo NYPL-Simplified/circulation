@@ -90,12 +90,12 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
-    def __init__(self, _db, overdrive, threem, axis):
+    def __init__(self, _db, overdrive=None, threem=None, axis=None):
         self._db = _db
         self.overdrive = overdrive
         self.threem = threem
         self.axis = axis
-        self.apis = [overdrive, threem, axis]
+        self.apis = [x for x in (overdrive, threem, axis) if x]
 
         # When we get our view of a patron's loans and holds, we need
         # to include loans from all licensed data sources.  We do not

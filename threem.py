@@ -217,7 +217,7 @@ class DummyThreeMAPI(ThreeMAPI):
         super(DummyThreeMAPI, self).__init__(*args, **kwargs)
         self.responses = []
 
-    def queue_response(self, response_code=200, media_type="applicaion/xml",
+    def queue_response(self, response_code=200, media_type="application/xml",
                        other_headers=None, content=''):
         headers = {"content-type": media_type}
         if other_headers:
@@ -364,7 +364,7 @@ class PatronCirculationParser(XMLParser):
         holds = sup.process_all(
             root, "//Holds/Item", handler=self.process_one_hold)
         reserves = sup.process_all(
-            root, "//Reserves/Item", handler=self.process_one_hold)
+            root, "//Reserves/Item", handler=self.process_one_reserve)
 
         everything = itertools.chain(loans, holds, reserves)
         return [x for x in everything if x]
@@ -374,6 +374,11 @@ class PatronCirculationParser(XMLParser):
 
     def process_one_hold(self, tag, namespaces):
         return self.process_one(tag, namespaces, HoldInfo)
+
+    def process_one_reserve(self, tag, namespaces):
+        hold_info = self.process_one(tag, namespaces, HoldInfo)
+        hold_info.hold_position = 0
+        return hold_info
 
     def process_one(self, tag, namespaces, source_class):
         if not tag.xpath("ItemId"):
@@ -390,7 +395,7 @@ class PatronCirculationParser(XMLParser):
         start_date = datevalue("EventStartDateInUTC")
         end_date = datevalue("EventEndDateInUTC")
         a = [self.id_type, identifier, start_date, end_date]
-        if source_class == Hold:
+        if source_class is HoldInfo:
             hold_position = self.int_of_subtag(tag, "Position")
             a.append(hold_position)
         else:

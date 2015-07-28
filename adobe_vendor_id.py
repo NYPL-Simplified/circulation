@@ -68,7 +68,7 @@ class AdobeVendorIDRequestHandler(object):
 
     TOKEN_FAILURE = 'Incorrect token.'
     AUTHENTICATION_FAILURE = 'Incorrect barcode or PIN.'
-    URN_LOOKUP_FAILURE = 'Could not identify patron.'
+    URN_LOOKUP_FAILURE = "Could not identify patron from '%s'."
 
     def __init__(self, vendor_id=None):
         self.vendor_id = vendor_id or os.environ.get('ADOBE_VENDOR_ID')
@@ -123,7 +123,9 @@ class AdobeVendorIDRequestHandler(object):
             return self.ACCOUNT_INFO_RESPONSE_TEMPLATE % dict(label=label)
         else:
             return self.error_document(
-                self.ACCOUNT_INFO_ERROR_TYPE, self.URN_LOOKUP_FAILURE)        
+                self.ACCOUNT_INFO_ERROR_TYPE,
+                self.URN_LOOKUP_FAILURE % data['user']
+            )
 
     def error_document(self, type, message):
         return self.ERROR_RESPONSE_TEMPLATE % dict(

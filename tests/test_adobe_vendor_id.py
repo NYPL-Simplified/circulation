@@ -269,4 +269,4 @@ class TestVendorIDRequestHandler(object):
             uuid="not the uuid")
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Could not identify patron."/>', result)
+        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Could not identify patron from 'not the uuid'."/>', result)

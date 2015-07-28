@@ -7,8 +7,15 @@ from nose.tools import (
 
 from ..threem import (
     ThreeMAPI,
+    DummyThreeMAPI,
     PatronCirculationParser,
     CheckoutResponseParser,
+)
+
+from ..circulation import (
+    CirculationAPI,
+    HoldInfo,
+    LoanInfo,
 )
 
 from . import (
@@ -37,33 +44,37 @@ class TestPatronCirculationParser(TestThreeMAPI):
 
     def test_parse(self):
         data = self.sample_data("checkouts.xml")
-        loans, holds, reserves = PatronCirculationParser().process_all(data)
+        loans_and_holds = PatronCirculationParser().process_all(data)
+        loans = [x for x in loans_and_holds if isinstance(x, LoanInfo)]
+        holds = [x for x in loans_and_holds if isinstance(x, HoldInfo)]
         eq_(2, len(loans))
-        eq_(1, len(holds))
-        eq_(1, len(reserves))
-        l1, l2 = loans
-        eq_("1ad589", l1[Identifier][Identifier.THREEM_ID])
-        eq_("cgaxr9", l2[Identifier][Identifier.THREEM_ID])
+        eq_(2, len(holds))
+        [l1, l2] = sorted(loans, key=lambda x: x.identifier)
+        eq_("1ad589", l1.identifier)
+        eq_("cgaxr9", l2.identifier)
         expect_loan_start = datetime.datetime(2015, 3, 20, 18, 50, 22)
         expect_loan_end = datetime.datetime(2015, 4, 10, 18, 50, 22)
-        eq_(expect_loan_start, l1[Loan.start])
-        eq_(expect_loan_end, l1[Loan.end])
+        eq_(expect_loan_start, l1.start_date)
+        eq_(expect_loan_end, l1.end_date)
 
-        [h1] = holds
-        eq_("d4o8r9", h1[Identifier][Identifier.THREEM_ID])
-        expect_hold_start = datetime.datetime(2015, 3, 24, 15, 6, 56)
-        expect_hold_end = datetime.datetime(2015, 3, 24, 15, 7, 51)
-        eq_(expect_hold_start, h1[Hold.start])
-        eq_(expect_hold_end, h1[Hold.end])
-        eq_(4, h1[Hold.position])
+        [h1, h2] = sorted(holds, key=lambda x: x.identifier)
 
-        [r1] = reserves
-        eq_("9wd8", r1[Identifier][Identifier.THREEM_ID])
+        # This is the book on reserve.
+        eq_("9wd8", h1.identifier)
         expect_hold_start = datetime.datetime(2015, 5, 25, 17, 5, 34)
         expect_hold_end = datetime.datetime(2015, 5, 27, 17, 5, 34)
-        eq_(expect_hold_start, r1[Hold.start])
-        eq_(expect_hold_end, r1[Hold.end])
-        eq_(1, r1[Hold.position])
+        eq_(expect_hold_start, h1.start_date)
+        eq_(expect_hold_end, h1.end_date)
+        eq_(0, h1.hold_position)
+
+        # This is the book on hold.
+        eq_("d4o8r9", h2.identifier)
+        expect_hold_start = datetime.datetime(2015, 3, 24, 15, 6, 56)
+        expect_hold_end = datetime.datetime(2015, 3, 24, 15, 7, 51)
+        eq_(expect_hold_start, h2.start_date)
+        eq_(expect_hold_end, h2.end_date)
+        eq_(4, h2.hold_position)
+
 
 class TestCheckoutResponseParser(TestThreeMAPI):
     def test_parse(self):
@@ -75,12 +86,11 @@ class TestCheckoutResponseParser(TestThreeMAPI):
 class TestSyncBookshelf(TestThreeMAPI):
     
     def basic_test(self):
-        data = self.sample_data("checkouts.xml")
-        loans, holds, reserves = PatronCirculationParser().process_all(data)
-        patron = self._patron()
-        
-        api = ThreeMAPI(self._db)
-        api.sync_bookshelf(patron, loans, holds, reserves)
+        patron = self._patron()        
+        api = DummyThreeMAPI(self._db)
+        api.queue_response(content=self.sample_data("checkouts.xml"))
+        circulation = CirculationAPI(self._db, threem=api)
+        circulation.sync_bookshelf(patron, "dummy pin")
 
         # The patron should have two loans and two holds.
         l1, l2 = patron.loans
