@@ -146,9 +146,11 @@ class AdobeRequestParser(XMLParser):
     def _add(self, d, tag, key, namespaces, transform=None):
         v = self._xpath1(tag, 'adept:' + key, namespaces)
         if v is not None:
-            v = v.text.strip()
-            if transform is not None:
-                v = transform(v)
+            v = v.text
+            if v is not None:
+                v = v.strip()
+                if transform is not None:
+                    v = transform(v)
         d[key] = v
 
 class AdobeSignInRequestParser(AdobeRequestParser):
