@@ -176,10 +176,11 @@ class UpdateStaffPicksScript(Script):
         if key.startswith('https://') or key.startswith('http://'):
             # It's a custom URL, not a Google spreadsheet key.
             # Leave it alone.
-            pass
+            url = key
         else:
             url = self.DEFAULT_URL_TEMPLATE % key
         metadata_client = None
+        self.log.info("Retrieving %s", url)
         representation, cached = Representation.get(
             self._db, url, do_get=Representation.browser_http_get,
             accept="text/csv", max_age=timedelta(days=1))
