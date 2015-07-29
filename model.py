@@ -911,7 +911,7 @@ class Identifier(Base):
         equivalencies = Equivalency.for_identifiers(
             _db, working_set, seen_equivalency_ids)
         for e in equivalencies:
-            #logging.debug("%r => %r", e.input, e.output)
+            logging.debug("%r => %r", e.input, e.output)
             seen_equivalency_ids.add(e.id)
 
             # Signal strength decreases monotonically, so
@@ -2188,11 +2188,8 @@ class Edition(Base):
         return author
 
     def calculate_permanent_work_id(self, debug=False):
-        w = WorkIDCalculator
         title = self.title_for_permanent_work_id
         author = self.author_for_permanent_work_id
-        norm_title = w.normalize_title(title)
-        norm_author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
             medium = "book"
@@ -2205,18 +2202,32 @@ class Edition(Base):
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
+        w = WorkIDCalculator
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
+
         old_id = self.permanent_work_id
-        self.permanent_work_id = WorkIDCalculator.permanent_id(
-            norm_title, norm_author, medium)
-        new_id = self.permanent_work_id
-        args = ("Permanent work ID for %d: %s/%s -> %s/%s/%s -> %s (was %s)",
-                self.id, title, author, norm_title, norm_author, medium,
-                new_id, old_id)
+        self.permanent_work_id = self.calculate_permanent_work_id_for_title_and_author(
+            title, author, medium)
+        args = (
+            "Permanent work ID for %d: %s/%s -> %s/%s/%s -> %s (was %s)",
+            self.id, title, author, norm_title, norm_author, medium,
+                self.permanent_work_id, old_id
+        )
         if debug:
             logging.debug(*args)
-        elif old_id != new_id:
+        elif old_id != self.permanent_work_id:
             logging.info(*args)
 
+    @classmethod
+    def calculate_permanent_work_id_for_title_and_author(
+            cls, title, author, medium):
+        w = WorkIDCalculator
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
+
+        return WorkIDCalculator.permanent_id(
+            norm_title, norm_author, medium)
 
     def calculate_presentation(self, calculate_opds_entry=True):
 

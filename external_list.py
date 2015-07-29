@@ -28,55 +28,126 @@ class TitleFromExternalList(object):
     Edition and CustomListEntry objects.
     """
 
-    def __init__(self, data_source_name, title, display_author, primary_isbn,
+    def __init__(self, data_source_name, title, display_author, 
+                 primary_identifier,
                  published_date, first_appearance,
                  most_recent_appearance, publisher, description,
                  language='eng',
-                 isbns=[]):
+                 identifiers=[]):
+        self.log = logging.getLogger("Title from external list")
         self.title = title
         self.display_author = display_author
         self.data_source_name = data_source_name
-        self.first_appearance = first_appearance
+        self.first_appearance = first_appearance or most_recent_appearance
         self.most_recent_appearance = most_recent_appearance
         self.published_date = published_date
-        self.isbns = isbns
-        self.primary_isbn = primary_isbn
+        self.identifiers = identifiers
+        self.primary_identifier = primary_identifier
         self.publisher = publisher
         self.description = description
-        if not self.primary_isbn in self.isbns:
-            self.isbns.append(self.primary_isbn)
+        if not self.primary_identifier and self.identifiers:
+            self.primary_identifier = self.identifiers[0]
+        if (self.primary_identifier 
+            and not self.primary_identifier in self.identifiers):
+            self.identifiers.append(self.primary_identifier)
         self.language = language
 
-        if not self.primary_isbn:
-            raise ValueError("Book has no identifier")
+    def _load_identifier(self, _db, t):
+        # Turn a 2-tuple (type, identifier) into an Identifier object.
+        if t is None:
+            return t
+        if isinstance(t, Identifier):
+            return t
+        identifier_type, identifier_identifier = t
+        print identifier_type, identifier_identifier
+        identifier, ignore = Identifier.for_foreign_id(
+            _db, identifier_type, identifier_identifier)
+        return identifier
+
+    def find_permanent_work_id(self, _db, metadata_client):
+        """Try to calculate a permanent work ID for a title
+        even though no Edition has been created for the title yet.
+        """
+        if not self.title or not self.display_author:
+            return None
+        sort_author = self.find_sort_name(
+            _db, self.primary_identifier, self.display_author, metadata_client)
+        if not sort_author:
+            return None, None
+        pwid = Edition.calculate_permanent_work_id_for_title_and_author(
+            self.title, sort_author, "book")
+        return sort_author, pwid        
+        
 
     def to_edition(self, _db, metadata_client, overwrite_old_data=False):
         """Create or update a Simplified Edition object for this title.
         """
-        identifier = self.primary_isbn
-        if not identifier:
-            return None
-        self.primary_identifier, ignore = Identifier.from_asin(_db, identifier)
+        self.log.info("Converting %s/%s to an Edition object.", 
+                      self.title, self.display_author)
 
+        self.primary_identifier = self._load_identifier(
+            _db, self.primary_identifier)
+        self.log.info("Primary identifier: %r", self.primary_identifier)
         data_source = DataSource.lookup(_db, self.data_source_name)
+
+        if self.identifiers:
+            # We were told that this edition has a certain number of
+            # identifiers. The creator of the list believes all these
+            # identifiers are equivalent.
+            loaded_identifiers = []
+            for i in self.identifiers:
+                loaded = self._load_identifier(_db, i)
+                if not loaded:
+                    set_trace()
+                    continue
+                loaded_identifiers.append(loaded)
+                if loaded == self.primary_identifier:
+                    continue
+                self.primary_identifier.equivalent_to(
+                    data_source, loaded, 1)
+            self.identifiers = loaded_identifiers
+        else:
+            # We were not given any identifiers. See if we can find a
+            # local identifier by doing a lookup by permanent work ID.
+            sort_author, permanent_work_id = self.find_permanent_work_id(
+                _db, metadata_client
+            )
+            if not permanent_work_id:
+                # There's just no way to associate this item
+                # with anything in our collection. Do nothing.
+                return None
+
+            # Try to find other identifiers--the primary identifiers
+            # of other works with the same permanent work ID.
+            qu = _db.query(Identifier).join(
+                Identifier.primarily_identifies).filter(
+                    Edition.permanent_work_id==permanent_work_id).filter(
+                        Identifier.type.in_(
+                            [Identifier.THREEM_ID, 
+                             Identifier.AXIS_360_ID,
+                             Identifier.OVERDRIVE_ID]
+                        )
+                    )
+            identifiers = qu.all()
+            if identifiers:
+                self.primary_identifier = identifiers[0]
+                self.identifiers = identifiers
+            else:
+                # We could calculate a permanent work ID but that
+                # didn't help us find any identifiers.
+                self.log.info(
+                    "Calculating permanent work ID (%s) for %s/%s didn't help us find any copies of the book in this collection.", 
+                    permanent_work_id, self.title, sort_author)
+                return None
         edition, was_new = Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type,
             self.primary_identifier.identifier)
-
         if edition.title != self.title:
             edition.title = self.title
             edition.permanent_work_id = None
         edition.publisher = self.publisher
         edition.medium = Edition.BOOK_MEDIUM
         edition.language = self.language
-
-        for i in self.isbns:
-            if i == identifier:
-                # We already did this one.
-                continue
-            other_identifier, ignore = Identifier.from_asin(_db, i)
-            edition.primary_identifier.equivalent_to(
-                data_source, other_identifier, 1)
 
         if self.published_date:
             edition.published = self.published_date
@@ -85,36 +156,33 @@ class TitleFromExternalList(object):
             edition.permanent_work_id = None
             edition.author = self.display_author
         if not edition.sort_author:
-            edition.sort_author = self.find_sort_name(_db)
-            if edition.sort_author:
-                "IT WAS EASY TO FIND %s!" % edition.sort_author
-        # If find_sort_name returned a sort_name, we can calculate a
-        # permanent work ID for this Edition, and be done with it.
-        #
-        # Otherwise, we'll have to ask the metadata wrangler to find
-        # the canonicalized author name for this book.
+            edition.sort_author = self.find_sort_name(
+                _db, self.primary_identifier, self.display_author, 
+                metadata_client)
         if edition.sort_author:
             edition.calculate_permanent_work_id()
-        else:
-            response = metadata_client.canonicalize_author_name(
-                self.primary_identifier, self.display_author)
-            if (response.status_code == 200 
-                and response.headers['Content-Type'].startswith('text/plain')):
-                edition.sort_author = response.content.decode("utf8")
-                logging.info(
-                    "Canonicalizer to the rescue: %s, %s => %s",
-                        self.primary_identifier.identifier, 
-                        self.display_author,
-                        edition.sort_author
-                )
-                edition.calculate_permanent_work_id()
-            else:
-                logging.info(
-                    "Canonicalizer failed me: %s, %s",
-                    self.primary_identifier.identifier,
-                    self.display_author
-                )
 
+        dirty = False
+        if edition.permanent_work_id:
+            # As a way of correcting errors, wipe out any previous
+            # equivalencies created for this edition's primary
+            # identifier by this data source.
+            for eq in edition.primary_identifier.equivalencies:
+                if eq.data_source == edition.data_source:
+                    _db.delete(eq)
+                    dirty = True
+
+            # Find other editions with the same permanent work ID and
+            # tie their primary identifiers to this list's primary
+            # identifier.
+            other_editions = _db.query(Edition).filter(
+                Edition.permanent_work_id==edition.permanent_work_id).filter(
+                    Edition.id != edition.id)
+            for other_edition in other_editions:
+                edition.primary_identifier.equivalent_to(
+                    data_source,
+                    other_edition.primary_identifier, 0.75)
+                    
 
         # Set or update the description.
         if overwrite_old_data:
@@ -124,7 +192,9 @@ class TitleFromExternalList(object):
                     _db.delete(h.resource.representation)
                     _db.delete(h.resource)
                     _db.delete(h)
+                    dirty = True
 
+        if dirty:
             _db.commit()
 
         if self.description:
@@ -147,7 +217,7 @@ class TitleFromExternalList(object):
         if (not list_entry.first_appearance 
             or list_entry.first_appearance > self.first_appearance):
             if list_entry.first_appearance:
-                logging.info(
+                self.log.info(
                     "I thought %s first showed up at %s, but then I saw it earlier, at %s!",
                     title, list_entry.first_appearance, self.first_appearance
                 )
@@ -156,7 +226,7 @@ class TitleFromExternalList(object):
         if (not list_entry.most_recent_appearance 
             or list_entry.most_recent_appearance < self.most_recent_appearance):
             if list_entry.most_recent_appearance:
-                logging.info(
+                self.log.info(
                     "I thought %s most recently showed up at %s, but then I saw it later, at %s!",
                     title, list_entry.most_recent_appearance, 
                     self.most_recent_appearance
@@ -167,8 +237,44 @@ class TitleFromExternalList(object):
 
         return list_entry, is_new
 
-    def find_sort_name(self, _db):
-        return self.display_name_to_sort_name(_db, self.display_author)
+    @classmethod
+    def find_sort_name(cls, _db, identifier, display_name, metadata_client):
+        """Try as hard as possible to find the canonical name for the
+        given author.
+        """
+        canonical_name = cls.display_name_to_sort_name(
+            _db, display_name)
+        if canonical_name:
+            return canonical_name
+
+        # Time to break out the big guns.
+        return cls.display_name_to_sort_name_through_canonicalizer(
+            _db, identifier, display_name, metadata_client
+        )
+
+    @classmethod
+    def display_name_to_sort_name_through_canonicalizer(
+            cls, _db, identifier, display_name, metadata_client):
+        response = metadata_client.canonicalize_author_name(
+            identifier, display_name)
+        canonical_name = None
+        log = logging.getLogger("Title from external list")
+        if (response.status_code == 200 
+            and response.headers['Content-Type'].startswith('text/plain')):
+            canonical_name = response.content.decode("utf8")
+            log.info(
+                "Canonicalizer found sort name for %s: %s => %s",
+                identifier, 
+                display_name,
+                canonical_name
+            )
+        else:
+            log.warn(
+                "Canonicalizer could not find sort name for %r/%s",
+                identifier,
+                display_name
+            )
+        return canonical_name        
 
     @classmethod
     def display_name_to_sort_name(self, _db, display_name):
@@ -203,25 +309,32 @@ class TitleFromExternalList(object):
 
         return None
 
+
 class CSVFormatError(csv.Error):
     pass
 
 class CustomListFromCSV(object):
 
+    DEFAULT_IDENTIFIER_FIELDS = {
+        "overdrive id" : Identifier.OVERDRIVE_ID,
+        "3m id" : Identifier.THREEM_ID,
+        "axis 360 id" : Identifier.AXIS_360_ID,
+    }
+
     def __init__(self, data_source_name, list_name, metadata_client=None,
                  classification_weight=100,
                  overwrite_old_data=True,
-                 first_appearance_field='Timestamp',
-                 title_field='Title',
-                 author_field='Author',
-                 isbn_field='ISBN',
-                 language_field='Language',
-                 publication_date_field='Publication Year',
-                 tag_fields=['Genre / Collection area'],
+                 first_appearance_field='timestamp',
+                 title_field='title',
+                 author_field='author',
+                 identifier_fields=DEFAULT_IDENTIFIER_FIELDS,
+                 language_field='language',
+                 publication_date_field='publication year',
+                 tag_fields=['tags'],
                  audience_fields=['Age', 'Age range [children]'],
-                 annotation_field='Annotation',
-                 annotation_author_name_field='Name',
-                 annotation_author_affiliation_field='Location',
+                 annotation_field='text',
+                 annotation_author_name_field='name',
+                 annotation_author_affiliation_field='location',
                  default_language='eng',
     ):
         self.data_source_name = data_source_name
@@ -237,7 +350,7 @@ class CustomListFromCSV(object):
         # Set the field names
         self.title_field = title_field
         self.author_field = author_field
-        self.isbn_field = isbn_field
+        self.identifier_fields = identifier_fields
         self.annotation_field=annotation_field
         self.publication_date_field=publication_date_field
         if not tag_fields:
@@ -281,24 +394,52 @@ class CustomListFromCSV(object):
         custom_list.updated = now
         missing_fields = []
         fields = dictreader.fieldnames
-        for i in (self.title_field, self.author_field, self.isbn_field):
+        for i in (self.title_field, self.author_field):
             if i not in fields:
                 missing_fields.append(i)
 
         if missing_fields:
             raise CSVFormatError("Could not find required field(s): %s." %
                                  ", ".join(missing_fields))
-        writer.writerow(["Title", "Author", "ISBN", "Annotation", "Internal work ID", "Sort author", "Import status"])
+
+        found_identifier_field = False
+        identifier_field_names = sorted(self.identifier_fields.keys())
+        for identifier_field_name in identifier_field_names:
+            if identifier_field_name in fields:
+                found_identifier_field = True
+
+        if not found_identifier_field:
+            raise CSVFormatError(
+                "Could not find any of the required identifier fields: %s." %
+                ", ".join(identifier_field_names)
+            )
+
+
+        header_row = [
+            "Title", "Author", "Primary Identifier", "All Identifiers",
+            "Annotation", "Internal work ID", "Sort author", 
+            "Import status",
+        ]
+        writer.writerow([])
         for row in dictreader:
             status, warnings, list_item = self.row_to_list_item(
                 custom_list, data_source, now, row)
-            e = list_item.edition
-
             status = warnings + [status]
-
-            new_row = [e.title, e.author, e.primary_identifier.identifier,
-                       list_item.annotation, e.permanent_work_id, e.sort_author,
-                       "\n".join(status)]
+            if list_item:
+                e = list_item.edition
+                new_row = [
+                    e.title, e.author, e.primary_identifier.identifier,
+                    ", ".join(repr(x) for x in e.equivalent_identifiers()),
+                    list_item.annotation, e.permanent_work_id, e.sort_author,
+                    "\n".join(status)
+                ]
+            else:
+                new_row = [
+                    row.get(self.title_field), row.get(self.author_field),
+                    "", "", "", "", "", 
+                    "\n".join(status),
+                ]
+                pass
             writer.writerow([self._out(x) for x in new_row])
 
     def row_to_list_item(self, custom_list, data_source, now, row):
@@ -311,6 +452,10 @@ class CustomListFromCSV(object):
             custom_list, self.metadata_client, self.overwrite_old_data)
         e = list_item.edition
 
+        if not e:
+            # We couldn't create an Edition, probably because we
+            # couldn't find a useful Identifier.
+            return "Could not create edition", [], None
         q = _db.query(Work).join(Work.primary_edition).filter(
             Edition.permanent_work_id==e.permanent_work_id)
         if q.count() > 0:
@@ -348,7 +493,10 @@ class CustomListFromCSV(object):
             return ''
         if isinstance(x, unicode):
             return x.encode('utf8')
-        return x
+        elif isinstance(x, basestring):
+            return x
+        else:
+            return repr(x)
 
     def _field(self, row, name, default=None):
         "Get a value from a field and ensure it comes in as Unicode."
@@ -376,8 +524,14 @@ class CustomListFromCSV(object):
         warnings = []
         t = self._field(row, self.title_field)
         author = self._field(row, self.author_field)
-        isbn = self._field(row, self.isbn_field)
         annotation = self._field(row, self.annotation_field)
+        identifiers = []
+
+        for field_name, identifier_type in sorted(
+                self.identifier_fields.items()):
+            identifier = self._field(row, field_name)
+            if identifier:
+                identifiers.append((identifier_type, identifier))
 
         annotation_citation = self.annotation_citation(row)
         if annotation_citation:
@@ -403,6 +557,16 @@ class CustomListFromCSV(object):
             language = self._field(row, self.language_field)
             language = LanguageCodes.string_to_alpha_3(language)
         title = TitleFromExternalList(
-            data_source.name, t, author, isbn, published_date,
-            first_appearance, now, None, annotation, language)
+            data_source_name=data_source.name,
+            title=t,
+            display_author=author,
+            primary_identifier=None,
+            published_date=published_date,
+            first_appearance=first_appearance,
+            most_recent_appearance=now,
+            publisher=None,
+            description=annotation, 
+            language=language,
+            identifiers=identifiers,
+        )
         return title, warnings
