@@ -348,12 +348,13 @@ def make_acquisition_groups(annotator, lane, languages):
             unicode(feed)
     )
 
-def popular_feed_cache_url(annotator, lane, languages):
-    if not lane:
-        lane_name = lane
-    else:
-        lane_name = lane.name
-    url = url_for('popular_feed', lane_name=lane_name, _external=True)
+def popular_feed_cache_url(annotator, lane_name, languages, order_facet,
+                           offset, size):
+    if isinstance(lane_name, Lane):
+        lane_name = lane_name.name
+
+    url = url_for('popular_feed', lane_name=lane_name, order=order_facet,
+                  after=offset, size=size,_external=True)
     if '?' in url:
         url += '&'
     else:
@@ -366,13 +367,30 @@ def make_popular_feed(_db, annotator, lane, languages):
 
     # Do some preliminary data checking to avoid generating expensive
     # feeds that contain nothing.
-    if lane.parent:
+    if lane and lane.parent:
         # We only show a best-seller list for the top-level lanes.
         return problem(None, "No such feed", 404)
 
     if 'eng' not in languages:
         # We only have information about English best-sellers.
         return problem(None, "No such feed", 404)
+
+    arg = flask.request.args.get
+    order_facet = arg('order', 'title')
+
+    size = arg('size', '50')
+    try:
+        size = int(size)
+    except ValueError:
+        return problem(None, "Invalid size: %s" % size, 400)
+    size = min(size, 100)
+
+    offset = arg('after', None)
+    if offset:
+        try:
+            offset = int(offset)
+        except ValueError:
+            return problem(None, "Invalid offset: %s" % offset, 400)
 
     if not lane:
         lane_name = lane
@@ -390,11 +408,23 @@ def make_popular_feed(_db, annotator, lane, languages):
     as_of = (datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
     nyt = DataSource.lookup(_db, DataSource.NYT)
     work_feed = CustomListFeed(
-        lane, nyt, languages, as_of, availability=CustomListFeed.ALL)
-    page = work_feed.page_query(_db, None, None).all()
+        lane, nyt, languages, as_of, availability=CustomListFeed.ALL,
+        order_facet=order_facet)
+    page = work_feed.page_query(_db, offset, size).all()
     this_url = cdn_url_for('popular_feed', lane_name=lane_name, _external=True)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
+
+    # Add a 'next' link unless this page is empty.
+    if len(page) == 0:
+        offset = None
+    else:
+        offset = offset or 0
+        offset += size
+        next_url = cdn_url_for(
+            'popular_feed', lane_name=lane_name, order=order_facet,
+            after=offset, size=size, _external=True)
+        opds_feed.add_link(rel="next", href=next_url)
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
             unicode(opds_feed)
@@ -417,7 +447,7 @@ def staff_picks_feed_cache_url(annotator, lane, languages):
 def make_staff_picks_feed(_db, annotator, lane, languages):
     # Do some preliminary data checking to avoid generating expensive
     # feeds that contain nothing.
-    if lane.parent:
+    if lane and lane.parent:
         # We only show a best-seller list for the top-level lanes.
         return problem(None, "No such feed", 404)
 
@@ -825,7 +855,6 @@ def feed(lane):
             return problem(None, "Invalid size: %s" % size, 400)
         size = min(size, 100)
 
-        last_work_seen = None
         offset = arg('after', None)
         if offset:
             try:
@@ -892,7 +921,12 @@ def popular_feed(lane_name):
     languages = languages_for_request()
 
     annotator = CirculationManagerAnnotator(lane)
-    cache_url = popular_feed_cache_url(annotator, lane, languages)
+    arg = flask.request.args.get
+    order_facet = arg('order', 'title')
+    size = arg('size', '50')
+    offset = arg('after', None)
+    cache_url = popular_feed_cache_url(
+        annotator, lane, languages, order_facet, offset, size)
     def get(*args, **kwargs):
         return make_popular_feed(Conf.db, annotator, lane, languages)
     feed_rep, cached = Representation.get(
