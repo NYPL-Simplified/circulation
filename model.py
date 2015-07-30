@@ -3355,27 +3355,12 @@ class Work(Base):
         """Annotate a query that joins Work against Edition to match only
         Works that are on a custom list from the given data source."""
         # Find works that are on a list that meets the given condition.
-        subquery = _db.query(Edition.permanent_work_id).join(
-            Edition.custom_list_entries).join(
-            CustomListEntry.customlist).filter(condition)
+        qu = base_query.join(LicensePool.custom_list_entries)
         if on_list_as_of:
-            # The Edition must have been seen on the given list as
-            # recently as the given date.
-            on_list_clause = (
+            qu = qu.filter(
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
-            subquery = subquery.filter(on_list_clause)
-        subquery = subquery.distinct(Edition.permanent_work_id)
-        subquery = subquery.subquery('customlists')
-
-        # Find Works whose permanent work ID is the same as one of the Editions
-        # in the subquery.
-        has_same_pwid = (
-            subquery.c.permanent_work_id
-            ==Edition.permanent_work_id)
-        q = base_query.join(subquery, has_same_pwid)
-        return q
-
-
+        qu = qu.filter(condition)
+        return qu
 
 
 # Used for quality filter queries.
