@@ -439,10 +439,8 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
         lane = None
 
     staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
-    cutoff = datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff
     work_feed = CustomListFeed(
-        lane, staff, languages, availability=CustomListFeed.ALL,
-        on_list_as_of=cutoff)
+        lane, staff, languages, availability=CustomListFeed.ALL)
     page = work_feed.page_query(_db, None, None).all()
 
     this_url = cdn_url_for('staff_picks_feed', lane_name=lane_name, _external=True)
