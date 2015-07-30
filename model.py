@@ -3355,7 +3355,8 @@ class Work(Base):
         """Annotate a query that joins Work against Edition to match only
         Works that are on a custom list from the given data source."""
         # Find works that are on a list that meets the given condition.
-        qu = base_query.join(LicensePool.custom_list_entries)
+        qu = base_query.join(LicensePool.custom_list_entries).join(
+            CustomListEntry.customlist)
         if on_list_as_of:
             qu = qu.filter(
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
