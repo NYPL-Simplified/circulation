@@ -13,6 +13,7 @@ import log # This sets the appropriate log format and level.
 from model import (
     get_one_or_create,
     Edition,
+    CustomListEntry,
     Identifier,
     LicensePool,
     Subject,
@@ -183,6 +184,26 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
 
     def subject_query(self):
         return self._db.query(Subject)
+
+class CustomListEntrySweepMonitor(IdentifierSweepMonitor):
+
+    def run_once(self, offset):
+        q = self.custom_list_entry_query().filter(
+            CustomListEntry.id > offset).order_by(
+            CustomListEntry.id).limit(self.batch_size)
+        entries = q.all()
+        if entries:
+            self.process_batch(entries)
+            return entries[-1].id
+        else:
+            return 0
+
+    def process_batch(self, entries):
+        for entry in entries:
+            self.process_entry(entry)
+
+    def custom_list_entry_query(self):
+        return self._db.query(CustomListEntry)
 
 
 class EditionSweepMonitor(IdentifierSweepMonitor):
@@ -407,3 +428,17 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
         if self.max_work_id < new_offset:
             return 0
         return new_offset
+
+
+class CustomListEntryLicensePoolUpdateMonitor(CustomListEntrySweepMonitor):
+
+    def __init__(self, _db, interval_seconds=3600*24,
+                 default_counter=0, batch_size=100):
+        super(CustomListEntryLicensePoolUpdateMonitor, self).__init__(
+            _db, "Custom List Entry License Pool Update Monitor",
+            interval_seconds, default_counter, batch_size
+        )
+
+    def process_entry(self, entry):
+        entry.set_license_pool()
+

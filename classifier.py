@@ -41,7 +41,8 @@ class Classifier(object):
     BISAC = "BISAC"
     TAG = "tag"   # Folksonomic tags.
 
-    NYPL_STAFF_PICKS = "NYPL Staff Picks" # Controlled vocabulary for NYPL staff picks
+    # Appeal controlled vocabulary developed by NYPL 
+    NYPL_APPEAL = "NYPL Appeal"
 
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.

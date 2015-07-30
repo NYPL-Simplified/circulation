@@ -3873,7 +3873,7 @@ class Subject(Base):
     BISAC = Classifier.BISAC
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
-    NYPL_STAFF_PICKS = Classifier.NYPL_STAFF_PICKS
+    NYPL_APPEAL = Classifier.NYPL_APPEAL
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
@@ -6004,6 +6004,10 @@ class CustomListEntry(Base):
         """
         _db = Session.object_session(self)
         edition = self.edition
+        if not self.edition:
+            # This shouldn't happen, but no edition means no license pool.
+            self.license_pool = None
+            return self.license_pool
         equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
         pool_q = _db.query(LicensePool).filter(
             LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
@@ -6021,6 +6025,7 @@ class CustomListEntry(Base):
                     "Changing license pool for list entry %r to %r", 
                     self.edition, self.license_pool.identifier
                 )
+        return self.license_pool
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
