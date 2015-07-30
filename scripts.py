@@ -20,6 +20,7 @@ from core.model import (
     Hyperlink,
     Identifier,
     Representation,
+    Subject,
 )
 from core.scripts import Script
 from core.opds_import import (
@@ -192,8 +193,14 @@ class UpdateStaffPicksScript(Script):
             raise ValueError("Unexpected media type %s" % 
                              representation.media_type)
             return
+        tag_fields = {
+            'tags': Subject.NYPL_APPEAL,
+        }
+
         importer = CustomListFromCSV(
-            DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME)
+            DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME,
+            tag_fields=tag_fields,
+        )
         reader = csv.DictReader(StringIO(representation.content))
         writer = csv.writer(sys.stdout)
         importer.to_customlist(self._db, reader, writer)
