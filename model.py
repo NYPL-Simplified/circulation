@@ -911,7 +911,7 @@ class Identifier(Base):
         equivalencies = Equivalency.for_identifiers(
             _db, working_set, seen_equivalency_ids)
         for e in equivalencies:
-            logging.debug("%r => %r", e.input, e.output)
+            #logging.debug("%r => %r", e.input, e.output)
             seen_equivalency_ids.add(e.id)
 
             # Signal strength decreases monotonically, so
@@ -955,8 +955,8 @@ class Identifier(Base):
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            logging.debug(
-                " Here's the new working set: %r", new_working_set_repr)
+            #logging.debug(
+            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -980,10 +980,10 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        logging.debug(
-            "Pruned %d from working set",
-            len(surviving_working_set.intersection(new_working_set))
-        )
+        #logging.debug(
+        #    "Pruned %d from working set",
+        #    len(surviving_working_set.intersection(new_working_set))
+        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -3873,6 +3873,7 @@ class Subject(Base):
     BISAC = Classifier.BISAC
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
+    NYPL_STAFF_PICKS = Classifier.NYPL_STAFF_PICKS
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
@@ -4861,6 +4862,10 @@ class LicensePool(Base):
 
     # One LicensePool can have many Holds.
     holds = relationship('Hold', backref='license_pool')
+
+    # One LicensePool can be associated with many CustomListEntries.
+    custom_list_entries = relationship(
+        'CustomListEntry', backref='license_pool')
 
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
@@ -5981,6 +5986,7 @@ class CustomListEntry(Base):
     
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     annotation = Column(Unicode)
 
     # These two fields are for best-seller lists. Even after a book
@@ -5988,6 +5994,33 @@ class CustomListEntry(Base):
     # still relevant.
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
+
+    def set_license_pool(self):
+        """If possible, set the best available LicensePool to be used when
+        fulfilling requests for this CustomListEntry.
+
+        'Best' means it has the most copies of the book available
+        right now.
+        """
+        _db = Session.object_session(self)
+        edition = self.edition
+        equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
+        pool_q = _db.query(LicensePool).filter(
+            LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
+                LicensePool.licenses_available.desc(),
+                LicensePool.patrons_in_hold_queue.asc())
+        pools = pool_q.limit(1).all()
+        if len(pools) == 0:
+            # There are no LicensePools for this Edition
+            self.license_pool = None
+        else:
+            old_license_pool = self.license_pool
+            self.license_pool = pools[0]
+            if old_license_pool != self.license_pool:
+                logging.info(
+                    "Changing license pool for list entry %r to %r", 
+                    self.edition, self.license_pool.identifier
+                )
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

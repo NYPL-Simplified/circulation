@@ -93,52 +93,70 @@ class TitleFromExternalList(object):
         if self.identifiers:
             # We were told that this edition has a certain number of
             # identifiers. The creator of the list believes all these
-            # identifiers are equivalent.
+            # identifiers are equivalent, but may be wrong.
             loaded_identifiers = []
             for i in self.identifiers:
                 loaded = self._load_identifier(_db, i)
-                if not loaded:
-                    set_trace()
-                    continue
                 loaded_identifiers.append(loaded)
                 if loaded == self.primary_identifier:
                     continue
                 self.primary_identifier.equivalent_to(
-                    data_source, loaded, 1)
+                    data_source, loaded, 0.75)
             self.identifiers = loaded_identifiers
-        else:
-            # We were not given any identifiers. See if we can find a
-            # local identifier by doing a lookup by permanent work ID.
-            sort_author, permanent_work_id = self.find_permanent_work_id(
-                _db, metadata_client
-            )
-            if not permanent_work_id:
-                # There's just no way to associate this item
-                # with anything in our collection. Do nothing.
-                return None
 
-            # Try to find other identifiers--the primary identifiers
-            # of other works with the same permanent work ID.
-            qu = _db.query(Identifier).join(
-                Identifier.primarily_identifies).filter(
-                    Edition.permanent_work_id==permanent_work_id).filter(
-                        Identifier.type.in_(
-                            [Identifier.THREEM_ID, 
-                             Identifier.AXIS_360_ID,
-                             Identifier.OVERDRIVE_ID]
-                        )
+        # Also see if we can find a local identifier by doing a lookup
+        # by permanent work ID.
+        sort_author, permanent_work_id = self.find_permanent_work_id(
+            _db, metadata_client
+        )
+        if not permanent_work_id:
+            # There's just no way to associate this item
+            # with anything in our collection. Do nothing.
+            return None
+
+        # Try to find additional identifiers--the primary identifiers
+        # of other Editions with the same permanent work ID,
+        # representing books already in our collection.
+        qu = _db.query(Identifier).join(
+            Identifier.primarily_identifies).filter(
+                Edition.permanent_work_id==permanent_work_id).filter(
+                    Identifier.type.in_(
+                        [Identifier.THREEM_ID, 
+                         Identifier.AXIS_360_ID,
+                         Identifier.OVERDRIVE_ID]
                     )
-            identifiers = qu.all()
-            if identifiers:
-                self.primary_identifier = identifiers[0]
-                self.identifiers = identifiers
+                )
+        identifiers_same_work_id = qu.all()
+        if self.primary_identifier:
+            # We had a primary identifier already, but now we have some
+            # more identifiers.
+            self.identifiers = list(set(self.identifiers + identifiers_same_work_id))
+        else:
+            # The list creator didn't provide a primary identifier, so
+            # finding the book already in our collection is pretty much
+            # our only hope.
+            if identifiers_same_work_id:
+                self.primary_identifier = identifiers_same_work_id[0]
+                self.identifiers = identifiers_same_work_id
+                self.log.info(
+                    "No identifier was provided for %s/%s, but calculating a premanent work ID (%s) helped us find books already in our collection: %r",
+                    self.title, sort_author, permanent_work_id, identifiers_same_work_id
+                )
             else:
-                # We could calculate a permanent work ID but that
-                # didn't help us find any identifiers.
                 self.log.info(
                     "Calculating permanent work ID (%s) for %s/%s didn't help us find any copies of the book in this collection.", 
-                    permanent_work_id, self.title, sort_author)
-                return None
+                    permanent_work_id, self.title, sort_author
+                )
+
+        if self.primary_identifier:
+            for same_work_id in identifiers_same_work_id:
+                if same_work_id != self.primary_identifier:
+                    self.primary_identifier.equivalent_to(
+                        data_source, same_work_id, 0.85)
+        else:
+            # Without a primary identifier we can't create an Edition.
+            return None
+
         edition, was_new = Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type,
             self.primary_identifier.identifier)
@@ -320,6 +338,10 @@ class CustomListFromCSV(object):
         "3m id" : Identifier.THREEM_ID,
         "axis 360 id" : Identifier.AXIS_360_ID,
     }
+    
+    DEFAULT_TAG_FIELDS = {
+        'tags': Subject.TAG,
+    }
 
     def __init__(self, data_source_name, list_name, metadata_client=None,
                  classification_weight=100,
@@ -330,7 +352,7 @@ class CustomListFromCSV(object):
                  identifier_fields=DEFAULT_IDENTIFIER_FIELDS,
                  language_field='language',
                  publication_date_field='publication year',
-                 tag_fields=['tags'],
+                 tag_fields=DEFAULT_TAG_FIELDS,
                  audience_fields=['Age', 'Age range [children]'],
                  annotation_field='text',
                  annotation_author_name_field='name',
@@ -354,10 +376,10 @@ class CustomListFromCSV(object):
         self.annotation_field=annotation_field
         self.publication_date_field=publication_date_field
         if not tag_fields:
-            tag_fields = []
+            tag_fields = {}
         elif isinstance(tag_fields, basestring):
-            tag_fields = [tag_fields]
-        self.tag_fields=list(tag_fields)
+            tag_fields = {tag_fields : Subject.TAG}
+        self.tag_fields = tag_fields
         if not audience_fields:
             audience_fields = []
         elif isinstance(audience_fields, basestring):
@@ -473,11 +495,11 @@ class CustomListFromCSV(object):
             identifier.classifications = []
             _db.commit()
 
-        for f in self.tag_fields:
+        for f, schema in self.tag_fields.items():
             tags = self.to_list(self._field(row, f, ""))
             for tag in tags:
                 identifier.classify(
-                    e.data_source, Subject.TAG, tag,
+                    e.data_source, schema, tag,
                     self.classification_weight)
 
         for f in self.audience_fields:
