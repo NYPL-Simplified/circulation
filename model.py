@@ -792,6 +792,8 @@ class Identifier(Base):
 
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+        if not identifier_string:
+            return None
         m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
         if m:
             type = Identifier.GUTENBERG_ID
