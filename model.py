@@ -2316,6 +2316,27 @@ class Work(Base):
     NOT_APPLICABLE_APPEAL = "Not Applicable"
     NO_APPEAL = "None"
 
+    # If no quality data is available for a work, it will be assigned
+    # a default quality based on where we got it.
+    #
+    # The assumption is that a librarian would not have ordered a book
+    # if it didn't meet a minimum level of quality.
+    #
+    # For data sources where librarians tend to order big packages of
+    # books instead of selecting individual titles, the default
+    # quality is lower. For data sources where there is no curation at
+    # all, the default quality is zero.
+    #
+    # If there is absolutely no way to get quality data for a curated
+    # data source, each work is assigned the minimum level of quality
+    # necessary to show up in featured feeds.
+    default_quality_by_data_source = {
+        DataSource.GUTENBERG: 0,
+        DataSource.OVERDRIVE: 0.4,
+        DataSource.THREEM : 0.65,
+        DataSource.AXIS_360: 0.65,
+    }
+
     __tablename__ = 'works'
     id = Column(Integer, primary_key=True)
 
@@ -2868,8 +2889,15 @@ class Work(Base):
             #    # books.
             #    flattened_data = [self.primary_edition.primary_identifier.id]
 
+        
+
         if calculate_quality:
-            self.calculate_quality(flattened_data)
+            default_quality = 0
+            if self.primary_edition:
+                data_source_name = self.primary_edition.data_source.name
+                default_quality = self.default_quality_by_data_source.get(
+                    data_source_name, 0)
+            self.calculate_quality(flattened_data, default_quality)
 
         self.last_update_time = datetime.datetime.utcnow()
 
@@ -2904,10 +2932,6 @@ class Work(Base):
                 dict(fiction=fiction,
                      audience=self.audience, target_age=target_age)))
         l.append(" " + ", ".join(repr(wg) for wg in self.work_genres))
-        if self.summary:
-            d = " Description (%.2f) %s" % (
-                self.summary.quality, self.summary.representation.content[:100])
-            l.append(d)
 
         def _ensure(s):
             if not s:
@@ -2915,7 +2939,13 @@ class Work(Base):
             elif isinstance(s, unicode):
                 return s
             else:
-                return s.decode("utf8")
+                return s.decode("utf8", "replace")
+
+        if self.summary:
+            snippet = _ensure(self.summary.representation.content)[:100]
+            d = " Description (%.2f) %s" % (self.summary.quality, snippet)
+            l.append(d)
+
         l = [_ensure(s) for s in l]
         return u"\n".join(l)
 
@@ -2997,7 +3027,7 @@ class Work(Base):
         else:
             self.set_presentation_ready()
 
-    def calculate_quality(self, flattened_data):
+    def calculate_quality(self, flattened_data, default_quality):
         _db = Session.object_session(self)
         quantities = [Measurement.POPULARITY, Measurement.RATING,
                       Measurement.DOWNLOADS, Measurement.QUALITY]
@@ -3006,7 +3036,8 @@ class Work(Base):
                 Measurement.is_most_recent==True).filter(
                     Measurement.quantity_measured.in_(quantities)).all()
 
-        self.quality = Measurement.overall_quality(measurements)
+        self.quality = Measurement.overall_quality(
+            measurements, default_value=default_quality)
 
     def genre_weights_from_metadata(self, identifier_ids):
         """Use work metadata to simulate genre classifications.
@@ -3424,7 +3455,7 @@ class Measurement(Base):
 
     @classmethod
     def overall_quality(cls, measurements, popularity_weight=0.3,
-                        rating_weight=0.7):
+                        rating_weight=0.7, default_value=0):
         """Turn a bunch of measurements into an overall measure of quality."""
         if popularity_weight + rating_weight != 1.0:
             raise ValueError(
@@ -3449,7 +3480,7 @@ class Measurement(Base):
         quality = cls._average_normalized_value(qualities)
         if popularity is None and rating is None and quality is None:
             # We have absolutely no idea about the quality of this work.
-            return 0
+            return default_value
         if popularity is not None and rating is None and quality is None:
             # Our idea of the quality depends entirely on the work's popularity.
             return popularity

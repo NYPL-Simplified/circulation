@@ -29,9 +29,20 @@ class Axis360API(object):
     def __init__(self, _db, username=None, library_id=None, password=None,
                  base_url=DEFAULT_BASE_URL):
         self._db = _db
-        self.library_id = library_id or os.environ['AXIS_360_LIBRARY_ID']
-        self.username = username or os.environ['AXIS_360_USERNAME']
-        self.password = password or os.environ['AXIS_360_PASSWORD']
+        self.log = logging.getLogger("Axis 360 API")
+        self.library_id = library_id or os.environ.get('AXIS_360_LIBRARY_ID')
+        self.username = username or os.environ.get('AXIS_360_USERNAME')
+        self.password = password or os.environ.get('AXIS_360_PASSWORD')
+        for v, desc in (
+                (self.library_id, "library ID"),
+                (self.username, "username"),
+                (self.password, "password")):
+            if not v:
+                self.log.warn(
+                    "No Axis 360 %s present, Axis functionality will not work.",
+                    desc
+                )
+
         self.base_url = base_url
         self.token = None
         self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
@@ -97,7 +108,7 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        logging.debug("Making Axis 360 request to %s params=%r", url, params)
+        self.log.debug("Making Axis 360 request to %s params=%r", url, params)
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)
