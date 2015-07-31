@@ -1749,6 +1749,8 @@ class TestCustomList(DatabaseTest):
         customlist2, [edition2] = self._customlist(num_entries=1)
         
         # Each work is on one list.
+        edition1.license_pool = w1.license_pools[0]
+        edition2.license_pool = w2.license_pools[0]
         w1.primary_edition.permanent_work_id = edition1.permanent_work_id
         w2.primary_edition.permanent_work_id = edition2.permanent_work_id
 
@@ -1795,6 +1797,7 @@ class TestCustomList(DatabaseTest):
         customlist, [edition] = self._customlist(num_entries=1)
 
         work.primary_edition.permanent_work_id = edition.permanent_work_id
+        edition.license_pool = work.license_pools[0]
 
         # Create a feed for works whose last appearance on the list
         # was no more than one day ago.
