@@ -1720,7 +1720,7 @@ class TestCustomList(DatabaseTest):
         # because the list entries have no associated license pool.
         eq_([], feed.base_query(self._db).all())
 
-        for entry in custom_list:
+        for entry in custom_list.entries:
             entry.set_license_pool()
 
         # Now there is one match -- the work whose permament work ID
