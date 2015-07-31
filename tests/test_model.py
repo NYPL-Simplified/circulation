@@ -1716,11 +1716,25 @@ class TestCustomList(DatabaseTest):
         # Now create a custom list feed.
         feed = EnumeratedCustomListFeed(None, [custom_list], ["eng"])
 
-        # There is one match -- the work whose permament work ID overlaps
-        # with a permanent work ID on the custom list.
+        # Until we call set_license_pool on the entries there is no match,
+        # because the list entries have no associated license pool.
+        eq_([], feed.base_query(self._db).all())
+
+        for entry in custom_list:
+            entry.set_license_pool()
+
+        # Now there is one match -- the work whose permament work ID
+        # overlaps with a permanent work ID on the custom list.
         [match] = feed.base_query(self._db).all()
         eq_(w1, match)
 
+        # Set the second edition equivalent to one of our primary
+        # edition's IDs, and set_license_pool() will set it
+        entry2.set_license_pool()
+
+        [match1, match2] = feed.base_query(self._db).all()
+        eq_(w1, match1)
+        eq_(w2, match1)
 
     def test_feed_consolidates_multiple_lists(self):
 

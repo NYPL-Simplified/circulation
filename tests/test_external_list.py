@@ -29,7 +29,8 @@ class TestCustomListFromCSV(DatabaseTest):
         self.metadata = DummyMetadataClient()
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'
         self.l = CustomListFromCSV(self.data_source.name, "Test list",
-                                   metadata_client = self.metadata)
+                                   metadata_client = self.metadata,
+                                   identifier_fields={'isbn': Identifier.ISBN})
         self.custom_list, ignore = self._customlist(
             data_source_name=self.data_source.name, num_entries=0)
         self.now = datetime.datetime.utcnow()
@@ -53,7 +54,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
         author = author or self._str
         row[l.author_field] = author
-        row[l.isbn_field] = self._isbn
+        row['isbn'] = self._isbn
 
         for listkey in (l.audience_fields, l.tag_fields):
             for key in listkey:
@@ -82,7 +83,7 @@ class TestCustomListFromCSV(DatabaseTest):
         eq_([], warnings)
         eq_(row[self.l.title_field], title.title)
         eq_(row[self.l.author_field], title.display_author)
-        eq_(row[self.l.isbn_field], title.primary_isbn)
+        eq_(('ISBN', row['isbn']), title.primary_identifier)
 
         expect_pub = datetime.datetime.strptime(
             row[self.l.publication_date_field], self.DATE_FORMAT)
@@ -109,7 +110,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
         i = e.primary_identifier
         eq_(Identifier.ISBN, i.type)
-        eq_(row[self.l.isbn_field], i.identifier)
+        eq_(row['isbn'], i.identifier)
 
         # There should be one description.
         [link] = i.links
@@ -155,7 +156,7 @@ class TestCustomListFromCSV(DatabaseTest):
         row1 = self.create_row()
         row2 = self.create_row()
         row3 = self.create_row()
-        for f in self.l.title_field, self.l.author_field, self.l.isbn_field:
+        for f in self.l.title_field, self.l.author_field, 'isbn':
             row2[f] = row1[f]
             row3[f] = row1[f]
 

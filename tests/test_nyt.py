@@ -97,7 +97,10 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         title = [x for x in l if x.title=='THE GIRL ON THE TRAIN'][0]
         eq_("9780698185395", title.primary_isbn13)
         eq_("0698185390", title.primary_isbn10)
-        eq_(["9780698185395", "9781594633669"], sorted(title.isbns))
+        eq_(
+            [('ISBN', u'9780698185395'), ('ISBN', u'9781594633669')],
+            sorted(title.identifiers)
+        )
 
         eq_("Paula Hawkins", title.display_author)
         eq_("Riverhead", title.publisher)

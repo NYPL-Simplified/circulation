@@ -3036,7 +3036,7 @@ class Work(Base):
         else:
             self.set_presentation_ready()
 
-    def calculate_quality(self, flattened_data, default_quality):
+    def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)
         quantities = [Measurement.POPULARITY, Measurement.RATING,
                       Measurement.DOWNLOADS, Measurement.QUALITY]

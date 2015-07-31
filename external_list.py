@@ -109,7 +109,7 @@ class TitleFromExternalList(object):
         sort_author, permanent_work_id = self.find_permanent_work_id(
             _db, metadata_client
         )
-        if not permanent_work_id:
+        if not self.identifiers and not permanent_work_id:
             # There's just no way to associate this item
             # with anything in our collection. Do nothing.
             return None
