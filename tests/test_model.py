@@ -1716,25 +1716,27 @@ class TestCustomList(DatabaseTest):
         # Now create a custom list feed.
         feed = EnumeratedCustomListFeed(None, [custom_list], ["eng"])
 
-        # Until we call set_license_pool on the entries there is no match,
-        # because the list entries have no associated license pool.
+        # At first, the list entries are not associated with any IDs
+        # that have a licensepool. set_license_pool() does nothing.
         eq_([], feed.base_query(self._db).all())
-
         for entry in custom_list.entries:
             entry.set_license_pool()
+        eq_([], feed.base_query(self._db).all())
 
-        # Now there is one match -- the work whose permament work ID
-        # overlaps with a permanent work ID on the custom list.
+        # But if we associate a list entry's primary identifier with
+        # the primary identifier of one of our license pools,
+        # set_license_pool() does something.
+        first_list_entry = custom_list.entries[0]
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        first_list_entry.edition.primary_identifier.equivalent_to(
+            source, w1.license_pools[0].identifier, 1)
+        first_list_entry.set_license_pool()
+        eq_(w1.license_pools[0], first_list_entry.license_pool)
+
+        # Suddenly, one of the books in our collection is associated
+        # with a list item.
         [match] = feed.base_query(self._db).all()
         eq_(w1, match)
-
-        # Set the second edition equivalent to one of our primary
-        # edition's IDs, and set_license_pool() will set it
-        entry2.set_license_pool()
-
-        [match1, match2] = feed.base_query(self._db).all()
-        eq_(w1, match1)
-        eq_(w2, match1)
 
     def test_feed_consolidates_multiple_lists(self):
 
