@@ -845,9 +845,14 @@ class Identifier(Base):
             data_source=data_source,
             input=self,
             output=identifier,
-            create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
-        logging.info(
-            "Identifier equivalency: %r==%r p=%.2f", self, identifier, strength)
+            on_multiple='interchangeable'
+        )
+        eq.strength=strength
+        if new:
+            logging.info(
+                "Identifier equivalency: %r==%r p=%.2f", self, identifier, 
+                strength
+            )
         return eq
 
     @classmethod

@@ -9,6 +9,7 @@ from sqlalchemy.orm.session import Session
 from opds_import import SimplifiedOPDSLookup
 import logging
 from model import (
+    get_one,
     get_one_or_create,
     CustomList,
     CustomListEntry,
@@ -89,6 +90,33 @@ class TitleFromExternalList(object):
         self.log.info("Primary identifier: %r", self.primary_identifier)
         data_source = DataSource.lookup(_db, self.data_source_name)
 
+        edition = None
+        sort_author = None
+        permanent_work_id = None
+        if self.primary_identifier:
+            # First thing to do is to try to find an existing edition
+            # from this data source, from a previous attempt to import
+            # the external list. This will let us skip most of the
+            # work.
+            edition = get_one(_db, Edition,
+                              data_source=data_source,
+                              primary_identifier=self.primary_identifier)
+            if edition:
+                self.log.info("Found existing edition: %r", edition)
+                sort_author = edition.sort_author
+                permanent_work_id = edition.permanent_work_id
+        if not edition:
+            # See if we can find a local identifier by doing a lookup
+            # by permanent work ID.
+            sort_author, permanent_work_id = self.find_permanent_work_id(
+                _db, metadata_client
+            )
+
+        if not edition and not self.identifiers and not permanent_work_id:
+            # There's just no way to associate this item
+            # with anything in our collection. Do nothing.
+            return None
+
         if self.identifiers:
             # We were told that this edition has a certain number of
             # identifiers. The creator of the list believes all these
@@ -103,15 +131,6 @@ class TitleFromExternalList(object):
                     data_source, loaded, 0.75)
             self.identifiers = loaded_identifiers
 
-        # Also see if we can find a local identifier by doing a lookup
-        # by permanent work ID.
-        sort_author, permanent_work_id = self.find_permanent_work_id(
-            _db, metadata_client
-        )
-        if not self.identifiers and not permanent_work_id:
-            # There's just no way to associate this item
-            # with anything in our collection. Do nothing.
-            return None
 
         # Try to find additional identifiers--the primary identifiers
         # of other Editions with the same permanent work ID,
@@ -130,7 +149,7 @@ class TitleFromExternalList(object):
             # We had a primary identifier already, but now we have some
             # more identifiers.
             self.identifiers = list(set(self.identifiers + identifiers_same_work_id))
-        else:
+        elif not edition:
             # The list creator didn't provide a primary identifier, so
             # finding the book already in our collection is pretty much
             # our only hope.
@@ -152,13 +171,14 @@ class TitleFromExternalList(object):
                 if same_work_id != self.primary_identifier:
                     self.primary_identifier.equivalent_to(
                         data_source, same_work_id, 0.85)
-        else:
+        elif not edition:
             # Without a primary identifier we can't create an Edition.
             return None
 
-        edition, was_new = Edition.for_foreign_id(
-            _db, data_source, self.primary_identifier.type,
-            self.primary_identifier.identifier)
+        if not edition:
+            edition, was_new = Edition.for_foreign_id(
+                _db, data_source, self.primary_identifier.type,
+                self.primary_identifier.identifier)
         if edition.title != self.title:
             edition.title = self.title
             edition.permanent_work_id = None
@@ -213,13 +233,14 @@ class TitleFromExternalList(object):
                     _db.delete(h)
                     dirty = True
 
-        if dirty:
-            _db.commit()
-
         if self.description:
             description, is_new = self.primary_identifier.add_link(
                 Hyperlink.DESCRIPTION, None, data_source, media_type='text/plain', 
                 content=self.description)
+            dirty = dirty or is_new
+
+        if dirty:
+            _db.commit()
 
         return edition
 

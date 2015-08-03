@@ -154,7 +154,7 @@ class NYTBestSellerList(list):
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    logging.debug("Newly seen ISBN: %r, %s", key, len(self))
+                    # logging.debug("Newly seen ISBN: %r, %s", key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
