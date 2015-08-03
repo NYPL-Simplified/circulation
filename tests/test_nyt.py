@@ -178,7 +178,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
              ("ISBN", "9781594633669"),
          ], sorted(equivalent_identifiers))
 
-        eq_(datetime.datetime(2015, 2, 01), edition.published)
+        eq_(datetime.date(2015, 2, 1), edition.published)
         eq_("Paula Hawkins", edition.author)
         # Note that this is None; the next test shows when it gets set.
         eq_(None, edition.sort_author)
