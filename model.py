@@ -836,6 +836,10 @@ class Identifier(Base):
         identifiers are equivalent.
         """
         _db = Session.object_session(self)
+        if self == identifier:
+            # That an identifier is equivalent to itself is tautological.
+            # Do nothing.
+            return None
         eq, new = get_one_or_create(
             _db, Equivalency,
             data_source=data_source,

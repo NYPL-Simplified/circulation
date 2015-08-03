@@ -59,7 +59,6 @@ class TitleFromExternalList(object):
         if isinstance(t, Identifier):
             return t
         identifier_type, identifier_identifier = t
-        print identifier_type, identifier_identifier
         identifier, ignore = Identifier.for_foreign_id(
             _db, identifier_type, identifier_identifier)
         return identifier
@@ -197,9 +196,11 @@ class TitleFromExternalList(object):
                 Edition.permanent_work_id==edition.permanent_work_id).filter(
                     Edition.id != edition.id)
             for other_edition in other_editions:
-                edition.primary_identifier.equivalent_to(
-                    data_source,
-                    other_edition.primary_identifier, 0.75)
+                if (edition.primary_identifier 
+                    != other_edition.primary_identifier):
+                    edition.primary_identifier.equivalent_to(
+                        data_source,
+                        other_edition.primary_identifier, 0.75)
                     
 
         # Set or update the description.
