@@ -28,16 +28,46 @@ class ThreeMAPI(object):
 
     MAX_METADATA_AGE = timedelta(days=180)
 
+    log = logging.getLogger("3M API")
+
     def __init__(self, _db, account_id=None, library_id=None, account_key=None,
                  base_url = "https://cloudlibraryapi.3m.com/",
                  version="2.0"):
         self._db = _db
         self.version = version
-        self.library_id = library_id or os.environ['THREEM_LIBRARY_ID']
-        self.account_id = account_id or os.environ['THREEM_ACCOUNT_ID']
-        self.account_key = account_key or os.environ['THREEM_ACCOUNT_KEY']
+
+        (env_library_id, env_account_id, 
+         env_account_key) = self.environment_values()
+
+        self.library_id = library_id or env_library_id
+        self.account_id = account_id or env_account_id
+        self.account_key = account_key or env_account_key
         self.base_url = base_url
         self.source = DataSource.lookup(self._db, DataSource.THREEM)
+
+    @classmethod
+    def environment_values(
+            self, client_key=None, client_secret=None,
+            website_id=None, library_id=None, collection_name=None):
+        return [
+            os.environ.get(var) for var in [
+                'THREEM_LIBRARY_ID',
+                'THREEM_ACCOUNT_ID',
+                'THREEM_ACCOUNT_KEY',
+            ]
+        ]
+
+    @classmethod
+    def from_environment(cls, _db):
+        # Make sure all environment values are present. If any are missing,
+        # return None
+        values = cls.environment_values()
+        if len([x for x in values if not x]):
+            cls.log.info(
+                "No 3M client configured."
+            )
+            return None
+        return cls(_db)
 
     def now(self):
         """Return the current GMT time in the format 3M expects."""
@@ -77,7 +107,7 @@ class ThreeMAPI(object):
             headers = {"Content-Type" : "application/xml"}
         self.sign(method, headers, path)
         # print headers
-        logging.info("3M request: %s %s", method, url)
+        self.log.info("3M request: %s %s", method, url)
         if max_age and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,

@@ -17,6 +17,8 @@ from model import (
 
 class OverdriveAPI(object):
 
+    log = logging.getLogger("Overdrive API")
+
     TOKEN_ENDPOINT = "https://oauth.overdrive.com/token"
     PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
 
@@ -46,20 +48,41 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
     
+    @classmethod
+    def environment_values(cls):
+        return [
+            os.environ.get(var) for var in [
+                'OVERDRIVE_CLIENT_KEY',
+                'OVERDRIVE_CLIENT_SECRET',
+                'OVERDRIVE_WEBSITE_ID',
+                'OVERDRIVE_LIBRARY_ID',
+                'OVERDRIVE_COLLECTION_NAME',
+            ]
+        ]
+
     def __init__(self, _db):
         self._db = _db
         self.source = DataSource.lookup(_db, DataSource.OVERDRIVE)
 
         # Set some stuff from environment variables
-        self.client_key = os.environ['OVERDRIVE_CLIENT_KEY']
-        self.client_secret = os.environ['OVERDRIVE_CLIENT_SECRET']
-        self.website_id = os.environ['OVERDRIVE_WEBSITE_ID']
-        self.library_id = os.environ['OVERDRIVE_LIBRARY_ID']
-        self.collection_name = os.environ['OVERDRIVE_COLLECTION_NAME']
+        (self.client_key, self.client_secret, self.website_id, 
+         self.library_id, self.collection_name) = self.environment_values()
 
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
         self.collection_token = self.get_library()['collectionToken']
+
+    @classmethod
+    def from_environment(cls, _db):
+        # Make sure all environment values are present. If any are missing,
+        # return None
+        values = cls.environment_values()
+        if len([x for x in values if not x]):
+            cls.log.info(
+                "No Overdrive client configured."
+            )
+            return None
+        return cls(_db)
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
@@ -134,7 +157,7 @@ class OverdriveAPI(object):
         try:
             data = json.loads(content)
         except Exception, e:
-            logging.error("OVERDRIVE ERROR: %r %r %r",
+            self.log.error("OVERDRIVE ERROR: %r %r %r",
                           status_code, headers, content)
             return
         previous_link = OverdriveRepresentationExtractor.link(data, 'last')
@@ -154,7 +177,7 @@ class OverdriveAPI(object):
         # we can do is get events between the start time and now.
 
         last_update_time = start-self.EVENT_DELAY
-        logging.info("Now: %s Asking for: %s", start, last_update_time)
+        self.log.info("Now: %s Asking for: %s", start, last_update_time)
         params = dict(lastupdatetime=last_update_time,
                       sort="popularity:desc",
                       limit=self.PAGE_SIZE_LIMIT,
@@ -225,7 +248,8 @@ class OverdriveRepresentationExtractor(object):
                 link = links['availability']['href']
                 data['availability_link'] = OverdriveAPI.make_link_safe(link)
             else:
-                logging.warn("No availability link for %s", book_id)
+                logging.getLogger("Overdrive API").warn(
+                    "No availability link for %s", book_id)
             l.append(data)
         return l
 

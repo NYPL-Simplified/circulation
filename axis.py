@@ -26,26 +26,42 @@ class Axis360API(object):
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
 
+    log = logging.getLogger("Axis 360 API")
+
     def __init__(self, _db, username=None, library_id=None, password=None,
                  base_url=DEFAULT_BASE_URL):
         self._db = _db
-        self.log = logging.getLogger("Axis 360 API")
-        self.library_id = library_id or os.environ.get('AXIS_360_LIBRARY_ID')
-        self.username = username or os.environ.get('AXIS_360_USERNAME')
-        self.password = password or os.environ.get('AXIS_360_PASSWORD')
-        for v, desc in (
-                (self.library_id, "library ID"),
-                (self.username, "username"),
-                (self.password, "password")):
-            if not v:
-                self.log.warn(
-                    "No Axis 360 %s present, Axis functionality will not work.",
-                    desc
-                )
-
+        (env_library_id, env_username, 
+         env_password) = self.environment_values()
+            
+        self.library_id = library_id or env_library_id
+        self.username = username or env_username
+        self.password = password or env_password
         self.base_url = base_url
         self.token = None
         self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+    @classmethod
+    def environment_values(cls):
+        return [
+            os.environ.get(var) for var in [
+                'AXIS_360_LIBRARY_ID',
+                'AXIS_360_USERNAME',
+                'AXIS_360_PASSWORD',
+            ]
+        ]
+
+    @classmethod
+    def from_environment(cls, _db):
+        # Make sure all environment values are present. If any are missing,
+        # return None
+        values = cls.environment_values()
+        if len([x for x in values if not x]):
+            cls.log.info(
+                "No Axis 360 client configured."
+            )
+            return None
+        return cls(_db)
 
     @property
     def authorization_headers(self):
