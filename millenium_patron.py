@@ -34,9 +34,9 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     log = logging.getLogger("Millenium Patron API")
 
-    def __init__(self, host=None):
-        [env_host] = self.environment_values()
-        host = host or env_host
+    def __init__(self, root=None):
+        [env_root] = self.environment_values()
+        root = root or env_root
         if not root.endswith('/'):
             root = root + "/"
         self.root = root
