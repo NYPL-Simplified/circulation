@@ -18,6 +18,7 @@ from sqlalchemy.orm.exc import (
 import flask
 from flask import Flask, url_for, redirect, Response, make_response
 
+from core.config import ConfigurationFile, CannotLoadConfigurationFile
 from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
@@ -126,7 +127,12 @@ class Conf:
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
-        cls.config = cls.load_config_file()
+        try:
+            root_dir = os.path.split(__file__)[0]
+            cls.config = ConfigurationFile.load(root_dir)
+        except CannotLoadConfigurationFile, e:
+            cls.log.error("Could not load configuration file: %s" % e)
+            sys.exit()
         if cls.testing:
             if not lanes:
                 lanes = make_lanes(_db)
@@ -189,58 +195,6 @@ class Conf:
         df[MaterializedWorkWithGenre.sort_title] = "title"
         df[MaterializedWork.sort_author] = "author"
         df[MaterializedWorkWithGenre.sort_author] = "author"
-
-    @classmethod
-    def load_config_file(cls):
-        cfv = 'CONFIGURATION_FILE'
-        if cfv in os.environ:
-            # If there some indication that a configuration file
-            # should be present, any failure to load it is treated
-            # as a fatal error.
-            config_path = os.environ[cfv]
-            if not config_path.startswith('/'):
-                # Path is relative to the application root.
-                root = os.path.split(__file__)[0]
-                config_path = os.path.join(root, config_path)
-            if not os.path.exists(config_path):
-                cls.log.error(
-                    "Could not locate configuration file %s", config_path
-                )
-                sys.exit()
-            try:
-                configuration = json.load(open(config_path))
-                cls.install_configuration(configuration)
-            except Exception, e:
-                cls.log.error(
-                    "Error loading configuration file %s: %s", 
-                    config_path, e,
-                    exc_info=e
-                )
-                sys.exit()
-        else:
-            # If you don't define a configuration file, it's fine--it
-            # just means you're using the default settings for
-            # everything.
-            cls.log.warn("No configuration file defined.")
-        return configuration
-
-    @classmethod
-    def install_configuration(cls, configuration):
-        for k, v in configuration.items():
-            if k.upper() == k:
-                # This is an environment variable. We will make sure
-                # it's mirrored into the environment.
-                if k in os.environ and os.environ[k] == v:
-                    # Configuration value is the same as environment
-                    # value. This is a no-op.
-                    msg = None
-                elif k in os.environ:
-                    msg = "Configuration file overwrote environment variable %s"
-                else:
-                    msg = "Configuration file set environment variable %s"
-                if msg:
-                    cls.log.info(msg, k)
-                os.environ[k] = v
 
     @classmethod
     def make_authentication_document(cls):

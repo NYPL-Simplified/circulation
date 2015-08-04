@@ -23,6 +23,7 @@ from core.model import (
     Subject,
 )
 from core.scripts import Script
+from core.config import ConfigurationFile
 from core.opds_import import (
     SimplifiedOPDSLookup,
     DetailedOPDSImporter,
@@ -231,19 +232,27 @@ class StandaloneApplicationConf(object):
         self.sublanes = make_lanes(self.db)
         self.name = None
         self.display_name = None
-
+        path = os.path.split(__file__)[0]
+        self.config_file = ConfigurationFile.load(path)
 
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
-    # These languages are NYPL's four major ebook collections.
-    PRIMARY_COLLECTIONS = json.loads(os.environ['PRIMARY_COLLECTION_LANGUAGES'])
-    OTHER_COLLECTIONS = json.loads(os.environ['OTHER_COLLECTION_LANGUAGES'])
+    PRIMARY_COLLECTIONS = 'primary'
+    OTHER_COLLECTIONS = 'other'
 
     def __init__(self, languages=None):
         self.conf = StandaloneApplicationConf(self._db)
-        self.languages = languages or (
-            self.PRIMARY_COLLECTIONS + self.OTHER_COLLECTIONS)
+        config_file = self.conf.config_file
+        primary_lang = config_file['primary_collection_languages']
+        other_lang = config_file.get('other_collection_languages', [])
+        if not languages:
+            languages = primary_lang + other_lang
+        elif languages == self.PRIMARY_COLLECTIONS:
+            languages = primary_lang
+        elif languages == self.OTHER_COLLECTIONS:
+            languages = other_lang
+        self.languages = languages
         self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
         old_testing = os.environ.get('TESTING')
         # TODO: An awful hack to prevent the database from being
