@@ -144,10 +144,10 @@ class Conf:
             cls.db = _db
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)
-            cls.overdrive = OverdriveAPI(cls.db)
-            cls.threem = ThreeMAPI(cls.db)
-            cls.axis = Axis360API(cls.db)
-            cls.auth = MilleniumPatronAPI()
+            cls.overdrive = OverdriveAPI.from_environment(cls.db)
+            cls.threem = ThreeMAPI.from_environment(cls.db)
+            cls.axis = Axis360API.from_environment(cls.db)
+            cls.auth = MilleniumPatronAPI.from_environment()
             cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy()
 

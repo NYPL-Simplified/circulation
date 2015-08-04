@@ -1,3 +1,4 @@
+import logging
 from nose.tools import set_trace
 from lxml import etree
 from urlparse import urljoin
@@ -31,12 +32,28 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
     # with Millenium.
     MAX_STALE_TIME = datetime.timedelta(hours=12)
 
-    def __init__(self):
-        root = os.environ['MILLENIUM_HOST']
+    log = logging.getLogger("Millenium Patron API")
+
+    def __init__(self, host=None):
+        [env_host] = self.environment_values()
+        host = host or env_host
         if not root.endswith('/'):
             root = root + "/"
         self.root = root
         self.parser = etree.HTMLParser()
+
+    @classmethod
+    def environment_values(cls):
+        return [os.environ.get('MILLENIUM_HOST')]
+
+    @classmethod
+    def from_environment(cls):
+        [host] = cls.environment_values()
+        if not host:
+            cls.log.info("No Millenium Patron client configured.")
+            return None
+        return cls(host)
+            
 
     def request(self, url):
         return requests.get(url)
