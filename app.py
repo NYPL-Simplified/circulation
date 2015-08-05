@@ -123,6 +123,12 @@ class Conf:
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
+
+        def log_lanes(lanelist, level=0):
+            for lane in lanelist.lanes:
+                cls.log.debug("%s%s", "-" * level, lane.name)
+                log_lanes(lane.sublanes, level+1)
+
         try:
             root_dir = os.path.split(__file__)[0]
             cls.config = ConfigurationFile.load(root_dir)
@@ -164,6 +170,8 @@ class Conf:
             else:
                 cls.log.warn("No external search server configured.")
                 cls.search = None
+        cls.log.debug("Lane layout:")
+        log_lanes(lanes)
 
         cls.primary_collection_languages = cls.config[
             'primary_collection_languages']
