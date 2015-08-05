@@ -107,10 +107,6 @@ class Conf:
     policy = None
 
     configuration = None
-    primary_collection_languages = json.loads(
-        os.environ['PRIMARY_COLLECTION_LANGUAGES'])
-    hold_notification_email_address = os.environ.get(
-        'DEFAULT_NOTIFICATION_EMAIL_ADDRESS')
 
     # When constructing URLs, this dictionary says which value for
     # 'order' to use, given a WorkFeed ordered by the given database
@@ -159,10 +155,20 @@ class Conf:
             cls.threem = ThreeMAPI.from_environment(cls.db)
             cls.axis = Axis360API.from_environment(cls.db)
             cls.auth = MilleniumPatronAPI.from_environment()
-            cls.search = ExternalSearchIndex()
             cls.policy = load_lending_policy(
                 cls.config.get('lending_policy', {})
             )
+
+            if os.environ.get('SEARCH_SERVER_URL'):
+                cls.search = ExternalSearchIndex()
+            else:
+                cls.log.warn("No external search server configured.")
+                cls.search = None
+
+        cls.primary_collection_languages = cls.config[
+            'primary_collection_languages']
+        hold_notification_email_address = os.environ.get(
+            'DEFAULT_NOTIFICATION_EMAIL_ADDRESS')
 
         cls.circulation = CirculationAPI(
             _db=cls.db, threem=cls.threem, overdrive=cls.overdrive,
