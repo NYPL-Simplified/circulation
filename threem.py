@@ -139,7 +139,7 @@ class ThreeMAPI(BaseThreeMAPI):
 
     def fulfill(self, patron, password, pool, format):
         response = self.get_fulfillment_file(
-            patron.authorization_identifier, pool.identifier)
+            patron.authorization_identifier, pool.identifier.identifier)
         return FulfillmentInfo(
             pool.identifier.type,
             pool.identifier.identifier,
