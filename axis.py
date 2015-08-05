@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from lxml import etree
 from core.axis import (
@@ -114,11 +114,15 @@ class Axis360CirculationMonitor(Monitor):
     """Maintain LicensePools for Axis 360 titles.
     """
 
+    VERY_LONG_AGO = datetime(1970, 1, 1)
+    FIVE_MINUTES = timedelta(minutes=5)
+
     def __init__(self, _db, name="Axis 360 Circulation Monitor",
                  interval_seconds=60, batch_size=50):
         super(Axis360CirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds,
-            default_start_time = datetime.utcnow() - Monitor.ONE_YEAR_AGO)
+            default_start_time = self.VERY_LONG_AGO
+        )
         self.batch_size = batch_size
 
     def run(self):
@@ -126,7 +130,10 @@ class Axis360CirculationMonitor(Monitor):
         super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
-        availability = self.api.availability(since=start)
+        # Give us five minutes of overlap because it's very important
+        # we don't miss anything.
+        since = start-self.FIVE_MINUTES
+        availability = self.api.availability(since=since)
         status_code = availability.status_code
         content = availability.content
         if status_code != 200:
