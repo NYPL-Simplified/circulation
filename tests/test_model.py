@@ -1465,7 +1465,7 @@ class TestLane(DatabaseTest):
             self._db, full_name="YA Science Fiction",
             display_name="Science Fiction",
             genres=[classifier.Science_Fiction],
-            subgenre_books_go=Lane.IN_SAME_LANE,
+            subgenre_behavior=Lane.IN_SAME_LANE,
             exclude_genres=[
                 classifier.Dystopian_SF, classifier.Steampunk],
             audience=Classifier.AUDIENCE_YOUNG_ADULT)

@@ -339,7 +339,10 @@ def _setup(dbinfo):
 
     dbinfo.old_data_dir = os.environ.get('DATA_DIRECTORY')
     dbinfo.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
-    os.environ['DATA_DIRECTORY'] = dbinfo.tmp_data_dir
+    if dbinfo.tmp_data_dir:
+        os.environ['DATA_DIRECTORY'] = dbinfo.tmp_data_dir
+    elif 'DATA_DIRECTORY' in os.environ:
+        del os.environ['DATA_DIRECTORY']
 
 def _teardown(dbinfo):
     # Roll back the top level transaction and disconnect from the database
@@ -353,7 +356,7 @@ def _teardown(dbinfo):
     else:
         print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
 
-    if dbinfo.tmp_data_dir:
+    if dbinfo.old_data_dir:
         os.environ['DATA_DIRECTORY'] = dbinfo.old_data_dir
-    else:
+    elif 'DATA_DIRECTORY' in os.environ:
         del os.environ['DATA_DIRECTORY']

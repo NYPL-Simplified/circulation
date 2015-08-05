@@ -45,7 +45,7 @@ class BibliocommonsAPI(BibliocommonsBase):
 
     def __init__(self, _db, api_key=None, do_get=None):
         self._db = _db
-        self.api_key = api_key or os.environ['BIBLIOCOMMONS_API_KEY']
+        self.api_key = api_key or os.environ.get('BIBLIOCOMMONS_API_KEY')
         self.source = DataSource.lookup(self._db, DataSource.BIBLIOCOMMONS)
         self.do_get = do_get or Representation.http_get_no_timeout
 

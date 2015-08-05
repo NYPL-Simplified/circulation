@@ -4238,9 +4238,9 @@ class Lane(object):
 
         name = d.get('name') or d.get('full_name')
         display_name = d.get('display_name')
-        genres = [Genre.load(_db, x) for x in d.get('genres', [])]
+        genres = [Genre.lookup(_db, x) for x in d.get('genres', [])]
         exclude_genres = [
-            Genre.load(_db, x) for x in d.get('exclude_genres', [])
+            Genre.lookup(_db, x) for x in d.get('exclude_genres', [])
         ]
         default_audience = None
         default_age_range = None
@@ -4251,14 +4251,15 @@ class Lane(object):
         age_range = None
         if 'age_range' in d:
             age_range = d['age_range']
-            if isinstance(age_range, tuple) or isinstance(age_range, list):
-                age_range = range(*age_range)
-            else:
+            if not (
+                    isinstance(age_range, tuple) 
+                    or isinstance(age_range, list)
+            ):
                 cls.log.warn("Invalid age range for %s: %r", name, age_range)
                 age_range = None
         age_range = age_range or default_age_range
         appeal = d.get('appeal')
-        subgenre_books_go = d.get('subgenre_books_go', Lane.IN_SUBLANES)
+        subgenre_behavior = d.get('subgenre_behavior', Lane.IN_SUBLANES)
         fiction = d.get('fiction', Lane.FICTION_DEFAULT_FOR_GENRE)
         if fiction == 'default':
             fiction = Lane.FICTION_DEFAULT_FOR_GENRE
@@ -4267,7 +4268,7 @@ class Lane(object):
 
         lane = Lane(
             _db, full_name=name, display_name=display_name,
-            genres=genres, subgenre_books_go=subgenre_books_go,
+            genres=genres, subgenre_behavior=subgenre_behavior,
             fiction=fiction, audience=audience, parent=parent_lane, 
             sublanes=[], appeal=appeal, age_range=age_range,
             exclude_genres=exclude_genres
@@ -4298,7 +4299,7 @@ class Lane(object):
             
         full_name = "All " + what
         return Lane(
-            _db, full_name, genres=[], subgenre_books_go=Lane.IN_SAME_LANE,
+            _db, full_name, genres=[], subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=fiction,
             audience=audience)
 
@@ -4306,7 +4307,7 @@ class Lane(object):
                  _db, 
                  full_name,
                  genres,
-                 subgenre_books_go=IN_SUBLANES,
+                 subgenre_behavior=IN_SUBLANES,
                  fiction=True,
                  audience=Classifier.AUDIENCE_ADULT,
                  parent=None,
@@ -4325,7 +4326,7 @@ class Lane(object):
         self.fiction = fiction
         self.audience = audience
         self.exclude_genres = exclude_genres
-        self.subgenre_books_go=subgenre_books_go
+        self.subgenre_behavior=subgenre_behavior
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
         if self.age_range and self.audience != Classifier.AUDIENCE_CHILDREN:
@@ -4337,7 +4338,7 @@ class Lane(object):
             # We will only be considering works that are not
             # classified under a genre.
             self.genres = None
-            self.subgenres_books_go = None
+            self.subgenre_behavior
         else:
             if not isinstance(genres, list):
                 genres = [genres]
@@ -4364,18 +4365,18 @@ class Lane(object):
                 if exclude_genres and genredata in exclude_genres:
                     continue
                 self.genres.append(genre)
-                if subgenre_books_go:
+                if subgenre_behavior:
                     if not genredata:
                         raise ValueError("Couldn't turn %r into GenreData object to find subgenres." % genre)
 
-                    if subgenre_books_go == self.IN_SAME_LANE:
+                    if subgenre_behavior == self.IN_SAME_LANE:
                         for subgenre_data in genredata.all_subgenres:
                             subgenre, ignore = Genre.lookup(_db, subgenre_data)
                             # Incorporate this genre's subgenres,
                             # recursively, in this lane.
                             if not exclude_genres or subgenre_data not in exclude_genres:
                                 self.genres.append(subgenre)
-                    elif subgenre_books_go == self.IN_SUBLANES:
+                    elif subgenre_behavior == self.IN_SUBLANES:
                         if self.sublanes.lanes:
                             raise ValueError(
                                 "Explicit list of sublanes was provided, but I'm also asked to turn subgenres into sublanes!")
@@ -4496,6 +4497,7 @@ class Lane(object):
             query = query.limit(int(remaining*1.3))
 
             start = time.time()
+            # logging.debug(dump_query(query))
             r = query.all()
             results.extend(r[:remaining])
             logging.debug(
@@ -4526,7 +4528,7 @@ class Lane(object):
         genres = set()
         if self.genres:
             for genre in self.genres:
-                if self.subgenre_books_go == self.IN_SAME_LANE:
+                if self.subgenre_behavior == self.IN_SAME_LANE:
                     genres = genres.union(genre.self_and_subgenres)
                 else:
                     genres.add(genre)
