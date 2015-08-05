@@ -135,9 +135,12 @@ class Conf:
         except CannotLoadConfigurationFile, e:
             cls.log.error("Could not load configuration file: %s" % e)
             sys.exit()
+
+        lane_list = cls.config.get("lanes")
+
         if cls.testing:
             if not lanes:
-                lanes = make_lanes(_db)
+                lanes = make_lanes(_db, lane_list)
             cls.db = _db
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)
@@ -149,11 +152,7 @@ class Conf:
             cls.policy = {}
         else:
             _db = production_session()
-            lanes = make_lanes(_db)
-            #for lane in lanes.lanes:
-            #    print lane.name
-            #    for sublane in lane.sublanes:
-            #        print "", sublane.display_name
+            lanes = make_lanes(_db, lane_list)
             cls.db = _db
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)

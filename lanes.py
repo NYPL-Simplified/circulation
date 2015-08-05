@@ -11,7 +11,17 @@ from core.model import (
     Work,
 )
 
-def make_lanes(_db):
+def make_lanes(_db, definitions=None):
+
+    if not definitions:
+        lanes = make_lanes_default(_db)
+    else:
+        lanes = [Lane.from_dict(_db, x, None) for x in definitions]
+
+    return LaneList.from_description(_db, None, lanes)
+
+
+def make_lanes_default(_db):
 
     adult_fiction = Lane(
         _db, full_name="Adult Fiction", display_name="Fiction",
@@ -38,7 +48,7 @@ def make_lanes(_db):
                  audience=YA),
             Lane(_db, full_name="YA Fantasy", display_name="Fantasy",
                  genres=[genres.Fantasy], 
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=YA),
             Lane(_db, full_name="YA Graphic Novels",
                  display_name="Comics & Graphic Novels",
                  genres=[genres.Comics_Graphic_Novels], audience=YA),
@@ -49,18 +59,18 @@ def make_lanes(_db):
                  audience=YA),
             Lane(_db, full_name="Mystery/Thriller",
                  genres=[genres.Suspense_Thriller, genres.Mystery],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=YA),
             Lane(_db, full_name="YA Romance", display_name="Romance",
                  genres=[genres.Romance],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=YA),
             Lane(_db, full_name="YA Science Fiction",
                  display_name="Science Fiction",
                  genres=[genres.Science_Fiction],
-                 subgenre_books_go=Lane.IN_SAME_LANE,
+                 subgenre_behavior=Lane.IN_SAME_LANE,
                  exclude_genres=[genres.Dystopian_SF, genres.Steampunk],
                  audience=YA),
             Lane(_db, "YA Steampunk", [genres.Steampunk],
-                 subgenre_books_go=Lane.IN_SAME_LANE,
+                 subgenre_behavior=Lane.IN_SAME_LANE,
                  display_name="Steampunk", audience=YA),
             # TODO:
             # Paranormal -- what is it exactly?
@@ -76,12 +86,12 @@ def make_lanes(_db):
             Lane(_db, "YA History",
                  [genres.History, genres.Social_Sciences],
                  display_name="History & Sociology", 
-                 subgenre_books_go=Lane.IN_SAME_LANE, fiction=False
+                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False
              ),
             Lane(_db, "Life Strategies", [genres.Life_Strategies]),
             Lane(_db, "YA Religion & Spirituality", 
                  genres.Religion_Spirituality,
-                 subgenre_books_go=Lane.IN_SAME_LANE, fiction=False)
+                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False)
         ],
     )
 
@@ -104,26 +114,26 @@ def make_lanes(_db):
                  audience=CHILDREN),
             Lane(_db, full_name="Children's Folklore", display_name="Folklore",
                  genres=[genres.Folklore],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Children's Fantasy", display_name="Fantasy",
                  fiction=True,
                  genres=[genres.Fantasy], 
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Children's SF", display_name="Science Fiction",
                  fiction=True, genres=[genres.Science_Fiction],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Realistic fiction", 
                  fiction=True, genres=[genres.Literary_Fiction],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Children's Graphic Novels",
                  display_name="Comics & Graphic Novels",
                  genres=[genres.Comics_Graphic_Novels], audience=CHILDREN),
             Lane(_db, full_name="Biography", 
                  genres=[genres.Biography_Memoir],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Historical fiction", 
                  genres=[genres.Historical_Fiction],
-                 subgenre_books_go=Lane.IN_SAME_LANE, audience=CHILDREN),
+                 subgenre_behavior=Lane.IN_SAME_LANE, audience=CHILDREN),
             Lane(_db, full_name="Informational books", genres=None,
                  fiction=False, exclude_genres=[genres.Biography_Memoir],
                  audience=CHILDREN
@@ -131,9 +141,4 @@ def make_lanes(_db):
         ],
     )
 
-    lanes = LaneList.from_description(
-        _db,
-        None,
-        [adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children]
-    )
-    return lanes
+    return [adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children]
