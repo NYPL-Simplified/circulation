@@ -84,7 +84,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         return d
 
     def is_test_identifier(self, barcode):
-        return len(barcode) < 7
+        return barcode is not None and len(barcode) < 7
 
     def pintest(self, barcode, pin):
         if self.is_test_identifier(barcode):
