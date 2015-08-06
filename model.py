@@ -3840,6 +3840,8 @@ class Genre(Base):
         else:
             m = get_one
         result = m(_db, Genre, name=name)
+        if result is None:
+            logging.getLogger().error('"%s" is not a recognized genre.', name)
         if isinstance(result, tuple):
             _db._genre_cache[name] = result[0]
             return result
@@ -4238,10 +4240,16 @@ class Lane(object):
 
         name = d.get('name') or d.get('full_name')
         display_name = d.get('display_name')
-        genres = [Genre.lookup(_db, x) for x in d.get('genres', [])]
-        exclude_genres = [
-            Genre.lookup(_db, x) for x in d.get('exclude_genres', [])
-        ]
+        genres = []
+        for x in d.get('genres', []):
+            genre, new = Genre.lookup(_db, x)
+            if genre:
+                genres.append(genre)
+        exclude_genres = []
+        for x in d.get('exclude_genres', []):
+            genre, new = Genre.lookup(_db, x)
+            if genre:
+                exclude_genres.append(genre)
         default_audience = None
         default_age_range = None
         if parent_lane:
@@ -4325,7 +4333,11 @@ class Lane(object):
         self.age_range = age_range
         self.fiction = fiction
         self.audience = audience
-        self.exclude_genres = exclude_genres
+
+        self.exclude_genres = set()
+        for genre in exclude_genres:
+            for l in genre.self_and_subgenres:
+                self.exclude_genres.add(l)
         self.subgenre_behavior=subgenre_behavior
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
