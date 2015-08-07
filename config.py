@@ -25,6 +25,7 @@ class ConfigurationFile(object):
                     "Could not locate configuration file %s" % config_path
                 )
             try:
+                cls.log.info("Loading configuration from %s", config_path)
                 configuration = json.load(open(config_path))
             except Exception, e:
                 raise CannotLoadConfigurationFile(
