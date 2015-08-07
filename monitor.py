@@ -167,6 +167,10 @@ class IdentifierSweepMonitor(Monitor):
         return self._db.query(Identifier)
 
     def process_batch(self, identifiers):
+        for i in identifiers:
+            self.process_identifier(i)
+
+    def process_identifier(self, identifier):
         raise NotImplementedError()
 
 class SubjectSweepMonitor(IdentifierSweepMonitor):
