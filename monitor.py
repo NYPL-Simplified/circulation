@@ -49,7 +49,7 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         try_this_work = or_(Work.presentation_ready_attempt==None,
                             Work.presentation_ready_attempt > one_day_ago)
-        q = self._db.query(Work).join(Work.primary_edition).filter(Edition.data_source_id==4).filter(
+        q = self._db.query(Work).filter(
             Work.presentation_ready==False).filter(
             try_this_work).filter(Work.primary_edition != None)
         return q
