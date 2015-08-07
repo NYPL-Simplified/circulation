@@ -596,14 +596,22 @@ def service_status():
             timing = "FAILURE: %s" % result
         timings[k] = timing
 
-    do_patron = lambda : patrons.append(Conf.auth.authenticated_patron(Conf.db, barcode, pin))
+    def do_patron():
+        patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
+        patrons.append(patron)
+        if patron:
+            return patron
+        else:
+            raise ValueError("Could not authenticate test patron!")
+
     _add_timing('Patron authentication', do_patron)
 
     patron = patrons[0]
-    do_overdrive = lambda : Conf.overdrive.get_patron_checkouts(patron, pin)
+    def do_overdrive():
+        return Conf.overdrive.patron_activity(patron, pin)
     _add_timing('Overdrive patron account', do_overdrive)
 
-    do_threem = lambda : Conf.threem.get_patron_checkouts(patron)
+    do_threem = lambda : Conf.threem.patron_activity(patron, pin)
     _add_timing('3M patron account', do_threem)
 
     statuses = []
