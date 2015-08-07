@@ -154,7 +154,7 @@ class NYTBestSellerList(list):
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    logging.debug("Newly seen ISBN: %r, %s", key, len(self))
+                    # logging.debug("Newly seen ISBN: %r, %s", key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
@@ -216,7 +216,10 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             first_appearance = None
             most_recent_appearance = None
 
-        isbns = [x['isbn13'] for x in data['isbns'] if 'isbn13' in x]
+        isbns = [
+            (Identifier.ISBN, x['isbn13'])
+            for x in data['isbns'] if 'isbn13' in x
+        ]
 
         details = data['book_details']
         if len(details) > 0:
@@ -232,11 +235,14 @@ class NYTBestSellerListTitle(TitleFromExternalList):
         if not primary_isbn:
             primary_isbn = details[0].get('primary_isbn10')
 
+        primary_isbn = (Identifier.ISBN, primary_isbn)
+
         # Don't call the display name of the author 'author'; it's
         # confusing.
         display_author = details[0].get('author', None)
 
         super(NYTBestSellerListTitle, self).__init__(
-            DataSource.NYT, self.title, display_author, primary_isbn,
+            DataSource.NYT, self.title, display_author,
+            primary_isbn,
             self.published_date, first_appearance, most_recent_appearance,
             self.publisher, self.description, 'eng', isbns)

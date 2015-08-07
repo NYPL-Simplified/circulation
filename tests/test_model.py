@@ -1716,11 +1716,27 @@ class TestCustomList(DatabaseTest):
         # Now create a custom list feed.
         feed = EnumeratedCustomListFeed(None, [custom_list], ["eng"])
 
-        # There is one match -- the work whose permament work ID overlaps
-        # with a permanent work ID on the custom list.
+        # At first, the list entries are not associated with any IDs
+        # that have a licensepool. set_license_pool() does nothing.
+        eq_([], feed.base_query(self._db).all())
+        for entry in custom_list.entries:
+            entry.set_license_pool()
+        eq_([], feed.base_query(self._db).all())
+
+        # But if we associate a list entry's primary identifier with
+        # the primary identifier of one of our license pools,
+        # set_license_pool() does something.
+        first_list_entry = custom_list.entries[0]
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        first_list_entry.edition.primary_identifier.equivalent_to(
+            source, w1.license_pools[0].identifier, 1)
+        first_list_entry.set_license_pool()
+        eq_(w1.license_pools[0], first_list_entry.license_pool)
+
+        # Suddenly, one of the books in our collection is associated
+        # with a list item.
         [match] = feed.base_query(self._db).all()
         eq_(w1, match)
-
 
     def test_feed_consolidates_multiple_lists(self):
 
@@ -1733,6 +1749,8 @@ class TestCustomList(DatabaseTest):
         customlist2, [edition2] = self._customlist(num_entries=1)
         
         # Each work is on one list.
+        customlist1.entries[0].license_pool = w1.license_pools[0]
+        customlist2.entries[0].license_pool = w2.license_pools[0]
         w1.primary_edition.permanent_work_id = edition1.permanent_work_id
         w2.primary_edition.permanent_work_id = edition2.permanent_work_id
 
@@ -1757,9 +1775,9 @@ class TestCustomList(DatabaseTest):
             num_entries=1, data_source_name=DataSource.BIBLIOCOMMONS)
 
         # Each work is on one list.
-        w1.primary_edition.permanent_work_id = edition1.permanent_work_id
-        w2.primary_edition.permanent_work_id = edition2.permanent_work_id
-        w3.primary_edition.permanent_work_id = edition3.permanent_work_id
+        customlist1.entries[0].license_pool = w1.license_pools[0]
+        customlist2.entries[0].license_pool = w2.license_pools[0]
+        customlist3.entries[0].license_pool = w3.license_pools[0]
 
         # Let's ask for a complete feed of NYT lists.
         self._db.commit()
@@ -1779,6 +1797,7 @@ class TestCustomList(DatabaseTest):
         customlist, [edition] = self._customlist(num_entries=1)
 
         work.primary_edition.permanent_work_id = edition.permanent_work_id
+        customlist.entries[0].license_pool = work.license_pools[0]
 
         # Create a feed for works whose last appearance on the list
         # was no more than one day ago.

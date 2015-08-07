@@ -41,6 +41,9 @@ class Classifier(object):
     BISAC = "BISAC"
     TAG = "tag"   # Folksonomic tags.
 
+    # Appeal controlled vocabulary developed by NYPL 
+    NYPL_APPEAL = "NYPL Appeal"
+
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
     AXIS_360_AUDIENCE = "Axis 360 Audience"

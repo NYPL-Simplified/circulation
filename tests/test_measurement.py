@@ -71,7 +71,7 @@ class TestMeasurement(DatabaseTest):
 
         m2 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 5,
                                 taken_at=old)
-        eq_(True, m1.is_most_recent)
+        eq_(True, m1.is_most_recent)      
 
     def test_normalized_popularity(self):
         # Here's a very popular book on the scale defined in
@@ -179,3 +179,14 @@ class TestMeasurement(DatabaseTest):
         w.calculate_quality([identifier.id, wi.id])
         assert w.quality > old_quality
 
+    def test_calculate_quality_default_quality(self):
+
+        # Here's a work with no measurements whatsoever.
+        w = self._work()
+
+        # Its quality is dependent entirely on the default value we
+        # pass into calculate_quality
+        w.calculate_quality([])
+        eq_(0, w.quality)
+        w.calculate_quality([], 0.4)
+        eq_(0.4, w.quality)

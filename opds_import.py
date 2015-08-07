@@ -59,9 +59,12 @@ class SimplifiedOPDSLookup(object):
         (i.e. the name format human being used as opposed to the name
         that goes into library records).
         """
-        args = "urn=%s&display_name=%s" % (
-            urllib.quote(identifier.urn), urllib.quote(
-                working_display_name.encode("utf8")))
+        args = "display_name=%s" % (
+            urllib.quote(
+                working_display_name.encode("utf8"))
+        )
+        if identifier:
+            args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
         return requests.get(url)

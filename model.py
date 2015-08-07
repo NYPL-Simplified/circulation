@@ -838,14 +838,23 @@ class Identifier(Base):
         identifiers are equivalent.
         """
         _db = Session.object_session(self)
+        if self == identifier:
+            # That an identifier is equivalent to itself is tautological.
+            # Do nothing.
+            return None
         eq, new = get_one_or_create(
             _db, Equivalency,
             data_source=data_source,
             input=self,
             output=identifier,
-            create_method_kwargs=dict(strength=strength), on_multiple='interchangeable')
-        logging.info(
-            "Identifier equivalency: %r==%r p=%.2f", self, identifier, strength)
+            on_multiple='interchangeable'
+        )
+        eq.strength=strength
+        if new:
+            logging.info(
+                "Identifier equivalency: %r==%r p=%.2f", self, identifier, 
+                strength
+            )
         return eq
 
     @classmethod
@@ -957,8 +966,8 @@ class Identifier(Base):
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            logging.debug(
-                " Here's the new working set: %r", new_working_set_repr)
+            #logging.debug(
+            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -982,10 +991,10 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        logging.debug(
-            "Pruned %d from working set",
-            len(surviving_working_set.intersection(new_working_set))
-        )
+        #logging.debug(
+        #    "Pruned %d from working set",
+        #    len(surviving_working_set.intersection(new_working_set))
+        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -2191,11 +2200,8 @@ class Edition(Base):
         return author
 
     def calculate_permanent_work_id(self, debug=False):
-        w = WorkIDCalculator
         title = self.title_for_permanent_work_id
         author = self.author_for_permanent_work_id
-        norm_title = w.normalize_title(title)
-        norm_author = w.normalize_author(author)
 
         if self.medium == Edition.BOOK_MEDIUM:
             medium = "book"
@@ -2208,18 +2214,32 @@ class Edition(Base):
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
 
+        w = WorkIDCalculator
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
+
         old_id = self.permanent_work_id
-        self.permanent_work_id = WorkIDCalculator.permanent_id(
-            norm_title, norm_author, medium)
-        new_id = self.permanent_work_id
-        args = ("Permanent work ID for %d: %s/%s -> %s/%s/%s -> %s (was %s)",
-                self.id, title, author, norm_title, norm_author, medium,
-                new_id, old_id)
+        self.permanent_work_id = self.calculate_permanent_work_id_for_title_and_author(
+            title, author, medium)
+        args = (
+            "Permanent work ID for %d: %s/%s -> %s/%s/%s -> %s (was %s)",
+            self.id, title, author, norm_title, norm_author, medium,
+                self.permanent_work_id, old_id
+        )
         if debug:
             logging.debug(*args)
-        elif old_id != new_id:
+        elif old_id != self.permanent_work_id:
             logging.info(*args)
 
+    @classmethod
+    def calculate_permanent_work_id_for_title_and_author(
+            cls, title, author, medium):
+        w = WorkIDCalculator
+        norm_title = w.normalize_title(title)
+        norm_author = w.normalize_author(author)
+
+        return WorkIDCalculator.permanent_id(
+            norm_title, norm_author, medium)
 
     def calculate_presentation(self, calculate_opds_entry=True):
 
@@ -3028,7 +3048,7 @@ class Work(Base):
         else:
             self.set_presentation_ready()
 
-    def calculate_quality(self, flattened_data, default_quality):
+    def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)
         quantities = [Measurement.POPULARITY, Measurement.RATING,
                       Measurement.DOWNLOADS, Measurement.QUALITY]
@@ -3347,27 +3367,13 @@ class Work(Base):
         """Annotate a query that joins Work against Edition to match only
         Works that are on a custom list from the given data source."""
         # Find works that are on a list that meets the given condition.
-        subquery = _db.query(Edition.permanent_work_id).join(
-            Edition.custom_list_entries).join(
-            CustomListEntry.customlist).filter(condition)
+        qu = base_query.join(LicensePool.custom_list_entries).join(
+            CustomListEntry.customlist)
         if on_list_as_of:
-            # The Edition must have been seen on the given list as
-            # recently as the given date.
-            on_list_clause = (
+            qu = qu.filter(
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
-            subquery = subquery.filter(on_list_clause)
-        subquery = subquery.distinct(Edition.permanent_work_id)
-        subquery = subquery.subquery('customlists')
-
-        # Find Works whose permanent work ID is the same as one of the Editions
-        # in the subquery.
-        has_same_pwid = (
-            subquery.c.permanent_work_id
-            ==Edition.permanent_work_id)
-        q = base_query.join(subquery, has_same_pwid)
-        return q
-
-
+        qu = qu.filter(condition)
+        return qu
 
 
 # Used for quality filter queries.
@@ -3874,6 +3880,7 @@ class Subject(Base):
     BISAC = Classifier.BISAC
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
+    NYPL_APPEAL = Classifier.NYPL_APPEAL
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
@@ -4862,6 +4869,10 @@ class LicensePool(Base):
 
     # One LicensePool can have many Holds.
     holds = relationship('Hold', backref='license_pool')
+
+    # One LicensePool can be associated with many CustomListEntries.
+    custom_list_entries = relationship(
+        'CustomListEntry', backref='license_pool')
 
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
@@ -5982,6 +5993,7 @@ class CustomListEntry(Base):
     
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     annotation = Column(Unicode)
 
     # These two fields are for best-seller lists. Even after a book
@@ -5989,6 +6001,38 @@ class CustomListEntry(Base):
     # still relevant.
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
+
+    def set_license_pool(self):
+        """If possible, set the best available LicensePool to be used when
+        fulfilling requests for this CustomListEntry.
+
+        'Best' means it has the most copies of the book available
+        right now.
+        """
+        _db = Session.object_session(self)
+        edition = self.edition
+        if not self.edition:
+            # This shouldn't happen, but no edition means no license pool.
+            self.license_pool = None
+            return self.license_pool
+        equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
+        pool_q = _db.query(LicensePool).filter(
+            LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
+                LicensePool.licenses_available.desc(),
+                LicensePool.patrons_in_hold_queue.asc())
+        pools = pool_q.limit(1).all()
+        if len(pools) == 0:
+            # There are no LicensePools for this Edition
+            self.license_pool = None
+        else:
+            old_license_pool = self.license_pool
+            self.license_pool = pools[0]
+            if old_license_pool != self.license_pool:
+                logging.info(
+                    "Changing license pool for list entry %r to %r", 
+                    self.edition, self.license_pool.identifier
+                )
+        return self.license_pool
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
