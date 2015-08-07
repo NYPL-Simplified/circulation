@@ -2,6 +2,7 @@ import datetime
 from nose.tools import set_trace
 import os
 from sqlalchemy import or_
+import logging
 from core.monitor import (
     EditionSweepMonitor,
     IdentifierSweepMonitor,
@@ -48,7 +49,7 @@ class CirculationPresentationReadyMonitor(WorkSweepMonitor):
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         try_this_work = or_(Work.presentation_ready_attempt==None,
                             Work.presentation_ready_attempt > one_day_ago)
-        q = self._db.query(Work).filter(
+        q = self._db.query(Work).join(Work.primary_edition).filter(Edition.data_source_id==4).filter(
             Work.presentation_ready==False).filter(
             try_this_work).filter(Work.primary_edition != None)
         return q
@@ -205,6 +206,7 @@ class MakePresentationReady(object):
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)
         self.content_lookup = SimplifiedOPDSLookup(content_server_url)
         self.search_index = ExternalSearchIndex()
+        self.log = logging.getLogger("Circulation - Make Presentation Ready")
 
     def create_id_mapping(self, batch):
         mapping = dict()
@@ -223,12 +225,11 @@ class MakePresentationReady(object):
     def process_batch(self, batch):
         id_mapping = self.create_id_mapping(batch)
         batch = id_mapping.keys()
-        print "%d batch" % len(batch)
+        self.log.debug("%d batch", len(batch))
         response = self.lookup.lookup(batch)
-        print "Response!"
 
         if response.status_code != 200:
-            print "BAD RESPONSE CODE: %s" % response.status_code
+            self.log.error("BAD RESPONSE CODE: %s", response.status_code)
             raise HTTPIntegrationException(response.text)
             
         content_type = response.headers['content-type']
@@ -241,6 +242,7 @@ class MakePresentationReady(object):
             overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION],
             identifier_mapping=id_mapping)
         imported, messages_by_id = importer.import_from_feed()
+        set_trace()
 
         # Look up any open-access works for which there is no
         # open-access link. We'll try to get one from the open-access
@@ -252,18 +254,25 @@ class MakePresentationReady(object):
                 needs_open_access_import.append(e.primary_identifier)
 
         if needs_open_access_import:
-            print "%d works need open access import." % len(needs_open_access_import)
+            self.log.info(
+                "%d works need open access import.", 
+                len(needs_open_access_import)
+            )
             response = self.content_lookup.lookup(needs_open_access_import)
             importer = ContentOPDSImporter(self._db, response.text)
             oa_imported, oa_messages_by_id = importer.import_from_feed()
-            print "%d successes, %d failures." % (len(oa_imported), len(oa_messages_by_id))
+            self.log.info(
+                "%d successes, %d failures.",
+                len(oa_imported), len(oa_messages_by_id)
+            )
             for identifier, (status_code, message) in oa_messages_by_id.items():
-                print identifier, status_code, message
+                self.log.info("%r %s %s", identifier, status_code, message)
 
         # We need to commit the database to make sure that a newly
         # created Edition will show up as its Work's .primary_edition.
         self._db.commit()
-        print "%d successful imports, %d holds/failures." % (
+        self.log.info(
+            "%d successful imports, %d holds/failures.",
             len(imported), len(messages_by_id)
         )
         for edition in imported:
@@ -304,11 +313,11 @@ class MakePresentationReady(object):
                     set_trace()
             if dirty:
                 self._db.commit()
-            print "%s READY" % edition.work.title.encode("utf8")
+            self.log.info("%s READY", edition.work.title)
             edition.work.set_presentation_ready()
         now = datetime.datetime.utcnow()
         for identifier, (status_code, message) in messages_by_id.items():
-            print identifier, status_code, message
+            self.log.info("%r %s %s", identifier, status_code, message)
             if status_code == 400:
                 # The metadata wrangler thinks we made a mistake here,
                 # and will probably never give us information about
