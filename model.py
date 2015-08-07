@@ -4345,9 +4345,10 @@ class Lane(object):
         self.audience = audience
 
         self.exclude_genres = set()
-        for genre in exclude_genres:
-            for l in genre.self_and_subgenres:
-                self.exclude_genres.add(l)
+        if exclude_genres:
+            for genre in exclude_genres:
+                for l in genre.self_and_subgenres:
+                    self.exclude_genres.add(l)
         self.subgenre_behavior=subgenre_behavior
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
