@@ -96,6 +96,17 @@ class Annotator(object):
         return None, ""
 
     @classmethod
+    def rating_tag(cls, type_uri, value):
+        """Generate a schema:Rating tag for the given type and value."""
+        rating_tag = E._makeelement("{%s}Rating" % schema_ns)
+        value_key = '{%s}ratingValue' % schema_ns
+        rating_tag.set(value_key, "%.4f" % value)
+        if type_uri:
+            type_key = '{%s}additionalType' % schema_ns
+            rating_tag.set(type_key, type_uri)
+        return rating_tag
+
+    @classmethod
     def cover_links(cls, work):
         """Return all links to be used as cover links for this work.
 
@@ -281,19 +292,13 @@ class VerboseAnnotator(Annotator):
                             entry):
         """Add a quality rating to the work.
         """
-        value_key = '{%s}ratingValue' % schema_ns
-        type_key = '{%s}additionalType' % schema_ns
         for type_uri, value in [
                 (Measurement.QUALITY, work.quality),
                 (None, work.rating),
                 (Measurement.POPULARITY, work.popularity),
         ]:
             if value:
-                rating_tag = E._makeelement("{%s}Rating" % schema_ns)
-                rating_tag.set(value_key, "%.4f" % value)
-                if type_uri:
-                    rating_tag.set(type_key, type_uri)
-                entry.append(rating_tag)
+                entry.append(cls.rating_tag(type_uri, value))
 
     @classmethod
     def categories(cls, work):
@@ -829,7 +834,7 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
-    def minimal_opds_entry(cls, identifier, cover, description):        
+    def minimal_opds_entry(cls, identifier, cover, description, quality):
         elements = []
         representations = []
         most_recent_update = None
@@ -856,6 +861,10 @@ class AcquisitionFeed(OPDSFeed):
             description_e = E.summary(content, type='html')
             elements.append(description_e)
             representations.append(description.representation)
+
+        if quality:
+            elements.append(
+                Annotator.rating_tag(Measurement.QUALITY, quality))
 
         # The update date is the most recent date any of these
         # resources were mirrored/fetched.
