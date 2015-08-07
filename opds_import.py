@@ -417,7 +417,7 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         if classifications_added:
             self.log.debug(
                 "%r: added %d classifications.",
-                identifier, added_classifications
+                identifier, classifications_added
             )
 
         ratings = self.ratings_by_id.get(entry.id, {})
