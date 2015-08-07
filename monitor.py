@@ -242,7 +242,6 @@ class MakePresentationReady(object):
             overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION],
             identifier_mapping=id_mapping)
         imported, messages_by_id = importer.import_from_feed()
-        set_trace()
 
         # Look up any open-access works for which there is no
         # open-access link. We'll try to get one from the open-access
