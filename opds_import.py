@@ -374,20 +374,20 @@ class DetailedOPDSImporter(BaseOPDSImporter):
         identifier, opds_identifier, edition, edition_was_new, status_code, message = super(
             DetailedOPDSImporter, self).import_from_feedparser_entry(
                 entry)
-        if not edition or opds_identifier.type == Identifier.ISBN:
+        if not edition and opds_identifier.type != Identifier.ISBN:
             # No edition was created. Nothing to do.
             return identifier, opds_identifier, edition, edition_was_new, status_code, message
             
+        if edition:
+            edition.medium = self.medium_by_id.get(entry.id)
 
-        edition.medium = self.medium_by_id.get(entry.id)
-
-        # Remove any old contributors and subjects.
-        removed_contributions = 0
-        contributions = edition.contributions
-        for contribution in list(contributions):
-            self._db.delete(contribution)
-            removed_contributions += 1
-        edition.contributions = []
+            # Remove any old contributors and subjects.
+            removed_contributions = 0
+            contributions = edition.contributions
+            for contribution in list(contributions):
+                self._db.delete(contribution)
+                removed_contributions += 1
+            edition.contributions = []
 
         removed_classifications = 0
         new_set = []
@@ -399,31 +399,40 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                 new_set.append(classification)
         identifier.classifications = new_set
 
-        self.log.debug(
-            "%r: deleted %d contributions and %d classifications.",
-            edition, removed_contributions, removed_classifications)
-
-        for contributor in self.authors_by_id.get(entry.id, []):
-            edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
+        if edition:
+            for contributor in self.authors_by_id.get(entry.id, []):
+                edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
+            self.log.debug("%r: added back %d contributors",
+                           edition, len(edition.contributors))
 
         weights = self.subject_weights_by_id.get(entry.id, {})
+        classifications_added = 0
         for key, weight in weights.items():
             type, term = key
             name = self.subject_names_by_id.get(entry.id).get(key, None)
             identifier.classify(
                 self.data_source, type, term, name, weight=weight)
+            classifications_added += 1
 
-        self.log.debug(
-            "%r: added back %d contributions and %d classifications.",
-            edition, len(edition.contributors), 
-            len(identifier.classifications))
+        if classifications_added:
+            self.log.debug(
+                "%r: added %d classifications.",
+                identifier, added_classifications
+            )
 
         ratings = self.ratings_by_id.get(entry.id, {})
+        measurements_added = 0
         for rel, value in ratings.items():
             if not rel:
                 rel = Measurement.RATING
             identifier.add_measurement(self.data_source, rel, value)
+            measurements_added += 1
 
+        if measurements_added:
+            self.log.debug(
+                "%r: set %d measurements.",
+                identifier, measurements_added
+            )
         return identifier, opds_identifier, edition, edition_was_new, status_code, message
 
     @classmethod
