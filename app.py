@@ -277,7 +277,6 @@ CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulf
 CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-release-hold"
 
 def add_configuration_links(feed):
-    set_trace()
     for rel, value in (
             ("terms-of-service", ConfigurationFile.terms_of_service_url()),
             ("privacy-policy", ConfigurationFile.privacy_policy_url()),
