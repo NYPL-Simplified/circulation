@@ -120,6 +120,9 @@ def production_session():
     logging.debug("Database url: %s", os.environ['DATABASE_URL'])
     return SessionManager.session(url)
 
+class PolicyException(Exception):
+    pass
+
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
@@ -5102,6 +5105,9 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
+        if (ConfigurationFile.hold_behavior() 
+            != ConfigurationFile.HOLD_BEHAVIOR_ALLOW):
+            raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
