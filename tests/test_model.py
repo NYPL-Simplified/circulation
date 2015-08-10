@@ -16,6 +16,8 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
+from config import ConfigurationFile
+
 from model import (
     CirculationEvent,
     Contributor,
@@ -42,6 +44,8 @@ from model import (
     Edition,
     get_one_or_create,
 )
+
+from config import ConfigurationFile
 
 from external_search import (
     DummyExternalSearchIndex,
@@ -1522,6 +1526,49 @@ class TestLane(DatabaseTest):
         # Verify that the language restriction works.
         eq_([], fantasy_lane.materialized_works(['fre']).all())
 
+    def test_availability_restriction(self):
+
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+
+        # Here's a fantasy book.
+        w1 = self._work(genre=fantasy, with_license_pool=True)
+
+        # The book is not available.
+        w1.license_pools[0].licenses_available = 0
+        w1.license_pools[0].open_access = False
+        self._db.commit()
+
+        fantasy_lane = Lane(
+            self._db, full_name="Fantasy", genres=[fantasy])
+
+        # So long as the hold behavior allows books to be put on hold,
+        # the book will show up in lanes.
+        all_works = fantasy_lane.works(['eng']).all()
+        ConfigurationFile.instance = {
+            ConfigurationFile.HOLD_BEHAVIOR :
+            ConfigurationFile.HOLD_BEHAVIOR_ALLOW
+        }
+        allow_on_hold_works = fantasy_lane.works(['eng']).all()
+        eq_(all_works, allow_on_hold_works)
+
+        # When the hold behavior is to hide unavailable books, the
+        # book disappears.
+        ConfigurationFile.instance = {
+            ConfigurationFile.HOLD_BEHAVIOR :
+            ConfigurationFile.HOLD_BEHAVIOR_HIDE
+        }
+        hide_on_hold_works = fantasy_lane.works(['eng']).all()
+        eq_([], hide_on_hold_works)
+
+        # When the book becomes available, it shows up in lanesagain.
+        w1.license_pools[0].licenses_available = 1
+        hide_on_hold_works = fantasy_lane.works(['eng']).all()
+        eq_(all_works, hide_on_hold_works)
+
+        ConfigurationFile.instance = None
+
+        
+
 class TestLaneList(DatabaseTest):
     
     def test_from_description(self):
@@ -2093,3 +2140,4 @@ class TestCredentials(DatabaseTest):
         new_token = Credential.lookup_by_token(
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
+

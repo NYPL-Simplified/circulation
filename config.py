@@ -9,6 +9,22 @@ class ConfigurationFile(object):
 
     log = logging.getLogger("Configuration file loader")
 
+    instance = None
+
+    HOLD_BEHAVIOR = "hold_behavior"
+    HOLD_BEHAVIOR_ALLOW = "allow"
+    HOLD_BEHAVIOR_HIDE = "hide"
+
+    @classmethod
+    def get(cls, key, default=None):
+        if not cls.instance:
+            return default
+        return cls.instance.get(key, default)
+
+    @classmethod
+    def hold_behavior(cls):
+        return cls.get(cls.HOLD_BEHAVIOR, cls.HOLD_BEHAVIOR_ALLOW)
+
     @classmethod
     def load(cls, root_directory):
         cfv = 'CONFIGURATION_FILE'
@@ -57,5 +73,6 @@ class ConfigurationFile(object):
                     cls.log.info(msg, k)
                 os.environ[k] = v
 
+        cls.instance = configuration
         return configuration
 

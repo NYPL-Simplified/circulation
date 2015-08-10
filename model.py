@@ -86,6 +86,7 @@ from sqlalchemy import (
 )
 
 import log # Make sure logging is set up properly.
+from config import ConfigurationFile
 from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
@@ -4677,6 +4678,14 @@ class Lane(object):
         :param fiction: Override the fiction setting found in `self.fiction`.
 
         """
+        hold_behavior = ConfigurationFile.hold_behavior()
+        if (availability == Work.ALL and 
+            hold_behavior == ConfigurationFile.HOLD_BEHAVIOR_HIDE):
+            # Under normal circumstances we would show all works, but
+            # site configuration says to hide books that aren't
+            # available.
+            availability = Work.CURRENTLY_AVAILABLE
+
         q = Work.feed_query(self._db, languages, availability)
         audience = self.audience
         if fiction is None:

@@ -196,6 +196,8 @@ class DatabaseTest(object):
             representation, is_new = self._representation(
                 url, media_type, "Dummy content", mirrored=True)
             link.resource.representation = representation
+        else:
+            pool.licenses_owned = pool.licenses_available = 1
         return pool
 
     def _representation(self, url=None, media_type=None, content=None,
