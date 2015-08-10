@@ -150,6 +150,7 @@ class Conf:
             cls.auth = DummyMilleniumPatronAPI()
             cls.search = DummyExternalSearchIndex()
             cls.policy = {}
+            cls.hold_notification_email_address = 'test@test'
         else:
             _db = production_session()
             lanes = make_lanes(_db, lane_list)
@@ -174,7 +175,7 @@ class Conf:
 
         cls.primary_collection_languages = cls.config[
             'primary_collection_languages']
-        hold_notification_email_address = os.environ.get(
+        cls.hold_notification_email_address = os.environ.get(
             'DEFAULT_NOTIFICATION_EMAIL_ADDRESS')
 
         cls.circulation = CirculationAPI(

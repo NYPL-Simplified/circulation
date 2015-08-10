@@ -442,5 +442,4 @@ class CirculationAPI(object):
             if hold.license_pool.data_source in self.data_sources_for_sync:
                 self._db.delete(hold)
         __transaction.commit()
-
         return active_loans, active_holds
