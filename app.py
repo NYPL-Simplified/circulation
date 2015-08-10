@@ -1074,6 +1074,17 @@ def _apply_borrowing_policy(patron, license_pool):
             "Library policy prohibits us from lending you this book.",
             451
         )
+
+    if (license_pool.licenses_available == 0 and
+        ConfigurationFile.hold_behavior() !=
+        ConfigurationFile.HOLD_BEHAVIOR_ALLOW
+    ):
+        return problem(
+            FORBIDDEN_BY_POLICY_PROBLEM, 
+            "Library policy prohibits the placement of holds.",
+            403
+        )        
+
     return None
 
 

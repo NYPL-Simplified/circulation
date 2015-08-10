@@ -80,8 +80,8 @@ class TestOverdriveAPI(DatabaseTest):
         raw['id'] = pool.identifier.identifier
 
         wr.title = "The real title."
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 

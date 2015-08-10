@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from flask import url_for
 
+from core.config import ConfigurationFile
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -110,6 +111,10 @@ class CirculationManagerAnnotator(Annotator):
         can_borrow = False
         can_fulfill = False
         can_revoke = False
+        can_hold = (
+            ConfigurationFile.hold_behavior() == 
+            ConfigurationFile.HOLD_BEHAVIOR_ALLOW
+        )
 
         if active_loan:
             entry.extend([feed.loan_tag(active_loan)])
@@ -128,6 +133,10 @@ class CirculationManagerAnnotator(Annotator):
             # or put it on hold.
             can_borrow = True
 
+        available = (
+            active_license_pool.open_access 
+            or active_license_pool.licenses_available > 0
+        )
 
         if active_license_pool.open_access:
             open_access_url = open_access_media_type = None
@@ -160,7 +169,7 @@ class CirculationManagerAnnotator(Annotator):
             feed.add_link_to_entry(entry, rel=OPDSFeed.ACQUISITION_REL,
                                    href=fulfill_url)
 
-        if can_borrow:
+        if can_borrow and (available or can_hold):
             borrow_url = url_for(
                 "borrow", data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
