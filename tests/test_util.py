@@ -426,3 +426,21 @@ class TestOPDSAuthenticationDocument(object):
         data = json.dumps(doc, sort_keys=True)
         eq_('{"id": "An ID", "title": "A title", "type": ["http://opds-spec.org/auth/basic"]}', 
             data)
+
+    def test_document_links(self):
+
+        links = {
+            "single-link": "http://foo",
+            "double-link": ["http://bar1", "http://bar2"],
+            "complex-link": dict(href="http://baz", type="text/html"),
+            "complex-links": [
+                dict(href="http://comp1", type="text/html"),
+                dict(href="http://comp2", type="text/plain")
+            ]
+        }
+
+        doc = OPDSAuthenticationDocument.fill_in(
+            {}, [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
+            "A title", "An ID", links=links)
+
+        eq_(doc['links'], {'complex-link': [{'href': 'http://baz', 'type': 'text/html'}], 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': [{'href': 'http://foo'}], 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})

@@ -6,7 +6,7 @@ class OPDSAuthenticationDocument(object):
 
     @classmethod
     def fill_in(self, document, type=None, title=None, id=None, text=None,
-                login_label=None, password_label=None):
+                login_label=None, password_label=None, links={}):
         """Fill in any missing fields of an OPDS Authentication Document
         with the given values.
         """
@@ -40,4 +40,18 @@ class OPDSAuthenticationDocument(object):
 
         if text and (not 'text' in data or not data['text']):
             data['text'] = text
+
+        if links:
+            data['links'] = {}
+            for rel, urls in links.items():
+                if not isinstance(urls, list):
+                    urls = [urls]
+                dicts = []
+                for url in urls:
+                    if isinstance(url, basestring):
+                        url = dict(href=url)
+                    dicts.append(url)
+                data['links'][rel] = dicts
+
+
         return data

@@ -11,6 +11,9 @@ class ConfigurationFile(object):
 
     instance = None
 
+    PRIVACY_POLICY_URL = "privacy_policy_url"
+    TERMS_OF_SERVICE_URL = "terms_of_service_url"
+
     HOLD_BEHAVIOR = "hold_behavior"
     HOLD_BEHAVIOR_ALLOW = "allow"
     HOLD_BEHAVIOR_HIDE = "hide"
@@ -24,6 +27,14 @@ class ConfigurationFile(object):
     @classmethod
     def hold_behavior(cls):
         return cls.get(cls.HOLD_BEHAVIOR, cls.HOLD_BEHAVIOR_ALLOW)
+
+    @classmethod
+    def terms_of_service_url(cls):
+        return cls.get(cls.TERMS_OF_SERVICE_URL, None)
+
+    @classmethod
+    def privacy_policy_url(cls):
+        return cls.get(cls.PRIVACY_POLICY_URL, None)
 
     @classmethod
     def load(cls, root_directory):
