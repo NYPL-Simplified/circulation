@@ -225,9 +225,17 @@ class Conf:
             urlparse.urlparse(content_server_url))
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
 
+        links = {}
+        for rel, value in (
+                ("terms-of-service", ConfigurationFile.terms_of_service_url()),
+                ("privacy-policy", ConfigurationFile.privacy_policy_url()),
+        ):
+            if value:
+                links[rel] = dict(href=value, type="text/html")
+
         doc = OPDSAuthenticationDocument.fill_in(
             base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
-            "PIN",
+            "PIN", links=links
             )
 
         cls.opds_authentication_document = json.dumps(doc)
@@ -267,6 +275,17 @@ NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
 CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulfill-loan"
 CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-release-hold"
+
+def add_configuration_links(feed):
+    set_trace()
+    for rel, value in (
+            ("terms-of-service", ConfigurationFile.terms_of_service_url()),
+            ("privacy-policy", ConfigurationFile.privacy_policy_url()),
+    ):
+        if value:
+            d = dict(href=value, type="text/html", rel=rel)
+            feed.add_link(**d)
+
 
 def authenticated_patron(barcode, pin):
     """Look up the patron authenticated by the given barcode/pin.
@@ -336,6 +355,7 @@ def make_featured_feed(annotator, lane, languages):
     opds_feed = AcquisitionFeed.featured(
         languages, lane, annotator, quality_cutoff=0.0)
     opds_feed.add_link(**search_link)
+    add_configuration_links(opds_feed)
     return 200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, unicode(opds_feed)
 
 def acquisition_groups_cache_url(annotator, lane, languages):
@@ -369,6 +389,7 @@ def make_acquisition_groups(annotator, lane, languages):
     feed.add_link(
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
+    add_configuration_links(feed)
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
             unicode(feed)
@@ -454,6 +475,7 @@ def make_popular_feed(_db, annotator, lane, languages):
             'popular_feed', lane_name=lane_name, order=order_facet,
             after=offset, size=size, _external=True)
         opds_feed.add_link(rel="next", href=next_url)
+    add_configuration_links(opds_feed)
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
             unicode(opds_feed)
@@ -540,6 +562,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
             'staff_picks_feed', lane_name=lane_name, order=order_facet,
             after=offset, size=size, _external=True)
         opds_feed.add_link(rel="next", href=next_url)
+    add_configuration_links(opds_feed)
 
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
@@ -665,6 +688,7 @@ def navigation_feed(lane):
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
 
+    add_configuration_links(feed)
     feed = unicode(feed)
     feed_cache[key] = feed
     return feed_response(feed, acquisition=False, cache_for=7200)
@@ -881,7 +905,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
         type="application/opensearchdescription+xml",
         href=url_for('lane_search', lane=lane.name, _external=True))
     opds_feed.add_link(**search_link)
-
+    add_configuration_links(opds_feed)
     return (200,
             {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
             unicode(opds_feed),
@@ -1185,6 +1209,7 @@ def borrow(data_source, identifier):
         # This should never happen -- we should have sent a more specific
         # error earlier.
         return problem(HOLD_FAILED_PROBLEM, "", 400)
+    add_configuration_links(feed)
     content = unicode(feed)
     if is_new:
         status_code = 201
