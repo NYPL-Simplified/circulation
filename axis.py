@@ -65,7 +65,7 @@ class Axis360API(BaseAxis360API):
             return fulfillment
         # If we made it to this point, the patron does not have this
         # book checked out.
-        raise CannotFulfillNotCheckedOut()
+        raise NoActiveLoan()
 
     def checkin(self, patron, pin, licensepool):
         pass
@@ -100,7 +100,7 @@ class Axis360API(BaseAxis360API):
 
     def patron_activity(self, patron, pin, identifier=None):
         if identifier:
-            title_ids = [identifier.identifire]
+            title_ids = [identifier.identifier]
         else:
             title_ids = None
         availability = self.availability(
