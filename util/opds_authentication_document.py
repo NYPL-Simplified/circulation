@@ -51,6 +51,8 @@ class OPDSAuthenticationDocument(object):
                     if isinstance(url, basestring):
                         url = dict(href=url)
                     dicts.append(url)
+                if len(dicts) == 1:
+                    [dicts] = dicts 
                 data['links'][rel] = dicts
 
 

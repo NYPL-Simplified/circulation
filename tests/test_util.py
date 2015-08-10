@@ -443,4 +443,4 @@ class TestOPDSAuthenticationDocument(object):
             {}, [OPDSAuthenticationDocument.BASIC_AUTH_FLOW],
             "A title", "An ID", links=links)
 
-        eq_(doc['links'], {'complex-link': [{'href': 'http://baz', 'type': 'text/html'}], 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': [{'href': 'http://foo'}], 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
+        eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
