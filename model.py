@@ -21,6 +21,7 @@ import time
 import traceback
 import urllib
 import uuid
+import warnings
 
 from PIL import (
     Image,
@@ -28,6 +29,7 @@ from PIL import (
 import elasticsearch
 
 from sqlalchemy.engine.url import URL
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (
     backref,
@@ -206,7 +208,10 @@ class SessionManager(object):
 
     @classmethod
     def session(cls, url):
-        engine, connection = cls.initialize(url)
+        engine = connection = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=sa_exc.SAWarning)
+            engine, connection = cls.initialize(url)
         session = Session(connection)
         cls.initialize_data(session)
         session.commit()
