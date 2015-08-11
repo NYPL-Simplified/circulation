@@ -91,7 +91,9 @@ class Axis360API(object):
         headers = dict(extra_headers)
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
-        response = self._make_request(url, method, headers, data, params)
+        response = self._make_request(
+            url=url, method=method, extra_headers=headers,
+            data=data, params=params)
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -100,7 +102,9 @@ class Axis360API(object):
             else:
                 # The token has expired. Get a new token and try again.
                 self.token = None
-                return self.request(method, url, extra_headers, data, True)
+                return self.request(
+                    url=url, method=method, extra_headers=extra_headers,
+                    data=data, params=params, exception_on_401=True)
         else:
             return response
 
