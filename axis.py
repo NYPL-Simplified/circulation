@@ -92,7 +92,7 @@ class Axis360API(object):
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
         response = self._make_request(
-            url=url, method=method, extra_headers=headers,
+            url=url, method=method, headers=headers,
             data=data, params=params)
         if response.status_code == 401:
             if exception_on_401:
