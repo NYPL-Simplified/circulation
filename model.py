@@ -86,7 +86,7 @@ from sqlalchemy import (
 )
 
 import log # Make sure logging is set up properly.
-from config import ConfigurationFile
+from config import Configuration
 from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
@@ -114,10 +114,10 @@ from s3 import S3Uploader
 DEBUG = False
 
 def production_session():
-    url = os.environ['DATABASE_URL']
+    url = Configuration.database_url()
     if url.startswith('"'):
         url = url[1:]
-    logging.debug("Database url: %s", os.environ['DATABASE_URL'])
+    logging.debug("Database url: %s", url)
     return SessionManager.session(url)
 
 class PolicyException(Exception):
@@ -143,7 +143,7 @@ class SessionManager(object):
 
     @classmethod
     def engine(cls, url=None):
-        url = url or os.environ['DATABASE_URL']
+        url = url or Configuration.database_url()
         return create_engine(url, echo=DEBUG)
 
     @classmethod
@@ -4681,9 +4681,9 @@ class Lane(object):
         :param fiction: Override the fiction setting found in `self.fiction`.
 
         """
-        hold_behavior = ConfigurationFile.hold_behavior()
+        hold_behavior = Configuration.hold_behavior()
         if (availability == Work.ALL and 
-            hold_behavior == ConfigurationFile.HOLD_BEHAVIOR_HIDE):
+            hold_behavior == Configuration.HOLD_BEHAVIOR_HIDE):
             # Under normal circumstances we would show all works, but
             # site configuration says to hide books that aren't
             # available.
@@ -5105,8 +5105,8 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (ConfigurationFile.hold_behavior() 
-            != ConfigurationFile.HOLD_BEHAVIOR_ALLOW):
+        if (Configuration.hold_behavior() 
+            != Configuration.HOLD_BEHAVIOR_ALLOW):
             raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
@@ -5792,7 +5792,7 @@ class Representation(Base):
     def normalize_content_path(cls, content_path, base=None):
         if not content_path:
             return None
-        base = base or os.environ['DATA_DIRECTORY']
+        base = base or Configuration.data_directory()
         if content_path.startswith(base):
             content_path = content_path[len(base):]
             if content_path.startswith('/'):
@@ -5866,7 +5866,7 @@ class Representation(Base):
         """Return the full local path to the representation on disk."""
         if not self.local_content_path:
             return None
-        return os.path.join(os.environ['DATA_DIRECTORY'],
+        return os.path.join(Configuration.data_directory,
                             self.local_content_path)
 
     def content_fh(self):

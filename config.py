@@ -1,89 +1,200 @@
+from nose.tools import set_trace
 import os
 import json
 import logging
 
-class CannotLoadConfigurationFile(Exception):
+class CannotLoadConfiguration(Exception):
     pass
 
-class ConfigurationFile(object):
+class Configuration(object):
 
     log = logging.getLogger("Configuration file loader")
 
     instance = None
 
-    PRIVACY_POLICY_URL = "privacy_policy_url"
-    TERMS_OF_SERVICE_URL = "terms_of_service_url"
+    # Logging stuff
+    LOGGING = "logging"
+    LOGGING_LEVEL = "level"
+    LOGGING_FORMAT = "format"
+    LOG_FORMAT_TEXT = "text"
+    LOG_FORMAT_JSON = "json"
 
-    HOLD_BEHAVIOR = "hold_behavior"
-    HOLD_BEHAVIOR_ALLOW = "allow"
-    HOLD_BEHAVIOR_HIDE = "hide"
+    # Links
+    LINKS = "links"
+    PRIVACY_POLICY = "privacy_policy"
+    TERMS_OF_SERVICE = "terms_of_service"
+
+    # Logging
+    LOGGING = "logging"
+    LOG_LEVEL = "level"
+    DATABASE_LOG_LEVEL = "database_level"
+    LOG_OUTPUT_TYPE = "output"
+    LOG_DATA_FORMAT = "format"
+
+    DATA_DIRECTORY = "data_directory"
+
+    # Policies, mostly circulation specific
+    POLICIES = "policies"
+
+    # Integrations
+    URL = "url"
+    NAME = "name"
+    TYPE = "type"
+    INTEGRATIONS = "integrations"
+    DATABASE_INTEGRATION = "Postgres"
+    DATABASE_PRODUCTION_URL = "production_url"
+    DATABASE_TEST_URL = "test_url"
+
+    ELASTICSEARCH_INTEGRATION = "Elasticsearch"
+    ELASTICSEARCH_INDEX_KEY = "works_index"
+
+    METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
+    CONTENT_SERVER_INTEGRATION = "Content Server"
+    CIRCULATION_MANAGER_INTEGRATION = "Circulation Manager"
+
+    NYT_INTEGRATION = "New York Times"
+    NYT_BEST_SELLERS_API_KEY = "best_sellers_api_key"
+
+    OVERDRIVE_INTEGRATION = "Overdrive"
+    THREEM_INTEGRATION = "3M"
+    AXIS_INTEGRATION = "Axis 360"
+
+    S3_INTEGRATION = "S3"
+    S3_ACCESS_KEY = "access_key"
+    S3_SECRET_KEY = "secret_key"
+    S3_OPEN_ACCESS_CONTENT_BUCKET = "open_access_content_bucket"
+    S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
+
+    CDN_INTEGRATION = "CDN"
+    CDN_BOOK_COVERS = "book_covers"
+    CDN_OPDS_FEEDS = "opds"
+
+    METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
+    CONTENT_SERVER_INTEGRATION = "Content Server"
+
+    BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
+
+    # General getters
 
     @classmethod
     def get(cls, key, default=None):
         if not cls.instance:
-            return default
+            raise ValueError("No configuration file loaded!")
         return cls.instance.get(key, default)
 
     @classmethod
-    def hold_behavior(cls):
-        return cls.get(cls.HOLD_BEHAVIOR, cls.HOLD_BEHAVIOR_ALLOW)
+    def required(cls, key):
+        if cls.instance:
+            value = cls.get(key)
+            if value is not None:
+                return value
+        raise ValueError(
+            "Required configuration variable %s was not defined!" % key
+        )
+
+    @classmethod
+    def link(cls, name):
+        """Find a link by name."""
+        return cls.get(cls.LINKS, {}).get(name, None)
+
+    @classmethod
+    def integration(cls, name, required=False):
+        """Find an integration configuration by name."""
+        integrations = cls.get(cls.INTEGRATIONS, {})
+        v = integrations.get(name, {})
+        logging.info("Integration %s: %r", name, v)
+        if not v and required:
+            raise ValueError(
+                "Required integration '%s' was not defined! I see: %r" % (
+                    name, ", ".join(sorted(integrations.keys()))
+                )
+            )
+        return v
+
+    @classmethod
+    def integration_url(cls, name, required=False):
+        """Find the URL to an integration."""
+        integration = cls.integration(name, required=required)
+        v = integration.get(cls.URL, None)
+        if not v and required:
+            raise ValueError(
+                "Integration '%s' did not define a required 'url'!" % name
+            )
+        return v
+
+    @classmethod
+    def cdn_host(cls, type):
+        integration = cls.integration(cls.CDN_INTEGRATION)
+        return integration.get(type)
+
+    @classmethod
+    def s3_bucket(cls, bucket_name):
+        integration = cls.integration(cls.S3_INTEGRATION)
+        return integration[bucket_name]
+
+    @classmethod
+    def policy(cls, name, default=None, required=False):
+        """Find a policy configuration by name."""
+        v = cls.get(cls.POLICIES, {}).get(name, default)
+        if not v and required:
+            raise ValueError(
+                "Required policy %s was not defined!" % name
+            )
+        return v
+
+    # More specific getters.
+
+    @classmethod
+    def database_url(cls, test=False):
+        if test:
+            key = cls.DATABASE_TEST_URL
+        else:
+            key = cls.DATABASE_PRODUCTION_URL
+        return cls.integration(cls.DATABASE_INTEGRATION)[key]
+
+    @classmethod
+    def data_directory(cls):
+        return cls.get(cls.DATA_DIRECTORY)
 
     @classmethod
     def terms_of_service_url(cls):
-        return cls.get(cls.TERMS_OF_SERVICE_URL, None)
+        return cls.link(cls.TERMS_OF_SERVICE)
 
     @classmethod
     def privacy_policy_url(cls):
-        return cls.get(cls.PRIVACY_POLICY_URL, None)
+        return cls.link(cls.PRIVACY_POLICY)
 
     @classmethod
-    def load(cls, root_directory):
+    def base_opds_authentication_document(cls):
+        return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
+
+    @classmethod
+    def logging_policy(cls):
+        default_logging = {}
+        return cls.get(cls.LOGGING, default_logging)
+
+    # Methods for loading the configuration from disk.
+
+    @classmethod
+    def load(cls):
         cfv = 'CONFIGURATION_FILE'
-        if cfv in os.environ:
-            # If there some indication that a configuration file
-            # should be present, any failure to load it is treated
-            # as a very serious error error.
-            config_path = os.environ[cfv]
-            if not config_path.startswith('/'):
-                # Path is relative to the application root.
-                config_path = os.path.join(root_directory, config_path)
-            if not os.path.exists(config_path):
-                raise CannotLoadConfigurationFile(
-                    "Could not locate configuration file %s" % config_path
-                )
-            try:
-                cls.log.info("Loading configuration from %s", config_path)
-                configuration = json.load(open(config_path))
-            except Exception, e:
-                raise CannotLoadConfigurationFile(
-                    "Error loading configuration file %s: %s", 
-                    config_path, e,
-                )
-        else:
-            # If you don't define a configuration file, it's fine--it
-            # just means you're using the default settings for
-            # everything.
-            cls.log.warn("No configuration file defined in %s." % cfv)
-            configuration = {}
+        if not cfv in os.environ:
+            raise CannotLoadConfiguration(
+                "No configuration file defined in %s." % cfv)
 
-        # If any environment variables are mentioned in the configuration,
-        # mirror them to the environment.
-        for k, v in configuration.items():
-            if k.upper() == k:
-                # This is an environment variable. We will make sure
-                # it's mirrored into the environment.
-                if k in os.environ and os.environ[k] == v:
-                    # Configuration value is the same as environment
-                    # value. This is a no-op.
-                    msg = None
-                elif k in os.environ:
-                    msg = "Configuration file overwrote environment variable %s"
-                else:
-                    msg = "Configuration file set environment variable %s"
-                if msg:
-                    cls.log.info(msg, k)
-                os.environ[k] = v
-
+        config_path = os.environ[cfv]
+        try:
+            cls.log.info("Loading configuration from %s", config_path)
+            configuration = cls._load(open(config_path))
+        except Exception, e:
+            raise CannotLoadConfiguration(
+                "Error loading configuration file %s: %s" % (
+                    config_path, e)
+            )
         cls.instance = configuration
         return configuration
 
+    @classmethod
+    def _load(cls, fh):
+        lines = [x for x in fh if not x.startswith("#")]
+        return json.loads("".join(lines))

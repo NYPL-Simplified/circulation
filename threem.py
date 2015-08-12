@@ -9,6 +9,7 @@ import requests
 import logging
 from datetime import timedelta
 
+from config import Configuration
 from model import (
     DataSource,
     Representation,
@@ -49,11 +50,12 @@ class ThreeMAPI(object):
     def environment_values(
             self, client_key=None, client_secret=None,
             website_id=None, library_id=None, collection_name=None):
+        value = Configuration.integration('3M')
         return [
-            os.environ.get(var) for var in [
-                'THREEM_LIBRARY_ID',
-                'THREEM_ACCOUNT_ID',
-                'THREEM_ACCOUNT_KEY',
+            str(value[var]) for var in [
+                'library_id',
+                'account_id',
+                'account_key',
             ]
         ]
 

@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import (
 )
 from opds_import import SimplifiedOPDSLookup
 
+from config import Configuration
 from model import (
     get_one_or_create,
     CustomList,
@@ -52,11 +53,15 @@ class NYTBestSellerAPI(NYTAPI):
 
     def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
         self._db = _db
-        self.api_key = api_key or os.environ['NYT_BEST_SELLERS_API_KEY']
+        integration = Configuration.integration(Configuration.NYT_INTEGRATION)
+        self.api_key = api_key or integration[
+            Configuration.NYT_BEST_SELLERS_API_KEY
+        ]
         self.do_get = do_get or Representation.simple_http_get
         self.source = DataSource.lookup(_db, DataSource.NYT)
         if not metadata_client:
-            metadata_url = os.environ['METADATA_WEB_APP_URL']
+            metadata_url = Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION)
             metadata_client = SimplifiedOPDSLookup(metadata_url)
         self.metadata_client = metadata_client
 

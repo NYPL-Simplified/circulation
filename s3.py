@@ -15,8 +15,9 @@ from requests.exceptions import (
 class S3Uploader(MirrorUploader):
 
     def __init__(self, access_key=None, secret_key=None):
-        access_key = access_key or os.environ['AWS_ACCESS_KEY_ID']
-        secret_key = secret_key or os.environ['AWS_SECRET_ACCESS_KEY']
+        integration = Configuration.integration(Configuration.S3_INTEGRATION)
+        access_key = access_key or integration[Configuration.S3_ACCESS_KEY]
+        secret_key = secret_key or integration[Configuration.S3_SECRET_KEY]
         self.pool = tinys3.Pool(access_key, secret_key)
 
     S3_HOSTNAME = "s3.amazonaws.com"
@@ -40,7 +41,7 @@ class S3Uploader(MirrorUploader):
         """The root URL to the S3 location of cover images for
         the given data source.
         """
-        bucket = os.environ['BOOK_COVERS_S3_BUCKET']
+        bucket = Configuration.s3_bucket(Configuration.S3_BOOK_COVERS_BUCKET)
         return cls._cover_image_root(bucket, data_source, scaled_size)
 
     @classmethod
@@ -61,7 +62,9 @@ class S3Uploader(MirrorUploader):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        bucket = os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET']
+        bucket = Configuration.s3_bucket(
+            Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET
+        )
         return cls._content_root(bucket, open_access)
 
     @classmethod

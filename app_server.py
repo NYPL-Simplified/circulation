@@ -27,14 +27,15 @@ from model import (
 )
 from util.cdn import cdnify
 from classifier import Classifier
+from config import Configuration
 
-opds_cdn_host = os.environ.get('OPDS_FEEDS_CDN_HOST')
+
+opds_cdn_host = Configuration.cdn_host(Configuration.CDN_OPDS_FEEDS)
 def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
     return cdnify(base_url, opds_cdn_host)
 
-def load_lending_policy(policy=None):
-    policy = policy or os.environ.get('LENDING_POLICY')
+def load_lending_policy(policy):
     if not policy:
         logging.info("No lending policy.")
         return {}

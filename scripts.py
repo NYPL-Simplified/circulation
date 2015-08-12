@@ -5,6 +5,7 @@ from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
 import time
 
+from config import Configuration
 import log # This sets the appropriate log format and level.
 from model import (
     production_session,
@@ -40,17 +41,10 @@ class Script(object):
 
     @property
     def data_directory(self):
-        return self.required_environment_variable('DATA_DIRECTORY')
-
-    def required_environment_variable(self, name):
-        if not name in os.environ:
-            logging.error(
-                "Missing required environment variable: %(name)s",
-                name=name)
-            sys.exit()
-        return os.environ[name]
+        return Configuration.data_directory()
 
     def run(self):
+        self.load_configuration()
         try:
             self.do_run()
         except Exception, e:
@@ -59,6 +53,10 @@ class Script(object):
                 exc_info=e
             )
             raise e
+
+    def load_configuration(self):
+        if not Configuration.instance:
+            Configuration.load()
 
 class RunMonitorScript(Script):
 

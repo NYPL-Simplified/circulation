@@ -16,6 +16,7 @@ from model import (
     Identifier,
     Subject,
 )
+from config import Configuration
 
 class Axis360API(object):
 
@@ -43,11 +44,12 @@ class Axis360API(object):
 
     @classmethod
     def environment_values(cls):
+        value = Configuration.integration('Axis 360')
         return [
-            os.environ.get(var) for var in [
-                'AXIS_360_LIBRARY_ID',
-                'AXIS_360_USERNAME',
-                'AXIS_360_PASSWORD',
+            value[var] for var in [
+                'library_id',
+                'username',
+                'password',
             ]
         ]
 

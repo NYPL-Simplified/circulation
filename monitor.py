@@ -38,10 +38,9 @@ class Monitor(object):
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
 
-        url = os.environ.get('SEARCH_SERVER_URL')
-        if url:
-            index = os.environ['SEARCH_WORKS_INDEX']
-            search_index_client = ExternalSearchIndex(url, index)
+        search = Configuration.integration(Configuration.ELASTICSEARCH)
+        if search:
+            search_index_client = ExternalSearchIndex()
         else:
             search_index_client = None
         self.search_index_client=search_index_client

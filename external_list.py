@@ -8,6 +8,7 @@ from sqlalchemy.orm.session import Session
 
 from opds_import import SimplifiedOPDSLookup
 import logging
+from config import Configuration
 from model import (
     get_one,
     get_one_or_create,
@@ -386,7 +387,10 @@ class CustomListFromCSV(object):
         self.list_name = list_name
         self.overwrite_old_data = overwrite_old_data
         if not metadata_client:
-            metadata_url = os.environ['METADATA_WEB_APP_URL']
+            metadata_url = Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION,
+                required=True
+            )
             metadata_client = SimplifiedOPDSLookup(metadata_url)
         self.metadata_client = metadata_client
         self.classification_weight = classification_weight

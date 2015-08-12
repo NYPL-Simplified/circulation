@@ -26,6 +26,7 @@ import requests
 
 from lxml import builder, etree
 
+from config import Configuration
 from classifier import Classifier
 from model import (
     BaseMaterializedWork,
@@ -119,7 +120,7 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdn_host = os.environ.get('BOOK_COVERS_CDN_HOST')
+        cdn_host = Configuration.cdn_host(Configuration.CDN_BOOK_COVERS)
         if work:
             if work.cover_thumbnail_url:
                 thumb = work.cover_thumbnail_url
@@ -413,7 +414,7 @@ class OPDSFeed(AtomFeed):
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
 
-    FEED_CACHE_TIME = int(os.environ.get('FEED_CACHE_TIME', "600"))
+    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     NO_TITLE = "http://librarysimplified.org/terms/problem/no-title"
 

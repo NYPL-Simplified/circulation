@@ -4,9 +4,12 @@ import logging
 import json
 import os
 import socket
+from config import Configuration
 
-DEFAULT_FORMAT = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
-DEFAULT_LOG_DATA_FORMAT = "text"
+if not Configuration.instance:
+    Configuration.load()
+
+DEFAULT_DATA_FORMAT = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -31,17 +34,19 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
-log_level = os.environ.get('SIMPLIFIED_LOG_LEVEL', 'INFO').upper()
-logging.basicConfig(format=DEFAULT_FORMAT)
+log_config = Configuration.logging_policy()
+log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
+data_format = log_config.get(
+    Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
+logging.basicConfig(format=data_format)
 
 def set_formatter(handler):
-    log_format = os.environ.get(
-        'SIMPLIFIED_LOG_FORMAT', DEFAULT_LOG_DATA_FORMAT).lower()    
-    if log_format=='json':
+    output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
+    if output_type=='json':
         cls = JSONFormatter
     else:
         cls = UTF8Formatter
-    handler.setFormatter(cls(DEFAULT_FORMAT))
+    handler.setFormatter(cls(data_format))
     return handler
 
 logger = logging.getLogger()
@@ -49,7 +54,7 @@ logger.setLevel(log_level)
 for handler in logger.handlers:
     set_formatter(handler)
 
-database_log_level = os.environ.get('SIMPLIFIED_DATABASE_LOG_LEVEL', 'WARN')
+database_log_level = log_config.get(Configuration.DATABASE_LOG_LEVEL, 'WARN')
 for logger in (
         'sqlalchemy.engine', 'elasticsearch', 
         'requests.packages.urllib3.connectionpool'

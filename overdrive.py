@@ -14,6 +14,7 @@ from model import (
     DataSource,
     Representation,
 )
+from config import Configuration
 
 class OverdriveAPI(object):
 
@@ -50,13 +51,14 @@ class OverdriveAPI(object):
     
     @classmethod
     def environment_values(cls):
+        value = Configuration.integration('Overdrive')
         return [
-            os.environ.get(var) for var in [
-                'OVERDRIVE_CLIENT_KEY',
-                'OVERDRIVE_CLIENT_SECRET',
-                'OVERDRIVE_WEBSITE_ID',
-                'OVERDRIVE_LIBRARY_ID',
-                'OVERDRIVE_COLLECTION_NAME',
+            str(value[var]) for var in [
+                'client_key',
+                'client_secret',
+                'website_id',
+                'library_id',
+                'collection_name',
             ]
         ]
 

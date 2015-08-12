@@ -6,6 +6,7 @@ import shutil
 import tempfile
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
+from config import Configuration
 from model import (
     Base,
     Contributor,
@@ -310,14 +311,15 @@ import os
 from sqlalchemy.orm.session import Session
 
 from model import (
-       Patron,
+    Patron,
     SessionManager,
     get_one_or_create,
 )
 
 def _setup(dbinfo):
     # Connect to the database and create the schema within a transaction
-    engine, connection = SessionManager.initialize(os.environ['DATABASE_URL_TEST'])
+    url = Configuration.database_url(test=True)
+    engine, connection = SessionManager.initialize(url)
     try:
         Base.metadata.drop_all(connection)
     except Exception, e:
@@ -339,12 +341,9 @@ def _setup(dbinfo):
     print "Connection is now %r" % dbinfo.connection
     print "Transaction is now %r" % dbinfo.transaction
 
-    dbinfo.old_data_dir = os.environ.get('DATA_DIRECTORY')
+    dbinfo.old_data_dir = Configuration.data_directory
     dbinfo.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
-    if dbinfo.tmp_data_dir:
-        os.environ['DATA_DIRECTORY'] = dbinfo.tmp_data_dir
-    elif 'DATA_DIRECTORY' in os.environ:
-        del os.environ['DATA_DIRECTORY']
+    Configuration.instance[Configuration.DATA_DIRECTORY] =dbinfo.tmp_data_dir
 
 def _teardown(dbinfo):
     # Roll back the top level transaction and disconnect from the database
@@ -358,7 +357,4 @@ def _teardown(dbinfo):
     else:
         print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
 
-    if dbinfo.old_data_dir:
-        os.environ['DATA_DIRECTORY'] = dbinfo.old_data_dir
-    elif 'DATA_DIRECTORY' in os.environ:
-        del os.environ['DATA_DIRECTORY']
+    Configuration.instance[Configuration.DATA_DIRECTORY] = dbinfo.old_data_dir
