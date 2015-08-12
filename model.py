@@ -4681,9 +4681,9 @@ class Lane(object):
         :param fiction: Override the fiction setting found in `self.fiction`.
 
         """
-        hold_behavior = Configuration.hold_behavior()
+        hold_policy = Configuration.hold_policy()
         if (availability == Work.ALL and 
-            hold_behavior == Configuration.HOLD_POLICY_HIDE):
+            hold_policy == Configuration.HOLD_POLICY_HIDE):
             # Under normal circumstances we would show all works, but
             # site configuration says to hide books that aren't
             # available.
@@ -5105,7 +5105,7 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (Configuration.hold_behavior() 
+        if (Configuration.hold_policy() 
             != Configuration.HOLD_POLICY_ALLOW):
             raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()

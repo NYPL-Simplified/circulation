@@ -1,3 +1,4 @@
+import contextlib
 from nose.tools import set_trace
 import os
 import json
@@ -5,6 +6,26 @@ import logging
 
 class CannotLoadConfiguration(Exception):
     pass
+
+@contextlib.contextmanager
+def temp_config(new_config=None, replacement_classes=None):
+    old_config = Configuration.instance
+    replacement_classes = replacement_classes or [Configuration]
+    if new_config is None:
+        new_config = dict(old_config)
+    try:
+        for c in replacement_classes:
+            c.instance = new_config
+        yield new_config
+    finally:
+        for c in replacement_classes:
+            c.instance = old_config
+
+@contextlib.contextmanager
+def empty_config(replacement_classes=None):
+    with temp_config({}, replacement_classes) as i:
+        yield i
+
 
 class Configuration(object):
 
@@ -169,7 +190,7 @@ class Configuration(object):
         return cls.link(cls.PRIVACY_POLICY)
 
     @classmethod
-    def hold_behavior(cls):
+    def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
 
     @classmethod
