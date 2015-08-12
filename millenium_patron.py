@@ -8,6 +8,7 @@ import requests
 
 from core.util.xmlparser import XMLParser
 from authenticator import Authenticator
+from config import Configuration
 import os
 import re
 from core.model import (
@@ -34,26 +35,21 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     log = logging.getLogger("Millenium Patron API")
 
-    def __init__(self, root=None):
-        [env_root] = self.environment_values()
-        root = root or env_root
+    def __init__(self, root):
         if not root.endswith('/'):
             root = root + "/"
         self.root = root
         self.parser = etree.HTMLParser()
 
     @classmethod
-    def environment_values(cls):
-        return [os.environ.get('MILLENIUM_HOST')]
-
-    @classmethod
     def from_environment(cls):
-        [host] = cls.environment_values()
+        config = Configuration.integration(
+            Configuration.MILLENIUM_INTEGRATION, required=True)
+        host = config.get(Configuration.URL)
         if not host:
             cls.log.info("No Millenium Patron client configured.")
             return None
-        return cls(host)
-            
+        return cls(host)            
 
     def request(self, url):
         return requests.get(url)

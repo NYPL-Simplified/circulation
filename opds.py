@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 from flask import url_for
 
-from core.config import ConfigurationFile
+from config import Configuration
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -112,8 +112,8 @@ class CirculationManagerAnnotator(Annotator):
         can_fulfill = False
         can_revoke = False
         can_hold = (
-            ConfigurationFile.hold_behavior() == 
-            ConfigurationFile.HOLD_BEHAVIOR_ALLOW
+            Configuration.hold_behavior() == 
+            Configuration.HOLD_BEHAVIOR_ALLOW
         )
 
         if active_loan:

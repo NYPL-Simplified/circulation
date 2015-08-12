@@ -70,8 +70,8 @@ class AdobeVendorIDRequestHandler(object):
     AUTHENTICATION_FAILURE = 'Incorrect barcode or PIN.'
     URN_LOOKUP_FAILURE = "Could not identify patron from '%s'."
 
-    def __init__(self, vendor_id=None):
-        self.vendor_id = vendor_id or os.environ.get('ADOBE_VENDOR_ID')
+    def __init__(self, vendor_id):
+        self.vendor_id = vendor_id
 
     def handle_signin_request(self, data, standard_lookup, authdata_lookup):
         parser = AdobeSignInRequestParser()
@@ -197,15 +197,13 @@ class AdobeVendorIDModel(object):
     TEMPORARY_TOKEN_TYPE = "Temporary token for Adobe Vendor ID"
     VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
-    def __init__(self, _db, authenticator, node_value=None,
+    def __init__(self, _db, authenticator, node_value,
                  temporary_token_duration=None):
         self._db = _db
         self.authenticator = authenticator
         self.data_source = DataSource.lookup(_db, DataSource.ADOBE)
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))
-        node_value = (
-            node_value or os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE'))
         if isinstance(node_value, basestring):
             node_value = int(node_value, 16)
         self.node_value = node_value

@@ -199,8 +199,13 @@ class MakePresentationReady(object):
 
     def __init__(self, _db, metadata_wrangler_url=None):
         metadata_wrangler_url = (
-            metadata_wrangler_url or os.environ['METADATA_WEB_APP_URL'])
-        content_server_url = (os.environ['CONTENT_WEB_APP_URL'])
+            metadata_wrangler_url or Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION
+            )
+        content_server_url = (
+            Configuration.integration_url(
+                Configuration.CONTENT_SERVER_INTEGRATION)
+        )
 
         self._db = _db
         self.lookup = SimplifiedOPDSLookup(metadata_wrangler_url)

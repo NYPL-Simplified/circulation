@@ -22,8 +22,8 @@ from core.model import (
     Representation,
     Subject,
 )
-from core.scripts import Script
-from core.config import ConfigurationFile
+from core.scripts import Script as CoreScript
+from config import Configuration
 from core.opds_import import (
     SimplifiedOPDSLookup,
     DetailedOPDSImporter,
@@ -37,6 +37,11 @@ from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
 
+class Script(CoreScript):
+    def load_config(self):
+        if not Configuration.instance:
+            Configuration.load()
+
 class CreateWorksForIdentifiersScript(Script):
 
     """Do the bare minimum to associate each Identifier with an Edition
@@ -49,8 +54,11 @@ class CreateWorksForIdentifiersScript(Script):
     name = "Create works for identifiers"
 
     def __init__(self, metadata_web_app_url=None):
-        self.metadata_url = (metadata_web_app_url
-                             or os.environ['METADATA_WEB_APP_URL'])
+        self.metadata_url = (
+            metadata_web_app_url or Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION
+            )
+        )
         self.lookup = SimplifiedOPDSLookup(self.metadata_url)
 
     def run(self):
@@ -174,14 +182,11 @@ class UpdateStaffPicksScript(Script):
     DEFAULT_URL_TEMPLATE = "https://docs.google.com/spreadsheets/d/%s/export?format=csv"
 
     def run(self):
-        key = os.environ['STAFF_PICKS_GOOGLE_SPREADSHEET_KEY']
-        if key.startswith('https://') or key.startswith('http://'):
-            # It's a custom URL, not a Google spreadsheet key.
-            # Leave it alone.
-            url = key
-        else:
-            url = self.DEFAULT_URL_TEMPLATE % key
-        metadata_client = None
+        url = Configuration.integration_url(
+            Configuration.STAFF_PICKS_INTEGRATION, True
+        )
+        if not url.startswith('https://') or url.startswith('http://'):
+            url = self.DEFAULT_URL_TEMPLATE % url
         self.log.info("Retrieving %s", url)
         representation, cached = Representation.get(
             self._db, url, do_get=Representation.browser_http_get,
@@ -232,8 +237,7 @@ class StandaloneApplicationConf(object):
         self.sublanes = make_lanes(self.db)
         self.name = None
         self.display_name = None
-        path = os.path.split(__file__)[0]
-        self.config_file = ConfigurationFile.load(path)
+        self.config_file = Configuration.load()
 
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
@@ -253,7 +257,9 @@ class LaneSweeperScript(Script):
         elif languages == self.OTHER_COLLECTIONS:
             languages = other_lang
         self.languages = languages
-        self.base_url = os.environ['CIRCULATION_WEB_APP_URL']
+        self.base_url = Configuration.integration_url(
+            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
+        )
         old_testing = os.environ.get('TESTING')
         # TODO: An awful hack to prevent the database from being
         # initialized twice.

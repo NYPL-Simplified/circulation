@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import (
 import flask
 from flask import Flask, url_for, redirect, Response, make_response
 
-from core.config import ConfigurationFile, CannotLoadConfigurationFile
+from config import Configuration, CannotLoadConfiguration
 from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
@@ -130,13 +130,12 @@ class Conf:
                 log_lanes(lane.sublanes, level+1)
 
         try:
-            root_dir = os.path.split(__file__)[0]
-            cls.config = ConfigurationFile.load(root_dir)
-        except CannotLoadConfigurationFile, e:
+            cls.config = Configuration.load()
+        except CannotLoadConfiguration, e:
             cls.log.error("Could not load configuration file: %s" % e)
             sys.exit()
 
-        lane_list = cls.config.get("lanes")
+        lane_list = Configuration.policy(Configuration.LANES_POLICY)
 
         if cls.testing:
             if not lanes:
@@ -162,10 +161,11 @@ class Conf:
             cls.axis = Axis360API.from_environment(cls.db)
             cls.auth = MilleniumPatronAPI.from_environment()
             cls.policy = load_lending_policy(
-                cls.config.get('lending_policy', {})
+                Configuration.policy('lending', {})
             )
 
-            if os.environ.get('SEARCH_SERVER_URL'):
+            if Configuration.integration(
+                    Configuration.ELASTICSEARCH_INTEGRATION):
                 cls.search = ExternalSearchIndex()
             else:
                 cls.log.warn("No external search server configured.")
@@ -173,17 +173,27 @@ class Conf:
         cls.log.debug("Lane layout:")
         log_lanes(lanes)
 
-        cls.primary_collection_languages = cls.config[
-            'primary_collection_languages']
-        cls.hold_notification_email_address = os.environ.get(
-            'DEFAULT_NOTIFICATION_EMAIL_ADDRESS')
+        language_policy = Configuration.language_policy()
+
+        cls.primary_collection_languages = language_policy[
+            Configuration.PRIMARY_LANGUAGE_COLLECTIONS
+        ]
+        cls.other_collection_languages = language_policy.get(
+            Configuration.OTHER_LANGUAGE_COLLECTIONS, []
+        )
+
+        cls.hold_notification_email_address = Configuration.default_notification_email_address()
 
         cls.circulation = CirculationAPI(
             _db=cls.db, threem=cls.threem, overdrive=cls.overdrive,
             axis=cls.axis)
         cls.log = logging.getLogger("Circulation web app")
-        vendor_id = os.environ.get('ADOBE_VENDOR_ID')
-        node_value = os.environ.get('ADOBE_VENDOR_ID_NODE_VALUE')
+
+        adobe = Configuration.integration(
+            Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        )
+        vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
+        node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
         if vendor_id and node_value:
             cls.adobe_vendor_id = AdobeVendorIDController(
                 cls.db,
@@ -192,7 +202,7 @@ class Conf:
                 cls.auth
             )
         else:
-            cls.log.warn("Adobe Vendor ID controller is disabled due to absence of ADOBE_VENDOR_ID or ADOBE_VENDOR_ID_NODE_VALUE environment variables.")
+            cls.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
             cls.adobe_vendor_id = None
 
         cls.make_authentication_document()
@@ -212,23 +222,18 @@ class Conf:
 
     @classmethod
     def make_authentication_document(cls):
-        base_opds_document = os.environ.get(
-            'OPDS_AUTHENTICATION_DOCUMENT')
-        if base_opds_document:
-            base_opds_document = json.loads(base_opds_document)
-        else:
-            base_opds_document = {}
-
+        base_opds_document = Configuration.base_opds_authentication_document()
         auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-        content_server_url = os.environ['CIRCULATION_WEB_APP_URL']
+        circulation_manager_url = Configuration.integration_url(
+            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
         scheme, netloc, path, parameters, query, fragment = (
-            urlparse.urlparse(content_server_url))
-        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, netloc))
+            urlparse.urlparse(circulation_manager_url))
+        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
 
         links = {}
         for rel, value in (
-                ("terms-of-service", ConfigurationFile.terms_of_service_url()),
-                ("privacy-policy", ConfigurationFile.privacy_policy_url()),
+                ("terms-of-service", Configuration.terms_of_service_url()),
+                ("privacy-policy", Configuration.privacy_policy_url()),
         ):
             if value:
                 links[rel] = dict(href=value, type="text/html")
@@ -278,8 +283,8 @@ CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot
 
 def add_configuration_links(feed):
     for rel, value in (
-            ("terms-of-service", ConfigurationFile.terms_of_service_url()),
-            ("privacy-policy", ConfigurationFile.privacy_policy_url()),
+            ("terms-of-service", Configuration.terms_of_service_url()),
+            ("privacy-policy", Configuration.privacy_policy_url()),
     ):
         if value:
             d = dict(href=value, type="text/html", rel=rel)
@@ -577,18 +582,11 @@ def index():
 def hearbeat():
     return HeartbeatController().heartbeat()
 
-ping_controller_path = os.environ.get('PING_CONTROLLER_PATH')
-if ping_controller_path:
-    Conf.log.info("Setting up ping controller at %s" % ping_controller_path)
-    @app.route(ping_controller_path)
-    def ping():
-        return HeartbeatController().heartbeat()
-
-
 @app.route('/service_status')
 def service_status():
-    barcode = os.environ['TEST_CREDENTIAL_USERNAME']
-    pin = os.environ['TEST_CREDENTIAL_PASSWORD']
+    conf = Configuration.authentication_policy()
+    username = conf[Configuration.AUTHENTICATION_TEST_USERNAME]
+    password = conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
 
     template = """<!DOCTYPE HTML>
 <html lang="en" class="">
@@ -620,7 +618,7 @@ def service_status():
         timings[k] = timing
 
     def do_patron():
-        patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
+        patron = Conf.auth.authenticated_patron(Conf.db, username, password)
         patrons.append(patron)
         if patron:
             return patron
@@ -631,11 +629,14 @@ def service_status():
 
     patron = patrons[0]
     def do_overdrive():
-        return Conf.overdrive.patron_activity(patron, pin)
+        return Conf.overdrive.patron_activity(patron, password)
     _add_timing('Overdrive patron account', do_overdrive)
 
-    do_threem = lambda : Conf.threem.patron_activity(patron, pin)
+    do_threem = lambda : Conf.threem.patron_activity(patron, password)
     _add_timing('3M patron account', do_threem)
+
+    do_axis = lambda : Conf.axis.patron_activity(patron, password)
+    _add_timing('Axis patron account', do_threem)
 
     statuses = []
     for k, v in sorted(timings.items()):
@@ -1099,8 +1100,8 @@ def _apply_borrowing_policy(patron, license_pool):
         )
 
     if (license_pool.licenses_available == 0 and
-        ConfigurationFile.hold_behavior() !=
-        ConfigurationFile.HOLD_BEHAVIOR_ALLOW
+        Configuration.hold_behavior() !=
+        Configuration.HOLD_BEHAVIOR_ALLOW
     ):
         return problem(
             FORBIDDEN_BY_POLICY_PROBLEM, 
@@ -1236,7 +1237,8 @@ def adobe_vendor_id_status():
 
 if __name__ == '__main__':
     debug = True
-    url = os.environ['CIRCULATION_WEB_APP_URL']
+    url = Configuration.integration_url(
+        Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
     scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
     if ':' in netloc:
         host, port = netloc.split(':')
