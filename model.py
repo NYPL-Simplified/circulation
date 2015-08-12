@@ -1203,7 +1203,7 @@ class Identifier(Base):
         # direction only) from the ideal resolution.
         for r in images:
             for link in r.links:
-                if not link.license_pool.open_access:
+                if link.license_pool and not link.license_pool.open_access:
                     # For licensed works, always present the cover
                     # provided by the licensing authority.
                     r.quality = 1
