@@ -10,6 +10,7 @@ from testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
+from config import Configuration
 from model import (
     CoverageRecord,
     DataSource,

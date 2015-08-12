@@ -11,6 +11,7 @@ from . import (
     DatabaseTest,
 )
 
+from config import Configuration
 from model import (
     Contributor,
     DataSource,
@@ -582,14 +583,41 @@ class TestOPDS(DatabaseTest):
         lane=self.lanes.by_name['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.primary_edition.cover_thumbnail_url = "http://thumbnail/"
-        work.primary_edition.cover_full_url = "http://full/"
+        work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
+        work.primary_edition.cover_full_url = "http://full/a"
+
+        old_config = Configuration.instance
+        new_config = dict(old_config)
+        # Clear out any default CDN settings
+        Configuration.instance = new_config
+        new_config['integrations'][Configuration.CDN_INTEGRATION] = {}
         feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
         feed = feedparser.parse(unicode(feed))
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                      'image' in x['rel']])
-        eq_(['http://full/', 'http://thumbnail/'], links)
-        
+        eq_(['http://full/a', 'http://thumbnail/b'], links)
+        Configuration.instance = old_config
+
+    def test_acquisition_feed_image_links_respect_cdn(self):
+        lane=self.lanes.by_name['Fantasy']
+        work = self._work(genre=Fantasy, language="eng",
+                          with_open_access_download=True)
+        work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
+        work.primary_edition.cover_full_url = "http://full/a"
+
+        old_config = Configuration.instance
+        new_config = dict(old_config)
+        Configuration.instance = new_config
+
+        # Try it with a CDN
+        new_config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
+        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+        feed = feedparser.parse(unicode(feed))
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
+                     'image' in x['rel']])
+        eq_(['http://foo/a', 'http://foo/b'], links)
+
+        Configuration.instance = old_config
 
     def test_messages(self):
         """Test the ability to include messages (with HTTP-style status code)

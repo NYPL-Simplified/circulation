@@ -1542,13 +1542,16 @@ class TestLane(DatabaseTest):
         # So long as the hold behavior allows books to be put on hold,
         # the book will show up in lanes.
         all_works = fantasy_lane.works(['eng']).all()
-        Configuration['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+        old_config = Configuration.instance
+        new_config = dict(old_config)
+        new_config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+        Configuration.instance = new_config
         allow_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_(all_works, allow_on_hold_works)
 
         # When the hold behavior is to hide unavailable books, the
         # book disappears.
-        Configuration['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+        new_config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
         hide_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_([], hide_on_hold_works)
 
@@ -1557,7 +1560,7 @@ class TestLane(DatabaseTest):
         hide_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_(all_works, hide_on_hold_works)
 
-        Configuration.instance = None
+        Configuration.instance = old_config
 
         
 
