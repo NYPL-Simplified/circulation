@@ -214,6 +214,9 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
 
     users = [user1, user2]
 
+    def __init__(self):
+        pass
+
     def pintest(self, barcode, pin):
         """A barcode that's 14 digits long is treated as valid,
         no matter which PIN is used.

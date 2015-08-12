@@ -1100,8 +1100,8 @@ def _apply_borrowing_policy(patron, license_pool):
         )
 
     if (license_pool.licenses_available == 0 and
-        Configuration.hold_behavior() !=
-        Configuration.HOLD_BEHAVIOR_ALLOW
+        Configuration.hold_policy() !=
+        Configuration.HOLD_POLICY_ALLOW
     ):
         return problem(
             FORBIDDEN_BY_POLICY_PROBLEM, 

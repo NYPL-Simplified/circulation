@@ -21,6 +21,9 @@ from ..circulation import (
     CirculationAPI,
 )
 
+from ..config import (
+    temp_config
+)
 from ..core.model import (
     get_one,
     DataSource,
@@ -147,28 +150,30 @@ class TestNavigationFeed(CirculationAppTest):
 
         with self.app.test_request_context(
                 "/", query_string=dict(size=1, order="author")):
-            response = self.circulation.feed('Fiction')
-            assert response.headers['Cache-Control'].startswith('public,')
-            parsed = feedparser.parse(unicode(response.data))
-            [author_facet, title_facet, next_link, search] = sorted(
-                [(x['rel'], x['href'])
-                 for x in parsed['feed']['links']
-                 if x['rel'] not in ('alternate', 'self')
-             ]
-            )
+            with temp_config() as config:
+                config['links'] = {}
+                response = self.circulation.feed('Fiction')
+                assert response.headers['Cache-Control'].startswith('public,')
+                parsed = feedparser.parse(unicode(response.data))
+                [author_facet, title_facet, next_link, search] = sorted(
+                    [(x['rel'], x['href'])
+                     for x in parsed['feed']['links']
+                     if x['rel'] not in ('alternate', 'self')
+                 ]
+                )
 
-            eq_("http://opds-spec.org/facet", author_facet[0])
-            assert author_facet[1].endswith("/Fiction?order=author")
+                eq_("http://opds-spec.org/facet", author_facet[0])
+                assert author_facet[1].endswith("/Fiction?order=author")
 
-            eq_("http://opds-spec.org/facet", title_facet[0])
-            assert title_facet[1].endswith("/Fiction?order=title")
+                eq_("http://opds-spec.org/facet", title_facet[0])
+                assert title_facet[1].endswith("/Fiction?order=title")
 
-            eq_("next", next_link[0])
-            assert "?after=" in next_link[1]
-            assert "&order=author" in next_link[1]
+                eq_("next", next_link[0])
+                assert "?after=" in next_link[1]
+                assert "&order=author" in next_link[1]
 
-            eq_("search", search[0])
-            assert search[1].endswith('/search/Fiction')
+                eq_("search", search[0])
+                assert search[1].endswith('/search/Fiction')
 
     def test_lane_without_language_preference_uses_default_language(self):
         with self.app.test_request_context("/"):

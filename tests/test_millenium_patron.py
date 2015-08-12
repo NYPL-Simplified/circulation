@@ -17,7 +17,7 @@ class DummyResponse(object):
 class DummyAPI(MilleniumPatronAPI):
 
     def __init__(self):
-        super(DummyAPI, self).__init__()
+        super(DummyAPI, self).__init__("")
         self.queue = []
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(

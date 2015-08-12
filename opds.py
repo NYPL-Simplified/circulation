@@ -112,8 +112,8 @@ class CirculationManagerAnnotator(Annotator):
         can_fulfill = False
         can_revoke = False
         can_hold = (
-            Configuration.hold_behavior() == 
-            Configuration.HOLD_BEHAVIOR_ALLOW
+            Configuration.hold_policy() == 
+            Configuration.HOLD_POLICY_ALLOW
         )
 
         if active_loan:
