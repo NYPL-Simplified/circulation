@@ -103,10 +103,17 @@ class TestS3URLGeneration(DatabaseTest):
         super(TestS3URLGeneration, self).setup()
         self.c = "test-book-covers-s3-bucket"
         self.o = "test-open-access-s3-bucket"
-        self.old_book_covers = os.environ.get('BOOK_COVERS_S3_BUCKET')
-        self.old_open_access = os.environ.get('OPEN_ACCESS_CONTENT_S3_BUCKET')
-        os.environ['BOOK_COVERS_S3_BUCKET'] = self.c
-        os.environ['OPEN_ACCESS_CONTENT_S3_BUCKET'] = self.o
+        self.old_book_covers = Configuration.s3_bucket(
+            Configuration.S3_BOOK_COVERS_BUCKET)
+        self.old_open_access = Configuration.s3_bucket(
+            Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET)
+        S3 = Configuration.S3_INTEGRATION
+        if not S3 in Configuration.instance['integrations']:
+            Configuration.instance['integrations'][S3] = {}
+        Configuration.instance['integrations'][S3][
+            Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET] = self.o
+        Configuration.instance['integrations'][S3][
+            Configuration.S3_BOOK_COVERS_BUCKET] = self.c
 
     def teardown(self):
         if self.old_book_covers:

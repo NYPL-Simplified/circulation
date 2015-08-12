@@ -4683,7 +4683,7 @@ class Lane(object):
         """
         hold_behavior = Configuration.hold_behavior()
         if (availability == Work.ALL and 
-            hold_behavior == Configuration.HOLD_BEHAVIOR_HIDE):
+            hold_behavior == Configuration.HOLD_POLICY_HIDE):
             # Under normal circumstances we would show all works, but
             # site configuration says to hide books that aren't
             # available.
@@ -5106,7 +5106,7 @@ class LicensePool(Base):
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
         if (Configuration.hold_behavior() 
-            != Configuration.HOLD_BEHAVIOR_ALLOW):
+            != Configuration.HOLD_POLICY_ALLOW):
             raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
@@ -5866,7 +5866,7 @@ class Representation(Base):
         """Return the full local path to the representation on disk."""
         if not self.local_content_path:
             return None
-        return os.path.join(Configuration.data_directory,
+        return os.path.join(Configuration.data_directory(),
                             self.local_content_path)
 
     def content_fh(self):

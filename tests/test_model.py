@@ -16,7 +16,7 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
-from config import ConfigurationFile
+from config import Configuration
 
 from model import (
     CirculationEvent,
@@ -44,8 +44,6 @@ from model import (
     Edition,
     get_one_or_create,
 )
-
-from config import ConfigurationFile
 
 from external_search import (
     DummyExternalSearchIndex,
@@ -1544,19 +1542,13 @@ class TestLane(DatabaseTest):
         # So long as the hold behavior allows books to be put on hold,
         # the book will show up in lanes.
         all_works = fantasy_lane.works(['eng']).all()
-        ConfigurationFile.instance = {
-            ConfigurationFile.HOLD_BEHAVIOR :
-            ConfigurationFile.HOLD_BEHAVIOR_ALLOW
-        }
+        Configuration['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
         allow_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_(all_works, allow_on_hold_works)
 
         # When the hold behavior is to hide unavailable books, the
         # book disappears.
-        ConfigurationFile.instance = {
-            ConfigurationFile.HOLD_BEHAVIOR :
-            ConfigurationFile.HOLD_BEHAVIOR_HIDE
-        }
+        Configuration['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
         hide_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_([], hide_on_hold_works)
 
@@ -1565,7 +1557,7 @@ class TestLane(DatabaseTest):
         hide_on_hold_works = fantasy_lane.works(['eng']).all()
         eq_(all_works, hide_on_hold_works)
 
-        ConfigurationFile.instance = None
+        Configuration.instance = None
 
         
 

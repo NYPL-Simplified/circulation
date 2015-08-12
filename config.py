@@ -36,6 +36,10 @@ class Configuration(object):
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
+    HOLD_POLICY = "holds"
+    HOLD_POLICY_ALLOW = "allow"
+    HOLD_POLICY_HIDE = "hide"
+
     # Integrations
     URL = "url"
     NAME = "name"
@@ -163,6 +167,10 @@ class Configuration(object):
     @classmethod
     def privacy_policy_url(cls):
         return cls.link(cls.PRIVACY_POLICY)
+
+    @classmethod
+    def hold_behavior(cls):
+        return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
 
     @classmethod
     def base_opds_authentication_document(cls):

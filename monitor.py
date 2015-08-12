@@ -10,6 +10,7 @@ from sqlalchemy.sql.expression import (
 )
 
 import log # This sets the appropriate log format and level.
+from config import Configuration
 from model import (
     get_one_or_create,
     Edition,
@@ -38,7 +39,8 @@ class Monitor(object):
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
 
-        search = Configuration.integration(Configuration.ELASTICSEARCH)
+        search = Configuration.integration(
+            Configuration.ELASTICSEARCH_INTEGRATION)
         if search:
             search_index_client = ExternalSearchIndex()
         else:

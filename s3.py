@@ -7,6 +7,7 @@ import urllib
 from util.mirror import MirrorUploader
 
 import logging
+from config import Configuration
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,

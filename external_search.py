@@ -2,6 +2,7 @@ from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from config import Configuration
 import os
+import logging
 
 class ExternalSearchIndex(Elasticsearch):
     
