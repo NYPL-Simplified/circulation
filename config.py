@@ -127,7 +127,6 @@ class Configuration(object):
         """Find an integration configuration by name."""
         integrations = cls.get(cls.INTEGRATIONS, {})
         v = integrations.get(name, {})
-        logging.info("Integration %s: %r", name, v)
         if not v and required:
             raise ValueError(
                 "Required integration '%s' was not defined! I see: %r" % (

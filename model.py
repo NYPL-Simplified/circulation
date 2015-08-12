@@ -117,7 +117,7 @@ def production_session():
     url = Configuration.database_url()
     if url.startswith('"'):
         url = url[1:]
-    logging.debug("Database url: %s", url)
+    logging.info("Database url: %s", url)
     return SessionManager.session(url)
 
 class PolicyException(Exception):
