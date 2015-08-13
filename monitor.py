@@ -202,6 +202,7 @@ class MakePresentationReady(object):
             metadata_wrangler_url or Configuration.integration_url(
                 Configuration.METADATA_WRANGLER_INTEGRATION
             )
+        )
         content_server_url = (
             Configuration.integration_url(
                 Configuration.CONTENT_SERVER_INTEGRATION)
