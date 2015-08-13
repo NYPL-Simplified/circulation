@@ -3,6 +3,7 @@ from nose.tools import set_trace
 import os
 from sqlalchemy import or_
 import logging
+from config import Configuration
 from core.monitor import (
     EditionSweepMonitor,
     IdentifierSweepMonitor,
