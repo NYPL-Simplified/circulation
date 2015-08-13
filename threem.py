@@ -330,6 +330,9 @@ class ErrorParser(XMLParser):
         if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
             return NoAvailableCopies(message)
 
+        if 'CAN_LOAN' in expected and actual == 'HOLD':
+            return AlreadyOnHold(message)
+
         if 'CAN_LOAN' in expected and actual == 'LOAN':
             return AlreadyCheckedOut(message)
 
