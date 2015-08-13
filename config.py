@@ -205,7 +205,7 @@ class Configuration(object):
 
     @classmethod
     def load(cls):
-        cfv = 'CONFIGURATION_FILE'
+        cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
             raise CannotLoadConfiguration(
                 "No configuration file defined in %s." % cfv)
@@ -224,5 +224,5 @@ class Configuration(object):
 
     @classmethod
     def _load(cls, fh):
-        lines = [x for x in fh if not x.startswith("#")]
+        lines = [x for x in fh if not x.strip().startswith("#")]
         return json.loads("".join(lines))
