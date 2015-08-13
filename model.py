@@ -4752,6 +4752,8 @@ class WorkFeed(object):
     order_facet_to_database_field = {
         'title' : Edition.sort_title,
         'author' : Edition.sort_author,
+        'last_update' : Work.last_update_time,
+        'work_id' : Work.id
     }
 
     active_facet_for_field = {
