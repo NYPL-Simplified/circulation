@@ -127,7 +127,6 @@ class Configuration(object):
         """Find an integration configuration by name."""
         integrations = cls.get(cls.INTEGRATIONS, {})
         v = integrations.get(name, {})
-        logging.info("Integration %s: %r", name, v)
         if not v and required:
             raise ValueError(
                 "Required integration '%s' was not defined! I see: %r" % (
@@ -206,7 +205,7 @@ class Configuration(object):
 
     @classmethod
     def load(cls):
-        cfv = 'CONFIGURATION_FILE'
+        cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
             raise CannotLoadConfiguration(
                 "No configuration file defined in %s." % cfv)
@@ -225,5 +224,5 @@ class Configuration(object):
 
     @classmethod
     def _load(cls, fh):
-        lines = [x for x in fh if not x.startswith("#")]
+        lines = [x for x in fh if not x.strip().startswith("#")]
         return json.loads("".join(lines))
