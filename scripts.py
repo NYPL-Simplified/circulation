@@ -237,7 +237,6 @@ class StandaloneApplicationConf(object):
         self.sublanes = make_lanes(self.db)
         self.name = None
         self.display_name = None
-        self.config_file = Configuration.load()
 
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
@@ -247,9 +246,9 @@ class LaneSweeperScript(Script):
 
     def __init__(self, languages=None):
         self.conf = StandaloneApplicationConf(self._db)
-        config_file = self.conf.config_file
-        primary_lang = config_file['primary_collection_languages']
-        other_lang = config_file.get('other_collection_languages', [])
+        language_policy = Configuration.policy("languages", {})
+        primary_lang = language_policy['primary']
+        other_lang = language_policy.get('other', [])
         if not languages:
             languages = primary_lang + other_lang
         elif languages == self.PRIMARY_COLLECTIONS:
