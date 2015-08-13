@@ -75,7 +75,7 @@ class RunCoverageProviderScript(Script):
         if callable(provider):
             provider = provider(self._db)
         self.provider = provider
-        self.name = self.monitor.service_name
+        self.name = self.provider.service_name
 
     def do_run(self):
         self.provider.run()
