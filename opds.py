@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from flask import url_for
+from lxml import etree
 
 from config import Configuration
 from core.opds import (
@@ -243,9 +244,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
-        works = [work]
-        return AcquisitionFeed(
-            db, "Active loan for %s" % work.title, url, works, annotator)
+        return etree.tostring(AcquisitionFeed.single_entry(db, work, annotator))
 
     @classmethod
     def single_hold_feed(cls, hold):
@@ -256,6 +255,5 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
         annotator = cls(None, {}, active_holds_by_work)
-        works = [work]
-        return AcquisitionFeed(
-            db, "Active hold for %s" % work.title, url, works, annotator)
+        return etree.tostring(AcquisitionFeed.single_entry(db, work, annotator))
+
