@@ -37,9 +37,14 @@ class ThreeMAPI(object):
         self._db = _db
         self.version = version
 
-        (env_library_id, env_account_id, 
-         env_account_key) = self.environment_values()
+        if not account_id or not library_id or not account_key:
+            values = self.environment_values()
+            if len([x for x in values if not x]):
+                raise CouldNotLoadConfiguration(
+                    "3M integration has incomplete configuration.")
 
+        (env_library_id, env_account_id, 
+         env_account_key) = values
         self.library_id = library_id or env_library_id
         self.account_id = account_id or env_account_id
         self.account_key = account_key or env_account_key
@@ -51,13 +56,17 @@ class ThreeMAPI(object):
             self, client_key=None, client_secret=None,
             website_id=None, library_id=None, collection_name=None):
         value = Configuration.integration('3M')
-        return [
-            str(value[var]) for var in [
+        values = []
+        for name in [
                 'library_id',
                 'account_id',
                 'account_key',
-            ]
-        ]
+            ]:
+            var = value.get(name)
+            if var:
+                var = var.encode("utf8")
+            values.append(var)
+        return values
 
     @classmethod
     def from_environment(cls, _db):

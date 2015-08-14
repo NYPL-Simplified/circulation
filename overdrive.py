@@ -14,7 +14,10 @@ from model import (
     DataSource,
     Representation,
 )
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 
 class OverdriveAPI(object):
 
@@ -49,35 +52,47 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
     
-    @classmethod
-    def environment_values(cls):
-        value = Configuration.integration('Overdrive')
-        return [
-            str(value[var]) for var in [
-                'client_key',
-                'client_secret',
-                'website_id',
-                'library_id',
-                'collection_name',
-            ]
-        ]
-
     def __init__(self, _db):
         self._db = _db
         self.source = DataSource.lookup(_db, DataSource.OVERDRIVE)
 
         # Set some stuff from environment variables
+        values = self.environment_values()
+        if len([x for x in values if not x]):
+            cls.log.info(
+                "No Overdrive client configured."
+            )
+            raise CannotLoadConfiguration("No Overdrive client configured.")
+
         (self.client_key, self.client_secret, self.website_id, 
-         self.library_id, self.collection_name) = self.environment_values()
+         self.library_id, self.collection_name) = values
 
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
         self.collection_token = self.get_library()['collectionToken']
 
+
+    @classmethod
+    def environment_values(cls):
+        value = Configuration.integration('Overdrive')
+        values = []
+        for name in [
+                'client_key',
+                'client_secret',
+                'website_id',
+                'library_id',
+                'collection_name',
+        ]:
+            var = value.get(name)
+            if var:
+                var = var.encode("utf8")
+            values.append(var)
+        return values
+
     @classmethod
     def from_environment(cls, _db):
         # Make sure all environment values are present. If any are missing,
-        # return None
+        # return None. Otherwise return an OverdriveAPI object.
         values = cls.environment_values()
         if len([x for x in values if not x]):
             cls.log.info(
