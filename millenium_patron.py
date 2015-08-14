@@ -143,8 +143,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 # says.
                 self.update_patron(patron, identifier)
                 patron.last_external_sync = now
-                __transaction.commit()
-
+            __transaction.commit()
             return patron
 
         # We didn't find them. Now the question is: _why_ doesn't this
@@ -168,7 +167,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 patron.authorization_identifier = identifier
                 __transaction.commit()
                 return patron
-
+            __transaction.commit()
             return None
 
         # If we've gotten this far, the patron does exist in
@@ -178,6 +177,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             # We have no reliable way of identifying this patron.
             # This should never happen, but if it does, we can't
             # create a Patron record.
+            __transaction.commit()
             return None
         # Look up the Patron record by the permanent record ID. If
         # there is no such patron, we've never seen them
