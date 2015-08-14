@@ -404,12 +404,14 @@ class Hold(Base):
         
         Otherwise, end is irrelevant and is set to None.
         """
-        self.start = start
-        if position == 0:
+        if start is not None:
+            self.start = start
+        if position == 0 and end is not None:
             self.end = end
         else:
             self.end = None
-        self.position = position
+        if position is not None:
+            self.position = position
 
     __table_args__ = (
         UniqueConstraint('patron_id', 'license_pool_id'),
