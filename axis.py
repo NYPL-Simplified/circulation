@@ -20,6 +20,7 @@ from core.model import (
     Subject,
 )
 
+from authenticator import Authenticator
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
@@ -28,7 +29,7 @@ from circulation import (
 from circulation_exceptions import *
 
 
-class Axis360API(BaseAxis360API):
+class Axis360API(BaseAxis360API, Authenticator):
 
     allowable_formats = ["ePub"]
 

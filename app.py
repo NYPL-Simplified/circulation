@@ -25,6 +25,7 @@ from core.external_search import (
 )
 from circulation import CirculationAPI
 from circulation_exceptions import *
+from authenticator import Authenticator
 from core.app_server import (
     load_lending_policy,
     cdn_url_for,
@@ -83,10 +84,6 @@ from core.util.flask_util import (
     languages_for_request
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
-from millenium_patron import (
-    DummyMilleniumPatronAPI,
-    MilleniumPatronAPI,
-)
 from lanes import make_lanes
 
 feed_cache = dict()
@@ -146,7 +143,7 @@ class Conf:
             cls.overdrive = DummyOverdriveAPI(cls.db)
             cls.threem = DummyThreeMAPI(cls.db)
             cls.axis = None
-            cls.auth = DummyMilleniumPatronAPI()
+            cls.auth = Authenticator.initialize(cls.db, test=True)
             cls.search = DummyExternalSearchIndex()
             cls.policy = {}
             cls.hold_notification_email_address = 'test@test'
@@ -159,7 +156,7 @@ class Conf:
             cls.overdrive = OverdriveAPI.from_environment(cls.db)
             cls.threem = ThreeMAPI.from_environment(cls.db)
             cls.axis = Axis360API.from_environment(cls.db)
-            cls.auth = MilleniumPatronAPI.from_environment()
+            cls.auth = Authenticator.initialize(cls.db, test=False)
             cls.policy = load_lending_policy(
                 Configuration.policy('lending', {})
             )
@@ -632,7 +629,8 @@ def service_status():
         return Conf.overdrive.patron_activity(patron, password)
     _add_timing('Overdrive patron account', do_overdrive)
 
-    do_threem = lambda : Conf.threem.patron_activity(patron, password)
+    def do_threem():
+        return Conf.threem.patron_activity(patron, password)
     _add_timing('3M patron account', do_threem)
 
     do_axis = lambda : Conf.axis.patron_activity(patron, password)
