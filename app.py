@@ -250,13 +250,23 @@ else:
     Conf.initialize()
 
 app = Flask(__name__)
-app.config['DEBUG'] = True
-app.debug = True
+debug = Configuration.logging_policy().get("level") == 'DEBUG'
+logging.getLogger().info("Application debug mode==%r" % debug)
+app.config['DEBUG'] = debug
+app.debug = debug
 
 h = ErrorHandler(Conf, app.config['DEBUG'])
 @app.errorhandler(Exception)
 def exception_handler(exception):
     return h.handle(exception)
+
+@app.teardown_request
+def shutdown_session(exception):
+    if Conf.db:
+        if exception:
+            Conf.db.rollback()
+        else:
+            Conf.db.commit()
 
 CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
 INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
@@ -1188,10 +1198,16 @@ def borrow(data_source, identifier):
         problem_doc = problem(
             NO_LICENSES_PROBLEM,
             "Sorry, couldn't find an open-access download link.", 404)
+    except PatronAuthorizationFailedException, e:
+        problem_doc = problem(
+            INVALID_CREDENTIALS_PROBLEM, INVALID_CREDENTIALS_TITLE, 401)
     except CannotLoan, e:
         problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
     except CannotHold, e:
         problem_doc = problem(HOLD_FAILED_PROBLEM, str(e), 400)
+    except CirculationException, e:
+        # Generic circulation error.
+        problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
 
     if problem_doc:
         return problem_doc

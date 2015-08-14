@@ -24,16 +24,18 @@ class AdobeVendorIDController(object):
 
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron."""
+        __transaction = self._db.begin_nested()
         credential = self.model.create_authdata(patron)
-        self._db.commit()
+        __transaction.commit()
         return Response(credential.credential, 200, {"Content-Type": "text/plain"})
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
+        __transaction = self._db.begin_nested()
         output = self.request_handler.handle_signin_request(
             flask.request.data, self.model.standard_lookup,
             self.model.authdata_lookup)
-        self._db.commit()
+        __transaction.commit()
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def userinfo_handler(self):

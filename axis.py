@@ -264,6 +264,7 @@ class ResponseParser(Axis360Parser):
         3111 : CouldCheckOut,
         3112 : CannotFulfill,
         3113 : CannotLoan,
+        (3113, "Title ID is not available for checkout") : NoAvailableCopies,
         3114 : PatronLoanLimitReached, 
         3115 : LibraryInvalidInputException, # Missing DRM format
         3117 : LibraryInvalidInputException, # Invalid DRM format
@@ -306,7 +307,9 @@ class ResponseParser(Axis360Parser):
                 "Invalid response code from Axis 360: %s" % code)
 
         for d in custom_error_classes, self.code_to_exception:
-            if code in d:
+            if (code, message) in d:
+                raise d[(code, message)]
+            elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
                 raise d[code](message)
@@ -392,7 +395,7 @@ class HoldReleaseResponseParser(ResponseParser):
 
     def process_one(self, e, namespaces):
         # There's no data to gather here. Either there was an error
-        # or we were successful
+        # or we were successful.
         self.raise_exception_on_error(
             e, namespaces, {3109 : NotOnHold})
         return True

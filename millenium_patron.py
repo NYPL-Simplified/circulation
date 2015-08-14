@@ -134,6 +134,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         # Let's start with a simple lookup based on identifier.
         kwargs = {Patron.authorization_identifier.name: identifier}
         patron = get_one(db, Patron, **kwargs)
+        __transaction = db.begin_nested()
         if patron:
             # We found them!
             if (not patron.last_external_sync
@@ -142,7 +143,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 # says.
                 self.update_patron(patron, identifier)
                 patron.last_external_sync = now
-                db.commit()
+                __transaction.commit()
 
             return patron
 
@@ -165,7 +166,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                     db, Patron, external_identifier=identifier,
                 )
                 patron.authorization_identifier = identifier
-                db.commit()
+                __transaction.commit()
                 return patron
 
             return None
@@ -191,7 +192,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         # Update the new/out-of-date Patron record with information
         # from the data dump.
         self.update_patron(patron, identifier, dump)
-        db.commit()
+        __transaction.commit()
         return patron
 
 class DummyMilleniumPatronAPI(MilleniumPatronAPI):

@@ -177,9 +177,9 @@ class CirculationAPI(object):
                  patron, pin, licensepool,
                  format_type=format_to_use)
         except NoAvailableCopies:
-            # That's fine, we'll just place a hold.
+            # That's fine, we'll just (try to) place a hold.
             pass
-
+        
         if loan_info:
             # We successfuly secured a loan.  Now create it in our
             # database.
@@ -207,9 +207,15 @@ class CirculationAPI(object):
 
         # Checking out a book didn't work, so let's try putting
         # the book on hold.
-        hold_info = api.place_hold(
-            patron, pin, licensepool, format_to_use, 
-            hold_notification_email)
+        try:
+            hold_info = api.place_hold(
+                patron, pin, licensepool, format_to_use, 
+                hold_notification_email)
+        except AlreadyOnHold, e:
+            hold_info = HoldInfo(
+                licensepool.identifier.type, licensepool.identifier.identifier,
+                None, None, None
+            )
 
         # It's pretty rare that we'd go from having a loan for a book
         # to needing to put it on hold, but we do check for that case.
