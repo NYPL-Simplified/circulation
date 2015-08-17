@@ -141,7 +141,10 @@ class Annotator(object):
     def categories(cls, work):
         """Return all relevant classifications of this work.
 
-        :return: A dictionary mapping 'scheme' URLs to 'term' attributes.
+        :return: A dictionary mapping 'scheme' URLs to dictionaries of
+        attribute-value pairs.
+
+        Notable attributes: 'term', 'label', 'http://schema.org/ratingValue'
         """
         if not work:
             return {}
@@ -159,7 +162,11 @@ class Annotator(object):
 
         categories = {}
         if simplified_genres:
-            categories[Subject.SIMPLIFIED_GENRE] = simplified_genres
+            categories[Subject.SIMPLIFIED_GENRE] = [
+                dict(term=Subject.SIMPLIFIED_GENRE + urllib.quote(x),
+                     label=x)
+                for x in simplified_genres
+            ]
 
         # Add the appeals as a category of schema
         # http://librarysimplified.org/terms/appeal
@@ -173,19 +180,23 @@ class Annotator(object):
                 (Work.STORY_APPEAL, work.appeal_story),
         ):
             if value:
-                appeal = dict(term=name)
-                appeals.append(appeal)
+                appeal = dict(term=schema_url + name, label=name)
                 weight_field = "{%s}ratingValue" % schema_ns
                 appeal[weight_field] = value
+                appeals.append(appeal)
 
         # Add the audience as a category of schema
         # http://schema.org/audience
         if work.audience:
-            categories[schema_ns + "audience"] = [work.audience]
+            audience_uri = schema_ns + "audience"
+            categories[audience_uri] = [
+                dict(term=work.audience, label=work.audience)
+            ]
 
         if work.target_age:
             uri = Subject.uri_lookup[Subject.AGE_RANGE]
-            categories[uri] = [str(work.target_age)]
+            target_age = str(work.target_age)
+            categories[uri] = [dict(term=target_age, label=target_age)]
 
         return categories
 
@@ -616,7 +627,7 @@ class AcquisitionFeed(OPDSFeed):
                                  force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=False):
+                     force_create=True):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work

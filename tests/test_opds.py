@@ -105,7 +105,7 @@ class TestAnnotators(DatabaseTest):
             sorted(category_tags[lcsh_uri]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
-        eq_(['Fiction'], category_tags[genre_uri])
+        eq_([dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")], category_tags[genre_uri])
 
     def test_appeals(self):
         work = self._work(with_open_access_download=True)
@@ -117,13 +117,13 @@ class TestAnnotators(DatabaseTest):
         category_tags = VerboseAnnotator.categories(work)
         appeal_tags = category_tags[Work.APPEALS_URI]
         expect = [
-            (Work.LANGUAGE_APPEAL, 0.1),
-            (Work.CHARACTER_APPEAL, 0.2),
-            (Work.STORY_APPEAL, 0.3),
-            (Work.SETTING_APPEAL, 0.4)
+            (Work.APPEALS_URI + Work.LANGUAGE_APPEAL, Work.LANGUAGE_APPEAL, 0.1),
+            (Work.APPEALS_URI + Work.CHARACTER_APPEAL, Work.CHARACTER_APPEAL, 0.2),
+            (Work.APPEALS_URI + Work.STORY_APPEAL, Work.STORY_APPEAL, 0.3),
+            (Work.APPEALS_URI + Work.SETTING_APPEAL, Work.SETTING_APPEAL, 0.4)
         ]
         actual = [
-            (x['term'], x['{http://schema.org/}ratingValue'])
+            (x['term'], x['label'], x['{http://schema.org/}ratingValue'])
             for x in appeal_tags
         ]
         eq_(set(expect), set(actual))
@@ -477,21 +477,27 @@ class TestOPDS(DatabaseTest):
         with_audience = feedparser.parse(u)
         entries = sorted(with_audience['entries'], key = lambda x: int(x['title']))
         scheme = "http://schema.org/audience"
-        eq_(['Young Adult'],
-            [x['term'] for x in entries[0]['tags']
-             if x['scheme'] == scheme])
+        eq_(
+            [('Young Adult', 'Young Adult')],
+            [(x['term'], x['label']) for x in entries[0]['tags']
+             if x['scheme'] == scheme]
+        )
 
-        eq_(['Children'],
-            [x['term'] for x in entries[1]['tags']
-             if x['scheme'] == scheme])
+        eq_(
+            [('Children', 'Children')],
+            [(x['term'], x['label']) for x in entries[1]['tags']
+             if x['scheme'] == scheme]
+        )
 
         age_scheme = Subject.uri_lookup[Subject.AGE_RANGE]
-        eq_(['7'],
-            [x['term'] for x in entries[1]['tags']
-             if x['scheme'] == age_scheme])
+        eq_(
+            [('7', '7')],
+            [(x['term'], x['label']) for x in entries[1]['tags']
+             if x['scheme'] == age_scheme]
+        )
 
         eq_([],
-            [x['term'] for x in entries[2]['tags']
+            [(x['term'], x['label']) for x in entries[2]['tags']
              if x['scheme'] == scheme])
 
     def test_acquisition_feed_includes_category_tags_for_appeals(self):
@@ -510,11 +516,18 @@ class TestOPDS(DatabaseTest):
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         tags = entries[0]['tags']
-        matches = [x['term'] for x in tags if x['scheme'] == Work.APPEALS_URI]
-        eq_(['Character', 'Language', 'Setting', 'Story'], sorted(matches))
+        matches = [(x['term'], x['label']) for x in tags if x['scheme'] == Work.APPEALS_URI]
+        eq_([
+            (Work.APPEALS_URI + 'Character', 'Character'),
+            (Work.APPEALS_URI + 'Language', 'Language'),
+            (Work.APPEALS_URI + 'Setting', 'Setting'),
+            (Work.APPEALS_URI + 'Story', 'Story'),
+        ],
+            sorted(matches)
+        )
 
         tags = entries[1]['tags']
-        matches = [x['term'] for x in tags if x['scheme'] == Work.APPEALS_URI]
+        matches = [(x['term'], x['label']) for x in tags if x['scheme'] == Work.APPEALS_URI]
         eq_([], matches)
 
     def test_acquisition_feed_includes_category_tags_for_genres(self):
@@ -538,14 +551,22 @@ class TestOPDS(DatabaseTest):
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         scheme = Subject.SIMPLIFIED_GENRE
-        eq_(['Romance', 'Science Fiction'], 
-            sorted([x['term'] for x in entries[0]['tags']
-                    if x['scheme'] == scheme]))
-        eq_(['Nonfiction'], [x['term'] for x in entries[1]['tags']
-                             if x['scheme'] == scheme])
-        eq_(['Fiction'], [x['term'] for x in entries[2]['tags']
-                          if x['scheme'] == scheme])
-
+        eq_(
+            [(scheme+'Romance', 'Romance'),
+             (scheme+'Science%20Fiction', 'Science Fiction')],
+            sorted(
+                [(x['term'], x['label']) for x in entries[0]['tags']
+                 if x['scheme'] == scheme]
+            )
+        )
+        eq_([(scheme+'Nonfiction', 'Nonfiction')], 
+            [(x['term'], x['label']) for x in entries[1]['tags']
+             if x['scheme'] == scheme]
+        )
+        eq_([(scheme+'Fiction', 'Fiction')], 
+            [(x['term'], x['label']) for x in entries[2]['tags']
+             if x['scheme'] == scheme]
+        )
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):
         work = self._work(title="open access", with_open_access_download=True)
         no_license_pool = self._work(title="no license pool", with_license_pool=False)

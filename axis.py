@@ -20,7 +20,8 @@ from config import Configuration
 
 class Axis360API(object):
 
-    DEFAULT_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
+    PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
+    QA_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
     
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
@@ -30,15 +31,20 @@ class Axis360API(object):
     log = logging.getLogger("Axis 360 API")
 
     def __init__(self, _db, username=None, library_id=None, password=None,
-                 base_url=DEFAULT_BASE_URL):
+                 base_url=None):
         self._db = _db
         (env_library_id, env_username, 
-         env_password) = self.environment_values()
+         env_password, env_base_url) = self.environment_values()
             
         self.library_id = library_id or env_library_id
         self.username = username or env_username
         self.password = password or env_password
-        self.base_url = base_url
+        self.base_url = base_url or env_base_url
+        if self.base_url == 'qa':
+            self.base_url = self.QA_BASE_URL
+        elif self.base_url == 'production':
+            self.base_url = self.PRODUCTION_BASE_URL
+        print self.base_url
         self.token = None
         self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
 
@@ -50,6 +56,7 @@ class Axis360API(object):
                 'library_id',
                 'username',
                 'password',
+                'server',
             ]
         ]
 
