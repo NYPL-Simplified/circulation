@@ -817,19 +817,28 @@ class AcquisitionFeed(OPDSFeed):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.
             availability_tag.text = _strftime(license_pool.availability_time)
+            print "%s uses PUBLISHED %s" % (edition.title, availability_tag.text)
             entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
         # from Entry.published (which may refer to the print edition
         # or some original edition way back when).
         #
-        # For Dublin Core 'dateCopyrighted' (which is the closest we
-        # can come to 'date the underlying book actually came out' in
-        # a way that won't be confused with 'date the book was added
-        # to our database' we use Entry.issued if we have it and
-        # Entry.published if not. In general this means we use issued
-        # date for Gutenberg and published date for other sources.
-        issued = edition.published
+        # For Dublin Core 'created' we use Entry.issued if we have it
+        # and Entry.published if not. In general this means we use
+        # issued date for Gutenberg and published date for other
+        # sources.
+        #
+        # We use dc:created instead of dc:issued because dc:issued is
+        # commonly conflated with atom:published.
+        #
+        # For the date the book was added to our collection we use
+        # atom:published.
+        issued = edition.issued or edition.published
+        if edition.issued:
+            print "%s uses issued for dc:created: %s %s" % (edition.title, edition.issued, issued)
+        else:
+            print "%s uses published for dc:created: %s %s" % (edition.title, edition.published, issued)
         if (isinstance(issued, datetime.datetime) 
             or isinstance(issued, datetime.date)):
             issued_already = False
@@ -838,9 +847,10 @@ class AcquisitionFeed(OPDSFeed):
             elif isinstance(issued, datetime.date):
                 issued_already = (issued <= today)
             if issued_already:
-                issued_tag = E._makeelement("{%s}dateCopyrighted" % dcterms_ns)
+                issued_tag = E._makeelement("{%s}created" % dcterms_ns)
                 # TODO: convert to local timezone, not that it matters much.
                 issued_tag.text = issued.strftime("%Y-%m-%d")
+                print "%s CREATED %s" % (edition.title, issued_tag.text)
                 entry.extend([issued_tag])
 
         return entry

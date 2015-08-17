@@ -406,43 +406,55 @@ class TestOPDS(DatabaseTest):
         the_past = today - datetime.timedelta(days=2)
         the_past_s = the_past.strftime("%Y-%m-%d")
         the_past_time = the_past.strftime(AtomFeed.TIME_FORMAT)
+        the_distant_past = today - datetime.timedelta(days=100)
+        the_distant_past_s = the_distant_past.strftime('%Y-%m-%dT%H:%M:%SZ')
+        the_future = today + datetime.timedelta(days=2)
 
         # This work has both issued and published. issued will be used
-        # for the dc:dateCopyrighted tag.
+        # for the dc:created tag.
         work1 = self._work(with_open_access_download=True)
         work1.primary_edition.issued = today
         work1.primary_edition.published = the_past
-        work1.license_pools[0].availability_time = the_past
+        work1.license_pools[0].availability_time = the_distant_past
 
         # This work only has published. published will be used for the
-        # dc:dateCopyrighted tag.
+        # dc:created tag.
         work2 = self._work(with_open_access_download=True)
-        work2.primary_edition.published = today
-        work2.license_pools[0].availability_time = None
+        work2.primary_edition.published = the_past
+        work2.license_pools[0].availability_time = the_distant_past
 
         # This work has neither published nor issued. There will be no
-        # dc:dateCopyrighted tag.
+        # dc:issued tag.
         work3 = self._work(with_open_access_download=True)
         work3.license_pools[0].availability_time = None
+
+        # This work is issued in the future. Since this makes no
+        # sense, there will be no dc:issued tag.
+        work4 = self._work(with_open_access_download=True)
+        work4.primary_edition.issued = the_future
+        work4.primary_edition.published = the_future
+        work4.license_pools[0].availability_time = None
 
         self._db.commit()
         works = self._db.query(Work)
         with_times = AcquisitionFeed(
             self._db, "test", "url", works, TestAnnotator)
         u = unicode(with_times)
-        assert 'dcterms:dateCopyrighted' in u
+        assert 'dcterms:created' in u
         with_times = feedparser.parse(u)
-        e1, e2, e3 = sorted(
+        e1, e2, e3, e4 = sorted(
             with_times['entries'], key = lambda x: int(x['title']))
+        eq_(today_s, e1['created'])
+        eq_(the_distant_past_s, e1['published'])
 
-        eq_(the_past_s, e1['dcterms_datecopyrighted'])
-        eq_(the_past_time, e1['published'])
+        eq_(the_past_s, e2['created'])
+        eq_(the_distant_past_s, e2['published'])
 
-        eq_(today_s, e2['dcterms_datecopyrighted'])
-        assert not 'published' in e2
-
-        assert not 'dcterms_datecopyrighted' in e3
+        assert not 'created' in e3
         assert not 'published' in e3
+
+        assert not 'created' in e4
+        assert not 'published' in e4
 
     def test_acquisition_feed_includes_language_tag(self):
         work = self._work(with_open_access_download=True)
