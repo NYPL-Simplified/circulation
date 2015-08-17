@@ -399,11 +399,19 @@ class AtomFeed(object):
             E.link(href=url, rel="self"),
         )
 
-    def add_link(self, **kwargs):
-        self.feed.append(E.link(**kwargs))
+    def add_link(self, children=None, **kwargs):
+        link = E.link(**kwargs)
+        self.feed.append(link)
+        if children:
+            for i in children:
+                link.append(i)
 
-    def add_link_to_entry(self, entry, **kwargs):
-        entry.append(E.link(**kwargs))
+    def add_link_to_entry(self, entry, children=None, **kwargs):
+        link = E.link(**kwargs)
+        entry.append(link)
+        if children:
+            for i in children:
+                link.append(i)
 
     def __unicode__(self):
         return etree.tostring(self.feed, pretty_print=True)
@@ -627,7 +635,7 @@ class AcquisitionFeed(OPDSFeed):
                                  force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=True):
+                     force_create=False):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -920,58 +928,60 @@ class AcquisitionFeed(OPDSFeed):
             parent = indirect_link
         return link
 
-    def loan_tag(self, loan=None):
-        return self._event_tag('loan', loan.start, loan.end)
+    def license_tags(self, license_pool, loan, hold):
+        # Generate a list of licensing tags. These should be inserted
+        # into a <link> tag.
+        tags = []
+        availability_tag_name = None
+        suppress_since = False
+        if loan:
+            availability_tag_name = 'available'
+            o = loan
+        elif hold:
+            o = hold
+            if hold.position == 0:
+                availability_tag_name = 'available'
+                suppress_since=True
+            else:
+                availability_tag_name = 'unavailable'
+        if availability_tag_name:
+            kw = dict()
+            if o.start and not suppress_since:
+                kw['since'] = _strftime(o.start)
+            if o.end:
+                kw['until'] = _strftime(o.end)
+            tag_name = "{%s}%s" % (opds_ns, availability_tag_name)
+            availability_tag = E._makeelement(tag_name, **kw)
+            tags.append(availability_tag)
 
-    def hold_tag(self, hold=None):
-        if not hold:
-            return None
-        hold_tag = self._event_tag('hold', hold.start, hold.end)
-        position = E._makeelement("{%s}position" % schema_ns)
-        hold_tag.extend([position])
-        position.text = str(hold.position)
-        return hold_tag
-
-    def _event_tag(self, name, start, end):
-        """
-        :param start: A datetime (MUST be in UTC)
-        :param end: A datetime (MUST be in UTC)
-        """
-        tag = E._makeelement("{%s}Event" % schema_ns)
-        name_tag = E._makeelement("{%s}name" % schema_ns)
-        tag.extend([name_tag])
-        name_tag.text = name
-
-        if start:
-            created = E._makeelement("{%s}startDate" % schema_ns)
-            tag.extend([created])
-            created.text = start.isoformat() + "Z"
-        if end:
-            expires = E._makeelement("{%s}endDate" % schema_ns)
-            tag.extend([expires])
-            expires.text = end.isoformat() + "Z"
-        return tag
-
-    def license_tags(self, license_pool):
+        # Open-access pools do not need to display <opds:holds> or <opds:copies>.
         if license_pool.open_access:
-            return None
+            return tags
 
-        license = []
-        concurrent_lends = E._makeelement(
-            "{%s}total_licenses" % simplified_ns)
-        license.append(concurrent_lends)
-        concurrent_lends.text = str(license_pool.licenses_owned)
+        holds = E._makeelement("{%s}holds" % opds_ns)
+        tags.append(holds)
 
-        available_lends = E._makeelement(
-            "{%s}available_licenses" % simplified_ns)
-        license.append(available_lends)
-        available_lends.text = str(license_pool.licenses_available)
+        total_holds = E._makeelement("{%s}total" % opds_ns)
+        holds.append(total_holds)
+        total_holds.text = str(license_pool.patrons_in_hold_queue)
 
-        active_holds = E._makeelement("{%s}active_holds" % simplified_ns)
-        license.append(active_holds)
-        active_holds.text = str(license_pool.patrons_in_hold_queue)
+        if hold and hold.position:
+            position = E._makeelement("{%s}position" % opds_ns)
+            holds.append(position)
+            position.text = str(hold.position)
 
-        return license
+        copies = E._makeelement("{%s}copies" % opds_ns)
+        tags.append(copies)
+
+        total_copies = E._makeelement("{%s}total" % opds_ns)
+        copies.append(total_copies)
+        total_copies.text = str(license_pool.licenses_owned)
+
+        available_copies = E._makeelement("{%s}available" % opds_ns)
+        copies.append(available_copies)
+        available_copies.text = str(license_pool.licenses_available)
+
+        return tags
 
 class LookupAcquisitionFeed(AcquisitionFeed):
     """Used when the work's primary identifier may be different
