@@ -1,5 +1,6 @@
 from functools import wraps
 from nose.tools import set_trace
+from lxml import etree
 import datetime
 import json
 import logging
@@ -295,7 +296,12 @@ def add_configuration_links(feed):
     ):
         if value:
             d = dict(href=value, type="text/html", rel=rel)
-            feed.add_link(**d)
+            if isinstance(feed, OPDSFeed):
+                feed.add_link(**d)
+            else:
+                # This is an ElementTree object.
+                link = E.link(**d)
+                feed.append(link)
 
 
 def authenticated_patron(barcode, pin):
@@ -840,6 +846,7 @@ def loan_or_hold_detail(data_source, identifier):
         else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             hold)
+        feed = unicode(feed)
         return feed_response(feed, None)
 
     if flask.request.method=='DELETE':
@@ -1224,7 +1231,10 @@ def borrow(data_source, identifier):
         # error earlier.
         return problem(HOLD_FAILED_PROBLEM, "", 400)
     add_configuration_links(feed)
-    content = unicode(feed)
+    if isinstance(feed, OPDSFeed):
+        content = unicode(feed)
+    else:
+        content = etree.tostring(feed)
     if is_new:
         status_code = 201
     else:

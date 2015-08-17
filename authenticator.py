@@ -18,7 +18,7 @@ class Authenticator(object):
                 MilleniumPatronAPI,
             )
             if test:
-                return DummyMilleniumPatronAPI
+                return DummyMilleniumPatronAPI()
             else:
                 return MilleniumPatronAPI.from_environment()
         elif provider == 'Axis 360':

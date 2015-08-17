@@ -267,12 +267,12 @@ class TestAcquisitionFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
-            assert ">loan<" in response.data
+            assert "<opds:available until=" in response.data
             for loan in patron.loans:
                 expect_title = loan.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data
 
-            assert ">hold<" in response.data
+            assert "<opds:unavailable since=" in response.data
             for hold in patron.holds:
                 expect_title = hold.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data

@@ -118,16 +118,13 @@ class CirculationManagerAnnotator(Annotator):
         )
 
         if active_loan:
-            entry.extend([feed.loan_tag(active_loan)])
             can_fulfill = True
             can_revoke = True
         elif active_hold:
             can_revoke = True
-            entry.extend([feed.hold_tag(active_hold)])
-            if active_hold.position == 0:
-                # The patron is at the front of the hold queue and
-                # has the ability decision to borrow
-                can_borrow = True
+            # We display the borrow link even if the patron can't
+            # borrow the book right this minute.
+            can_borrow = True
         else:
             # The patron has no existing relationship with this
             # work. Give them the opportunity to check out the work
@@ -139,6 +136,7 @@ class CirculationManagerAnnotator(Annotator):
             or active_license_pool.licenses_available > 0
         )
 
+        license_tags = []
         if active_license_pool.open_access:
             open_access_url = open_access_media_type = None
             if isinstance(work, BaseMaterializedWork):
@@ -160,31 +158,45 @@ class CirculationManagerAnnotator(Annotator):
                 if open_access_media_type:
                     kw['type'] = open_access_media_type
                 feed.add_link_to_entry(entry, **kw)
+            license_tags = []
         else:
-            entry.extend(feed.license_tags(active_license_pool))
+            license_tags = feed.license_tags(
+                active_license_pool, active_loan, active_hold
+            )
 
         if can_fulfill:
             fulfill_url = url_for(
                 "fulfill", data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
-            feed.add_link_to_entry(entry, rel=OPDSFeed.ACQUISITION_REL,
-                                   href=fulfill_url)
+            feed.add_link_to_entry(
+                entry, children=license_tags,
+                rel=OPDSFeed.ACQUISITION_REL,
+                href=fulfill_url
+            )
+            license_tags = []
 
-        if can_borrow and (available or can_hold):
+        if can_borrow:
             borrow_url = url_for(
                 "borrow", data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
-            feed.add_link_to_entry(entry, rel=OPDSFeed.BORROW_REL,
-                                   href=borrow_url)
+            feed.add_link_to_entry(
+                entry,
+                children=license_tags,
+                rel=OPDSFeed.BORROW_REL,
+                href=borrow_url
+            )
+            license_tags = []
 
         if can_revoke:
             url = url_for(
                 'revoke_loan_or_hold', data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
 
-            feed.add_link_to_entry(entry, rel=OPDSFeed.REVOKE_LOAN_REL,
-                                   href=url)
-
+            feed.add_link_to_entry(
+                entry, 
+                rel=OPDSFeed.REVOKE_LOAN_REL,
+                href=url
+            )
 
     def summary(self, work):
         """Return an HTML summary of this work."""
@@ -244,7 +256,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
-        return etree.tostring(AcquisitionFeed.single_entry(db, work, annotator))
+        return AcquisitionFeed.single_entry(db, work, annotator)
 
     @classmethod
     def single_hold_feed(cls, hold):
@@ -255,5 +267,5 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
         annotator = cls(None, {}, active_holds_by_work)
-        return etree.tostring(AcquisitionFeed.single_entry(db, work, annotator))
+        return AcquisitionFeed.single_entry(db, work, annotator)
 

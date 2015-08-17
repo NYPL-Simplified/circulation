@@ -1,4 +1,5 @@
 import os
+import re
 from nose.tools import (
     set_trace,
     eq_,
@@ -130,9 +131,8 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "url", works,
                                CirculationManagerAnnotator(Fantasy))
         u = unicode(feed)
-        feed = feedparser.parse(u)
-        [entry] = feed['entries']
-        eq_('100', entry['simplified_total_licenses'])
-        eq_('50', entry['simplified_available_licenses'])
-        eq_('25', entry['simplified_active_holds'])
-
+        holds_re = re.compile("<opds:holds>\W+<opds:total>25</opds:total>\W+</opds:holds>", re.S)
+        assert holds_re.search(u) is not None
+        
+        copies_re = re.compile("<opds:copies>\W+<opds:total>100</opds:total>\W+<opds:available>50</opds:available>\W+</opds:copies>", re.S)
+        assert copies_re.search(u) is not None
