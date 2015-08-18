@@ -101,6 +101,15 @@ class TestDetailedOPDSImporter(DatabaseTest):
         seven, children, courtship, fantasy, magic, new_york, pz = sorted(
             has_rating.primary_identifier.classifications,
             key=lambda x: x.subject.identifier)
+
+        courtship_s = courtship.subject
+        eq_("Juvenile Fiction", courtship_s.name)
+        eq_("PZ", courtship_s.label)
+
+        new_york_s = new_york.subject
+        eq_("New York (N.Y.) -- Fiction", new_york_s.name)
+        eq_("sh2008108377", new_york_s.label)
+
         eq_('7', seven.subject.identifier)
         eq_(100, seven.weight)
         eq_(Subject.AGE_RANGE, seven.subject.type)

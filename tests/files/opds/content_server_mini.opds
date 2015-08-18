@@ -21,13 +21,13 @@
     <schema:Rating schema:ratingValue="0.2500" schema:additionalType="http://librarysimplified.org/terms/rel/popularity"/>
     <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image"/>
     <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image/thumbnail"/>
-    <category term="Courtship -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
-    <category term="New York (N.Y.) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
-    <category term="Fantasy fiction" scheme="http://purl.org/dc/terms/LCSH"/>
-    <category term="Magic -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="sh2008100298" label="Courtship -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="sh2008108377" label="New York (N.Y.) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="sh85047114" label="Fantasy fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="sh2008107174" label="Magic -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="PZ" label="Juvenile Fiction" scheme="http://purl.org/dc/terms/LCC"/>
-    <category term="Children" scheme="http://schema.org/audience"/>
-    <category term="7" schema:ratingValue="100" scheme="http://schema.org/typicalAgeRange"/>
+    <category term="Children" label="Children" scheme="http://schema.org/audience"/>
+    <category term="7" label="7" schema:ratingValue="100" scheme="http://schema.org/typicalAgeRange"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
     <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
