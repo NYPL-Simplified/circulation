@@ -934,23 +934,29 @@ class AcquisitionFeed(OPDSFeed):
         tags = []
         availability_tag_name = None
         suppress_since = False
+        status = None
+        since = None
+        until = None
         if loan:
-            availability_tag_name = 'available'
-            o = loan
+            status = 'available'
+            since = loan.start
+            until = loan.end
         elif hold:
-            o = hold
             if hold.position == 0:
-                availability_tag_name = 'available'
-                suppress_since=True
+                status = 'reserved'
+                since = None
+                until = hold.end
             else:
-                availability_tag_name = 'unavailable'
-        if availability_tag_name:
-            kw = dict()
-            if o.start and not suppress_since:
-                kw['since'] = _strftime(o.start)
-            if o.end:
-                kw['until'] = _strftime(o.end)
-            tag_name = "{%s}%s" % (opds_ns, availability_tag_name)
+                status = 'unavailable'
+                since = hold.start
+                until = hold.end
+        if status:
+            kw = dict(status=status)
+            if since:
+                kw['since'] = _strftime(since)
+            if until:
+                kw['until'] = _strftime(until)
+            tag_name = "{%s}availability" % opds_ns
             availability_tag = E._makeelement(tag_name, **kw)
             tags.append(availability_tag)
 

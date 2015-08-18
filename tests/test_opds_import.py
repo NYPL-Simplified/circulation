@@ -98,17 +98,17 @@ class TestDetailedOPDSImporter(DatabaseTest):
         #    x for x in imported if not x.primary_identifier.measurements][0]
         #eq_([], x.primary_identifier.measurements)
 
-        seven, children, courtship, fantasy, magic, new_york, pz = sorted(
+        seven, children, courtship, fantasy, pz, magic, new_york = sorted(
             has_rating.primary_identifier.classifications,
-            key=lambda x: x.subject.identifier)
+            key=lambda x: x.subject.name)
 
-        courtship_s = courtship.subject
-        eq_("Juvenile Fiction", courtship_s.name)
-        eq_("PZ", courtship_s.label)
+        pz_s = pz.subject
+        eq_("Juvenile Fiction", pz_s.name)
+        eq_("PZ", pz_s.identifier)
 
         new_york_s = new_york.subject
         eq_("New York (N.Y.) -- Fiction", new_york_s.name)
-        eq_("sh2008108377", new_york_s.label)
+        eq_("sh2008108377", new_york_s.identifier)
 
         eq_('7', seven.subject.identifier)
         eq_(100, seven.weight)
@@ -121,9 +121,6 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(7, work.target_age)
-
-        eq_("PZ", pz.subject.identifier)
-        eq_("Juvenile Fiction", pz.subject.name)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
