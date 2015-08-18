@@ -1,13 +1,12 @@
-<feed xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom">
+<feed xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom" xmlns:bibframe="http://bibframe.org/vocab/">
   <id>http://localhost:5000/</id>
-    <simplified:license_source>Gutenberg</simplified:license_source>
   <title>Open-Access Content</title>
   <updated>2015-01-02T16:56:40Z</updated>
   <link href="http://localhost:5000/"/>
   <link href="http://localhost:5000/" rel="self"/>
   <entry schema:additionalType="http://schema.org/PublicationIssue">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441</id>
-    <simplified:license_source>Gutenberg</simplified:license_source>
+    <bibframe:partOf>http://librarysimplified.org/terms/sources/Gutenberg</bibframe:partOf>
     <title>The Green Mouse</title>
     <author>
       <name></name>
@@ -34,7 +33,7 @@
   </entry>
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557</id>
-    <simplified:license_source>Gutenberg</simplified:license_source>
+    <bibframe:partOf>http://librarysimplified.org/terms/sources/Gutenberg</bibframe:partOf>
     <title>Johnny Crow's Party</title>
     <author>
       <name></name>

@@ -492,9 +492,23 @@ class DataSource(Base):
             # This should only happen during tests.
             return get_one(_db, DataSource, name=name)
 
+    URI_PREFIX = "http://librarysimplified.org/terms/sources/"
+
+    @classmethod
+    def from_uri(cls, _db, uri):
+        if not uri.startswith(cls.URI_PREFIX):
+            return None
+        name = uri[len(cls.URI_PREFIX):]
+        name = urllib.unquote(name)
+        return cls.lookup(_db, name)
+
+    @property
+    def uri(self):
+        return self.URI_PREFIX + urllib.quote(self.name)
+
     @classmethod
     def license_source_for(cls, _db, identifier):
-        """Find the ont DataSource that provides licenses for books identified
+        """Find the one DataSource that provides licenses for books identified
         by the given identifier.
 
         If there is no such DataSource, or there is more than one,

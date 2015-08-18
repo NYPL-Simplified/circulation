@@ -46,6 +46,7 @@ from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
 app_ns = 'http://www.w3.org/2007/app'
+bibframe_ns = 'http://bibframe.org/vocab/'
 xhtml_ns = 'http://www.w3.org/1999/xhtml'
 dcterms_ns = 'http://purl.org/dc/terms/'
 opds_ns = 'http://opds-spec.org/2010/catalog'
@@ -62,6 +63,7 @@ nsmap = {
     'opds' : opds_ns,
     'schema' : schema_ns,
     'simplified' : simplified_ns,
+    'bibframe' : bibframe_ns,
 }
 
 def _strftime(d):
@@ -635,7 +637,7 @@ class AcquisitionFeed(OPDSFeed):
                                  force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=False):
+                     force_create=True):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -773,8 +775,8 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([E.alternativeHeadline(edition.subtitle)])
 
         if license_pool:
-            data_source_tag = E._makeelement("{%s}license_source" % simplified_ns)
-            data_source_tag.text = license_pool.data_source.name
+            data_source_tag = E._makeelement("{%s}partOf" % bibframe_ns)
+            data_source_tag.text = license_pool.data_source.uri
             entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
