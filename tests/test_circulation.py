@@ -1,6 +1,7 @@
 # encoding: utf-8
 """Test the Flask app for the circulation server."""
 
+import re
 import base64
 import feedparser
 import json
@@ -267,15 +268,20 @@ class TestAcquisitionFeed(CirculationAppTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.circulation.active_loans()
-            assert "<opds:available until=" in response.data
+            a = re.compile('<opds:availability[^>]+status="available"', re.S)
+            assert a.search(response.data)
             for loan in patron.loans:
                 expect_title = loan.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data
 
-            assert "<opds:unavailable since=" in response.data
+            a = re.compile('<opds:availability[^>]+status="unavailable"', re.S)
+            assert a.search(response.data)
             for hold in patron.holds:
                 expect_title = hold.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data
+
+            a = re.compile('<opds:availability[^>]+status="reserved"', re.S)
+            assert a.search(response.data)
 
             # Each entry must have a 'revoke' link.
             feed = feedparser.parse(response.data)
