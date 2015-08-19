@@ -176,7 +176,7 @@ class BaseOPDSImporter(object):
             return internal_identifier, external_identifier, None, False, status_code, message
 
         license_source_uri = entry.get('bibframe_partof', None)
-        if license_source_name:
+        if license_source_uri:
             license_data_sources = [DataSource.from_uri(
                 self._db, license_source_uri)]
         else:

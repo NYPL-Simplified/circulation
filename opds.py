@@ -637,7 +637,7 @@ class AcquisitionFeed(OPDSFeed):
                                  force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=True):
+                     force_create=False):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -966,28 +966,19 @@ class AcquisitionFeed(OPDSFeed):
         if license_pool.open_access:
             return tags
 
-        holds = E._makeelement("{%s}holds" % opds_ns)
+
+        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue))
+        if hold and hold.position:
+            holds_kw['position'] = str(hold.position)
+        holds = E._makeelement("{%s}holds" % opds_ns, **holds_kw)
         tags.append(holds)
 
-        total_holds = E._makeelement("{%s}total" % opds_ns)
-        holds.append(total_holds)
-        total_holds.text = str(license_pool.patrons_in_hold_queue)
-
-        if hold and hold.position:
-            position = E._makeelement("{%s}position" % opds_ns)
-            holds.append(position)
-            position.text = str(hold.position)
-
-        copies = E._makeelement("{%s}copies" % opds_ns)
+        copies_kw = dict(
+            total=str(license_pool.licenses_owned),
+            available=str(license_pool.licenses_available),
+        )
+        copies = E._makeelement("{%s}copies" % opds_ns, **copies_kw)
         tags.append(copies)
-
-        total_copies = E._makeelement("{%s}total" % opds_ns)
-        copies.append(total_copies)
-        total_copies.text = str(license_pool.licenses_owned)
-
-        available_copies = E._makeelement("{%s}available" % opds_ns)
-        copies.append(available_copies)
-        available_copies.text = str(license_pool.licenses_available)
 
         return tags
 

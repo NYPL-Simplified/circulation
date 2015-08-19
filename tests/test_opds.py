@@ -345,7 +345,8 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
         parsed = feedparser.parse(unicode(feed))
-        eq_(DataSource.GUTENBERG, parsed.entries[0]['simplified_license_source'])
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(gutenberg.uri, parsed.entries[0]['bibframe_partof'])
 
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
