@@ -131,8 +131,11 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "url", works,
                                CirculationManagerAnnotator(Fantasy))
         u = unicode(feed)
-        holds_re = re.compile("<opds:holds>\W+<opds:total>25</opds:total>\W+</opds:holds>", re.S)
+        holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
         assert holds_re.search(u) is not None
         
-        copies_re = re.compile("<opds:copies>\W+<opds:total>100</opds:total>\W+<opds:available>50</opds:available>\W+</opds:copies>", re.S)
+        copies_re = re.compile('<opds:copies[^>]+available="50"', re.S)
+        assert copies_re.search(u) is not None
+
+        copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
