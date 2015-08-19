@@ -423,7 +423,7 @@ class OPDSFeed(AtomFeed):
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
 
-    GROUP_REL = "http://opds-spec.org/group"
+    GROUP_REL = "collection"
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
