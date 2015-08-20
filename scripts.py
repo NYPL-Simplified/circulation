@@ -234,7 +234,8 @@ class StandaloneApplicationConf(object):
     def __init__(self, _db):
         self.db = _db
         self.parent = None
-        self.sublanes = make_lanes(self.db)
+        lane_list = Configuration.policy(Configuration.LANES_POLICY)
+        self.sublanes = make_lanes(self.db, lane_list)
         self.name = None
         self.display_name = None
 
