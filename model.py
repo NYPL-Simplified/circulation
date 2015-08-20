@@ -4663,8 +4663,8 @@ class Lane(object):
         """Find all subgenres managed by this lane which match the
         given fiction status.
         
-        This may also turn into an additional restriction on the
-        fiction status.
+        This may also turn into an additional restriction (or
+        liberation) on the fiction status
         """
         fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
         if fiction_default_by_genre:
@@ -4679,6 +4679,10 @@ class Lane(object):
                 elif fiction != genre.default_fiction:
                     raise ValueError(
                         "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
+        if fiction is None:
+            # This is an impossible situation. Rather than eliminate all books
+            # from consideration, allow both fiction and nonfiction.
+            fiction = self.BOTH_FICTION_AND_NONFICTION
         return genres, fiction
 
     def works(self, languages, fiction=None, availability=Work.ALL):
