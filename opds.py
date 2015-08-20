@@ -967,15 +967,15 @@ class AcquisitionFeed(OPDSFeed):
             return tags
 
 
-        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue))
+        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue or 0))
         if hold and hold.position:
             holds_kw['position'] = str(hold.position)
         holds = E._makeelement("{%s}holds" % opds_ns, **holds_kw)
         tags.append(holds)
 
         copies_kw = dict(
-            total=str(license_pool.licenses_owned),
-            available=str(license_pool.licenses_available),
+            total=str(license_pool.licenses_owned or 0),
+            available=str(license_pool.licenses_available or 0),
         )
         copies = E._makeelement("{%s}copies" % opds_ns, **copies_kw)
         tags.append(copies)
