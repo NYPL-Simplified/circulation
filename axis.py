@@ -10,6 +10,10 @@ from core.axis import (
 
 from core.monitor import Monitor
 
+from core.opds_import import (
+    SimplifiedOPDSLookup,
+)
+
 from core.model import (
     CirculationEvent,
     get_one_or_create,
@@ -21,6 +25,7 @@ from core.model import (
 )
 
 from authenticator import Authenticator
+from config import Configuration
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
@@ -125,6 +130,10 @@ class Axis360CirculationMonitor(Monitor):
             default_start_time = self.VERY_LONG_AGO
         )
         self.batch_size = batch_size
+        metadata_wrangler_url = Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION
+        )
+        self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
 
     def run(self):
         self.api = Axis360API(self._db)
@@ -158,10 +167,12 @@ class Axis360CirculationMonitor(Monitor):
         # The Axis 360 identifier is exactly equivalent to each ISBN.
         any_new_isbn = False
         isbns = []
+        first_isbn_encountered = None
         for i in bibliographic[Identifier].get(Identifier.ISBN):
             isbn_id = i[Identifier.identifier]
             isbn, was_new = Identifier.for_foreign_id(
                 self._db, Identifier.ISBN, isbn_id)
+            first_isbn_encountered = first_isbn_encountered or isbn
             isbns.append(isbn)
             any_new_isbn = any_new_isbn or was_new
 
@@ -174,10 +185,10 @@ class Axis360CirculationMonitor(Monitor):
             for isbn in isbns:
                 axis_id.equivalent_to(self.api.source, isbn, strength=1)
 
-        if new_license_pool or new_edition:
+        if new_license_pool or new_edition or True:
             # Add bibliographic information to the Edition.
             edition.title = bibliographic.get(Edition.title)
-            print "NEW EDITION: %s" % edition.title.encode("utf8")
+            self.log.info("NEW EDITION: %s" % edition.title.encode("utf8"))
             edition.subtitle = bibliographic.get(Edition.subtitle)
             edition.series = bibliographic.get(Edition.series)
             edition.published = bibliographic.get(Edition.published)
@@ -186,10 +197,21 @@ class Axis360CirculationMonitor(Monitor):
             edition.language = bibliographic.get(Edition.language)
 
             # Contributors!
-            contributors_by_role = bibliographic.get(Contributor, {})
+            dirty = False
+            # Just to be safe, get rid of any incorrectly registered
+            # contributions.
+            for i in edition.contributions:
+                self._db.delete(i)
+                dirty = True
+            if dirty:
+                self._db.commit()
+            contributors_by_role = bibliographic.get(Contributor)
             for role, contributors in contributors_by_role.items():
                 for name in contributors:
-                    edition.add_contributor(name, role)
+                    contributor = edition.add_contributor(name, role)
+                    # TODO: Ask the metadata wrangler to find the
+                    # display name and additional info for this
+                    # contributor; otherwise defaults will be used.
 
             # Subjects!
             for subject in bibliographic.get(Subject, []):
