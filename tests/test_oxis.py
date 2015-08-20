@@ -68,6 +68,30 @@ class TestParsers(object):
         eq_(u'FICTION / Romance / Suspense', romantic_suspense)
         eq_(u'General Adult', adult)
 
+    def test_parse_author_role(self):
+        """Suffixes on author names are turned into roles."""
+        author = "Dyssegaard, Elisabeth Kallick (TRN)"
+        parse = BibliographicParser.parse_contributor
+        a, r = parse(author)
+        eq_(a, "Dyssegaard, Elisabeth Kallick")
+        eq_(Contributor.TRANSLATOR_ROLE, r)
+
+        # A corporate author is given a normal author role.
+        author = "Bob, Inc. (COR)"
+        a, r = parse(author, primary_author_found=False)
+        eq_(a, "Bob, Inc.")
+        eq_(Contributor.PRIMARY_AUTHOR_ROLE, r)
+
+        a, r = parse(author, primary_author_found=True)
+        eq_(a, "Bob, Inc.")
+        eq_(Contributor.AUTHOR_ROLE, r)
+
+        # An unknown author type is given an unknown role
+        author = "Eve, Mallory (ZZZ)"
+        a, r = parse(author, primary_author_found=False)
+        eq_(a, "Eve, Mallory")
+        eq_(Contributor.UNKNOWN_ROLE, r)
+
     def test_availability_parser(self):
         """Make sure the availability information gets properly
         collated in preparation for updating a LicensePool.

@@ -560,19 +560,18 @@ class TestEdition(DatabaseTest):
         bob, ignore = self._contributor(name="Bitshifter, Bob")
         wr = self._edition(authors=bob.name)
         wr.calculate_presentation()
-        eq_("Bitshifter, Bob", wr.author)
-        eq_("Bitshifter, Bob", wr.sort_author)
-
-        bob.display_name="Bob Bitshifter"
-        wr.calculate_presentation()
         eq_("Bob Bitshifter", wr.author)
         eq_("Bitshifter, Bob", wr.sort_author)
 
+        bob.display_name="Bob A. Bitshifter"
+        wr.calculate_presentation()
+        eq_("Bob A. Bitshifter", wr.author)
+        eq_("Bitshifter, Bob", wr.sort_author)
+
         kelly, ignore = self._contributor(name="Accumulator, Kelly")
-        kelly.display_name = "Kelly Accumulator"
         wr.add_contributor(kelly, Contributor.AUTHOR_ROLE)
         wr.calculate_presentation()
-        eq_("Kelly Accumulator, Bob Bitshifter", wr.author)
+        eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
     def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
@@ -1651,7 +1650,7 @@ class TestWorkFeed(DatabaseTest):
         w4 = self._work("Title D", "Author, Another", genre, language, 
                         audience, with_license_pool=True)
 
-        eq_("Author, Another", w4.author)
+        eq_("Another Author", w4.author)
         eq_("Author, Another", w4.sort_author)
 
         # Order them by title, and everything's fine.

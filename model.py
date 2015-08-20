@@ -1470,6 +1470,12 @@ class Contributor(Base):
     AUTHOR_ROLE = "Author"
     PRIMARY_AUTHOR_ROLE = "Primary Author"
     PERFORMER_ROLE = "Performer"
+    EDITOR_ROLE = "Editor"
+    PHOTOGRAPHER_ROLE = "Photographer"
+    TRANSLATOR_ROLE = "Translator"
+    ILLUSTRATOR_ROLE = "Illustrator"
+    INTRODUCTION_ROLE = "Introduction Author"
+    FORWARD_ROLE = "Forward Author" 
     UNKNOWN_ROLE = 'Unknown'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
@@ -2074,7 +2080,7 @@ class Edition(Base):
 
         # Then add their Contributions.
         for role in roles:
-            get_one_or_create(
+            contribution, was_new = get_one_or_create(
                 _db, Contribution, edition=self, contributor=contributor,
                 role=role)
         return contributor
@@ -2280,8 +2286,10 @@ class Edition(Base):
         display_names = []
         self.last_update_time = datetime.datetime.utcnow()
         for author in self.author_contributors:
-            display_name = author.display_name or author.name
-            family_name = author.family_name or author.name
+            if author.name and not author.display_name or not author.family_name:
+                default_family, default_display = author.default_names()
+            display_name = author.display_name or default_display or author.name
+            family_name = author.family_name or default_family or author.name
             display_names.append([family_name, display_name])
             sort_names.append(author.name)
         self.author = ", ".join([x[1] for x in sorted(display_names)])
