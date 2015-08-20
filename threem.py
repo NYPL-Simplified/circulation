@@ -536,10 +536,10 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                 print "Updating unknown work %s" % identifier.identifier
             # Update availability and send out notifications.
             pool.update_availability(
-                circ.get(LicensePool.licenses_owned),
-                circ.get(LicensePool.licenses_available),
-                circ.get(LicensePool.licenses_reserved),
-                circ.get(LicensePool.patrons_in_hold_queue))
+                circ.get(LicensePool.licenses_owned, 0),
+                circ.get(LicensePool.licenses_available, 0),
+                circ.get(LicensePool.licenses_reserved, 0),
+                circ.get(LicensePool.patrons_in_hold_queue, 0))
 
 
         # At this point there may be some license pools left over
