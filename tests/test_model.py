@@ -557,6 +557,14 @@ class TestEdition(DatabaseTest):
         wr.calculate_presentation()
         eq_("Foo, A", wr.sort_title)
 
+    def test_calculate_presentation_missing_author(self):
+        wr = self._edition()
+        self._db.delete(wr.contributions[0])
+        self._db.commit()
+        wr.calculate_presentation()
+        eq_(u"[Unknown]", wr.sort_author)
+        eq_(u"[Unknown]", wr.author)
+
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(name="Bitshifter, Bob")
         wr = self._edition(authors=bob.name)
@@ -1130,6 +1138,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(None, work)
 
         edition.add_contributor(u"bar", Contributor.PRIMARY_AUTHOR_ROLE)
+        edition.calculate_presentation()
         work, created = pool.calculate_work()
         eq_(True, created)
 
@@ -1162,7 +1171,7 @@ class TestWorkConsolidation(DatabaseTest):
         self._db.commit()
         eq_(edition, work.primary_edition)
         eq_(u"foo", work.title)
-        eq_(u"", work.author)
+        eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
     def test_calculate_work_for_new_work(self):
         # TODO: This test doesn't actually test

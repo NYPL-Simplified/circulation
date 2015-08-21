@@ -2379,6 +2379,8 @@ class Edition(Base):
         return WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
 
+    UNKNOWN_AUTHOR = u"[Unknown]"
+
     def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
@@ -2399,8 +2401,14 @@ class Edition(Base):
             family_name = author.family_name or default_family or author.name
             display_names.append([family_name, display_name])
             sort_names.append(author.name)
-        self.author = ", ".join([x[1] for x in sorted(display_names)])
-        self.sort_author = " ; ".join(sorted(sort_names))
+        if display_names:
+            self.author = ", ".join([x[1] for x in sorted(display_names)])
+        else:
+            self.author = self.UNKNOWN_AUTHOR
+        if sort_names:
+            self.sort_author = " ; ".join(sorted(sort_names))
+        else:
+            self.sort_author = self.UNKNOWN_AUTHOR
         self.calculate_permanent_work_id()
 
         self.set_open_access_link()
@@ -5316,7 +5324,9 @@ class LicensePool(Base):
 
         if not primary_edition.work and (
                 not primary_edition.title or (
-                    not primary_edition.author and not even_if_no_author)):
+                    (primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
+                     and not even_if_no_author))
+        ):
             logging.warn(
                 "Edition %r has no author or title, not assigning Work to Edition.", 
                 primary_edition
