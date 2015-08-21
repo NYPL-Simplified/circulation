@@ -27,6 +27,7 @@ from model import (
     DataSource,
     EnumeratedCustomListFeed,
     Genre,
+    Hold,
     Hyperlink,
     Lane,
     LaneList,
@@ -1417,6 +1418,41 @@ class TestHold(DatabaseTest):
         eq_(later, hold.end)
         eq_(0, hold.position)
 
+    def test_calculate_until(self):
+        start = datetime.datetime(2010, 1, 1)
+
+        # The cycle time is one week.
+        default_loan = datetime.timedelta(days=6)
+        default_reservation = datetime.timedelta(days=1)
+        
+        # I'm 20th in line for 4 books. I need to wait
+        # five weeks.
+        #
+        # Week 1: 4 loans have expired and I am 16th in line
+        # Week 2: 8 loans have expired and I am 12th in line
+        # Week 3: 12 loans have expired and I am 8th in line
+        # Week 4: 16 loans have expired and I am 4th in line
+        # Week 5: 20 loans have expired and the book is reserved to me.
+        a = Hold._calculate_until(
+            start, 20, 4, default_loan, default_reservation)
+        eq_(a, start + datetime.timedelta(days=7*5))
+
+        # If I am 21st in line, I need to wait six weeks.
+        b = Hold._calculate_until(
+            start, 21, 4, default_loan, default_reservation)
+        eq_(b, start + datetime.timedelta(days=7*6))
+
+        # A new person gets the book every week. Someone has the book now
+        # and there are 3 people ahead of me in the queue. I will get
+        # the book in four weeks.
+        c = Hold._calculate_until(
+            start, 3, 1, default_loan, default_reservation)
+        eq_(c, start + datetime.timedelta(days=7*4))
+
+        # If there are no licenses, you will never get the book.
+        d = Hold._calculate_until(
+            start, 10, 0, default_loan, default_reservation)
+        eq_(d, None)
 
 class TestLane(DatabaseTest):
 

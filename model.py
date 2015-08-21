@@ -386,6 +386,13 @@ class Loan(Base):
         UniqueConstraint('patron_id', 'license_pool_id'),
     )
 
+    def until(self, default_loan_period):
+        """Give or estimate the time at which the loan will end."""
+        if self.end:
+            return self.end
+        start = self.start or datetime.datetime.utcnow()
+        return start + default_loan_period
+
 class Hold(Base):
     """A patron is in line to check out a book.
     """
@@ -396,6 +403,65 @@ class Hold(Base):
     start = Column(DateTime, index=True)
     end = Column(DateTime, index=True)
     position = Column(Integer, index=True)
+
+    @classmethod
+    def _calculate_until(
+            self, start, queue_position, total_licenses, default_loan_period,
+            default_reservation_period):
+        """Helper method for `Hold.until` that can be tested independently.
+
+        We have to wait for the available licenses to cycle a
+        certain number of times before we get a turn.
+        
+        Example: 4 licenses, queue position 21
+        After 1 cycle: queue position 17
+              2      : queue position 13
+              3      : queue position 9
+              4      : queue position 5
+              5      : queue position 1
+              6      : available
+
+        The worst-case cycle time is the loan period plus the reservation
+        period.
+        """
+        if queue_position == 0:
+            # The book is currently reserved to this patron--they need
+            # to hurry up and check it out.
+            return start + default_reservation_period
+
+        if total_licenses == 0:
+            # The book will never be available
+            return None
+        cycle_period = (default_loan_period + default_reservation_period)
+        cycles = queue_position / total_licenses
+        if queue_position % total_licenses != 0:
+            cycles += 1
+        return start + (cycle_period * cycles)
+
+
+    def until(self, default_loan_period, default_reservation_period):
+        """Give or estimate the time at which the book will be available
+        to this patron.
+
+        This is a *very* rough estimate that should be treated more or
+        less as a worst case. (Though it could be even worse than
+        this--the library's license might expire and then you'll
+        _never_ get the book.)
+        """
+        if self.end:
+            # Whew, the server provided its own estimate.
+            return self.end
+
+        start = self.start or datetime.datetime.utcnow()
+        licenses_available = self.license_pool.licenses_owned
+        position = self.position
+        if not position:
+            # We don't know where in line we are. Assume we're at the
+            # end.
+            position = self.license_pool.patrons_in_hold_queue
+        return self._calculate_until(
+            start, position, licenses_available,
+            default_loan_period, default_reservation_period)
 
     def update(self, start, end, position):
         """When the book becomes available, position will be 0 and end will be
@@ -505,6 +571,34 @@ class DataSource(Base):
     @property
     def uri(self):
         return self.URI_PREFIX + urllib.quote(self.name)
+
+    # These are pretty standard values but each library needs to
+    # define the policy they've negotiated in their configuration.
+    default_default_loan_period = datetime.timedelta(days=21)
+    default_default_reservation_period = datetime.timedelta(days=3)
+
+    def _datetime_config_value(self, key, default):
+        integration = Configuration.integration(self.name)
+        if not integration:
+            return default
+        value = integration.get(key)
+        if not value:
+            return default
+        return datetime.datetime(days=value)
+
+    @property
+    def default_loan_period(self):
+        return self._datetime_config_value(
+            Configuration.DEFAULT_LOAN_PERIOD,
+            self.default_default_loan_period
+        )
+
+    @property
+    def default_reservation_period(self):
+        return self._datetime_config_value(
+            Configuration.DEFAULT_RESERVATION_PERIOD,
+            self.default_default_reservation_period
+        )
 
     @classmethod
     def license_source_for(cls, _db, identifier):

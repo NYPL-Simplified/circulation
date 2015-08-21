@@ -939,19 +939,22 @@ class AcquisitionFeed(OPDSFeed):
         status = None
         since = None
         until = None
+        default_loan_period = license_pool.data_source.default_loan_period
+        default_reservation_period = (
+            license_pool.data_source.default_reservation_period
+        )
         if loan:
             status = 'available'
             since = loan.start
-            until = loan.end
+            until = loan.until(default_loan_period)
         elif hold:
+            until = hold.until(default_loan_period, default_reservation_period)
             if hold.position == 0:
                 status = 'reserved'
                 since = None
-                until = hold.end
             else:
                 status = 'unavailable'
                 since = hold.start
-                until = hold.end
         if status:
             kw = dict(status=status)
             if since:

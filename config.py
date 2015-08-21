@@ -61,6 +61,10 @@ class Configuration(object):
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
 
+    # Loan policies
+    DEFAULT_LOAN_PERIOD = "default_loan_period"
+    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+
     # Integrations
     URL = "url"
     NAME = "name"
