@@ -232,6 +232,7 @@ class Conf:
         for rel, value in (
                 ("terms-of-service", Configuration.terms_of_service_url()),
                 ("privacy-policy", Configuration.privacy_policy_url()),
+                ("copyright", Configuration.acknowledgements_url()),
         ):
             if value:
                 links[rel] = dict(href=value, type="text/html")
@@ -293,6 +294,7 @@ def add_configuration_links(feed):
     for rel, value in (
             ("terms-of-service", Configuration.terms_of_service_url()),
             ("privacy-policy", Configuration.privacy_policy_url()),
+            ("copyright", Configuration.acknowledgements_url()),
     ):
         if value:
             d = dict(href=value, type="text/html", rel=rel)
