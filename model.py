@@ -465,7 +465,7 @@ class Hold(Base):
             # Whew, the server provided its own estimate.
             return self.end
 
-        start = self.start or datetime.datetime.utcnow()
+        start = datetime.datetime.utcnow()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
         if not position:
