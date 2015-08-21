@@ -57,7 +57,7 @@ def make_lanes_default(_db):
                  genres=[genres.Literary_Fiction], audience=YA),
             Lane(_db, "LGBTQ Fiction", genres=[genres.LGBTQ_Fiction],
                  audience=YA),
-            Lane(_db, full_name="Mystery/Thriller",
+            Lane(_db, full_name="Mystery & Thriller",
                  genres=[genres.Suspense_Thriller, genres.Mystery],
                  subgenre_behavior=Lane.IN_SAME_LANE, audience=YA),
             Lane(_db, full_name="YA Romance", display_name="Romance",

@@ -886,9 +886,9 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     )
     work_feed = MaterializedWorkLaneFeed.factory(lane, languages, order_facet)
     if order_facet == 'title':
-        title = "%s: By title" % lane.name
+        title = "%s: By title" % lane.display_name
     elif order_facet == 'author':
-        title = "%s: By author" % lane.name
+        title = "%s: By author" % lane.display_name
     else:
         title = lane.name
 
