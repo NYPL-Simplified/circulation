@@ -44,6 +44,7 @@ class Configuration(object):
     LINKS = "links"
     PRIVACY_POLICY = "privacy_policy"
     TERMS_OF_SERVICE = "terms_of_service"
+    COPYRIGHT = "copyright"
 
     # Logging
     LOGGING = "logging"
@@ -187,6 +188,10 @@ class Configuration(object):
     @classmethod
     def terms_of_service_url(cls):
         return cls.link(cls.TERMS_OF_SERVICE)
+
+    @classmethod
+    def acknowledgements_url(cls):
+        return cls.link(cls.COPYRIGHT)
 
     @classmethod
     def privacy_policy_url(cls):
