@@ -1425,34 +1425,44 @@ class TestHold(DatabaseTest):
         default_loan = datetime.timedelta(days=6)
         default_reservation = datetime.timedelta(days=1)
         
-        # I'm 20th in line for 4 books. I need to wait
-        # five weeks.
+        # I'm 20th in line for 4 books.
         #
-        # Week 1: 4 loans have expired and I am 16th in line
-        # Week 2: 8 loans have expired and I am 12th in line
-        # Week 3: 12 loans have expired and I am 8th in line
-        # Week 4: 16 loans have expired and I am 4th in line
-        # Week 5: 20 loans have expired and the book is reserved to me.
+        # After 6 days, four copies are released and I am 16th in line.
+        # After 13 days, those copies are released and I am 12th in line.
+        # After 20 days, those copies are released and I am 8th in line.
+        # After 27 days, those copies are released and I am 4th in line.
+        # After 34 days, those copies are released and get my notification.
         a = Hold._calculate_until(
             start, 20, 4, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=7*5))
+        eq_(a, start + datetime.timedelta(days=(7*5)-1))
 
         # If I am 21st in line, I need to wait six weeks.
         b = Hold._calculate_until(
             start, 21, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=7*6))
+        eq_(b, start + datetime.timedelta(days=(7*6)-1))
+
+        # If I am 3rd in line, I only need to wait six days--that's when
+        # I'll get the notification message.
+        b = Hold._calculate_until(
+            start, 3, 4, default_loan, default_reservation)
+        eq_(b, start + datetime.timedelta(days=6))
 
         # A new person gets the book every week. Someone has the book now
         # and there are 3 people ahead of me in the queue. I will get
-        # the book in four weeks.
+        # the book in 6 days + 3 weeks
         c = Hold._calculate_until(
             start, 3, 1, default_loan, default_reservation)
-        eq_(c, start + datetime.timedelta(days=7*4))
+        eq_(c, start + datetime.timedelta(days=(7*4)-1))
 
-        # If there are no licenses, you will never get the book.
+        # The book is reserved to me. I need to hurry up and check it out.
         d = Hold._calculate_until(
+            start, 0, 1, default_loan, default_reservation)
+        eq_(d, start + datetime.timedelta(days=1))
+
+        # If there are no licenses, I will never get the book.
+        e = Hold._calculate_until(
             start, 10, 0, default_loan, default_reservation)
-        eq_(d, None)
+        eq_(e, None)
 
 class TestLane(DatabaseTest):
 

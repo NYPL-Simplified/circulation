@@ -432,11 +432,24 @@ class Hold(Base):
         if total_licenses == 0:
             # The book will never be available
             return None
-        cycle_period = (default_loan_period + default_reservation_period)
-        cycles = queue_position / total_licenses
-        if queue_position % total_licenses != 0:
-            cycles += 1
-        return start + (cycle_period * cycles)
+
+        # Start with the default loan period to clear out everyone who
+        # currently has the book checked out.
+        duration = default_loan_period
+
+        if queue_position < total_licenses:
+            # After that period, the book will be available to this patron.
+            # Do nothing.
+            pass
+        else:
+            # Otherwise, add a number of cycles in which other people are
+            # notified that it's their turn.
+            cycle_period = (default_loan_period + default_reservation_period)
+            cycles = queue_position / total_licenses
+            if (total_licenses > 1 and queue_position % total_licenses == 0):
+                cycles -= 1
+            duration += (cycle_period * cycles)
+        return start + duration
 
 
     def until(self, default_loan_period, default_reservation_period):
