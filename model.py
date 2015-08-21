@@ -300,7 +300,11 @@ class Patron(Base):
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
     # library policies.
-    external_type = Column(Unicode, index=True)
+    #
+    # Depending on library policy it may be possible to automatically
+    # derive the patron's account type from their authorization
+    # identifier.
+    _external_type = Column(Unicode, index=True, name="external_type")
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
@@ -325,6 +329,7 @@ class Patron(Base):
     credentials = relationship("Credential", backref="patron")
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -339,6 +344,23 @@ class Patron(Base):
                  if hold.license_pool.work]
         loans = self.works_on_loan()
         return set(holds + loans)
+
+    @property
+    def external_type(self):
+        if self.authorization_identifier and not self._external_type:
+            policy = Configuration.policy(
+                self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
+            if policy:
+                try:
+                    match = re.compile(policy).search(
+                        self.authorization_identifier)
+                except Exception, e:
+                    set_trace()
+                if match:
+                    groups = match.groups()
+                    if groups:
+                        self._external_type = groups[0]
+        return self._external_type
 
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the

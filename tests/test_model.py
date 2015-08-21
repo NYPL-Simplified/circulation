@@ -16,7 +16,10 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
-from config import Configuration
+from config import (
+    Configuration, 
+    temp_config,
+)
 
 from model import (
     CirculationEvent,
@@ -33,6 +36,7 @@ from model import (
     LaneList,
     LicensePool,
     Measurement,
+    Patron,
     Representation,
     SessionManager,
     Subject,
@@ -2190,3 +2194,29 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
 
+class TestPatron(DatabaseTest):
+
+    def test_external_type_regular_expression(self):
+        patron = self._patron("234")
+        patron.authorization_identifier = "A123"
+        key = Patron.EXTERNAL_TYPE_REGULAR_EXPRESSION
+        with temp_config() as config:
+
+            config[Configuration.POLICIES][key] = None
+            eq_(None, patron.external_type)
+
+            config[Configuration.POLICIES][key] = "([A-Z])"
+            eq_("A", patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "([0-9]$)"
+            eq_("3", patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "A"
+            eq_(None, patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "(not a valid regexp"
+            assert_raises(TypeError, lambda x: patron.external_type)
+            patron._external_type = None
