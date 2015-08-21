@@ -111,7 +111,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         if not dump:
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
-        patron.external_type = dump.get(self.PATRON_TYPE_FIELD, None)
+        patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
         expires = datetime.datetime.strptime(
             expires, self.EXPIRATION_DATE_FORMAT).date()
