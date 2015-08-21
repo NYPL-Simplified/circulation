@@ -597,7 +597,7 @@ class DataSource(Base):
         value = integration.get(key)
         if not value:
             return default
-        return datetime.datetime(days=value)
+        return datetime.timedelta(days=value)
 
     @property
     def default_loan_period(self):
