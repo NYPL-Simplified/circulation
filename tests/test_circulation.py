@@ -274,23 +274,23 @@ class TestAcquisitionFeed(CirculationAppTest):
                 expect_title = loan.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data
 
-            a = re.compile('<opds:availability[^>]+status="unavailable"', re.S)
+            a = re.compile('<opds:availability[^>]+status="reserved"', re.S)
             assert a.search(response.data)
             for hold in patron.holds:
                 expect_title = hold.license_pool.work.title
                 assert "title>%s</title" % expect_title in response.data
 
-            a = re.compile('<opds:availability[^>]+status="reserved"', re.S)
+            a = re.compile('<opds:availability[^>]+status="ready"', re.S)
             assert a.search(response.data)
 
             # Each entry must have a 'revoke' link, except for the 3M
-            # reserved book, which does not.
+            # ready book, which does not.
             feed = feedparser.parse(response.data)
             for entry in feed['entries']:
                 revoke_link = [x for x in entry['links']
                                if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
                 if revoke_link == []:
-                    eq_(entry['opds_availability']['status'], 'reserved')
+                    eq_(entry['opds_availability']['status'], 'ready')
                     assert "3M" in entry['id']
                 else:
                     assert revoke_link
