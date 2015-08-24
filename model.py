@@ -1458,6 +1458,7 @@ class Contributor(Base):
     PERFORMER_ROLE = "Performer"
     UNKNOWN_ROLE = 'Unknown'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
+    ACCEPTABLE_SUBSTITUTE_ROLES = set([EDITOR_ROLE])
 
     # Extra fields
     BIRTH_DATE = 'birthDate'
@@ -1847,10 +1848,6 @@ class Edition(Base):
             self.id, id_repr, self.title,
             ", ".join([x.name for x in self.contributors]),
             self.language))
-        try:
-            a.encode("utf8")
-        except Exception, e:
-            set_trace()
         return a.encode("utf8")
 
     @property
@@ -1868,15 +1865,25 @@ class Edition(Base):
         """
         primary_author = None
         other_authors = []
+        acceptable_substitutes = defaultdict(list)
         for x in self.contributions:
             if not primary_author and x.role == Contributor.PRIMARY_AUTHOR_ROLE:
                 primary_author = x.contributor
             elif x.role in Contributor.AUTHOR_ROLES:
                 other_authors.append(x.contributor)
+            elif x.role in Contributor.AUTHOR_SUBSTITUTE_ROLES:
+                acceptable_substitutes[x.role].append(x.contributor)
         if primary_author:
             return [primary_author] + sorted(other_authors, key=lambda x: x.name)
-        else:
+        elif other_authors:
             return other_authors
+        else:
+            for role in Contributor.AUTHOR_SUBSTITUTE_ROLES:
+                if role in acceptable_substitutes:
+                    contributors = acceptable_substitutes[role]
+                    return sorted(contributors, key=lambda x: x.name)
+            else:
+                set_trace()
 
     @classmethod
     def for_foreign_id(cls, _db, data_source,
