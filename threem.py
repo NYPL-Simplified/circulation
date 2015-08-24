@@ -13,6 +13,7 @@ from circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
+    BaseCirculationAPI,
 )
 from core.model import (
     CirculationEvent,
@@ -34,9 +35,10 @@ from core.util.xmlparser import XMLParser
 from core.threem import ThreeMAPI as BaseThreeMAPI
 from circulation_exceptions import *
 
-class ThreeMAPI(BaseThreeMAPI):
+class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
     MAX_AGE = datetime.timedelta(days=730).seconds
+    CAN_REVOKE_HOLD_WHEN_RESERVED = False
 
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""

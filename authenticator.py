@@ -33,4 +33,3 @@ class Authenticator(object):
 
     def authenticated_patron(self, identifier, password):
         pass
-

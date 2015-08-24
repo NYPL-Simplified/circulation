@@ -334,7 +334,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             cache_url, (b-a), content_bytes)
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(lane)
+        annotator = CirculationManagerAnnotator(None, lane)
         for languages in self.languages:
             cache_url = self.cache_url(annotator, lane, languages)
             get_method = self.make_get_method(annotator, lane, languages)
@@ -357,7 +357,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         return True
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(lane)
+        annotator = CirculationManagerAnnotator(None, lane)
         size = 50
         for languages in self.languages:
             for facet in ('title', 'author'):

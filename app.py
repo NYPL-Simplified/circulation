@@ -591,7 +591,23 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
 
 @app.route('/')
 def index():    
-    return redirect(cdn_url_for('acquisition_groups'))
+
+    # The simple case: the app is equally open to all clients.
+    policy = Configuration.root_lane_policy()
+    if not policy:
+        return redirect(cdn_url_for('acquisition_groups'))
+
+    # The more complex case. We must authorize the patron, check
+    # their type, and redirect them to an appropriate feed.
+    return appropriate_index_for_patron_type()
+
+@requires_auth
+def appropriate_index_for_patron_type():
+    patron = flask.request.patron
+    policy = Configuration.root_lane_policy()
+    print policy, patron.external_type
+    root_lane = policy.get(patron.external_type)
+    return redirect(cdn_url_for('acquisition_groups', lane=root_lane))
 
 @app.route('/heartbeat')
 def hearbeat():
@@ -682,7 +698,8 @@ def navigation_feed(lane):
     if key in feed_cache:
         return feed_response(feed_cache[key], acquisition=False, cache_for=7200)
         
-    feed = NavigationFeed.main_feed(lane, CirculationManagerAnnotator(lane))
+    feed = NavigationFeed.main_feed(
+        lane, CirculationManagerAnnotator(Conf.circulation, lane))
 
     if not lane.parent:
         # Top-level lanes are the only ones that have best-seller
@@ -725,7 +742,7 @@ def acquisition_groups(lane):
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
-    annotator = CirculationManagerAnnotator(lane)
+    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
     def get(*args, **kwargs):
@@ -776,7 +793,8 @@ def active_loans():
             Conf.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
 
     # Then make the feed.
-    feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(patron)
+    feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        Conf.circulation, patron)
     return feed_response(feed, cache_for=None)
 
 @app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
@@ -814,11 +832,14 @@ def revoke_loan_or_hold(data_source, identifier):
             title = "Loan deleted locally but remote failed: %s" % str(e)
             return problem(uri, title, 500)
     elif hold:
+        if not Conf.circulation.can_revoke_hold(pool, hold):
+            title = "Cannot release a hold once it enters reserved state."
+            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 400)
         try:
-            Conf.circulation.release_hold(patron, pin, pool, loan)
-        except CannotRelease, e:
+            Conf.circulation.release_hold(patron, pin, pool)
+        except CannotReleaseHold, e:
             title = "Hold released locally but remote failed: %s" % str(e)
-            return problem(CANNOT_RELEASE_HOLD_PROBLEM, e, 500)
+            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 500)
     return ""
 
 
@@ -844,10 +865,10 @@ def loan_or_hold_detail(data_source, identifier):
     if flask.request.method=='GET':
         if loan:
             feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                loan)
+                Conf.circulation, loan)
         else:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-            hold)
+                Conf.circulation, hold)
         feed = unicode(feed)
         return feed_response(feed, None)
 
@@ -945,7 +966,7 @@ def feed(lane):
 
     key = (lane, ",".join(languages), order_facet)
     feed_xml = None
-    annotator = CirculationManagerAnnotator(lane)
+    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
 
     feed_xml = None
     if order_facet == 'recommended':
@@ -1011,7 +1032,7 @@ def staff_picks_feed(lane_name):
     offset = arg('after', None)
     size = arg('size', 50)
 
-    annotator = CirculationManagerAnnotator(lane)
+    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
     cache_url = staff_picks_feed_cache_url(
         annotator, lane, languages, order_facet, offset, size)
     def get(*args, **kwargs):
@@ -1040,7 +1061,7 @@ def popular_feed(lane_name):
         lane_display_name = None
     languages = languages_for_request()
 
-    annotator = CirculationManagerAnnotator(lane)
+    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
     size = arg('size', '50')
@@ -1078,12 +1099,12 @@ def lane_search(lane):
     opds_feed = AcquisitionFeed(
         Conf.db, info['name'], 
         this_url + "?q=" + urllib.quote(query.encode("utf8")),
-        results, CirculationManagerAnnotator(lane))
+        results, CirculationManagerAnnotator(Conf.circulation, lane))
     return feed_response(opds_feed)
 
 @app.route('/works/')
 def work():
-    annotator = CirculationManagerAnnotator(None)
+    annotator = CirculationManagerAnnotator(Conf.circulation, None)
     return URNLookupController(Conf.db).work_lookup(annotator, 'work')
     # Conf.urn_lookup_controller.permalink(urn, annotator)
 
@@ -1225,9 +1246,11 @@ def borrow(data_source, identifier):
     # a feed that tells the patron how to fulfill the loan. If a hold,
     # serve a feed that talks about the hold.
     if loan:
-        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(loan)
+        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+            Conf.circulation, loan)
     elif hold:
-        feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(hold)
+        feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+            Conf.circulation, hold)
     else:
         # This should never happen -- we should have sent a more specific
         # error earlier.

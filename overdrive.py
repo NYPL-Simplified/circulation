@@ -9,6 +9,7 @@ from circulation import (
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
+    BaseCirculationAPI,
 )
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
@@ -34,7 +35,7 @@ from core.monitor import (
 
 from circulation_exceptions import *
 
-class OverdriveAPI(BaseOverdriveAPI):
+class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
     # TODO: This is a terrible choice but this URL should never be
     # displayed to a patron, so it doesn't matter much.

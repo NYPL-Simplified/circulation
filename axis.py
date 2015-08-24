@@ -30,11 +30,12 @@ from circulation import (
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
+    BaseCirculationAPI
 )
 from circulation_exceptions import *
 
 
-class Axis360API(BaseAxis360API, Authenticator):
+class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     allowable_formats = ["ePub"]
 

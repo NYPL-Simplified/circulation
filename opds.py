@@ -17,7 +17,8 @@ from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
 
-    def __init__(self, lane, active_loans_by_work={}, active_holds_by_work={}):
+    def __init__(self, circulation, lane, active_loans_by_work={}, active_holds_by_work={}):
+        self.circulation = circulation
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
@@ -121,10 +122,14 @@ class CirculationManagerAnnotator(Annotator):
             can_fulfill = True
             can_revoke = True
         elif active_hold:
-            can_revoke = True
             # We display the borrow link even if the patron can't
             # borrow the book right this minute.
             can_borrow = True
+
+            can_revoke = (
+                not self.circulation or 
+                self.circulation.can_revoke_hold(
+                    active_license_pool, active_hold))
         else:
             # The patron has no existing relationship with this
             # work. Give them the opportunity to check out the work
@@ -229,7 +234,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     #         identifier=identifier.identifier, _external=True)
 
     @classmethod
-    def active_loans_for(cls, patron):
+    def active_loans_for(cls, circulation, patron):
         db = Session.object_session(patron)
         url = url_for('active_loans', _external=True)
         active_loans_by_work = {}
@@ -240,32 +245,32 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         for hold in patron.holds:
             if hold.license_pool.work:
                 active_holds_by_work[hold.license_pool.work] = hold
-        annotator = cls(None, active_loans_by_work, active_holds_by_work)
+        annotator = cls(circulation, None, active_loans_by_work, active_holds_by_work)
         works = patron.works_on_loan_or_on_hold()
         return AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
 
     @classmethod
-    def single_loan_feed(cls, loan):
+    def single_loan_feed(cls, circulation, loan):
         db = Session.object_session(loan)
         work = loan.license_pool.work
         url = url_for(
             'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
             identifier=loan.license_pool.identifier.identifier, _external=True)
         active_loans_by_work = { work : loan }
-        annotator = cls(None, active_loans_by_work, {})
+        annotator = cls(circulation, None, active_loans_by_work, {})
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
         return AcquisitionFeed.single_entry(db, work, annotator)
 
     @classmethod
-    def single_hold_feed(cls, hold):
+    def single_hold_feed(cls, circulation, hold):
         db = Session.object_session(hold)
         work = hold.license_pool.work
         url = url_for(
             'loan_or_hold_detail', data_source=hold.license_pool.data_source,
             identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
-        annotator = cls(None, {}, active_holds_by_work)
+        annotator = cls(circulation, None, {}, active_holds_by_work)
         return AcquisitionFeed.single_entry(db, work, annotator)
 

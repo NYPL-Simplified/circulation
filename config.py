@@ -16,6 +16,8 @@ class Configuration(CoreConfiguration):
 
     LANES_POLICY = "lanes"
 
+    ROOT_LANE_POLICY = "root_lane"
+
     ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
     ADOBE_VENDOR_ID = "vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = "node_value"
@@ -32,6 +34,10 @@ class Configuration(CoreConfiguration):
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
+
+    @classmethod
+    def root_lane_policy(cls):
+        return cls.policy(cls.ROOT_LANE_POLICY)
 
     @classmethod
     def language_policy(cls):

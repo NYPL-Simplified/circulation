@@ -137,6 +137,18 @@ class CirculationAPI(object):
 
         return api, possible_formats
 
+    def can_revoke_hold(self, licensepool, hold):
+        """Some circulation providers allow you to cancel a hold
+        when the book is reserved to you. Others only allow you to cancel
+        a hole while you're in the hold queue.
+        """
+        if hold.position > 0:
+            return True
+        api, formats = self.api_for_license_pool(licensepool)
+        if api.CAN_REVOKE_HOLD_WHEN_RESERVED:
+            return True
+        return False
+
     def borrow(self, patron, pin, licensepool, hold_notification_email):
         """Either borrow a book or put it on hold. If the book is borrowed,
         also fulfill the loan.
@@ -449,3 +461,9 @@ class CirculationAPI(object):
                 self._db.delete(hold)
         __transaction.commit()
         return active_loans, active_holds
+
+
+class BaseCirculationAPI(object):
+    """Encapsulates logic common to all circulation APIs."""
+
+    CAN_REVOKE_HOLD_WHEN_RESERVED = True
