@@ -1600,14 +1600,33 @@ class Contributor(Base):
     PRIMARY_AUTHOR_ROLE = "Primary Author"
     PERFORMER_ROLE = "Performer"
     EDITOR_ROLE = "Editor"
+    ARTIST_ROLE = "Artist"
     PHOTOGRAPHER_ROLE = "Photographer"
     TRANSLATOR_ROLE = "Translator"
     ILLUSTRATOR_ROLE = "Illustrator"
     INTRODUCTION_ROLE = "Introduction Author"
     FORWARD_ROLE = "Forward Author" 
     UNKNOWN_ROLE = 'Unknown'
+    DIRECTOR_ROLE = 'Director'
+    ACTOR_ROLE = 'Actor'
+    CONTRIBUTOR_ROLE = 'Contributor'
+    COMPOSER_ROLE = 'Composer'
+    NARRATOR_ROLE = 'Narrator'
+    COMPILER_ROLE = 'Compiler'
+    ADAPTER_ROLE = 'Adapter'
+    PERFORMER_ROLE = 'Performer'
+    MUSICIAN_ROLE = 'Musician'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
-    ACCEPTABLE_SUBSTITUTE_ROLES = set([EDITOR_ROLE])
+
+    # People from these roles can be put into the 'author' slot if no
+    # author proper is given.
+    AUTHOR_SUBSTITUTE_ROLES = [
+        EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE, 
+         CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE, 
+         ARTIST_ROLE
+    ]
+    
+    PERFORMER_ROLES = [ACTOR_ROLE, PERFORMER_ROLE, NARRATOR_ROLE, MUSICIAN_ROLE]
 
     # Extra fields
     BIRTH_DATE = 'birthDate'
@@ -2015,24 +2034,48 @@ class Edition(Base):
         primary_author = None
         other_authors = []
         acceptable_substitutes = defaultdict(list)
+        if not self.contributions:
+            return []
+
+        # If there is one and only one contributor, return them, no
+        # matter what their role is.
+        if len(self.contributions) == 1:
+            return [self.contributions[0].contributor]
+
+        # There is more than one contributor. Try to pick out the ones
+        # that rise to the level of being 'authors'.
         for x in self.contributions:
             if not primary_author and x.role == Contributor.PRIMARY_AUTHOR_ROLE:
                 primary_author = x.contributor
             elif x.role in Contributor.AUTHOR_ROLES:
                 other_authors.append(x.contributor)
-            elif x.role in Contributor.AUTHOR_SUBSTITUTE_ROLES:
-                acceptable_substitutes[x.role].append(x.contributor)
+            elif x.role.lower().startswith('author and'):
+                other_authors.append(x.contributor)
+            elif (x.role in Contributor.AUTHOR_SUBSTITUTE_ROLES
+                  or x.role in Contributor.PERFORMER_ROLES):
+                l = acceptable_substitutes[x.role]
+                if x.contributor not in l:
+                    l.append(x.contributor)
         if primary_author:
             return [primary_author] + sorted(other_authors, key=lambda x: x.name)
-        elif other_authors:
+
+        if other_authors:
             return other_authors
+
+        for role in (
+                Contributor.AUTHOR_SUBSTITUTE_ROLES 
+                + Contributor.PERFORMER_ROLES):
+            if role in acceptable_substitutes:
+                contributors = acceptable_substitutes[role]
+                print "FOUND ROLE: %s" % role
+                return sorted(contributors, key=lambda x: x.name)
         else:
-            for role in Contributor.AUTHOR_SUBSTITUTE_ROLES:
-                if role in acceptable_substitutes:
-                    contributors = acceptable_substitutes[role]
-                    return sorted(contributors, key=lambda x: x.name)
-            else:
-                set_trace()
+            # There are roles, but they're so random that we can't be
+            # sure who's the 'author' or so low on the creativity
+            # scale (like 'Executive producer') that we just don't
+            # want to put them down as 'author'.
+            return []
+
 
     @classmethod
     def for_foreign_id(cls, _db, data_source,
