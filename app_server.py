@@ -79,7 +79,7 @@ class ErrorHandler(object):
     def handle(self, exception):
         self.conf.db.rollback()
         logging.error(
-            "Exception in web app: %s" % exception, exc_info=exception)
+            "Exception in web app: %s", exception, exc_info=exception)
         tb = traceback.format_exc()
         if self.debug:
             body = tb

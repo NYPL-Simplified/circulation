@@ -950,10 +950,10 @@ class AcquisitionFeed(OPDSFeed):
         elif hold:
             until = hold.until(default_loan_period, default_reservation_period)
             if hold.position == 0:
-                status = 'reserved'
+                status = 'ready'
                 since = None
             else:
-                status = 'unavailable'
+                status = 'reserved'
                 since = hold.start
         if status:
             kw = dict(status=status)
