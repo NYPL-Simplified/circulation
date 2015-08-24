@@ -283,12 +283,17 @@ class TestAcquisitionFeed(CirculationAppTest):
             a = re.compile('<opds:availability[^>]+status="reserved"', re.S)
             assert a.search(response.data)
 
-            # Each entry must have a 'revoke' link.
+            # Each entry must have a 'revoke' link, except for the 3M
+            # reserved book, which does not.
             feed = feedparser.parse(response.data)
             for entry in feed['entries']:
                 revoke_link = [x for x in entry['links']
                                if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
-                assert revoke_link != []
+                if revoke_link == []:
+                    eq_(entry['opds_availability']['status'], 'reserved')
+                    assert "3M" in entry['id']
+                else:
+                    assert revoke_link
 
 class TestCheckout(CirculationAppTest):
 
