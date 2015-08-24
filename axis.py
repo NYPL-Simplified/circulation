@@ -1,10 +1,12 @@
 from nose.tools import set_trace
+from collections import defaultdict
 import datetime
 import base64
 import requests
 import os
 import json
 import logging
+import re
 
 from util import LanguageCodes
 from util.xmlparser import XMLParser
@@ -222,6 +224,38 @@ class BibliographicParser(Axis360Parser):
             LicensePool.last_checked : availability_updated,
         }
 
+    # Axis authors with a special role have an abbreviation after their names,
+    # e.g. "San Ruby (FRW)"
+    role_abbreviation = re.compile("\(([A-Z][A-Z][A-Z])\)$")
+    generic_author = object()
+    role_abbreviation_to_role = dict(
+        INT=Contributor.INTRODUCTION_ROLE,
+        EDT=Contributor.EDITOR_ROLE,
+        PHT=Contributor.PHOTOGRAPHER_ROLE,
+        ILT=Contributor.ILLUSTRATOR_ROLE,
+        TRN=Contributor.TRANSLATOR_ROLE,
+        FRW=Contributor.FORWARD_ROLE,
+        ADP=generic_author, # Author of adaptation
+        COR=generic_author, # Corporate author
+    )
+
+    @classmethod
+    def parse_contributor(cls, author, primary_author_found=False):
+        if primary_author_found:
+            default_author_role = Contributor.AUTHOR_ROLE
+        else:
+            default_author_role = Contributor.PRIMARY_AUTHOR_ROLE
+        role = default_author_role
+        match = cls.role_abbreviation.search(author)
+        if match:
+            role_type = match.groups()[0]
+            role = cls.role_abbreviation_to_role.get(
+                role_type, Contributor.UNKNOWN_ROLE)
+            if role is cls.generic_author:
+                role = default_author_role
+            author = author[:-5].strip()
+        return (author, role)
+
     def extract_bibliographic(self, element, ns):
 
         # TODO: These are consistently empty (some are clearly for
@@ -240,13 +274,15 @@ class BibliographicParser(Axis360Parser):
 
         contributor = self.text_of_optional_subtag(
             element, 'axis:contributor', ns)
+        contributors = defaultdict(list)
+        found_primary_author = False
         if contributor:
-            contributors = self.parse_list(contributor)
-            primary_author = [contributors[0]]
-            other_authors = contributors[1:]
-        else:
-            primary_author = []
-            other_authors = []
+            for c in self.parse_list(contributor):
+                contributor, role = self.parse_contributor(
+                    c, found_primary_author)
+                if role == Contributor.PRIMARY_AUTHOR_ROLE:
+                    found_primary_author = True
+                contributors[role].append(contributor)
 
         subject = self.text_of_optional_subtag(element, 'axis:subject', ns)
         subjects = []
@@ -292,10 +328,7 @@ class BibliographicParser(Axis360Parser):
             Edition.language : language,
             Identifier : identifiers,
             Subject : subjects,
-            Contributor : { 
-                Contributor.PRIMARY_AUTHOR_ROLE : primary_author,
-                Contributor.AUTHOR_ROLE : other_authors,
-            }
+            Contributor : contributors
         }
         return data
 

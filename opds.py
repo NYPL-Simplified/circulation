@@ -46,6 +46,7 @@ from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
 app_ns = 'http://www.w3.org/2007/app'
+bibframe_ns = 'http://bibframe.org/vocab/'
 xhtml_ns = 'http://www.w3.org/1999/xhtml'
 dcterms_ns = 'http://purl.org/dc/terms/'
 opds_ns = 'http://opds-spec.org/2010/catalog'
@@ -62,6 +63,7 @@ nsmap = {
     'opds' : opds_ns,
     'schema' : schema_ns,
     'simplified' : simplified_ns,
+    'bibframe' : bibframe_ns,
 }
 
 def _strftime(d):
@@ -421,7 +423,7 @@ class OPDSFeed(AtomFeed):
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
 
-    GROUP_REL = "http://opds-spec.org/group"
+    GROUP_REL = "collection"
     FEATURED_REL = "http://opds-spec.org/featured"
     RECOMMENDED_REL = "http://opds-spec.org/recommended"
     POPULAR_REL = "http://opds-spec.org/sort/popular"
@@ -773,8 +775,8 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([E.alternativeHeadline(edition.subtitle)])
 
         if license_pool:
-            data_source_tag = E._makeelement("{%s}license_source" % simplified_ns)
-            data_source_tag.text = license_pool.data_source.name
+            data_source_tag = E._makeelement("{%s}partOf" % bibframe_ns)
+            data_source_tag.text = license_pool.data_source.uri
             entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
@@ -934,23 +936,32 @@ class AcquisitionFeed(OPDSFeed):
         tags = []
         availability_tag_name = None
         suppress_since = False
+        status = None
+        since = None
+        until = None
+        default_loan_period = license_pool.data_source.default_loan_period
+        default_reservation_period = (
+            license_pool.data_source.default_reservation_period
+        )
         if loan:
-            availability_tag_name = 'available'
-            o = loan
+            status = 'available'
+            since = loan.start
+            until = loan.until(default_loan_period)
         elif hold:
-            o = hold
+            until = hold.until(default_loan_period, default_reservation_period)
             if hold.position == 0:
-                availability_tag_name = 'available'
-                suppress_since=True
+                status = 'ready'
+                since = None
             else:
-                availability_tag_name = 'unavailable'
-        if availability_tag_name:
-            kw = dict()
-            if o.start and not suppress_since:
-                kw['since'] = _strftime(o.start)
-            if o.end:
-                kw['until'] = _strftime(o.end)
-            tag_name = "{%s}%s" % (opds_ns, availability_tag_name)
+                status = 'reserved'
+                since = hold.start
+        if status:
+            kw = dict(status=status)
+            if since:
+                kw['since'] = _strftime(since)
+            if until:
+                kw['until'] = _strftime(until)
+            tag_name = "{%s}availability" % opds_ns
             availability_tag = E._makeelement(tag_name, **kw)
             tags.append(availability_tag)
 
@@ -958,28 +969,19 @@ class AcquisitionFeed(OPDSFeed):
         if license_pool.open_access:
             return tags
 
-        holds = E._makeelement("{%s}holds" % opds_ns)
+
+        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue or 0))
+        if hold and hold.position:
+            holds_kw['position'] = str(hold.position)
+        holds = E._makeelement("{%s}holds" % opds_ns, **holds_kw)
         tags.append(holds)
 
-        total_holds = E._makeelement("{%s}total" % opds_ns)
-        holds.append(total_holds)
-        total_holds.text = str(license_pool.patrons_in_hold_queue)
-
-        if hold and hold.position:
-            position = E._makeelement("{%s}position" % opds_ns)
-            holds.append(position)
-            position.text = str(hold.position)
-
-        copies = E._makeelement("{%s}copies" % opds_ns)
+        copies_kw = dict(
+            total=str(license_pool.licenses_owned or 0),
+            available=str(license_pool.licenses_available or 0),
+        )
+        copies = E._makeelement("{%s}copies" % opds_ns, **copies_kw)
         tags.append(copies)
-
-        total_copies = E._makeelement("{%s}total" % opds_ns)
-        copies.append(total_copies)
-        total_copies.text = str(license_pool.licenses_owned)
-
-        available_copies = E._makeelement("{%s}available" % opds_ns)
-        copies.append(available_copies)
-        available_copies.text = str(license_pool.licenses_available)
 
         return tags
 

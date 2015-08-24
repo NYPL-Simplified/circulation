@@ -44,6 +44,7 @@ class Configuration(object):
     LINKS = "links"
     PRIVACY_POLICY = "privacy_policy"
     TERMS_OF_SERVICE = "terms_of_service"
+    COPYRIGHT = "copyright"
 
     # Logging
     LOGGING = "logging"
@@ -60,6 +61,10 @@ class Configuration(object):
     HOLD_POLICY = "holds"
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
+
+    # Loan policies
+    DEFAULT_LOAN_PERIOD = "default_loan_period"
+    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
 
     # Integrations
     URL = "url"
@@ -183,6 +188,10 @@ class Configuration(object):
     @classmethod
     def terms_of_service_url(cls):
         return cls.link(cls.TERMS_OF_SERVICE)
+
+    @classmethod
+    def acknowledgements_url(cls):
+        return cls.link(cls.COPYRIGHT)
 
     @classmethod
     def privacy_policy_url(cls):

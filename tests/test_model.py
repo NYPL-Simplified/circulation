@@ -16,7 +16,10 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
-from config import Configuration
+from config import (
+    Configuration, 
+    temp_config,
+)
 
 from model import (
     CirculationEvent,
@@ -27,11 +30,13 @@ from model import (
     DataSource,
     EnumeratedCustomListFeed,
     Genre,
+    Hold,
     Hyperlink,
     Lane,
     LaneList,
     LicensePool,
     Measurement,
+    Patron,
     Representation,
     SessionManager,
     Subject,
@@ -556,23 +561,30 @@ class TestEdition(DatabaseTest):
         wr.calculate_presentation()
         eq_("Foo, A", wr.sort_title)
 
+    def test_calculate_presentation_missing_author(self):
+        wr = self._edition()
+        self._db.delete(wr.contributions[0])
+        self._db.commit()
+        wr.calculate_presentation()
+        eq_(u"[Unknown]", wr.sort_author)
+        eq_(u"[Unknown]", wr.author)
+
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(name="Bitshifter, Bob")
         wr = self._edition(authors=bob.name)
         wr.calculate_presentation()
-        eq_("Bitshifter, Bob", wr.author)
-        eq_("Bitshifter, Bob", wr.sort_author)
-
-        bob.display_name="Bob Bitshifter"
-        wr.calculate_presentation()
         eq_("Bob Bitshifter", wr.author)
         eq_("Bitshifter, Bob", wr.sort_author)
 
+        bob.display_name="Bob A. Bitshifter"
+        wr.calculate_presentation()
+        eq_("Bob A. Bitshifter", wr.author)
+        eq_("Bitshifter, Bob", wr.sort_author)
+
         kelly, ignore = self._contributor(name="Accumulator, Kelly")
-        kelly.display_name = "Kelly Accumulator"
         wr.add_contributor(kelly, Contributor.AUTHOR_ROLE)
         wr.calculate_presentation()
-        eq_("Kelly Accumulator, Bob Bitshifter", wr.author)
+        eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
     def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
@@ -1130,6 +1142,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(None, work)
 
         edition.add_contributor(u"bar", Contributor.PRIMARY_AUTHOR_ROLE)
+        edition.calculate_presentation()
         work, created = pool.calculate_work()
         eq_(True, created)
 
@@ -1162,7 +1175,7 @@ class TestWorkConsolidation(DatabaseTest):
         self._db.commit()
         eq_(edition, work.primary_edition)
         eq_(u"foo", work.title)
-        eq_(u"", work.author)
+        eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
     def test_calculate_work_for_new_work(self):
         # TODO: This test doesn't actually test
@@ -1418,6 +1431,51 @@ class TestHold(DatabaseTest):
         eq_(later, hold.end)
         eq_(0, hold.position)
 
+    def test_calculate_until(self):
+        start = datetime.datetime(2010, 1, 1)
+
+        # The cycle time is one week.
+        default_loan = datetime.timedelta(days=6)
+        default_reservation = datetime.timedelta(days=1)
+        
+        # I'm 20th in line for 4 books.
+        #
+        # After 6 days, four copies are released and I am 16th in line.
+        # After 13 days, those copies are released and I am 12th in line.
+        # After 20 days, those copies are released and I am 8th in line.
+        # After 27 days, those copies are released and I am 4th in line.
+        # After 34 days, those copies are released and get my notification.
+        a = Hold._calculate_until(
+            start, 20, 4, default_loan, default_reservation)
+        eq_(a, start + datetime.timedelta(days=(7*5)-1))
+
+        # If I am 21st in line, I need to wait six weeks.
+        b = Hold._calculate_until(
+            start, 21, 4, default_loan, default_reservation)
+        eq_(b, start + datetime.timedelta(days=(7*6)-1))
+
+        # If I am 3rd in line, I only need to wait six days--that's when
+        # I'll get the notification message.
+        b = Hold._calculate_until(
+            start, 3, 4, default_loan, default_reservation)
+        eq_(b, start + datetime.timedelta(days=6))
+
+        # A new person gets the book every week. Someone has the book now
+        # and there are 3 people ahead of me in the queue. I will get
+        # the book in 6 days + 3 weeks
+        c = Hold._calculate_until(
+            start, 3, 1, default_loan, default_reservation)
+        eq_(c, start + datetime.timedelta(days=(7*4)-1))
+
+        # The book is reserved to me. I need to hurry up and check it out.
+        d = Hold._calculate_until(
+            start, 0, 1, default_loan, default_reservation)
+        eq_(d, start + datetime.timedelta(days=1))
+
+        # If there are no licenses, I will never get the book.
+        e = Hold._calculate_until(
+            start, 10, 0, default_loan, default_reservation)
+        eq_(e, None)
 
 class TestLane(DatabaseTest):
 
@@ -1651,7 +1709,7 @@ class TestWorkFeed(DatabaseTest):
         w4 = self._work("Title D", "Author, Another", genre, language, 
                         audience, with_license_pool=True)
 
-        eq_("Author, Another", w4.author)
+        eq_("Another Author", w4.author)
         eq_("Author, Another", w4.sort_author)
 
         # Order them by title, and everything's fine.
@@ -2136,3 +2194,29 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
 
+class TestPatron(DatabaseTest):
+
+    def test_external_type_regular_expression(self):
+        patron = self._patron("234")
+        patron.authorization_identifier = "A123"
+        key = Patron.EXTERNAL_TYPE_REGULAR_EXPRESSION
+        with temp_config() as config:
+
+            config[Configuration.POLICIES][key] = None
+            eq_(None, patron.external_type)
+
+            config[Configuration.POLICIES][key] = "([A-Z])"
+            eq_("A", patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "([0-9]$)"
+            eq_("3", patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "A"
+            eq_(None, patron.external_type)
+            patron._external_type = None
+
+            config[Configuration.POLICIES][key] = "(not a valid regexp"
+            assert_raises(TypeError, lambda x: patron.external_type)
+            patron._external_type = None

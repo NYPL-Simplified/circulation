@@ -300,7 +300,11 @@ class Patron(Base):
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
     # library policies.
-    external_type = Column(Unicode, index=True)
+    #
+    # Depending on library policy it may be possible to automatically
+    # derive the patron's account type from their authorization
+    # identifier.
+    _external_type = Column(Unicode, index=True, name="external_type")
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
@@ -325,6 +329,7 @@ class Patron(Base):
     credentials = relationship("Credential", backref="patron")
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -339,6 +344,23 @@ class Patron(Base):
                  if hold.license_pool.work]
         loans = self.works_on_loan()
         return set(holds + loans)
+
+    @property
+    def external_type(self):
+        if self.authorization_identifier and not self._external_type:
+            policy = Configuration.policy(
+                self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
+            if policy:
+                try:
+                    match = re.compile(policy).search(
+                        self.authorization_identifier)
+                except Exception, e:
+                    set_trace()
+                if match:
+                    groups = match.groups()
+                    if groups:
+                        self._external_type = groups[0]
+        return self._external_type
 
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
@@ -386,6 +408,13 @@ class Loan(Base):
         UniqueConstraint('patron_id', 'license_pool_id'),
     )
 
+    def until(self, default_loan_period):
+        """Give or estimate the time at which the loan will end."""
+        if self.end:
+            return self.end
+        start = self.start or datetime.datetime.utcnow()
+        return start + default_loan_period
+
 class Hold(Base):
     """A patron is in line to check out a book.
     """
@@ -396,6 +425,78 @@ class Hold(Base):
     start = Column(DateTime, index=True)
     end = Column(DateTime, index=True)
     position = Column(Integer, index=True)
+
+    @classmethod
+    def _calculate_until(
+            self, start, queue_position, total_licenses, default_loan_period,
+            default_reservation_period):
+        """Helper method for `Hold.until` that can be tested independently.
+
+        We have to wait for the available licenses to cycle a
+        certain number of times before we get a turn.
+        
+        Example: 4 licenses, queue position 21
+        After 1 cycle: queue position 17
+              2      : queue position 13
+              3      : queue position 9
+              4      : queue position 5
+              5      : queue position 1
+              6      : available
+
+        The worst-case cycle time is the loan period plus the reservation
+        period.
+        """
+        if queue_position == 0:
+            # The book is currently reserved to this patron--they need
+            # to hurry up and check it out.
+            return start + default_reservation_period
+
+        if total_licenses == 0:
+            # The book will never be available
+            return None
+
+        # Start with the default loan period to clear out everyone who
+        # currently has the book checked out.
+        duration = default_loan_period
+
+        if queue_position < total_licenses:
+            # After that period, the book will be available to this patron.
+            # Do nothing.
+            pass
+        else:
+            # Otherwise, add a number of cycles in which other people are
+            # notified that it's their turn.
+            cycle_period = (default_loan_period + default_reservation_period)
+            cycles = queue_position / total_licenses
+            if (total_licenses > 1 and queue_position % total_licenses == 0):
+                cycles -= 1
+            duration += (cycle_period * cycles)
+        return start + duration
+
+
+    def until(self, default_loan_period, default_reservation_period):
+        """Give or estimate the time at which the book will be available
+        to this patron.
+
+        This is a *very* rough estimate that should be treated more or
+        less as a worst case. (Though it could be even worse than
+        this--the library's license might expire and then you'll
+        _never_ get the book.)
+        """
+        if self.end:
+            # Whew, the server provided its own estimate.
+            return self.end
+
+        start = datetime.datetime.utcnow()
+        licenses_available = self.license_pool.licenses_owned
+        position = self.position
+        if not position:
+            # We don't know where in line we are. Assume we're at the
+            # end.
+            position = self.license_pool.patrons_in_hold_queue
+        return self._calculate_until(
+            start, position, licenses_available,
+            default_loan_period, default_reservation_period)
 
     def update(self, start, end, position):
         """When the book becomes available, position will be 0 and end will be
@@ -492,9 +593,51 @@ class DataSource(Base):
             # This should only happen during tests.
             return get_one(_db, DataSource, name=name)
 
+    URI_PREFIX = "http://librarysimplified.org/terms/sources/"
+
+    @classmethod
+    def from_uri(cls, _db, uri):
+        if not uri.startswith(cls.URI_PREFIX):
+            return None
+        name = uri[len(cls.URI_PREFIX):]
+        name = urllib.unquote(name)
+        return cls.lookup(_db, name)
+
+    @property
+    def uri(self):
+        return self.URI_PREFIX + urllib.quote(self.name)
+
+    # These are pretty standard values but each library needs to
+    # define the policy they've negotiated in their configuration.
+    default_default_loan_period = datetime.timedelta(days=21)
+    default_default_reservation_period = datetime.timedelta(days=3)
+
+    def _datetime_config_value(self, key, default):
+        integration = Configuration.integration(self.name)
+        if not integration:
+            return default
+        value = integration.get(key)
+        if not value:
+            return default
+        return datetime.timedelta(days=value)
+
+    @property
+    def default_loan_period(self):
+        return self._datetime_config_value(
+            Configuration.DEFAULT_LOAN_PERIOD,
+            self.default_default_loan_period
+        )
+
+    @property
+    def default_reservation_period(self):
+        return self._datetime_config_value(
+            Configuration.DEFAULT_RESERVATION_PERIOD,
+            self.default_default_reservation_period
+        )
+
     @classmethod
     def license_source_for(cls, _db, identifier):
-        """Find the ont DataSource that provides licenses for books identified
+        """Find the one DataSource that provides licenses for books identified
         by the given identifier.
 
         If there is no such DataSource, or there is more than one,
@@ -1456,6 +1599,12 @@ class Contributor(Base):
     AUTHOR_ROLE = "Author"
     PRIMARY_AUTHOR_ROLE = "Primary Author"
     PERFORMER_ROLE = "Performer"
+    EDITOR_ROLE = "Editor"
+    PHOTOGRAPHER_ROLE = "Photographer"
+    TRANSLATOR_ROLE = "Translator"
+    ILLUSTRATOR_ROLE = "Illustrator"
+    INTRODUCTION_ROLE = "Introduction Author"
+    FORWARD_ROLE = "Forward Author" 
     UNKNOWN_ROLE = 'Unknown'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
     ACCEPTABLE_SUBSTITUTE_ROLES = set([EDITOR_ROLE])
@@ -2067,7 +2216,7 @@ class Edition(Base):
 
         # Then add their Contributions.
         for role in roles:
-            get_one_or_create(
+            contribution, was_new = get_one_or_create(
                 _db, Contribution, edition=self, contributor=contributor,
                 role=role)
         return contributor
@@ -2259,6 +2408,8 @@ class Edition(Base):
         return WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
 
+    UNKNOWN_AUTHOR = u"[Unknown]"
+
     def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
@@ -2273,12 +2424,20 @@ class Edition(Base):
         display_names = []
         self.last_update_time = datetime.datetime.utcnow()
         for author in self.author_contributors:
-            display_name = author.display_name or author.name
-            family_name = author.family_name or author.name
+            if author.name and not author.display_name or not author.family_name:
+                default_family, default_display = author.default_names()
+            display_name = author.display_name or default_display or author.name
+            family_name = author.family_name or default_family or author.name
             display_names.append([family_name, display_name])
             sort_names.append(author.name)
-        self.author = ", ".join([x[1] for x in sorted(display_names)])
-        self.sort_author = " ; ".join(sorted(sort_names))
+        if display_names:
+            self.author = ", ".join([x[1] for x in sorted(display_names)])
+        else:
+            self.author = self.UNKNOWN_AUTHOR
+        if sort_names:
+            self.sort_author = " ; ".join(sorted(sort_names))
+        else:
+            self.sort_author = self.UNKNOWN_AUTHOR
         self.calculate_permanent_work_id()
 
         self.set_open_access_link()
@@ -4648,8 +4807,8 @@ class Lane(object):
         """Find all subgenres managed by this lane which match the
         given fiction status.
         
-        This may also turn into an additional restriction on the
-        fiction status.
+        This may also turn into an additional restriction (or
+        liberation) on the fiction status
         """
         fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
         if fiction_default_by_genre:
@@ -4664,6 +4823,10 @@ class Lane(object):
                 elif fiction != genre.default_fiction:
                     raise ValueError(
                         "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
+        if fiction is None:
+            # This is an impossible situation. Rather than eliminate all books
+            # from consideration, allow both fiction and nonfiction.
+            fiction = self.BOTH_FICTION_AND_NONFICTION
         return genres, fiction
 
     def works(self, languages, fiction=None, availability=Work.ALL):
@@ -5190,7 +5353,9 @@ class LicensePool(Base):
 
         if not primary_edition.work and (
                 not primary_edition.title or (
-                    not primary_edition.author and not even_if_no_author)):
+                    (primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
+                     and not even_if_no_author))
+        ):
             logging.warn(
                 "Edition %r has no author or title, not assigning Work to Edition.", 
                 primary_edition

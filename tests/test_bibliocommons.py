@@ -100,7 +100,7 @@ class TestBibliocommonsAPI(DatabaseTest):
         eq_("Shulevitz, Uri", cont.contributor.name)
         eq_(Contributor.PRIMARY_AUTHOR_ROLE, cont.role)
 
-        eq_("Shulevitz, Uri", edition.author)
+        eq_("Uri Shulevitz", edition.author)
         eq_("Shulevitz, Uri", edition.sort_author)
 
         # We were given an ISBN-10 and an equivalent ISBN-13 for this

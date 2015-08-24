@@ -175,10 +175,10 @@ class BaseOPDSImporter(object):
             # entry.
             return internal_identifier, external_identifier, None, False, status_code, message
 
-        license_source_name = entry.get('simplified_license_source', None)
-        if license_source_name:
-            license_data_sources = [DataSource.lookup(
-                self._db, license_source_name)]
+        license_source_uri = entry.get('bibframe_partof', None)
+        if license_source_uri:
+            license_data_sources = [DataSource.from_uri(
+                self._db, license_source_uri)]
         else:
             license_data_sources = DataSource.license_sources_for(
                 self._db, internal_identifier)
