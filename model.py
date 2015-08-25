@@ -107,6 +107,7 @@ from sqlalchemy.dialects.postgresql import (
     ARRAY,
     HSTORE,
     JSON,
+    NUMRANGE,
 )
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
@@ -2537,7 +2538,7 @@ class Work(Base):
     work_genres = relationship("WorkGenre", backref="work",
                                cascade="all, delete-orphan")
     audience = Column(Unicode, index=True)
-    target_age = Column(Integer, index=True)
+    target_age = Column(NUMRANGE, index=True)
     fiction = Column(Boolean, index=True)
 
     summary_id = Column(
@@ -4098,7 +4099,7 @@ class Subject(Base):
         default=None, index=True)
 
     # For children's books, the target age implied by this subject.
-    target_age = Column(Integer, default=None, index=True)
+    target_age = Column(NUMRANGE, default=None, index=True)
 
     # Each Subject may claim affinity with one Genre.
     genre_id = Column(Integer, ForeignKey('genres.id'), index=True)

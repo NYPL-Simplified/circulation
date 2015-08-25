@@ -203,7 +203,7 @@ class Classifier(object):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
-        return None
+        return None, None
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -245,7 +245,9 @@ class GradeLevelClassifier(Classifier):
     # levels.
     grade_res = [
         re.compile(x, re.I) for x in [
-            "grades? ([kp0-9]+)", 
+            "grades? ([kp0-9]+)-([kp0-9]+)", 
+            "gr\.? ([kp0-9]+)-([kp0-9]+)", 
+            "grade ([kp0-9]+)", 
             "gr\.? ([kp0-9]+)", 
             "([0-9]+)[tns][hdt] grade",
             "([a-z]+) grade",
@@ -261,12 +263,12 @@ class GradeLevelClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
-        a = cls.target_age(identifier, name, require_explicit_age_marker)
-        if not a:
+        young, old = cls.target_age(identifier, name, require_explicit_age_marker)
+        if not young:
             return None
-        if a < 12:
+        if young < 12:
             return Classifier.AUDIENCE_CHILDREN
-        elif a < 18:
+        elif young < 18:
             return Classifier.AUDIENCE_YOUNG_ADULT
         else:
             return Classifier.AUDIENCE_ADULT
@@ -276,11 +278,11 @@ class GradeLevelClassifier(Classifier):
 
         if (identifier and "education" in identifier) or (name and 'education' in name):
             # This is a book about teaching, e.g. fifth grade.
-            return None
+            return None, None
 
         if (identifier and 'graders' in identifier) or (name and 'graders' in name):
             # This is a book about, e.g. fifth graders.
-            return None
+            return None, None
 
         if require_explicit_grade_marker:
             res = cls.grade_res
@@ -293,10 +295,23 @@ class GradeLevelClassifier(Classifier):
                     continue
                 m = r.search(k)
                 if m:
-                    grade = m.groups()[0]
-                    if grade in cls.american_grade_to_age:
-                        return cls.american_grade_to_age[grade]
-        return None
+                    gr = m.groups()
+                    if len(gr) == 1:
+                        young = gr[0]
+                        old = None
+                    else:
+                        young, old = gr
+                    if young in cls.american_grade_to_age and old in cls.american_grade_to_age:
+                        young, old = (
+                            cls.american_grade_to_age[young],
+                            cls.american_grade_to_age[old]
+                        )
+                    young = int(young)
+                    old = int(old)
+                    if not old and k.endswith("and up"):
+                        old = young + 2
+                    return young, old
+        return None, None
 
 
 class InterestLevelClassifier(Classifier):
@@ -313,11 +328,11 @@ class InterestLevelClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'lg':
-            return 5
+            return 5,8
         if identifier in ('mg+', 'mg'):
-            return 9
+            return 9,13
         if identifier == 'ug':
-            return 14
+            return 14,18
         return None
 
 
@@ -325,19 +340,19 @@ class AgeClassifier(Classifier):
     # Regular expressions that match common ways of expressing ages.
     age_res = [
         re.compile(x, re.I) for x in [
-            "ages ([0-9]+) ?- ?[0-9]+",
-            "([0-9]+) ?- ?[0-9]+ year",
+            "ages ([0-9]+) ?- ?([0-9]+)",
+            "([0-9]+) ?- ?([0-9]+) year",
             "([0-9]+) year",
             "([0-9]+) and up",
         ]
     ]
 
     generic_age_res = [
+        re.compile("([0-9]+) ?- ?([0-9]+)", re.I),
         re.compile(r"^([0-9]+)\b", re.I),
-        re.compile("([0-9]+) ?- ?[0-9]+", re.I),
     ]
 
-    baby_re = re.compile("^baby ?-")
+    baby_re = re.compile("^baby ?- ?([0-9]+) year", re.I)
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
@@ -357,8 +372,12 @@ class AgeClassifier(Classifier):
             res = cls.age_res
         else:
             res = cls.age_res + cls.generic_age_res
-            if identifier and cls.baby_re.search(identifier):
-                return 0
+        if identifier:
+            match = cls.baby_re.search(identifier)
+            if match:
+                # This is for babies.
+                upper_bound = int(match.groups()[0])
+                return 0, upper_bound
 
         for r in res:
             for k in identifier, name:
@@ -366,10 +385,16 @@ class AgeClassifier(Classifier):
                     continue
                 m = r.search(k)
                 if m:
-                    age = m.groups()[0]
-                    if age:
-                        return int(age)
-        return None
+                    groups = m.groups()
+                    young = old = None
+                    if groups:
+                        young = int(groups[0])
+                        if len(groups) > 1:
+                            old = int(groups[1])
+                    if not old and k.endswith("and up"):
+                        old = young + 2
+                    return young, old
+        return None, None
 
 
 class Axis360AudienceClassifier(Classifier):
@@ -395,11 +420,11 @@ class Axis360AudienceClassifier(Classifier):
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
         if (not identifier.startswith(cls.TEEN_PREFIX)
             and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return None
+            return None, None
         m = cls.age_re.search(identifier)
         if not m:
-            return None
-        return int(m.groups()[0])
+            return None, None
+        return tuple(map(int, m.groups()))
 
 
 # This is the large-scale structure of our classification system.
@@ -1160,10 +1185,10 @@ class OverdriveClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier.startswith('Picture Book'):
-            return 0 # As early as possible
+            return 0, 4
         elif identifier.startswith('Beginning Reader'):
-            return 5 # Kindergarten
-        return None
+            return 5,8
+        return None, None
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
@@ -2640,7 +2665,7 @@ class KeywordBasedClassifier(Classifier):
         age 9-12 or grade 9-12.
         """
         age = AgeClassifier.target_age(identifier, name, True)
-        if age is None:
+        if age == (None, None):
             age = GradeLevelClassifier.target_age(identifier, name, True)
         return age
 
