@@ -57,7 +57,7 @@ class TestTargetAge(object):
         # True.
         eq_((7,9), GradeLevelClassifier.target_age("2-4", None, False))
         eq_((None,None), GradeLevelClassifier.target_age("2-4", None, True))
-        eq_((14,18), f("Children's Audio - 9-12"))
+        eq_((14,17), f("Children's Audio - 9-12"))
         eq_((None,None), GradeLevelClassifier.target_age(
             "Children's Audio - 9-12", None, True))
 
@@ -71,7 +71,7 @@ class TestTargetAge(object):
         eq_((9,12), f("Ages 9-12"))
         eq_((9,11), f("9 and up"))
         eq_((9,12), f("9-12"))
-        eq_((9,None), f("9 years"))
+        eq_((9,9), f("9 years"))
         eq_((9,12), f("9 - 12 years"))
         eq_((12,14), f("12 - 14"))
         eq_((0,3), f("0-3"))
@@ -84,7 +84,7 @@ class TestTargetAge(object):
     def test_age_from_keyword_classifier(self):
         def f(t):
             return LCSH.target_age(t, None)
-        eq_((5,None), f("Interest age: from c 5 years"))
+        eq_((5,5), f("Interest age: from c 5 years"))
         eq_((9,12), f("Children's Books / 9-12 Years"))
         eq_((9,12), f("Ages 9-12"))
         eq_((9,12), f("Children's Books/Ages 9-12 Fiction"))
@@ -119,7 +119,7 @@ class TestInterestLevelClassifier(object):
         eq_((5,8), f("lg"))
         eq_((9,13), f("mg"))
         eq_((9,13), f("mg+"))
-        eq_((14,18), f("ug"))
+        eq_((14,17), f("ug"))
 
 
 class TestDewey(object):

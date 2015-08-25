@@ -256,9 +256,9 @@ class GradeLevelClassifier(Classifier):
     ]
 
     generic_grade_res = [
+        re.compile(r"([kp0-9]+) ?- ?([0-9]+)", re.I),
         re.compile(r"^([0-9]+)\b", re.I),
         re.compile(r"^([kp])\b", re.I),
-        re.compile(r"([0-9]+) ?- ?[0-9]+", re.I),
     ]
 
     @classmethod
@@ -301,15 +301,25 @@ class GradeLevelClassifier(Classifier):
                         old = None
                     else:
                         young, old = gr
-                    if young in cls.american_grade_to_age and old in cls.american_grade_to_age:
-                        young, old = (
-                            cls.american_grade_to_age[young],
-                            cls.american_grade_to_age[old]
-                        )
-                    young = int(young)
-                    old = int(old)
+
+                    if (not young in cls.american_grade_to_age
+                        and not old in cls.american_grade_to_age):
+                        return None, None
+
+                    if young in cls.american_grade_to_age:
+                        young = cls.american_grade_to_age[young]
+                    if old in cls.american_grade_to_age:
+                        old = cls.american_grade_to_age[old]
+                    if young:
+                        young = int(young)
+                    if old:
+                        old = int(old)
                     if not old and k.endswith("and up"):
                         old = young + 2
+                    if old is None and young is not None:
+                        old = young
+                    if young is None and old is not None:
+                        young = old
                     return young, old
         return None, None
 
@@ -332,7 +342,7 @@ class InterestLevelClassifier(Classifier):
         if identifier in ('mg+', 'mg'):
             return 9,13
         if identifier == 'ug':
-            return 14,18
+            return 14,17
         return None
 
 
@@ -393,6 +403,10 @@ class AgeClassifier(Classifier):
                             old = int(groups[1])
                     if not old and k.endswith("and up"):
                         old = young + 2
+                    if old is None and young is not None:
+                        old = young
+                    if young is None and old is not None:
+                        young = old
                     return young, old
         return None, None
 

@@ -3370,32 +3370,47 @@ class Work(Base):
             wg.affinity = score/total_weight
             workgenres.append(wg)
 
-        target_ages = []
+        target_age_mins = []
+        target_age_maxes = []
         most_relevant = None
         for c in target_age_relevant_classifications:
             score = c.quality_as_indicator_of_target_age
             if not score:
                 continue
-            target = c.subject.target_age
+            target_min, target_max = c.subject.target_age
             if not most_relevant or score > most_relevant:
                 most_relevant = score
-                target_ages = [target]
+                target_age_mins = [target_min]
+                target_age_maxes = [target_max]
             elif score == most_relevant:
-                target_ages.append(target)
-        if target_ages:
-            target_age = max(target_ages)
+                target_age_mins.append(target_min)
+                target_age_maxes.append(target_max)
+        if target_age_mins:
+            mins = Counter(target_age_mins)
+            target_age_min = mins.most_common(1)
+            if mins[target_age_min] == 1:
+                # Everyone has a different opinion. Pick the smallest one.
+                target_age_min = min(target_age_mins)
+
+            maxes = Counter(target_age_maxes)
+            target_age_max = maxes.most_common(1)
+            if maxes[target_age_max] == 1:
+                # Everyone has a different opinion. Pick the largest one.
+                target_age_max = max(target_age_maxes)
+
             # If we have a well-attested target age, we can make
             # an audience decision on that basis.
             if (most_relevant > 
                 Classification._quality_as_indicator_of_target_age[Subject.TAG]):
-                if target_age < 14:
+                if target_age_min < 14:
                     audience = Classifier.AUDIENCE_CHILDREN
-                elif target_age < 18:
+                elif target_age_min < 18:
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
                 elif classifier not in Classifier.ADULT_AUDIENCES:
                     audience = Classifier.AUDIENCE_ADULT
+            target_age = (target_age_min, target_age_max)
         else:
-            target_age = None
+            target_age = None, None
         return workgenres, fiction, audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
@@ -4142,7 +4157,7 @@ class Subject(Base):
         else:
             genre = ""
         if self.target_age is not None:
-            age_range= " (%s years)" % self.target_age
+            age_range= " (%s-%s years)" % self.target_age
         else:
             age_range = ""
         a = u'[%s:%s%s%s%s%s%s]' % (
