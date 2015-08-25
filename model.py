@@ -351,11 +351,8 @@ class Patron(Base):
             policy = Configuration.policy(
                 self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
             if policy:
-                try:
-                    match = re.compile(policy).search(
-                        self.authorization_identifier)
-                except Exception, e:
-                    set_trace()
+                match = re.compile(policy).search(
+                    self.authorization_identifier)
                 if match:
                     groups = match.groups()
                     if groups:
@@ -1158,10 +1155,7 @@ class Identifier(Base):
         if not equivalents[input_id][output_id]:
             equivalents[input_id][output_id] = (strength, votes)
         else:
-            try:
-                old_strength, old_votes = equivalents[input_id][output_id]
-            except Exception, e:
-                set_trace()
+            old_strength, old_votes = equivalents[input_id][output_id]
             total_strength = (old_strength * old_votes) + (strength * votes)
             total_votes = (old_votes + votes)
             new_strength = total_strength / total_votes
@@ -1669,12 +1663,9 @@ class Contributor(Base):
             if viaf:
                 query[Contributor.viaf.name] = viaf
 
-            try:
-                contributors, new = get_one_or_create(
-                    _db, Contributor, create_method_kwargs=create_method_kwargs,
-                    **query)
-            except Exception, e:
-                set_trace()
+            contributors, new = get_one_or_create(
+                _db, Contributor, create_method_kwargs=create_method_kwargs,
+                **query)
 
         return contributors, new
 
@@ -1996,10 +1987,6 @@ class Edition(Base):
             self.id, id_repr, self.title,
             ", ".join([x.name for x in self.contributors]),
             self.language))
-        try:
-            a.encode("utf8")
-        except Exception, e:
-            set_trace()
         return a.encode("utf8")
 
     @property
