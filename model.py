@@ -28,6 +28,7 @@ from PIL import (
 )
 import elasticsearch
 
+from psycopg2.extras import NumericRange
 from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
@@ -60,6 +61,7 @@ from sqlalchemy.ext.associationproxy import (
 )
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
+    cast,
     and_,
     or_,
 )
@@ -107,7 +109,7 @@ from sqlalchemy.dialects.postgresql import (
     ARRAY,
     HSTORE,
     JSON,
-    NUMRANGE,
+    INT4RANGE,
 )
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
@@ -2538,7 +2540,7 @@ class Work(Base):
     work_genres = relationship("WorkGenre", backref="work",
                                cascade="all, delete-orphan")
     audience = Column(Unicode, index=True)
-    target_age = Column(NUMRANGE, index=True)
+    target_age = Column(INT4RANGE, index=True)
     fiction = Column(Boolean, index=True)
 
     summary_id = Column(
@@ -2675,6 +2677,16 @@ class Work(Base):
         if not self.primary_edition:
             return None
         return self.primary_edition.cover_thumbnail_url
+
+    @property
+    def target_age_string(self):
+        lower = self.target_age.lower
+        upper = self.target_age.upper
+        if lower and not upper:
+            return str(lower)
+        if upper and not lower:
+            return str(upper)
+        return "%s-%s" % (lower,upper)
 
     @property
     def has_open_access_license(self):
@@ -3044,8 +3056,10 @@ class Work(Base):
         flattened_data = Identifier.flatten_identifier_ids(data)
 
         if classify:
-            workgenres, self.fiction, self.audience, self.target_age = self.assign_genres(
+            workgenres, self.fiction, self.audience, target_age = self.assign_genres(
                 flattened_data)
+            self.target_age = NumericRange(*target_age)
+
 
         if choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
@@ -3104,10 +3118,10 @@ class Work(Base):
         else:
             fiction = "???"
         if self.target_age:
-            target_age = " age=" + str(self.target_age)
+            target_age = " age=" + self.target_age_string
         else:
             target_age = ""
-        l.append(" %(fiction)s a=%(audience)s%(target_age)s" % (
+        l.append(" %(fiction)s a=%(audience)s%(target_age)r" % (
                 dict(fiction=fiction,
                      audience=self.audience, target_age=target_age)))
         l.append(" " + ", ".join(repr(wg) for wg in self.work_genres))
@@ -3377,24 +3391,26 @@ class Work(Base):
             score = c.quality_as_indicator_of_target_age
             if not score:
                 continue
-            target_min, target_max = c.subject.target_age
             if not most_relevant or score > most_relevant:
                 most_relevant = score
-                target_age_mins = [target_min]
-                target_age_maxes = [target_max]
-            elif score == most_relevant:
-                target_age_mins.append(target_min)
-                target_age_maxes.append(target_max)
+            if score >= most_relevant:
+                target_min = c.subject.target_age.lower
+                target_max = c.subject.target_age.upper
+                if target_min:
+                    target_age_mins.append(target_min)
+                if target_max:
+                    target_age_maxes.append(target_max)
+
         if target_age_mins:
             mins = Counter(target_age_mins)
-            target_age_min = mins.most_common(1)
-            if mins[target_age_min] == 1:
+            [(target_age_min, count)] = mins.most_common(1)
+            if count == 1:
                 # Everyone has a different opinion. Pick the smallest one.
                 target_age_min = min(target_age_mins)
 
             maxes = Counter(target_age_maxes)
-            target_age_max = maxes.most_common(1)
-            if maxes[target_age_max] == 1:
+            [(target_age_max, count)] = maxes.most_common(1)
+            if count == 1:
                 # Everyone has a different opinion. Pick the largest one.
                 target_age_max = max(target_age_maxes)
 
@@ -4114,7 +4130,7 @@ class Subject(Base):
         default=None, index=True)
 
     # For children's books, the target age implied by this subject.
-    target_age = Column(NUMRANGE, default=None, index=True)
+    target_age = Column(INT4RANGE, default=None, index=True)
 
     # Each Subject may claim affinity with one Genre.
     genre_id = Column(Integer, ForeignKey('genres.id'), index=True)
@@ -4157,12 +4173,22 @@ class Subject(Base):
         else:
             genre = ""
         if self.target_age is not None:
-            age_range= " (%s-%s years)" % self.target_age
+            age_range= " " + self.target_age_string
         else:
             age_range = ""
         a = u'[%s:%s%s%s%s%s%s]' % (
             self.type, self.identifier, name, fiction, audience, genre, age_range)
         return a.encode("utf8")
+
+    @property
+    def target_age_string(self):
+        lower = self.target_age.lower
+        upper = self.target_age.upper
+        if lower and not upper:
+            return str(lower)
+        if upper and not lower:
+            return str(upper)
+        return "%s-%s" % (lower,upper)
 
     @classmethod
     def lookup(cls, _db, type, identifier, name):
@@ -4230,11 +4256,12 @@ class Subject(Base):
         self.checked = True
         genredata, audience, target_age, fiction = classifier.classify(self)
         if audience in Classifier.AUDIENCES_ADULT:
-            target_age = None
-        if not audience and target_age is not None:
-            if target_age >= 18:
+            target_age = (None, None)
+        target_age = NumericRange(*target_age)
+        if not audience and target_age != NumericRange(None, None):
+            if target_age.lower >= 18:
                 audience = Classifier.AUDIENCE_ADULT
-            elif target_age >= 12:
+            elif target_age.lower >= 12:
                 audience = Classifier.AUDIENCE_YOUNG_ADULT
             else:
                 audience = Classifier.AUDIENCE_CHILDREN
@@ -4246,8 +4273,7 @@ class Subject(Base):
             self.audience = audience
         if fiction is not None:
             self.fiction = fiction
-        if target_age is not None:
-            self.target_age = target_age
+        self.target_age = target_age
         #if genredata or audience or target_age or fiction:
         #    print self
 
@@ -4786,9 +4812,14 @@ class Lane(object):
 
         if self.age_range != None:
             age_range = sorted(self.age_range)
-            q = q.filter(mw.target_age >= age_range[0])
-            if age_range[-1] != age_range[0]:
-                q = q.filter(mw.target_age <= age_range[-1])
+            set_trace()
+            if len(age_range) == 1:
+                # The target age must include this number.
+                q = q.filter(Work.age_range.contains(age_range[0]))
+            else:
+                # The target age range must overlap this age range
+                r = (age_range[0], age_range[-1])
+                q = q.filter(Work.age_range.overlaps(r))
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(mw.fiction==None)

@@ -10,7 +10,7 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
-
+from psycopg2.extras import NumericRange
 from config import Configuration
 from model import (
     Contributor,
@@ -478,7 +478,7 @@ class TestOPDS(DatabaseTest):
         work.audience = "Young Adult"
         work2 = self._work(with_open_access_download=True)
         work2.audience = "Children"
-        work2.target_age = 7
+        work2.target_age = NumericRange(7,9)
         work3 = self._work(with_open_access_download=True)
         work3.audience = None
 
@@ -504,7 +504,7 @@ class TestOPDS(DatabaseTest):
 
         age_scheme = Subject.uri_lookup[Subject.AGE_RANGE]
         eq_(
-            [('7', '7')],
+            [('7-9', '7-9')],
             [(x['term'], x['label']) for x in entries[1]['tags']
              if x['scheme'] == age_scheme]
         )

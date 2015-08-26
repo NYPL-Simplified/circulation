@@ -197,7 +197,7 @@ class Annotator(object):
 
         if work.target_age:
             uri = Subject.uri_lookup[Subject.AGE_RANGE]
-            target_age = str(work.target_age)
+            target_age = work.target_age_string
             categories[uri] = [dict(term=target_age, label=target_age)]
 
         return categories

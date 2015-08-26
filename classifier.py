@@ -366,12 +366,12 @@ class AgeClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
-        a = cls.target_age(identifier, name, require_explicit_age_marker)
-        if not a:
+        lower, upper = cls.target_age(identifier, name, require_explicit_age_marker)
+        if not lower and not upper:
             return None
-        if a < 12:
+        if lower < 12:
             return Classifier.AUDIENCE_CHILDREN
-        elif a < 18:
+        elif lower < 18:
             return Classifier.AUDIENCE_YOUNG_ADULT
         else:
             return Classifier.AUDIENCE_ADULT
