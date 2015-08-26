@@ -3416,6 +3416,8 @@ class Work(Base):
 
             # If we have a well-attested target age, we can make
             # an audience decision on that basis.
+            if target_age_min > target_age_max:
+                target_age_min, target_age_max = target_age_max, target_age_min
             if (most_relevant > 
                 Classification._quality_as_indicator_of_target_age[Subject.TAG]):
                 if target_age_min < 14:
@@ -4257,6 +4259,9 @@ class Subject(Base):
         genredata, audience, target_age, fiction = classifier.classify(self)
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = (None, None)
+        lower, upper = target_age
+        if lower and upper and lower > upper:
+            target_age = (upper,lower)
         target_age = NumericRange(*target_age)
         if not audience and target_age != NumericRange(None, None):
             if target_age.lower >= 18:
