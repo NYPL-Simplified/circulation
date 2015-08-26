@@ -4811,15 +4811,18 @@ class Lane(object):
                     q = q.filter(mw.data_source_id != gutenberg.id)
 
         if self.age_range != None:
+            age_range = self.age_range
+            if isinstance(age_range, int):
+                age_range = [age_range]
             age_range = sorted(self.age_range)
-            set_trace()
             if len(age_range) == 1:
                 # The target age must include this number.
-                q = q.filter(Work.age_range.contains(age_range[0]))
+                r = NumericRange(age_range[0], age_range[0])
+                q = q.filter(mw.target_age.contains(r))
             else:
                 # The target age range must overlap this age range
-                r = (age_range[0], age_range[-1])
-                q = q.filter(Work.age_range.overlaps(r))
+                r = NumericRange(age_range[0], age_range[-1])
+                q = q.filter(mw.target_age.overlaps(r))
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(mw.fiction==None)

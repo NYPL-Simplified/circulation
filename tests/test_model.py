@@ -12,6 +12,7 @@ from nose.tools import (
     set_trace,
 )
 
+from psycopg2.extras import NumericRange
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
@@ -1554,8 +1555,14 @@ class TestLane(DatabaseTest):
         # Here's a cooking book.
         w2 = self._work(genre=cooking, fiction=False, with_license_pool=True)
         w2.simple_opds_entry = "bar"
+
+        # Here's a fantasy book for children ages 7-9.
+        w3 = self._work(genre=fantasy, fiction=True, with_license_pool=True,
+                        audience=Classifier.AUDIENCE_CHILDREN)
+        w3.target_age = NumericRange(7,9)
+        w3.simple_opds_entry = "baz"
         
-        # Refresh the materialized views so that both these books are
+        # Refresh the materialized views so that all three books are
         # included in the views.
         SessionManager.refresh_materialized_views(self._db)
 
@@ -1564,8 +1571,8 @@ class TestLane(DatabaseTest):
             self._db, full_name="Fantasy", genres=[classifier.Fantasy])
         [materialized] = fantasy_lane.materialized_works(['eng']).all()
 
-        # This materialized work corresponds to the fantasy book. We
-        # did not get an entry for the cooking book.
+        # This materialized work corresponds to the adult fantasy book. We
+        # did not get an entry for the cooking book or the children's book.
         assert isinstance(materialized, MaterializedWorkWithGenre)
         eq_(materialized.works_id, w1.id)
 
@@ -1574,10 +1581,29 @@ class TestLane(DatabaseTest):
             self._db, full_name="Nonfiction", genres=[], fiction=False)
         [materialized] = nonfiction_lane.materialized_works().all()
 
-        # This materialized work corresponds to the fantasy book. We
-        # did not get an entry for the cooking book.
+        # This materialized work corresponds to the cooking book. We
+        # did not get an entry for the other books.
         assert isinstance(materialized, MaterializedWork)
         eq_(materialized.works_id, w2.id)
+
+        # Let's get materialized works suitable for children age 8.
+        age_8_lane = Lane(
+            self._db, full_name="Age 8", genres=[], audience='Children',
+            age_range=[8]
+        )
+        [materialized] = age_8_lane.materialized_works().all()
+        assert isinstance(materialized, MaterializedWork)
+        eq_(materialized.works_id, w3.id)
+
+        # We get the same book by asking for works suitable for
+        # children ages 7-10.
+        age_7_10_lane = Lane(
+            self._db, full_name="Ages 7-10", genres=[], audience='Children',
+            age_range=[7,10]
+        )
+        [materialized] = age_7_10_lane.materialized_works().all()
+        assert isinstance(materialized, MaterializedWork)
+        eq_(materialized.works_id, w3.id)
 
         # Verify that the language restriction works.
         eq_([], fantasy_lane.materialized_works(['fre']).all())
