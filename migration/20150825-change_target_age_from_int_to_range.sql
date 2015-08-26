@@ -1,7 +1,8 @@
-ALTER TABLE works add COLUMN target_age_2 NUMRANGE;
-UPDATE works SET target_age_2=(select numrange(target_age, target_age) FROM works w2 WHERE w2.id=works.id);
 DROP MATERIALIZED VIEW mv_works_editions_datasources_identifiers;
 DROP MATERIALIZED VIEW mv_works_editions_workgenres_datasources_identifiers;
+
+ALTER TABLE works add COLUMN target_age_2 NUMRANGE;
+UPDATE works SET target_age_2=(select numrange(target_age, target_age) FROM works w2 WHERE w2.id=works.id);
 ALTER TABLE works DROP COLUMN target_age;
 ALTER TABLE works RENAME COLUMN target_age_2 TO target_age;
 CREATE INDEX "ix_works_target_age" ON works (target_age);
