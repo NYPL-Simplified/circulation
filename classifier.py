@@ -1494,7 +1494,22 @@ def match_kw(*l):
     with_boundaries = r'\b(%s)\b' % any_keyword
     return re.compile(with_boundaries, re.I)
 
-class KeywordBasedClassifier(Classifier):
+class AgeOrGradeClassifier(Classifier):
+
+    @classmethod
+    def target_age(cls, identifier, name):
+        """This tag might contain a grade level, an age in years, or nothing.
+        We will try both a grade level and an age in years, but we
+        will require that the tag indicate what's being measured. A
+        tag like "9-12" will not match anything because we don't know if it's
+        age 9-12 or grade 9-12.
+        """
+        age = AgeClassifier.target_age(identifier, name, True)
+        if age == (None, None):
+            age = GradeLevelClassifier.target_age(identifier, name, True)
+        return age
+
+class KeywordBasedClassifier(AgeOrGradeClassifier):
 
     """Classify a book based on keywords."""
     
@@ -2670,18 +2685,6 @@ class KeywordBasedClassifier(Classifier):
                 break
         return most_specific_genre
 
-    @classmethod
-    def target_age(cls, identifier, name):
-        """This tag might contain a grade level, an age in years, or nothing.
-        We will try both a grade level and an age in years, but we
-        will require that the tag indicate what's being measured. A
-        tag like "9-12" will not match anything because we don't know if it's
-        age 9-12 or grade 9-12.
-        """
-        age = AgeClassifier.target_age(identifier, name, True)
-        if age == (None, None):
-            age = GradeLevelClassifier.target_age(identifier, name, True)
-        return age
 
 class LCSHClassifier(KeywordBasedClassifier):
     pass
@@ -3032,3 +3035,4 @@ Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
 Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
+Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
