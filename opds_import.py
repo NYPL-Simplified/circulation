@@ -133,8 +133,11 @@ class BaseOPDSImporter(object):
                     # only other solution I could find, doing a
                     # database commit. I'm sure there's a better
                     # solution though.
-                    work, is_new = pool.calculate_work(known_edition=edition)
-                    work.calculate_presentation()
+                    work, is_new = pool.calculate_work(
+                        known_edition=edition, even_if_no_author=True
+                    )
+                    if work:
+                        work.calculate_presentation()
             elif status_code:
                 messages_by_id[opds_id] = (status_code, message)
         return imported, messages_by_id

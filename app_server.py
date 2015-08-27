@@ -3,6 +3,7 @@ from nose.tools import set_trace
 import flask
 import json
 import os
+from lxml import etree
 from flask import url_for, make_response
 from util.flask_util import problem
 import traceback
@@ -51,12 +52,21 @@ def load_lending_policy(policy):
     return policy
 
 def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
-    if not isinstance(feed, basestring):
-        feed = unicode(feed)
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
     else:
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
+    return _make_response(feed, content_type, cache_for)
+
+def entry_response(entry, cache_for=OPDSFeed.FEED_CACHE_TIME):
+    content_type = OPDSFeed.ENTRY_TYPE
+    return _make_response(entry, content_type, cache_for)
+
+def _make_response(content, content_type, cache_for):
+    if isinstance(content, etree._Element):
+        content = etree.tostring(content)
+    elif not isinstance(content, basestring):
+        content = unicode(content)
 
     if isinstance(cache_for, int):
         # A CDN should hold on to the cached representation only half
@@ -68,8 +78,8 @@ def feed_response(feed, acquisition=True, cache_for=OPDSFeed.FEED_CACHE_TIME):
     else:
         cache_control = "private, no-cache"
 
-    return make_response(feed, 200, {"Content-Type": content_type,
-                                     "Cache-Control": cache_control})
+    return make_response(content, 200, {"Content-Type": content_type,
+                                        "Cache-Control": cache_control})
 
 class ErrorHandler(object):
     def __init__(self, conf, debug):

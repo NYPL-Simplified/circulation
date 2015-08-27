@@ -126,6 +126,12 @@ class DatabaseTest(object):
         title = unicode(title or self._str)
         genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
+        if audience == Classifier.AUDIENCE_CHILDREN:
+            # TODO: This is necessary because Gutenberg's childrens books
+            # get filtered out at the moment.
+            data_source_name = DataSource.OVERDRIVE
+        else:
+            data_source_name = DataSource.GUTENBERG
         if fiction is None:
             fiction = True
         new_edition = False
@@ -135,7 +141,9 @@ class DatabaseTest(object):
                 title=title, language=language,
                 authors=authors,
                 with_license_pool=with_license_pool,
-                with_open_access_download=with_open_access_download)
+                with_open_access_download=with_open_access_download,
+                data_source_name=data_source_name
+            )
 
         if with_license_pool:
             primary_edition, pool = primary_edition

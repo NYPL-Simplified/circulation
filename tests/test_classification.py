@@ -35,73 +35,72 @@ class TestTargetAge(object):
     def test_age_from_grade_classifier(self):
         def f(t):
             return GradeLevelClassifier.target_age(t, None)
-        eq_(5, GradeLevelClassifier.target_age(None, "grades 0-1"))
-        eq_(5, f("grades k-2"))
-        eq_(6, f("first grade"))
-        eq_(6, f("1st grade"))
-        eq_(6, f("grade 1"))
-        eq_(7, f("second grade"))
-        eq_(7, f("2nd grade"))
-        eq_(8, f("third grade"))
-        eq_(9, f("fourth grade"))
-        eq_(10, f("fifth grade"))
-        eq_(11, f("sixth grade"))
-        eq_(12, f("7th grade"))
-        eq_(13, f("grade 8"))
-        eq_(14, f("9th grade"))
-        eq_(15, f("grades 10-12"))
-        eq_(17, f("12th grade"))
+        eq_((5,6), GradeLevelClassifier.target_age(None, "grades 0-1"))
+        eq_((5,7), f("grades k-2"))
+        eq_((6,6), f("first grade"))
+        eq_((6,6), f("1st grade"))
+        eq_((6,6), f("grade 1"))
+        eq_((7,7), f("second grade"))
+        eq_((7,7), f("2nd grade"))
+        eq_((8,8), f("third grade"))
+        eq_((9,9), f("fourth grade"))
+        eq_((10,10), f("fifth grade"))
+        eq_((11,11), f("sixth grade"))
+        eq_((12,12), f("7th grade"))
+        eq_((13,13), f("grade 8"))
+        eq_((14,14), f("9th grade"))
+        eq_((15,17), f("grades 10-12"))
+        eq_((17,17), f("12th grade"))
 
         # target_age() will assume that a number it sees is talking
         # about a grade level, unless require_explicit_grade_marker is
         # True.
-        eq_(7, GradeLevelClassifier.target_age("2-4", None, False))
-        eq_(None, GradeLevelClassifier.target_age("2-4", None, True))
-        eq_(14, f("Children's Audio - 9-12"))
-        eq_(None, GradeLevelClassifier.target_age(
+        eq_((7,9), GradeLevelClassifier.target_age("2-4", None, False))
+        eq_((None,None), GradeLevelClassifier.target_age("2-4", None, True))
+        eq_((14,17), f("Children's Audio - 9-12"))
+        eq_((None,None), GradeLevelClassifier.target_age(
             "Children's Audio - 9-12", None, True))
 
-        eq_(None, GradeLevelClassifier.target_age("grade 50", None))
-        eq_(None, GradeLevelClassifier.target_age("road grades -- history", None))
-        eq_(None, GradeLevelClassifier.target_age(None, None))
+        eq_((None,None), GradeLevelClassifier.target_age("grade 50", None))
+        eq_((None,None), GradeLevelClassifier.target_age("road grades -- history", None))
+        eq_((None,None), GradeLevelClassifier.target_age(None, None))
 
     def test_age_from_age_classifier(self):
         def f(t):
             return AgeClassifier.target_age(t, None)
-        eq_(9, f("Ages 9-12"))
-        eq_(9, f("9 and up"))
-        eq_(9, f("9-12"))
-        eq_(9, f("9 years"))
-        eq_(9, f("9 - 12 years"))
-        eq_(12, f("12 - 14"))
-        eq_(0, f("0-3"))
-        eq_(None, f("K-3"))
+        eq_((9,12), f("Ages 9-12"))
+        eq_((9,11), f("9 and up"))
+        eq_((9,12), f("9-12"))
+        eq_((9,9), f("9 years"))
+        eq_((9,12), f("9 - 12 years"))
+        eq_((12,14), f("12 - 14"))
+        eq_((0,3), f("0-3"))
+        eq_((None,None), f("K-3"))
 
-        eq_(None, AgeClassifier.target_age("K-3", None, True))
-        eq_(None, AgeClassifier.target_age("9-12", None, True))
-        eq_(9, AgeClassifier.target_age("9 and up", None, True))
+        eq_((None,None), AgeClassifier.target_age("K-3", None, True))
+        eq_((None,None), AgeClassifier.target_age("9-12", None, True))
+        eq_((9,11), AgeClassifier.target_age("9 and up", None, True))
 
     def test_age_from_keyword_classifier(self):
         def f(t):
             return LCSH.target_age(t, None)
-        eq_(5, f("Interest age: from c 5 years"))
-        eq_(9, f("Children's Books / 9-12 Years"))
-        eq_(9, f("Ages 9-12"))
-        eq_(9, f("Children's Books/Ages 9-12 Fiction"))
-        eq_(4, f("Children's Books / 4-8 Years"))
-        eq_(0, f("For children c 0-2 years"))
-        eq_(12, f("Children: Young Adult (Gr. 7-9)"))
-        eq_(8, f("Grades 3-5 (Common Core History: The Alexandria Plan)"))
-        eq_(9, f("Children: Grades 4-6"))
+        eq_((5,5), f("Interest age: from c 5 years"))
+        eq_((9,12), f("Children's Books / 9-12 Years"))
+        eq_((9,12), f("Ages 9-12"))
+        eq_((9,12), f("Children's Books/Ages 9-12 Fiction"))
+        eq_((4,8), f("Children's Books / 4-8 Years"))
+        eq_((0,2), f("For children c 0-2 years"))
+        eq_((12,14), f("Children: Young Adult (Gr. 7-9)"))
+        eq_((8,10), f("Grades 3-5 (Common Core History: The Alexandria Plan)"))
+        eq_((9,11), f("Children: Grades 4-6"))
 
-        # This could definitely be better, but we get in the neighborhood
-        eq_(3, f("Baby-3 Years"))
+        eq_((0,3), f("Baby-3 Years"))
 
-        eq_(None, f("Children's Audio - 9-12")) # Doesn't specify grade or years
-        eq_(None, f("Children's 9-12 - Literature - Classics / Contemporary"))
-        eq_(None, f("Third-graders"))
-        eq_(None, f("First graders"))
-        eq_(None, f("Fifth grade (Education)--Curricula"))
+        eq_((None,None), f("Children's Audio - 9-12")) # Doesn't specify grade or years
+        eq_((None,None), f("Children's 9-12 - Literature - Classics / Contemporary"))
+        eq_((None,None), f("Third-graders"))
+        eq_((None,None), f("First graders"))
+        eq_((None,None), f("Fifth grade (Education)--Curricula"))
 
 
 class TestInterestLevelClassifier(object):
@@ -117,10 +116,10 @@ class TestInterestLevelClassifier(object):
     def test_target_age(self):
         def f(t):
             return InterestLevelClassifier.target_age(t, None)
-        eq_(5, f("lg"))
-        eq_(9, f("mg"))
-        eq_(9, f("mg+"))
-        eq_(14, f("ug"))
+        eq_((5,8), f("lg"))
+        eq_((9,13), f("mg"))
+        eq_((9,13), f("mg+"))
+        eq_((14,17), f("ug"))
 
 
 class TestDewey(object):
@@ -332,12 +331,12 @@ class TestAxis360Classifier(object):
     def test_age(self):
         def f(t):
             return Axis360AudienceClassifier.target_age(t, None)
-        eq_(5, f("Children's - Kindergarten, Age 5-6"))
-        eq_(7, f("Children's - Grade 2-3, Age 7-8"))
-        eq_(9, f("Children's - Grade 4-6, Age 9-11"))
-        eq_(12, f("Teen - Grade 7-9, Age 12-14"))
-        eq_(15, f("Teen - Grade 10-12, Age 15-18"))
-        eq_(None, f("General Adult"))
+        eq_((5,6), f("Children's - Kindergarten, Age 5-6"))
+        eq_((7,8), f("Children's - Grade 2-3, Age 7-8"))
+        eq_((9,11), f("Children's - Grade 4-6, Age 9-11"))
+        eq_((12,14), f("Teen - Grade 7-9, Age 12-14"))
+        eq_((15,18), f("Teen - Grade 10-12, Age 15-18"))
+        eq_((None,None), f("General Adult"))
 
 class TestNestedSubgenres(object):
 
@@ -423,9 +422,9 @@ class TestOverdriveClassifier(object):
 
     def test_target_age(self):
         a = Overdrive.target_age
-        eq_(0, a("Picture Book Nonfiction", None))
-        eq_(5, a("Beginning Reader", None))
-        eq_(None, a("Fiction", None))
+        eq_((0,4), a("Picture Book Nonfiction", None))
+        eq_((5,8), a("Beginning Reader", None))
+        eq_((None,None), a("Fiction", None))
 
 # TODO: This needs to be moved into model I guess?
 
