@@ -30,6 +30,7 @@ from authenticator import Authenticator
 from core.app_server import (
     load_lending_policy,
     cdn_url_for,
+    entry_response,
     feed_response,
     HeartbeatController,
     URNLookupController,
@@ -1149,6 +1150,24 @@ def _apply_borrowing_policy(patron, license_pool):
 
     return None
 
+
+@app.route('/works/<data_source>/<identifier>')
+def permalink(data_source, identifier):
+    """Serve an entry for a single book.
+
+    This does not include any loan or hold-specific information for
+    the authenticated patron.
+
+    This is different from the /works lookup protocol, in that it
+    returns a single entry while the /works lookup protocol returns a
+    feed containing any number of entries.
+    """
+    pool = _load_licensepool(data_source, identifier)
+    work = pool.work
+    annotator = CirculationManagerAnnotator(Conf.circulation, None)
+    return entry_response(
+        AcquisitionFeed.single_entry(Conf.db, work, annotator)
+    )
 
 @app.route('/works/<data_source>/<identifier>/fulfill')
 @requires_auth

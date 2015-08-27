@@ -6,6 +6,8 @@ import base64
 import feedparser
 import json
 import os
+import urllib
+from lxml import etree
 from ..millenium_patron import DummyMilleniumPatronAPI
 from flask import url_for
 
@@ -37,12 +39,16 @@ from ..core.model import (
 )
 
 from ..core.opds import (
+    AcquisitionFeed,
     OPDSFeed,
 )
 from ..core.util.opds_authentication_document import (
     OPDSAuthenticationDocument
 )
 
+from ..opds import (
+    CirculationManagerAnnotator,
+)
 
 class CirculationTest(DatabaseTest):
 
@@ -112,6 +118,23 @@ class CirculationAppTest(CirculationTest):
 
         self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+
+class TestPermalink(CirculationAppTest):
+
+    def test_permalink(self):
+        [lp] = self.english_1.license_pools
+        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
+        with self.app.test_request_context("/"):
+            response = self.client.get('/works/%s/%s' % tuple(args))
+            annotator = CirculationManagerAnnotator(None, None)
+            expect = etree.tostring(
+                AcquisitionFeed.single_entry(
+                    self._db, self.english_1, annotator
+                )
+            )
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
 class TestNavigationFeed(CirculationAppTest):
 

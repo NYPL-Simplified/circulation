@@ -31,7 +31,8 @@ class CirculationManagerAnnotator(Annotator):
             'feed', lane=self.lane.name, order=order, _external=True)
 
     def permalink_for(self, work, license_pool, identifier):
-        return url_for('work', urn=identifier.urn, _external=True)
+        return url_for('work', data_source=license_pool.data_source.name,
+                       identifier=identifier.identifier, _external=True)
 
     @classmethod
     def featured_feed_url(cls, lane, order=None, cdn=True):
@@ -109,6 +110,15 @@ class CirculationManagerAnnotator(Annotator):
         else:
             identifier_identifier = active_license_pool.identifier.identifier
             data_source_name = active_license_pool.data_source.name
+
+        # First, add a permalink.
+        feed.add_link_to_entry(
+            entry, 
+            rel='alternate',
+            href=url_for(
+                'permalink', data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
+        )
 
         can_borrow = False
         can_fulfill = False
