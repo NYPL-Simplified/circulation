@@ -841,7 +841,12 @@ def revoke_loan_or_hold(data_source, identifier):
         except CannotReleaseHold, e:
             title = "Hold released locally but remote failed: %s" % str(e)
             return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 500)
-    return ""
+
+    work = pool.work
+    annotator = CirculationManagerAnnotator(Conf.circulation, None)
+    return entry_response(
+        AcquisitionFeed.single_entry(Conf.db, work, annotator)
+    )
 
 
 @app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
