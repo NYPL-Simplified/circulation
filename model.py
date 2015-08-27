@@ -3058,7 +3058,10 @@ class Work(Base):
         if classify:
             workgenres, self.fiction, self.audience, target_age = self.assign_genres(
                 flattened_data)
-            self.target_age = NumericRange(*target_age)
+            if target_age == (None, None):
+                self.target_age = None
+            else:
+                self.target_age = NumericRange(*target_age)
 
 
         if choose_summary:
@@ -4262,7 +4265,10 @@ class Subject(Base):
         lower, upper = target_age
         if lower and upper and lower > upper:
             target_age = (upper,lower)
-        target_age = NumericRange(*target_age)
+        if target_age == (None, None):
+            target_age = None
+        else:
+            target_age = NumericRange(*target_age)
         if not audience and target_age != NumericRange(None, None):
             if target_age.lower >= 18:
                 audience = Classifier.AUDIENCE_ADULT
