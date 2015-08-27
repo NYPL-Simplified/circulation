@@ -2682,6 +2682,8 @@ class Work(Base):
     def target_age_string(self):
         lower = self.target_age.lower
         upper = self.target_age.upper
+        if not upper and not lower:
+            return None
         if lower and not upper:
             return str(lower)
         if upper and not lower:
@@ -3291,6 +3293,7 @@ class Work(Base):
 
         target_age_relevant_classifications = []
 
+        total_weight = 0
         for classification in classifications:
             subject = classification.subject
             print subject
@@ -3309,6 +3312,8 @@ class Work(Base):
             if subject.fiction is not None:
                 fiction_s[subject.fiction] += weight
             audience_s[subject.audience] += weight
+            if subject.audience:
+                total_weight += weight
 
             if subject.genre:
                 genre_s[subject.genre] += weight
@@ -3331,11 +3336,12 @@ class Work(Base):
         # To be classified as a young adult or childrens' book, there
         # must be twice as many votes for that status as for the
         # 'adult' status, or, if there are no 'adult' classifications,
-        # it must have at least 10 weighted votes.
+        # at least min(10, 50% of the total) votes must be for Young Adult or
+        # Children.
         if adult:
             threshold = adult * 2
         else:
-            threshold = 10
+            threshold = min(total_weight*0.5, 10)
 
         ya_score = audience_s[Classifier.AUDIENCE_YOUNG_ADULT]
         ch_score = audience_s[Classifier.AUDIENCE_CHILDREN]
@@ -4555,9 +4561,11 @@ class Lane(object):
         self.subgenre_behavior=subgenre_behavior
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
-        if self.age_range and self.audience != Classifier.AUDIENCE_CHILDREN:
+        if self.age_range and self.audience not in (
+                Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        ):
             raise ValueError(
-                "Lane %s specifies age range but does not contain children's books." % self.display_name
+                "Lane %s specifies age range but does not contain children's or young adult books." % self.display_name
             )
 
         if genres in (None, self.UNCLASSIFIED):
@@ -4939,9 +4947,14 @@ class Lane(object):
 
         if self.age_range != None:
             age_range = sorted(self.age_range)
-            q = q.filter(Work.target_age >= age_range[0])
-            if age_range[-1] != age_range[0]:
-                q = q.filter(Work.target_age <= age_range[-1])
+            if len(age_range) == 1:
+                # The target age must include this number.
+                r = NumericRange(age_range[0], age_range[0])
+                q = q.filter(Work.target_age.contains(r))
+            else:
+                # The target age range must overlap this age range
+                r = NumericRange(age_range[0], age_range[-1])
+                q = q.filter(Work.target_age.overlaps(r))
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(Work.fiction==None)
