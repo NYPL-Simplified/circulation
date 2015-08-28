@@ -9,7 +9,10 @@ import requests
 import logging
 from datetime import timedelta
 
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from model import (
     DataSource,
     Representation,
@@ -40,7 +43,7 @@ class ThreeMAPI(object):
         if not account_id or not library_id or not account_key:
             values = self.environment_values()
             if len([x for x in values if not x]):
-                raise CouldNotLoadConfiguration(
+                raise CannotLoadConfiguration(
                     "3M integration has incomplete configuration.")
 
         (env_library_id, env_account_id, 

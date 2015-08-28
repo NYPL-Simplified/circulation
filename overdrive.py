@@ -59,7 +59,7 @@ class OverdriveAPI(object):
         # Set some stuff from environment variables
         values = self.environment_values()
         if len([x for x in values if not x]):
-            cls.log.info(
+            self.log.info(
                 "No Overdrive client configured."
             )
             raise CannotLoadConfiguration("No Overdrive client configured.")
