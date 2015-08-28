@@ -142,7 +142,7 @@ class CirculationAPI(object):
         when the book is reserved to you. Others only allow you to cancel
         a hole while you're in the hold queue.
         """
-        if hold.position > 0:
+        if hold.position is None or hold.position > 0:
             return True
         api, formats = self.api_for_license_pool(licensepool)
         if api.CAN_REVOKE_HOLD_WHEN_RESERVED:
