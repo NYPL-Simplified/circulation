@@ -3429,7 +3429,7 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_CHILDREN
                 elif target_age_min < 18:
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
-                elif classifier not in Classifier.ADULT_AUDIENCES:
+                elif classifier not in Classifier.AUDIENCE_ADULTS:
                     audience = Classifier.AUDIENCE_ADULT
             target_age = (target_age_min, target_age_max, '[]')
         else:
@@ -4563,11 +4563,16 @@ class Lane(object):
         self.subgenre_behavior=subgenre_behavior
         self.sublanes = LaneList.from_description(_db, self, sublanes)
 
-        if self.age_range and self.audience not in (
-                Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        ch = Classifier.AUDIENCE_CHILDREN
+        ya = Classifier.AUDIENCE_YOUNG_ADULT
+        if (
+                self.age_range 
+                and self.audience not in (ch, ya)
+                and (not isinstance(self.audience, list)
+                     or (ch not in self.audience and ya not in self.audience))
         ):
             raise ValueError(
-                "Lane %s specifies age range but does not contain children's or young adult books." % self.display_name
+                "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
 
         if genres in (None, self.UNCLASSIFIED):
@@ -4825,6 +4830,14 @@ class Lane(object):
                     q = q.filter(mw.data_source_id != gutenberg.id)
 
         if self.age_range != None:
+            if isinstance(self.audience, list):
+                audience_has_no_target_age = mw.audience.in_(
+                    [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+                    ]
+                )
+            else:
+                audience_has_no_target_age = False
+
             age_range = self.age_range
             if isinstance(age_range, int):
                 age_range = [age_range]
@@ -4832,11 +4845,21 @@ class Lane(object):
             if len(age_range) == 1:
                 # The target age must include this number.
                 r = NumericRange(age_range[0], age_range[0], '[]')
-                q = q.filter(mw.target_age.contains(r))
+                q = q.filter(
+                    or_(
+                        mw.target_age.contains(r),
+                        audience_has_no_target_age
+                    )
+                )
             else:
                 # The target age range must overlap this age range
                 r = NumericRange(age_range[0], age_range[-1], '[]')
-                q = q.filter(mw.target_age.overlaps(r))
+                q = q.filter(
+                    or_(
+                        mw.target_age.overlaps(r),
+                        audience_has_no_target_age
+                    )
+                )
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(mw.fiction==None)
@@ -4948,15 +4971,31 @@ class Lane(object):
             q = q.filter(Work.primary_appeal==self.appeal)
 
         if self.age_range != None:
+            if isinstance(self.audience, list):
+                audience_has_no_target_age = Work.audience.in_(
+                    [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY])
+            else:
+                audience_has_no_target_age = False
+
             age_range = sorted(self.age_range)
             if len(age_range) == 1:
                 # The target age must include this number.
                 r = NumericRange(age_range[0], age_range[0], '[]')
-                q = q.filter(Work.target_age.contains(r))
+                q = q.filter(
+                    or_(
+                        Work.target_age.contains(r),
+                        audience_has_no_target_age
+                    )
+                )
             else:
                 # The target age range must overlap this age range
                 r = NumericRange(age_range[0], age_range[-1], '[]')
-                q = q.filter(Work.target_age.overlaps(r))
+                q = q.filter(
+                    or_(
+                        Work.target_age.overlaps(r),
+                        audience_has_no_target_age
+                    )
+                )
 
         if fiction == self.UNCLASSIFIED:
             q = q.filter(Work.fiction==None)
