@@ -3119,7 +3119,7 @@ class Work(Base):
             fiction = "Nonfiction"
         else:
             fiction = "???"
-        if self.target_age:
+        if self.target_age and (self.target_age.upper or self.target_age.lower):
             target_age = " age=" + self.target_age_string
         else:
             target_age = ""
@@ -3431,7 +3431,7 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
                 elif classifier not in Classifier.ADULT_AUDIENCES:
                     audience = Classifier.AUDIENCE_ADULT
-            target_age = (target_age_min, target_age_max)
+            target_age = (target_age_min, target_age_max, '[]')
         else:
             target_age = None, None
         return workgenres, fiction, audience, target_age
@@ -4265,8 +4265,10 @@ class Subject(Base):
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = (None, None)
         lower, upper = target_age
-        if lower and upper and lower > upper:
-            target_age = (upper,lower)
+        if lower and upper:
+            if lower > upper:
+                lower, upper = upper, lower
+            target_age = (lower, upper, '[]')
         target_age = NumericRange(*target_age)
         if not audience and target_age and target_age != NumericRange(None, None):
             if target_age.lower >= 18:
@@ -4829,11 +4831,11 @@ class Lane(object):
             age_range = sorted(self.age_range)
             if len(age_range) == 1:
                 # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0])
+                r = NumericRange(age_range[0], age_range[0], '[]')
                 q = q.filter(mw.target_age.contains(r))
             else:
                 # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1])
+                r = NumericRange(age_range[0], age_range[-1], '[]')
                 q = q.filter(mw.target_age.overlaps(r))
 
         if fiction == self.UNCLASSIFIED:
@@ -4949,11 +4951,11 @@ class Lane(object):
             age_range = sorted(self.age_range)
             if len(age_range) == 1:
                 # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0])
+                r = NumericRange(age_range[0], age_range[0], '[]')
                 q = q.filter(Work.target_age.contains(r))
             else:
                 # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1])
+                r = NumericRange(age_range[0], age_range[-1], '[]')
                 q = q.filter(Work.target_age.overlaps(r))
 
         if fiction == self.UNCLASSIFIED:
