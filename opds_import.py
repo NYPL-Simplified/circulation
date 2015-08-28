@@ -387,10 +387,13 @@ class DetailedOPDSImporter(BaseOPDSImporter):
             # Remove any old contributors and subjects.
             removed_contributions = 0
             contributions = edition.contributions
-            for contribution in list(contributions):
-                self._db.delete(contribution)
-                removed_contributions += 1
-            edition.contributions = []
+            if self.authors_by_id.get(entry.id):
+                # The metadata wrangler is telling us about contributions.
+                # Delete any local data.
+                for contribution in list(contributions):
+                    self._db.delete(contribution)
+                    removed_contributions += 1
+                edition.contributions = []
 
         removed_classifications = 0
         new_set = []
