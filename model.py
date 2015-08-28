@@ -3481,7 +3481,7 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_CHILDREN
                 elif target_age_min < 18:
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
-                elif classifier not in Classifier.ADULT_AUDIENCES:
+                elif classifier not in Classifier.AUDIENCES_ADULT:
                     audience = Classifier.AUDIENCE_ADULT
             target_age = (target_age_min, target_age_max)
         else:
