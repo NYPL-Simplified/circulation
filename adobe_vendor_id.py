@@ -248,7 +248,6 @@ class AdobeVendorIDModel(object):
         UUID and their human-readable label, creating a Credential
         object to hold the UUID if necessary.
         """
-
         patron = self.authenticator.authenticated_patron(
             self._db, username, password)
         return self.uuid_and_label(patron)
