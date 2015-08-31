@@ -3456,9 +3456,11 @@ class Work(Base):
                 target_min = c.subject.target_age.lower
                 target_max = c.subject.target_age.upper
                 if target_min:
-                    target_age_mins.append(target_min)
+                    for i in range(0,c.weight):
+                        target_age_mins.append(target_min)
                 if target_max:
-                    target_age_maxes.append(target_max)
+                    for i in range(0,c.weight):
+                        target_age_maxes.append(target_max)
 
         if target_age_mins:
             mins = Counter(target_age_mins)
@@ -3479,7 +3481,7 @@ class Work(Base):
                 target_age_min, target_age_max = target_age_max, target_age_min
             if (most_relevant > 
                 Classification._quality_as_indicator_of_target_age[Subject.TAG]):
-                if target_age_min < 14:
+                if target_age_min < Classifier.YOUNG_ADULT_AGE_CUTOFF:
                     audience = Classifier.AUDIENCE_CHILDREN
                 elif target_age_min < 18:
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
@@ -4829,6 +4831,36 @@ class Lane(object):
                     genres.add(genre)
         return genres
 
+    def audience_list_for_age_range(self, audience, age_range):
+        """Normalize a value for Work.audience based on .age_range
+
+        If you set audience to Young Adult but age_range to 16-18,
+        you're saying that books for 18-year-olds (i.e. adults) are
+        okay.
+
+        If you set age_range to Young Adult but age_range to 12-15, you're
+        saying that books for 12-year-olds (i.e. children) are
+        okay.
+        """
+        if not audience:
+            audience = []
+        if not isinstance(audience, list):
+            audience = [audience]
+        audiences = set(audience)
+        if not age_range:
+            return audiences
+
+        if not isinstance(age_range, list):
+            age_range = [age_range]
+
+        if age_range[-1] >= 18:
+            audiences.add(Classifier.AUDIENCE_ADULT)
+        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_CHILDREN)
+        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
+        return audiences
+
     def materialized_works(self, languages=None, fiction=None, 
                            availability=Work.ALL):
         """Find MaterializedWorks that will go together in this Lane."""
@@ -4864,13 +4896,12 @@ class Lane(object):
             lazyload(mw.license_pool, LicensePool.edition),
         )
         if self.audience != None:
-            if isinstance(self.audience, list):
-                q = q.filter(mw.audience.in_(self.audience))
-            else:
-                q = q.filter(mw.audience==self.audience)
-                if self.audience in (
-                        Classifier.AUDIENCE_CHILDREN, 
-                        Classifier.AUDIENCE_YOUNG_ADULT):
+            audiences = self.audience_list_for_age_range(
+                self.audience, self.age_range)
+            if audiences:
+                q = q.filter(mw.audience.in_(audiences))
+                if (Classifier.AUDIENCE_CHILDREN in audiences 
+                    or Classifier.AUDIENCE_YOUNG_ADULT in audiences):
                     gutenberg = DataSource.lookup(
                         self._db, DataSource.GUTENBERG)
                     # TODO: A huge hack to exclude Project Gutenberg
@@ -4884,11 +4915,11 @@ class Lane(object):
                     q = q.filter(mw.data_source_id != gutenberg.id)
 
         if self.age_range != None:
-            if isinstance(self.audience, list):
-                audience_has_no_target_age = mw.audience.in_(
-                    [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
-                    ]
-                )
+            if (Classifier.AUDIENCE_ADULT in audiences
+                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
+                # Books for adults don't have target ages. If we're including
+                # books for adults, allow the target age to be empty.
+                audience_has_no_target_age = True
             else:
                 audience_has_no_target_age = False
 
@@ -5002,13 +5033,11 @@ class Lane(object):
                 q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
 
         if self.audience != None:
-            if isinstance(self.audience, list):
-                q = q.filter(Work.audience.in_(self.audience))
-            else:
-                q = q.filter(Work.audience==self.audience)
-                if self.audience in (
-                        Classifier.AUDIENCE_CHILDREN, 
-                        Classifier.AUDIENCE_YOUNG_ADULT):
+            audiences = self.audience_list_for_age_range(
+                self.audience, self.age_range)
+            q = q.filter(Work.audience.in_(audiences))
+            if (Classifier.AUDIENCE_CHILDREN in self.audience
+                or Classifier.AUDIENCE_YOUNG_ADULT in self.audience):
                     gutenberg = DataSource.lookup(
                         self._db, DataSource.GUTENBERG)
                     # TODO: A huge hack to exclude Project Gutenberg
@@ -5025,9 +5054,11 @@ class Lane(object):
             q = q.filter(Work.primary_appeal==self.appeal)
 
         if self.age_range != None:
-            if isinstance(self.audience, list):
-                audience_has_no_target_age = Work.audience.in_(
-                    [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY])
+            if (Classifier.AUDIENCE_ADULT in audiences
+                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
+                # Books for adults don't have target ages. If we're including
+                # books for adults, allow the target age to be empty.
+                audience_has_no_target_age = True
             else:
                 audience_has_no_target_age = False
 

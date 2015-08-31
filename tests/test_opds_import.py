@@ -120,7 +120,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
         work.calculate_presentation()
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
-        eq_(NumericRange(7,7), work.target_age)
+        eq_(NumericRange(7,7, '[]'), work.target_age)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")

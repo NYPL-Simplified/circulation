@@ -777,8 +777,12 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([E.alternativeHeadline(edition.subtitle)])
 
         if license_pool:
-            data_source_tag = E._makeelement("{%s}partOf" % bibframe_ns)
-            data_source_tag.text = license_pool.data_source.uri
+            provider_name_attr = "{%s}ProviderName" % bibframe_ns
+            kwargs = {provider_name_attr : license_pool.data_source.name}
+            data_source_tag = E._makeelement(
+                "{%s}distribution" % bibframe_ns,
+                **kwargs
+            )
             entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
@@ -829,7 +833,6 @@ class AcquisitionFeed(OPDSFeed):
             availability_tag = E._makeelement("published")
             # TODO: convert to local timezone.
             availability_tag.text = _strftime(license_pool.availability_time)
-            print "%s uses PUBLISHED %s" % (edition.title, availability_tag.text)
             entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
@@ -847,10 +850,6 @@ class AcquisitionFeed(OPDSFeed):
         # For the date the book was added to our collection we use
         # atom:published.
         issued = edition.issued or edition.published
-        if edition.issued:
-            print "%s uses issued for dc:created: %s %s" % (edition.title, edition.issued, issued)
-        else:
-            print "%s uses published for dc:created: %s %s" % (edition.title, edition.published, issued)
         if (isinstance(issued, datetime.datetime) 
             or isinstance(issued, datetime.date)):
             issued_already = False

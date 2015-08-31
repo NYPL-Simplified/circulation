@@ -67,6 +67,10 @@ class Classifier(object):
     AUDIENCE_YOUNG_ADULT = "Young Adult"
     AUDIENCE_CHILDREN = "Children"
 
+    # A book for a child younger than 14 is a children's book.
+    # A book for a child 14 or older is a young adult book.
+    YOUNG_ADULT_AGE_CUTOFF = 14
+
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN])
@@ -266,7 +270,7 @@ class GradeLevelClassifier(Classifier):
         young, old = cls.target_age(identifier, name, require_explicit_age_marker)
         if not young:
             return None
-        if young < 12:
+        if young < Classifier.YOUNG_ADULT_AGE_CUTOFF:
             return Classifier.AUDIENCE_CHILDREN
         elif young < 18:
             return Classifier.AUDIENCE_YOUNG_ADULT
@@ -280,7 +284,7 @@ class GradeLevelClassifier(Classifier):
             # This is a book about teaching, e.g. fifth grade.
             return None, None
 
-        if (identifier and 'graders' in identifier) or (name and 'graders' in name):
+        if (identifier and 'grader' in identifier) or (name and 'grader' in name):
             # This is a book about, e.g. fifth graders.
             return None, None
 
