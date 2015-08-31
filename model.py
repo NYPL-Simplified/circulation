@@ -5783,7 +5783,6 @@ class Credential(Base):
             return None
         credential.expires = datetime.datetime.utcnow() - datetime.timedelta(
             seconds=5)
-        _db.commit()
         return credential
 
     @classmethod
@@ -5798,7 +5797,6 @@ class Credential(Base):
             _db, Credential, data_source=data_source, type=type, patron=patron)
         credential.credential=token_string
         credential.expires=expires
-        _db.commit()
         return credential, is_new
 
 # Index to make temporary_token_lookup() fast.
