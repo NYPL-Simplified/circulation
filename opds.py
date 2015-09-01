@@ -861,7 +861,6 @@ class AcquisitionFeed(OPDSFeed):
                 issued_tag = E._makeelement("{%s}created" % dcterms_ns)
                 # TODO: convert to local timezone, not that it matters much.
                 issued_tag.text = issued.strftime("%Y-%m-%d")
-                print "%s CREATED %s" % (edition.title, issued_tag.text)
                 entry.extend([issued_tag])
 
         return entry
