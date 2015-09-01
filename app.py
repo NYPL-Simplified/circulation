@@ -122,7 +122,6 @@ class Conf:
 
     @classmethod
     def initialize(cls, _db=None, lanes=None):
-
         def log_lanes(lanelist, level=0):
             for lane in lanelist.lanes:
                 cls.log.debug("%s%s", "-" * level, lane.name)
@@ -133,7 +132,7 @@ class Conf:
         except CannotLoadConfiguration, e:
             cls.log.error("Could not load configuration file: %s" % e)
             sys.exit()
-
+        _db = _db or cls.db
         lane_list = Configuration.policy(Configuration.LANES_POLICY)
 
         if cls.testing:
@@ -150,9 +149,10 @@ class Conf:
             cls.policy = {}
             cls.hold_notification_email_address = 'test@test'
         else:
-            _db = production_session()
-            lanes = make_lanes(_db, lane_list)
-            cls.db = _db
+            if cls.db is None:
+                _db = production_session()
+                cls.db = _db
+            lanes = make_lanes(cls.db, lane_list)
             cls.sublanes = lanes
             cls.urn_lookup_controller = URNLookupController(cls.db)
             cls.overdrive = OverdriveAPI.from_environment(cls.db)

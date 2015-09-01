@@ -265,11 +265,14 @@ class LaneSweeperScript(Script):
         # initialized twice.
         os.environ['TESTING'] = 'True'
         import app
-        self.app = app
+        app.Conf.db = self._db
         if old_testing:
             os.environ['TESTING'] = old_testing
         else:
             del os.environ['TESTING']
+        app.Conf.testing = False
+        app.Conf.initialize()
+        self.app = app
 
     def run(self):
         begin = time.time()
