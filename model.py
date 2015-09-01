@@ -6052,6 +6052,7 @@ class Representation(Base):
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
             # condition.
+            logging.error("Error making HTTP request to %s", url, exc_info=e)
             exception = traceback.format_exc()
             status_code = None
             headers = None
