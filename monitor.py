@@ -123,7 +123,7 @@ class IdentifierSweepMonitor(Monitor):
         started_at = datetime.datetime.utcnow()
         while not self.stop_running:
             a = time.time()
-            self.log.debug("Old offset: %s" % offset)
+            old_offset = offset
             try:
                 new_offset = self.run_once(offset)
             except Exception, e:
@@ -131,25 +131,20 @@ class IdentifierSweepMonitor(Monitor):
                 break
             to_sleep = 0
             if new_offset == 0:
-                # We completed a sweep. Sleep until the next sweep
-                # begins.
-                if self.interval_seconds is None:
-                    self.stop_running = True
-                    self.to_sleep = 0
-                elif False: 
-                    # TODO Again, we want monitors to stop when 
-                    # we're done, so this can't happen.
-                    duration = datetime.datetime.now() - started_at
-                    to_sleep = self.interval_seconds - duration.seconds
+                # We completed a sweep. We're done.
+                self.stop_running = True
                 self.cleanup()
             self.counter = new_offset
             self.timestamp.counter = self.counter
             self._db.commit()
-            self.log.debug("New offset: %s", new_offset)
-            b = time.time()
-            self.log.debug("Elapsed: %.2f sec" % (b-a))
+            if old_offset != new_offset:
+                self.log.debug("Old offset: %s" % offset)
+                self.log.debug("New offset: %s", new_offset)
+                b = time.time()
+                self.log.debug("Elapsed: %.2f sec" % (b-a))
             if to_sleep > 0:
-                self.log.debug("Sleeping for %.1f", to_sleep)
+                if old_offset != new_offset:
+                    self.log.debug("Sleeping for %.1f", to_sleep)
                 time.sleep(to_sleep)
             offset = new_offset
 
