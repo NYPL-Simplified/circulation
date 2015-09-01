@@ -92,8 +92,9 @@ class BaseOPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None, identifier_mapping=None):
+                 overwrite_rels=None, identifier_mapping=None, force=True):
         self._db = _db
+        self.force = True
         self.log = logging.getLogger("OPDS Importer")
         self.raw_feed = unicode(feed)
         self.feedparser_parsed = feedparser.parse(self.raw_feed)
@@ -248,7 +249,7 @@ class BaseOPDSImporter(object):
         # the same timezone.
         if source_last_updated:
             source_last_updated = datetime.datetime(*source_last_updated[:6])
-            if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated:
+            if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated and not self.force:
                 # The metadata has not changed since last time
                 return (internal_identifier, external_identifier, edition, 
                         False, status_code, message)

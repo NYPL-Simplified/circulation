@@ -14,12 +14,19 @@ DEFAULT_DATA_FORMAT = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
     def format(self, record):
+        try:
+            message = record.msg % record.args
+        except TypeError, e:
+            if record.args:
+                raise e
+            else:
+                message = record.msg
         data = dict(
             host=self.hostname,
             name=record.name,
             level=record.levelname,
             filename=record.filename,
-            message=record.msg % record.args,
+            message=message,
             timestamp=datetime.datetime.utcnow().isoformat()
         )
         if record.exc_info:
