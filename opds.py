@@ -514,7 +514,7 @@ class AcquisitionFeed(OPDSFeed):
                     )
                 else:
                     v = l                   
-                annotator.lane_by_work[work] = v
+                annotator.lanes_by_work[work].append(v)
                 all_works.append(work)
 
         if lane.parent is None:
@@ -554,8 +554,9 @@ class AcquisitionFeed(OPDSFeed):
                 else:
                     sample = page
                 for work in sample:
-                    annotator.lane_by_work[work] = (
-                        group_uri, title)
+                    annotator.lanes_by_work[work].append(
+                        (group_uri, title)
+                    )
                     all_works.append(work)
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
