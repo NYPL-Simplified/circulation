@@ -77,7 +77,8 @@ class CirculationManagerAnnotator(Annotator):
             title = "All Books"
             return url, title
 
-        lane = lanes.pop()
+        lane = lanes[0]
+        self.lanes_by_work[work] = lanes[1:]
         lane_name = None
         show_feed = False
         if isinstance(lane, tuple):
@@ -86,7 +87,6 @@ class CirculationManagerAnnotator(Annotator):
             show_feed = lane.get('link_to_list_feed', show_feed)
             lane_name = lane.get('label', lane_name)
             lane = lane['lane']
-            
         lane_name = lane_name or lane.display_name
 
         if isinstance(lane, basestring):
