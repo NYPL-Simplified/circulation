@@ -660,15 +660,22 @@ def service_status():
 
     patron = patrons[0]
     def do_overdrive():
+        if not Conf.overdrive:
+            raise ValueError("Overdrive not configured")
         return Conf.overdrive.patron_activity(patron, password)
     _add_timing('Overdrive patron account', do_overdrive)
 
     def do_threem():
+        if not Conf.threem:
+            raise ValueError("3M not configured")
         return Conf.threem.patron_activity(patron, password)
     _add_timing('3M patron account', do_threem)
 
-    do_axis = lambda : Conf.axis.patron_activity(patron, password)
-    _add_timing('Axis patron account', do_threem)
+    def do_axis():
+        if not Conf.axis:
+            raise ValueError("Axis not configured")
+        return Conf.axis.patron_activity(patron, password)
+    _add_timing('Axis patron account', do_axis)
 
     statuses = []
     for k, v in sorted(timings.items()):
