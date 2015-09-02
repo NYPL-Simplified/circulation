@@ -144,6 +144,7 @@ class Axis360CirculationMonitor(Monitor):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
+        print since
         availability = self.api.availability(since=since)
         status_code = availability.status_code
         content = availability.content
