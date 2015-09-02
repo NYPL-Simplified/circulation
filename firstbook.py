@@ -1,31 +1,38 @@
 from nose.tools import set_trace
 import requests
+import logging
 from authenticator import Authenticator
 from config import Configuration
 import urlparse
 import urllib
+from core.model import (
+    get_one_or_create,
+    Patron,
+)
 
 class FirstBookAuthenticationAPI(Authenticator):
 
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
+
+    SECRET_KEY = 'key'
+    FIRSTBOOK = 'First Book'
+
+    log = logging.getLogger("First Book authentication API")
 
     def __init__(self, host, key):
         if '?' in host:
             host += '&'
         else:
             host += '?'
-        self.host = host + 'key=' + key
-
-    SECRET_KEY = 'key'
+        self.root = host + 'key=' + key
 
     @classmethod
     def from_config(cls):
-        config = Configuration.integration(
-            Configuration.FIRSTBOOK, required=True)
+        config = Configuration.integration(cls.FIRSTBOOK, required=True)
         host = config.get(Configuration.URL)
         key = config.get(cls.SECRET_KEY)
         if not host:
-            cls.log.info("No First Book client configured.")
+            cls.log.warning("No First Book client configured.")
             return None
         return cls(host, key)
 
@@ -45,11 +52,25 @@ class FirstBookAuthenticationAPI(Authenticator):
                 response.status_code, response.content
             )
             raise Exception(msg)
-        print response.content
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
 
+    def authenticated_patron(self, _db, identifier, password):
+        # If they fail a PIN test, there is no authenticated patron.
+        if not self.pintest(identifier, password):
+            return None
+
+        # First Book thinks this is a valid patron. Find or create a
+        # corresponding Patron in our database.
+        kwargs = {Patron.authorization_identifier.name: identifier}
+        __transaction = _db.begin_nested()
+        patron, is_new = get_one_or_create(
+            _db, Patron, external_identifier=identifier,
+            authorization_identifier=identifier,
+        )
+        __transaction.commit()
+        return patron
 
 class DummyFirstBookResponse(object):
 

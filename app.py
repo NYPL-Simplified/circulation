@@ -606,7 +606,6 @@ def index():
 def appropriate_index_for_patron_type():
     patron = flask.request.patron
     policy = Configuration.root_lane_policy()
-    print policy, patron.external_type
     root_lane = policy.get(patron.external_type)
     return redirect(cdn_url_for('acquisition_groups', lane=root_lane))
 

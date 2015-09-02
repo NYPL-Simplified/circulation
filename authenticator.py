@@ -21,15 +21,13 @@ class Authenticator(object):
                 return DummyMilleniumPatronAPI()
             else:
                 return MilleniumPatronAPI.from_environment()
-        elif provider == 'Axis 360':
-            from axis import Axis360API
-            if test:
-                return 
-            return Axis360API.from_environment(_db)
+        elif provider == 'First Book':
+            from firstbook import FirstBookAuthenticationAPI
+            return FirstBookAuthenticationAPI.from_config()
         else:
             raise CannotLoadConfiguration(
                 "Unrecognized authentication provider: %s" % provider
             )
 
-    def authenticated_patron(self, identifier, password):
+    def authenticated_patron(self, _db, identifier, password):
         pass
