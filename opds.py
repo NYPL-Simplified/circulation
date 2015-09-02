@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
+from collections import defaultdict
 
 from config import Configuration
 from core.opds import (
@@ -22,7 +23,7 @@ class CirculationManagerAnnotator(Annotator):
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
-        self.lane_by_work = dict()
+        self.lanes_by_work = defaultdict(list)
 
     def facet_url(self, order):
         if not self.lane:
@@ -65,17 +66,18 @@ class CirculationManagerAnnotator(Annotator):
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
 
     def group_uri(self, work, license_pool, identifier):
-        if not work in self.lane_by_work:
+        if not work in self.lanes_by_work:
             return None, ""
 
-        lane = self.lane_by_work[work]
-        if not lane:
+        lanes = self.lanes_by_work[work]
+        if not lanes:
             # I don't think this should ever happen?
             lane_name = None
             url = cdn_url_for('acquisition_groups', lane=None, _external=True)
             title = "All Books"
             return url, title
 
+        lane = lanes.pop()
         lane_name = None
         show_feed = False
         if isinstance(lane, tuple):
