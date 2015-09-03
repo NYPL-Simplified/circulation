@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import contextlib
 from core.config import (
     Configuration as CoreConfiguration,
@@ -11,6 +12,7 @@ class Configuration(CoreConfiguration):
     LENDING_POLICY = "lending"
     AUTHENTICATION_POLICY = "authentication"
     LANGUAGE_POLICY = "languages"
+    LANGUAGE_FORCE = "force"
     PRIMARY_LANGUAGE_COLLECTIONS = "primary"
     OTHER_LANGUAGE_COLLECTIONS = "other"
 
@@ -42,6 +44,14 @@ class Configuration(CoreConfiguration):
     @classmethod
     def language_policy(cls):
         return cls.policy(cls.LANGUAGE_POLICY, required=True)
+
+    @classmethod
+    def force_language(cls, language):
+        """Override normal language settings to deliver a particular
+        collection no matter what.
+        """
+        policy = cls.language_policy()
+        return policy.get(cls.LANGUAGE_FORCE, language)
 
     @classmethod
     def default_notification_email_address(cls):

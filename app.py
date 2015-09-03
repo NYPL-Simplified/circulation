@@ -83,10 +83,14 @@ import urllib
 from core.util.flask_util import (
     problem,
     problem_raw,
-    languages_for_request
+    languages_for_request as util_languages_for_request
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from lanes import make_lanes
+
+def languages_for_request():
+    languages = util_languages_for_request()
+    return Configuration.force_language(languages)
 
 feed_cache = dict()
 
