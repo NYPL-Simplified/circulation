@@ -3349,7 +3349,6 @@ class Work(Base):
         total_weight = 0
         for classification in classifications:
             subject = classification.subject
-            print subject
             if (not subject.checked 
                 or subject.type == Classifier.FREEFORM_AUDIENCE):
                 subject.assign_to_genre()
@@ -5473,7 +5472,7 @@ class LicensePool(Base):
                 # associated Edition.
                 continue
             a += 1
-            logging.info("Created %r", etext)
+            logging.info("When consolidating works, created %r", etext)
             if a and not a % 100:
                 _db.commit()
 
