@@ -69,7 +69,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 return self.patron_request(
                     patron, pin, url, extra_headers, data, True)
         else:
-            print "%s: %s" % (url, response.status_code)
+            # This is commented out because it may expose patron
+            # information.
+            #
+            # self.log.debug("%s: %s", url, response.status_code)
             return response
 
     def get_patron_credential(self, patron, pin):
@@ -351,7 +354,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # TODO: This allows us to do account syncing
             # even when running against the test ILS, which
             # does not use barcodes recognized by Overdrive.
-            print e
+            self.log.error(
+                "Overdrive authentication failed, assuming no loans.",
+                exc_info=e
+            )
             loans = {}
             holds = {}
 
@@ -483,11 +489,16 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             status_code, headers, content = self.get(circulation_link, {})
         except Exception, e:
             status_code = None
-            print "HTTP EXCEPTION: %s" % str(e)
+            self.log.error(
+                "HTTP exception communicating with Overdrive",
+                exc_info=e
+            )
 
         if status_code != 200:
-            print "ERROR: Could not get availability for %s: %s" % (
-                book['id'], status_code)
+            self.log.error(
+                "Could not get availability for %s: status code %s",
+                book['id'], status_code
+            )
             return None, None, False
 
         book.update(json.loads(content))
@@ -508,7 +519,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 self._db, self.source, Identifier.OVERDRIVE_ID, overdrive_id)
             if 'title' in book:
                 wr.title = book['title']
-            print "New book: %r" % wr
+            self.log.info("New Overdrive book discovered: %r", wr)
 
         new_licenses_owned = []
         new_licenses_available = []
@@ -561,13 +572,16 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return x
 
         if changed:
-            print '%s "%s" %s (%s)' % (
-                edition.medium, printable(edition.title, "[NO TITLE]"),
-                printable(edition.author, ""), printable(edition.primary_identifier.identifier))
-        #print " Owned: %s => %s" % (pool.licenses_owned, new_licenses_owned)
-        #print " Available: %s => %s" % (pool.licenses_available, new_licenses_available)
-        #print " Holds: %s => %s" % (pool.patrons_in_hold_queue, new_number_of_holds)
-
+            self.log.info(
+                'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                edition.medium, 
+                printable(edition.title, "[NO TITLE]"),
+                printable(edition.author, ""), 
+                printable(edition.primary_identifier.identifier),
+                pool.licenses_owned, new_licenses_owned,
+                pool.licenses_available, new_licenses_available,
+                pool.patrons_in_hold_queue, new_number_of_holds
+            )
         pool.update_availability(new_licenses_owned, new_licenses_available,
                                  licenses_reserved, new_number_of_holds)
         return pool, was_new, changed
@@ -583,7 +597,11 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         try:
             data = json.loads(content)
         except Exception, e:
-            print "ERROR: %r %r %r %r" % (status_code, headers, content, e)
+            self.log.error(
+                "Error getting book list page: %r %r %r", 
+                status_code, headers, content,
+                exc_info=e
+            )
             return [], None
 
         # Find the link to the next page of results, if any.
@@ -625,7 +643,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # we can do is get events between the start time and now.
 
         last_update_time = start-self.EVENT_DELAY
-        print "Now: %s Asking for: %s" % (start, last_update_time)
+        self.log.info(
+            "Asking for circulation changes since %s",
+            last_update_time
+        )
         params = dict(lastupdatetime=last_update_time,
                       sort="popularity:desc",
                       limit=self.PAGE_SIZE_LIMIT,
@@ -716,7 +737,7 @@ class OverdriveCirculationMonitor(Monitor):
         for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
             total_books += 1
             if not total_books % 100:
-                print " %s processed" % total_books
+                self.log.info("%s books processed", total_books)
             if not book:
                 continue
             license_pool, is_new, is_changed = self.api.update_licensepool(book)
@@ -738,11 +759,12 @@ class OverdriveCirculationMonitor(Monitor):
                     # run of books that have not changed, and we have
                     # in fact seen that many consecutive unchanged
                     # books.
-                    print "Found %d unchanged books." % consecutive_unchanged_books
+                    self.log.info("Stopping at %d unchanged books.",
+                                  consecutive_unchanged_books)
                     break
 
         if total_books:
-            print "Processed %d books total." % total_books
+            self.log.info("Processed %d books total.", total_books)
 
 class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor every single book in the Overdrive collection.
