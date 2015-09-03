@@ -2061,7 +2061,6 @@ class Edition(Base):
                 + Contributor.PERFORMER_ROLES):
             if role in acceptable_substitutes:
                 contributors = acceptable_substitutes[role]
-                print "FOUND ROLE: %s" % role
                 return sorted(contributors, key=lambda x: x.name)
         else:
             # There are roles, but they're so random that we can't be
