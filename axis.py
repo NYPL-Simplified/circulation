@@ -149,8 +149,8 @@ class Axis360Parser(XMLParser):
     NS = {"axis": "http://axis360api.baker-taylor.com/vendorAPI"}
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
-    FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %H:%M:%S %p"
-    FULL_DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p +00:00"
+    FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %I:%M:%S %p"
+    FULL_DATE_FORMAT = "%m/%d/%Y %I:%M:%S %p +00:00"
 
     def _xpath1_boolean(self, e, target, ns, default=False):
         text = self.text_of_optional_subtag(e, target, ns)
@@ -194,11 +194,6 @@ class BibliographicParser(Axis360Parser):
             yield i
 
     def extract_availability(self, element, ns):
-        # TODO: There are also empty tags:
-        #  Checkouts
-        #  Holds
-        # Presumably these contain information about active loans and holds.
-
         availability = self._xpath1(element, 'axis:availability', ns)
         total_copies = self.int_of_subtag(availability, 'axis:totalCopies', ns)
         available_copies = self.int_of_subtag(

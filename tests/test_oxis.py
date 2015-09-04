@@ -106,7 +106,7 @@ class TestParsers(object):
         eq_(None, bib1)
         eq_(None, bib2)
 
-        eq_(datetime.datetime(2015, 5, 20, 2, 9, 8),
+        eq_(datetime.datetime(2015, 5, 20, 14, 9, 8),
             av1[LicensePool.last_checked])
         eq_(9, av1[LicensePool.licenses_owned])
         eq_(9, av1[LicensePool.licenses_available])

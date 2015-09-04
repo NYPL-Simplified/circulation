@@ -548,15 +548,16 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
         """Try really hard to convert a string to an ISO-639-2 alpha-3 language code."""
         if not s:
             return None
+        s = s.lower()
         if s in cls.three_to_two:
             # It's already an alpha-3.
             return s
         elif s in cls.two_to_three:
             # It's an alpha-2.
             return cls.two_to_three[s]
-        elif s.lower() in cls.english_names_to_three:
+        elif s in cls.english_names_to_three:
             # It's the English name of a language.
-            return cls.english_names_to_three[s.lower()]
+            return cls.english_names_to_three[s]
         return None
 
 def languages_from_accept(accept_languages):
