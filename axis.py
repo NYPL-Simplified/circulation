@@ -159,98 +159,11 @@ class Axis360CirculationMonitor(Monitor):
                 self._db.commit()
 
     def process_book(self, bibliographic, availability):
-        [axis_id] = bibliographic[Identifier][Identifier.AXIS_360_ID]
-        axis_id = axis_id[Identifier.identifier]
-
-        license_pool, new_license_pool = LicensePool.for_foreign_id(
-            self._db, self.api.source, Identifier.AXIS_360_ID, axis_id)
-
-        # The Axis 360 identifier is exactly equivalent to each ISBN.
-        any_new_isbn = False
-        isbns = []
-        first_isbn_encountered = None
-        for i in bibliographic[Identifier].get(Identifier.ISBN):
-            isbn_id = i[Identifier.identifier]
-            isbn, was_new = Identifier.for_foreign_id(
-                self._db, Identifier.ISBN, isbn_id)
-            first_isbn_encountered = first_isbn_encountered or isbn
-            isbns.append(isbn)
-            any_new_isbn = any_new_isbn or was_new
-
-        edition, new_edition = Edition.for_foreign_id(
-            self._db, self.api.source, Identifier.AXIS_360_ID, axis_id)
-
-        axis_id = license_pool.identifier
-
-        if any_new_isbn or new_license_pool or new_edition:
-            for isbn in isbns:
-                axis_id.equivalent_to(self.api.source, isbn, strength=1)
-
-        if new_license_pool or new_edition or True:
-            # Add bibliographic information to the Edition.
-            edition.title = bibliographic.get(Edition.title)
-            self.log.info("NEW EDITION: %s" % edition.title.encode("utf8"))
-            edition.subtitle = bibliographic.get(Edition.subtitle)
-            edition.series = bibliographic.get(Edition.series)
-            edition.published = bibliographic.get(Edition.published)
-            edition.publisher = bibliographic.get(Edition.publisher)
-            edition.imprint = bibliographic.get(Edition.imprint)
-            edition.language = bibliographic.get(Edition.language)
-
-            # Contributors!
-            dirty = False
-            # Just to be safe, get rid of any incorrectly registered
-            # contributions.
-            for i in edition.contributions:
-                self._db.delete(i)
-                dirty = True
-            if dirty:
-                self._db.commit()
-            contributors_by_role = bibliographic.get(Contributor)
-            for role, contributors in contributors_by_role.items():
-                for name in contributors:
-                    contributor = edition.add_contributor(name, role)
-                    # TODO: Ask the metadata wrangler to find the
-                    # display name and additional info for this
-                    # contributor; otherwise defaults will be used.
-
-            # Subjects!
-            for subject in bibliographic.get(Subject, []):
-                s_type = subject[Subject.type]
-                s_identifier = subject[Subject.identifier]
-
-                axis_id.classify(
-                    self.api.source, s_type, s_identifier)
-
-        # Update the license pool with new availability information
-        new_licenses_owned = availability.get(LicensePool.licenses_owned, 0)
-        new_licenses_available = availability.get(
-            LicensePool.licenses_available, 0)
-        new_licenses_reserved = 0
-        new_patrons_in_hold_queue = availability.get(
-            LicensePool.patrons_in_hold_queue, 0)
-
-        last_checked = availability.get(
-            LicensePool.last_checked, datetime.utcnow())
-
-        # If this is our first time seeing this LicensePool, log its
-        # occurance as a separate event
-        if new_license_pool:
-            event = get_one_or_create(
-                self._db, CirculationEvent,
-                type=CirculationEvent.TITLE_ADD,
-                license_pool=license_pool,
-                create_method_kwargs=dict(
-                    start=last_checked,
-                    delta=1,
-                    end=last_checked,
-                )
-            )
-
-        license_pool.update_availability(
-            new_licenses_owned, new_licenses_available, new_licenses_reserved,
-            new_patrons_in_hold_queue, last_checked)
-
+        license_pool, new_license_pool = bibliographic.license_pool(self._db)
+        edition, new_edition = bibliographic.edition(self._db)
+        if new_license_pool or new_edition:
+            self.update_bibliographic_info(edition, bibliographic)
+        availability.update(license_pool, new_license_pool)
         return edition, license_pool
 
 class ResponseParser(Axis360Parser):
