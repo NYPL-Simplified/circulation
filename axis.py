@@ -162,7 +162,12 @@ class Axis360CirculationMonitor(Monitor):
         license_pool, new_license_pool = bibliographic.license_pool(self._db)
         edition, new_edition = bibliographic.edition(self._db)
         if new_license_pool or new_edition:
-            self.update_bibliographic_info(edition, bibliographic)
+            bibliographic.apply(
+                edition, 
+                replace_identifiers=False,
+                replace_subjects=True, 
+                replace_contributions=True
+            )
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
 
