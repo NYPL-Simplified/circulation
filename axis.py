@@ -24,6 +24,7 @@ from metadata import (
     ContributorData,
     IdentifierData,
     CirculationData,
+    Metadata,
 )
 
 from config import Configuration
@@ -224,6 +225,7 @@ class BibliographicParser(Axis360Parser):
         return CirculationData(
             licenses_owned=total_copies,
             licenses_available=available_copies,
+            licenses_reserved=0,
             patrons_in_hold_queue=size_of_hold_queue,
             last_checked=availability_updated,
         )
@@ -279,7 +281,7 @@ class BibliographicParser(Axis360Parser):
 
         contributor = self.text_of_optional_subtag(
             element, 'axis:contributor', ns)
-        contributors = defaultdict(list)
+        contributors = []
         found_primary_author = False
         if contributor:
             for c in self.parse_list(contributor):
@@ -324,14 +326,13 @@ class BibliographicParser(Axis360Parser):
 
         # We don't use this for anything.
         # file_size = self.int_of_optional_subtag(element, 'axis:fileSize', ns)
-
         primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
         identifiers = []
         if isbn:
             identifiers.append(IdentifierData(Identifier.ISBN, isbn))
 
         data = Metadata(
-            data_source=axis_360,
+            data_source=DataSource.AXIS_360,
             title=title,
             language=language,
             medium=Edition.BOOK_MEDIUM,
@@ -343,7 +344,7 @@ class BibliographicParser(Axis360Parser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors
-        }
+        )
         return data
 
     def process_one(self, element, ns):

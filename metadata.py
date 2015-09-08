@@ -10,10 +10,14 @@ the information into this format.
 from sqlalchemy.orm.session import Session
 
 import datetime
+import logging
 from util import LanguageCodes
 from model import (
+    get_one_or_create,
     CirculationEvent,
+    DataSource,
     Edition,
+    Identifier,
     LicensePool,
 )
 
@@ -52,22 +56,23 @@ class CirculationData(object):
     ):
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
+        self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
         self.last_checked = last_checked or datetime.datetime.utcnow()
 
-    def update(self, licensepool, licensepool_is_new):
-        _db = Session.object_session(licensepool)
-        if licensepool_is_new:
+    def update(self, license_pool, license_pool_is_new):
+        _db = Session.object_session(license_pool)
+        if license_pool_is_new:
             # This is our first time seeing this LicensePool. Log its
             # occurance as a separate event.
             event = get_one_or_create(
-                self._db, CirculationEvent,
+                _db, CirculationEvent,
                 type=CirculationEvent.TITLE_ADD,
                 license_pool=license_pool,
                 create_method_kwargs=dict(
-                    start=availability.last_checked,
+                    start=self.last_checked,
                     delta=1,
-                    end=availability.last_checked,
+                    end=self.last_checked,
                 )
             )
 
@@ -81,12 +86,11 @@ class CirculationData(object):
             self.last_checked
         )
 
-
-        set_trace()
-
 class Metadata(object):
 
     """A (potentially partial) set of metadata for a published work."""
+
+    log = logging.getLogger("Abstract metadata layer")
 
     def __init__(
             self, 
@@ -104,9 +108,14 @@ class Metadata(object):
             subjects=None,
             contributors=None,
     ):
+        self._data_source = data_source
+        if isinstance(self._data_source, DataSource):
+            self.data_source_obj = self._data_source
+        else:
+            self.data_source_obj = None
         self.title = title
         if language:
-            language = LanguageCodes.string_to_alpha_three.get(language, None)
+            language = LanguageCodes.string_to_alpha_3(language)
         self.language = language
         self.medium = medium
         self.series = series
@@ -115,32 +124,33 @@ class Metadata(object):
         self.issued = issued
         self.published = published
 
-        self.primary_identifier=None
+        self.primary_identifier=primary_identifier
         self.identifiers = identifiers
         self.subjects = subjects
         self.contributors = contributors
 
+    def data_source(self, _db):
+        if not self.data_source_obj:
+            self.data_source_obj = DataSource.lookup(_db, self._data_source)
+        return self.data_source_obj
+
     def edition(self, _db):
         return Edition.for_foreign_id(
-            _db, self.primary_identifier.type, 
+            _db, self.data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier
         )        
 
     def license_pool(self, _db):
         return LicensePool.for_foreign_id(
-            _db, self.primary_identifier.type, 
+            _db, self.data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier
         )
 
-        license_pool, new_license_pool = LicensePool.for_foreign_id(
-            self._db, self.api.source, Identifier.AXIS_360_ID, axis_id)
-        edition, new_edition = Edition.for_foreign_id(
-            self._db, self.api.source, Identifier.AXIS_360_ID, axis_id)
-
-
     def apply(
-            self, edition, replace_subjects=False, 
-            replace_contributions=False
+            self, edition, 
+            replace_identifiers=False,
+            replace_subjects=False, 
+            replace_contributions=False,
     ):
         """Apply this metadata to the given edition."""
 
@@ -159,7 +169,7 @@ class Metadata(object):
             edition.medium = self.medium
         if self.series:
             edition.series = self.series
-        if self.publishers:
+        if self.publisher:
             edition.publisher = self.publisher
         if self.imprint:
             edition.imprint = self.imprint
@@ -170,12 +180,21 @@ class Metadata(object):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
+        data_source = self.data_source(_db)
+
+        # TODO: remove equivalencies when replace_identifiers is True.
+
+        primary_identifier, ignore = Identifier.for_foreign_id(
+            _db, self.primary_identifier.type, 
+            self.primary_identifier.identifier
+        )
+
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
-                identifier = Identifier.for_foreign_id(
+                identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
-                self.primary_identifier.equivalent_to(
-                    self.data_source, identifier, weight)
+                primary_identifier.equivalent_to(
+                    data_source, identifier, identifier_data.weight)
 
         if replace_subjects and self.subjects is not None:
             # Remove any old Subjects from this data source -- we're
@@ -183,8 +202,8 @@ class Metadata(object):
             surviving_classifications = []
             dirty = False
             for classification in identifier.classifications:
-                if classification.data_source == self.data_source:
-                    self._db.delete(classification)
+                if classification.data_source == data_source:
+                    _db.delete(classification)
                     dirty = True
                 else:
                     surviving_classifications.append(classification)
@@ -195,25 +214,28 @@ class Metadata(object):
         # Apply all specified subjects to the identifier.
         for subject in self.subjects:
             identifier.classify(
-                self.data_source, subject.type, subject.identifier, 
+                data_source, subject.type, subject.identifier, 
                 subject.name, weight=subject.weight)
 
         if replace_contributions:
             dirty = False
-            if self.contributions is not None:
+            if self.contributors is not None:
                 # Remove any old Contributions from this data source --
                 # we're about to add a new set
                 surviving_contributions = []
                 for contribution in edition.contributions:
-                    self._db.delete(contribution)
+                    _db.delete(contribution)
                     dirty = True
                 edition.contributions = surviving_contributions
             if dirty:
                 __transaction.flush()
             for contributor_data in self.contributors:
                 contributor = edition.add_contributor(
-                    name=contributor_data.sort_name, contributor_data.roles,
-                    lc=contributor_data.lc, viaf=contributor_data.viaf)
+                    name=contributor_data.sort_name, 
+                    roles=contributor_data.roles,
+                    lc=contributor_data.lc, 
+                    viaf=contributor_data.viaf
+                )
                 if contributor_data.display_name:
                     contributor.display_name = display_name
 
