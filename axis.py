@@ -18,6 +18,14 @@ from model import (
     Identifier,
     Subject,
 )
+
+from metadata import (
+    SubjectData,
+    ContributorData,
+    IdentifierData,
+    CirculationData,
+)
+
 from config import Configuration
 
 class Axis360API(object):
@@ -212,12 +220,13 @@ class BibliographicParser(Axis360Parser):
                 pass
             availability_updated = datetime.datetime.strptime(
                     availability_updated, self.FULL_DATE_FORMAT)
-        return {
-            LicensePool.licenses_owned : total_copies,
-            LicensePool.licenses_available : available_copies,
-            LicensePool.patrons_in_hold_queue : size_of_hold_queue,
-            LicensePool.last_checked : availability_updated,
-        }
+
+        return CirculationData(
+            licenses_owned=total_copies,
+            licenses_available=available_copies,
+            patrons_in_hold_queue=size_of_hold_queue,
+            last_checked=availability_updated,
+        )
 
     # Axis authors with a special role have an abbreviation after their names,
     # e.g. "San Ruby (FRW)"
@@ -249,9 +258,11 @@ class BibliographicParser(Axis360Parser):
             if role is cls.generic_author:
                 role = default_author_role
             author = author[:-5].strip()
-        return (author, role)
+        return ContributorData(
+            sort_name=author, roles=role)
 
     def extract_bibliographic(self, element, ns):
+        """Turn bibliographic metadata into a Metadata object."""
 
         # TODO: These are consistently empty (some are clearly for
         # audiobooks) so I don't know what they do and/or what format
@@ -264,7 +275,6 @@ class BibliographicParser(Axis360Parser):
 
         identifier = self.text_of_subtag(element, 'axis:titleId', ns)
         isbn = self.text_of_optional_subtag(element, 'axis:isbn', ns)
-
         title = self.text_of_subtag(element, 'axis:productTitle', ns)
 
         contributor = self.text_of_optional_subtag(
@@ -273,18 +283,22 @@ class BibliographicParser(Axis360Parser):
         found_primary_author = False
         if contributor:
             for c in self.parse_list(contributor):
-                contributor, role = self.parse_contributor(
+                contributor = self.parse_contributor(
                     c, found_primary_author)
-                if role == Contributor.PRIMARY_AUTHOR_ROLE:
+                if Contributor.PRIMARY_AUTHOR_ROLE in contributor.roles:
                     found_primary_author = True
-                contributors[role].append(contributor)
+                contributors.append(contributor)
 
         subject = self.text_of_optional_subtag(element, 'axis:subject', ns)
         subjects = []
         if subject:
             for subject_identifier in self.parse_list(subject):
-                subjects.append( { Subject.type : Subject.BISAC,
-                                   Subject.identifier: subject_identifier } )
+                subjects.append(
+                    SubjectData(
+                        type=Subject.BISAC, identifier=subject_identifier,
+                        weight=1
+                    )
+                )
 
         publication_date = self.text_of_optional_subtag(
             element, 'axis:publicationDate', ns)
@@ -298,32 +312,37 @@ class BibliographicParser(Axis360Parser):
 
         audience = self.text_of_optional_subtag(element, 'axis:audience', ns)
         if audience:
-            subjects.append({ Subject.type : Subject.AXIS_360_AUDIENCE,
-                              Subject.identifier: audience })
+            subjects.append(
+                SubjectData(
+                    type=Subject.AXIS_360_AUDIENCE,
+                    identifier=audience,
+                    weight=1,
+                )
+            )
 
         language = self.text_of_subtag(element, 'axis:language', ns)
-        language = language.lower()
-        language = LanguageCodes.english_names_to_three.get(language, None)
 
         # We don't use this for anything.
         # file_size = self.int_of_optional_subtag(element, 'axis:fileSize', ns)
 
-        identifiers = { 
-            Identifier.AXIS_360_ID : [ { Identifier.identifier : identifier } ]
-        }
+        primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
+        identifiers = []
         if isbn:
-            identifiers[Identifier.ISBN] = [ {Identifier.identifier : isbn } ]
+            identifiers.append(IdentifierData(Identifier.ISBN, isbn))
 
-        data = {
-            Edition.title : title,
-            Edition.published : publication_date,
-            Edition.series : series,
-            Edition.publisher : publisher,
-            Edition.imprint : imprint,
-            Edition.language : language,
-            Identifier : identifiers,
-            Subject : subjects,
-            Contributor : contributors
+        data = Metadata(
+            data_source=axis_360,
+            title=title,
+            language=language,
+            medium=Edition.BOOK_MEDIUM,
+            series=series,
+            publisher=publisher,
+            imprint=imprint,
+            published=publication_date,
+            primary_identifier=primary_identifier,
+            identifiers=identifiers,
+            subjects=subjects,
+            contributors=contributors
         }
         return data
 
