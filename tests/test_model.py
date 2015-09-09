@@ -1316,17 +1316,17 @@ class TestAssignGenres(DatabaseTest):
 
     def test_genre_weights_from_metadata(self):
         star_trek = self._work()
-        star_trek.primary_edition.title = "Star Trek: The Book"
+        star_trek.primary_edition.title = u"Star Trek: The Book"
         fiction, genre, target_age, audience = star_trek.genre_weights_from_metadata([])
         eq_(100, genre[classifier.Media_Tie_in_SF])
 
         # Genre publisher and imprint
         harlequin = self._work()
-        harlequin.primary_edition.publisher = "Harlequin"
+        harlequin.primary_edition.publisher = u"Harlequin"
         fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
         eq_(100, genre[classifier.Romance])
 
-        harlequin.primary_edition.imprint = "Harlequin Intrigue"
+        harlequin.primary_edition.imprint = u"Harlequin Intrigue"
         fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
         # Imprint is more specific than publisher, so it takes precedence.
         assert classifier.Romance not in genre
@@ -1334,15 +1334,15 @@ class TestAssignGenres(DatabaseTest):
 
         # Genre and audience publisher 
         harlequin_teen = self._work()
-        harlequin_teen.primary_edition.publisher = "Harlequin"
-        harlequin_teen.primary_edition.imprint = "Harlequin Teen"
+        harlequin_teen.primary_edition.publisher = u"Harlequin"
+        harlequin_teen.primary_edition.imprint = u"Harlequin Teen"
         fiction, genre, target_age, audience = harlequin_teen.genre_weights_from_metadata([])
         eq_(100, genre[classifier.Romance])
         eq_(100, audience[Classifier.AUDIENCE_YOUNG_ADULT])
 
         harlequin_nonfiction = self._work()
-        harlequin_nonfiction.primary_edition.publisher = "Harlequin"
-        harlequin_nonfiction.primary_edition.imprint = "Harlequin Nonfiction"
+        harlequin_nonfiction.primary_edition.publisher = u"Harlequin"
+        harlequin_nonfiction.primary_edition.imprint = u"Harlequin Nonfiction"
         fiction, genre, target_age, audience = harlequin_nonfiction.genre_weights_from_metadata([])
         eq_(100, fiction[False])
         assert True not in fiction
@@ -1350,23 +1350,23 @@ class TestAssignGenres(DatabaseTest):
         # We don't know if this is a children's book or a young adult
         # book, but we're confident it's one or the other.
         scholastic = self._work()
-        scholastic.primary_edition.publisher = "Scholastic Inc."
+        scholastic.primary_edition.publisher = u"Scholastic Inc."
         fiction, genre, target_age, audience = scholastic.genre_weights_from_metadata([])
         eq_(-100, audience[Classifier.AUDIENCE_ADULT])
 
         for_young_readers = self._work()
-        for_young_readers.primary_edition.imprint = "Delacorte Books for Young Readers"
+        for_young_readers.primary_edition.imprint = u"Delacorte Books for Young Readers"
         fiction, genre, target_age, audience = for_young_readers.genre_weights_from_metadata([])
         eq_(-100, audience[Classifier.AUDIENCE_ADULT])
 
     def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
         work = self._work()
-        work.primary_edition.title = "Science Fiction: A Comprehensive History"
+        work.primary_edition.title = u"Science Fiction: A Comprehensive History"
         i = work.primary_edition.primary_identifier
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        i.classify(source, Subject.OVERDRIVE, "Nonfiction", weight=1000)
-        i.classify(source, Subject.OVERDRIVE, "Science Fiction", weight=100)
-        i.classify(source, Subject.OVERDRIVE, "History", weight=10)
+        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
+        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
+        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
         ids = [i.id]
         ([history], fiction, audience, target_age) = work.assign_genres(ids)
 
@@ -1628,27 +1628,22 @@ class TestLane(DatabaseTest):
 
         # So long as the hold behavior allows books to be put on hold,
         # the book will show up in lanes.
-        all_works = fantasy_lane.works(['eng']).all()
-        old_config = Configuration.instance
-        new_config = dict(old_config)
-        new_config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
-        Configuration.instance = new_config
-        allow_on_hold_works = fantasy_lane.works(['eng']).all()
-        eq_(all_works, allow_on_hold_works)
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            allow_on_hold_works = fantasy_lane.works(['eng']).all()
+            eq_(1, len(allow_on_hold_works))
 
         # When the hold behavior is to hide unavailable books, the
         # book disappears.
-        new_config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
-        hide_on_hold_works = fantasy_lane.works(['eng']).all()
-        eq_([], hide_on_hold_works)
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+            hide_on_hold_works = fantasy_lane.works(['eng']).all()
+            eq_([], hide_on_hold_works)
 
-        # When the book becomes available, it shows up in lanesagain.
-        w1.license_pools[0].licenses_available = 1
-        hide_on_hold_works = fantasy_lane.works(['eng']).all()
-        eq_(all_works, hide_on_hold_works)
-
-        Configuration.instance = old_config
-
+            # When the book becomes available, it shows up in lanes again.
+            w1.license_pools[0].licenses_available = 1
+            hide_on_hold_works = fantasy_lane.works(['eng']).all()
+            eq_(1, len(hide_on_hold_works))
         
 
 class TestLaneList(DatabaseTest):

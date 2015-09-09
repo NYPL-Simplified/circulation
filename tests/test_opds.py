@@ -347,7 +347,7 @@ class TestOPDS(DatabaseTest):
                                [work])
         parsed = feedparser.parse(unicode(feed))
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(gutenberg.name, parsed.entries[0]['bibframe_distribution']['bibframe_providername'])
+        eq_(gutenberg.name, parsed.entries[0]['bibframe_distribution']['providername'])
 
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)

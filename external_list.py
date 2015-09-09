@@ -72,7 +72,7 @@ class TitleFromExternalList(object):
         edition, is_new = self.metadata.edition(_db)
         self.metadata.apply(
             edition=edition, 
-            metadata_client=metdata_client
+            metadata_client=metdata_client,
             replace_identifiers=overwrite_old_data,
             replace_subjects=overwrite_old_data, 
             replace_contributions=overwrite_old_data
