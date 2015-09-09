@@ -10,6 +10,7 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
+
 from psycopg2.extras import NumericRange
 from config import Configuration
 from model import (
@@ -26,12 +27,12 @@ from model import (
 )
 
 from opds import (    
-    AtomFeed,
-    OPDSFeed,
-    AcquisitionFeed,
-    NavigationFeed,
-    Annotator,
-    VerboseAnnotator,
+     AtomFeed,
+     OPDSFeed,
+     AcquisitionFeed,
+     NavigationFeed,
+     Annotator,
+     VerboseAnnotator,
 )
 
 from classifier import (

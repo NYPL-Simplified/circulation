@@ -2,8 +2,8 @@
 
 from nose.tools import eq_, set_trace
 
-from .. import classifier
-from ..classifier import (
+import classifier
+from classifier import (
     Classifier,
     DeweyDecimalClassifier as DDC,
     LCCClassifier as LCC,

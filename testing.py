@@ -32,6 +32,10 @@ class DatabaseTest(object):
     DBInfo = None
 
     def setup(self):
+        if not self.DBInfo.connection:
+            raise Exception("%r/%r connection was not initialized." % (
+                self, self.DBInfo)
+            )
         self.__transaction = self.DBInfo.connection.begin_nested()
         self._db = Session(self.DBInfo.connection)
         self.counter = 0
@@ -339,7 +343,6 @@ def _setup(dbinfo):
 
     db = Session(dbinfo.connection)
     SessionManager.initialize_data(db)
-
     # Test data: Create the patron used by the dummy authentication
     # mechanism.
     get_one_or_create(db, Patron, authorization_identifier="200",
