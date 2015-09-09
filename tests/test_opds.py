@@ -12,7 +12,10 @@ from . import (
 )
 
 from psycopg2.extras import NumericRange
-from config import Configuration
+from config import (
+    Configuration, 
+    temp_config,
+)
 from model import (
     Contributor,
     DataSource,
@@ -640,19 +643,14 @@ class TestOPDS(DatabaseTest):
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.primary_edition.cover_full_url = "http://full/a"
 
-        old_config = Configuration.instance
-        new_config = dict(old_config)
-        Configuration.instance = new_config
-
-        # Try it with a CDN
-        new_config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
-        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
-        feed = feedparser.parse(unicode(feed))
-        links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                     'image' in x['rel']])
-        eq_(['http://foo/a', 'http://foo/b'], links)
-
-        Configuration.instance = old_config
+        with temp_config() as config:
+            config['integrations'][Configuration.CDN_INTEGRATION] = {}
+            config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
+            feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+            feed = feedparser.parse(unicode(feed))
+            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
+                            'image' in x['rel']])
+            eq_(['http://foo/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include messages (with HTTP-style status code)

@@ -300,47 +300,47 @@ class TestContributor(DatabaseTest):
     def test_lookup_by_name(self):
 
         # Two contributors named Bob.
-        bob1, new = Contributor.lookup(self._db, name="Bob", lc="foo")
-        bob2, new = Contributor.lookup(self._db, name="Bob", lc="bar")
+        bob1, new = Contributor.lookup(self._db, name=u"Bob", lc=u"foo")
+        bob2, new = Contributor.lookup(self._db, name=u"Bob", lc=u"bar")
 
         # Lookup by name finds both of them.
-        bobs, new = Contributor.lookup(self._db, name="Bob")
+        bobs, new = Contributor.lookup(self._db, name=u"Bob")
         eq_(False, new)
         eq_(["Bob", "Bob"], [x.name for x in bobs])
 
     def test_create_by_lookup(self):
-        [bob1], new = Contributor.lookup(self._db, name="Bob")
+        [bob1], new = Contributor.lookup(self._db, name=u"Bob")
         eq_("Bob", bob1.name)
         eq_(True, new)
 
-        [bob2], new = Contributor.lookup(self._db, name="Bob")
+        [bob2], new = Contributor.lookup(self._db, name=u"Bob")
         eq_(bob1, bob2)
         eq_(False, new)
 
     def test_merge(self):
 
         # Here's Robert.
-        [robert], ignore = Contributor.lookup(self._db, name="Robert")
+        [robert], ignore = Contributor.lookup(self._db, name=u"Robert")
         
         # Here's Bob.
-        [bob], ignore = Contributor.lookup(self._db, name="Bob")
-        bob.extra['foo'] = 'bar'
-        bob.aliases = ['Bobby']
-        bob.viaf = 'viaf'
-        bob.lc = 'lc'
-        bob.display_name = "Bob's display name"
-        bob.family_name = "Bobb"
-        bob.wikipedia_name = "Bob_(Person)"
+        [bob], ignore = Contributor.lookup(self._db, name=u"Bob")
+        bob.extra[u'foo'] = u'bar'
+        bob.aliases = [u'Bobby']
+        bob.viaf = u'viaf'
+        bob.lc = u'lc'
+        bob.display_name = u"Bob's display name"
+        bob.family_name = u"Bobb"
+        bob.wikipedia_name = u"Bob_(Person)"
 
         # Each is a contributor to a Edition.
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
         roberts_book, ignore = Edition.for_foreign_id(
-            self._db, data_source, Identifier.GUTENBERG_ID, "1")
+            self._db, data_source, Identifier.GUTENBERG_ID, u"1")
         roberts_book.add_contributor(robert, Contributor.AUTHOR_ROLE)
 
         bobs_book, ignore = Edition.for_foreign_id(
-            self._db, data_source, Identifier.GUTENBERG_ID, "10")
+            self._db, data_source, Identifier.GUTENBERG_ID, u"10")
         bobs_book.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         # In a shocking turn of events, it transpires that "Bob" and
@@ -350,17 +350,17 @@ class TestContributor(DatabaseTest):
 
         # 'Bob' is now listed as an alias for Robert, as is Bob's
         # alias.
-        eq_(['Bob', 'Bobby'], robert.aliases)
+        eq_([u'Bob', u'Bobby'], robert.aliases)
 
         # The extra information associated with Bob is now associated
         # with Robert.
-        eq_('bar', robert.extra['foo'])
+        eq_(u'bar', robert.extra['foo'])
 
-        eq_("viaf", robert.viaf)
-        eq_("lc", robert.lc)
-        eq_("Bobb", robert.family_name)
-        eq_("Bob's display name", robert.display_name)
-        eq_("Bob_(Person)", robert.wikipedia_name)
+        eq_(u"viaf", robert.viaf)
+        eq_(u"lc", robert.lc)
+        eq_(u"Bobb", robert.family_name)
+        eq_(u"Bob's display name", robert.display_name)
+        eq_(u"Bob_(Person)", robert.wikipedia_name)
 
         # The standalone 'Bob' record has been removed from the database.
         eq_(

@@ -143,8 +143,8 @@ class CustomListFromCSV(CSVMetadataImporter):
                  annotation_author_field='name',
                  annotation_author_affiliation_field='location',
                  first_appearance_field='timestamp',
-                 **kwargs)
-    ):
+                 **kwargs
+             ):
         self.data_source_name = data_source_name
         self.foreign_identifier = list_name
         self.list_name = list_name

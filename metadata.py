@@ -44,9 +44,8 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
 
-   def find_sort_name(cls, _db, identifiers, metadata_client):
-        """Try as hard as possible to find the canonical name for the
-        given author.
+    def find_sort_name(cls, _db, identifiers, metadata_client):
+        """Try as hard as possible to find this person's sort name.
         """
         if self.sort_name:
             return True
@@ -65,8 +64,8 @@ class ContributorData(object):
 
         # Time to break out the big guns. Ask the metadata wrangler
         # if it can find a sort name for this display name.
-        sort_name = cls.display_name_to_sort_name_through_canonicalizer(
-            _db, identifiers, self.display_name, metadata_client
+        sort_name = self.display_name_to_sort_name_through_canonicalizer(
+            _db, identifiers, metadata_client
         )
         self.sort_name = sort_name
         return (self.sort_name is not None)
@@ -92,9 +91,8 @@ class ContributorData(object):
             return contributors[0].name
         return None
 
-    @classmethod
     def display_name_to_sort_name_through_canonicalizer(
-            cls, _db, identifiers, metadata_client):
+            self, _db, identifiers, metadata_client):
         for identifier in identifiers:
             if identifier.type != Identifier.ISBN_TYPE:
                 continue
@@ -305,7 +303,7 @@ class Metadata(object):
 
     def apply(
             self, edition, 
-            metadata_client=None
+            metadata_client=None,
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
