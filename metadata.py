@@ -44,11 +44,92 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
 
+   def find_sort_name(cls, _db, identifiers, metadata_client):
+        """Try as hard as possible to find the canonical name for the
+        given author.
+        """
+        if self.sort_name:
+            return True
+
+        if not self.display_name:
+            raise ValueError(
+                "Cannot find sort name for a contributor with no display name!"
+            )
+
+        # Is there a contributor already in the database with this
+        # exact sort name? If so, use their display name.
+        sort_name = cls.sort_name_for_display_name(_db, self.display_name)
+        if sort_name:
+            self.sort_name = sort_name
+            return True
+
+        # Time to break out the big guns. Ask the metadata wrangler
+        # if it can find a sort name for this display name.
+        sort_name = cls.display_name_to_sort_name_through_canonicalizer(
+            _db, identifiers, self.display_name, metadata_client
+        )
+        self.sort_name = sort_name
+        return (self.sort_name is not None)
+
+    @classmethod
+    def display_name_to_sort_name(self, _db, display_name):
+        """Find the sort name for this book's author, assuming it's easy.
+
+        'Easy' means we already have an established sort name for a
+        Contributor with this exact display name.
+        
+        If it's not easy, this will be taken care of later with a call to
+        the metadata wrangler's author canonicalization service.
+
+        If we have a copy of this book in our collection (the only
+        time an external list item is relevant), this will probably be
+        easy.
+        """
+        contributors = _db.query(Contributor).filter(
+            Contributor.display_name==display_name).filter(
+                Contributor.name != None).all()
+        if contributors:
+            return contributors[0].name
+        return None
+
+    @classmethod
+    def display_name_to_sort_name_through_canonicalizer(
+            cls, _db, identifiers, metadata_client):
+        for identifier in identifiers:
+            if identifier.type != Identifier.ISBN_TYPE:
+                continue
+            response = metadata_client.canonicalize_author_name(
+                identifier.identifier, self.display_name)
+            sort_name = None
+            log = logging.getLogger("Abstract metadata layer")
+            if (response.status_code == 200 
+                and response.headers['Content-Type'].startswith('text/plain')):
+                sort_name = response.content.decode("utf8")
+                log.info(
+                    "Canonicalizer found sort name for %s: %s => %s",
+                    identifier, 
+                    self.display_name,
+                    sort_name
+                )
+            else:
+                log.warn(
+                    "Canonicalizer could not find sort name for %r/%s",
+                    identifier,
+                    self.display_name
+                )
+        return sort_name        
+
+
 class IdentifierData(object):
     def __init__(self, type, identifier, weight=1):
         self.type = type
         self.identifier = identifier
         self.weight = 1
+
+    def load(self, _db):
+        return Identifier.for_foreign_identifier(
+            _db, self.type, self.identifier
+        )
 
 class CirculationData(object):
     def __init__(
@@ -130,20 +211,90 @@ class Metadata(object):
 
         self.primary_identifier=primary_identifier
         self.identifiers = identifiers
+        self.permanent_work_id = None
         if self.primary_identifier not in self.identifiers:
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects
         self.contributors = contributors
+
+    def normalize_contributors(self, metadata_client):
+        """Make sure that all contributors without a .sort_name get one."""
+        for contributor in contributors:
+            if not contributor.sort_name:
+                contributor.normalize(metadata_client)
+
+    def calculate_permanent_work_id(self, metadata_client):
+        """Try to calculate a permanent work ID from this metadata.
+
+        This may require asking a metadata wrangler to turn a display name
+        into a sort name--thus the `metadata_client` argument.
+        """
+        primary_author = None
+        for tier in Contributor.author_contributor_tiers:
+            for c in self.contributors:
+                for role in tier:
+                    if role in c.roles:
+                        primary_author = c
+                        break
+                if primary_author:
+                    break
+            if primary_author:
+                break
+
+        if not primary_author:
+            return None, None
+
+        if not primary_author.sort_name and metadata_client:
+            primary_author.find_sort_name(
+                _db, self.identifiers, metadata_client
+            )
+
+        sort_author = primary_author.sort_name
+        pwid = Edition.calculate_permanent_work_id_for_title_and_author(
+            self.title, sort_author, "book")
+        self.permanent_work_id=pwid
+
+    def associate_with_identifiers_based_on_permanent_work_id(
+            self, _db):
+        """Try to associate this object's primary identifier with
+        the primary identifiers of Editions in the database which share
+        a permanent work ID.
+        """
+        if (not self.primary_identifier or not self.permanent_work_id):
+            # We don't have the information necessary to carry out this
+            # method.
+            return
+
+        # Try to find the primary identifiers of other Editions with
+        # the same permanent work ID, representing books already in
+        # our collection.
+        qu = _db.query(Identifier).join(
+            Identifier.primarily_identifies).filter(
+                Edition.permanent_work_id==self.permanent_work_id).filter(
+                    Identifier.type.in_(
+                        Identifier.LICENSE_PROVIDING_IDENTIFIER_TYPES
+                    )
+                )
+        identifiers_same_work_id = qu.all()
+        for same_work_id in identifiers_same_work_id:
+            if same_work_id != self.primary_identifier:
+                self.log.info(
+                    "Discovered that %r is equivalent to %r because of matching permanent work ID %s",
+                    same_work_id, self.primary_identifier, permanent_work_id
+                )
+                self.primary_identifier.equivalent_to(
+                    self.data_source(_db), same_work_id, 0.85)
 
     def data_source(self, _db):
         if not self.data_source_obj:
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
         return self.data_source_obj
 
-    def edition(self, _db):
+    def edition(self, _db, create_if_not_exists=True):
         return Edition.for_foreign_id(
             _db, self.data_source(_db), self.primary_identifier.type, 
-            self.primary_identifier.identifier
+            self.primary_identifier.identifier, 
+            create_if_not_exists=create_if_not_exists
         )        
 
     def license_pool(self, _db):
@@ -154,11 +305,15 @@ class Metadata(object):
 
     def apply(
             self, edition, 
+            metadata_client=None
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
     ):
         """Apply this metadata to the given edition."""
+
+        if metadata_client and not self.permanent_work_id:
+            self.calculate_permanent_work_id(metadata_client)
 
         _db = Session.object_session(edition)
         __transaction = _db.begin_nested()
@@ -183,6 +338,8 @@ class Metadata(object):
             edition.issued = self.issued
         if self.published:
             edition.published = self.published
+        if self.permanent_work_id:
+            edition.permanent_work_id = self.permanent_work_id
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
@@ -405,6 +562,7 @@ class CSVMetadataImporter(object):
             subjects=subjects,
             contributors=contributors
         )
+        metadata.csv_row = row
         return metadata
 
     @property

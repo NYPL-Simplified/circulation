@@ -814,6 +814,11 @@ class Identifier(Base):
     DOI = "DOI"
     UPC = "UPC"
 
+    LICENCE_PROVIDING_IDENTIFIER_TYPES = [
+        THREEM_ID, OVERDRIVE_ID, AXIS_360_ID,
+        GUTENBERG_ID
+    ]
+
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
     ISBN_URN_SCHEME_PREFIX = "urn:isbn:"
     GUTENBERG_URN_SCHEME_PREFIX = "http://www.gutenberg.org/ebooks/"
@@ -2019,6 +2024,13 @@ class Edition(Base):
     @property
     def contributors(self):
         return [x.contributor for x in self.contributions]
+
+    @classmethod
+    def author_contributor_tiers(cls):
+        yield [cls.PRIMARY_AUTHOR_ROLE]
+        yield cls.AUTHOR_ROLES
+        yield cls.AUTHOR_SUBSTITUTE_ROLES
+        yield cls.PERFORMER_ROLES
 
     @property
     def author_contributors(self):
