@@ -1954,18 +1954,18 @@ class Edition(Base):
     issued = Column(Date)
     published = Column(Date)
 
-    BOOK_MEDIUM = "Book"
-    PERIODICAL_MEDIUM = "Periodical"
-    AUDIO_MEDIUM = "Audio"
-    MUSIC_MEDIUM = "Music"
-    VIDEO_MEDIUM = "Video"
+    BOOK_MEDIUM = u"Book"
+    PERIODICAL_MEDIUM = u"Periodical"
+    AUDIO_MEDIUM = u"Audio"
+    MUSIC_MEDIUM = u"Music"
+    VIDEO_MEDIUM = u"Video"
 
     medium_to_additional_type = {
-        BOOK_MEDIUM : "http://schema.org/Book",
-        AUDIO_MEDIUM : "http://schema.org/AudioObject",
-        PERIODICAL_MEDIUM : "http://schema.org/PublicationIssue",
-        MUSIC_MEDIUM :  "http://schema.org/MusicRecording",
-        VIDEO_MEDIUM :  "http://schema.org/VideoObject",
+        BOOK_MEDIUM : u"http://schema.org/Book",
+        AUDIO_MEDIUM : u"http://schema.org/AudioObject",
+        PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
+        MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
+        VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
     }
 
     additional_type_to_medium = {}
@@ -3637,16 +3637,16 @@ class Measurement(Base):
     __tablename__ = 'measurements'
 
     # Some common measurement types
-    POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
-    QUALITY = "http://librarysimplified.org/terms/rel/quality"
-    PUBLISHED_EDITIONS = "http://librarysimplified.org/terms/rel/editions"
-    HOLDINGS = "http://librarysimplified.org/terms/rel/holdings"
-    RATING = "http://schema.org/ratingValue"
-    DOWNLOADS = "https://schema.org/UserDownloads"
-    PAGE_COUNT = "https://schema.org/numberOfPages"
-    AWARDS = "http://librarysimplified.org/terms/rel/awards"
+    POPULARITY = u"http://librarysimplified.org/terms/rel/popularity"
+    QUALITY = u"http://librarysimplified.org/terms/rel/quality"
+    PUBLISHED_EDITIONS = u"http://librarysimplified.org/terms/rel/editions"
+    HOLDINGS = u"http://librarysimplified.org/terms/rel/holdings"
+    RATING = u"http://schema.org/ratingValue"
+    DOWNLOADS = u"https://schema.org/UserDownloads"
+    PAGE_COUNT = u"https://schema.org/numberOfPages"
+    AWARDS = u"http://librarysimplified.org/terms/rel/awards"
 
-    GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
+    GUTENBERG_FAVORITE = u"http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
     # If a book's popularity measurement is found between index n and
     # index n+1 on this list, it is in the nth percentile for
@@ -3824,19 +3824,19 @@ class Hyperlink(Base):
     __tablename__ = 'hyperlinks'
 
     # Some common link relations.
-    CANONICAL = "canonical"
-    OPEN_ACCESS_DOWNLOAD = "http://opds-spec.org/acquisition/open-access"
-    IMAGE = "http://opds-spec.org/image"
-    THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
-    SAMPLE = "http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = "http://librarysimplified.org/terms/rel/illustration"
-    REVIEW = "http://schema.org/Review"
-    DESCRIPTION = "http://schema.org/description"
-    SHORT_DESCRIPTION = "http://librarysimplified.org/terms/rel/short-description"
-    AUTHOR = "http://schema.org/author"
+    CANONICAL = u"canonical"
+    OPEN_ACCESS_DOWNLOAD = u"http://opds-spec.org/acquisition/open-access"
+    IMAGE = u"http://opds-spec.org/image"
+    THUMBNAIL_IMAGE = u"http://opds-spec.org/image/thumbnail"
+    SAMPLE = u"http://opds-spec.org/acquisition/sample"
+    ILLUSTRATION = u"http://librarysimplified.org/terms/rel/illustration"
+    REVIEW = u"http://schema.org/Review"
+    DESCRIPTION = u"http://schema.org/description"
+    SHORT_DESCRIPTION = u"http://librarysimplified.org/terms/rel/short-description"
+    AUTHOR = u"http://schema.org/author"
 
     # TODO: Is this the appropriate relation?
-    DRM_ENCRYPTED_DOWNLOAD = "http://opds-spec.org/acquisition/"
+    DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
 
     id = Column(Integer, primary_key=True)
 
@@ -4488,17 +4488,17 @@ class Lane(object):
 
     """A set of books that would go together in a display."""
 
-    UNCLASSIFIED = "unclassified"
-    BOTH_FICTION_AND_NONFICTION = "both fiction and nonfiction"
-    FICTION_DEFAULT_FOR_GENRE = "fiction default for genre"
+    UNCLASSIFIED = u"unclassified"
+    BOTH_FICTION_AND_NONFICTION = u"both fiction and nonfiction"
+    FICTION_DEFAULT_FOR_GENRE = u"fiction default for genre"
 
     # Books classified in a subgenre of this lane's genre(s) will
     # be shown in separate lanes.
-    IN_SUBLANES = "separate"
+    IN_SUBLANES = u"separate"
 
     # Books classified in a subgenre of this lane's genre(s) will be
     # shown in this lane.
-    IN_SAME_LANE = "collapse"
+    IN_SAME_LANE = u"collapse"
 
     def __repr__(self):
         if self.sublanes.lanes:
@@ -5108,8 +5108,8 @@ class WorkFeed(object):
 
     default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
 
-    CURRENTLY_AVAILABLE = "available"
-    ALL = "all"
+    CURRENTLY_AVAILABLE = u"available"
+    ALL = u"all"
 
     def __init__(self, languages, order_facet=None,
                  sort_ascending=True,
@@ -5619,16 +5619,16 @@ class RightsStatus(Base):
     """
 
     # Currently in copyright.
-    IN_COPYRIGHT = "http://librarysimplified.org/terms/rights-status/in-copyright"
+    IN_COPYRIGHT = u"http://librarysimplified.org/terms/rights-status/in-copyright"
 
     # Public domain in the USA.
-    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/terms/rights-status/public-domain-usa"
+    PUBLIC_DOMAIN_USA = u"http://librarysimplified.org/terms/rights-status/public-domain-usa"
 
     # Public domain in some unknown territory
-    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/terms/rights-status/public-domain-unknown"
+    PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
     # Unknown copyright status.
-    UNKNOWN = "http://librarysimplified.org/terms/rights-status/unknown"
+    UNKNOWN = u"http://librarysimplified.org/terms/rights-status/unknown"
 
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
@@ -5672,22 +5672,22 @@ class CirculationEvent(Base):
                                        'foreign_patron_id'),)
 
     # Constants for use in logging circulation events to JSON
-    SOURCE = "source"
-    TYPE = "event"
+    SOURCE = u"source"
+    TYPE = u"event"
 
     # The names of the circulation events we recognize.
-    CHECKOUT = "check_out"
-    CHECKIN = "check_in"
-    HOLD_PLACE = "hold_place"
-    HOLD_RELEASE = "hold_release"
-    LICENSE_ADD = "license_add"
-    LICENSE_REMOVE = "license_remove"
-    AVAILABILITY_NOTIFY = "availability_notify"
-    CIRCULATION_CHECK = "circulation_check"
-    SERVER_NOTIFICATION = "server_notification"
-    TITLE_ADD = "title_add"
-    TITLE_REMOVE = "title_remove"
-    UNKNOWN = "unknown"
+    CHECKOUT = u"check_out"
+    CHECKIN = u"check_in"
+    HOLD_PLACE = u"hold_place"
+    HOLD_RELEASE = u"hold_release"
+    LICENSE_ADD = u"license_add"
+    LICENSE_REMOVE = u"license_remove"
+    AVAILABILITY_NOTIFY = u"availability_notify"
+    CIRCULATION_CHECK = u"circulation_check"
+    SERVER_NOTIFICATION = u"server_notification"
+    TITLE_ADD = u"title_add"
+    TITLE_REMOVE = u"title_remove"
+    UNKNOWN = u"unknown"
 
     # The time format used when exporting to JSON.
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%S+00:00"
@@ -5833,10 +5833,10 @@ class Representation(Base):
     of.
     """
 
-    EPUB_MEDIA_TYPE = "application/epub+zip"
-    TEXT_XML_MEDIA_TYPE = "text/xml"
-    APPLICATION_XML_MEDIA_TYPE = "application/xml"
-    JPEG_MEDIA_TYPE = "image/jpeg"
+    EPUB_MEDIA_TYPE = u"application/epub+zip"
+    TEXT_XML_MEDIA_TYPE = u"text/xml"
+    APPLICATION_XML_MEDIA_TYPE = u"application/xml"
+    JPEG_MEDIA_TYPE = u"image/jpeg"
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
@@ -6350,7 +6350,7 @@ class Representation(Base):
 class CustomList(Base):
     """A custom grouping of Editions."""
 
-    STAFF_PICKS_NAME = "Staff Picks"
+    STAFF_PICKS_NAME = u"Staff Picks"
 
     __tablename__ = 'customlists'
     id = Column(Integer, primary_key=True)
