@@ -1,7 +1,6 @@
 from nose.tools import eq_, set_trace
 
 import datetime
-import pkgutil
 
 from model import (
     Edition,
@@ -17,12 +16,16 @@ from axis import (
 
 class TestParsers(object):
 
+    def get_data(filename):
+        path = os.path.join(
+            os.path.split(__file__)[0], "files/axis/", filename)
+        return open(path).read()
+
     def test_bibliographic_parser(self):
         """Make sure the bibliographic information gets properly
         collated in preparation for creating Edition objects.
         """
-
-        data = pkgutil.get_data("tests", "files/axis/tiny_collection.xml")
+        data = self.get_data("tiny_collection.xml")
 
         [bib1, av1], [bib2, av2] = BibliographicParser(
             False, True).process_all(data)
@@ -97,7 +100,7 @@ class TestParsers(object):
         collated in preparation for updating a LicensePool.
         """
 
-        data = pkgutil.get_data("tests", "files/axis/tiny_collection.xml")
+        data = self.get_data("tiny_collection.xml")
 
         [bib1, av1], [bib2, av2] = BibliographicParser(
             True, False).process_all(data)
