@@ -356,12 +356,14 @@ class CSVMetadataImporter(object):
             if not field_name:
                 continue
             if field_name in row:
-                identifier = IdentifierData(
-                    identifier_type, self._field(row, field_name),
-                )
-                identifiers.append(identifier)
-                if not primary_identifier:
-                    primary_identifier = identifier
+                value = self._field(row, field_name)
+                if value:
+                    identifier = IdentifierData(
+                        identifier_type, value
+                    )
+                    identifiers.append(identifier)
+                    if not primary_identifier:
+                        primary_identifier = identifier
 
         subjects = []
         for (field_name, (subject_type, weight)) in self.subject_field.items():
@@ -378,12 +380,13 @@ class CSVMetadataImporter(object):
         contributors = []
         sort_author = self._field(row, self.sort_author_field)
         display_author = self._field(row, self.display_author_field)
-        contributors.append(
-            ContributorData(
-                sort_name=sort_author, display_name=display_author, 
-                roles=[Contributor.AUTHOR_ROLE]
+        if sort_author or display_author:
+            contributors.append(
+                ContributorData(
+                    sort_name=sort_author, display_name=display_author, 
+                    roles=[Contributor.AUTHOR_ROLE]
+                )
             )
-        )
         
         metadata = Metadata(
             data_source=self.data_source_name,
