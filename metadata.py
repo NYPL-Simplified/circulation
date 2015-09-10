@@ -210,7 +210,8 @@ class Metadata(object):
         self.primary_identifier=primary_identifier
         self.identifiers = identifiers
         self.permanent_work_id = None
-        if self.primary_identifier not in self.identifiers:
+        if (self.primary_identifier 
+            and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects
         self.contributors = contributors

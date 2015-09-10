@@ -36,7 +36,7 @@ class CustomListFromCSV(CSVMetadataImporter):
                  first_appearance_field='timestamp',
                  **kwargs
              ):
-        super(CustomListForCSV, self).__init__(**kwargs)
+        super(CustomListFromCSV, self).__init__(**kwargs)
         self.data_source_name = data_source_name
         self.foreign_identifier = list_name
         self.list_name = list_name

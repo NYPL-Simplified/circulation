@@ -1420,20 +1420,22 @@ class TestHold(DatabaseTest):
         edition = self._edition()
         pool = self._licensepool(edition)
 
-        hold, is_new = pool.on_hold_to(patron, now, later, 4)
-        eq_(True, is_new)
-        eq_(now, hold.start)
-        eq_(None, hold.end)
-        eq_(4, hold.position)
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            hold, is_new = pool.on_hold_to(patron, now, later, 4)
+            eq_(True, is_new)
+            eq_(now, hold.start)
+            eq_(None, hold.end)
+            eq_(4, hold.position)
 
-        # Now update the position to 0. It's the patron's turn
-        # to check out the book.
-        hold, is_new = pool.on_hold_to(patron, now, later, 0)
-        eq_(False, is_new)
-        eq_(now, hold.start)
-        # The patron has until `hold.end` to actually check out the book.
-        eq_(later, hold.end)
-        eq_(0, hold.position)
+            # Now update the position to 0. It's the patron's turn
+            # to check out the book.
+            hold, is_new = pool.on_hold_to(patron, now, later, 0)
+            eq_(False, is_new)
+            eq_(now, hold.start)
+            # The patron has until `hold.end` to actually check out the book.
+            eq_(later, hold.end)
+            eq_(0, hold.position)
 
     def test_calculate_until(self):
         start = datetime.datetime(2010, 1, 1)
