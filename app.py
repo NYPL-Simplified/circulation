@@ -1313,6 +1313,16 @@ def borrow(data_source, identifier):
         status_code = 200
     return Response(content, status_code, headers)
 
+# Loadstorm verification
+@app.route('/loadstorm-<code>.html')
+def loadstorm_verify(code):
+    set_trace()
+    c = Configuration.integration("Loadstorm", required=True)
+    if code == c['verification_code']:
+        return Response("", 200)
+    else:
+        return Response("", 404)
+
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
 @requires_auth
