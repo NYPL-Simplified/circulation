@@ -424,10 +424,10 @@ class CSVMetadataImporter(object):
     ]
 
     DEFAULT_IDENTIFIER_FIELD_NAMES = {
-        Identifier.OVERDRIVE_ID : ("overdrive id", 0.75)
-        Identifier.THREEM_ID : ("3m id", 0.75)
-        Identifier.AXIS_360_ID : ("axis 360 id", 0.75)
-        Identifier.ISBN : ("isbn", 0.75)
+        Identifier.OVERDRIVE_ID : ("overdrive id", 0.75),
+        Identifier.THREEM_ID : ("3m id", 0.75),
+        Identifier.AXIS_360_ID : ("axis 360 id", 0.75),
+        Identifier.ISBN : ("isbn", 0.75),
     }
    
     DEFAULT_SUBJECT_FIELD_NAMES = {
