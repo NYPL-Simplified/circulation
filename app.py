@@ -1316,7 +1316,6 @@ def borrow(data_source, identifier):
 # Loadstorm verification
 @app.route('/loadstorm-<code>.html')
 def loadstorm_verify(code):
-    set_trace()
     c = Configuration.integration("Loadstorm", required=True)
     if code == c['verification_code']:
         return Response("", 200)
