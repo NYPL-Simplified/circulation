@@ -260,7 +260,7 @@ class Metadata(object):
         """
         if (not self.primary_identifier or not self.permanent_work_id):
             # We don't have the information necessary to carry out this
-            # method.
+            # task.
             return
 
         # Try to find the primary identifiers of other Editions with
@@ -424,10 +424,10 @@ class CSVMetadataImporter(object):
     ]
 
     DEFAULT_IDENTIFIER_FIELD_NAMES = {
-        Identifier.OVERDRIVE_ID : "overdrive id",
-        Identifier.THREEM_ID : "3m id",
-        Identifier.AXIS_360_ID : "axis 360 id",
-        Identifier.ISBN : "isbn"
+        Identifier.OVERDRIVE_ID : ("overdrive id", 0.75)
+        Identifier.THREEM_ID : ("3m id", 0.75)
+        Identifier.AXIS_360_ID : ("axis 360 id", 0.75)
+        Identifier.ISBN : ("isbn", 0.75)
     }
    
     DEFAULT_SUBJECT_FIELD_NAMES = {
@@ -479,7 +479,7 @@ class CSVMetadataImporter(object):
 
         # Make sure this CSV file has some way of identifying books.
         found_identifier_field = False
-        for field_name in self.identifier_field.values():
+        for field_name, weight in self.identifier_field.values():
             if field_name in fields:
                 found_identifier_field = True
                 break
@@ -509,14 +509,14 @@ class CSVMetadataImporter(object):
         primary_identifier = None
         identifiers = []
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
-            field_name = self.identifier_field.get(identifier_type)
+            field_name, weight = self.identifier_field.get(identifier_type)
             if not field_name:
                 continue
             if field_name in row:
                 value = self._field(row, field_name)
                 if value:
                     identifier = IdentifierData(
-                        identifier_type, value
+                        identifier_type, value, weight=weight
                     )
                     identifiers.append(identifier)
                     if not primary_identifier:
