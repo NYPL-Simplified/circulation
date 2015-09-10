@@ -228,26 +228,5 @@ class TitleFromExternalList(object):
             replace_contributions=overwrite_old_data
         )
 
-        # This is commented out because using the list annotation as
-        # the description means the annotation might show up twice.
-        #
-        # If you really want to set a description for a book, it
-        # should be input as a description, not a list annotation,
-        # and it should go into the Metadata object.
-        #
-        # # Set or update the description.
-        # if overwrite_old_data:
-        #     for h in self.primary_identifier.links:
-        #         if (h.data_source==edition.data_source
-        #             and h.rel==Hyperlink.DESCRIPTION):
-        #             _db.delete(h.resource.representation)
-        #             _db.delete(h.resource)
-        #             _db.delete(h)
-
-        # if self.description:
-        #     description, is_new = self.primary_identifier.add_link(
-        #         Hyperlink.DESCRIPTION, None, data_source, 
-        #         media_type='text/plain', content=self.description)
-
         self.metadata.associate_with_identifiers_based_on_permanent_work_id(_db)
         return edition
