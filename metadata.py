@@ -9,6 +9,7 @@ the information into this format.
 
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
+from dateutil.parser import parse
 
 import csv
 import datetime

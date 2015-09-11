@@ -97,7 +97,6 @@ class TestCustomListFromCSV(DatabaseTest):
 
     def test_metadata_to_list_entry_complete_success(self):
         row = self.create_row("Octavia Butler")
-        set_trace()
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
