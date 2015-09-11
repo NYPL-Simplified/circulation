@@ -13,6 +13,11 @@ from sqlalchemy.orm.exc import (
 from opds_import import SimplifiedOPDSLookup
 
 from config import Configuration
+from metadata import (
+    Metadata,
+    IdentifierData,
+    ContributorData,
+)
 from model import (
     get_one_or_create,
     CustomList,
@@ -207,47 +212,53 @@ class NYTBestSellerListTitle(TitleFromExternalList):
 
     def __init__(self, data):
         data = data
-        for i in ('bestsellers_date', 'published_date'):
-            try:
-                value = NYTAPI.parse_date(data.get(i))
-            except ValueError, e:
-                value = None
-            setattr(self, i, value)
-
-        if hasattr(self, 'bestsellers_date'):
-            first_appearance = self.bestsellers_date
-            most_recent_appearance = self.bestsellers_date
-        else:
+        try:
+            bestsellers_date = NYTAPI.parse_date(data.get('bestsellers_date'))
+            first_appearance = bestsellers_date
+            most_recent_appearance = bestsellers_date
+        except ValueError, e:
             first_appearance = None
             most_recent_appearance = None
 
-        isbns = [
-            (Identifier.ISBN, x['isbn13'])
-            for x in data['isbns'] if 'isbn13' in x
-        ]
+        try:
+            published_date = NYTAPI.parse_date(data.get('published_date'))
+        except ValueError, e:
+            published_date = None
 
         details = data['book_details']
-        if len(details) > 0:
-            for i in (
-                    'publisher', 'description', 'primary_isbn10',
-                    'primary_isbn13', 'title'):
-                value = details[0].get(i, None)
-                if value == 'None':
-                    value = None
-                setattr(self, i, value)
+        if len(details) == 0:
+            publisher = annotation = primary_isbn10 = primary_isbn13 = title = None
+            display_author = None
+        else:
+            d = details[0]
+            title = d.get('title', None)
+            display_author = d.get('author', None)
+            publisher = d.get('publisher', None)
+            annotation = d.get('description', None)
+            primary_isbn10 = d.get('primary_isbn10', None)
+            primary_isbn13 = d.get('primary_isbn13', None)
 
-        primary_isbn = details[0].get('primary_isbn13')
-        if not primary_isbn:
-            primary_isbn = details[0].get('primary_isbn10')
+        primary_isbn = primary_isbn13 or primary_isbn10
+        if primary_isbn:
+            primary_isbn = IdentifierData(Identifier.ISBN, primary_isbn, 0.90)
 
-        primary_isbn = (Identifier.ISBN, primary_isbn)
+        contributors = []
+        if display_author:
+            contributors.append(
+                ContributorData(display_name=display_author)
+            )
 
-        # Don't call the display name of the author 'author'; it's
-        # confusing.
-        display_author = details[0].get('author', None)
+        metadata = Metadata(
+            data_source=DataSource.NYT,
+            title=title, 
+            language='eng',
+            published=published_date,
+            publisher=publisher,
+            contributors=contributors,
+            primary_identifier=primary_isbn,
+        )
 
         super(NYTBestSellerListTitle, self).__init__(
-            DataSource.NYT, self.title, display_author,
-            primary_isbn,
-            self.published_date, first_appearance, most_recent_appearance,
-            self.publisher, self.description, 'eng', isbns)
+            metadata, first_appearance, most_recent_appearance,
+            annotation
+        )

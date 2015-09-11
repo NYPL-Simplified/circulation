@@ -37,13 +37,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
     DATE_FORMAT = "%Y/%m/%d %H:%M:%S"
 
-    def test_to_list(self):
-        eq_([], self.l.to_list(None))
-        eq_([], self.l.to_list(""))
-        eq_(["foo"], self.l.to_list("foo"))
-        eq_(["foo", "bar"], self.l.to_list("foo, bar"))
-
-    def create_row(self, author=None):
+    def create_row(self, display_author=None):
         """Create a dummy row for this tests's custom list."""
         l = self.l
         row = dict()
@@ -52,16 +46,21 @@ class TestCustomListFromCSV(DatabaseTest):
                           l.annotation_author_affiliation_field):
             row[scalarkey] = self._str
 
-        author = author or self._str
-        row[l.author_field] = author
+        display_author = display_author or self._str
+        fn = l.display_author_field
+        if isinstance(fn, list):
+            fn = fn[0]
+        row[fn] = display_author
         row['isbn'] = self._isbn
 
-        for listkey in (l.audience_fields, l.tag_fields):
+        for listkey in l.subject_fields.keys():
             for key in listkey:
                 row[key] = ", ".join([self._str, self._str])
 
         for timekey in (l.first_appearance_field, 
-                        l.publication_date_field):
+                        l.published_field):
+            if isinstance(timekey, list):
+                timekey = timekey[0]
             row[timekey] = self._time.strftime(self.DATE_FORMAT)
         return row
 
@@ -82,7 +81,7 @@ class TestCustomListFromCSV(DatabaseTest):
         title, warnings = self.l.row_to_title(self.data_source, self.now, row)
         eq_([], warnings)
         eq_(row[self.l.title_field], title.title)
-        eq_(row[self.l.author_field], title.display_author)
+        eq_(row[self.l.display_author_field], title.display_author)
         eq_(('ISBN', row['isbn']), title.primary_identifier)
 
         expect_pub = datetime.datetime.strptime(
@@ -90,7 +89,7 @@ class TestCustomListFromCSV(DatabaseTest):
         expect_first = datetime.datetime.strptime(
             row[self.l.first_appearance_field], self.DATE_FORMAT)
 
-        eq_(expect_pub, title.published_date)
+        eq_(expect_pub, title.published)
         eq_(expect_first, title.first_appearance)
         eq_(self.now, title.most_recent_appearance)
         eq_(self.l.default_language, title.language)
@@ -156,7 +155,7 @@ class TestCustomListFromCSV(DatabaseTest):
         row1 = self.create_row()
         row2 = self.create_row()
         row3 = self.create_row()
-        for f in self.l.title_field, self.l.author_field, 'isbn':
+        for f in self.l.title_field, self.l.sort_author_field, 'isbn':
             row2[f] = row1[f]
             row3[f] = row1[f]
 

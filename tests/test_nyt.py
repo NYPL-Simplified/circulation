@@ -94,7 +94,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(list_name, l.foreign_identifier)
 
         # Let's do a spot check on the list items.
-        title = [x for x in l if x.title=='THE GIRL ON THE TRAIN'][0]
+        title = [x for x in l if x.metadata.title=='THE GIRL ON THE TRAIN'][0]
         eq_("9780698185395", title.primary_isbn13)
         eq_("0698185390", title.primary_isbn10)
         eq_(

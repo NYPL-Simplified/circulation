@@ -37,7 +37,7 @@ class ContributorData(object):
                  lc=None, viaf=None):
         self.sort_name = sort_name
         self.display_name = display_name
-        roles = roles or AUTHOR_ROLE
+        roles = roles or Contributor.AUTHOR_ROLE
         if not isinstance(roles, list):
             roles = [roles]
         self.roles = roles
@@ -208,7 +208,7 @@ class Metadata(object):
         self.published = published
 
         self.primary_identifier=primary_identifier
-        self.identifiers = identifiers
+        self.identifiers = identifiers or []
         self.permanent_work_id = None
         if (self.primary_identifier 
             and self.primary_identifier not in self.identifiers):
@@ -229,7 +229,7 @@ class Metadata(object):
         into a sort name--thus the `metadata_client` argument.
         """
         primary_author = None
-        for tier in Contributor.author_contributor_tiers:
+        for tier in Contributor.author_contributor_tiers():
             for c in self.contributors:
                 for role in tier:
                     if role in c.roles:
@@ -450,8 +450,8 @@ class CSVMetadataImporter(object):
             imprint_field='imprint',
             issued_field='issued',
             published_field=['published', 'publication year'],
-            identifier_field=DEFAULT_IDENTIFIER_FIELD_NAMES,
-            subject_field=DEFAULT_SUBJECT_FIELD_NAMES,
+            identifier_fields=DEFAULT_IDENTIFIER_FIELD_NAMES,
+            subject_fields=DEFAULT_SUBJECT_FIELD_NAMES,
             sort_author_field='file author as',
             display_author_field=['author', 'display author as']
     ):
@@ -466,8 +466,8 @@ class CSVMetadataImporter(object):
         self.imprint_field = imprint_field
         self.issued_field = issued_field
         self.published_field = published_field
-        self.identifier_field = identifier_field
-        self.subject_field = subject_field
+        self.identifier_fields = identifier_fields
+        self.subject_fields = subject_fields
         self.sort_author_field = sort_author_field
         self.display_author_field = display_author_field
 
@@ -480,12 +480,12 @@ class CSVMetadataImporter(object):
 
         # Make sure this CSV file has some way of identifying books.
         found_identifier_field = False
-        for field_name, weight in self.identifier_field.values():
+        for field_name, weight in self.identifier_fields.values():
             if field_name in fields:
                 found_identifier_field = True
                 break
         if not found_identifier_field:
-            possibilities = ", ".join(self.identifier_field.keys())
+            possibilities = ", ".join(self.identifier_fields.keys())
             raise CSVFormatError(
                 "Could not find a primary identifier field. Possibilities: %s." %
                 possibilities
@@ -510,7 +510,7 @@ class CSVMetadataImporter(object):
         primary_identifier = None
         identifiers = []
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
-            field_name, weight = self.identifier_field.get(identifier_type)
+            field_name, weight = self.identifier_fields.get(identifier_type)
             if not field_name:
                 continue
             if field_name in row:
@@ -524,7 +524,7 @@ class CSVMetadataImporter(object):
                         primary_identifier = identifier
 
         subjects = []
-        for (field_name, (subject_type, weight)) in self.subject_field.items():
+        for (field_name, (subject_type, weight)) in self.subject_fields.items():
             values = self.list_field(row, field_name)
             for value in values:
                 subjects.append(
@@ -568,7 +568,7 @@ class CSVMetadataImporter(object):
     def identifier_field_names(self):
         """All potential field names that would identify an identifier."""
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
-            field_names = self.identifier_field.get(identifier_type, [])
+            field_names = self.identifier_fields.get(identifier_type, [])
             if isinstance(field_names, basestring):
                 field_names = [field_names]
             for field_name in field_names:

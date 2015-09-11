@@ -36,8 +36,7 @@ class CustomListFromCSV(CSVMetadataImporter):
                  first_appearance_field='timestamp',
                  **kwargs
              ):
-        super(CustomListFromCSV, self).__init__(**kwargs)
-        self.data_source_name = data_source_name
+        super(CustomListFromCSV, self).__init__(data_source_name, **kwargs)
         self.foreign_identifier = list_name
         self.list_name = list_name
         self.overwrite_old_data=overwrite_old_data
@@ -222,7 +221,7 @@ class TitleFromExternalList(object):
         edition, is_new = self.metadata.edition(_db)
         self.metadata.apply(
             edition=edition, 
-            metadata_client=metdata_client,
+            metadata_client=metadata_client,
             replace_identifiers=overwrite_old_data,
             replace_subjects=overwrite_old_data, 
             replace_contributions=overwrite_old_data
