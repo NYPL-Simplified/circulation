@@ -789,7 +789,7 @@ def acquisition_groups(lane):
     feed_xml = feed_rep.content
     b = time.time()
     Conf.log.info(
-        "That took %.2f, cached=%r, size=", b-a, cached, len(feed_xml)
+        "That took %.2f, cached=%r, size=%s", b-a, cached, len(feed_xml)
     )
     return feed_response(feed_xml, acquisition=True)
 
