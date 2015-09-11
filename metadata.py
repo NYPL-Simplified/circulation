@@ -45,7 +45,7 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
 
-    def find_sort_name(cls, _db, identifiers, metadata_client):
+    def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
         """
         if self.sort_name:
@@ -58,7 +58,7 @@ class ContributorData(object):
 
         # Is there a contributor already in the database with this
         # exact sort name? If so, use their display name.
-        sort_name = cls.sort_name_for_display_name(_db, self.display_name)
+        sort_name = self.display_name_to_sort_name(_db, self.display_name)
         if sort_name:
             self.sort_name = sort_name
             return True
@@ -95,7 +95,7 @@ class ContributorData(object):
     def display_name_to_sort_name_through_canonicalizer(
             self, _db, identifiers, metadata_client):
         for identifier in identifiers:
-            if identifier.type != Identifier.ISBN_TYPE:
+            if identifier.type != Identifier.ISBN:
                 continue
             response = metadata_client.canonicalize_author_name(
                 identifier.identifier, self.display_name)
@@ -223,14 +223,14 @@ class Metadata(object):
             if not contributor.sort_name:
                 contributor.normalize(metadata_client)
 
-    def calculate_permanent_work_id(self, metadata_client):
+    def calculate_permanent_work_id(self, _db, metadata_client):
         """Try to calculate a permanent work ID from this metadata.
 
         This may require asking a metadata wrangler to turn a display name
         into a sort name--thus the `metadata_client` argument.
         """
         primary_author = None
-        for tier in Edition.author_contributor_tiers():
+        for tier in Contributor.author_contributor_tiers():
             for c in self.contributors:
                 for role in tier:
                     if role in c.roles:
@@ -291,6 +291,10 @@ class Metadata(object):
         return self.data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
+        if not self.primary_identifier:
+            raise ValueError(
+                "Cannot find edition: metadata has no primary identifier."
+            )
         return Edition.for_foreign_id(
             _db, self.data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier, 
@@ -298,6 +302,10 @@ class Metadata(object):
         )        
 
     def license_pool(self, _db):
+        if not self.primary_identifier:
+            raise ValueError(
+                "Cannot find license pool: metadata has no primary identifier."
+            )
         return LicensePool.for_foreign_id(
             _db, self.data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier
@@ -312,10 +320,10 @@ class Metadata(object):
     ):
         """Apply this metadata to the given edition."""
 
-        if metadata_client and not self.permanent_work_id:
-            self.calculate_permanent_work_id(metadata_client)
-
         _db = Session.object_session(edition)
+        if metadata_client and not self.permanent_work_id:
+            self.calculate_permanent_work_id(_db, metadata_client)
+
         __transaction = _db.begin_nested()
 
         identifier = edition.primary_identifier
@@ -375,10 +383,11 @@ class Metadata(object):
                 __transaction.flush()
 
         # Apply all specified subjects to the identifier.
-        for subject in self.subjects:
-            identifier.classify(
-                data_source, subject.type, subject.identifier, 
-                subject.name, weight=subject.weight)
+        if self.subjects:
+            for subject in self.subjects:
+                identifier.classify(
+                    data_source, subject.type, subject.identifier, 
+                    subject.name, weight=subject.weight)
 
         if replace_contributions:
             dirty = False
@@ -510,10 +519,21 @@ class CSVMetadataImporter(object):
 
         primary_identifier = None
         identifiers = []
+        # TODO: This is annoying and could use some work.
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
-            field_name, weight = self.identifier_fields.get(identifier_type)
-            if not field_name:
+            correct_type = False
+            for target_type, v in self.identifier_fields.items():
+                if isinstance(v, tuple):
+                    field_name, weight = v
+                else:
+                    field_name = v
+                    weight = 1
+                if target_type == identifier_type:
+                    correct_type = True
+                    break
+            if not correct_type:
                 continue
+
             if field_name in row:
                 value = self._field(row, field_name)
                 if value:

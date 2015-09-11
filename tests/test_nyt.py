@@ -95,19 +95,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         # Let's do a spot check on the list items.
         title = [x for x in l if x.metadata.title=='THE GIRL ON THE TRAIN'][0]
-        eq_("9780698185395", title.primary_isbn13)
-        eq_("0698185390", title.primary_isbn10)
-        eq_(
-            [('ISBN', u'9780698185395'), ('ISBN', u'9781594633669')],
-            sorted(title.identifiers)
-        )
+        [isbn] = title.metadata.identifiers
+        eq_("ISBN", isbn.type)
+        eq_("9780698185395", isbn.identifier)
 
-        eq_("Paula Hawkins", title.display_author)
-        eq_("Riverhead", title.publisher)
+        [contributor] = title.metadata.contributors
+        eq_("Paula Hawkins", contributor.display_name)
+        eq_("Riverhead", title.metadata.publisher)
         eq_("A psychological thriller set in London is full of complications and betrayals.", 
-            title.description)
-        eq_(datetime.datetime(2015, 1, 17), title.bestsellers_date)
-        eq_(datetime.datetime(2015, 2, 01), title.published_date)
+            title.annotation)
+        eq_(datetime.datetime(2015, 1, 17), title.most_recent_appearance)
+        eq_(datetime.datetime(2015, 2, 01), title.metadata.published)
 
     def test_historical_dates(self):
         """This list was published 208 times since the start of the API,

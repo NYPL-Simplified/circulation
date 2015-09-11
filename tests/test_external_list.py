@@ -30,7 +30,7 @@ class TestCustomListFromCSV(DatabaseTest):
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'
         self.l = CustomListFromCSV(self.data_source.name, "Test list",
                                    metadata_client = self.metadata,
-                                   identifier_fields={'isbn': Identifier.ISBN})
+                                   identifier_fields={Identifier.ISBN: "isbn"})
         self.custom_list, ignore = self._customlist(
             data_source_name=self.data_source.name, num_entries=0)
         self.now = datetime.datetime.utcnow()
@@ -53,9 +53,8 @@ class TestCustomListFromCSV(DatabaseTest):
         row[fn] = display_author
         row['isbn'] = self._isbn
 
-        for listkey in l.subject_fields.keys():
-            for key in listkey:
-                row[key] = ", ".join([self._str, self._str])
+        for key in l.subject_fields.keys():
+            row[key] = ", ".join([self._str, self._str])
 
         for timekey in (l.first_appearance_field, 
                         l.published_field):
@@ -78,21 +77,20 @@ class TestCustomListFromCSV(DatabaseTest):
     def test_row_to_title_complete_success(self):
 
         row = self.create_row()
-        title, warnings = self.l.row_to_title(self.data_source, self.now, row)
-        eq_([], warnings)
-        eq_(row[self.l.title_field], title.title)
-        eq_(row[self.l.display_author_field], title.display_author)
-        eq_(('ISBN', row['isbn']), title.primary_identifier)
+        title = self.l.row_to_title(self.now, row)
+        eq_(row[self.l.title_field], title.metadata.title)
+        eq_(row['author'], title.metadata.contributors[0].display_name)
+        eq_(row['isbn'], title.metadata.identifiers[0].identifier)
 
         expect_pub = datetime.datetime.strptime(
-            row[self.l.publication_date_field], self.DATE_FORMAT)
+            row['published'], self.DATE_FORMAT)
         expect_first = datetime.datetime.strptime(
             row[self.l.first_appearance_field], self.DATE_FORMAT)
 
-        eq_(expect_pub, title.published)
+        eq_(expect_pub, title.metadata.published)
         eq_(expect_first, title.first_appearance)
         eq_(self.now, title.most_recent_appearance)
-        eq_(self.l.default_language, title.language)
+        eq_(self.l.default_language, title.metadata.language)
 
 
     def test_metadata_to_list_entry_complete_success(self):
@@ -100,7 +98,7 @@ class TestCustomListFromCSV(DatabaseTest):
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        e = list_item.edition
+        e = list_entry.edition
 
         eq_(row[self.l.title_field], e.title)
         eq_("Octavia Butler", e.author)
@@ -131,23 +129,27 @@ class TestCustomListFromCSV(DatabaseTest):
         row = self.create_row("Octavia Butler")
         work = self._work(title=row[self.l.title_field],
                           authors=['Butler, Octavia'])
-        status, warnings, list_item = self.l.row_to_list_item(
+        metadata = self.l.row_to_metadata(row)
+        list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        eq_("Found matching work in collection.", status)
+        # TODO: this needs an assertion
+        set_trace()
 
     def test_non_default_language(self):
         row = self.create_row()
         row[self.l.language_field] = 'Spanish'
-        status, warnings, list_item = self.l.row_to_list_item(
+        metadata = self.l.row_to_metadata(row)
+        list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        eq_('spa', list_item.edition.language)
+        eq_('spa', list_entry.edition.language)
 
     def test_non_default_language(self):
         row = self.create_row()
         row[self.l.language_field] = 'Spanish'
-        status, warnings, list_item = self.l.row_to_list_item(
+        metadata = self.l.row_to_metadata(row)
+        list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        eq_('spa', list_item.edition.language)
+        eq_('spa', list_entry.edition.language)
 
     def test_overwrite_old_data(self):
         self.l.overwrite_old_data = True
@@ -158,18 +160,20 @@ class TestCustomListFromCSV(DatabaseTest):
             row2[f] = row1[f]
             row3[f] = row1[f]
 
-        status1, warnings1, list_item1 = self.l.row_to_list_item(
-            self.custom_list, self.data_source, self.now, row1)
+        metadata = self.l.row_to_metadata(row)
+        list_entry_1 = self.l.metadata_to_list_entry(
+            self.custom_list, self.data_source, self.now, row)
 
         # Import from the second row, and (e.g.) the new description
         # will overwrite the old description.
-        
-        status2, warnings2, list_item2 = self.l.row_to_list_item(
+
+        metadata = self.l.row_to_metadata(row)
+        list_entry_2 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row2)
 
-        eq_(list_item1, list_item2)
+        eq_(list_entry_1, list_entry_2)
 
-        i = list_item1.edition.primary_identifier
+        i = list_entry_1.edition.primary_identifier
         [link] = i.links
         content = link.resource.representation.content
         assert content.decode("utf8").startswith(row2[self.l.annotation_field])
@@ -181,9 +185,11 @@ class TestCustomListFromCSV(DatabaseTest):
         # Now import from the third row, but with
         # overwrite_old_data set to False.
         self.l.overwrite_old_data = False
-        status3, warnings3, list_item3 = self.l.row_to_list_item(
+
+        metadata = self.l.row_to_metadata(row)
+        list_entry_3 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row3)
-        eq_(list_item3, list_item1)
+        eq_(list_entry_3, list_entry_1)
 
         # Now there are 12 classifications and 2 descriptions.
         eq_(2, len(i.links))
