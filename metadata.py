@@ -229,7 +229,7 @@ class Metadata(object):
         into a sort name--thus the `metadata_client` argument.
         """
         primary_author = None
-        for tier in Contributor.author_contributor_tiers():
+        for tier in Edition.author_contributor_tiers():
             for c in self.contributors:
                 for role in tier:
                     if role in c.roles:

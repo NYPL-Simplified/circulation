@@ -95,12 +95,12 @@ class TestCustomListFromCSV(DatabaseTest):
         eq_(self.l.default_language, title.language)
 
 
-    def test_row_to_list_item_complete_success(self):
+    def test_metadata_to_list_entry_complete_success(self):
         row = self.create_row("Octavia Butler")
-        status, warnings, list_item = self.l.row_to_list_item(
+        set_trace()
+        metadata = self.l.row_to_metadata(row)
+        list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        eq_([], warnings)
-        eq_('No matching work found.', status)
         e = list_item.edition
 
         eq_(row[self.l.title_field], e.title)
