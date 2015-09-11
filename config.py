@@ -89,6 +89,8 @@ class Configuration(object):
     THREEM_INTEGRATION = "3M"
     AXIS_INTEGRATION = "Axis 360"
 
+    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+
     S3_INTEGRATION = "S3"
     S3_ACCESS_KEY = "access_key"
     S3_SECRET_KEY = "secret_key"
@@ -209,6 +211,10 @@ class Configuration(object):
     def logging_policy(cls):
         default_logging = {}
         return cls.get(cls.LOGGING, default_logging)
+
+    @classmethod
+    def minimum_featured_quality(cls):
+        return float(cls.policy(cls.MINIMUM_FEATURED_QUALITY, 0.65))
 
     # Methods for loading the configuration from disk.
 

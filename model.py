@@ -4780,7 +4780,7 @@ class Lane(object):
             )
             if random_sample:
                 offset = random.random()
-                # print "Offset: %.2f" % offset
+                # logging.debug("Random offset=%.2f", offset)
                 if offset < 0.5:
                     query = query.filter(Work.random >= offset)
                 else:
@@ -4794,9 +4794,11 @@ class Lane(object):
             start = time.time()
             # logging.debug(dump_query(query))
             r = query.all()
+            #for i in r[:remaining]:
+            #    logging.debug("%s (random=%.2f quality=%.2f)", i.title, i.random, i.quality)
             results.extend(r[:remaining])
             logging.debug(
-                "%s: Quality %.1f got us to %d results in %.2fsec",
+                "%s: Quality %.2f got us to %d results in %.2fsec",
                 self.name, quality_min, len(results), time.time()-start
             )
 
