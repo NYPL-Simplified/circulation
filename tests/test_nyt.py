@@ -104,8 +104,8 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_("Riverhead", title.metadata.publisher)
         eq_("A psychological thriller set in London is full of complications and betrayals.", 
             title.annotation)
-        eq_(datetime.datetime(2015, 1, 17), title.most_recent_appearance)
-        eq_(datetime.datetime(2015, 2, 01), title.metadata.published)
+        eq_(datetime.datetime(2015, 1, 17), title.first_appearance)
+        eq_(datetime.datetime(2015, 2, 1), title.most_recent_appearance)
 
     def test_historical_dates(self):
         """This list was published 208 times since the start of the API,
@@ -177,20 +177,10 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
          ], sorted(equivalent_identifiers))
 
         eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
-        eq_("Paula Hawkins", edition.author)
-        # Note that this is None; the next test shows when it gets set.
-        eq_(None, edition.sort_author)
-        eq_(None, edition.permanent_work_id)
+        eq_("Paula Hawkins", edition.display_author)
+        eq_(None, edition.author)
         eq_("Riverhead", edition.publisher)
 
-        [description] = self._db.query(Resource).join(Resource.links).filter(
-            Hyperlink.data_source==edition.data_source).filter(
-                Hyperlink.identifier==edition.primary_identifier).filter(
-                    Hyperlink.rel==Hyperlink.DESCRIPTION)
-        representation = description.representation
-        eq_("A psychological thriller set in London is full of complications and betrayals.", representation.content)
-        eq_("text/plain", representation.media_type)
-        
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
             self._db, u"Hawkins, Paula")
@@ -199,6 +189,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         title = NYTBestSellerListTitle(self.one_list_title)
         edition = title.to_edition(self._db, self.metadata_client)
         eq_(contributor.name, edition.sort_author)
+        eq_(contributor.display_name, edition.display_author)
         assert edition.permanent_work_id is not None
 
     def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):

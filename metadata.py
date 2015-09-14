@@ -338,7 +338,6 @@ class Metadata(object):
             replace_contributions=False,
     ):
         """Apply this metadata to the given edition."""
-
         _db = Session.object_session(edition)
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
@@ -433,12 +432,10 @@ class Metadata(object):
                     contributor.display_name = contributor_data.display_name
 
             else:
-                log = logging.getLogger("Abstract metadata layer")
-                log.info(
+                self.log.info(
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
-            roles = contributor_data.roles
 
         # Make sure the work we just did shows up.
         if edition.work:
@@ -451,8 +448,15 @@ class Metadata(object):
             # we know the display name of the author but weren't able
             # to normalize that name.
             primary_author = self.primary_author
-            edition.sort_author = primary_author.sort_name
-            edition.display_author = primary_author.display_name
+            if primary_author:
+                self.log.info(
+                    "In the absence of Contributor objects, setting Edition author name to %s/%s",
+                    primary_author.sort_name,
+                    primary_author.display_name
+                )
+                edition.sort_author = primary_author.sort_name
+                edition.display_author = primary_author.display_name
+        return edition
 
 class CSVFormatError(csv.Error):
     pass
