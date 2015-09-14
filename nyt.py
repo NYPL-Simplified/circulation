@@ -172,13 +172,14 @@ class NYTBestSellerList(list):
                 item = None
                 continue
 
+            # This is the date the *best-seller list* was published,
+            # not the date the book was published.
             list_date = NYTAPI.parse_date(li_data['published_date'])
             if not item.first_appearance or list_date < item.first_appearance:
                 item.first_appearance = list_date 
             if (not item.most_recent_appearance 
                 or list_date > item.most_recent_appearance):
                 item.most_recent_appearance = list_date
-
 
     def to_customlist(self, _db):
         """Turn this NYTBestSeller list into a CustomList object."""

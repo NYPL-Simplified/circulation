@@ -135,9 +135,8 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
 
-        february_2 = datetime.datetime(2015,2,1)
         eq_(True,
-            all([x.most_recent_appearance == february_2 for x in custom.entries]))
+            all([x.most_recent_appearance == january_17 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's

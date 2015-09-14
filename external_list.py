@@ -226,6 +226,5 @@ class TitleFromExternalList(object):
             replace_subjects=overwrite_old_data, 
             replace_contributions=overwrite_old_data
         )
-
         self.metadata.associate_with_identifiers_based_on_permanent_work_id(_db)
         return edition

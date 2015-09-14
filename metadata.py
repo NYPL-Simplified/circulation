@@ -126,7 +126,7 @@ class IdentifierData(object):
         self.weight = 1
 
     def load(self, _db):
-        return Identifier.for_foreign_identifier(
+        return Identifier.for_foreign_id(
             _db, self.type, self.identifier
         )
 
@@ -223,12 +223,8 @@ class Metadata(object):
             if not contributor.sort_name:
                 contributor.normalize(metadata_client)
 
-    def calculate_permanent_work_id(self, _db, metadata_client):
-        """Try to calculate a permanent work ID from this metadata.
-
-        This may require asking a metadata wrangler to turn a display name
-        into a sort name--thus the `metadata_client` argument.
-        """
+    @property
+    def primary_author(self):
         primary_author = None
         for tier in Contributor.author_contributor_tiers():
             for c in self.contributors:
@@ -240,6 +236,15 @@ class Metadata(object):
                     break
             if primary_author:
                 break
+        return primary_author
+
+    def calculate_permanent_work_id(self, _db, metadata_client):
+        """Try to calculate a permanent work ID from this metadata.
+
+        This may require asking a metadata wrangler to turn a display name
+        into a sort name--thus the `metadata_client` argument.
+        """
+        primary_author = self.primary_author
 
         if not primary_author:
             return None, None
@@ -265,6 +270,8 @@ class Metadata(object):
             # task.
             return
 
+        primary_identifier_obj = self.primary_identifier.load(_db)
+
         # Try to find the primary identifiers of other Editions with
         # the same permanent work ID, representing books already in
         # our collection.
@@ -280,9 +287,9 @@ class Metadata(object):
             if same_work_id != self.primary_identifier:
                 self.log.info(
                     "Discovered that %r is equivalent to %r because of matching permanent work ID %s",
-                    same_work_id, self.primary_identifier, permanent_work_id
+                    same_work_id, primary_identifier_obj, self.permanent_work_id
                 )
-                self.primary_identifier.equivalent_to(
+                primary_identifier_obj.equivalent_to(
                     self.data_source(_db), same_work_id, 0.85)
 
     def data_source(self, _db):
@@ -323,8 +330,6 @@ class Metadata(object):
         _db = Session.object_session(edition)
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
-
-        __transaction = _db.begin_nested()
 
         identifier = edition.primary_identifier
         self.log.info(
@@ -380,7 +385,6 @@ class Metadata(object):
                     surviving_classifications.append(classification)
             if dirty:
                 identifier.classifications = surviving_classifications
-                __transaction.flush()
 
         # Apply all specified subjects to the identifier.
         if self.subjects:
@@ -399,17 +403,31 @@ class Metadata(object):
                     _db.delete(contribution)
                     dirty = True
                 edition.contributions = surviving_contributions
-            if dirty:
-                __transaction.flush()
-            for contributor_data in self.contributors:
+
+        primary_author_display = None
+        primary_author_sort = None
+        for contributor_data in self.contributors:
+            contributor_data.find_sort_name(
+                _db, self.identifiers, metadata_client
+            )
+            if (contributor_data.sort_name
+                or contributor_data.lc 
+                or contributor_data.viaf):
                 contributor = edition.add_contributor(
                     name=contributor_data.sort_name, 
                     roles=contributor_data.roles,
                     lc=contributor_data.lc, 
                     viaf=contributor_data.viaf
                 )
-                if contributor_data.display_name:
-                    contributor.display_name = display_name
+            else:
+                log = logging.getLogger("Abstract metadata layer")
+                log.info(
+                    "Not registering %s because no sort name, LC, or VIAF",
+                    contributor_data.display_name
+                )
+            if contributor_data.display_name:
+                contributor.display_name = contributor_data.display_name
+            roles = contributor_data.roles
 
         # Make sure the work we just did shows up.
         if edition.work:
@@ -417,6 +435,13 @@ class Metadata(object):
         else:
             edition.calculate_presentation()
 
+        if not edition.sort_author:
+            # This may be a situation like the NYT best-seller list where
+            # we know the display name of the author but weren't able
+            # to normalize that name.
+            primary_author = self.primary_author
+            edition.sort_author = primary_author.sort_name
+            edition.display_author = primary_author.display_name
 
 class CSVFormatError(csv.Error):
     pass

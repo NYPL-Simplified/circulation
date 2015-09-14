@@ -30,6 +30,7 @@ class TestCustomListFromCSV(DatabaseTest):
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'
         self.l = CustomListFromCSV(self.data_source.name, "Test list",
                                    metadata_client = self.metadata,
+                                   display_author_field='author',
                                    identifier_fields={Identifier.ISBN: "isbn"})
         self.custom_list, ignore = self._customlist(
             data_source_name=self.data_source.name, num_entries=0)
@@ -61,6 +62,7 @@ class TestCustomListFromCSV(DatabaseTest):
             if isinstance(timekey, list):
                 timekey = timekey[0]
             row[timekey] = self._time.strftime(self.DATE_FORMAT)
+        row[self.l.sort_author_field] = display_author
         return row
 
     def test_annotation_citation(self):
@@ -132,8 +134,11 @@ class TestCustomListFromCSV(DatabaseTest):
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
-        # TODO: this needs an assertion
-        set_trace()
+
+        e = list_entry.edition
+        eq_(self.l.title_field, e.title)
+        eq_("Octavia Butler", e.author)
+        eq_("Butler, Octavia", e.sort_author)
 
     def test_non_default_language(self):
         row = self.create_row()
@@ -156,29 +161,27 @@ class TestCustomListFromCSV(DatabaseTest):
         row1 = self.create_row()
         row2 = self.create_row()
         row3 = self.create_row()
-        for f in self.l.title_field, self.l.sort_author_field, 'isbn':
+        for f in self.l.title_field, self.l.sort_author_field, self.l.display_author_field, 'isbn':
             row2[f] = row1[f]
             row3[f] = row1[f]
 
-        metadata = self.l.row_to_metadata(row)
+        metadata = self.l.row_to_metadata(row1)
         list_entry_1 = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row)
+            self.custom_list, self.data_source, self.now, row1)
 
-        # Import from the second row, and (e.g.) the new description
-        # will overwrite the old description.
+        # Import from the second row, and (e.g.) the new annotation
+        # will overwrite the old annotation.
 
-        metadata = self.l.row_to_metadata(row)
+        metadata = self.l.row_to_metadata(row2)
         list_entry_2 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row2)
 
         eq_(list_entry_1, list_entry_2)
 
-        i = list_entry_1.edition.primary_identifier
-        [link] = i.links
-        content = link.resource.representation.content
-        assert content.decode("utf8").startswith(row2[self.l.annotation_field])
+        eq_(list_entry_1.annotation, list_entry_2.annotation)
 
         # There are six classifications instead of 12.
+        i = list_entry_1.edition.primary_identifier
         descriptions = i.classifications
         eq_(6, len(descriptions))
 
@@ -186,12 +189,11 @@ class TestCustomListFromCSV(DatabaseTest):
         # overwrite_old_data set to False.
         self.l.overwrite_old_data = False
 
-        metadata = self.l.row_to_metadata(row)
+        metadata = self.l.row_to_metadata(row3)
         list_entry_3 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row3)
         eq_(list_entry_3, list_entry_1)
 
-        # Now there are 12 classifications and 2 descriptions.
-        eq_(2, len(i.links))
+        # Now there are 12 classifications.
         eq_(12, len(i.classifications))
 
