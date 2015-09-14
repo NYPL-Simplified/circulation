@@ -48,7 +48,13 @@ class ContributorData(object):
     def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
         """
+        log = logging.getLogger("Abstract metadata layer")
         if self.sort_name:
+            log.info(
+                "%s already has a sort name: %s", 
+                self.display_name,
+                self.sort_name
+            )
             return True
 
         if not self.display_name:
@@ -89,6 +95,12 @@ class ContributorData(object):
             Contributor.display_name==display_name).filter(
                 Contributor.name != None).all()
         if contributors:
+            log = logging.getLogger("Abstract metadata layer")
+            log.info(
+                "Determined that sort name of %s is %s based on previously existing contributor", 
+                display_name,
+                contributors[0].name
+            )
             return contributors[0].name
         return None
 
@@ -404,8 +416,6 @@ class Metadata(object):
                     dirty = True
                 edition.contributions = surviving_contributions
 
-        primary_author_display = None
-        primary_author_sort = None
         for contributor_data in self.contributors:
             contributor_data.find_sort_name(
                 _db, self.identifiers, metadata_client
@@ -419,14 +429,15 @@ class Metadata(object):
                     lc=contributor_data.lc, 
                     viaf=contributor_data.viaf
                 )
+                if contributor_data.display_name:
+                    contributor.display_name = contributor_data.display_name
+
             else:
                 log = logging.getLogger("Abstract metadata layer")
                 log.info(
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
-            if contributor_data.display_name:
-                contributor.display_name = contributor_data.display_name
             roles = contributor_data.roles
 
         # Make sure the work we just did shows up.

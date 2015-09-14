@@ -38,7 +38,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
     DATE_FORMAT = "%Y/%m/%d %H:%M:%S"
 
-    def create_row(self, display_author=None):
+    def create_row(self, display_author=None, sort_author=None):
         """Create a dummy row for this tests's custom list."""
         l = self.l
         row = dict()
@@ -51,7 +51,7 @@ class TestCustomListFromCSV(DatabaseTest):
         fn = l.display_author_field
         if isinstance(fn, list):
             fn = fn[0]
-        row[fn] = display_author
+        row[fn] = sort_author
         row['isbn'] = self._isbn
 
         for key in l.subject_fields.keys():

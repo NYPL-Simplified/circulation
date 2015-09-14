@@ -170,7 +170,7 @@ class NYTBestSellerList(list):
                 # should never happen.
                 logging.wrror("No identifier for %r", li_data)
                 item = None
-                continue
+                continue              
 
             # This is the date the *best-seller list* was published,
             # not the date the book was published.
@@ -227,6 +227,7 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             published_date = None
 
         details = data['book_details']
+        other_isbns = []
         if len(details) == 0:
             publisher = annotation = primary_isbn10 = primary_isbn13 = title = None
             display_author = None
@@ -238,6 +239,11 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             annotation = d.get('description', None)
             primary_isbn10 = d.get('primary_isbn10', None)
             primary_isbn13 = d.get('primary_isbn13', None)
+            for isbn in d.get('isbns', []):
+                isbn13 = isbn.get('isbn13', None)
+                other_isbns.append(
+                    IdentifierData(Identifier.ISBN, isbn13, 0.80)
+                )
 
         primary_isbn = primary_isbn13 or primary_isbn10
         if primary_isbn:
@@ -257,6 +263,7 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             publisher=publisher,
             contributors=contributors,
             primary_identifier=primary_isbn,
+            identifiers=other_isbns,
         )
 
         super(NYTBestSellerListTitle, self).__init__(

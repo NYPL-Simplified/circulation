@@ -135,8 +135,9 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(True,
             all([x.first_appearance == january_17 for x in custom.entries]))
 
+        feb_1 = datetime.datetime(2015, 2, 1)
         eq_(True,
-            all([x.most_recent_appearance == january_17 for x in custom.entries]))
+            all([x.most_recent_appearance == feb_1 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
@@ -161,7 +162,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 
-    one_list_title = json.loads("""{"list_name":"Combined Print and E-Book Fiction","display_name":"Combined Print & E-Book Fiction","bestsellers_date":"2015-01-17","published_date":"2015-02-01","rank":1,"rank_last_week":0,"weeks_on_list":1,"asterisk":0,"dagger":0,"amazon_product_url":"http:\/\/www.amazon.com\/The-Girl-Train-A-Novel-ebook\/dp\/B00L9B7IKE?tag=thenewyorktim-20","isbns":[{"isbn10":"1594633665","isbn13":"9781594633669"},{"isbn10":"0698185390","isbn13":"9780698185395"}],"book_details":[{"title":"THE GIRL ON THE TRAIN","description":"A psychological thriller set in London is full of complications and betrayals.","contributor":"by Paula Hawkins","author":"Paula Hawkins","contributor_note":"","price":0,"age_group":"","publisher":"Riverhead","primary_isbn13":"9780698185395","primary_isbn10":"0698185390"}],"reviews":[{"book_review_link":"","first_chapter_link":"","sunday_review_link":"","article_chapter_link":""}]}""")
+    one_list_title = json.loads("""{"list_name":"Combined Print and E-Book Fiction","display_name":"Combined Print & E-Book Fiction","bestsellers_date":"2015-01-17","published_date":"2015-02-01","rank":1,"rank_last_week":0,"weeks_on_list":1,"asterisk":0,"dagger":0,"amazon_product_url":"http:\/\/www.amazon.com\/The-Girl-Train-A-Novel-ebook\/dp\/B00L9B7IKE?tag=thenewyorktim-20","isbns":[{"isbn10":"1594633665","isbn13":"9781594633669"},{"isbn10":"0698185390","isbn13":"9780698185395"}],"book_details":[{"title":"THE GIRL ON THE TRAIN","description":"A psychological thriller set in London is full of complications and betrayals.","contributor":"by Paula Hawkins","author":"Paula Hawkins","contributor_note":"","price":0,"age_group":"","publisher":"Riverhead","isbns":[{"isbn10":"1594633665","isbn13":"9781594633669"},{"isbn10":"0698185390","isbn13":"9780698185395"}],"primary_isbn13":"9780698185395","primary_isbn10":"0698185390"}],"reviews":[{"book_review_link":"","first_chapter_link":"","sunday_review_link":"","article_chapter_link":""}]}""")
 
     def test_creation(self):
         title = NYTBestSellerListTitle(self.one_list_title)
@@ -175,7 +176,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
              ("ISBN", "9781594633669"),
          ], sorted(equivalent_identifiers))
 
-        eq_(datetime.date(2015, 2, 1), edition.published)
+        eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
         eq_("Paula Hawkins", edition.author)
         # Note that this is None; the next test shows when it gets set.
         eq_(None, edition.sort_author)
