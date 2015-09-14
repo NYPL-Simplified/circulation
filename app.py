@@ -750,9 +750,12 @@ def lane_url(cls, lane, order=None):
 def acquisition_groups(lane):
 
     lane_name = lane
-    if lane not in Conf.sublanes.by_name:
+    if lane is None:
+        lane = Conf
+    elif lane not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
-    lane = Conf.sublanes.by_name[lane]
+    else:
+        lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
