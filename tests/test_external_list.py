@@ -131,12 +131,13 @@ class TestCustomListFromCSV(DatabaseTest):
         row = self.create_row("Octavia Butler")
         work = self._work(title=row[self.l.title_field],
                           authors=['Butler, Octavia'])
+        set_trace()
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
 
         e = list_entry.edition
-        eq_(self.l.title_field, e.title)
+        eq_(row[self.l.title_field], e.title)
         eq_("Octavia Butler", e.author)
         eq_("Butler, Octavia", e.sort_author)
 
