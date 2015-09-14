@@ -48,7 +48,7 @@ class TestCustomListFromCSV(DatabaseTest):
             row[scalarkey] = self._str
 
         display_author = display_author or self._str
-        fn = l.display_author_field
+        fn = l.sort_author_field
         if isinstance(fn, list):
             fn = fn[0]
         row[fn] = sort_author
@@ -62,7 +62,7 @@ class TestCustomListFromCSV(DatabaseTest):
             if isinstance(timekey, list):
                 timekey = timekey[0]
             row[timekey] = self._time.strftime(self.DATE_FORMAT)
-        row[self.l.sort_author_field] = display_author
+        row[self.l.display_author_field] = display_author
         return row
 
     def test_annotation_citation(self):
@@ -96,7 +96,7 @@ class TestCustomListFromCSV(DatabaseTest):
 
 
     def test_metadata_to_list_entry_complete_success(self):
-        row = self.create_row("Octavia Butler")
+        row = self.create_row(display_author="Octavia Butler")
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)
@@ -111,13 +111,13 @@ class TestCustomListFromCSV(DatabaseTest):
         eq_(row['isbn'], i.identifier)
 
         # There should be one description.
-        [link] = i.links
         expect = row[self.l.annotation_field] + self.l.annotation_citation(row)
-        eq_(expect.encode("utf8"), link.resource.representation.content)
+        eq_(expect, list_entry.annotation)
 
         classifications = i.classifications
-        # There should be six classifications, two of type 'tag' and
-        # four of type 'schema:audience'.
+        # There should be six classifications, two of type 'tag', two
+        # of type 'schema:audience', and two of type
+        # 'schema:typicalAgeRange'
         eq_(6, len(classifications))
 
         tags = [x for x in classifications if x.subject.type==Subject.TAG]
@@ -125,13 +125,18 @@ class TestCustomListFromCSV(DatabaseTest):
 
         audiences = [x for x in classifications
                      if x.subject.type==Subject.FREEFORM_AUDIENCE]
-        eq_(4, len(audiences))
+        eq_(2, len(audiences))
+
+        age_ranges = [x for x in classifications
+                     if x.subject.type==Subject.AGE_RANGE]
+        eq_(2, len(age_ranges))
 
     def test_row_to_item_matching_work_found(self):
-        row = self.create_row("Octavia Butler")
+        row = self.create_row(display_author="Octavia Butler")
         work = self._work(title=row[self.l.title_field],
                           authors=['Butler, Octavia'])
-        set_trace()
+        work.editions[0].contributors[0].display_name
+        self._db.commit()
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, row)

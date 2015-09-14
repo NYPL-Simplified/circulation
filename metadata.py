@@ -282,7 +282,7 @@ class Metadata(object):
             # task.
             return
 
-        primary_identifier_obj = self.primary_identifier.load(_db)
+        primary_identifier_obj, ignore = self.primary_identifier.load(_db)
 
         # Try to find the primary identifiers of other Editions with
         # the same permanent work ID, representing books already in
