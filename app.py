@@ -750,20 +750,9 @@ def lane_url(cls, lane, order=None):
 def acquisition_groups(lane):
 
     lane_name = lane
-    if lane is None:
-        # The patron may need to be shunted into one of the
-        # sub-collections, rather than being shown the root lane.    
-        policy = Configuration.root_lane_policy()
-        if policy:
-            root_lane = authenticated_patron_root_lane()
-            if root_lane is not None:
-                return appropriate_index_for_patron_type()
-        # No, this patron can see the root lane.
-        lane = Conf
-    else:
-        if lane not in Conf.sublanes.by_name:
-            return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
-        lane = Conf.sublanes.by_name[lane]
+    if lane not in Conf.sublanes.by_name:
+        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
+    lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
