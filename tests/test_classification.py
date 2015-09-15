@@ -14,6 +14,7 @@ from ..classifier import (
     KeywordBasedClassifier as Keyword,
     GradeLevelClassifier,
     AgeClassifier,
+    AgeOrGradeClassifier,
     InterestLevelClassifier,
     Axis360AudienceClassifier,
     )
@@ -87,6 +88,7 @@ class TestTargetAge(object):
         eq_((5,5), f("Interest age: from c 5 years"))
         eq_((9,12), f("Children's Books / 9-12 Years"))
         eq_((9,12), f("Ages 9-12"))
+        eq_((9,12), f("Age 9-12"))
         eq_((9,12), f("Children's Books/Ages 9-12 Fiction"))
         eq_((4,8), f("Children's Books / 4-8 Years"))
         eq_((0,2), f("For children c 0-2 years"))
@@ -101,6 +103,20 @@ class TestTargetAge(object):
         eq_((None,None), f("Third-graders"))
         eq_((None,None), f("First graders"))
         eq_((None,None), f("Fifth grade (Education)--Curricula"))
+
+    def test_audience_from_age_or_grade_classifier(self):
+        def f(t):
+            return AgeOrGradeClassifier.audience(t, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, f(
+            "Children's - Kindergarten, Age 5-6"))
+
+    def test_age_from_age_or_grade_classifier(self):
+        def f(t):
+            t = AgeOrGradeClassifier.scrub_identifier(t)
+            return AgeOrGradeClassifier.target_age(t, None)
+        eq_((5,6), f("Children's - Kindergarten, Age 5-6"))
+        eq_((5,5), f("Children's - Kindergarten"))
+        eq_((9,12), f("Ages 9-12"))
 
 
 class TestInterestLevelClassifier(object):

@@ -255,7 +255,7 @@ class GradeLevelClassifier(Classifier):
             "gr\.? ([kp0-9]+)", 
             "([0-9]+)[tns][hdt] grade",
             "([a-z]+) grade",
-            "^(kindergarten|preschool)\b",
+            r'\b(kindergarten|preschool)\b',
         ]
     ]
 
@@ -354,6 +354,7 @@ class AgeClassifier(Classifier):
     # Regular expressions that match common ways of expressing ages.
     age_res = [
         re.compile(x, re.I) for x in [
+            "age ([0-9]+) ?- ?([0-9]+)",
             "ages ([0-9]+) ?- ?([0-9]+)",
             "([0-9]+) ?- ?([0-9]+) year",
             "([0-9]+) year",
@@ -1499,6 +1500,13 @@ def match_kw(*l):
     return re.compile(with_boundaries, re.I)
 
 class AgeOrGradeClassifier(Classifier):
+
+    @classmethod
+    def audience(cls, identifier, name):
+        audience = AgeClassifier.audience(identifier, name)
+        if audience == None:
+            audience = GradeLevelClassifier.audience(identifier, name)
+        return audience
 
     @classmethod
     def target_age(cls, identifier, name):
