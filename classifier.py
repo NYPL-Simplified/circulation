@@ -133,6 +133,16 @@ class Classifier(object):
         return consolidated
 
     @classmethod
+    def default_target_age_for_audience(self, audience):
+        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return (14, 18)
+        elif audience in (
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ):
+            return (18, None)
+        return (None, None)
+
+    @classmethod
     def lookup(cls, scheme):
         """Look up a classifier for a classification scheme."""
         return cls.classifiers.get(scheme, None)
@@ -155,9 +165,13 @@ class Classifier(object):
         fiction = cls.is_fiction(identifier, name)
         audience = cls.audience(identifier, name)
 
+        target_age = cls.target_age(identifier, name) 
+        if target_age == (None, None):
+            target_age = cls.default_target_age_for_audience(audience)
+
         return (cls.genre(identifier, name, fiction, audience),
                 audience,
-                cls.target_age(identifier, name),
+                target_age,
                 fiction,
                 )
 

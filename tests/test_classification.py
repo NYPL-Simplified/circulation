@@ -316,6 +316,19 @@ class TestBISAC(object):
         eq_(adult, aud("FAMILY & RELATIONSHIPS / Love & Romance"))
         eq_(young_adult, aud("JUVENILE FICTION / Action & Adventure / General"))
 
+    def test_default_age_range_for_audience(self):
+        class DummySubject(object):
+            def __init__(self, x):
+                self.identifier = x
+                self.name = None
+
+        def target(bisac):
+            dummy = DummySubject(bisac)
+            return BISAC.classify(dummy)[2]
+        
+        eq_((14,18), target("JUVENILE FICTION / Action & Adventure / General"))
+        eq_((18, None), target("Erotica / General"))
+
     def test_genre(self):
         def gen(bisac):
             return BISAC.genre(BISAC.scrub_identifier(bisac), None)
