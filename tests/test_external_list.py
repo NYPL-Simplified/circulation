@@ -76,30 +76,25 @@ class TestCustomListFromCSV(DatabaseTest):
         del row[self.l.annotation_author_name_field]
         eq_(None, m(row))
 
-    def test_row_to_title_complete_success(self):
+    def test_row_to_metadata_complete_success(self):
 
         row = self.create_row()
-        title = self.l.row_to_title(self.now, row)
-        eq_(row[self.l.title_field], title.metadata.title)
-        eq_(row['author'], title.metadata.contributors[0].display_name)
-        eq_(row['isbn'], title.metadata.identifiers[0].identifier)
+        metadata = self.l.row_to_metadata(row)
+        eq_(row[self.l.title_field], metadata.title)
+        eq_(row['author'], metadata.contributors[0].display_name)
+        eq_(row['isbn'], metadata.identifiers[0].identifier)
 
         expect_pub = datetime.datetime.strptime(
             row['published'], self.DATE_FORMAT)
-        expect_first = datetime.datetime.strptime(
-            row[self.l.first_appearance_field], self.DATE_FORMAT)
-
-        eq_(expect_pub, title.metadata.published)
-        eq_(expect_first, title.first_appearance)
-        eq_(self.now, title.most_recent_appearance)
-        eq_(self.l.default_language, title.metadata.language)
+        eq_(expect_pub, metadata.published)
+        eq_(self.l.default_language, metadata.language)
 
 
     def test_metadata_to_list_entry_complete_success(self):
         row = self.create_row(display_author="Octavia Butler")
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row)
+            self.custom_list, self.data_source, self.now, metadata)
         e = list_entry.edition
 
         eq_(row[self.l.title_field], e.title)
@@ -131,6 +126,12 @@ class TestCustomListFromCSV(DatabaseTest):
                      if x.subject.type==Subject.AGE_RANGE]
         eq_(2, len(age_ranges))
 
+        expect_first = datetime.datetime.strptime(
+            row[self.l.first_appearance_field], self.DATE_FORMAT)
+        eq_(expect_first, list_entry.first_appearance)
+        eq_(self.now, list_entry.most_recent_appearance)
+
+
     def test_row_to_item_matching_work_found(self):
         row = self.create_row(display_author="Octavia Butler")
         work = self._work(title=row[self.l.title_field],
@@ -139,7 +140,7 @@ class TestCustomListFromCSV(DatabaseTest):
         self._db.commit()
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row)
+            self.custom_list, self.data_source, self.now, metadata)
 
         e = list_entry.edition
         eq_(row[self.l.title_field], e.title)
@@ -151,7 +152,7 @@ class TestCustomListFromCSV(DatabaseTest):
         row[self.l.language_field] = 'Spanish'
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row)
+            self.custom_list, self.data_source, self.now, metadata)
         eq_('spa', list_entry.edition.language)
 
     def test_non_default_language(self):
@@ -159,7 +160,7 @@ class TestCustomListFromCSV(DatabaseTest):
         row[self.l.language_field] = 'Spanish'
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row)
+            self.custom_list, self.data_source, self.now, metadata)
         eq_('spa', list_entry.edition.language)
 
     def test_overwrite_old_data(self):
@@ -173,14 +174,14 @@ class TestCustomListFromCSV(DatabaseTest):
 
         metadata = self.l.row_to_metadata(row1)
         list_entry_1 = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row1)
+            self.custom_list, self.data_source, self.now, metadata)
 
         # Import from the second row, and (e.g.) the new annotation
         # will overwrite the old annotation.
 
-        metadata = self.l.row_to_metadata(row2)
+        metadata2 = self.l.row_to_metadata(row2)
         list_entry_2 = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row2)
+            self.custom_list, self.data_source, self.now, metadata2)
 
         eq_(list_entry_1, list_entry_2)
 
@@ -195,9 +196,9 @@ class TestCustomListFromCSV(DatabaseTest):
         # overwrite_old_data set to False.
         self.l.overwrite_old_data = False
 
-        metadata = self.l.row_to_metadata(row3)
+        metadata3 = self.l.row_to_metadata(row3)
         list_entry_3 = self.l.metadata_to_list_entry(
-            self.custom_list, self.data_source, self.now, row3)
+            self.custom_list, self.data_source, self.now, metadata3)
         eq_(list_entry_3, list_entry_1)
 
         # Now there are 12 classifications.

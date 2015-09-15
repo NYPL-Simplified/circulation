@@ -461,7 +461,7 @@ class AcquisitionFeed(OPDSFeed):
         url = annotator.featured_feed_url(lane)
         feed_size = Configuration.featured_lane_size()
         quality = Configuration.minimum_featured_quality()
-        works = lane.quality_sample(languages, quality_cutoff, feed_size,
+        works = lane.quality_sample(languages, quality_cutoff, 0.1, feed_size,
                                     availability, random_sample)
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 

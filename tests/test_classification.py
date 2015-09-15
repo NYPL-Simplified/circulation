@@ -326,7 +326,7 @@ class TestBISAC(object):
             dummy = DummySubject(bisac)
             return BISAC.classify(dummy)[2]
         
-        eq_((14,18), target("JUVENILE FICTION / Action & Adventure / General"))
+        eq_((14,17), target("JUVENILE FICTION / Action & Adventure / General"))
         eq_((18, None), target("Erotica / General"))
 
     def test_genre(self):

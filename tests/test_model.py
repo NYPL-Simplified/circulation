@@ -1377,7 +1377,7 @@ class TestAssignGenres(DatabaseTest):
         eq_("History", history.genre.name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_ADULT, audience)
-        eq_((None,None), target_age)
+        eq_((18,None), target_age)
 
 class TestLoans(DatabaseTest):
 
