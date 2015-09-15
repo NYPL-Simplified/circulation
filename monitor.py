@@ -280,9 +280,6 @@ class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
             self.stop_running = True
         return new_offset
 
-    def work_query(self):
-        return self._db.query(Work).filter(Work.audience=='Young Adult')
-
     def process_work(self, work):
         work.calculate_presentation(
         choose_edition=False, classify=True,
