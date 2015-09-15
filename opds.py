@@ -459,8 +459,9 @@ class AcquisitionFeed(OPDSFeed):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
-        feed_size = 20
-        works = lane.quality_sample(languages, 0.65, quality_cutoff, feed_size,
+        feed_size = Configuration.featured_lane_size()
+        quality = Configuration.minimum_featured_quality()
+        works = lane.quality_sample(languages, quality_cutoff, feed_size,
                                     availability, random_sample)
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
@@ -473,7 +474,7 @@ class AcquisitionFeed(OPDSFeed):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
-        feed_size = 20
+        feed_size = Configuration.featured_lane_size()
         _db = None
         all_works = []
         if isinstance(languages, basestring):
@@ -495,7 +496,7 @@ class AcquisitionFeed(OPDSFeed):
             if not _db:
                 _db = l._db
 
-            quality_min = 0.65
+            quality_min = Configuration.minimum_featured_quality()
 
             works = l.quality_sample(
                 languages, quality_min, quality_cutoff, feed_size,

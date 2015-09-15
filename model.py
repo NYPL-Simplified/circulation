@@ -3499,7 +3499,12 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_ADULT
             target_age = (target_age_min, target_age_max, '[]')
         else:
-            target_age = None, None
+            if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+                target_age = (14, 17)
+            elif audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
+                target_age = (18, None)
+            else:
+                target_age = None, None
         return workgenres, fiction, audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
@@ -4792,7 +4797,7 @@ class Lane(object):
             )
             if random_sample:
                 offset = random.random()
-                # print "Offset: %.2f" % offset
+                # logging.debug("Random offset=%.2f", offset)
                 if offset < 0.5:
                     query = query.filter(Work.random >= offset)
                 else:
@@ -4806,9 +4811,11 @@ class Lane(object):
             start = time.time()
             # logging.debug(dump_query(query))
             r = query.all()
+            #for i in r[:remaining]:
+            #    logging.debug("%s (random=%.2f quality=%.2f)", i.title, i.random, i.quality)
             results.extend(r[:remaining])
             logging.debug(
-                "%s: Quality %.1f got us to %d results in %.2fsec",
+                "%s: Quality %.2f got us to %d results in %.2fsec",
                 self.name, quality_min, len(results), time.time()-start
             )
 

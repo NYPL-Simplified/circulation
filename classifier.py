@@ -133,6 +133,16 @@ class Classifier(object):
         return consolidated
 
     @classmethod
+    def default_target_age_for_audience(self, audience):
+        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return (14, 17)
+        elif audience in (
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ):
+            return (18, None)
+        return (None, None)
+
+    @classmethod
     def lookup(cls, scheme):
         """Look up a classifier for a classification scheme."""
         return cls.classifiers.get(scheme, None)
@@ -155,9 +165,13 @@ class Classifier(object):
         fiction = cls.is_fiction(identifier, name)
         audience = cls.audience(identifier, name)
 
+        target_age = cls.target_age(identifier, name) 
+        if target_age == (None, None):
+            target_age = cls.default_target_age_for_audience(audience)
+
         return (cls.genre(identifier, name, fiction, audience),
                 audience,
-                cls.target_age(identifier, name),
+                target_age,
                 fiction,
                 )
 
@@ -255,7 +269,7 @@ class GradeLevelClassifier(Classifier):
             "gr\.? ([kp0-9]+)", 
             "([0-9]+)[tns][hdt] grade",
             "([a-z]+) grade",
-            "^(kindergarten|preschool)\b",
+            r'\b(kindergarten|preschool)\b',
         ]
     ]
 
@@ -354,6 +368,7 @@ class AgeClassifier(Classifier):
     # Regular expressions that match common ways of expressing ages.
     age_res = [
         re.compile(x, re.I) for x in [
+            "age ([0-9]+) ?- ?([0-9]+)",
             "ages ([0-9]+) ?- ?([0-9]+)",
             "([0-9]+) ?- ?([0-9]+) year",
             "([0-9]+) year",
@@ -1499,6 +1514,13 @@ def match_kw(*l):
     return re.compile(with_boundaries, re.I)
 
 class AgeOrGradeClassifier(Classifier):
+
+    @classmethod
+    def audience(cls, identifier, name):
+        audience = AgeClassifier.audience(identifier, name)
+        if audience == None:
+            audience = GradeLevelClassifier.audience(identifier, name)
+        return audience
 
     @classmethod
     def target_age(cls, identifier, name):
