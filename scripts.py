@@ -460,15 +460,14 @@ class CacheStaffPicksFeeds(CacheRepresentationPerLane):
 
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(None, lane)
-        max_size = 1000
-        page_size = 100
+        max_size = 200
+        page_size = 50
         if lane:
             lane_name = lane.name
         else:
             lane_name = None
         for languages in self.languages:
             for facet in ('title', 'author'):
-                self.last_work_seen = None
                 for offset in range(0, max_size, page_size):
                     url = self.app.staff_picks_feed_cache_url(
                         annotator, lane_name, languages, facet, offset, 

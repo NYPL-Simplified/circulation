@@ -559,6 +559,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
         after=offset, size=size,
         _external=True
     )
+    Conf.log.info("Found %d entries for %s", len(page), this_url)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
 
@@ -1037,10 +1038,9 @@ def staff_picks_feed(lane_name):
         lane_display_name = None
     languages = languages_for_request()
     arg = flask.request.args.get
-    order_facet = arg('order', 'recommended')
+    order_facet = arg('order', 'title')
     offset = arg('after', None)
     size = arg('size', 50)
-
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
     cache_url = staff_picks_feed_cache_url(
         annotator, lane, languages, order_facet, offset, size)
