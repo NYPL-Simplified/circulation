@@ -56,6 +56,10 @@ class CustomListFromCSV(CSVMetadataImporter):
 
     def to_customlist(self, _db, dictreader):
         """Turn the CSV file in `dictreader` into a CustomList.
+
+        TODO: Keep track of the list's current members. If any item
+        was on the list but is no longer on the list, set its
+        last_appeared date to its most recent appearance.
         """
         data_source = DataSource.lookup(_db, self.data_source_name)
         now = datetime.datetime.utcnow()
@@ -74,16 +78,16 @@ class CustomListFromCSV(CSVMetadataImporter):
 
         # Turn the rows of the CSV file into a sequence of Metadata
         # objects, then turn each Metadata into a CustomListEntry object.
-        for metadata in self.to_metadata(_db, dictreader):
-            self.metadata_to_list_entry(
+        for metadata in self.to_metadata(dictreader):
+            entry = self.metadata_to_list_entry(
                 custom_list, data_source, now, metadata)
+            entry.set_license_pool()
 
-    def metadata_to_list_entry(self, custom_list, data_source, now, row):
+    def metadata_to_list_entry(self, custom_list, data_source, now, metadata):
         """Convert a Metadata object to a CustomListEntry."""
         _db = Session.object_session(data_source)
-        metadata = self.row_to_metadata(row)
 
-        title_from_external_list = self.row_to_title(now, row)
+        title_from_external_list = self.metadata_to_title(now, metadata)
         list_entry, was_new = title_from_external_list.to_custom_list_entry(
             custom_list, self.metadata_client, self.overwrite_old_data)
         e = list_entry.edition
@@ -105,9 +109,9 @@ class CustomListFromCSV(CSVMetadataImporter):
                 )
         return list_entry
 
-    def row_to_title(self, now, row):
-        """Convert a row of the CSV file to a TitleFromExternalList object."""
-        metadata = self.row_to_metadata(row)
+    def metadata_to_title(self, now, metadata):
+        """Convert a Metadata object to a TitleFromExternalList object."""
+        row = metadata.csv_row
         first_appearance = self._date_field(row, self.first_appearance_field)
         annotation = self._field(row, self.annotation_field)
         annotation_citation = self.annotation_citation(row)
@@ -179,7 +183,7 @@ class TitleFromExternalList(object):
             if list_entry.most_recent_appearance:
                 self.log.info(
                     "I thought %s most recently showed up at %s, but then I saw it later, at %s!",
-                    self.title, list_entry.most_recent_appearance, 
+                    self.metadata.title, list_entry.most_recent_appearance, 
                     self.most_recent_appearance
                 )
             list_entry.most_recent_appearance = self.most_recent_appearance
