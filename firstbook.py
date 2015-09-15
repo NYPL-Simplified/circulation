@@ -57,6 +57,9 @@ class FirstBookAuthenticationAPI(Authenticator):
         return False
 
     def authenticated_patron(self, _db, identifier, password):
+        # All FirstBook credentials are in upper-case.
+        identifier = identifier.upper()
+
         # If they fail a PIN test, there is no authenticated patron.
         if not self.pintest(identifier, password):
             return None

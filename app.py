@@ -751,18 +751,10 @@ def acquisition_groups(lane):
 
     lane_name = lane
     if lane is None:
-        # The patron may need to be shunted into one of the
-        # sub-collections, rather than being shown the root lane.    
-        policy = Configuration.root_lane_policy()
-        if policy:
-            root_lane = authenticated_patron_root_lane()
-            if root_lane is not None:
-                return appropriate_index_for_patron_type()
-        # No, this patron can see the root lane.
         lane = Conf
+    elif lane not in Conf.sublanes.by_name:
+        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
     else:
-        if lane not in Conf.sublanes.by_name:
-            return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
@@ -788,7 +780,9 @@ def acquisition_groups(lane):
         max_age=None)
     feed_xml = feed_rep.content
     b = time.time()
-    Conf.log.info("That took %.2f, cached=%r" % (b-a, cached))
+    Conf.log.info(
+        "That took %.2f, cached=%r, size=%s", b-a, cached, len(feed_xml)
+    )
     return feed_response(feed_xml, acquisition=True)
 
 
@@ -1312,6 +1306,15 @@ def borrow(data_source, identifier):
     else:
         status_code = 200
     return Response(content, status_code, headers)
+
+# Loadstorm verification
+@app.route('/loadstorm-<code>.html')
+def loadstorm_verify(code):
+    c = Configuration.integration("Loadstorm", required=True)
+    if code == c['verification_code']:
+        return Response("", 200)
+    else:
+        return Response("", 404)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
