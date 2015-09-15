@@ -129,7 +129,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
         eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
-        eq_(datetime.datetime(2015, 8, 11, 6, 57, 42), 
+        eq_(datetime.datetime(2015, 8, 11, 18, 57, 42), 
             parsed.end_date)
 
         assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
@@ -181,8 +181,8 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
         eq_("0015176429", loan.identifier)
         eq_("http://fulfillment/", loan.fulfillment_info.content_link)
-        eq_(datetime.datetime(2015, 8, 12, 5, 40, 27), loan.end_date)
+        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
         eq_("1111111111", reserved.identifier)
-        eq_(datetime.datetime(2015, 1, 1, 1, 11, 11), reserved.end_date)
+        eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
         eq_(0, reserved.hold_position)

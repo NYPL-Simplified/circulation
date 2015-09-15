@@ -18,18 +18,21 @@ from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
 
-    def __init__(self, circulation, lane, active_loans_by_work={}, active_holds_by_work={}):
+    def __init__(self, circulation, lane, active_loans_by_work={}, active_holds_by_work={}, facet_view='feed'):
         self.circulation = circulation
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
+        self.facet_view=facet_view
 
     def facet_url(self, order):
-        if not self.lane:
-            return None
+        if self.lane:
+            lane_name = self.lane.name
+        else:
+            lane_name = None
         return cdn_url_for(
-            'feed', lane=self.lane.name, order=order, _external=True)
+            self.facet_view, lane_name=lane_name, order=order, _external=True)
 
     def permalink_for(self, work, license_pool, identifier):
         return url_for('work', data_source=license_pool.data_source.name,

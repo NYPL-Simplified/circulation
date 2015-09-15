@@ -374,7 +374,7 @@ def make_featured_feed(annotator, lane, languages):
     search_link = dict(
         rel="search",
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=lane.name,
+        href=url_for('lane_search', lane_name=lane.name,
                          _external=True))
     opds_feed = AcquisitionFeed.featured(
         languages, lane, annotator, quality_cutoff=0.0)
@@ -409,7 +409,7 @@ def make_acquisition_groups(annotator, lane, languages):
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=lane_name, _external=True))
+        href=url_for('lane_search', lane_name=lane_name, _external=True))
     feed.add_link(
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
@@ -559,7 +559,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
         after=offset, size=size,
         _external=True
     )
-    Conf.log.info("Found %d entries for %s", len(page), this_url)
+    # Conf.log.info("Found %d entries for %s", len(page), this_url)
     opds_feed = AcquisitionFeed(_db, title, this_url, page,
                                 annotator, work_feed.active_facet)
 
@@ -602,7 +602,7 @@ def authenticated_patron_root_lane():
 @requires_auth
 def appropriate_index_for_patron_type():
     root_lane = authenticated_patron_root_lane()
-    return redirect(cdn_url_for('acquisition_groups', lane=root_lane))
+    return redirect(cdn_url_for('acquisition_groups', lane_name=root_lane))
 
 @app.route('/heartbeat')
 def hearbeat():
@@ -680,20 +680,20 @@ def service_status():
     return make_response(doc, 200, {"Content-Type": "text/html"})
 
 
-@app.route('/lanes', defaults=dict(lane=None))
-@app.route('/lanes/', defaults=dict(lane=None))
-@app.route('/lanes/<lane>')
-def navigation_feed(lane):
-    lane_name = lane
-    if lane is None:
+@app.route('/lanes', defaults=dict(lane_name=None))
+@app.route('/lanes/', defaults=dict(lane_name=None))
+@app.route('/lanes/<lane_name>')
+def navigation_feed(lane_name):
+    if lane_name is None:
         lane = Conf
     else:
-        if lane not in Conf.sublanes.by_name:
-            return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
+        if lane_name not in Conf.sublanes.by_name:
+            return problem(
+                NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
         lane = Conf.sublanes.by_name[lane]
 
     languages = languages_for_request()
-    this_url = cdn_url_for("navigation_feed", lane=lane_name, _external=True)
+    this_url = cdn_url_for("navigation_feed", lane_name=lane_name, _external=True)
     key = (",".join(languages), this_url)
     # This feed will not change unless the application is upgraded,
     # so there's no need to expire the cache.
@@ -718,7 +718,7 @@ def navigation_feed(lane):
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=None, _external=True))
+        href=url_for('lane_search', lane_name=None, _external=True))
     feed.add_link(
         rel="http://opds-spec.org/shelf", 
         href=url_for('active_loans', _external=True))
@@ -729,12 +729,12 @@ def navigation_feed(lane):
     return feed_response(feed, acquisition=False, cache_for=7200)
 
 def lane_url(cls, lane, order=None):
-    return cdn_url_for('feed', lane=lane.name, order=order, _external=True)
+    return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
 
-@app.route('/groups', defaults=dict(lane=None))
-@app.route('/groups/', defaults=dict(lane=None))
-@app.route('/groups/<lane>')
-def acquisition_groups(lane):
+@app.route('/groups', defaults=dict(lane_name=None))
+@app.route('/groups/', defaults=dict(lane_name=None))
+@app.route('/groups/<lane_name>')
+def acquisition_groups(lane_name):
 
     lane_name = lane
     if lane is None:
@@ -896,7 +896,7 @@ def feed_url(lane, order_facet, offset, size, cdn=True):
         m = cdn_url_for
     else:
         m = url_for
-    return m('feed', lane=lane_name, order=order_facet,
+    return m('feed', lane_name=lane_name, order=order_facet,
              after=offset, size=size, _external=True)
 
 def feed_cache_url(lane, languages, order_facet, 
@@ -951,7 +951,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     search_link = dict(
         rel="search",
         type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane=lane.name, _external=True))
+        href=url_for('lane_search', lane_name=lane.name, _external=True))
     opds_feed.add_link(**search_link)
     add_configuration_links(opds_feed)
     return (200,
@@ -960,19 +960,19 @@ def make_feed(_db, annotator, lane, languages, order_facet,
         )
 
 
-@app.route('/feed', defaults=dict(lane=None))
-@app.route('/feed/', defaults=dict(lane=None))
-@app.route('/feed/<lane>')
-def feed(lane):
+@app.route('/feed', defaults=dict(lane_name=None))
+@app.route('/feed/', defaults=dict(lane_name=None))
+@app.route('/feed/<lane_name>')
+def feed(lane_name):
     languages = languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'recommended')
     offset = arg('after', None)
 
-    if lane not in Conf.sublanes.by_name:
+    if lane_name not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
 
-    lane = Conf.sublanes.by_name[lane]
+    lane = Conf.sublanes.by_name[lane_name]
 
     key = (lane, ",".join(languages), order_facet)
     feed_xml = None
@@ -1085,10 +1085,10 @@ def popular_feed(lane_name):
     feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
-@app.route('/search', defaults=dict(lane=None))
-@app.route('/search/', defaults=dict(lane=None))
-@app.route('/search/<lane>')
-def lane_search(lane):
+@app.route('/search', defaults=dict(lane_name=None))
+@app.route('/search/', defaults=dict(lane_name=None))
+@app.route('/search/<lane_name>')
+def lane_search(lane_name):
     languages = languages_for_request()
     query = flask.request.args.get('q')
     if lane:
@@ -1098,7 +1098,7 @@ def lane_search(lane):
         # Create a synthetic Lane that includes absolutely everything.
         lane = Lane.everything(Conf.db)
         lane_name = None
-    this_url = url_for('lane_search', lane=lane_name, _external=True)
+    this_url = url_for('lane_search', lane_name=lane_name, _external=True)
     if not query:
         # Send the search form
         return OpenSearchDocument.for_lane(lane, this_url)

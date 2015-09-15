@@ -193,8 +193,8 @@ class TestNavigationFeed(CirculationAppTest):
                 assert title_facet[1].endswith("/Fiction?order=title")
 
                 eq_("next", next_link[0])
-                assert "?after=" in next_link[1]
-                assert "&order=author" in next_link[1]
+                assert "after=" in next_link[1]
+                assert "order=author" in next_link[1]
 
                 eq_("search", search[0])
                 assert search[1].endswith('/search/Fiction')
