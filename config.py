@@ -30,6 +30,8 @@ class Configuration(CoreConfiguration):
 
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
+
+    LIST_FIELDS = "fields"
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 

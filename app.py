@@ -401,9 +401,9 @@ def make_acquisition_groups(annotator, lane, languages):
         lane_name = lane
     else:
         lane_name = lane.name
-    url = cdn_url_for("acquisition_groups", lane=lane_name, _external=True)
-    best_sellers_url = cdn_url_for("popular_feed", lane=lane_name, _external=True)
-    staff_picks_url = cdn_url_for("staff_picks_feed", lane=lane_name, _external=True)
+    url = cdn_url_for("acquisition_groups", lane_name=lane_name, _external=True)
+    best_sellers_url = cdn_url_for("popular_feed", lane_name=lane_name, _external=True)
+    staff_picks_url = cdn_url_for("staff_picks_feed", lane_name=lane_name, _external=True)
     feed = AcquisitionFeed.featured_groups(
         url, best_sellers_url, staff_picks_url, languages, lane, annotator)
     feed.add_link(
@@ -509,6 +509,8 @@ def staff_picks_feed_cache_url(annotator, lane, languages, order_facet,
                                offset, size):
     if isinstance(lane, Lane):
         lane_name = lane.name
+    elif isinstance(lane, Conf):
+        lane_name = None
     else:
         lane_name = lane
 
@@ -522,7 +524,8 @@ def staff_picks_feed_cache_url(annotator, lane, languages, order_facet,
         languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
-def make_staff_picks_feed(_db, annotator, lane, languages):
+def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
+                          offset, size):
     # Do some preliminary data checking to avoid generating expensive
     # feeds that contain nothing.
     if lane and lane.parent:
@@ -532,23 +535,6 @@ def make_staff_picks_feed(_db, annotator, lane, languages):
     if 'eng' not in languages:
         # We only have information about English best-sellers.
         return problem(None, "No such feed", 404)
-
-    arg = flask.request.args.get
-    order_facet = arg('order', 'title')
-
-    size = arg('size', '50')
-    try:
-        size = int(size)
-    except ValueError:
-        return problem(None, "Invalid size: %s" % size, 400)
-    size = min(size, 100)
-
-    offset = arg('after', None)
-    if offset:
-        try:
-            offset = int(offset)
-        except ValueError:
-            return problem(None, "Invalid offset: %s" % offset, 400)
 
     if not lane:
         lane_name = lane
@@ -1060,7 +1046,7 @@ def staff_picks_feed(lane_name):
         annotator, lane, languages, order_facet, offset, size)
     def get(*args, **kwargs):
         return make_staff_picks_feed(
-            Conf.db, annotator, lane, languages)
+            Conf.db, annotator, lane, languages, order_facet, offset, size)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=None)

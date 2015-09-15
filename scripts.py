@@ -182,6 +182,26 @@ class UpdateStaffPicksScript(Script):
     DEFAULT_URL_TEMPLATE = "https://docs.google.com/spreadsheets/d/%s/export?format=csv"
 
     def run(self):
+        inp = self.open()
+        tag_fields = {
+            'tags': Subject.NYPL_APPEAL,
+        }
+
+        integ = Configuration.integration(Configuration.STAFF_PICKS_INTEGRATION)
+        fields = integ.get(Configuration.LIST_FIELDS, {})
+
+        importer = CustomListFromCSV(
+            DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME,
+            **fields
+        )
+        reader = csv.DictReader(inp)
+        importer.to_customlist(self._db, reader)
+        self._db.commit()
+
+    def open(self):
+        if len(sys.argv) > 1:
+            return open(sys.argv[1])
+
         url = Configuration.integration_url(
             Configuration.STAFF_PICKS_INTEGRATION, True
         )
@@ -194,24 +214,10 @@ class UpdateStaffPicksScript(Script):
         if representation.status_code != 200:
             raise ValueError("Unexpected status code %s" % 
                              representation.status_code)
-            return
         if not representation.media_type.startswith("text/csv"):
             raise ValueError("Unexpected media type %s" % 
                              representation.media_type)
-            return
-        tag_fields = {
-            'tags': Subject.NYPL_APPEAL,
-        }
-
-        importer = CustomListFromCSV(
-            DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME,
-            tag_fields=tag_fields,
-        )
-        reader = csv.DictReader(StringIO(representation.content))
-        writer = csv.writer(sys.stdout)
-        importer.to_customlist(self._db, reader, writer)
-        self._db.commit()
-
+        return StringIO(representation.content)
 
 class ContentOPDSImporter(BaseOPDSImporter):
 
@@ -452,11 +458,27 @@ class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     def cache_url(self, annotator, lane, languages):
         return self.app.staff_picks_feed_cache_url(annotator, lane, languages)
 
-    def make_get_method(self, annotator, lane, languages):
-        def get_method(*args, **kwargs):
-            return self.app.make_staff_picks_feed(
-                self._db, annotator, lane, languages)
-        return get_method
+    def process_lane(self, lane):
+        annotator = CirculationManagerAnnotator(None, lane)
+        max_size = 1000
+        page_size = 100
+        if lane:
+            lane_name = lane.name
+        else:
+            lane_name = None
+        for languages in self.languages:
+            for facet in ('title', 'author'):
+                self.last_work_seen = None
+                for offset in range(0, max_size, page_size):
+                    url = self.app.staff_picks_feed_cache_url(
+                        annotator, lane_name, languages, facet, offset, 
+                        page_size
+                    )
+                    def get_method(*args, **kwargs):
+                        return self.app.make_staff_picks_feed(
+                            self._db, annotator, lane, languages, facet,
+                            offset, page_size)
+                    self.generate_feed(url, get_method, 10*60)
 
     def should_process_lane(self, lane):
         # Only process the top-level lanes.
