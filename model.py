@@ -3488,7 +3488,7 @@ class Work(Base):
             target_age = (target_age_min, target_age_max, '[]')
         else:
             if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-                target_age = (14, 18)
+                target_age = (14, 17)
             elif audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
                 target_age = (18, None)
             else:

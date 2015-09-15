@@ -135,7 +135,7 @@ class Classifier(object):
     @classmethod
     def default_target_age_for_audience(self, audience):
         if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 18)
+            return (14, 17)
         elif audience in (
                 Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
         ):
