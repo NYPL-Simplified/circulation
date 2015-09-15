@@ -3487,7 +3487,12 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_ADULT
             target_age = (target_age_min, target_age_max, '[]')
         else:
-            target_age = None, None
+            if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+                target_age = (14, 18)
+            elif audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
+                target_age = (18, None)
+            else:
+                target_age = None, None
         return workgenres, fiction, audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
