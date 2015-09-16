@@ -4332,6 +4332,8 @@ class Subject(Base):
         if not classifier:
             return
         self.checked = True
+        log = logging.getLogger("Subject-genre assignment")
+
         genredata, audience, target_age, fiction = classifier.classify(self)
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = (None, None)
@@ -4351,14 +4353,36 @@ class Subject(Base):
         if genredata:
             _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)
+            if genre != self.genre:
+                log.info(
+                    "%s:%s genre %r=>%r", self.type, self.identifier,
+                    self.genre, genre
+                )
             self.genre = genre
+
         if audience:
+            if self.audience != audience:
+                log.info(
+                    "%s:%s audience %s=>%s", self.type, self.identifier,
+                    self.audience, audience
+                )
             self.audience = audience
+
         if fiction is not None:
+            if self.fiction != fiction:
+                log.info(
+                    "%s:%s fiction %s=>%s", self.type, self.identifier,
+                    self.fiction, fiction
+                )
             self.fiction = fiction
+
+        old_target_age = (self.target_age.lower, self.target_age.upper)
+        if old_target_age != target_age:
+            log.info(
+                "%s:%s target_age %r=>%r", self.type, self.identifier,
+                self.target_age, target_age
+            )        
         self.target_age = target_age
-        #if genredata or audience or target_age or fiction:
-        #    print self
 
 
 class Classification(Base):
