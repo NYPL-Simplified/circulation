@@ -455,9 +455,6 @@ class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.STAFF_PICKS_LANGUAGES]
     OTHER_COLLECTIONS = []
 
-    def cache_url(self, annotator, lane, languages):
-        return self.app.staff_picks_feed_cache_url(annotator, lane, languages)
-
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(None, lane, facet_view='staff_picks_feed')
         max_size = 200
