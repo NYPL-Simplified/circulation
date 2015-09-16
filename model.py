@@ -6413,13 +6413,14 @@ class CustomList(Base):
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
         entry.annotation = annotation
+        if edition.license_pool and not entry.license_pool:
+            entry.license_pool = edition.license_pool
         return entry, was_new
 
 class CustomListEntry(Base):
 
     __tablename__ = 'customlistentries'
     id = Column(Integer, primary_key=True)    
-    
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)

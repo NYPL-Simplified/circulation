@@ -229,7 +229,9 @@ class DatabaseTest(object):
 
     def _customlist(self, foreign_identifier=None, 
                     name=None,
-                    data_source_name=DataSource.NYT, num_entries=1):
+                    data_source_name=DataSource.NYT, num_entries=1,
+                    entries_exist_as_works=True
+    ):
         data_source = DataSource.lookup(self._db, data_source_name)
         foreign_identifier = foreign_identifier or self._str
         now = datetime.utcnow()
@@ -246,9 +248,13 @@ class DatabaseTest(object):
         )
         editions = []
         for i in range(num_entries):
-            edition = self._edition(
-                data_source_name, title="Item %s" % i)
-            edition.permanent_work_id="Permanent work ID %s" % self._str
+            if entries_exist_as_works:
+                work = self._work(with_open_access_download=True)
+                edition = work.editions[0]
+            else:
+                edition = self._edition(
+                    data_source_name, title="Item %s" % i)
+                edition.permanent_work_id="Permanent work ID %s" % self._str
             customlist.add_entry(
                 edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
