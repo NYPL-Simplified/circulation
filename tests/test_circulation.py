@@ -29,6 +29,7 @@ from ..config import (
 )
 from ..core.model import (
     get_one,
+    CustomList,
     DataSource,
     LaneList,
     Loan,
@@ -159,13 +160,13 @@ class TestNavigationFeed(CirculationAppTest):
     def test_faceted_links(self):
         # Create some more books to force pagination.
         self.english_2 = self._work(
-            "Quite British 2: British Harder", "John Bull", language="eng",
+            u"Quite British 2: British Harder", u"John Bull", language=u"eng",
             fiction=True, with_open_access_download=True
         )
         self.english_2.calculate_opds_entries()
         self.english_3 = self._work(
-            "Quite British 3: Live Free or Die British", "John Bull", 
-            language="eng", fiction=True, with_open_access_download=True
+            u"Quite British 3: Live Free or Die British", u"John Bull", 
+            language=u"eng", fiction=True, with_open_access_download=True
         )
 
         # Force a refresh of the materialized view so that the new
@@ -392,3 +393,65 @@ class TestCheckout(CirculationAppTest):
     #         eq_(404, response.status_code)
     #         assert "Sorry, couldn't find an available license." in response.data
     #     pool.open_access = True
+
+class TestStaffPicks(CirculationAppTest):
+
+    def _links(self, feed, rel):
+        return sorted(
+            [
+                x for x in feed['feed']['links'] 
+                if x['rel']==rel
+            ],
+            key=lambda x: x['href']
+        )
+
+    def test_facet_links(self):
+        # Create and populate a staff-picks list.
+        staff_picks = self._customlist(
+            CustomList.STAFF_PICKS_NAME,
+            CustomList.STAFF_PICKS_NAME,
+            DataSource.LIBRARY_STAFF, 
+            num_entries=3
+        )
+
+        # Make sure all the links are correct when client asks for a 
+        # staff-picks feed ordered by author.
+        with self.app.test_request_context(
+                "/", query_string=dict(size=1, order="author")):
+            author_response = self.circulation.staff_picks_feed(None)
+
+        author_feed = feedparser.parse(author_response.get_data())
+        author, title = self._links(
+            author_feed, 'http://opds-spec.org/facet')
+        eq_('true', author['activefacet'])
+        eq_(None, title.get('activefacet'))
+
+        assert author['href'].endswith("staff_picks/?order=author")
+        assert title['href'].endswith("staff_picks/?order=title")
+
+        [next_link] = self._links(author_feed, 'next')
+        assert 'staff_picks' in next_link
+        assert 'after=1' in next_link
+        assert 'size=1' in next_link
+        assert 'order=author' in next_link
+
+        # Try the same text with the 'title' order facet.
+        with self.app.test_request_context(
+                "/", query_string=dict(size=1, order="title")):
+            title_response = self.circulation.staff_picks_feed(None)
+
+        title_feed = feedparser.parse(title_response.get_data())
+        author, title = self._links(
+            title_feed, 'http://opds-spec.org/facet')
+
+        eq_(None, author.get('activefacet'))
+        eq_('true', title['activefacet'])
+
+        assert author['href'].endswith("staff_picks/?order=author")
+        assert title['href'].endswith("staff_picks/?order=title")
+
+        [next_link] = self._links(title_feed, 'next')
+        assert 'staff_picks' in next_link
+        assert 'after=1' in next_link
+        assert 'size=1' in next_link
+        assert 'order=title' in next_link

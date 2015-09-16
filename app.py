@@ -551,7 +551,9 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
 
     staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
     work_feed = CustomListFeed(
-        lane, staff, languages, availability=CustomListFeed.ALL)
+        lane, staff, languages, availability=CustomListFeed.ALL,
+        order_facet=order_facet
+    )
     page = work_feed.page_query(_db, offset, size).all()
 
     this_url = cdn_url_for(
@@ -1040,8 +1042,10 @@ def staff_picks_feed(lane_name):
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
     offset = arg('after', None)
-    size = arg('size', 50)
-    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
+    size = int(arg('size', 50))
+    annotator = CirculationManagerAnnotator(
+        Conf.circulation, lane, facet_view='staff_picks_feed'
+    )
     cache_url = staff_picks_feed_cache_url(
         annotator, lane, languages, order_facet, offset, size)
     def get(*args, **kwargs):
