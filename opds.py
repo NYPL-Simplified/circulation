@@ -44,7 +44,7 @@ class CirculationManagerAnnotator(Annotator):
             m = cdn_url_for
         else:
             m = url_for
-        return m('feed', lane=lane.name, order=order, _external=True)
+        return m('feed', lane_name=lane.name, order=order, _external=True)
 
     @classmethod
     def navigation_feed_url(self, lane):
@@ -52,7 +52,7 @@ class CirculationManagerAnnotator(Annotator):
             lane_name = None
         else:
             lane_name = lane.name
-        return cdn_url_for('navigation_feed', lane=lane_name, _external=True)
+        return cdn_url_for('navigation_feed', lane_name=lane_name, _external=True)
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -76,7 +76,7 @@ class CirculationManagerAnnotator(Annotator):
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
-            url = cdn_url_for('acquisition_groups', lane=None, _external=True)
+            url = cdn_url_for('acquisition_groups', lane_name=None, _external=True)
             title = "All Books"
             return url, title
 
@@ -100,9 +100,9 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes and not show_feed:
-            url = cdn_url_for('acquisition_groups', lane=lane.name, _external=True)
+            url = cdn_url_for('acquisition_groups', lane_name=lane.name, _external=True)
         else:
-            url = cdn_url_for('feed', lane=lane.name, order='author', _external=True)
+            url = cdn_url_for('feed', lane_name=lane.name, order='author', _external=True)
         return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):

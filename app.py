@@ -740,7 +740,7 @@ def acquisition_groups(lane_name):
     if lane_name is None:
         lane = Conf
     elif lane_name not in Conf.sublanes.by_name:
-        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
+        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
     else:
         lane = Conf.sublanes.by_name[lane_name]
 
@@ -970,7 +970,7 @@ def feed(lane_name):
     offset = arg('after', None)
 
     if lane_name not in Conf.sublanes.by_name:
-        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
+        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
 
     lane = Conf.sublanes.by_name[lane_name]
 
