@@ -514,8 +514,8 @@ def staff_picks_feed_cache_url(annotator, lane, languages, order_facet,
     else:
         lane_name = lane
 
-    url = url_for('staff_picks_feed', lane_name=lane_name, order=order_facet,
-                  after=offset, size=size, _external=True)
+    kw = dict(lane_name=lane_name, order=order_facet)
+    url = url_for('staff_picks_feed', _external=True, **kw)
     if '?' in url:
         url += '&'
     else:
@@ -737,14 +737,12 @@ def lane_url(cls, lane, order=None):
 @app.route('/groups/', defaults=dict(lane_name=None))
 @app.route('/groups/<lane_name>')
 def acquisition_groups(lane_name):
-
-    lane_name = lane
-    if lane is None:
+    if lane_name is None:
         lane = Conf
-    elif lane not in Conf.sublanes.by_name:
+    elif lane_name not in Conf.sublanes.by_name:
         return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane, 404)
     else:
-        lane = Conf.sublanes.by_name[lane]
+        lane = Conf.sublanes.by_name[lane_name]
 
     languages = languages_for_request()
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
@@ -1053,7 +1051,7 @@ def staff_picks_feed(lane_name):
             Conf.db, annotator, lane, languages, order_facet, offset, size)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-        max_age=None)
+        max_age=60*60*24)
     feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
@@ -1085,7 +1083,7 @@ def popular_feed(lane_name):
         return make_popular_feed(Conf.db, annotator, lane, languages)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-        max_age=None)
+        max_age=60*60*24)
     feed_xml = feed_rep.content
     return feed_response(feed_xml)
 
