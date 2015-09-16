@@ -754,6 +754,10 @@ class Lowercased(unicode):
 
 class ThreeMClassifier(Classifier):
 
+    # TODO:
+    # Readers / Beginner
+    # Readers / Chapter Books    
+
     # Any classification that starts with "FICTION" or "JUVENILE
     # FICTION" will be counted as fiction. This is just the leftovers.
     FICTION = set([
@@ -799,6 +803,9 @@ class ThreeMClassifier(Classifier):
         Crafts_Hobbies : [ 
             "CRAFTS & HOBBIES/",
         ],
+        Dystopian_SF : [
+            "Dystopian"
+        ],
         Games : [
             "GAMES/",
         ],
@@ -811,6 +818,10 @@ class ThreeMClassifier(Classifier):
             "Fantasy/",
             "Magic/",
             "Unicorns & Mythical/"
+        ],
+        Folklore : [
+            "Legends, Myths, Fables",
+            "Fairy Tales & Folklore",
         ],
         Foreign_Language_Study : "FOREIGN LANGUAGE STUDY/",
         Gardening : "GARDENING/",
@@ -838,6 +849,9 @@ class ThreeMClassifier(Classifier):
             "Horror & Ghost Stories/",
             "Occult/",
         ],
+        Life_Strategies : [
+            "JUVENILE NONFICTION/Social Issues"
+        ],
         Literary_Fiction : [
             "FICTION/Literary",
             "FICTION/Psychological",
@@ -856,7 +870,9 @@ class ThreeMClassifier(Classifier):
         Nature : "NATURE/",
         Parenting_Family: "FAMILY & RELATIONSHIPS/",
         Performing_Arts : "PERFORMING ARTS/",
-        Pets : "PETS/",
+        Pets : [
+            "PETS/",
+        ],
         Philosophy : "PHILOSOPHY/",
         Photography : "PHOTOGRAPHY/",
         Poetry : "POETRY/",
@@ -928,6 +944,7 @@ class ThreeMClassifier(Classifier):
         ],
         Fantasy: [
             "JUVENILE FICTION/Animals/Dragons",
+            "JUVENILE FICTION/Fantasy & Magic",
         ],
         Film_TV: [
             "PERFORMING ARTS/Film/",
@@ -981,6 +998,7 @@ class ThreeMClassifier(Classifier):
             "FICTION/Gay/",
             "FICTION/Lesbian/",
             "JUVENILE FICTION/Gay & Lesbian/",
+            "JUVENILE FICTION/LGBT/",
         ],
         Literary_Criticism : [
             "LANGUAGE ARTS & DISCIPLINES/",

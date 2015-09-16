@@ -338,6 +338,23 @@ class TestBISAC(object):
         eq_(classifier.Religion_Spirituality, 
             gen("RELIGION / Biblical Studies / Prophecy"))
 
+        eq_(classifier.Dystopian_SF,
+            gen("JUVENILE FICTION / Dystopian")
+        )
+
+        eq_(classifier.Folklore,
+            gen("JUVENILE FICTION / Fairy Tales & Folklore / General")
+        )
+
+        eq_(classifier.Folklore,
+            gen("JUVENILE FICTION / Legends, Myths, Fables / General")
+        )
+
+        eq_(classifier.Life_Strategies, 
+            gen("JUVENILE NONFICTION / Social Issues / Friendship")
+        )
+
+
 class TestAxis360Classifier(object):
 
     def test_audience(self):
