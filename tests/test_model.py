@@ -1830,7 +1830,8 @@ class TestCustomList(DatabaseTest):
         w2 = self._work(with_license_pool=True)
 
         # A custom list.
-        custom_list, editions = self._customlist(num_entries=2)
+        custom_list, editions = self._customlist(
+            num_entries=2, entries_exist_as_works=False)
         
         # One of the works has the same permanent work ID as one of the
         # editions on the list.
