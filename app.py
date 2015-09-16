@@ -1093,9 +1093,8 @@ def popular_feed(lane_name):
 def lane_search(lane_name):
     languages = languages_for_request()
     query = flask.request.args.get('q')
-    if lane:
-        lane = Conf.sublanes.by_name[lane]    
-        lane_name = lane.name
+    if lane_name:
+        lane = Conf.sublanes.by_name[lane_name]
     else:
         # Create a synthetic Lane that includes absolutely everything.
         lane = Lane.everything(Conf.db)
