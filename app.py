@@ -514,7 +514,7 @@ def staff_picks_feed_cache_url(annotator, lane, languages, order_facet,
     else:
         lane_name = lane
 
-    kw = dict(lane_name=lane_name, order=order_facet)
+    kw = dict(lane_name=lane_name, order=order_facet, offset=offset, size=size)
     url = url_for('staff_picks_feed', _external=True, **kw)
     if '?' in url:
         url += '&'
@@ -1039,7 +1039,7 @@ def staff_picks_feed(lane_name):
     languages = languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
-    offset = arg('after', None)
+    offset = arg('after', 0)
     size = int(arg('size', 50))
     annotator = CirculationManagerAnnotator(
         Conf.circulation, lane, facet_view='staff_picks_feed'
