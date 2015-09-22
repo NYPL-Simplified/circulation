@@ -16,12 +16,14 @@ from model import (
     LicensePool,
     Edition,
     Identifier,
+    Representation,
     Subject,
 )
 
 from metadata import (
     SubjectData,
     ContributorData,
+    FormatData,
     IdentifierData,
     CirculationData,
     Metadata,
@@ -184,6 +186,13 @@ class Axis360Parser(XMLParser):
 
 class BibliographicParser(Axis360Parser):
 
+    AXIS_FORMAT_TO_MEDIA_TYPE = {
+        "Blio" : None,
+        "Acoustik" : None,
+        "ePub" : Representation.EPUB_MEDIA_TYPE,
+        "PDF" : Representation.PDF_MEDIA_TYPE,
+    }
+
     @classmethod
     def parse_list(self, l):
         """Turn strings like this into lists:
@@ -331,6 +340,16 @@ class BibliographicParser(Axis360Parser):
         if isbn:
             identifiers.append(IdentifierData(Identifier.ISBN, isbn))
 
+        formats = []
+        acceptable = False
+        for format_tag in self._xpath(
+                element, 'axis:availability/axis:availableFormats/axis:formatName', 
+                ns
+        ):
+            informal_name = format_tag.text
+            media_type = self.AXIS_FORMAT_TO_MEDIA_TYPE.get(informal_name, None)
+            formats.append(FormatData(informal_name, media_type))
+
         data = Metadata(
             data_source=DataSource.AXIS_360,
             title=title,
@@ -343,7 +362,8 @@ class BibliographicParser(Axis360Parser):
             primary_identifier=primary_identifier,
             identifiers=identifiers,
             subjects=subjects,
-            contributors=contributors
+            contributors=contributors,
+            formats=formats,
         )
         return data
 

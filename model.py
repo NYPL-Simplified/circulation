@@ -5877,6 +5877,7 @@ class Representation(Base):
     """
 
     EPUB_MEDIA_TYPE = u"application/epub+zip"
+    PDF_MEDIA_TYPE = u"application/pdf"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"

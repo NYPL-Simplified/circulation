@@ -142,13 +142,18 @@ class IdentifierData(object):
             _db, self.type, self.identifier
         )
 
+class FormatData(object):
+    def __init__(self, informal_name, media_type):
+        self.informal_name = informal_name
+        self.media_type = media_type
+
 class CirculationData(object):
     def __init__(
             self, licenses_owned, 
             licenses_available, 
             licenses_reserved,
             patrons_in_hold_queue,
-            last_checked=None
+            last_checked=None,
     ):
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
@@ -203,6 +208,7 @@ class Metadata(object):
             identifiers=None,
             subjects=None,
             contributors=None,
+            formats=None,
     ):
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
@@ -219,6 +225,7 @@ class Metadata(object):
         self.imprint = imprint
         self.issued = issued
         self.published = published
+        self.formats = formats
 
         self.primary_identifier=primary_identifier
         self.identifiers = identifiers or []
