@@ -493,7 +493,7 @@ def make_popular_feed(_db, annotator, lane, languages):
     if len(page) == 0:
         offset = None
     else:
-        offset = offset or 0
+        offset = int(offset) or 0
         offset += size
         next_url = cdn_url_for(
             'popular_feed', lane_name=lane_name, order=order_facet,
@@ -569,7 +569,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
     if len(page) == 0:
         offset = None
     else:
-        offset = offset or 0
+        offset = int(offset) or 0
         offset += size
         next_url = cdn_url_for(
             'staff_picks_feed', lane_name=lane_name, order=order_facet,
@@ -942,7 +942,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     if len(page) == 0:
         offset = None
     else:
-        offset = offset or 0
+        offset = int(offset) or 0
         offset += size
         next_url = feed_url(lane, order_facet, offset, size)
         opds_feed.add_link(rel="next", href=next_url)
