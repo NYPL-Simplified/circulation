@@ -36,7 +36,11 @@ class JSONFormatter(logging.Formatter):
 class UTF8Formatter(logging.Formatter):
     """Encode all Unicode output to UTF-8 to prevent encoding errors."""
     def format(self, record):
-        data = super(UTF8Formatter, self).format(record)
+        try:
+            data = super(UTF8Formatter, self).format(record)
+        except Exception, e:
+            set_trace()
+            data = super(UTF8Formatter, self).format(record)
         if isinstance(data, unicode):
             data = data.encode("utf8")
         return data

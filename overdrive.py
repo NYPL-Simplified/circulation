@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import base64
 import datetime
+import isbnlib
 import os
 import json
 import logging
@@ -12,6 +13,8 @@ import sys
 from model import (
     Credential,
     DataSource,
+    Edition,
+    Identifier,
     Representation,
 )
 
@@ -21,6 +24,8 @@ from core.metadata import (
     FormatData,
     IdentifierData,
     Metadata,
+    MeasurementData,
+    ResourceData,
     SubjectData,
 )
 
@@ -299,16 +304,52 @@ class OverdriveRepresentationExtractor(object):
     overdrive_role_to_simplified_role = {
     }
 
+    DATE_FORMAT = "%Y-%m-%d"
+
+    @classmethod
+    def book_info_to_circulation(cls, book):
+        # In Overdrive, 'reserved' books show up as books on
+        # hold. There is no separate notion of reserved books.
+        licenses_reserved = 0
+
+        licenses_owned = None
+        licenses_available = None
+        patrons_in_hold_queue = None
+
+        if (book.get('isOwnedByCollections') is not False):
+            # We own this book.
+            for collection in book['collections']:
+                if 'copiesOwned' in collection:
+                    if licenses_owned is None:
+                        licenses_owned = 0
+                    licenses_owned += int(collection['copiesOwned'])
+                if 'copiesAvailable' in collection:
+                    if licenses_available is None:
+                        licenses_available = 0
+                    licenses_available += int(collection['copiesAvailable'])
+                if 'numberOfHolds' in collection:
+                    if patrons_in_hold_queue is None:
+                        patrons_in_hold_queue = 0
+                    patrons_in_hold_queue += collection['numberOfHolds']
+        return CirculationData(
+            licenses_owned=licenses_owned,
+            licenses_available=licenses_available,
+            licenses_reserved=licenses_reserved,
+            patrons_in_hold_queue=patrons_in_hold_queue
+        )
+
     @classmethod
     def book_info_to_metadata(self, book):
-        """Turn a JSON representation of a book's circulation info into a
-        Metadata object.
-
-        This does not 
+        """Turn Overdrive's JSON representation of a book into a Metadata
+        object.
         """
         overdrive_id = book['id']
+        primary_identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID, overdrive_id
+        )
+
         title = book.get('title', None)
-        sort_title = info.get('sortTitle')
+        sort_title = book.get('sortTitle')
         subtitle = book.get('subtitle', None)
         series = book.get('series', None)
         publisher = book.get('publisher', None)
@@ -316,7 +357,7 @@ class OverdriveRepresentationExtractor(object):
 
         if 'publishDate' in book:
             published = datetime.datetime.strptime(
-                info['publishDate'][:10], cls.DATE_FORMAT)
+                book['publishDate'][:10], cls.DATE_FORMAT)
         else:
             published = None
 
@@ -326,11 +367,13 @@ class OverdriveRepresentationExtractor(object):
         else:
             language = sorted(languages)[0]
 
-        for creator in info.get('creators', []):
+        contributors = []
+        for creator in book.get('creators', []):
             sort_name = creator['fileAs']
             display_name = creator['name']
             role = creator['role']
             if not role in self.overdrive_role_to_simplified_role:
+                set_trace()
                 role = None
             contributor = ContributorData(
                 sort_name=sort_name, display_name=display_name,
@@ -339,7 +382,7 @@ class OverdriveRepresentationExtractor(object):
             contributors.append(contributor)
 
         subjects = []
-        for sub in info.get('subjects', []):
+        for sub in book.get('subjects', []):
             subject = SubjectData(
                 type=Subject.OVERDRIVE, identifier=sub['value'],
                 weight=100
@@ -347,8 +390,8 @@ class OverdriveRepresentationExtractor(object):
             subjects.append(subject)
 
         extra = dict()
-        if 'grade_levels' in info:
-            for i in info['grade_levels']:
+        if 'grade_levels' in book:
+            for i in book['grade_levels']:
                 subject = SubjectData(
                     type=Subject.GRADE_LEVEL,
                     identifier=i['value'],
@@ -356,28 +399,11 @@ class OverdriveRepresentationExtractor(object):
                 )
                 subjects.append(subject)
 
-        for name, subject_type in (
-                ('ATOS', Subject.ATOS_SCORE),
-                ('lexileScore', Subject.LEXILE_SCORE),
-                ('interestLevel', Subject.INTEREST_LEVEL)
-        ):
-            if not name in info:
-                continue
-            identifier = str(info[name])
-            subject = SubjectData(type=subject_type, identifier=identifier,
-                                  weight=100
-            )
-
-        # TODO: Awards are still the province of Metadata.
-
-        # Metadata associates the Overdrive Edition with other
-        # identifiers such as ISBN.
-        #
-
-        # Metadata turns samples into resources.
-
         medium = Edition.BOOK_MEDIUM
-        for format in info.get('formats', []):
+        formats = []
+        set_trace()
+        for format in book.get('formats', []):
+            set_trace()
             # TODO: We have to actually get the formats here.
             if format['id'].startswith('audiobook-'):
                 medium = Edition.AUDIO_MEDIUM
@@ -390,4 +416,134 @@ class OverdriveRepresentationExtractor(object):
             else:
                 cls.cls_log.warn("Unfamiliar format: %s", format['id'])
 
-        return Metadata(...)
+        if 'awards' in book:
+            extra['awards'] = book.get('awards', [])
+            num_awards = len(extra['awards'])
+            metadata.measurements.append(
+                MeasurementData(
+                    Measurement.AWARDS, str(num_awards)
+                )
+            )
+
+        for name, subject_type in (
+                ('ATOS', Subject.ATOS_SCORE),
+                ('lexileScore', Subject.LEXILE_SCORE),
+                ('interestLevel', Subject.INTEREST_LEVEL)
+        ):
+            if not name in book:
+                continue
+            identifier = str(book[name])
+            metadata.subjects.append(
+                SubjectData(type=subject_type, identifier=identifier,
+                            weight=100
+                        )
+            )
+
+        for format in book.get('formats', []):
+            for new_id in format.get('identifiers', []):
+                t = new_id['type']
+                v = new_id['value']
+                type_key = None
+                if t == 'ASIN':
+                    type_key = Identifier.ASIN
+                elif t == 'ISBN':
+                    type_key = Identifier.ISBN
+                    if len(v) == 10:
+                        v = isbnlib.to_isbn13(v)
+                elif t == 'DOI':
+                    type_key = Identifier.DOI
+                elif t == 'UPC':
+                    type_key = Identifier.UPC
+                elif t == 'PublisherCatalogNumber':
+                    continue
+                if type_key:
+                    metadata.identifiers.append(
+                        type_key, v, 1
+                    )
+
+            # Samples become resources.
+            if 'samples' in format:
+                if format['id'] == 'ebook-overdrive':
+                    # Useless to us.
+                    continue
+                media_type = cls.media_type_for_overdrive_type.get(
+                    format['id'])
+                for sample_info in format['samples']:
+                    href = sample_info['url']
+                    metadata.resources.append(
+                        ResourceData(
+                            rel=Hyperlink.SAMPLE, 
+                            href=href,
+                            media_type=media_type
+                        )
+                    )
+
+        # Cover and descriptions become resources.
+        if 'images' in book and 'cover' in book['images']:
+            link = book['images']['cover']
+            href = OverdriveAPI.make_link_safe(link['href'])
+            media_type = link['type']
+            metadata.resources.append(
+                ResourceData(
+                    rel=Hyperlink.IMAGE,
+                    href=href,
+                    media_type=media_type
+                )
+            )
+
+        short = book.get('shortDescription')
+        full = book.get('fullDescription')
+        if full:
+            metadata.resources.append(
+                ResourceData(
+                    rel=Hyperlink.DESCRIPTION,
+                    value=full,
+                    media_type="text/html",
+                )
+            )
+
+        if short and (not full or not full.startswith(short)):
+            metadata.resources.append(
+                ResourceData(
+                    rel=Hyperlink.SHORT_DESCRIPTION,
+                    value=short,
+                    media_type="text/html",
+                )
+            )
+
+        # Add measurements: rating and popularity
+        measurements = []
+        if book.get('starRating') is not None and book['starRating'] > 0:
+            measurements.append(
+                MeasurementData(
+                    quantity_measured=Measurement.RATING,
+                    value=book['starRating']
+                )
+            )
+
+        if book.get('popularity'):
+            measurements.append(
+                MeasurementData(
+                    quantity_measured=Measurement.POPULARITY,
+                    value=book['starRating']
+                )
+            )
+
+        return Metadata(
+            data_source=DataSource.OVERDRIVE,
+            title=title,
+            subtitle=subtitle,
+            sort_title=sort_title,
+            language=language,
+            medium=medium,
+            series=series,
+            publisher=publisher,
+            imprint=imprint,
+            published=published,            
+            primary_identifier=primary_identifier,
+            subjects=subjects,
+            contributors=contributors,
+            formats=formats,
+            measurements=measurements,
+            resources=resources,
+        )

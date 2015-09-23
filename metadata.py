@@ -143,6 +143,37 @@ class IdentifierData(object):
             _db, self.type, self.identifier
         )
 
+class ResourceData(object):
+    def __init__(self, rel, href=None, media_type=None, value=None):
+        if not rel:
+            raise ValueError("rel is required")
+
+        if not href and not value:
+            raise ValueError("Either href or value is required")
+        self.rel = rel
+        self.href = href
+        self.media_type = media_type
+        self.value = value
+
+
+class MeasurementData(object):
+    def __init__(self, 
+                 quantity_measured,
+                 value,
+                 weight=1,
+                 taken_at=None):
+        if not quantity_measured:
+            raise ValueError("quantity_measured is required.")
+        if not value:
+            raise ValueError("measurement value is required.")
+        self.quantity_measured = quantity_measured
+        if not isinstance(value, float) and not isinstance(value, int):
+            value = float(value)
+        self.value = value
+        self.weight = weight
+        self.taken_at = taken_at or datetime.datetime.utcnow()
+
+
 class FormatData(object):
     def __init__(self, informal_name, media_type):
         self.informal_name = informal_name
@@ -177,6 +208,25 @@ class CirculationData(object):
                     end=self.last_checked,
                 )
             )
+            # TODO: Also put this in the log.
+
+        changed = (pool.licenses_owned != self.licenses_owned or
+                   pool.licenses_available != self.licenses_available or
+                   pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
+                   pool.licenses_reserved != self.licenses_reserved)
+
+        if changed:
+            self.log.info(
+                'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                edition.medium, 
+                edition.title or "[NO TITLE]",
+                edition.author or "", 
+                edition.primary_identifier.identifier,
+                pool.licenses_owned, new_licenses_owned,
+                pool.licenses_available, new_licenses_available,
+                pool.patrons_in_hold_queue, new_number_of_holds
+            )
+
 
         # Update availabily information. This may result in the issuance
         # of additional events.
@@ -187,6 +237,7 @@ class CirculationData(object):
             self.patrons_in_hold_queue,
             self.last_checked
         )
+        return changed
 
 class Metadata(object):
 
@@ -211,6 +262,7 @@ class Metadata(object):
             identifiers=None,
             subjects=None,
             contributors=None,
+            measurements=None,
             formats=None,
     ):
         self._data_source = data_source
@@ -233,6 +285,7 @@ class Metadata(object):
         self.imprint = imprint
         self.issued = issued
         self.published = published
+        self.measurements = measurements
         self.formats = formats
 
         self.primary_identifier=primary_identifier
@@ -451,6 +504,14 @@ class Metadata(object):
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
+
+        # Apply all measurements to the primary identifier
+        for measurement in self.measurements:
+            identifier.add_measurement(
+                data_source, measurement.quantity_measured,
+                measurement.value, measurement.weight,
+                measurement.taken_at
+            )
 
         # Make sure the work we just did shows up.
         if edition.work:
