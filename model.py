@@ -4442,7 +4442,7 @@ class Classification(Base):
             return q[(data_source, subject_type)]
         if subject_type in q:
             return q[subject_type]
-        return 0
+        return 0.1
 
 # Non-database objects.
 
