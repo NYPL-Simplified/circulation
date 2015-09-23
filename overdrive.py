@@ -14,6 +14,16 @@ from model import (
     DataSource,
     Representation,
 )
+
+from core.metadata import (
+    CirculationData,
+    ContributorData,
+    FormatData,
+    IdentifierData,
+    Metadata,
+    SubjectData,
+)
+
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -278,3 +288,106 @@ class OverdriveRepresentationExtractor(object):
         else:
             link = None
         return link
+
+    media_type_for_overdrive_type = {
+        "ebook-pdf-adobe" : Representation.PDF_MEDIA_TYPE,
+        "ebook-pdf-open" : Representation.PDF_MEDIA_TYPE,
+        "ebook-epub-adobe" : Representation.EPUB_MEDIA_TYPE,
+        "ebook-epub-open" : Representation.EPUB_MEDIA_TYPE,
+    }
+
+    overdrive_role_to_simplified_role = {
+    }
+
+    @classmethod
+    def book_info_to_metadata(self, book):
+        """Turn a JSON representation of a book's circulation info into a
+        Metadata object.
+
+        This does not 
+        """
+        overdrive_id = book['id']
+        title = book.get('title', None)
+        sort_title = info.get('sortTitle')
+        subtitle = book.get('subtitle', None)
+        series = book.get('series', None)
+        publisher = book.get('publisher', None)
+        imprint = book.get('imprint', None)
+
+        if 'publishDate' in book:
+            published = datetime.datetime.strptime(
+                info['publishDate'][:10], cls.DATE_FORMAT)
+        else:
+            published = None
+
+        languages = [l['code'] for l in book.get('languages', [])]
+        if 'eng' in languages or not languages:
+            language = 'eng'
+        else:
+            language = sorted(languages)[0]
+
+        for creator in info.get('creators', []):
+            sort_name = creator['fileAs']
+            display_name = creator['name']
+            role = creator['role']
+            if not role in self.overdrive_role_to_simplified_role:
+                role = None
+            contributor = ContributorData(
+                sort_name=sort_name, display_name=display_name,
+                roles=[role], biography = creator.get('bioText', None)
+            )
+            contributors.append(contributor)
+
+        subjects = []
+        for sub in info.get('subjects', []):
+            subject = SubjectData(
+                type=Subject.OVERDRIVE, identifier=sub['value'],
+                weight=100
+            )
+            subjects.append(subject)
+
+        extra = dict()
+        if 'grade_levels' in info:
+            for i in info['grade_levels']:
+                subject = SubjectData(
+                    type=Subject.GRADE_LEVEL,
+                    identifier=i['value'],
+                    weight=100
+                )
+                subjects.append(subject)
+
+        for name, subject_type in (
+                ('ATOS', Subject.ATOS_SCORE),
+                ('lexileScore', Subject.LEXILE_SCORE),
+                ('interestLevel', Subject.INTEREST_LEVEL)
+        ):
+            if not name in info:
+                continue
+            identifier = str(info[name])
+            subject = SubjectData(type=subject_type, identifier=identifier,
+                                  weight=100
+            )
+
+        # TODO: Awards are still the province of Metadata.
+
+        # Metadata associates the Overdrive Edition with other
+        # identifiers such as ISBN.
+        #
+
+        # Metadata turns samples into resources.
+
+        medium = Edition.BOOK_MEDIUM
+        for format in info.get('formats', []):
+            # TODO: We have to actually get the formats here.
+            if format['id'].startswith('audiobook-'):
+                medium = Edition.AUDIO_MEDIUM
+            elif format['id'].startswith('video-'):
+                medium = Edition.VIDEO_MEDIUM
+            elif format['id'].startswith('ebook-'):
+                medium = Edition.BOOK_MEDIUM
+            elif format['id'].startswith('music-'):
+                medium = Edition.MUSIC_MEDIUM
+            else:
+                cls.cls_log.warn("Unfamiliar format: %s", format['id'])
+
+        return Metadata(...)

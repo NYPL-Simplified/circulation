@@ -35,7 +35,7 @@ class SubjectData(object):
 
 class ContributorData(object):
     def __init__(self, sort_name=None, display_name=None, roles=None,
-                 lc=None, viaf=None):
+                 lc=None, viaf=None, biography=None):
         self.sort_name = sort_name
         self.display_name = display_name
         roles = roles or Contributor.AUTHOR_ROLE
@@ -44,6 +44,7 @@ class ContributorData(object):
         self.roles = roles
         self.lc = lc
         self.viaf = viaf
+        self.biography = biography
 
     def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
@@ -197,6 +198,8 @@ class Metadata(object):
             self, 
             data_source,
             title=None,
+            subtitle=None,
+            sort_title=None,
             language=None,
             medium=Edition.BOOK_MEDIUM,
             series=None,
@@ -216,6 +219,11 @@ class Metadata(object):
         else:
             self.data_source_obj = None
         self.title = title
+        self.sort_title = self.sort_title
+        if self.subtitle:
+            # TODO: Make sure we're not using positional arguments.
+            set_trace()
+        self.subtitle = subtitle
         if language:
             language = LanguageCodes.string_to_alpha_3(language)
         self.language = language
