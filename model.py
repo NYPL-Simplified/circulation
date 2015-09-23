@@ -3382,7 +3382,9 @@ class Work(Base):
             if subject.genre:
                 genre_s[subject.genre] += weight
 
-            if subject.target_age:
+            if subject.target_age and (
+                    subject.target_age.lower is not None
+                    or subject.target_age.upper is not None):
                 target_age_relevant_classifications.append(classification)
         if fiction_s[True] > fiction_s[False]:
             fiction = True
@@ -4376,7 +4378,10 @@ class Subject(Base):
                 )
             self.fiction = fiction
 
-        old_target_age = (self.target_age.lower, self.target_age.upper)
+        if self.target_age:
+            old_target_age = (self.target_age.lower, self.target_age.upper)
+        else:
+            old_target_age = None
         if old_target_age != target_age:
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
@@ -4414,6 +4419,9 @@ class Classification(Base):
         Subject.OVERDRIVE : 15,
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
         (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+
+        Subject.AGE_RANGE : 10,
+        Subject.GRADE_LEVEL : 10,
 
         # These measure reading level, except for TAG, which measures
         # who-knows-what.

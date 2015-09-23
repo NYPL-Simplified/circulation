@@ -106,6 +106,7 @@ class ContributorData(object):
 
     def display_name_to_sort_name_through_canonicalizer(
             self, _db, identifiers, metadata_client):
+        sort_name = None
         for identifier in identifiers:
             if identifier.type != Identifier.ISBN:
                 continue
@@ -215,6 +216,7 @@ class Metadata(object):
             self.data_source_obj = self._data_source
         else:
             self.data_source_obj = None
+
         self.title = title
         if language:
             language = LanguageCodes.string_to_alpha_3(language)
@@ -316,13 +318,23 @@ class Metadata(object):
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
         return self.data_source_obj
 
+    def edition_data_source(self, _db):
+        """The original data source for this book.
+
+        This may be different from the source of the data being
+        imposed on the book right now.
+        """
+        i, ignore = self.primary_identifier.load(_db)
+        return DataSource.license_source_for(_db, i)
+
     def edition(self, _db, create_if_not_exists=True):
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find edition: metadata has no primary identifier."
             )
+
         return Edition.for_foreign_id(
-            _db, self.data_source(_db), self.primary_identifier.type, 
+            _db, self.edition_data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
         )        
@@ -333,7 +345,7 @@ class Metadata(object):
                 "Cannot find license pool: metadata has no primary identifier."
             )
         return LicensePool.for_foreign_id(
-            _db, self.data_source(_db), self.primary_identifier.type, 
+            _db, self.edition_data_source(_db), self.primary_identifier.type, 
             self.primary_identifier.identifier
         )
 
@@ -537,15 +549,17 @@ class CSVMetadataImporter(object):
 
         # Make sure this CSV file has some way of identifying books.
         found_identifier_field = False
+        possibilities = []
         for field_name, weight in self.identifier_fields.values():
+            possibilities.append(field_name)
             if field_name in fields:
                 found_identifier_field = True
                 break
         if not found_identifier_field:
-            possibilities = ", ".join(self.identifier_fields.keys())
             raise CSVFormatError(
-                "Could not find a primary identifier field. Possibilities: %s." %
-                possibilities
+                "Could not find a primary identifier field. Possibilities: %s. Actualities: %s." %
+                (", ".join(possibilities),
+                 ", ".join(fields))
             )
 
         for row in dictreader:
@@ -655,6 +669,8 @@ class CSVMetadataImporter(object):
         """
         if isinstance(names, basestring):
             return self.__field(row, names, default)
+        if not names:
+            return default
         for name in names:
             v = self.__field(row, name)
             if v:
