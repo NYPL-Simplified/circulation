@@ -1591,6 +1591,9 @@ class Contributor(Base):
     # gives us an entry point to Wikipedia, Wikidata, etc.
     wikipedia_name = Column(Unicode, index=True)
 
+    # This is a short biography for this contributor, probably
+    # provided by a publisher.
+    biography = Column(Unicode)
 
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
