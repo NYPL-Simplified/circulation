@@ -4420,15 +4420,15 @@ class Classification(Base):
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
         (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
 
-        Subject.AGE_RANGE : 10,
-        Subject.GRADE_LEVEL : 10,
-
         # These measure reading level, except for TAG, which measures
         # who-knows-what.
         (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 5,
         Subject.TAG : 2,
         Subject.LEXILE_SCORE : 1,
         Subject.ATOS_SCORE: 1,
+
+        Subject.AGE_RANGE : 10,
+        Subject.GRADE_LEVEL : 10,
     }
     
     @property
@@ -4438,10 +4438,10 @@ class Classification(Base):
         data_source = self.data_source.name
         subject_type = self.subject.type
         q = self._quality_as_indicator_of_target_age
-        if subject_type in q:
-            return q[subject_type]
         if (data_source, subject_type) in q:
             return q[(data_source, subject_type)]
+        if subject_type in q:
+            return q[subject_type]
         return 0
 
 # Non-database objects.
