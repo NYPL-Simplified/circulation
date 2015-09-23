@@ -6,7 +6,7 @@ from nose.tools import (
 import pkgutil
 import csv
 
-from metadata import (
+from metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
 )

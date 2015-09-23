@@ -13,7 +13,7 @@ from sqlalchemy.orm.exc import (
 from opds_import import SimplifiedOPDSLookup
 
 from config import Configuration
-from metadata import (
+from metadata_layer import (
     Metadata,
     IdentifierData,
     ContributorData,

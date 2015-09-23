@@ -20,7 +20,7 @@ from model import (
     Subject,
 )
 
-from metadata import (
+from metadata_layer import (
     SubjectData,
     ContributorData,
     FormatData,

@@ -11,14 +11,18 @@ import urllib
 import sys
 
 from model import (
+    Contributor,
     Credential,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
+    Measurement,
     Representation,
+    Subject,
 )
 
-from core.metadata import (
+from metadata_layer import (
     CirculationData,
     ContributorData,
     FormatData,
@@ -294,14 +298,23 @@ class OverdriveRepresentationExtractor(object):
             link = None
         return link
 
-    media_type_for_overdrive_type = {
+    media_type_for_overdrive_format = {
         "ebook-pdf-adobe" : Representation.PDF_MEDIA_TYPE,
         "ebook-pdf-open" : Representation.PDF_MEDIA_TYPE,
         "ebook-epub-adobe" : Representation.EPUB_MEDIA_TYPE,
         "ebook-epub-open" : Representation.EPUB_MEDIA_TYPE,
     }
 
+    informal_name_for_overdrive_format = {
+        "ebook-kindle" : "Kindle via Amazon"
+    }
+
+    ignorable_overdrive_formats = set([
+        'ebook-overdrive'
+    ])
+
     overdrive_role_to_simplified_role = {
+        "Author" : Contributor.AUTHOR_ROLE
     }
 
     DATE_FORMAT = "%Y-%m-%d"
@@ -339,7 +352,7 @@ class OverdriveRepresentationExtractor(object):
         )
 
     @classmethod
-    def book_info_to_metadata(self, book):
+    def book_info_to_metadata(cls, book):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
         """
@@ -372,7 +385,7 @@ class OverdriveRepresentationExtractor(object):
             sort_name = creator['fileAs']
             display_name = creator['name']
             role = creator['role']
-            if not role in self.overdrive_role_to_simplified_role:
+            if not role in cls.overdrive_role_to_simplified_role:
                 set_trace()
                 role = None
             contributor = ContributorData(
@@ -401,25 +414,33 @@ class OverdriveRepresentationExtractor(object):
 
         medium = Edition.BOOK_MEDIUM
         formats = []
-        set_trace()
         for format in book.get('formats', []):
-            set_trace()
-            # TODO: We have to actually get the formats here.
-            if format['id'].startswith('audiobook-'):
+            format_id = format['id']
+            media_type = cls.media_type_for_overdrive_format.get(format_id)
+            informal_name = None
+            if not media_type:
+                informal_name = cls.informal_name_for_overdrive_format.get(format_id)
+            if informal_name or media_type:
+                formats.append(FormatData(informal_name, media_type))
+            elif format_id not in cls.ignorable_overdrive_formats:
+                set_trace()
+
+            if format_id.startswith('audiobook-'):
                 medium = Edition.AUDIO_MEDIUM
-            elif format['id'].startswith('video-'):
+            elif format_id.startswith('video-'):
                 medium = Edition.VIDEO_MEDIUM
-            elif format['id'].startswith('ebook-'):
+            elif format_id.startswith('ebook-'):
                 medium = Edition.BOOK_MEDIUM
-            elif format['id'].startswith('music-'):
+            elif format_id.startswith('music-'):
                 medium = Edition.MUSIC_MEDIUM
             else:
-                cls.cls_log.warn("Unfamiliar format: %s", format['id'])
+                cls.cls_log.warn("Unfamiliar format: %s", format_id)
 
+        measurements = []
         if 'awards' in book:
             extra['awards'] = book.get('awards', [])
             num_awards = len(extra['awards'])
-            metadata.measurements.append(
+            measurements.append(
                 MeasurementData(
                     Measurement.AWARDS, str(num_awards)
                 )
@@ -433,12 +454,14 @@ class OverdriveRepresentationExtractor(object):
             if not name in book:
                 continue
             identifier = str(book[name])
-            metadata.subjects.append(
+            subjects.append(
                 SubjectData(type=subject_type, identifier=identifier,
                             weight=100
                         )
             )
 
+        identifiers = []
+        resources = []
         for format in book.get('formats', []):
             for new_id in format.get('identifiers', []):
                 t = new_id['type']
@@ -457,20 +480,20 @@ class OverdriveRepresentationExtractor(object):
                 elif t == 'PublisherCatalogNumber':
                     continue
                 if type_key:
-                    metadata.identifiers.append(
-                        type_key, v, 1
+                    identifiers.append(
+                        IdentifierData(type_key, v, 1)
                     )
 
             # Samples become resources.
             if 'samples' in format:
-                if format['id'] == 'ebook-overdrive':
+                media_type = cls.media_type_for_overdrive_format.get(
+                    format['id'])
+                if not media_type:
                     # Useless to us.
                     continue
-                media_type = cls.media_type_for_overdrive_type.get(
-                    format['id'])
                 for sample_info in format['samples']:
                     href = sample_info['url']
-                    metadata.resources.append(
+                    resources.append(
                         ResourceData(
                             rel=Hyperlink.SAMPLE, 
                             href=href,
@@ -483,7 +506,7 @@ class OverdriveRepresentationExtractor(object):
             link = book['images']['cover']
             href = OverdriveAPI.make_link_safe(link['href'])
             media_type = link['type']
-            metadata.resources.append(
+            resources.append(
                 ResourceData(
                     rel=Hyperlink.IMAGE,
                     href=href,
@@ -494,7 +517,7 @@ class OverdriveRepresentationExtractor(object):
         short = book.get('shortDescription')
         full = book.get('fullDescription')
         if full:
-            metadata.resources.append(
+            resources.append(
                 ResourceData(
                     rel=Hyperlink.DESCRIPTION,
                     value=full,
@@ -503,7 +526,7 @@ class OverdriveRepresentationExtractor(object):
             )
 
         if short and (not full or not full.startswith(short)):
-            metadata.resources.append(
+            resources.append(
                 ResourceData(
                     rel=Hyperlink.SHORT_DESCRIPTION,
                     value=short,
@@ -512,7 +535,6 @@ class OverdriveRepresentationExtractor(object):
             )
 
         # Add measurements: rating and popularity
-        measurements = []
         if book.get('starRating') is not None and book['starRating'] > 0:
             measurements.append(
                 MeasurementData(
@@ -541,6 +563,7 @@ class OverdriveRepresentationExtractor(object):
             imprint=imprint,
             published=published,            
             primary_identifier=primary_identifier,
+            identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
             formats=formats,

@@ -9,7 +9,7 @@ from sqlalchemy.orm.session import Session
 from opds_import import SimplifiedOPDSLookup
 import logging
 from config import Configuration
-from metadata import CSVMetadataImporter
+from metadata_layer import CSVMetadataImporter
 from model import (
     get_one,
     get_one_or_create,

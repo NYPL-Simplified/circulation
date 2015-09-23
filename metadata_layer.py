@@ -264,6 +264,7 @@ class Metadata(object):
             subjects=None,
             contributors=None,
             measurements=None,
+            resources=None,
             formats=None,
     ):
         self._data_source = data_source
@@ -273,10 +274,7 @@ class Metadata(object):
             self.data_source_obj = None
 
         self.title = title
-        self.sort_title = self.sort_title
-        if self.subtitle:
-            # TODO: Make sure we're not using positional arguments.
-            set_trace()
+        self.sort_title = sort_title
         self.subtitle = subtitle
         if language:
             language = LanguageCodes.string_to_alpha_3(language)
@@ -287,8 +285,6 @@ class Metadata(object):
         self.imprint = imprint
         self.issued = issued
         self.published = published
-        self.measurements = measurements
-        self.formats = formats
 
         self.primary_identifier=primary_identifier
         self.identifiers = identifiers or []
@@ -296,8 +292,11 @@ class Metadata(object):
         if (self.primary_identifier 
             and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
-        self.subjects = subjects
-        self.contributors = contributors
+        self.subjects = subjects or []
+        self.contributors = contributors or []
+        self.resources = resources or []
+        self.measurements = measurements or []
+        self.formats = formats or []
 
     def normalize_contributors(self, metadata_client):
         """Make sure that all contributors without a .sort_name get one."""
@@ -416,6 +415,7 @@ class Metadata(object):
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
+            replace_resources=False,
     ):
         """Apply this metadata to the given edition."""
         _db = Session.object_session(edition)
@@ -516,6 +516,9 @@ class Metadata(object):
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
+
+        # Associate all resources with the primary identifier.
+        # TODO This is incomplete.
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
