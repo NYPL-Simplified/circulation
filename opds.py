@@ -551,8 +551,8 @@ class AcquisitionFeed(OPDSFeed):
                 b = time.time()
                 #print "Got %s %s for %s in %.2f" % (
                 #    len(page), title, lane.name, (b-a))
-                if len(page) > 20:
-                    sample = random.sample(page, 20)
+                if len(page) > feed_size:
+                    sample = random.sample(page, feed_size)
                 else:
                     sample = page
                 for work in sample:

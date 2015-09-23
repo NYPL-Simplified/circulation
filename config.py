@@ -219,7 +219,7 @@ class Configuration(object):
 
     @classmethod
     def featured_lane_size(cls):
-        return int(cls.policy(cls.FEATURED_LANE_SIZE, 20))
+        return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
 
     # Methods for loading the configuration from disk.
 
