@@ -510,80 +510,22 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         Also adds very basic bibliographic information to the Edition.
         """
-        overdrive_id = book['id']
-        pool, was_new = LicensePool.for_foreign_id(
-            self._db, self.source, Identifier.OVERDRIVE_ID, overdrive_id)
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(book)
+        pool, was_new = metadata.license_pool(self._db)
         if was_new:
             pool.open_access = False
-            wr, wr_new = Edition.for_foreign_id(
-                self._db, self.source, Identifier.OVERDRIVE_ID, overdrive_id)
-            if 'title' in book:
-                wr.title = book['title']
-            self.log.info("New Overdrive book discovered: %r", wr)
+            edition, was_new = metadata.edition(_db)
+            edition.title = edition.title or metadata.title
+            self.log.info("New Overdrive book discovered: %r", edition)
 
-        new_licenses_owned = []
-        new_licenses_available = []
-        new_number_of_holds = []
-        if 'collections' in book:
-            for collection in book['collections']:
-                if 'copiesOwned' in collection:
-                    new_licenses_owned.append(collection['copiesOwned'])
-                if 'copiesAvailable' in collection:
-                    new_licenses_available.append(collection['copiesAvailable'])
-                if 'numberOfHolds' in collection:
-                    new_number_of_holds.append(collection['numberOfHolds'])
-        elif book.get('isOwnedByCollections') is False:
-            new_licenses_owned = [0]
-            new_licenses_available = [0]
-            new_number_of_holds = [0]
-
-        if new_licenses_owned:
-            new_licenses_owned = sum(new_licenses_owned)
-        else:
-            new_licenses_owned = pool.licenses_owned
-
-        if new_licenses_available:
-            new_licenses_available = sum(new_licenses_available)
-        else:
-            new_licenses_available = pool.licenses_available
-
-        if new_number_of_holds:
-            new_number_of_holds = sum(new_number_of_holds)
-        else:
-            new_number_of_holds = pool.patrons_in_hold_queue
-
-        # Overdrive doesn't do 'reserved'.
-        licenses_reserved = 0
+        circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
+            book
+        )
+        changed = circulation.update(pool, was_new)
 
         edition, ignore = Edition.for_foreign_id(
             self._db, self.source, pool.identifier.type,
             pool.identifier.identifier)
-
-        changed = (pool.licenses_owned != new_licenses_owned
-                   or pool.licenses_available != new_licenses_available
-                   or pool.licenses_reserved != licenses_reserved
-                   or pool.patrons_in_hold_queue != new_number_of_holds)
-            
-        def printable(x, default=None):
-            if not x:
-                return default
-            if isinstance(x, unicode):
-                x = x.encode("utf8")
-            return x
-
-        if changed:
-            self.log.info(
-                'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                edition.medium, 
-                printable(edition.title, "[NO TITLE]"),
-                printable(edition.author, ""), 
-                printable(edition.primary_identifier.identifier),
-                pool.licenses_owned, new_licenses_owned,
-                pool.licenses_available, new_licenses_available,
-                pool.patrons_in_hold_queue, new_number_of_holds
-            )
-        pool.update_availability(new_licenses_owned, new_licenses_available,
-                                 licenses_reserved, new_number_of_holds)
         return pool, was_new, changed
 
     def _get_book_list_page(self, link, rel_to_follow='next'):
