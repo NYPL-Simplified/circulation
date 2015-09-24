@@ -16,6 +16,7 @@ from model import (
     Contributor,
     Edition,
     Identifier,
+    Representation,
     Subject,
     Measurement,
     Hyperlink,
@@ -93,6 +94,14 @@ class TestOverdriveRepresentationExtractor(object):
             ],
             sorted(ids)
         )
+
+        # Available formats.
+        [kindle, pdf] = sorted(metadata.formats, key=lambda x: x.media_type)
+        eq_(None, kindle.media_type)
+        eq_("Kindle via Amazon", kindle.informal_name)
+
+        eq_(None, pdf.informal_name)
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.media_type)
 
         # Links to various resources.
         shortd, image, longd = sorted(metadata.links, key=lambda x:x.rel)
