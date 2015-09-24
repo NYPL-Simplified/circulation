@@ -12,6 +12,15 @@ from overdrive import (
     OverdriveRepresentationExtractor,
 )
 
+from model import (
+    Contributor,
+    Edition,
+    Identifier,
+    Subject,
+    Measurement,
+    Hyperlink,
+)
+
 class TestOverdriveAPI(object):
 
     def test_make_link_safe(self):
@@ -47,10 +56,11 @@ class TestOverdriveRepresentationExtractor(object):
 
         raw, info = self.sample_json("overdrive_metadata.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
-        set_trace()
 
         eq_("Agile Documentation", metadata.title)
+        eq_("Agile Documentation A Pattern Guide to Producing Lightweight Documents for Software Projects", metadata.sort_title)
         eq_("A Pattern Guide to Producing Lightweight Documents for Software Projects", metadata.subtitle)
+        eq_(Edition.BOOK_MEDIUM, metadata.medium)
         eq_("Wiley Software Patterns", metadata.series)
         eq_("eng", metadata.language)
         eq_("Wiley", metadata.publisher)
@@ -62,15 +72,13 @@ class TestOverdriveRepresentationExtractor(object):
         [author] = metadata.contributors
         eq_(u"Rüping, Andreas", author.sort_name)
         eq_("Andreas R&#252;ping", author.display_name)
+        eq_([Contributor.AUTHOR_ROLE], author.roles)
 
-        eq_(set(["Computer Technology", "Nonfiction"]),
-            set([c.identifier for c in metadata.subjects])
-        )
-        eq_(["Overdrive", "Overdrive"],
-            [c.type for c in metadata.subjects]
-        )
-        eq_([100, 100],
-            [c.weight for c in metadata.subjects]
+        subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
+
+        eq_([("Computer Technology", Subject.OVERDRIVE, 100),
+             ("Nonfiction", Subject.OVERDRIVE, 100)],
+            [(x.identifier, x.type, x.weight) for x in subjects]
         )
 
         # Related IDs.
@@ -78,29 +86,31 @@ class TestOverdriveRepresentationExtractor(object):
             (metadata.primary_identifier.type, metadata.primary_identifier.identifier))
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
-        eq_([("ASIN", "B000VI88N2"), ("ISBN", "9780470856246")],
-            sorted(ids))
+        eq_(
+            [
+                (Identifier.ASIN, "B000VI88N2"), 
+                (Identifier.ISBN, "9780470856246"),
+                (Identifier.OVERDRIVE_ID, '3896665d-9d81-4cac-bd43-ffc5066de1f5'),
+            ],
+            sorted(ids)
+        )
 
-        # Associated resources.
-        links = wr.primary_identifier.links
-        eq_(3, len(links))
-        long_description = [
-            x.resource.representation for x in links
-            if x.rel==Hyperlink.DESCRIPTION
-        ][0]
-        assert long_description.content.startswith("<p>Software documentation")
+        # Links to various resources.
+        shortd, image, longd = sorted(metadata.links, key=lambda x:x.rel)
 
-        short_description = [
-            x.resource.representation for x in links
-            if x.rel==Hyperlink.SHORT_DESCRIPTION
-        ][0]
-        assert short_description.content.startswith("<p>Software documentation")
-        assert len(short_description.content) < len(long_description.content)
+        eq_(Hyperlink.DESCRIPTION, longd.rel)
+        assert longd.value.startswith("<p>Software documentation")
 
-        image = [x.resource for x in links if x.rel==Hyperlink.IMAGE][0]
-        eq_('http://images.contentreserve.com/ImageType-100/0128-1/%7B3896665D-9D81-4CAC-BD43-FFC5066DE1F5%7DImg100.jpg', image.url)
+        eq_(Hyperlink.SHORT_DESCRIPTION, shortd.rel)
+        assert shortd.value.startswith("<p>Software documentation")
+        assert len(shortd.value) < len(longd.value)
 
-        measurements = wr.primary_identifier.measurements
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_('http://images.contentreserve.com/ImageType-100/0128-1/%7B3896665D-9D81-4CAC-BD43-FFC5066DE1F5%7DImg100.jpg', image.href)
+
+        # Measurements associated with the book.
+
+        measurements = metadata.measurements
         popularity = [x for x in measurements
                       if x.quantity_measured==Measurement.POPULARITY][0]
         eq_(2, popularity.value)
@@ -109,17 +119,12 @@ class TestOverdriveRepresentationExtractor(object):
                   if x.quantity_measured==Measurement.RATING][0]
         eq_(1, rating.value)
 
-        # Un-schematized metadata.
-
-        eq_(Edition.BOOK_MEDIUM, wr.medium)
-        eq_("Agile Documentation A Pattern Guide to Producing Lightweight Documents for Software Projects", wr.sort_title)
-
 
     def test_book_info_with_sample(self):
         raw, info = self.sample_json("has_sample.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
-        [sample] = [x for x in i.links if x.rel == Hyperlink.SAMPLE]
-        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub", sample.resource.url)
+        [sample] = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
+        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub", sample.href)
 
     def test_book_info_with_awards(self):
         raw, info = self.sample_json("has_awards.json")
@@ -128,5 +133,5 @@ class TestOverdriveRepresentationExtractor(object):
         [awards] = [x for x in metadata.measurements 
                     if Measurement.AWARDS == x.quantity_measured
         ]
-        eq(1, awards.value)
-        eq(1, awards.weight)
+        eq_(1, awards.value)
+        eq_(1, awards.weight)

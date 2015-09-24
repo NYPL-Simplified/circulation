@@ -29,7 +29,7 @@ from metadata_layer import (
     IdentifierData,
     Metadata,
     MeasurementData,
-    ResourceData,
+    LinkData,
     SubjectData,
 )
 
@@ -461,7 +461,7 @@ class OverdriveRepresentationExtractor(object):
             )
 
         identifiers = []
-        resources = []
+        links = []
         for format in book.get('formats', []):
             for new_id in format.get('identifiers', []):
                 t = new_id['type']
@@ -484,7 +484,7 @@ class OverdriveRepresentationExtractor(object):
                         IdentifierData(type_key, v, 1)
                     )
 
-            # Samples become resources.
+            # Samples become links.
             if 'samples' in format:
                 media_type = cls.media_type_for_overdrive_format.get(
                     format['id'])
@@ -493,21 +493,21 @@ class OverdriveRepresentationExtractor(object):
                     continue
                 for sample_info in format['samples']:
                     href = sample_info['url']
-                    resources.append(
-                        ResourceData(
+                    links.append(
+                        LinkData(
                             rel=Hyperlink.SAMPLE, 
                             href=href,
                             media_type=media_type
                         )
                     )
 
-        # Cover and descriptions become resources.
+        # Cover and descriptions become links.
         if 'images' in book and 'cover' in book['images']:
             link = book['images']['cover']
             href = OverdriveAPI.make_link_safe(link['href'])
             media_type = link['type']
-            resources.append(
-                ResourceData(
+            links.append(
+                LinkData(
                     rel=Hyperlink.IMAGE,
                     href=href,
                     media_type=media_type
@@ -517,8 +517,8 @@ class OverdriveRepresentationExtractor(object):
         short = book.get('shortDescription')
         full = book.get('fullDescription')
         if full:
-            resources.append(
-                ResourceData(
+            links.append(
+                LinkData(
                     rel=Hyperlink.DESCRIPTION,
                     value=full,
                     media_type="text/html",
@@ -526,8 +526,8 @@ class OverdriveRepresentationExtractor(object):
             )
 
         if short and (not full or not full.startswith(short)):
-            resources.append(
-                ResourceData(
+            links.append(
+                LinkData(
                     rel=Hyperlink.SHORT_DESCRIPTION,
                     value=short,
                     media_type="text/html",
@@ -568,5 +568,5 @@ class OverdriveRepresentationExtractor(object):
             contributors=contributors,
             formats=formats,
             measurements=measurements,
-            resources=resources,
+            links=links,
         )

@@ -144,7 +144,7 @@ class IdentifierData(object):
             _db, self.type, self.identifier
         )
 
-class ResourceData(object):
+class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, value=None):
         if not rel:
             raise ValueError("rel is required")
@@ -264,7 +264,7 @@ class Metadata(object):
             subjects=None,
             contributors=None,
             measurements=None,
-            resources=None,
+            links=None,
             formats=None,
     ):
         self._data_source = data_source
@@ -294,7 +294,7 @@ class Metadata(object):
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects or []
         self.contributors = contributors or []
-        self.resources = resources or []
+        self.links = links or []
         self.measurements = measurements or []
         self.formats = formats or []
 
@@ -415,7 +415,7 @@ class Metadata(object):
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
-            replace_resources=False,
+            replace_links=False,
     ):
         """Apply this metadata to the given edition."""
         _db = Session.object_session(edition)
@@ -517,7 +517,7 @@ class Metadata(object):
                     contributor_data.display_name
                 )
 
-        # Associate all resources with the primary identifier.
+        # Associate all links with the primary identifier.
         # TODO This is incomplete.
 
         # Apply all measurements to the primary identifier

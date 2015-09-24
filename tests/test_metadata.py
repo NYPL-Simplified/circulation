@@ -20,8 +20,9 @@ from model import (
 class TestMetadataImporter(object):
 
     def test_parse(self):
+        base_path = os.path.split(__file__)[0]
         path = os.path.join(
-            os.path.split(__file__)[0], "files/csv/staff_picks_small.csv")
+            base_path, "files/csv/staff_picks_small.csv")
         reader = csv.DictReader(open(path))
         importer = CSVMetadataImporter(
             DataSource.LIBRARY_STAFF,

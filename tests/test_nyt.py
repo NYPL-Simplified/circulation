@@ -177,8 +177,8 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
          ], sorted(equivalent_identifiers))
 
         eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
-        eq_("Paula Hawkins", edition.display_author)
-        eq_(None, edition.author)
+        eq_("Paula Hawkins", edition.author)
+        eq_(None, edition.sort_author)
         eq_("Riverhead", edition.publisher)
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):
@@ -189,7 +189,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         title = NYTBestSellerListTitle(self.one_list_title)
         edition = title.to_edition(self._db, self.metadata_client)
         eq_(contributor.name, edition.sort_author)
-        eq_(contributor.display_name, edition.display_author)
+        eq_(contributor.display_name, edition.author)
         assert edition.permanent_work_id is not None
 
     def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
