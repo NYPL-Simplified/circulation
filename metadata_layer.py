@@ -145,16 +145,16 @@ class IdentifierData(object):
         )
 
 class LinkData(object):
-    def __init__(self, rel, href=None, media_type=None, value=None):
+    def __init__(self, rel, href=None, media_type=None, content=None):
         if not rel:
             raise ValueError("rel is required")
 
-        if not href and not value:
-            raise ValueError("Either href or value is required")
+        if not href and not content:
+            raise ValueError("Either href or content is required")
         self.rel = rel
         self.href = href
         self.media_type = media_type
-        self.value = value
+        self.content = content
 
 
 class MeasurementData(object):
@@ -418,11 +418,27 @@ class Metadata(object):
             replace_links=False,
     ):
         """Apply this metadata to the given edition."""
+
+        # We were given an Edition, so either this metadata's
+        # primary_identifier must be missing or it must match the
+        # Edition's primary identifier.
         _db = Session.object_session(edition)
+        if self.primary_identifier:
+            if (self.primary_identifier.type != edition.primary_identifier.type
+                or self.primary_identifier.identifier != edition.primary_identifier.identifier):
+                raise ValueError(
+                    "Metadata's primary identifier (%s/%s) does not match edition's primary identifier (%r)" % (
+                        self.primary_identifier.type,
+                        self.primary_identifier.identifier,
+                        edition.primary_identifier,
+                    )
+                )
+
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
 
         identifier = edition.primary_identifier
+        pool = identifier.licensed_through
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
@@ -451,16 +467,11 @@ class Metadata(object):
 
         # TODO: remove equivalencies when replace_identifiers is True.
 
-        primary_identifier, ignore = Identifier.for_foreign_id(
-            _db, self.primary_identifier.type, 
-            self.primary_identifier.identifier
-        )
-
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
                 identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
-                primary_identifier.equivalent_to(
+                identifier.equivalent_to(
                     data_source, identifier, identifier_data.weight)
 
         if replace_subjects and self.subjects is not None:
@@ -484,16 +495,15 @@ class Metadata(object):
                     data_source, subject.type, subject.identifier, 
                     subject.name, weight=subject.weight)
 
-        if replace_contributions:
+        if replace_contributions and self.contributors is not None:
             dirty = False
-            if self.contributors is not None:
-                # Remove any old Contributions from this data source --
-                # we're about to add a new set
-                surviving_contributions = []
-                for contribution in edition.contributions:
-                    _db.delete(contribution)
-                    dirty = True
-                edition.contributions = surviving_contributions
+            # Remove any old Contributions from this data source --
+            # we're about to add a new set
+            surviving_contributions = []
+            for contribution in edition.contributions:
+                _db.delete(contribution)
+                dirty = True
+            edition.contributions = surviving_contributions
 
         for contributor_data in self.contributors:
             contributor_data.find_sort_name(
@@ -518,7 +528,24 @@ class Metadata(object):
                 )
 
         # Associate all links with the primary identifier.
-        # TODO This is incomplete.
+        if replace_links and self.links is not None:
+            surviving_hyperlinks = []
+            dirty = False
+            for hyperlink in identifier.hyperlinks:
+                if hyperlink.data_source == data_source:
+                    _db.delete(hyperlink)
+                    dirty = True
+                else:
+                    surviving_hyperlinks.append(hyperlink)
+            if dirty:
+                identifier.links = surviving_hyperlinks
+
+        for link in self.links:
+            identifier.add_link(
+                rel=link.rel, href=link.href, data_source=data_source, 
+                license_pool=pool, media_type=link.media_type,
+                content=link.content
+            )
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:

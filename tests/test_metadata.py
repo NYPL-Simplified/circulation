@@ -9,15 +9,24 @@ import csv
 from metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
+    MeasurementData,
+    LinkData,
+    Metadata,
 )
 
 import os
 from model import (
     DataSource,
     Identifier,
+    Measurement,
+    Hyperlink,
 )
 
-class TestMetadataImporter(object):
+from . import (
+    DatabaseTest,
+)
+
+class TestMetadataImporter(DatabaseTest):
 
     def test_parse(self):
         base_path = os.path.split(__file__)[0]
@@ -68,3 +77,32 @@ class TestMetadataImporter(object):
             [(x.type, x.identifier, x.weight) 
              for x in sorted(m2.subjects, key=lambda x: x.identifier)]
         )
+
+
+    def test_links(self):
+        edition = self._edition()
+        l1 = LinkData(rel=Hyperlink.IMAGE, href="http://example.com/")
+        l2 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
+        metadata = Metadata(links=[l1, l2], 
+                            data_source=edition.data_source)
+        metadata.apply(edition)
+        [image, description] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_("http://example.com/", image.resource.url)
+
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_("foo", description.resource.representation.content)
+
+    def test_measurements(self):
+        edition = self._edition()
+        measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
+                                      value=100)
+        metadata = Metadata(measurements=[measurement],
+                            data_source=edition.data_source)
+        metadata.apply(edition)
+        [m] = edition.primary_identifier.measurements
+        eq_(Measurement.POPULARITY, m.quantity_measured)
+        eq_(100, m.value)
+

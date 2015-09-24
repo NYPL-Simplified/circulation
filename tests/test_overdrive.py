@@ -51,7 +51,6 @@ class TestOverdriveRepresentationExtractor(object):
         expect = OverdriveAPI.make_link_safe("http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open")
         eq_(expect, OverdriveRepresentationExtractor.link(raw, "first"))
 
-
     def test_book_info_with_metadata(self):
 
         raw, info = self.sample_json("overdrive_metadata.json")
@@ -99,11 +98,11 @@ class TestOverdriveRepresentationExtractor(object):
         shortd, image, longd = sorted(metadata.links, key=lambda x:x.rel)
 
         eq_(Hyperlink.DESCRIPTION, longd.rel)
-        assert longd.value.startswith("<p>Software documentation")
+        assert longd.content.startswith("<p>Software documentation")
 
         eq_(Hyperlink.SHORT_DESCRIPTION, shortd.rel)
-        assert shortd.value.startswith("<p>Software documentation")
-        assert len(shortd.value) < len(longd.value)
+        assert shortd.content.startswith("<p>Software documentation")
+        assert len(shortd.content) < len(longd.content)
 
         eq_(Hyperlink.IMAGE, image.rel)
         eq_('http://images.contentreserve.com/ImageType-100/0128-1/%7B3896665D-9D81-4CAC-BD43-FFC5066DE1F5%7DImg100.jpg', image.href)
@@ -118,7 +117,6 @@ class TestOverdriveRepresentationExtractor(object):
         rating = [x for x in measurements
                   if x.quantity_measured==Measurement.RATING][0]
         eq_(1, rating.value)
-
 
     def test_book_info_with_sample(self):
         raw, info = self.sample_json("has_sample.json")

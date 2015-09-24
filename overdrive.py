@@ -520,7 +520,7 @@ class OverdriveRepresentationExtractor(object):
             links.append(
                 LinkData(
                     rel=Hyperlink.DESCRIPTION,
-                    value=full,
+                    content=full,
                     media_type="text/html",
                 )
             )
@@ -529,7 +529,7 @@ class OverdriveRepresentationExtractor(object):
             links.append(
                 LinkData(
                     rel=Hyperlink.SHORT_DESCRIPTION,
-                    value=short,
+                    content=short,
                     media_type="text/html",
                 )
             )
@@ -547,7 +547,7 @@ class OverdriveRepresentationExtractor(object):
             measurements.append(
                 MeasurementData(
                     quantity_measured=Measurement.POPULARITY,
-                    value=book['starRating']
+                    value=book['popularity']
                 )
             )
 
