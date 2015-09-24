@@ -1610,10 +1610,15 @@ class Contributor(Base):
     TRANSLATOR_ROLE = "Translator"
     ILLUSTRATOR_ROLE = "Illustrator"
     INTRODUCTION_ROLE = "Introduction Author"
-    FORWARD_ROLE = "Forward Author" 
+    FOREWORD_ROLE = "Foreword Author" 
+    AFTERWORD_ROLE = "Afterword Author" 
+    COLOPHON_ROLE = "Colophon Author"
     UNKNOWN_ROLE = 'Unknown'
     DIRECTOR_ROLE = 'Director'
+    PRODUCER_ROLE = 'Producer',
+    EXECUTIVE_PRODUCER_ROLE = 'Executive Producer',
     ACTOR_ROLE = 'Actor'
+    LYRICIST_ROLE = 'Lyricist'
     CONTRIBUTOR_ROLE = 'Contributor'
     COMPOSER_ROLE = 'Composer'
     NARRATOR_ROLE = 'Narrator'
@@ -1621,6 +1626,12 @@ class Contributor(Base):
     ADAPTER_ROLE = 'Adapter'
     PERFORMER_ROLE = 'Performer'
     MUSICIAN_ROLE = 'Musician'
+    ASSOCIATED_ROLE = 'Associated name'
+    COLLABORATOR_ROLE = 'Collaborator'
+    ENGINEER_ROLE = 'Engineer'
+    COPYRIGHT_HOLDER_ROLE = 'Copyright holder'
+    TRANSCRIBER_ROLE = 'Transcriber'
+    DESIGNER_ROLE = 'Designer'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
     # People from these roles can be put into the 'author' slot if no
@@ -1628,7 +1639,7 @@ class Contributor(Base):
     AUTHOR_SUBSTITUTE_ROLES = [
         EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE, 
          CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE, 
-         ARTIST_ROLE
+         ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
     ]
     
     PERFORMER_ROLES = [ACTOR_ROLE, PERFORMER_ROLE, NARRATOR_ROLE, MUSICIAN_ROLE]
@@ -5892,6 +5903,7 @@ class Representation(Base):
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
+    MP3_MEDIA_TYPE = u"audio/mpeg"
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE

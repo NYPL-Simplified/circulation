@@ -249,7 +249,7 @@ class BibliographicParser(Axis360Parser):
         PHT=Contributor.PHOTOGRAPHER_ROLE,
         ILT=Contributor.ILLUSTRATOR_ROLE,
         TRN=Contributor.TRANSLATOR_ROLE,
-        FRW=Contributor.FORWARD_ROLE,
+        FRW=Contributor.FOREWORD_ROLE,
         ADP=generic_author, # Author of adaptation
         COR=generic_author, # Corporate author
     )

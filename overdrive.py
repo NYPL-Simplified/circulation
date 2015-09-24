@@ -260,6 +260,8 @@ class OverdriveRepresentationExtractor(object):
 
     """Extract useful information from Overdrive's JSON representations."""
 
+    log = logging.getLogger("Overdrive representation extractor")
+
     @classmethod
     def availability_link_list(self, book_list):
         """:return: A list of dictionaries with keys `id`, `title`,
@@ -303,21 +305,79 @@ class OverdriveRepresentationExtractor(object):
         "ebook-pdf-open" : Representation.PDF_MEDIA_TYPE,
         "ebook-epub-adobe" : Representation.EPUB_MEDIA_TYPE,
         "ebook-epub-open" : Representation.EPUB_MEDIA_TYPE,
+        "audiobook-mp3" : Representation.MP3_MEDIA_TYPE,
+        "music-mp3" : Representation.MP3_MEDIA_TYPE,
     }
 
     informal_name_for_overdrive_format = {
-        "ebook-kindle" : "Kindle via Amazon"
+        "ebook-kindle" : "Kindle via Amazon",
+        'video-streaming' : "Streaming Video",
+        "periodicals-nook" : "Nook via B&N",
     }
 
     ignorable_overdrive_formats = set([
-        'ebook-overdrive'
+        'ebook-overdrive',
+        'audiobook-overdrive',
     ])
 
     overdrive_role_to_simplified_role = {
-        "Author" : Contributor.AUTHOR_ROLE
+        "actor" : Contributor.ACTOR_ROLE,
+        "artist" : Contributor.ARTIST_ROLE,
+        "book producer" : Contributor.PRODUCER_ROLE,
+        "associated name" : Contributor.ASSOCIATED_ROLE,
+        "author" : Contributor.AUTHOR_ROLE,
+        "author of introduction" : Contributor.INTRODUCTION_ROLE,
+        "author of foreword" : Contributor.FOREWORD_ROLE,
+        "author of afterword" : Contributor.AFTERWORD_ROLE,
+        "contributor" : Contributor.CONTRIBUTOR_ROLE,
+        "colophon" : Contributor.COLOPHON_ROLE,
+        "adapter" : Contributor.ADAPTER_ROLE,
+        "etc." : Contributor.UNKNOWN_ROLE,
+        "cast member" : Contributor.ACTOR_ROLE,
+        "collaborator" : Contributor.COLLABORATOR_ROLE,
+        "composer" : Contributor.COMPOSER_ROLE,
+        "copyright holder" : Contributor.COPYRIGHT_HOLDER_ROLE,
+        "director" : Contributor.DIRECTOR_ROLE,
+        "editor" : Contributor.EDITOR_ROLE,
+        "engineer" : Contributor.ENGINEER_ROLE,
+        "executive producer" : Contributor.EXECUTIVE_PRODUCER_ROLE,
+        "illustrator" : Contributor.ILLUSTRATOR_ROLE,
+        "musician" : Contributor.MUSICIAN_ROLE,
+        "narrator" : Contributor.NARRATOR_ROLE,
+        "other" : Contributor.UNKNOWN_ROLE,
+        "performer" : Contributor.PERFORMER_ROLE,
+        "producer" : Contributor.PRODUCER_ROLE,
+        "translator" : Contributor.TRANSLATOR_ROLE,
+        "photographer" : Contributor.PHOTOGRAPHER_ROLE,
+        "lyricist" : Contributor.LYRICIST_ROLE,
+        "transcriber" : Contributor.TRANSCRIBER_ROLE,
+        "designer" : Contributor.DESIGNER_ROLE,
+    }
+
+    overdrive_medium_to_simplified_medium = {
+        "eBook" : Edition.BOOK_MEDIUM,
+        "Video" : Edition.VIDEO_MEDIUM,
+        "Audiobook" : Edition.AUDIO_MEDIUM,
+        "Music" : Edition.MUSIC_MEDIUM,
+        "Periodicals" : Edition.PERIODICAL_MEDIUM,
     }
 
     DATE_FORMAT = "%Y-%m-%d"
+
+    @classmethod
+    def parse_roles(cls, id, rolestring):
+        rolestring = rolestring.lower()
+        roles = [x.strip() for x in rolestring.split(",")]
+        if ' and '  in roles[-1]:
+            roles = roles[:-1] + [x.strip() for x in roles[-1].split(" and ")]
+        processed = []
+        for x in roles:
+            if x not in cls.overdrive_role_to_simplified_role:
+                cls.log.error(
+                    "Could not process role %s for %s", x, id)
+            else:
+                processed.append(cls.overdrive_role_to_simplified_role[x])
+        return processed
 
     @classmethod
     def book_info_to_circulation(cls, book):
@@ -356,6 +416,8 @@ class OverdriveRepresentationExtractor(object):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
         """
+        if not 'id' in book:
+            return None
         overdrive_id = book['id']
         primary_identifier = IdentifierData(
             Identifier.OVERDRIVE_ID, overdrive_id
@@ -385,12 +447,10 @@ class OverdriveRepresentationExtractor(object):
             sort_name = creator['fileAs']
             display_name = creator['name']
             role = creator['role']
-            if not role in cls.overdrive_role_to_simplified_role:
-                set_trace()
-                role = None
+            roles = cls.parse_roles(overdrive_id, role) or [Contributor.UNKNOWN_ROLE]
             contributor = ContributorData(
                 sort_name=sort_name, display_name=display_name,
-                roles=[role], biography = creator.get('bioText', None)
+                roles=roles, biography = creator.get('bioText', None)
             )
             contributors.append(contributor)
 
@@ -412,7 +472,14 @@ class OverdriveRepresentationExtractor(object):
                 )
                 subjects.append(subject)
 
-        medium = Edition.BOOK_MEDIUM
+        overdrive_medium = book.get('mediaType', None)
+        if overdrive_medium and overdrive_medium not in cls.overdrive_medium_to_simplified_medium:
+            cls.log.error(
+                "Could not process medium %s for %s", overdrive_medium, overdrive_id)
+
+        medium = cls.overdrive_medium_to_simplified_medium.get(
+            overdrive_medium, Edition.BOOK_MEDIUM
+        )
         formats = []
         for format in book.get('formats', []):
             format_id = format['id']
@@ -423,7 +490,10 @@ class OverdriveRepresentationExtractor(object):
             if informal_name or media_type:
                 formats.append(FormatData(informal_name, media_type))
             elif format_id not in cls.ignorable_overdrive_formats:
-                set_trace()
+                cls.log.error(
+                    "Could not process Overdrive format %s for %s", 
+                    format_id, overdrive_id
+                )
 
             if format_id.startswith('audiobook-'):
                 medium = Edition.AUDIO_MEDIUM
@@ -434,7 +504,7 @@ class OverdriveRepresentationExtractor(object):
             elif format_id.startswith('music-'):
                 medium = Edition.MUSIC_MEDIUM
             else:
-                cls.cls_log.warn("Unfamiliar format: %s", format_id)
+                cls.log.warn("Unfamiliar format: %s", format_id)
 
         measurements = []
         if 'awards' in book:
