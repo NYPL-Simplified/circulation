@@ -84,6 +84,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
     def test_update(self):
         list_name = "combined-print-and-e-book-fiction"
+        self.metadata_client.lookups['Paula Hawkins'] = 'Hawkins, Paula'
         l = self.api.best_seller_list(list_name)
         self.api.update(l)
 
@@ -120,6 +121,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
     def test_to_customlist(self):
         list_name = "combined-print-and-e-book-fiction"
+        self.metadata_client.lookups['Paula Hawkins'] = 'Hawkins, Paula'
         l = self.api.best_seller_list(list_name)
         self.api.update(l)
         custom = l.to_customlist(self._db)
@@ -177,8 +179,13 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
          ], sorted(equivalent_identifiers))
 
         eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
-        eq_("Paula Hawkins", edition.author)
-        eq_(None, edition.sort_author)
+        # The list said the author was 'Paula Hawkins', but we couldn't
+        # find a sort name based on that, so no Contributor was created,
+        # so the book has no known author.
+        #
+        # See below for cases where we are able to find a sort name.
+        eq_("[Unknown]", edition.author)
+        eq_("[Unknown]", edition.sort_author)
         eq_("Riverhead", edition.publisher)
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):

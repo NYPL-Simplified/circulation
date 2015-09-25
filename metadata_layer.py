@@ -469,10 +469,10 @@ class Metadata(object):
 
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
-                identifier, ignore = Identifier.for_foreign_id(
+                new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
                 identifier.equivalent_to(
-                    data_source, identifier, identifier_data.weight)
+                    data_source, new_identifier, identifier_data.weight)
 
         if replace_subjects and self.subjects is not None:
             # Remove any old Subjects from this data source -- we're

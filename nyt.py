@@ -168,7 +168,7 @@ class NYTBestSellerList(list):
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
-                logging.wrror("No identifier for %r", li_data)
+                logging.error("No identifier for %r", li_data)
                 item = None
                 continue              
 
