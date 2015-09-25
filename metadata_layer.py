@@ -520,6 +520,8 @@ class Metadata(object):
                 )
                 if contributor_data.display_name:
                     contributor.display_name = contributor_data.display_name
+                if contributor_data.biography:
+                    contributor.biography = contributor_data.biography
 
             else:
                 self.log.info(
