@@ -942,7 +942,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     if len(page) == 0:
         offset = None
     else:
-        offset = int(offset) or 0
+        offset = int(offset or 0)
         offset += size
         next_url = feed_url(lane, order_facet, offset, size)
         opds_feed.add_link(rel="next", href=next_url)

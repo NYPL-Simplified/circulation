@@ -15,6 +15,14 @@ from ..core.model import (
     LicensePool,
 )
 
+from ..core.metadata_layer import (
+    Metadata,
+    CirculationData,
+    IdentifierData,
+    ContributorData,
+    SubjectData,
+)
+
 from ..axis import (
     Axis360CirculationMonitor,
     Axis360API,
@@ -37,36 +45,43 @@ from ..circulation_exceptions import *
 
 class TestCirculationMonitor(DatabaseTest):
 
-    BIBLIOGRAPHIC_DATA = {
-        Edition.publisher: u'Random House Inc',
-        Edition.language: 'eng', 
-        Edition.title: u'Faith of My Fathers : A Family Memoir', 
-        Edition.imprint : u'Random House Inc2',
-        Edition.published: datetime.datetime(2000, 3, 7, 0, 0),
-        Identifier: { 
-            Identifier.ISBN: [{Identifier.identifier: u'9780375504587'}],
-            Identifier.AXIS_360_ID : [
-                {Identifier.identifier: u'0003642860'}
-            ],
-        },
-        Contributor: {
-            Contributor.PRIMARY_AUTHOR_ROLE : [u'McCain, John'],
-            Contributor.AUTHOR_ROLE : [u'Salter, Mark'], 
-        },
-        Subject: [
-            {Subject.type : Subject.BISAC,
-             Subject.identifier : u'BIOGRAPHY & AUTOBIOGRAPHY / Political'},
-            {Subject.type : Subject.FREEFORM_AUDIENCE,
-             Subject.identifier : u'Adult'},
+    BIBLIOGRAPHIC_DATA = Metadata(
+        DataSource.AXIS_360,
+        publisher=u'Random House Inc',
+        language='eng', 
+        title=u'Faith of My Fathers : A Family Memoir', 
+        imprint=u'Random House Inc2',
+        published=datetime.datetime(2000, 3, 7, 0, 0),
+        primary_identifier=IdentifierData(
+            type=Identifier.AXIS_360_ID,
+            identifier=u'0003642860'
+        ),
+        identifiers = [
+            IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
         ],
-    }
+        contributors = [
+            ContributorData(sort_name=u"McCain, John", 
+                            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
+                        ),
+            ContributorData(sort_name=u"Salter, Mark", 
+                            roles=[Contributor.AUTHOR_ROLE]
+                        ),
+        ],
+        subjects = [
+            SubjectData(type=Subject.BISAC,
+                        identifier=u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
+            SubjectData(type=Subject.FREEFORM_AUDIENCE,
+                        identifier=u'Adult'),
+        ],
+    )
 
-    AVAILABILITY_DATA = {
-        LicensePool.licenses_owned: 9,
-        LicensePool.licenses_available: 8,
-        LicensePool.patrons_in_hold_queue: 0,
-        LicensePool.last_checked: datetime.datetime(2015, 5, 20, 2, 9, 8),
-    }
+    AVAILABILITY_DATA = CirculationData(
+        licenses_owned=9,
+        licenses_available=8,
+        licenses_reserved=0,
+        patrons_in_hold_queue=0,
+        last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
+    )
 
     def test_process_book(self):
         monitor = Axis360CirculationMonitor(self._db)

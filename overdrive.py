@@ -476,6 +476,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # Retrieve current circulation information about this book
         # print "Update for %s" % book
         orig_book = book
+        book_id = None
         if isinstance(book, basestring):
             book_id = book
             circulation_link = self.AVAILABILITY_ENDPOINT % dict(
@@ -484,6 +485,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
             book = dict(id=book_id)
         else:
+            book_id = book['id']
             circulation_link = book['availability_link']
         try:
             status_code, headers, content = self.get(circulation_link, {})
@@ -502,31 +504,32 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return None, None, False
 
         book.update(json.loads(content))
-        return self.update_licensepool_with_book_info(book)
+        license_pool, is_new = LicensePool.for_foreign_id(
+            DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+        return self.update_licensepool_with_book_info(
+            book, license_pool, is_new
+        )
 
-    def update_licensepool_with_book_info(self, book):
+    def update_licensepool_with_book_info(self, book, license_pool, is_new):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
-        Also adds very basic bibliographic information to the Edition.
+        Also creates an Edition and gives it very basic bibliographic
+        information (the title), if possible.
         """
-        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(book)
-        pool, was_new = metadata.license_pool(self._db)
-        if was_new:
-            pool.open_access = False
-            edition, was_new = metadata.edition(_db)
-            edition.title = edition.title or metadata.title
-            self.log.info("New Overdrive book discovered: %r", edition)
-
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
         )
-        changed = circulation.update(pool, was_new)
+        circulation_changed = circulation.update(license_pool, is_new)
 
         edition, ignore = Edition.for_foreign_id(
-            self._db, self.source, pool.identifier.type,
-            pool.identifier.identifier)
-        return pool, was_new, changed
+            self._db, self.source, license_pool.identifier.type,
+            license_pool.identifier.identifier)
+        edition.title = edition.title or book.get('title')
+        if is_new:
+            license_pool.open_access = False
+            self.log.info("New Overdrive book discovered: %r", edition)
+        return license_pool, is_new, circulation_changed
 
     def _get_book_list_page(self, link, rel_to_follow='next'):
         """Process a page of inventory whose circulation we need to check.

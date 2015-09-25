@@ -21,6 +21,7 @@ from . import (
 from ..core.model import (
     DataSource,
     Identifier,
+    LicensePool,
 )
 
 class TestOverdriveAPI(DatabaseTest):
@@ -52,7 +53,13 @@ class TestOverdriveAPI(DatabaseTest):
         raw['id'] = identifier.identifier
 
         api = DummyOverdriveAPI(self._db)
-        pool, was_new, changed = api.update_licensepool_with_book_info(raw)
+        pool, was_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE, 
+            identifier.type, identifier.identifier
+        )
+        pool, was_new, changed = api.update_licensepool_with_book_info(
+            raw, pool, was_new
+        )
         eq_(True, was_new)
         eq_(True, changed)
 
@@ -86,7 +93,9 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(0, pool.patrons_in_hold_queue)
 
         api = DummyOverdriveAPI(self._db)
-        p2, was_new, changed = api.update_licensepool_with_book_info(raw)
+        p2, was_new, changed = api.update_licensepool_with_book_info(
+            raw, pool, False
+        )
         eq_(False, was_new)
         eq_(True, changed)
         eq_(p2, pool)
@@ -106,7 +115,13 @@ class TestOverdriveAPI(DatabaseTest):
         raw['id'] = identifier.identifier
 
         api = DummyOverdriveAPI(self._db)
-        pool, was_new, changed = api.update_licensepool_with_book_info(raw)
+        license_pool, is_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE, identifier.type, 
+            identifier.identifier
+        )
+        pool, was_new, changed = api.update_licensepool_with_book_info(
+            raw, license_pool, is_new
+        )
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
 
