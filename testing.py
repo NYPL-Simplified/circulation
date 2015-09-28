@@ -13,6 +13,7 @@ from model import (
     CoverageRecord,
     CustomList,
     DataSource,
+    DeliveryMechanism,
     Genre,
     Hyperlink,
     LicensePool,
@@ -205,6 +206,13 @@ class DatabaseTest(object):
             link, new = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
                 source, pool)
+
+            # Add a DeliveryMechanism for this download
+            pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE,
+                DeliveryMechanism.NO_DRM,
+                link.resource,
+            )
 
             representation, is_new = self._representation(
                 url, media_type, "Dummy content", mirrored=True)

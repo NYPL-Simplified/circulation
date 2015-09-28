@@ -233,6 +233,18 @@ class SessionManager(object):
         Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
+
+        # Load all delivery mechanisms from the database.
+        DeliveryMechanism.load_all(session)
+
+        # Make sure that the mechanisms fulfillable by the default
+        # client are marked as such.
+        for content_type, drm_scheme in DeliveryMechanism.default_client_can_fulfill_lookup:
+            mechanism, is_new = DeliveryMechanism.lookup(
+                session, content_type, drm_scheme
+            )
+            mechanism.default_client_can_fulfill = True
+
         session.commit()
 
 def get_one(db, model, on_multiple='error', **kwargs):
@@ -3851,6 +3863,32 @@ class Measurement(Base):
         return self._normalized_value
 
 
+class LicensePoolDeliveryMechanism(Base):
+    """A mechanism for delivering a specific book.
+
+    This is mostly an association class between LicensePool and
+    DeliveryMechanism, but it also may incorporate a specific Resource
+    (i.e. a static link to a downloadable file) which explains exactly
+    where to go for delivery.
+    """
+    __tablename__ = 'licensepooldeliveries'
+
+    id = Column(Integer, primary_key=True)
+
+    license_pool_id = Column(
+        Integer, ForeignKey('licensepools.id'), index=True,
+        nullable=False
+    )
+
+    delivery_mechanism_id = Column(
+        Integer, ForeignKey('deliverymechanisms.id'), 
+        index=True,
+        nullable=False
+    )
+
+    resource_id = Column(Integer, ForeignKey('resources.id'), nullable=True)
+
+
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
@@ -3940,6 +3978,13 @@ class Resource(Base):
     # Many Works may use this resource (as opposed to other resources
     # linked to them with rel="description") as their summary.
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
+
+    # Many LicensePools (but probably one at most) may use this
+    # resource in a delivery mechanism.
+    licensepooldeliverymechanisms = relationship(
+        "LicensePoolDeliveryMechanism", backref="resource",
+        foreign_keys=[LicensePoolDeliveryMechanism.resource_id]
+    )
 
     links = relationship("Hyperlink", backref="resource")
 
@@ -5355,6 +5400,12 @@ class LicensePool(Base):
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
 
+    # One LicensePool may have multiple DeliveryMechanisms, and vice
+    # versa.
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", backref="license_pool"
+    )
+
     # Index the combination of DataSource and Identifier to make joins easier.
 
     clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
@@ -5672,7 +5723,23 @@ class LicensePool(Base):
             if link:
                 return pool, link
         return self, None
+
+    def set_delivery_mechanism(
+            self, content_type, drm_scheme, resource):
+        _db = Session.object_session(self)
+        delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            _db, content_type, drm_scheme)
+        lpdm, ignore = get_one_or_create(
+            _db, LicensePoolDeliveryMechanism,
+            license_pool=self,
+            delivery_mechanism=delivery_mechanism
+        )
+        lpdm.resource = resource
+        return lpdm
+        
+
 Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
+
 
 class RightsStatus(Base):
 
@@ -6412,6 +6479,89 @@ class Representation(Base):
         thumbnail.scale_exception = None
         thumbnail.scaled_at = now
         return thumbnail, True
+
+
+class DeliveryMechanism(Base):
+    """A technique for delivering a book to a patron.
+
+    There are two parts to this: a DRM scheme and a content
+    type. Either may be identified with a MIME media type
+    (e.g. "vnd.adobe/adept+xml" or "application/epub+zip") or an
+    informal name ("Kindle via Amazon").
+    """
+    KINDLE = "Kindle via Amazon"
+    NOOK = "Nook via B&N"
+
+    ADOBE_DRM = "vnd.adobe/adept+xml"
+    KINDLE_DRM = "Kindle DRM"
+    NO_DRM = None
+    STREAMING_DRM = "Streaming"
+
+    __tablename__ = 'deliverymechanisms'
+    id = Column(Integer, primary_key=True)
+    content_type = Column(String, nullable=False)
+    drm_scheme = Column(String)
+
+    # Can the Library Simplified client fulfill a book with this
+    # content type and this DRM scheme?
+    default_client_can_fulfill = Column(Boolean, default=False, index=True)
+ 
+    # These are the media type/DRM scheme combos known to be supported
+    # by the default Library Simplified client.
+    default_client_can_fulfill_lookup = set([
+        (Representation.EPUB_MEDIA_TYPE, NO_DRM),
+        (Representation.EPUB_MEDIA_TYPE, ADOBE_DRM),
+    ])
+
+    license_pool_delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism",
+        backref="delivery_mechanism"
+    )
+
+    def __repr__(self):   
+        if self.drm_scheme is self.NO_DRM:
+            drm_scheme = "DRM-free"
+        else:
+            drm_scheme = self.drm_scheme
+
+        if self.default_client_can_fulfill:
+            fulfillable = "fulfillable"
+        else:
+            fulfillable = "not fulfillable"
+
+        return "<Delivery mechanism: %s, %s, %s)>" % (
+            self.content_type, drm_scheme, fulfillable
+        )
+
+    @classmethod
+    def load_all(cls, _db):
+        """Load all DeliveryMechanism objects into the cache associated with
+        the database connection.
+        """
+        if not hasattr(_db, '_deliverymechanism_cache'):
+            _db._deliverymechanism_cache = dict()
+        for m in _db.query(DeliveryMechanism):
+            _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
+
+    @classmethod
+    def lookup(cls, _db, content_type, drm_scheme):
+        if not hasattr(_db, '_deliverymechanism_cache'):
+            _db._deliverymechanism_cache = dict()
+        key = (content_type, drm_scheme)
+        cache = _db._deliverymechanism_cache
+        if key in cache:
+            return cache[key], False
+        result, is_new = get_one_or_create(
+            _db, DeliveryMechanism, content_type=content_type,
+            drm_scheme=drm_scheme
+        )
+        cache[key] = result
+        return result, is_new
+
+Index("ix_deliverymechanisms_drm_scheme_content_type", 
+      DeliveryMechanism.drm_scheme, 
+      DeliveryMechanism.content_type,
+      unique=True)
 
 
 class CustomList(Base):
