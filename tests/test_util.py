@@ -7,14 +7,14 @@ from nose.tools import (
     set_trace,
 )
 
-from ..util import (
+from util import (
     Bigrams,
     english_bigrams,
     LanguageCodes,
     MetadataSimilarity,
     TitleProcessor,
 )
-from ..util.opds_authentication_document import OPDSAuthenticationDocument
+from util.opds_authentication_document import OPDSAuthenticationDocument
 
 class TestLanguageCodes(object):
 

@@ -3,17 +3,17 @@ import datetime
 
 from . import DatabaseTest
 
-from ..testing import (
+from testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
 
-from ..model import (
+from model import (
     DataSource,
     Timestamp,
 )
 
-from ..monitor import (
+from monitor import (
     Monitor,
     PresentationReadyMonitor,
 )

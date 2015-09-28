@@ -12,12 +12,12 @@ from . import (
     DummyMetadataClient,
 )
 
-from ..model import (
+from model import (
     DataSource,
     Identifier,
     Subject,
 )
-from ..external_list import (
+from external_list import (
     CustomListFromCSV,
 )
 

@@ -9,12 +9,12 @@ from . import (
     DatabaseTest,
 )
 
-from ..model import (
+from model import (
     Identifier,
     UnresolvedIdentifier,
 )
 
-from ..app_server import URNLookupController
+from app_server import URNLookupController
 
 class TestURNLookupController(DatabaseTest):
 

@@ -3,7 +3,7 @@ from nose.tools import eq_, set_trace
 import datetime
 import os
 
-from ..model import (
+from model import (
     Edition,
     Identifier,
     Subject,
@@ -11,7 +11,7 @@ from ..model import (
     LicensePool,
 )
 
-from ..axis import (
+from axis import (
     BibliographicParser,
 )
 

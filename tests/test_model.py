@@ -17,12 +17,12 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
-from ..config import (
+from config import (
     Configuration, 
     temp_config,
 )
 
-from ..model import (
+from model import (
     CirculationEvent,
     Contributor,
     CoverageRecord,
@@ -51,12 +51,12 @@ from ..model import (
     get_one_or_create,
 )
 
-from ..external_search import (
+from external_search import (
     DummyExternalSearchIndex,
 )
 
-from .. import classifier
-from ..classifier import (
+import classifier
+from classifier import (
     Classifier,
     Fantasy,
     Romance,

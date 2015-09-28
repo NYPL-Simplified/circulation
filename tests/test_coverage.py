@@ -7,7 +7,7 @@ from . import (
     DatabaseTest
 )
 
-from ..testing import (
+from testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
