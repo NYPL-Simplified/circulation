@@ -18,9 +18,11 @@ from circulation import (
 from core.model import (
     CirculationEvent,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Identifier,
     LicensePool,
+    Representation,
     get_one_or_create,
     Loan,
     Hold,
@@ -634,6 +636,19 @@ class ThreeMEventMonitor(Monitor):
         # Find or lookup the LicensePool for this event.
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, self.api.source, Identifier.THREEM_ID, threem_id)
+
+        if is_new:
+            # Add a DistributionMechanism. For the time being, assume
+            # that everything is EPUB.
+            #
+            # TODO: Get this information straight from 3M. This
+            # requires refactoring some code from the metadata
+            # wrangler into core.
+            mech = license_pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE, 
+                DeliveryMechanism.ADOBE_DRM,
+                None
+            )
 
         # Force the ThreeMCirculationMonitor to check on this book the
         # next time it runs.
