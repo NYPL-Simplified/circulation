@@ -166,7 +166,8 @@ class Axis360CirculationMonitor(Monitor):
                 edition, 
                 replace_identifiers=False,
                 replace_subjects=True, 
-                replace_contributions=True
+                replace_contributions=True,
+                replace_formats=True,
             )
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
