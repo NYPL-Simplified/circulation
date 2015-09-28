@@ -193,6 +193,10 @@ class CirculationData(object):
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
         self.last_checked = last_checked or datetime.datetime.utcnow()
+        self.log = logging.getLogger(
+            "Abstract metadata layer - Circulation data"
+        )
+
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
@@ -211,22 +215,32 @@ class CirculationData(object):
             )
             # TODO: Also put this in the log.
 
-        changed = (pool.licenses_owned != self.licenses_owned or
-                   pool.licenses_available != self.licenses_available or
-                   pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
-                   pool.licenses_reserved != self.licenses_reserved)
+        changed = (license_pool.licenses_owned != self.licenses_owned or
+                   license_pool.licenses_available != self.licenses_available or
+                   license_pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
+                   license_pool.licenses_reserved != self.licenses_reserved)
 
         if changed:
-            self.log.info(
-                'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                edition.medium, 
-                edition.title or "[NO TITLE]",
-                edition.author or "", 
-                edition.primary_identifier.identifier,
-                pool.licenses_owned, new_licenses_owned,
-                pool.licenses_available, new_licenses_available,
-                pool.patrons_in_hold_queue, new_number_of_holds
-            )
+            edition = license_pool.edition
+            if edition:
+                self.log.info(
+                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                    edition.medium, 
+                    edition.title or "[NO TITLE]",
+                    edition.author or "", 
+                    edition.primary_identifier.identifier,
+                    license_pool.licenses_owned, self.licenses_owned,
+                    license_pool.licenses_available, self.licenses_available,
+                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                )
+            else:
+                self.log.info(
+                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                    license_pool.identifier, 
+                    license_pool.licenses_owned, self.licenses_owned,
+                    license_pool.licenses_available, self.licenses_available,
+                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                )
 
 
         # Update availabily information. This may result in the issuance
