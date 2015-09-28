@@ -176,9 +176,14 @@ class MeasurementData(object):
 
 
 class FormatData(object):
-    def __init__(self, informal_name, media_type):
-        self.informal_name = informal_name
-        self.media_type = media_type
+    def __init__(self, content_type, drm_scheme, link=None):
+        self.content_type = content_type
+        self.drm_scheme = drm_scheme
+        if link and not isinstance(link, LinkData):
+            raise TypeError(
+                "Expected LinkData object, got %s" % type(link)
+            )
+        self.link = link
 
 class CirculationData(object):
     def __init__(
@@ -430,6 +435,7 @@ class Metadata(object):
             replace_subjects=False, 
             replace_contributions=False,
             replace_links=False,
+            replace_formats=False,
     ):
         """Apply this metadata to the given edition."""
 
@@ -562,6 +568,28 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
+
+        if replace_formats:
+            for lpdm in pool.delivery_mechanisms:
+                _db.delete(lpdm)
+            pool.delivery_mechanisms = []
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if not format.content_type:
+                    format.content_type = link.media_type
+                link_obj, ignore = identifier.add_link(
+                    rel=link.rel, href=link.href, data_source=data_source, 
+                    license_pool=pool, media_type=link.media_type,
+                    content=link.content
+                )
+                resource = link_obj.resource
+            else:
+                resource = None
+            if pool:
+                pool.set_delivery_mechanism(
+                    format.content_type, format.drm_scheme, resource
+                )
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:

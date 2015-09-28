@@ -14,6 +14,7 @@ from model import (
     Contributor,
     Credential,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
@@ -301,18 +302,48 @@ class OverdriveRepresentationExtractor(object):
         return link
 
     media_type_for_overdrive_format = {
-        "ebook-pdf-adobe" : Representation.PDF_MEDIA_TYPE,
-        "ebook-pdf-open" : Representation.PDF_MEDIA_TYPE,
-        "ebook-epub-adobe" : Representation.EPUB_MEDIA_TYPE,
-        "ebook-epub-open" : Representation.EPUB_MEDIA_TYPE,
-        "audiobook-mp3" : Representation.MP3_MEDIA_TYPE,
-        "music-mp3" : Representation.MP3_MEDIA_TYPE,
     }
 
-    informal_name_for_overdrive_format = {
-        "ebook-kindle" : "Kindle via Amazon",
-        'video-streaming' : "Streaming Video",
-        "periodicals-nook" : "Nook via B&N",
+    format_data_for_overdrive_format = {
+
+        "ebook-pdf-adobe" : (
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "ebook-pdf-open" : (
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        ),
+        "ebook-epub-adobe" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "ebook-epub-open" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        ),
+        "audiobook-mp3" : (
+            "application/x-od-media", DeliveryMechanism.OVERDRIVE_DRM
+        ),
+        "music-mp3" : (
+            "application/x-od-media", DeliveryMechanism.OVERDRIVE_DRM
+        ),
+        "ebook-overdrive" : (
+            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.OVERDRIVE_DRM
+        ),
+        "audiobook-overdrive" : (
+            DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
+            DeliveryMechanism.OVERDRIVE_DRM
+        ),
+        'video-streaming' : (
+            DeliveryMechanism.STREAMING_VIDEO_CONTENT_TYPE,
+            DeliveryMechanism.OVERDRIVE_DRM
+        ),
+        "ebook-kindle" : (
+            DeliveryMechanism.KINDLE_CONTENT_TYPE, 
+            DeliveryMechanism.KINDLE_DRM
+        ),
+        "periodicals-nook" : (
+            DeliveryMechanism.NOOK_CONTENT_TYPE,
+            DeliveryMechanism.NOOK_DRM
+        ),
     }
 
     ignorable_overdrive_formats = set([
@@ -483,12 +514,9 @@ class OverdriveRepresentationExtractor(object):
         formats = []
         for format in book.get('formats', []):
             format_id = format['id']
-            media_type = cls.media_type_for_overdrive_format.get(format_id)
-            informal_name = None
-            if not media_type:
-                informal_name = cls.informal_name_for_overdrive_format.get(format_id)
-            if informal_name or media_type:
-                formats.append(FormatData(informal_name, media_type))
+            if format_id in cls.format_data_for_overdrive_format:
+                content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format_id)
+                formats.append(FormatData(content_type, drm_scheme))
             elif format_id not in cls.ignorable_overdrive_formats:
                 cls.log.error(
                     "Could not process Overdrive format %s for %s", 
@@ -556,20 +584,21 @@ class OverdriveRepresentationExtractor(object):
 
             # Samples become links.
             if 'samples' in format:
-                media_type = cls.media_type_for_overdrive_format.get(
-                    format['id'])
-                if not media_type:
+
+                if not format['id'] in cls.format_data_for_overdrive_format:
                     # Useless to us.
                     continue
-                for sample_info in format['samples']:
-                    href = sample_info['url']
-                    links.append(
-                        LinkData(
-                            rel=Hyperlink.SAMPLE, 
-                            href=href,
-                            media_type=media_type
+                content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format['id'])
+                if Representation.is_media_type(content_type):
+                    for sample_info in format['samples']:
+                        href = sample_info['url']
+                        links.append(
+                            LinkData(
+                                rel=Hyperlink.SAMPLE, 
+                                href=href,
+                                media_type=content_type
+                            )
                         )
-                    )
 
         # Cover and descriptions become links.
         if 'images' in book and 'cover' in book['images']:

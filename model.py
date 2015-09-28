@@ -6086,6 +6086,25 @@ class Representation(Base):
         return False
 
     @classmethod
+    def is_media_type(cls, s):
+        """Return true if the given string looks like a media type."""
+        if not s:
+            return False
+        s = s.lower()
+        return any(s.startswith(x) for x in [
+                   'application/', 
+                   'audio/',
+                   'example/',
+                   'image/',
+                   'message/',
+                   'model/',
+                   'multipart/',
+                   'text/', 
+                   'video/'
+        ])
+
+
+    @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None,
             max_age=None, pause_before=0, allow_redirects=True, debug=True):
@@ -6489,13 +6508,18 @@ class DeliveryMechanism(Base):
     (e.g. "vnd.adobe/adept+xml" or "application/epub+zip") or an
     informal name ("Kindle via Amazon").
     """
-    KINDLE = "Kindle via Amazon"
-    NOOK = "Nook via B&N"
+    KINDLE_CONTENT_TYPE = "Kindle via Amazon"
+    NOOK_CONTENT_TYPE = "Nook via B&N"
+    STREAMING_TEXT_CONTENT_TYPE = "Streaming Text"
+    STREAMING_AUDIO_CONTENT_TYPE = "Streaming Audio"
+    STREAMING_VIDEO_CONTENT_TYPE = "Streaming Video"
 
+    NO_DRM = None
     ADOBE_DRM = "vnd.adobe/adept+xml"
     KINDLE_DRM = "Kindle DRM"
-    NO_DRM = None
+    NOOK_DRM = "Nook DRM"
     STREAMING_DRM = "Streaming"
+    OVERDRIVE_DRM = "Overdrive DRM"
 
     __tablename__ = 'deliverymechanisms'
     id = Column(Integer, primary_key=True)
