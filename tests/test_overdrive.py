@@ -7,7 +7,7 @@ import os
 import json
 import pkgutil
 
-from overdrive import (
+from ..overdrive import (
     OverdriveAPI,
     OverdriveRepresentationExtractor,
 )

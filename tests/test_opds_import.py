@@ -13,10 +13,10 @@ from . import (
     DatabaseTest,
 )
 
-from opds_import import (
+from ..opds_import import (
     DetailedOPDSImporter,
 )
-from model import (
+from ..model import (
     DataSource,
     Edition,
     Measurement,

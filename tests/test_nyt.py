@@ -11,12 +11,12 @@ from . import (
     DatabaseTest,
     DummyMetadataClient,
 )
-from nyt import (
+from ..nyt import (
     NYTBestSellerAPI,
     NYTBestSellerList,
     NYTBestSellerListTitle,
 )
-from model import (
+from ..model import (
     Contributor,
     Edition,
     Hyperlink,

@@ -1,7 +1,7 @@
 import datetime
 from nose.tools import eq_
 from . import DatabaseTest
-from util.mirror import MirrorUploader
+from ..util.mirror import MirrorUploader
 
 class DummySuccessUploader(MirrorUploader):
 

@@ -1,6 +1,6 @@
 """Test the code that evaluates the quality of summaries."""
 
-from util.summary import SummaryEvaluator
+from ..util.summary import SummaryEvaluator
 from nose.tools import eq_, set_trace
 
 class TestSummaryEvaluator(object):

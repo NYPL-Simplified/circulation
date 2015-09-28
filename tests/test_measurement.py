@@ -6,7 +6,7 @@ from nose.tools import (
     set_trace,
 )
 
-from model import (
+from ..model import (
     DataSource,
     Measurement,
     get_one_or_create
