@@ -640,15 +640,16 @@ class ThreeMEventMonitor(Monitor):
         if is_new:
             # Add a DistributionMechanism. For the time being, assume
             # that everything is EPUB.
-            #
-            # TODO: Get this information straight from 3M. This
-            # requires refactoring some code from the metadata
-            # wrangler into core.
-            mech = license_pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE, 
-                DeliveryMechanism.ADOBE_DRM,
-                None
+
+            metadata = self.api.bibliographic_lookup(
+                license_pool.identifier
             )
+            for format in metadata.formats:
+                mech = license_pool.set_delivery_mechanism(
+                    format.content_type,
+                    format.drm_scheme,
+                    format.link
+                )
 
         # Force the ThreeMCirculationMonitor to check on this book the
         # next time it runs.
