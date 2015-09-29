@@ -25,16 +25,16 @@ class TestItemListParser(object):
         return open(path).read()
 
     def test_parse_author_string(cls):
-        authors = ItemListParser.author_names_from_string(
-            "Walsh, Jill Paton; Sayers, Dorothy L.")
+        authors = list(ItemListParser.contributors_from_string(
+            "Walsh, Jill Paton; Sayers, Dorothy L."))
         eq_([x.sort_name for x in authors], 
             ["Walsh, Jill Paton", "Sayers, Dorothy L."]
         )
-        eq_([x.role for x in authors],
-            [Contributor.AUTHOR_ROLE, Contributor.AUTHOR_ROLE]
+        eq_([x.roles for x in authors],
+            [[Contributor.AUTHOR_ROLE], [Contributor.AUTHOR_ROLE]]
         )
 
-        [author] = ItemListParser.author_names_from_string(
+        [author] = ItemListParser.contributors_from_string(
             "Baum, Frank L. (Frank Lyell)")
         eq_("Baum, Frank L.", author.sort_name)
 
@@ -52,22 +52,13 @@ class TestItemListParser(object):
             f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
 
     def test_item_list(cls):
-        data = cls.get_data("item_metadata_list.xml")
-        
-        data = [(id, raw, cooked)
-                for (id, raw,cooked)  in ItemListParser().parse(data)]
+        data = cls.get_data("item_metadata_list_mini.xml")        
+        data = list(ItemListParser().parse(data))
 
-        # There should be 25 items in the list.
-        eq_(25, len(data))
+        # There should be 2 items in the list.
+        eq_(2, len(data))
 
-        set_trace()
-
-        # Do a spot check of the first item in the list
-        id, raw, cooked = data[0]
-
-        eq_("ddf4gr9", id)
-
-        assert raw.startswith("<Item")
+        cooked = data[0]
 
         eq_("The Incense Game", cooked.title)
         eq_("A Novel of Feudal Japan", cooked.subtitle)
@@ -81,13 +72,15 @@ class TestItemListParser(object):
         eq_("ddf4gr9", primary.identifier)
         eq_(Identifier.THREEM_ID, primary.type)
 
-        [isbn] = cooked.identifiers
-        eq_("9781250015280", isbn.identifier)
-        eq_(Identifier.ISBN, isbn.type)
+        identifiers = sorted(
+            cooked.identifiers, key=lambda x: x.identifier
+        )
+        eq_([u'9781250015280', u'9781250031112', u'ddf4gr9'], 
+            [x.identifier for x in identifiers])
 
         [author] = cooked.contributors
         eq_("Rowland, Laura Joh", author.sort_name)
-        eq_(Contributor.AUTHOR_ROLE, author.role)
+        eq_([Contributor.AUTHOR_ROLE], author.roles)
 
         subjects = [x.identifier for x in cooked.subjects]
         eq_(["Children's Health", "Mystery & Detective"], sorted(subjects))
@@ -98,12 +91,11 @@ class TestItemListParser(object):
 
         [alternate, image, description] = sorted(
             cooked.links, key = lambda x: x.rel)
-        set_trace()
         eq_("alternate", alternate.rel)
         assert alternate.href.startswith("http://ebook.3m.com/library")
 
-        eq_(Hyperlink.IMAGE_REL, image.rel)
+        eq_(Hyperlink.IMAGE, image.rel)
         assert image.href.startswith("http://ebook.3m.com/delivery")
 
-        eq_(Hyperlink.DESCRIPTION_REL, description.rel)
-        assert description.value.startswith("<b>Winner")
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        assert description.content.startswith("<b>Winner")

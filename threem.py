@@ -5,29 +5,38 @@ import time
 import hmac
 import hashlib
 import os
+import re
 import requests
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from config import (
     Configuration,
     CannotLoadConfiguration,
 )
 from model import (
+    Contributor,
     DataSource,
+    DeliveryMechanism,
     Representation,
     Hyperlink,
+    Identifier,
     Measurement,
     Edition,
+    Subject,
 )
 
 from metadata_layer import (
+    ContributorData,
     Metadata,
     LinkData,
+    IdentifierData,
     FormatData,
     MeasurementData,
     SubjectData,
 )
+
+from util.xmlparser import XMLParser
 
 class ThreeMAPI(object):
 
@@ -174,19 +183,24 @@ class ItemListParser(XMLParser):
         for i in self.process_all(xml, "//Item"):
             yield i
 
-    parenthetical = re.compile(" \([^)]+\)^")
+    parenthetical = re.compile(" \([^)]+\)$")
 
     @classmethod
     def contributors_from_string(cls, string):
+        contributors = []
         if not string:
-            return []
+            return contributors
         
         for sort_name in string.split(';'):
-            sort_name = parenthetical.sub("", sort_name.strip())
-            yield ContributorData(
-                sort_name=sort_name.strip(),
-                roles=[Contribution.AUTHOR_ROLE]
+            print sort_name.strip(), cls.parenthetical.sub("", sort_name)
+            sort_name = cls.parenthetical.sub("", sort_name.strip())
+            contributors.append(
+                ContributorData(
+                    sort_name=sort_name.strip(),
+                    roles=[Contributor.AUTHOR_ROLE]
+                )
             )
+        return contributors
 
     @classmethod
     def parse_genre_string(self, s):           
@@ -214,9 +228,13 @@ class ItemListParser(XMLParser):
             Identifier.THREEM_ID, value("ItemId")
         )
 
-        identifiers = [
-            IdentifierData(Identifier.ISBN, value("ISBN13"))
-        ]
+        identifiers = []
+        for key in ('ISBN13', 'PhysicalISBN'):
+            v = value(key)
+            if v:
+                identifiers.append(
+                    IdentifierData(Identifier.ISBN, v)
+                )
 
         subjects = self.parse_genre_string(value("Genre"))
 
@@ -237,13 +255,13 @@ class ItemListParser(XMLParser):
 
         for format in formats:
             try:
-                published_date = datetime.datetime.strptime(published, format)
+                published_date = datetime.strptime(published, format)
             except ValueError, e:
                 pass
 
         links = []
         links.append(
-            LinkData(rel=Hyperlink.DESCRIPTION, value=value("Description"))
+            LinkData(rel=Hyperlink.DESCRIPTION, content=value("Description"))
         )
 
         cover_url = value("CoverLinkURL").replace("&amp;", "&")
@@ -253,10 +271,13 @@ class ItemListParser(XMLParser):
         links.append(LinkData(rel='alternate', href=alternate_url))
 
         measurements = []
-        measurements.append(
-            MeasurementData(quantity_measured=Measurement.PAGE_COUNT,
-                            value=value("NumberOfPages"))
-        )
+        pages = value("NumberOfPages")
+        if pages:
+            pages = int(pages)
+            measurements.append(
+                MeasurementData(quantity_measured=Measurement.PAGE_COUNT,
+                                value=pages)
+            )
 
         medium = Edition.BOOK_MEDIUM
         book_format = value("BookFormat")
@@ -284,9 +305,7 @@ class ItemListParser(XMLParser):
             subtitle=subtitle,
             language=language,
             medium=medium,
-            series=series,
             publisher=publisher,
-            imprint=imprint,
             published=published_date,
             primary_identifier=primary_identifier,
             identifiers=identifiers,

@@ -165,7 +165,7 @@ class MeasurementData(object):
                  taken_at=None):
         if not quantity_measured:
             raise ValueError("quantity_measured is required.")
-        if not value:
+        if value is None:
             raise ValueError("measurement value is required.")
         self.quantity_measured = quantity_measured
         if not isinstance(value, float) and not isinstance(value, int):
