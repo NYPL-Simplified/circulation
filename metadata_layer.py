@@ -165,7 +165,7 @@ class MeasurementData(object):
                  taken_at=None):
         if not quantity_measured:
             raise ValueError("quantity_measured is required.")
-        if not value:
+        if value is None:
             raise ValueError("measurement value is required.")
         self.quantity_measured = quantity_measured
         if not isinstance(value, float) and not isinstance(value, int):
@@ -553,7 +553,7 @@ class Metadata(object):
         if replace_links and self.links is not None:
             surviving_hyperlinks = []
             dirty = False
-            for hyperlink in identifier.hyperlinks:
+            for hyperlink in identifier.links:
                 if hyperlink.data_source == data_source:
                     _db.delete(hyperlink)
                     dirty = True

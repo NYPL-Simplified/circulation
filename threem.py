@@ -5,18 +5,38 @@ import time
 import hmac
 import hashlib
 import os
+import re
 import requests
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from config import (
     Configuration,
     CannotLoadConfiguration,
 )
 from model import (
+    Contributor,
     DataSource,
+    DeliveryMechanism,
     Representation,
+    Hyperlink,
+    Identifier,
+    Measurement,
+    Edition,
+    Subject,
 )
+
+from metadata_layer import (
+    ContributorData,
+    Metadata,
+    LinkData,
+    IdentifierData,
+    FormatData,
+    MeasurementData,
+    SubjectData,
+)
+
+from util.xmlparser import XMLParser
 
 class ThreeMAPI(object):
 
@@ -53,6 +73,7 @@ class ThreeMAPI(object):
         self.account_key = account_key or env_account_key
         self.base_url = base_url
         self.source = DataSource.lookup(self._db, DataSource.THREEM)
+        self.item_list_parser = ItemListParser()
 
     @classmethod
     def environment_values(
@@ -133,3 +154,162 @@ class ThreeMAPI(object):
                 method, url, data=body, headers=headers, allow_redirects=False)
             return response
         
+    def get_bibliographic_info_for(self, editions, max_age=None):
+        results = dict()
+        for edition in editions:
+            identifier = edition.primary_identifier
+            data = self.request(
+                "/items/%s" % identifier.identifier,
+                max_age=max_age or self.MAX_METADATA_AGE)
+            [metadata] = list(self.item_list_parser.parse(data))
+            if metadata:
+                results[identifier] = (edition, metadata)
+        return results
+
+
+class ItemListParser(XMLParser):
+
+    DATE_FORMAT = "%Y-%m-%d"
+    YEAR_FORMAT = "%Y"
+
+    NAMESPACES = {}
+
+    def parse(self, xml):
+        for i in self.process_all(xml, "//Item"):
+            yield i
+
+    parenthetical = re.compile(" \([^)]+\)$")
+
+    @classmethod
+    def contributors_from_string(cls, string):
+        contributors = []
+        if not string:
+            return contributors
+        
+        for sort_name in string.split(';'):
+            print sort_name.strip(), cls.parenthetical.sub("", sort_name)
+            sort_name = cls.parenthetical.sub("", sort_name.strip())
+            contributors.append(
+                ContributorData(
+                    sort_name=sort_name.strip(),
+                    roles=[Contributor.AUTHOR_ROLE]
+                )
+            )
+        return contributors
+
+    @classmethod
+    def parse_genre_string(self, s):           
+        genres = []
+        if not s:
+            return genres
+        for i in s.split(","):
+            i = i.strip()
+            if not i:
+                continue
+            i = i.replace("&amp;amp;", "&amp;").replace("&amp;", "&").replace("&#39;", "'")
+            genres.append(SubjectData(Subject.THREEM, i))
+        return genres
+
+    def process_one(self, tag, namespaces):
+        """Turn an <item> tag into a Metadata object."""
+
+        def value(threem_key):
+            return self.text_of_optional_subtag(tag, threem_key)
+        links = dict()
+        identifiers = dict()
+        subjects = []
+
+        primary_identifier = IdentifierData(
+            Identifier.THREEM_ID, value("ItemId")
+        )
+
+        identifiers = []
+        for key in ('ISBN13', 'PhysicalISBN'):
+            v = value(key)
+            if v:
+                identifiers.append(
+                    IdentifierData(Identifier.ISBN, v)
+                )
+
+        subjects = self.parse_genre_string(value("Genre"))
+
+        title = value("Title")
+        subtitle = value("SubTitle")
+        publisher = value("Publisher")
+        language = value("Language")
+
+        contributors = list(self.contributors_from_string(value('Authors')))
+
+        published_date = None
+        published = value("PubDate")
+        if published:
+            formats = [self.DATE_FORMAT, self.YEAR_FORMAT]
+        else:
+            published = value("PubYear")
+            formats = [self.YEAR_FORMAT]
+
+        for format in formats:
+            try:
+                published_date = datetime.strptime(published, format)
+            except ValueError, e:
+                pass
+
+        links = []
+        links.append(
+            LinkData(rel=Hyperlink.DESCRIPTION, content=value("Description"))
+        )
+
+        cover_url = value("CoverLinkURL").replace("&amp;", "&")
+        links.append(LinkData(rel=Hyperlink.IMAGE, href=cover_url))
+
+        alternate_url = value("BookLinkURL").replace("&amp;", "&")
+        links.append(LinkData(rel='alternate', href=alternate_url))
+
+        measurements = []
+        pages = value("NumberOfPages")
+        if pages:
+            pages = int(pages)
+            measurements.append(
+                MeasurementData(quantity_measured=Measurement.PAGE_COUNT,
+                                value=pages)
+            )
+
+        medium = Edition.BOOK_MEDIUM
+        book_format = value("BookFormat")
+        format = None
+        if book_format == 'EPUB':
+            format = FormatData(
+                content_type=Representation.EPUB_MEDIA_TYPE,
+                drm_scheme=DeliveryMechanism.ADOBE_DRM
+            )
+        elif book_format == 'MP3':
+            format = FormatData(
+                content_type=Representation.MP3_MEDIA_TYPE,
+                drm_scheme=DeliveryMechanism.ADOBE_DRM
+            )
+            medium = Edition.AUDIOBOOK_MEDIUM
+        else:
+            set_trace()
+            pass
+
+        formats = [format]
+
+        return Metadata(
+            data_source=DataSource.THREEM,
+            title=title,
+            subtitle=subtitle,
+            language=language,
+            medium=medium,
+            publisher=publisher,
+            published=published_date,
+            primary_identifier=primary_identifier,
+            identifiers=identifiers,
+            subjects=subjects,
+            contributors=contributors,
+            formats=formats,
+            measurements=measurements,
+            links=links,
+        )
+
+
+
