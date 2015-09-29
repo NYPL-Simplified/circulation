@@ -553,7 +553,7 @@ class Metadata(object):
         if replace_links and self.links is not None:
             surviving_hyperlinks = []
             dirty = False
-            for hyperlink in identifier.hyperlinks:
+            for hyperlink in identifier.links:
                 if hyperlink.data_source == data_source:
                     _db.delete(hyperlink)
                     dirty = True

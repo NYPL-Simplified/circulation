@@ -156,19 +156,14 @@ class ThreeMAPI(object):
         
     def get_bibliographic_info_for(self, editions, max_age=None):
         results = dict()
-        identifiers = []
-        edition_for_identifier = dict()
         for edition in editions:
             identifier = edition.primary_identifier
-            identifiers.append(identifier)
-            edition_for_identifier[identifier] = edition
             data = self.request(
                 "/items/%s" % identifier.identifier,
                 max_age=max_age or self.MAX_METADATA_AGE)
-            all_data = list(self.item_list_parser.parse(data))
-            if all_data:
-                identifier, raw, cooked = all_data[0]
-                results[identifier] = (edition, cooked)
+            [metadata] = list(self.item_list_parser.parse(data))
+            if metadata:
+                results[identifier] = (edition, metadata)
         return results
 
 
