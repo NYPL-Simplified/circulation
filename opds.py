@@ -35,6 +35,7 @@ from model import (
     CustomListFeed,
     DataSource,
     Hyperlink,
+    Lane,
     Resource,
     Identifier,
     Edition,
@@ -502,8 +503,12 @@ class AcquisitionFeed(OPDSFeed):
 
         # First generate the special lists (bestsellers and staff
         # picks).
+        if isinstance(lane, Lane):
+            special_lists_lane = lane
+        else:
+            special_lists_lane = Lane.everything(_db)
         all_works.extend(cls.generate_special_lists(
-            _db, languages, lane, annotator, special_group_config)
+            _db, languages, special_lists_lane, annotator, special_group_config)
         )
 
         if lane and lane.sublanes and lane.display_name:
