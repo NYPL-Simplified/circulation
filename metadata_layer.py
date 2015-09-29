@@ -177,7 +177,7 @@ class MeasurementData(object):
 
 class FormatData(object):
     def __init__(self, informal_name, media_type):
-        self.informal_name = informal_name
+        self.informal_name = content_type
         self.media_type = media_type
 
 class CirculationData(object):
