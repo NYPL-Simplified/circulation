@@ -188,6 +188,16 @@ class CirculationAPI(object):
             loan_info = api.checkout(
                  patron, pin, licensepool,
                  format_type=format_to_use)
+        except AlreadyCheckedOut:
+            # This is good, but we didn't get the real loan info.
+            # Just fake it.
+            identifier = licensepool.identifier            
+            loan_info = LoanInfo(
+                identifier.type, 
+                identifier,
+                start_date=None, 
+                end_date=now + datetime.timedelta(hours=1)
+            )
         except NoAvailableCopies:
             # That's fine, we'll just (try to) place a hold.
             pass
@@ -214,7 +224,7 @@ class CirculationAPI(object):
                 # The checkout operation did not get us fulfillment
                 # information. We must fulfill as a separate step.
                 fulfillment = self.fulfill(
-                    patron, pin, licensepool, format_to_use)
+                    patron, pin, licensepool)
             return loan, None, fulfillment, is_new
 
         # Checking out a book didn't work, so let's try putting
