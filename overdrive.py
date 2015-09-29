@@ -408,7 +408,7 @@ class OverdriveRepresentationExtractor(object):
             licenses_owned=licenses_owned,
             licenses_available=licenses_available,
             licenses_reserved=licenses_reserved,
-            patrons_in_hold_queue=patrons_in_hold_queue
+            patrons_in_hold_queue=patrons_in_hold_queue,
         )
 
     @classmethod

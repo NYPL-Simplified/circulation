@@ -476,12 +476,36 @@ class AcquisitionFeed(OPDSFeed):
         sublanes, organized into per-lane groups.
         """
         feed_size = Configuration.featured_lane_size()
-        _db = None
+
         all_works = []
         if isinstance(languages, basestring):
             languages = [languages]
 
+        # Configure special groups
+        best_seller_cutoff = (
+            datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
+        special_group_config = (
+            (best_sellers_url, "Best Sellers", 
+             DataSource.NYT, best_seller_cutoff,
+             cls.BEST_SELLER_LANGUAGES), 
+            (staff_picks_url, "Staff Picks", 
+             DataSource.LIBRARY_STAFF, None,
+             cls.STAFF_PICKS_LANGUAGES),
+        )
+
         sublanes = list(lane.sublanes)
+        _db = None
+        for l in sublanes:
+            if l._db:
+                _db = l._db
+                break
+
+        # First generate the special lists (bestsellers and staff
+        # picks).
+        all_works.extend(cls.generate_special_lists(
+            _db, languages, lane, annotator, special_group_config)
+        )
+
         if lane and lane.sublanes and lane.display_name:
             # Every lane that has sublanes also gets an 'all' group,
             # except the very top level.
@@ -494,9 +518,6 @@ class AcquisitionFeed(OPDSFeed):
             all_group_label = None
 
         for l in sublanes:
-            if not _db:
-                _db = l._db
-
             quality_min = Configuration.minimum_featured_quality()
 
             works = l.quality_sample(
@@ -519,48 +540,6 @@ class AcquisitionFeed(OPDSFeed):
                 annotator.lanes_by_work[work].append(v)
                 all_works.append(work)
 
-        if lane.parent is None:
-            # If lane.parent is None, this is the very top level or a
-            # top-level lane (e.g. "Young Adult Fiction").
-            #
-            # These are the only lanes that get Staff Picks and
-            # Best-Sellers.
-            best_seller_cutoff = (
-                datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-            for group_uri, title, data_source_name, cutoff_point, available_languages in (
-                    (best_sellers_url, "Best Sellers", 
-                     DataSource.NYT, best_seller_cutoff,
-                     cls.BEST_SELLER_LANGUAGES), 
-                    (staff_picks_url, "Staff Picks", 
-                     DataSource.LIBRARY_STAFF, None,
-                     cls.STAFF_PICKS_LANGUAGES),
-            ):
-                available = False
-                for lang in languages:
-                    if lang in available_languages:
-                        available = True
-                        break
-                if not available:
-                    continue
-                data_source = DataSource.lookup(_db, data_source_name)
-                q = l.works(languages, availability=Work.ALL)
-                q = Work.restrict_to_custom_lists_from_data_source(
-                    _db, q, data_source, cutoff_point)
-                a = time.time()
-                page = q.all()
-                b = time.time()
-                #print "Got %s %s for %s in %.2f" % (
-                #    len(page), title, lane.name, (b-a))
-                if len(page) > feed_size:
-                    sample = random.sample(page, feed_size)
-                else:
-                    sample = page
-                for work in sample:
-                    annotator.lanes_by_work[work].append(
-                        (group_uri, title)
-                    )
-                    all_works.append(work)
-
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])
         return feed
@@ -569,6 +548,43 @@ class AcquisitionFeed(OPDSFeed):
         ('Title', 'title', 'Sort by'),
         ('Author', 'author', 'Sort by')
     ]
+
+    @classmethod
+    def generate_special_lists(cls, _db, languages, lane, annotator, 
+                               configuration):
+        """Generate lists of entries for best-sellers and staff picks."""
+        all_works = []
+        if lane.parent is not None:
+            return all_works
+        feed_size = Configuration.featured_lane_size()
+        # If lane.parent is None, this is the very top level or a
+        # top-level lane (e.g. "Young Adult Fiction").
+        #
+        # These are the only lanes that get Staff Picks and
+        # Best-Sellers.
+        for group_uri, title, data_source_name, cutoff_point, available_languages in configuration:
+            available = False
+            if not any([lang in available_languages for lang in languages]):
+                continue
+            data_source = DataSource.lookup(_db, data_source_name)
+            q = lane.works(languages, availability=Work.ALL)
+            q = Work.restrict_to_custom_lists_from_data_source(
+                _db, q, data_source, cutoff_point)
+            a = time.time()
+            page = q.all()
+            b = time.time()
+            #print "Got %s %s for %s in %.2f" % (
+            #    len(page), title, lane.name, (b-a))
+            if len(page) > feed_size:
+                sample = random.sample(page, feed_size)
+            else:
+                sample = page
+            for work in sample:
+                annotator.lanes_by_work[work].append(
+                    (group_uri, title)
+                )
+                all_works.append(work)
+        return all_works
 
     def __init__(self, _db, title, url, works, annotator=None,
                  active_facet=None, sublanes=[], messages_by_urn={},
