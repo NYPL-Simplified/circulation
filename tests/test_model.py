@@ -29,6 +29,7 @@ from model import (
     Credential,
     CustomListFeed,
     DataSource,
+    DeliveryMechanism,
     EnumeratedCustomListFeed,
     Genre,
     Hold,
@@ -2148,6 +2149,32 @@ class TestScaleRepresentation(DatabaseTest):
         eq_([], cover.thumbnails)
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
+
+
+class TestDeliveryMechanism(DatabaseTest):
+
+    def test_default_fulfillable(self):
+        mechanism, is_new = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, 
+            DeliveryMechanism.ADOBE_DRM
+        )
+        eq_(False, is_new)
+        eq_(True, mechanism.default_client_can_fulfill)
+
+        mechanism, is_new = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE, 
+            DeliveryMechanism.STREAMING_DRM
+        )
+        eq_(True, is_new)
+        eq_(False, mechanism.default_client_can_fulfill)
+
+    def test_association_with_licensepool(self):
+        ignore, with_download = self._edition(with_open_access_download=True)
+        [lpmech] = with_download.delivery_mechanisms
+        eq_("Dummy content", lpmech.resource.representation.content)
+        mech = lpmech.delivery_mechanism
+        eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
+        eq_(mech.NO_DRM, mech.drm_scheme)
 
 
 class TestCredentials(DatabaseTest):

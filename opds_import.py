@@ -21,6 +21,7 @@ from model import (
     get_one_or_create,
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
@@ -323,6 +324,8 @@ class BaseOPDSImporter(object):
             hyperlink, was_new = pool.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url, data_source, type)
             hyperlink.resource.set_mirrored_elsewhere(type)
+            pool.set_delivery_mechanism(
+                type, DeliveryMechanism.NO_DRM, hyperlink.resource)
             download_links.append(hyperlink)
 
         for rel in (Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE):

@@ -9,6 +9,8 @@ from model import (
     Subject,
     Contributor,
     LicensePool,
+    Representation,
+    DeliveryMechanism,
 )
 
 from axis import (
@@ -74,6 +76,14 @@ class TestParsers(object):
         eq_(u'FICTION / Mystery & Detective / Women Sleuths', women_sleuths)
         eq_(u'FICTION / Romance / Suspense', romantic_suspense)
         eq_(u'General Adult', adult)
+
+        [format] = bib1.formats
+        eq_(Representation.EPUB_MEDIA_TYPE, format.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, format.drm_scheme)
+
+        # The second book is only available in 'Blio' format, which
+        # we can't use.
+        eq_([], bib2.formats)
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""

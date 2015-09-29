@@ -10,6 +10,7 @@ from metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
     MeasurementData,
+    FormatData,
     LinkData,
     Metadata,
 )
@@ -19,7 +20,9 @@ from model import (
     DataSource,
     Identifier,
     Measurement,
+    DeliveryMechanism,
     Hyperlink,
+    Representation,
 )
 
 from . import (
@@ -105,4 +108,32 @@ class TestMetadataImporter(DatabaseTest):
         [m] = edition.primary_identifier.measurements
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
+
+    def test_formats(self):
+        # Creating an edition with an open-access download will
+        # automatically create a delivery mechanism.
+        edition, pool = self._edition(with_open_access_download=True)
+
+        # Let's also add a DRM format.
+        drm_format = FormatData(
+            content_type=Representation.PDF_MEDIA_TYPE,
+            drm_scheme=DeliveryMechanism.ADOBE_DRM,
+        )
+
+        metadata = Metadata(formats=[drm_format],
+                            data_source=edition.data_source)
+        metadata.apply(edition)
+
+        [epub, pdf] = sorted(pool.delivery_mechanisms, 
+                             key=lambda x: x.delivery_mechanism.content_type)
+        eq_(epub.resource, edition.best_open_access_link)
+
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
+
+        # If we tell Metadata to replace the list of formats, we only
+        # have the one format we manually created.
+        metadata.apply(edition, replace_formats=True)
+        [pdf] = pool.delivery_mechanisms
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 

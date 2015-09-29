@@ -18,8 +18,10 @@ from opds_import import (
 )
 from model import (
     DataSource,
+    DeliveryMechanism,
     Edition,
     Measurement,
+    Representation,
     Subject,
 )
 
@@ -121,6 +123,13 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
+
+        # Bonus: make sure that delivery mechanisms are set appropriately.
+        [mech] = imported[0].license_pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
+        eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
+            mech.resource.url)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")

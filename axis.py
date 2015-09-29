@@ -13,6 +13,7 @@ from util.xmlparser import XMLParser
 from model import (
     Contributor,
     DataSource,
+    DeliveryMechanism,
     LicensePool,
     Edition,
     Identifier,
@@ -186,12 +187,14 @@ class Axis360Parser(XMLParser):
 
 class BibliographicParser(Axis360Parser):
 
-    AXIS_FORMAT_TO_MEDIA_TYPE = {
+    DELIVERY_DATA_FOR_AXIS_FORMAT = {
         "Blio" : None,
         "Acoustik" : None,
-        "ePub" : Representation.EPUB_MEDIA_TYPE,
-        "PDF" : Representation.PDF_MEDIA_TYPE,
+        "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+        "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
     }
+
+    log = logging.getLogger("Axis 360 Bibliographic Parser")
 
     @classmethod
     def parse_list(self, l):
@@ -347,8 +350,17 @@ class BibliographicParser(Axis360Parser):
                 ns
         ):
             informal_name = format_tag.text
-            media_type = self.AXIS_FORMAT_TO_MEDIA_TYPE.get(informal_name, None)
-            formats.append(FormatData(informal_name, media_type))
+            if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
+                self.log("Unrecognized Axis format name for %s: %s" % (
+                    identifier, informal_name
+                ))
+            elif self.DELIVERY_DATA_FOR_AXIS_FORMAT.get(informal_name):
+                content_type, drm_scheme = self.DELIVERY_DATA_FOR_AXIS_FORMAT[
+                    informal_name
+                ]
+                formats.append(
+                    FormatData(content_type=content_type, drm_scheme=drm_scheme)
+                )
 
         data = Metadata(
             data_source=DataSource.AXIS_360,
