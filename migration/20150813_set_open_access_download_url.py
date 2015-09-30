@@ -33,14 +33,14 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
 
     def process_edition(self, edition):
         edition.set_open_access_link()
-        if is_circulation:
-        link = edition.best_open_access_link
         if set_delivery_mechanism:
-            print edition.id, edition.title, link.url
-            edition.license_pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
-                link
-            )
+            link = edition.best_open_access_link
+            if link:
+                print edition.id, edition.title, link.url
+                edition.license_pool.set_delivery_mechanism(
+                    Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+                    link
+                )
         else:
             print edition.id, edition.title, "[no link]"
         return True
