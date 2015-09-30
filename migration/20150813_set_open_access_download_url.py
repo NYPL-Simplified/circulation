@@ -15,12 +15,17 @@ from core.model import (
 )
 from core.scripts import RunMonitorScript
 
+
+set_delivery_mechanism = len(sys.argv) > 1 and sys.argv[1] == 'delivery'
+
 class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
-    """Recalculate the permanent work ID for every Project Gutenberg edition."""
+    """Set the open-access link f."""
 
     def __init__(self, _db, interval_seconds=None):
         super(OpenAccessDownloadSetMonitor, self).__init__(
-            _db, "Open Access Download link set", interval_seconds)
+            _db, "Open Access Download link set", interval_seconds,
+            batch_size=100
+        )
 
     def edition_query(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -28,11 +33,13 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
 
     def process_edition(self, edition):
         edition.set_open_access_link()
-        url = edition.best_open_access_link.url
-        if url:
-            print edition.id, edition.title, url
+        if is_circulation:
+        link = edition.best_open_access_link
+        if set_delivery_mechanism:
+            print edition.id, edition.title, link.url
             edition.license_pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+                Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+                link
             )
         else:
             print edition.id, edition.title, "[no link]"
