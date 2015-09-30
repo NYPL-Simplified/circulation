@@ -290,6 +290,11 @@ class ItemListParser(XMLParser):
                 content_type=Representation.EPUB_MEDIA_TYPE,
                 drm_scheme=DeliveryMechanism.ADOBE_DRM
             )
+        elif book_format == 'PDF':
+            format = FormatData(
+                content_type=Representation.PDF_MEDIA_TYPE,
+                drm_scheme=DeliveryMechanism.ADOBE_DRM
+            )
         elif book_format == 'MP3':
             format = FormatData(
                 content_type=Representation.MP3_MEDIA_TYPE,
