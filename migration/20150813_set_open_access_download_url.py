@@ -10,6 +10,8 @@ from core.model import (
     production_session,
     DataSource,
     Edition,
+    Representation,
+    DeliveryMechanism,
 )
 from core.scripts import RunMonitorScript
 
@@ -26,8 +28,12 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
 
     def process_edition(self, edition):
         edition.set_open_access_link()
-        if edition.best_open_access_link:
-            print edition.id, edition.title, edition.best_open_access_link.url
+        url = edition.best_open_access_link.url
+        if url:
+            print edition.id, edition.title, url
+            edition.license_pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+            )
         else:
             print edition.id, edition.title, "[no link]"
         return True

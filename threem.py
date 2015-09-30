@@ -167,7 +167,11 @@ class ThreeMAPI(object):
         data = self.request(
             "/items/%s" % identifier.identifier,
             max_age=max_age or self.MAX_METADATA_AGE)
-        [metadata] = list(self.item_list_parser.parse(data))
+        response = list(self.item_list_parser.parse(data))
+        if not response:
+            return None
+        else:
+            [metadata] = response
         return metadata
 
 class ItemListParser(XMLParser):
@@ -257,9 +261,11 @@ class ItemListParser(XMLParser):
                 pass
 
         links = []
-        links.append(
-            LinkData(rel=Hyperlink.DESCRIPTION, content=value("Description"))
-        )
+        description = value("Description")
+        if description:
+            links.append(
+                LinkData(rel=Hyperlink.DESCRIPTION, content=description)
+            )
 
         cover_url = value("CoverLinkURL").replace("&amp;", "&")
         links.append(LinkData(rel=Hyperlink.IMAGE, href=cover_url))
