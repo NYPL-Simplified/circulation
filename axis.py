@@ -151,7 +151,7 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        self.log.debug("Making Axis 360 request to %s params=%r", url, params)
+        # self.log.debug("Making Axis 360 request to %s params=%r", url, params)
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)

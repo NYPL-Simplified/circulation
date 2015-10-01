@@ -142,7 +142,7 @@ class ThreeMAPI(object):
             headers = {"Content-Type" : "application/xml"}
         self.sign(method, headers, path)
         # print headers
-        self.log.info("3M request: %s %s", method, url)
+        # self.log.debug("3M request: %s %s", method, url)
         if max_age and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
@@ -158,14 +158,21 @@ class ThreeMAPI(object):
         results = dict()
         for edition in editions:
             identifier = edition.primary_identifier
-            data = self.request(
-                "/items/%s" % identifier.identifier,
-                max_age=max_age or self.MAX_METADATA_AGE)
-            [metadata] = list(self.item_list_parser.parse(data))
+            metadata = self.bibliographic_lookup(identifier, max_age)
             if metadata:
                 results[identifier] = (edition, metadata)
         return results
 
+    def bibliographic_lookup(self, identifier, max_age=None):
+        data = self.request(
+            "/items/%s" % identifier.identifier,
+            max_age=max_age or self.MAX_METADATA_AGE)
+        response = list(self.item_list_parser.parse(data))
+        if not response:
+            return None
+        else:
+            [metadata] = response
+        return metadata
 
 class ItemListParser(XMLParser):
 
@@ -187,7 +194,6 @@ class ItemListParser(XMLParser):
             return contributors
         
         for sort_name in string.split(';'):
-            print sort_name.strip(), cls.parenthetical.sub("", sort_name)
             sort_name = cls.parenthetical.sub("", sort_name.strip())
             contributors.append(
                 ContributorData(
@@ -255,9 +261,11 @@ class ItemListParser(XMLParser):
                 pass
 
         links = []
-        links.append(
-            LinkData(rel=Hyperlink.DESCRIPTION, content=value("Description"))
-        )
+        description = value("Description")
+        if description:
+            links.append(
+                LinkData(rel=Hyperlink.DESCRIPTION, content=description)
+            )
 
         cover_url = value("CoverLinkURL").replace("&amp;", "&")
         links.append(LinkData(rel=Hyperlink.IMAGE, href=cover_url))
