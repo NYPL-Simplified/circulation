@@ -1627,8 +1627,8 @@ class Contributor(Base):
     COLOPHON_ROLE = "Colophon Author"
     UNKNOWN_ROLE = 'Unknown'
     DIRECTOR_ROLE = 'Director'
-    PRODUCER_ROLE = 'Producer',
-    EXECUTIVE_PRODUCER_ROLE = 'Executive Producer',
+    PRODUCER_ROLE = 'Producer'
+    EXECUTIVE_PRODUCER_ROLE = 'Executive Producer'
     ACTOR_ROLE = 'Actor'
     LYRICIST_ROLE = 'Lyricist'
     CONTRIBUTOR_ROLE = 'Contributor'
