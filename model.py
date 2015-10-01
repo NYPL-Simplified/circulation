@@ -2267,8 +2267,10 @@ class Edition(Base):
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
         logging.info(
-            "Setting cover for %r: full=%s thumb=%s", 
-            self, self.cover_full_url, self.cover_thumbnail_url)
+            "Setting cover for %s/%s: full=%s thumb=%s", 
+            self.primary_identifier.type, self.primary_identifier.identifier,
+            self.cover_full_url, self.cover_thumbnail_url
+        )
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,
                         **kwargs):
