@@ -300,10 +300,7 @@ class ItemListParser(XMLParser):
                 content_type=Representation.MP3_MEDIA_TYPE,
                 drm_scheme=DeliveryMechanism.ADOBE_DRM
             )
-            medium = Edition.AUDIOBOOK_MEDIUM
-        else:
-            set_trace()
-            pass
+            medium = Edition.AUDIO_MEDIUM
 
         formats = [format]
 
