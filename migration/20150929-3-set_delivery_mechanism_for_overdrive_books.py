@@ -31,6 +31,8 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
         content = self.api.metadata_lookup(identifier)
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(content)
+        if not metadata:
+            return
         license_pool = identifier.licensed_through
         for format in metadata.formats:
             print "%s: %s - %s" % (identifier.identifier, format.content_type, format.drm_scheme)

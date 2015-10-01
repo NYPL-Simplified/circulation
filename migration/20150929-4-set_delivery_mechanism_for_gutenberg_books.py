@@ -30,6 +30,9 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
     def process_identifier(self, identifier):
 
         license_pool = identifier.licensed_through
+        if not license_pool:
+            print "No license pool for %s!" % identifier.identifier
+            return
         edition = license_pool.edition
         if edition:
             best = edition.best_open_access_link
