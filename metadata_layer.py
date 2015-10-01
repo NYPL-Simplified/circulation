@@ -485,6 +485,9 @@ class Metadata(object):
         # the edition's primary identifier.
         data_source = self.data_source(_db)
 
+        self.update_contributions(_db, edition, metadata_client, 
+                                  replace_contributions)
+
         # TODO: remove equivalencies when replace_identifiers is True.
 
         if self.identifiers is not None:
@@ -514,40 +517,6 @@ class Metadata(object):
                 identifier.classify(
                     data_source, subject.type, subject.identifier, 
                     subject.name, weight=subject.weight)
-
-        if replace_contributions and self.contributors is not None:
-            dirty = False
-            # Remove any old Contributions from this data source --
-            # we're about to add a new set
-            surviving_contributions = []
-            for contribution in edition.contributions:
-                _db.delete(contribution)
-                dirty = True
-            edition.contributions = surviving_contributions
-
-        for contributor_data in self.contributors:
-            contributor_data.find_sort_name(
-                _db, self.identifiers, metadata_client
-            )
-            if (contributor_data.sort_name
-                or contributor_data.lc 
-                or contributor_data.viaf):
-                contributor = edition.add_contributor(
-                    name=contributor_data.sort_name, 
-                    roles=contributor_data.roles,
-                    lc=contributor_data.lc, 
-                    viaf=contributor_data.viaf
-                )
-                if contributor_data.display_name:
-                    contributor.display_name = contributor_data.display_name
-                if contributor_data.biography:
-                    contributor.biography = contributor_data.biography
-
-            else:
-                self.log.info(
-                    "Not registering %s because no sort name, LC, or VIAF",
-                    contributor_data.display_name
-                )
 
         # Associate all links with the primary identifier.
         if replace_links and self.links is not None:
@@ -619,6 +588,43 @@ class Metadata(object):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
         return edition
+
+    def update_contributions(self, _db, edition, metadata_client=None, 
+                             replace_contributions=False):
+        if replace_contributions and self.contributors is not None:
+            dirty = False
+            # Remove any old Contributions from this data source --
+            # we're about to add a new set
+            surviving_contributions = []
+            for contribution in edition.contributions:
+                _db.delete(contribution)
+                dirty = True
+            edition.contributions = surviving_contributions
+
+        for contributor_data in self.contributors:
+            contributor_data.find_sort_name(
+                _db, self.identifiers, metadata_client
+            )
+            if (contributor_data.sort_name
+                or contributor_data.lc 
+                or contributor_data.viaf):
+                contributor = edition.add_contributor(
+                    name=contributor_data.sort_name, 
+                    roles=contributor_data.roles,
+                    lc=contributor_data.lc, 
+                    viaf=contributor_data.viaf
+                )
+                if contributor_data.display_name:
+                    contributor.display_name = contributor_data.display_name
+                if contributor_data.biography:
+                    contributor.biography = contributor_data.biography
+
+            else:
+                self.log.info(
+                    "Not registering %s because no sort name, LC, or VIAF",
+                    contributor_data.display_name
+                )
+        
 
 class CSVFormatError(csv.Error):
     pass
