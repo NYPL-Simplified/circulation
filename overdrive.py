@@ -366,6 +366,7 @@ class OverdriveRepresentationExtractor(object):
         "etc." : Contributor.UNKNOWN_ROLE,
         "cast member" : Contributor.ACTOR_ROLE,
         "collaborator" : Contributor.COLLABORATOR_ROLE,
+        "compiler" : Contributor.COMPILER_ROLE,
         "composer" : Contributor.COMPOSER_ROLE,
         "copyright holder" : Contributor.COPYRIGHT_HOLDER_ROLE,
         "director" : Contributor.DIRECTOR_ROLE,

@@ -6585,6 +6585,25 @@ class DeliveryMechanism(Base):
         cache[key] = result
         return result, is_new
 
+    @property
+    def implicit_medium(self):
+        """What would be a good setting for Edition.MEDIUM for an edition
+        available through this DeliveryMechanism?
+        """
+        if self.content_type in (
+                Representation.EPUB_MEDIA_TYPE,
+                Representation.PDF_MEDIA_TYPE,
+                "Kindle via Amazon",
+                "Streaming Text"):
+            return Edition.BOOK_MEDIUM
+        elif self.content_type in (
+                "Streaming Video" or self.content_type.startswith('video/')
+        ):
+            return Edition.VIDEO_MEDIUM
+        else:
+            return None
+        
+
 Index("ix_deliverymechanisms_drm_scheme_content_type", 
       DeliveryMechanism.drm_scheme, 
       DeliveryMechanism.content_type,
