@@ -631,6 +631,7 @@ class DataSource(Base):
         value = integration.get(key)
         if not value:
             return default
+        value = int(value)
         return datetime.timedelta(days=value)
 
     @property
