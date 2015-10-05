@@ -9,9 +9,15 @@ import time
 import urlparse
 
 from sqlalchemy import or_
+from sqlalchemy.orm import (
+    contains_eager, 
+    defer
+)
+from psycopg2.extras import NumericRange
 
 from lanes import make_lanes
 from core import log
+from core.classifier import Classifier
 from core.model import (
     Contribution,
     CustomList,
@@ -19,8 +25,10 @@ from core.model import (
     Edition,
     Hyperlink,
     Identifier,
+    LicensePool,
     Representation,
     Subject,
+    Work,
 )
 from core.scripts import Script as CoreScript
 from config import Configuration
