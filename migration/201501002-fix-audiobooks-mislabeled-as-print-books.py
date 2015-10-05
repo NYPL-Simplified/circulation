@@ -16,6 +16,7 @@ from model import (
 )
 from scripts import RunMonitorScript
 from overdrive import OverdriveAPI, OverdriveRepresentationExtractor
+from threem import ThreeMAPI
 
 class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
@@ -24,6 +25,7 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
             _db, "20151002 migration - Correct medium of mislabeled audiobooks", 
             interval_seconds, batch_size=100)
         self.overdrive = OverdriveAPI(_db)
+        self.threem = ThreeMAPI(_db)
 
     types = [Identifier.THREEM_ID, Identifier.OVERDRIVE_ID, 
              Identifier.AXIS_360_ID]
@@ -52,6 +54,10 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
         if not correct_medium and identifier.type==Identifier.OVERDRIVE_ID:
             content = self.overdrive.metadata_lookup(identifier)
             metadata = OverdriveRepresentationExtractor.book_info_to_metadata(content)
+            correct_medium = metadata.medium
+
+        if not correct_medium and identifier.type==Identifier.THREEM_ID:
+            metadata = self.threem.bibliographic_lookup(identifier)
             correct_medium = metadata.medium
 
         if not correct_medium:
