@@ -53,7 +53,7 @@ class LogglyAPI(object):
 
     @classmethod
     def handler(cls, log_level):
-        integration = Configuration.integration('logg.ly', required=True)
+        integration = Configuration.integration('loggly', required=True)
         token = integration['token']
         url = integration['url'] % dict(token=token)
         from loggly.handlers import HTTPSHandler
@@ -64,7 +64,7 @@ log_config = Configuration.logging_policy()
 log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
 
 output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
-if output_type == 'logg.ly':
+if output_type == 'loggly':
     logging.getLogger().addHandler(LogglyAPI.handler(log_level))
 
 data_format = log_config.get(
@@ -74,7 +74,7 @@ logging.getLogger().addHandler(stderr_handler)
 
 def set_formatter(handler):
     output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
-    if output_type in ('json', 'logg.ly'):
+    if output_type in ('json', 'loggly'):
         cls = JSONFormatter
     else:
         cls = UTF8Formatter
