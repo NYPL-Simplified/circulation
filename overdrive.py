@@ -239,6 +239,16 @@ class OverdriveAPI(object):
         status_code, headers, content = self.get(url, {})
         return json.loads(content)
 
+    def metadata_lookup_obj(self, identifier):
+        url = self.METADATA_ENDPOINT % dict(
+            collection_token=self.collection_token,
+            item_id=identifier
+        )
+        status_code, headers, content = self.get(url, {})
+        data = json.loads(content)
+        return OverdriveRepresentationExtractor.book_info_to_metadata(data)
+
+
     @classmethod
     def make_link_safe(self, url):
         """Turn a server-provided link into a link the server will accept!

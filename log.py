@@ -5,6 +5,7 @@ import json
 import os
 import socket
 from config import Configuration
+from StringIO import StringIO
 
 if not Configuration.instance:
     Configuration.load()
@@ -13,6 +14,7 @@ DEFAULT_DATA_FORMAT = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
+    fqdn = socket.getfqdn()
     def format(self, record):
         try:
             message = record.msg % record.args
@@ -23,6 +25,8 @@ class JSONFormatter(logging.Formatter):
                 message = record.msg
         data = dict(
             host=self.hostname,
+            app="simplified",
+            fqdn=self.fqdn,
             name=record.name,
             level=record.levelname,
             filename=record.filename,
@@ -39,21 +43,37 @@ class UTF8Formatter(logging.Formatter):
         try:
             data = super(UTF8Formatter, self).format(record)
         except Exception, e:
-            set_trace()
             data = super(UTF8Formatter, self).format(record)
         if isinstance(data, unicode):
             data = data.encode("utf8")
         return data
 
+class LogglyAPI(object):
+
+    @classmethod
+    def handler(cls, log_level):
+        integration = Configuration.integration('logg.ly', required=True)
+        token = integration['token']
+        url = integration['url'] % dict(token=token)
+        from loggly.handlers import HTTPSHandler
+        return HTTPSHandler(url)
+       
+
 log_config = Configuration.logging_policy()
 log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
+
+output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
+if output_type == 'logg.ly':
+    logging.getLogger().addHandler(LogglyAPI.handler(log_level))
+
 data_format = log_config.get(
     Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
-logging.basicConfig(format=data_format)
+stderr_handler = logging.StreamHandler()
+logging.getLogger().addHandler(stderr_handler)
 
 def set_formatter(handler):
     output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
-    if output_type=='json':
+    if output_type in ('json', 'logg.ly'):
         cls = JSONFormatter
     else:
         cls = UTF8Formatter
