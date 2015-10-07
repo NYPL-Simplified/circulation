@@ -4,10 +4,8 @@ import os
 import sys
 import csv
 from sqlalchemy import or_
-from psycopg2.extras import NumericRange
 import logging
 from config import Configuration
-from core.classifier import Classifier
 from core.monitor import (
     EditionSweepMonitor,
     IdentifierSweepMonitor,
@@ -356,62 +354,3 @@ class UpdateOpenAccessURL(EditionSweepMonitor):
     def process_edition(self, edition):
         edition.set_open_access_link()
 
-
-class ChildrensBooksWithNoAgeRangeMonitor(WorkSweepMonitor):
-
-    def __init__(self, _db, batch_size=100, interval_seconds=600,
-                 out=sys.stdout):
-        super(ChildrensBooksWithNoAgeRangeMonitor, self).__init__(
-            _db, 
-            "Childrens' books with no age range", 
-            interval_seconds)
-        self.batch_size = batch_size
-        self.out = csv.writer(out)
-
-    def work_query(self):
-        or_clause = or_(
-            Work.target_age == None, 
-            Work.target_age == NumericRange(None, None)
-        )
-        audiences = [
-            Classifier.AUDIENCE_CHILDREN, 
-            Classifier.AUDIENCE_YOUNG_ADULT
-        ]
-        qu = self._db.query(LicensePool).join(LicensePool.work).join(
-            LicensePool.data_source).filter(
-                DataSource.name != DataSource.GUTENBERG).filter(
-                    Work.audience.in_(audiences)).filter(
-                        or_clause
-                    )
-        return self._db.query(Work).filter(
-            Work.audience.in_(audiences)).filter(
-                or_clause
-            )
-
-    def process_work(self, work):
-        for lp in work.license_pools:
-            self.process_license_pool(work, lp)
-
-    def process_license_pool(self, work, lp):
-        identifier = lp.identifier
-        axis = None
-        overdrive = None
-        threem = None
-        gutenberg = None
-        if identifier.type==Identifier.THREEM_ID:
-            threem = identifier.identifier
-        elif identifier.type==Identifier.OVERDRIVE_ID:
-            overdrive = identifier.identifier
-        elif identifier.type==Identifier.AXIS_360_ID:
-            axis = identifier.identifier
-        elif identifier.type==Identifier.GUTENBERG_ID:
-            gutenberg = identifier.identifier
-        isbns = [x.output.identifier for x in identifier.equivalencies
-                 if x.output.type==Identifier.ISBN]
-        if isbns:
-            isbn = isbns[0]
-        else:
-            isbn = None
-        data = [work.title.encode("utf8"), work.author.encode("utf8"), 
-                work.audience, "", isbn, axis, overdrive, threem, gutenberg]
-        self.out.writerow(data)
