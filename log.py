@@ -15,6 +15,8 @@ DEFAULT_DATA_FORMAT = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
     fqdn = socket.getfqdn()
+    if len(fqdn) > len(hostname):
+        hostname = fqdn
     def format(self, record):
         try:
             message = record.msg % record.args
@@ -26,7 +28,6 @@ class JSONFormatter(logging.Formatter):
         data = dict(
             host=self.hostname,
             app="simplified",
-            fqdn=self.fqdn,
             name=record.name,
             level=record.levelname,
             filename=record.filename,
