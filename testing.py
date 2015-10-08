@@ -2,11 +2,13 @@ from datetime import (
     datetime,
     timedelta,
 )
+import os
 import shutil
 import tempfile
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
+os.environ['TESTING'] = 'true'
 from model import (
     Base,
     Contributor,
@@ -383,3 +385,4 @@ def _teardown(dbinfo):
         print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
 
     Configuration.instance[Configuration.DATA_DIRECTORY] = dbinfo.old_data_dir
+    del os.environ['TESTING']

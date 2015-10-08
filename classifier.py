@@ -266,6 +266,7 @@ class GradeLevelClassifier(Classifier):
             "grades? ([kp0-9]+)-([kp0-9]+)", 
             "gr\.? ([kp0-9]+)-([kp0-9]+)", 
             "grade ([kp0-9]+)", 
+            "grade: ([kp0-9]+) to ([kp0-9]+)", 
             "gr\.? ([kp0-9]+)", 
             "([0-9]+)[tns][hdt] grade",
             "([a-z]+) grade",
@@ -275,6 +276,7 @@ class GradeLevelClassifier(Classifier):
 
     generic_grade_res = [
         re.compile(r"([kp0-9]+) ?- ?([0-9]+)", re.I),
+        re.compile(r"([kp0-9]+) ?to ?([0-9]+)", re.I),
         re.compile(r"^([0-9]+)\b", re.I),
         re.compile(r"^([kp])\b", re.I),
     ]
@@ -369,10 +371,14 @@ class AgeClassifier(Classifier):
     age_res = [
         re.compile(x, re.I) for x in [
             "age ([0-9]+) ?- ?([0-9]+)",
+            "age: ([0-9]+) ?- ?([0-9]+)",
+            "age: ([0-9]+) to ([0-9]+)",
             "ages ([0-9]+) ?- ?([0-9]+)",
             "([0-9]+) ?- ?([0-9]+) year",
             "([0-9]+) year",
+            "ages ([0-9]+)+",
             "([0-9]+) and up",
+            "([0-9]+) years? and up",
         ]
     ]
 
@@ -420,12 +426,22 @@ class AgeClassifier(Classifier):
                         young = int(groups[0])
                         if len(groups) > 1:
                             old = int(groups[1])
-                    if not old and k.endswith("and up"):
+                    if not old and any(
+                            [k.endswith(x) for x in 
+                             ("and up", "and up.", "+", "+.")
+                            ]
+                    ):
                         old = young + 2
                     if old is None and young is not None:
                         old = young
                     if young is None and old is not None:
                         young = old
+                    if old > 99:
+                        # This is not an age at all.
+                        old = None
+                    if young > 99:
+                        # This is not an age at all.
+                        young = None
                     return young, old
         return None, None
 
@@ -748,7 +764,10 @@ GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 class Lowercased(unicode):
     """A lowercased string that remembers its original value."""
     def __new__(cls, value):
-        o = super(Lowercased, cls).__new__(cls, value.lower())
+        new_value = value.lower()
+        if new_value.endswith('.'):
+            new_value = new_value[:-1]
+        o = super(Lowercased, cls).__new__(cls, new_value)
         o.original = value
         return o
 
@@ -2998,18 +3017,37 @@ class GutenbergBookshelfClassifier(Classifier):
                 return l
         return None
 
-class FreeformAudienceClassifier(Classifier):
+class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
     def audience(cls, identifier, name):
-        if identifier == 'children':
+        if identifier in ('children', 'pre-adolescent'):
             return cls.AUDIENCE_CHILDREN
-        elif identifier in ('young adult','ya'):
+        elif identifier in ('young adult', 'ya', 'teenagers', 'adolescent',
+                            'early adolescents'):
             return cls.AUDIENCE_YOUNG_ADULT
         elif identifier == 'adult':
             return cls.AUDIENCE_ADULT
         elif identifier == 'adults only':
             return cls.AUDIENCE_ADULTS_ONLY
+        return AgeOrGradeClassifier.audience(identifier, name)
 
+    @classmethod
+    def target_age(cls, identifier, name):
+        if identifier == 'pre-adolescent':
+            return (10, 13)
+        if identifier == 'early adolescents':
+            return (11, 14)
+
+        strict_age = AgeClassifier.target_age(identifier, name, True)
+        if any(strict_age):
+            return strict_age
+
+        strict_grade = GradeLevelClassifier.target_age(identifier, name, True)
+        if any(strict_grade):
+            return strict_grade
+
+        # Default to assuming it's an unmarked age.
+        return AgeClassifier.target_age(identifier, name, False)
 
 # TODO: This needs a lot of additions.
 genre_publishers = {

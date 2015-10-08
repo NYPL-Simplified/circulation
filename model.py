@@ -556,6 +556,7 @@ class DataSource(Base):
     BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
+    NYPL_SHADOWCAT = "NYPL Shadowcat"
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
 

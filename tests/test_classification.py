@@ -71,6 +71,10 @@ class TestTargetAge(object):
             return AgeClassifier.target_age(t, None)
         eq_((9,12), f("Ages 9-12"))
         eq_((9,11), f("9 and up"))
+        eq_((9,11), f("9 and up."))
+        eq_((9,11), f("9+"))
+        eq_((9,11), f("9+."))
+        eq_((None,None), f("900-901"))
         eq_((9,12), f("9-12"))
         eq_((9,9), f("9 years"))
         eq_((9,12), f("9 - 12 years"))
@@ -81,6 +85,7 @@ class TestTargetAge(object):
         eq_((None,None), AgeClassifier.target_age("K-3", None, True))
         eq_((None,None), AgeClassifier.target_age("9-12", None, True))
         eq_((9,11), AgeClassifier.target_age("9 and up", None, True))
+        eq_((7,9), AgeClassifier.target_age("7 years and up.", None, True))
 
     def test_age_from_keyword_classifier(self):
         def f(t):

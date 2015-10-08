@@ -60,18 +60,6 @@ class LogglyAPI(object):
         return HTTPSHandler(url)
        
 
-log_config = Configuration.logging_policy()
-log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
-
-output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
-if output_type == 'loggly':
-    logging.getLogger().addHandler(LogglyAPI.handler(log_level))
-
-data_format = log_config.get(
-    Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
-stderr_handler = logging.StreamHandler()
-logging.getLogger().addHandler(stderr_handler)
-
 def set_formatter(handler):
     output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
     if output_type in ('json', 'loggly'):
@@ -81,10 +69,23 @@ def set_formatter(handler):
     handler.setFormatter(cls(data_format))
     return handler
 
-logger = logging.getLogger()
-logger.setLevel(log_level)
-for handler in logger.handlers:
-    set_formatter(handler)
+log_config = Configuration.logging_policy()
+if not os.environ.get('TESTING'):
+    log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
+
+    output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
+    if output_type == 'loggly':
+        logging.getLogger().addHandler(LogglyAPI.handler(log_level))
+
+    data_format = log_config.get(
+        Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
+    stderr_handler = logging.StreamHandler()
+    logging.getLogger().addHandler(stderr_handler)
+
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    for handler in logger.handlers:
+        set_formatter(handler)
 
 database_log_level = log_config.get(Configuration.DATABASE_LOG_LEVEL, 'WARN')
 for logger in (
