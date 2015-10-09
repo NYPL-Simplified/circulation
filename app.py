@@ -275,6 +275,7 @@ def shutdown_session(exception):
         else:
             Conf.db.commit()
 
+REMOTE_INTEGRATION_FAILED = "http://librarysimplified.org/terms/problem/remote-integration-failed"
 CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
 INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
 INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
@@ -351,7 +352,10 @@ def requires_auth(f):
                 INVALID_CREDENTIALS_PROBLEM,
                 INVALID_CREDENTIALS_TITLE)
 
-        patron = authenticated_patron(header.username, header.password)
+        try:
+            patron = authenticated_patron(header.username, header.password)
+        except RemoteInitiatedServerError,e:
+            return problem(REMOTE_INTEGRATION_FAILED, e.message, 500)
         if isinstance(patron, tuple):
             flask.request.patron = None
             return authenticate(*patron)

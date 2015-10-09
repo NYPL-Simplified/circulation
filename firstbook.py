@@ -3,6 +3,7 @@ import requests
 import logging
 from authenticator import Authenticator
 from config import Configuration
+from circulation_exceptions import RemoteInitiatedServerError
 import urlparse
 import urllib
 from core.model import (
@@ -46,14 +47,15 @@ class FirstBookAuthenticationAPI(Authenticator):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
             urllib.quote, (barcode, pin)
         ))
-        print url
-        response = self.request(url)
-        print response.content
+        try:
+            response = self.request(url)
+        except requests.exceptions.ConnectionError, e:
+            raise RemoteInitiatedServerError(str(e.message))
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
                 response.status_code, response.content
             )
-            raise Exception(msg)
+            raise RemoteInitiatedServerError(msg)
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False

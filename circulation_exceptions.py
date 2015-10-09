@@ -8,6 +8,9 @@ class CirculationException(Exception):
 class InternalServerError(Exception):
     status_code = 500
 
+class RemoteInitiatedServerError(InternalServerError):
+    """One of the servers we communicate with had an internal error."""
+
 class NoOpenAccessDownload(CirculationException):
     """We expected a book to have an open-access download, but it didn't."""
     status_code = 500
