@@ -3034,9 +3034,9 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'pre-adolescent':
-            return (10, 13)
+            return (9, 12)
         if identifier == 'early adolescents':
-            return (11, 14)
+            return (13, 15)
 
         strict_age = AgeClassifier.target_age(identifier, name, True)
         if any(strict_age):
