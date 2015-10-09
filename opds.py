@@ -485,14 +485,19 @@ class AcquisitionFeed(OPDSFeed):
         # Configure special groups
         best_seller_cutoff = (
             datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-        special_group_config = (
+        special_group_config = [
             (best_sellers_url, "Best Sellers", 
              DataSource.NYT, best_seller_cutoff,
              cls.BEST_SELLER_LANGUAGES), 
-            (staff_picks_url, "Staff Picks", 
-             DataSource.LIBRARY_STAFF, None,
-             cls.STAFF_PICKS_LANGUAGES),
-        )
+        ]
+
+        if isinstance(lane, Lane) or Configuration.show_staff_picks_on_top_level():
+            special_group_config.append(
+                (staff_picks_url, "Staff Picks", 
+                 DataSource.LIBRARY_STAFF, None,
+                 cls.STAFF_PICKS_LANGUAGES)
+            )
+
 
         sublanes = list(lane.sublanes)
         _db = None

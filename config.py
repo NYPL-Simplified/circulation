@@ -106,6 +106,7 @@ class Configuration(object):
     CONTENT_SERVER_INTEGRATION = "Content Server"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
+    SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
 
     # General getters
 
@@ -220,6 +221,10 @@ class Configuration(object):
     @classmethod
     def featured_lane_size(cls):
         return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
+
+    @classmethod
+    def show_staff_picks_on_top_level(cls):
+        return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
     # Methods for loading the configuration from disk.
 
