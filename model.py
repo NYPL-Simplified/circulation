@@ -5031,7 +5031,7 @@ class Lane(object):
                 or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
                 # Books for adults don't have target ages. If we're including
                 # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = True
+                audience_has_no_target_age = mw.target_age == None
             else:
                 audience_has_no_target_age = False
 
@@ -5044,7 +5044,7 @@ class Lane(object):
                 r = NumericRange(age_range[0], age_range[0], '[]')
                 q = q.filter(
                     or_(
-                        mw.target_age.contains(r),
+                        mw.target_age.contains(r), 
                         audience_has_no_target_age
                     )
                 )
@@ -5170,7 +5170,7 @@ class Lane(object):
                 or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
                 # Books for adults don't have target ages. If we're including
                 # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = True
+                audience_has_no_target_age = Work.target_age == None
             else:
                 audience_has_no_target_age = False
 
