@@ -716,10 +716,11 @@ def navigation_feed(lane_name):
             rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
             type=NavigationFeed.ACQUISITION_FEED_TYPE,
             href=cdn_url_for('popular_feed', lane_name=lane.name, _external=True))
-        feed.add_link(
-            rel=NavigationFeed.RECOMMENDED_REL, title="Staff Picks",
-            type=NavigationFeed.ACQUISITION_FEED_TYPE,
-            href=cdn_url_for('staff_picks_feed', lane_name=lane.name, _external=True))
+        if lane != Conf or Conf.configuration.show_staff_picks_on_top_level():
+            feed.add_link(
+                rel=NavigationFeed.RECOMMENDED_REL, title="Staff Picks",
+                type=NavigationFeed.ACQUISITION_FEED_TYPE,
+                href=cdn_url_for('staff_picks_feed', lane_name=lane.name, _external=True))
 
     feed.add_link(
         rel="search", 
