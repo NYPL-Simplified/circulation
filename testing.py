@@ -371,6 +371,7 @@ def _setup(dbinfo):
     dbinfo.old_data_dir = Configuration.data_directory
     dbinfo.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
     Configuration.instance[Configuration.DATA_DIRECTORY] =dbinfo.tmp_data_dir
+    os.environ['TESTING'] = 'true'
 
 def _teardown(dbinfo):
     # Roll back the top level transaction and disconnect from the database
@@ -385,4 +386,5 @@ def _teardown(dbinfo):
         print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
 
     Configuration.instance[Configuration.DATA_DIRECTORY] = dbinfo.old_data_dir
-    del os.environ['TESTING']
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
