@@ -430,10 +430,11 @@ class TestStaffPicks(CirculationAppTest):
         assert title['href'].endswith("staff_picks/?order=title")
 
         [next_link] = self._links(author_feed, 'next')
-        assert 'staff_picks' in next_link
-        assert 'after=1' in next_link
-        assert 'size=1' in next_link
-        assert 'order=author' in next_link
+        href = next_link['href']
+        assert 'staff_picks' in href
+        assert 'after=1' in href
+        assert 'size=1' in href
+        assert 'order=author' in href
 
         # Try the same text with the 'title' order facet.
         with self.app.test_request_context(
@@ -451,7 +452,8 @@ class TestStaffPicks(CirculationAppTest):
         assert title['href'].endswith("staff_picks/?order=title")
 
         [next_link] = self._links(title_feed, 'next')
-        assert 'staff_picks' in next_link
-        assert 'after=1' in next_link
-        assert 'size=1' in next_link
-        assert 'order=title' in next_link
+        href = next_link['href']
+        assert 'staff_picks' in href
+        assert 'after=1' in href
+        assert 'size=1' in href
+        assert 'order=title' in href

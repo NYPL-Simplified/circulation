@@ -18,16 +18,34 @@ class Authenticator(object):
                 MilleniumPatronAPI,
             )
             if test:
-                return DummyMilleniumPatronAPI()
+                api = DummyMilleniumPatronAPI()
             else:
-                return MilleniumPatronAPI.from_environment()
+                api = MilleniumPatronAPI.from_environment()
         elif provider == 'First Book':
             from firstbook import FirstBookAuthenticationAPI
-            return FirstBookAuthenticationAPI.from_config()
+            api = FirstBookAuthenticationAPI.from_config()
         else:
             raise CannotLoadConfiguration(
                 "Unrecognized authentication provider: %s" % provider
             )
+        return api
+
+    def server_side_validation(self, identifier, password):
+        if not hasattr(self, 'identifier_re'):
+            self.identifier_re = Configuration.policy(
+                Configuration.IDENTIFIER_REGULAR_EXPRESSION,
+                default=Configuration.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION)
+        if not hasattr(self, 'password_re'):
+            self.password_re = Configuration.policy(
+                Configuration.PASSWORD_REGULAR_EXPRESSION,
+                default=Configuration.DEFAULT_PASSWORD_REGULAR_EXPRESSION)
+
+        valid = True
+        if self.identifier_re:
+            valid = valid and (self.identifier_re.match(identifier) is not None)
+        if self.password_re:
+            valid = valid and (self.password_re.match(password) is not None)
+        return valid
 
     def authenticated_patron(self, _db, identifier, password):
         pass

@@ -118,6 +118,10 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         patron.authorization_expires = expires
 
     def authenticated_patron(self, db, identifier, password):
+        # If they fail basic validation, there is no authenticated patron.
+        if not self.server_side_validation(identifier, password):
+            return None
+
         # If they fail a PIN test, it's very simple: there is 
         # no authenticated patron.
         if not self.pintest(identifier, password):

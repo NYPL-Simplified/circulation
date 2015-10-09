@@ -17,5 +17,11 @@ class TestFirstBook(object):
         eq_(False, self.api.pintest("abcd", "9999"))
         eq_(False, self.api.pintest("nosuchkey", "9999"))
 
+    def test_server_side_validation(self):
+        eq_(False, self.api.server_side_validation("foo' or 1=1 --;", "1234"))
+        eq_(False, self.api.server_side_validation("foo", "12 34"))
+        eq_(True, self.api.server_side_validation("foo", "1234"))
+        eq_(True, self.api.server_side_validation("foo@bar", "1234"))
+
     def test_dump(self):
         eq_({}, self.api.dump("abcd"))

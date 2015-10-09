@@ -1,3 +1,4 @@
+import re
 from nose.tools import set_trace
 import contextlib
 from core.config import (
@@ -34,6 +35,13 @@ class Configuration(CoreConfiguration):
     LIST_FIELDS = "fields"
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+
+    IDENTIFIER_REGULAR_EXPRESSION = "barcode_regular_expression"
+    PASSWORD_REGULAR_EXPRESSION = "pin_regular_expression"
+
+    alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
+    DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = alphanumerics_plus
 
     @classmethod
     def lending_policy(cls):
@@ -76,6 +84,7 @@ class Configuration(CoreConfiguration):
     def load(cls):
         CoreConfiguration.load()
         cls.instance = CoreConfiguration.instance
+
 
 @contextlib.contextmanager
 def empty_config():

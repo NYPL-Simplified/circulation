@@ -46,7 +46,9 @@ class FirstBookAuthenticationAPI(Authenticator):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
             urllib.quote, (barcode, pin)
         ))
+        print url
         response = self.request(url)
+        print response.content
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
                 response.status_code, response.content
@@ -57,6 +59,10 @@ class FirstBookAuthenticationAPI(Authenticator):
         return False
 
     def authenticated_patron(self, _db, identifier, password):
+        # If they fail basic validation, there is no authenticated patron.
+        if not self.server_side_validation(identifier, password):
+            return None
+
         # All FirstBook credentials are in upper-case.
         identifier = identifier.upper()
 
