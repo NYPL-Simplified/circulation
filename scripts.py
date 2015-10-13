@@ -436,7 +436,7 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
 
 
 class CacheBestSellerFeeds(CacheRepresentationPerLane):
-    """Cache the complete feed of best-sellers for each top-level lanes."""
+    """Cache the complete feed of best-sellers for each top-level lane."""
 
     name = "Cache best-seller feeds"
 
@@ -454,6 +454,30 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
     def should_process_lane(self, lane):
         # Only process the top-level lanes.
         return not lane.parent
+
+    def process_lane(self, lane):
+        annotator = CirculationManagerAnnotator(
+            None, lane, facet_view='popular_feed'
+        )
+        max_size = 200
+        page_size = 50
+        if lane:
+            lane_name = lane.name
+        else:
+            lane_name = None
+        for languages in self.languages:
+            for facet in ('title', 'author'):
+                for offset in range(0, max_size, page_size):
+                    url = self.app.popular_feed_cache_url(
+                        annotator, lane_name, languages, facet, offset, 
+                        page_size
+                    )
+                    def get_method(*args, **kwargs):
+                        return self.app.make_popular_feed(
+                            self._db, annotator, lane, languages, facet,
+                            offset, page_size)
+                    self.generate_feed(url, get_method, 10*60)
+
 
 class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     """Cache the complete feed of staff picks for each top-level lane."""

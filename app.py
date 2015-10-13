@@ -439,34 +439,18 @@ def popular_feed_cache_url(annotator, lane_name, languages, order_facet,
         languages = [languages]
     return url + "languages=%s" % ",".join(languages)
 
-def make_popular_feed(_db, annotator, lane, languages):
+def make_popular_feed(_db, annotator, lane, languages, order_facet,
+                      offset, size):
 
     # Do some preliminary data checking to avoid generating expensive
     # feeds that contain nothing.
     if lane and lane.parent:
         # We only show a best-seller list for the top-level lanes.
-        return problem(None, "No such feed", 404)
+        return problem_raw(None, "No such feed", 404)
 
     if 'eng' not in languages:
         # We only have information about English best-sellers.
-        return problem(None, "No such feed", 404)
-
-    arg = flask.request.args.get
-    order_facet = arg('order', 'title')
-
-    size = arg('size', '50')
-    try:
-        size = int(size)
-    except ValueError:
-        return problem(None, "Invalid size: %s" % size, 400)
-    size = min(size, 100)
-
-    offset = arg('after', None)
-    if offset:
-        try:
-            offset = int(offset)
-        except ValueError:
-            return problem(None, "Invalid offset: %s" % offset, 400)
+        return problem_raw(None, "No such feed", 404)
 
     if not lane:
         lane_name = lane
@@ -1083,10 +1067,25 @@ def popular_feed(lane_name):
     order_facet = arg('order', 'title')
     size = arg('size', '50')
     offset = arg('after', None)
+
+    try:
+        size = int(size)
+    except ValueError:
+        return problem(None, "Invalid size: %s" % size, 400)
+    size = min(size, 100)
+
+    offset = arg('after', None)
+    if offset:
+        try:
+            offset = int(offset)
+        except ValueError:
+            return problem(None, "Invalid offset: %s" % offset, 400)
+
     cache_url = popular_feed_cache_url(
         annotator, lane, languages, order_facet, offset, size)
     def get(*args, **kwargs):
-        return make_popular_feed(Conf.db, annotator, lane, languages)
+        return make_popular_feed(Conf.db, annotator, lane, languages, 
+                                 order_facet, offset, size)
     feed_rep, cached = Representation.get(
         Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
         max_age=60*60*24)

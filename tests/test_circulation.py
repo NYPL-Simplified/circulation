@@ -25,7 +25,8 @@ from ..circulation import (
 )
 
 from ..config import (
-    temp_config
+    temp_config,
+    Configuration,
 )
 from ..core.model import (
     get_one,
@@ -70,6 +71,7 @@ class CirculationTest(DatabaseTest):
 
         circulation.Conf.initialize(self._db, self.lanes)
         self.circulation = circulation
+        circulation.Conf.configuration = Configuration
         self.app = circulation.app
         self.client = circulation.app.test_client()
 
