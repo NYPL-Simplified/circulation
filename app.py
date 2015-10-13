@@ -519,11 +519,11 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
     # feeds that contain nothing.
     if lane and lane.parent:
         # We only show a best-seller list for the top-level lanes.
-        return problem(None, "No such feed", 404)
+        return problem_raw(None, "No such feed", 404)
 
     if 'eng' not in languages:
         # We only have information about English best-sellers.
-        return problem(None, "No such feed", 404)
+        return problem_raw(None, "No such feed", 404)
 
     if not lane:
         lane_name = lane
