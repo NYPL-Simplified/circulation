@@ -285,6 +285,7 @@ NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
 NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
 NO_ACCEPTABLE_FORMAT_PROBLEM = "http://librarysimplified.org/terms/problem/no-acceptable-format"
 ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
+LOAN_LIMIT_REACHED_PROBLEM = "http://librarysimplified.org/terms/problem/loan-limit-reached"
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
 HOLD_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/could-not-place-hold"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
@@ -1264,6 +1265,8 @@ def borrow(data_source, identifier):
     except PatronAuthorizationFailedException, e:
         problem_doc = problem(
             INVALID_CREDENTIALS_PROBLEM, INVALID_CREDENTIALS_TITLE, 401)
+    except PatronLoanLimitReached, e:
+        problem_doc = problem(LOAN_LIMIT_REACHED_PROBLEM, str(e), 403)
     except CannotLoan, e:
         problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
     except CannotHold, e:
