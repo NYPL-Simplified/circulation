@@ -440,9 +440,6 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
 
     name = "Cache best-seller feeds"
 
-    PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.BEST_SELLER_LANGUAGES]
-    OTHER_COLLECTIONS = []
-
     def cache_url(self, annotator, lane, languages):
         return self.app.popular_feed_cache_url(annotator, lane, languages)
 
@@ -465,16 +462,24 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
             lane_name = lane.name
         else:
             lane_name = None
-        for languages in self.languages:
+        for language_set in self.languages:
+            if isinstance(language_set, basestring):
+                language_set = [language_set]
+            match = any(l in AcquisitionFeed.BEST_SELLER_LANGUAGES 
+                        for l in language_set
+            )
+            if not match:
+                continue
+
             for facet in ('title', 'author'):
                 for offset in range(0, max_size, page_size):
                     url = self.app.popular_feed_cache_url(
-                        annotator, lane_name, languages, facet, offset, 
+                        annotator, lane_name, language_set, facet, offset, 
                         page_size
                     )
                     def get_method(*args, **kwargs):
                         return self.app.make_popular_feed(
-                            self._db, annotator, lane, languages, facet,
+                            self._db, annotator, lane, language_set, facet,
                             offset, page_size)
                     self.generate_feed(url, get_method, 10*60)
 

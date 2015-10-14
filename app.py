@@ -470,7 +470,8 @@ def make_popular_feed(_db, annotator, lane, languages, order_facet,
     work_feed = CustomListFeed(
         lane, nyt, languages, as_of, availability=CustomListFeed.ALL,
         order_facet=order_facet)
-    page = work_feed.page_query(_db, offset, size).all()
+    qu = work_feed.page_query(_db, offset, size)
+    page = qu.all()
     this_url = cdn_url_for(
         'popular_feed', lane_name=lane_name, after=offset, size=size, 
         _external=True
@@ -482,7 +483,7 @@ def make_popular_feed(_db, annotator, lane, languages, order_facet,
     if len(page) == 0:
         offset = None
     else:
-        offset = int(offset) or 0
+        offset = int(offset or 0)
         offset += size
         next_url = cdn_url_for(
             'popular_feed', lane_name=lane_name, order=order_facet,
@@ -1066,7 +1067,6 @@ def popular_feed(lane_name):
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
     size = arg('size', '50')
-    offset = arg('after', None)
 
     try:
         size = int(size)
