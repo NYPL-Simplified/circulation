@@ -1074,7 +1074,7 @@ def popular_feed(lane_name):
         return problem(None, "Invalid size: %s" % size, 400)
     size = min(size, 100)
 
-    offset = arg('after', None)
+    offset = arg('after', 0)
     if offset:
         try:
             offset = int(offset)
