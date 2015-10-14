@@ -428,6 +428,42 @@ class Metadata(object):
             self.primary_identifier.identifier
         )
 
+    def guess_license_pools(self, _db, metadata_client):
+        """Try to find existing license pools for this Metadata."""
+        potentials = {}
+        for contributor in self.contributors:
+            if not Contributor.AUTHOR_ROLE in contributor.roles:
+                continue
+            contributor.find_sort_name(_db, self.identifiers, metadata_client)
+            confidence = 0
+            base = _db.query(Edition).filter(
+                Edition.title.ilike(self.title)).filter(
+                    Edition.medium==Edition.BOOK_MEDIUM)
+            success = False
+            if contributor.sort_name:
+                qu = base.filter(Edition.sort_author==contributor.sort_name)
+                success = self._run_query(qu, potentials, 0.9)
+            if not success and contributor.display_name:
+                qu = base.filter(Edition.author==contributor.display_name)
+                success = self._run_query(qu, potentials, 0.8)
+            if not success:
+                # Look for the book by an unknown author (our mistake)
+                qu = base.filter(Edition.author==Edition.UNKNOWN_AUTHOR)
+                success = self._run_query(qu, potentials, 0.45)
+            if not success:
+                # See if there is any book with this title at all.
+                success = self._run_query(base, potentials, 0.3)
+        return potentials
+
+    def _run_query(self, qu, potentials, confidence):
+        success = False
+        for i in qu:
+            lp = i.license_pool
+            if lp and potentials.get(lp, 0) < confidence:
+                potentials[lp] = confidence
+                success = True
+        return success
+
     def apply(
             self, edition, 
             metadata_client=None,
