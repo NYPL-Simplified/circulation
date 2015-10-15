@@ -544,7 +544,8 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
         lane, staff, languages, availability=CustomListFeed.ALL,
         order_facet=order_facet
     )
-    page = work_feed.page_query(_db, offset, size).all()
+    qu = work_feed.page_query(_db, offset, size)
+    page = qu.all()
 
     this_url = cdn_url_for(
         'staff_picks_feed', lane_name=lane_name, 
@@ -1030,7 +1031,7 @@ def staff_picks_feed(lane_name):
     languages = languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
-    offset = arg('after', 0)
+    offset = int(arg('after', 0))
     size = int(arg('size', 50))
     annotator = CirculationManagerAnnotator(
         Conf.circulation, lane, facet_view='staff_picks_feed'
