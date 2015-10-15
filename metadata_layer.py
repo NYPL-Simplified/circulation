@@ -13,6 +13,9 @@ from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
 from dateutil.parser import parse
 from sqlalchemy.sql.expression import and_
+from sqlalchemy.orm.exc import (
+    NoResultFound,
+)
 import csv
 import datetime
 import logging
@@ -113,8 +116,9 @@ class ContributorData(object):
         for identifier in identifiers:
             if identifier.type != Identifier.ISBN:
                 continue
+            identifier_obj, ignore = identifier.load(_db)
             response = metadata_client.canonicalize_author_name(
-                identifier.identifier, self.display_name)
+                identifier_obj, self.display_name)
             sort_name = None
             log = logging.getLogger("Abstract metadata layer")
             if (response.status_code == 200 
@@ -396,6 +400,8 @@ class Metadata(object):
 
     def data_source(self, _db):
         if not self.data_source_obj:
+            if not self._data_source:
+                return None
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
         return self.data_source_obj
 
@@ -406,7 +412,10 @@ class Metadata(object):
         imposed on the book right now.
         """
         i, ignore = self.primary_identifier.load(_db)
-        return DataSource.license_source_for(_db, i)
+        try:
+            return DataSource.license_source_for(_db, i)
+        except NoResultFound, e:
+            return None
 
     def edition(self, _db, create_if_not_exists=True):
         if not self.primary_identifier:
@@ -414,8 +423,12 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
+        data_source = self.edition_data_source(_db)
+        if not data_source:
+            data_source = self.data_source(_db)
+
         return Edition.for_foreign_id(
-            _db, self.edition_data_source(_db), self.primary_identifier.type, 
+            _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
         )        
