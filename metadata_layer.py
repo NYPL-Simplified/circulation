@@ -7,10 +7,12 @@ model. Doing a third-party integration should be as simple as putting
 the information into this format.
 """
 
+import numpy
+from collections import defaultdict
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
 from dateutil.parser import parse
-
+from sqlalchemy.sql.expression import and_
 import csv
 import datetime
 import logging
@@ -428,6 +430,19 @@ class Metadata(object):
             self.primary_identifier.identifier
         )
 
+    def consolidate_identifiers(self):
+        """"""
+        by_weight = defaultdict(list)
+        for i in self.identifiers:
+            by_weight[(i.type, i.identifier)].append(i.weight)
+        new_identifiers = []
+        for (type, identifier), weights in by_weight.items():
+            new_identifiers.append(
+                IdentifierData(type=type, identifier=identifier,
+                               weight=numpy.median(weights))
+            )
+        self.identifiers = new_identifiers
+
     def guess_license_pools(self, _db, metadata_client):
         """Try to find existing license pools for this Metadata."""
         potentials = {}
@@ -436,10 +451,18 @@ class Metadata(object):
                 continue
             contributor.find_sort_name(_db, self.identifiers, metadata_client)
             confidence = 0
+
             base = _db.query(Edition).filter(
                 Edition.title.ilike(self.title)).filter(
                     Edition.medium==Edition.BOOK_MEDIUM)
             success = False
+
+            # A match based on work ID is the most reliable.
+            pwid = self.calculate_permanent_work_id(_db, metadata_client)
+            clause = and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)
+            qu = base.filter(Edition.permanent_work_id==pwid).join(LicensePool, clause)
+            success = self._run_query(qu, potentials, 0.95)
+
             if contributor.sort_name:
                 qu = base.filter(Edition.sort_author==contributor.sort_name)
                 success = self._run_query(qu, potentials, 0.9)

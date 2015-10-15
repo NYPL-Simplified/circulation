@@ -276,7 +276,7 @@ class Representation(object):
             if tag.a and (tag.b in self.marc_037_b_to_identifier_type):
                 t = self.marc_037_b_to_identifier_type[tag.b]
                 self.identifiers.append(
-                    IdentifierData(type=t, identifier=tag.a)
+                    IdentifierData(type=t, identifier=tag.a.lower())
                 )
 
         for tag in self.tags('020'):

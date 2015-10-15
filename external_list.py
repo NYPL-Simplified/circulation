@@ -222,7 +222,11 @@ class TitleFromExternalList(object):
         # as an Edition. This will also associate all its identifiers
         # with its primary identifier, and calculate the permanent work
         # ID if possible.
-        edition, is_new = self.metadata.edition(_db)
+        try:
+            edition, is_new = self.metadata.edition(_db)
+        except ValueError, e:
+            print "Ignoring %s, no corresponding edition." % self.metadata.title
+            return None
         self.metadata.apply(
             edition=edition, 
             metadata_client=metadata_client,
