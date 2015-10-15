@@ -5114,6 +5114,9 @@ class Lane(object):
           the same default fiction status). If fiction==None, no fiction
           restriction is applied.
 
+        * Have a delivery mechanism that can be rendered by the
+          default client.
+
         :param fiction: Override the fiction setting found in `self.fiction`.
 
         """
@@ -5199,6 +5202,9 @@ class Lane(object):
         elif fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(Work.fiction==fiction)
 
+        q = q.filter(LicensePool.delivery_mechanisms.any(
+            DeliveryMechanism.default_client_can_fulfill==True)
+        )
         return q
 
 
