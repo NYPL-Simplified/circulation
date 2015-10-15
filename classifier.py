@@ -537,7 +537,7 @@ fiction_genres = [
         dict(full_name=u"Media Tie-in SF", display_name=u"Movie and TV Novelizations", genres=[u"Media Tie-in SF"])
     ]),
     u"Short Stories",
-    (u"Suspense/Thriller", [
+    (u"Thriller", [
         u"Historical Thriller",
         u"Espionage",
         u"Supernatural Thriller",
@@ -616,7 +616,8 @@ nonfiction_genres = [
     u"Literary Criticism",
     u"Periodicals",
     u"Philosophy",
-    (u"Politics & Current Events", [u"Political Science"]),
+    u"Politics & Current Events",
+#    (u"Politics & Current Events", [u"Political Science"]),
     (u"Reference & Study Aids", [
         u"Dictionaries",
         u"Foreign Language Study",
@@ -895,7 +896,7 @@ class ThreeMClassifier(Classifier):
         Philosophy : "PHILOSOPHY/",
         Photography : "PHOTOGRAPHY/",
         Poetry : "POETRY/",
-        Political_Science: "POLITICAL SCIENCE/",
+        Politics_Current_Events: "POLITICAL SCIENCE/",
         Psychology : "PSYCHOLOGY & PSYCHIATRY/",
         Reference_Study_Aids: "REFERENCE/",
         Religion_Spirituality : [
@@ -916,7 +917,7 @@ class ThreeMClassifier(Classifier):
             "Sports & Recreation/",
         ],
         Study_Aids : "STUDY AIDS/",
-        Suspense_Thriller : [
+        Thriller : [
             "FICTION/Suspense/",
             "FICTION/Thrillers/",
         ],
@@ -1056,7 +1057,7 @@ class ThreeMClassifier(Classifier):
             "BUSINESS & ECONOMICS/Personal Success",
         ],
         Police_Procedural : "Mystery & Detective/Police Procedural",
-        Political_Science : "POLITICAL SCIENCE/History & Theory/",
+        Politics_Current_Events : "POLITICAL SCIENCE/History & Theory/",
         Real_Estate : "BUSINESS & ECONOMICS/Real Estate/",
         Religious_Fiction : [
             "JUVENILE FICTION/Religious/",
@@ -1220,7 +1221,7 @@ class OverdriveClassifier(Classifier):
         Sports : "Sports & Recreations",
         Study_Aids : "Study Aids & Workbooks",
         Technology : ["Technology", "Engineering", "Transportation"],
-        Suspense_Thriller : ["Suspense", "Thriller"],
+        Thriller : ["Suspense", "Thriller"],
         Travel : ["Travel", "Travel Literature"],
         True_Crime : "True Crime",
         Urban_Fiction: ["African American Fiction", "Urban Fiction"],
@@ -1477,7 +1478,7 @@ class LCCClassifier(Classifier):
         Periodicals : ["AP", "AN"],
         Philosophy : ["BC", "BD", "BJ"],
         Photography: ["TR"],
-        Political_Science : ["J", "HX"],
+        Politics_Current_Events : ["J", "HX"],
         Psychology : ["BF"],
         Reference_Study_Aids : ["AE", "AG", "AI"],
         Religion_Spirituality : ["BL", "BQ"],
@@ -2312,7 +2313,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "sonnets",
                ),
                
-               Political_Science : match_kw(
+               Politics_Current_Events : match_kw(
                    "american government",
                    "anarchism",
                    "censorship",
@@ -2544,7 +2545,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "cars & trucks",
                ),
                
-               Suspense_Thriller: match_kw(
+               Thriller: match_kw(
                    "thriller",
                    "thrillers",
                    "suspense",
@@ -2935,7 +2936,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Poetry, A Magazine of Verse",
             "Children's Verse",
         ],
-        Political_Science : [
+        Politics_Current_Events : [
             "Anarchism",
             "Politics",
         ],
@@ -2979,7 +2980,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "The American Journal of Archaeology",
             "Sociology",
         ],
-        Suspense_Thriller : [
+        Thriller : [
             "Suspense",
             "Thriller",
         ],
