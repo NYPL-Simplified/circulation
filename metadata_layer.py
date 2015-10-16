@@ -56,11 +56,11 @@ class ContributorData(object):
         """
         log = logging.getLogger("Abstract metadata layer")
         if self.sort_name:
-            log.debug(
-                "%s already has a sort name: %s", 
-                self.display_name,
-                self.sort_name
-            )
+            # log.debug(
+            #     "%s already has a sort name: %s", 
+            #     self.display_name,
+            #     self.sort_name
+            # )
             return True
 
         if not self.display_name:
