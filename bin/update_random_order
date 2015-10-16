@@ -5,5 +5,7 @@ import sys
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from scripts import UpdateRandomOrder
-UpdateRandomOrder().run()
+from core.scripts import RunMonitorScript
+from core.monitor import WorkRandomnessUpdateMonitor
+RunMonitorScript(WorkRandomnessUpdateMonitor).run()
+
