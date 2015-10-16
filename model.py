@@ -2829,6 +2829,10 @@ class Work(Base):
             Work.presentation_ready == True,
             Edition.medium == Edition.BOOK_MEDIUM,
         )
+
+        q = q.filter(LicensePool.delivery_mechanisms.any(
+            DeliveryMechanism.default_client_can_fulfill==True)
+        )
         return q
 
     @classmethod
@@ -4884,12 +4888,19 @@ class Lane(object):
                and len(results) < target_size):
             remaining = target_size - len(results)
             query = self.works(languages=languages, availability=availability)
+            total_size = query.count()
             if quality_min < 0.05:
                 quality_min = 0
 
             query = query.filter(
                 Work.quality >= quality_min,
             )
+            if previous_quality_min is not None:
+                query = query.filter(
+                    Work.quality < previous_quality_min)
+
+            query_without_random_sample = query
+
             if random_sample:
                 offset = random.random()
                 # logging.debug("Random offset=%.2f", offset)
@@ -4898,21 +4909,22 @@ class Lane(object):
                 else:
                     query = query.filter(Work.random <= offset)
 
-            if previous_quality_min is not None:
-                query = query.filter(
-                    Work.quality < previous_quality_min)
-            query = query.limit(int(remaining*1.3))
-
             start = time.time()
             # logging.debug(dump_query(query))
+            max_results = int(remaining*1.3)
+            query = query.limit(max_results)
             r = query.all()
+
+            if random_sample and len(r) < (remaining-5):
+                # Disable the random sample--there are not enough works for
+                # it to operate properly.
+                query = query_without_random_sample.limit(max_results)
+                r = query.all()
+
+
             #for i in r[:remaining]:
             #    logging.debug("%s (random=%.2f quality=%.2f)", i.title, i.random, i.quality)
             results.extend(r[:remaining])
-            logging.debug(
-                "%s: Quality %.2f got us to %d results in %.2fsec",
-                self.name, quality_min, len(results), time.time()-start
-            )
 
             if quality_min == quality_min_rock_bottom or quality_min == 0:
                 # We can't lower the bar any more.
@@ -4930,6 +4942,12 @@ class Lane(object):
 
             if quality_min < quality_min_rock_bottom:
                 quality_min = quality_min_rock_bottom
+
+        logging.debug(
+            "%s: %s Quality %.2f got us to %d results in %.2fsec",
+            self.name, availability, quality_min, len(results), 
+            time.time()-start
+        )
         return results
 
     @property
@@ -4937,10 +4955,10 @@ class Lane(object):
         genres = set()
         if self.genres:
             for genre in self.genres:
-                if self.subgenre_behavior == self.IN_SAME_LANE:
-                    genres = genres.union(genre.self_and_subgenres)
-                else:
-                    genres.add(genre)
+                #if self.subgenre_behavior == self.IN_SAME_LANE:
+                genres = genres.union(genre.self_and_subgenres)
+                #else:
+                #    genres.add(genre)
         return genres
 
     def audience_list_for_age_range(self, audience, age_range):
@@ -5142,6 +5160,7 @@ class Lane(object):
         #    q = Work.with_no_genres(q)
         if self.genres is not None:
             genres, fiction = self.gather_matching_genres(fiction)
+            # logging.debug("Genres: %s" % ", ".join([x.name for x in genres]))
             if genres:
                 q = q.join(Work.work_genres)
                 q = q.options(contains_eager(Work.work_genres))

@@ -529,19 +529,33 @@ class AcquisitionFeed(OPDSFeed):
 
         for l in sublanes:
             if l == lane and not all_works:
-                # We've gotten to the (e.g.) 'All Science Fiction'
-                # group, but we have not found any works whatsoever.
-                # 
-                # Instead of delivering a feed with a single group,
-                # deliver nothing and require the caller to 
-                # create a flat feed instead.
-                return None
+                 # We've gotten to the (e.g.) 'All Science Fiction'
+                 # group, but we have not found any works whatsoever.
+                 # 
+                 # Instead of delivering a feed with a single group,
+                 # deliver nothing and require the caller to 
+                 # create a flat feed instead.
+                 return None
 
             quality_min = Configuration.minimum_featured_quality()
 
             works = l.quality_sample(
                 languages, quality_min, quality_cutoff, feed_size,
                 Work.CURRENTLY_AVAILABLE)
+
+            if quality_cutoff == 0 and len(works) < (feed_size-5):
+                # There are so few works in this group that it doesn't
+                # even make sense to show it as a group.
+
+                # Try again, but don't restrict to currently available
+                # books.
+                works = l.quality_sample(
+                    languages, quality_min, quality_cutoff, feed_size,
+                    Work.ALL)
+
+            if quality_cutoff == 0 and len(works) < (feed_size-5):
+                # Okay, forget it.
+                continue
 
             for work in works:
                 if l == lane:
