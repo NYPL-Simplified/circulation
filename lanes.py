@@ -82,16 +82,20 @@ def make_lanes_default(_db):
         audience=YA,
         sublanes=[
             Lane(_db, "YA Biography", genres.Biography_Memoir,
-                 display_name="Biography", fiction=False),
+                 display_name="Biography", fiction=False,
+                 audience=YA),
             Lane(_db, "YA History",
                  [genres.History, genres.Social_Sciences],
                  display_name="History & Sociology", 
-                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False
+                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False,
+                 audience=YA
              ),
-            Lane(_db, "Life Strategies", [genres.Life_Strategies]),
+            Lane(_db, "Life Strategies", [genres.Life_Strategies], audience=YA,
+                 fiction=False),
             Lane(_db, "YA Religion & Spirituality", 
                  genres.Religion_Spirituality,
-                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False)
+                 subgenre_behavior=Lane.IN_SAME_LANE, fiction=False,
+                 audience=YA)
         ],
     )
 

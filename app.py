@@ -415,7 +415,7 @@ def make_acquisition_groups(annotator, lane, languages):
         # The configuration says there should be books in
         # subcategories, but there are actually none, so a grouped
         # feed is not appropriate. Return a flat feed instead.
-        return make_feed(Conf.db, annotator, lane, languages, 'title', 0, 50)
+        return make_feed(Conf.db, annotator, lane, languages, 'author', 0, 50)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
@@ -914,6 +914,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     from core.materialized_view import (
         MaterializedWorkLaneFeed,
     )
+
     work_feed = MaterializedWorkLaneFeed.factory(lane, languages, order_facet)
     if order_facet == 'title':
         title = "%s: By title" % lane.display_name
