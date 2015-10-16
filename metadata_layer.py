@@ -125,7 +125,7 @@ class ContributorData(object):
                 and response.headers['Content-Type'].startswith('text/plain')):
                 sort_name = response.content.decode("utf8")
                 log.info(
-                    "Canonicalizer found sort name for %s: %s => %s",
+                    "Canonicalizer found sort name for %r: %s => %s",
                     identifier, 
                     self.display_name,
                     sort_name
