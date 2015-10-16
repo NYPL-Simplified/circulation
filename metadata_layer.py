@@ -7,7 +7,6 @@ model. Doing a third-party integration should be as simple as putting
 the information into this format.
 """
 
-import numpy
 from collections import defaultdict
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
@@ -485,6 +484,7 @@ class Metadata(object):
         for i in self.identifiers:
             by_weight[(i.type, i.identifier)].append(i.weight)
         new_identifiers = []
+        import numpy
         for (type, identifier), weights in by_weight.items():
             new_identifiers.append(
                 IdentifierData(type=type, identifier=identifier,
