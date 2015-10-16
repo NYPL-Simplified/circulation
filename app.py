@@ -411,6 +411,11 @@ def make_acquisition_groups(annotator, lane, languages):
     staff_picks_url = cdn_url_for("staff_picks_feed", lane_name=lane_name, _external=True)
     feed = AcquisitionFeed.featured_groups(
         url, best_sellers_url, staff_picks_url, languages, lane, annotator)
+    if feed is None:
+        # The configuration says there should be books in
+        # subcategories, but there are actually none, so a grouped
+        # feed is not appropriate. Return a flat feed instead.
+        return make_feed(Conf.db, annotator, lane, languages, 'title', 0, 50)
     feed.add_link(
         rel="search", 
         type="application/opensearchdescription+xml",
