@@ -583,8 +583,8 @@ class AcquisitionFeed(OPDSFeed):
             a = time.time()
             page = q.all()
             b = time.time()
-            #print "Got %s %s for %s in %.2f" % (
-            #    len(page), title, lane.name, (b-a))
+            print "Got %s %s for %s in %.2f" % (
+                len(page), title, lane.name, (b-a))
             if len(page) > feed_size:
                 sample = random.sample(page, feed_size)
             else:

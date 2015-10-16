@@ -5203,7 +5203,7 @@ class Lane(object):
             q = q.filter(Work.fiction==fiction)
 
         q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfil==True)
+            DeliveryMechanism.default_client_can_fulfill==True)
         )
         return q
 
