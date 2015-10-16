@@ -208,6 +208,9 @@ class NYTBestSellerList(list):
         for i in self:
             list_item, was_new = i.to_custom_list_entry(
                 custom_list, self.metadata_client)
+            # If possible, associate the item with a LicensePool.
+            list_item.set_license_pool()
+
 
 class NYTBestSellerListTitle(TitleFromExternalList):
 

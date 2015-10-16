@@ -5203,7 +5203,7 @@ class Lane(object):
             q = q.filter(Work.fiction==fiction)
 
         q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
+            DeliveryMechanism.default_client_can_fulfil==True)
         )
         return q
 
@@ -5478,6 +5478,18 @@ class LicensePool(Base):
         """Find LicensePools that have no corresponding Work."""
         return _db.query(LicensePool).outerjoin(Work).filter(
             Work.id==None).all()
+
+    @property
+    def deliverable(self):
+        """This LicensePool can actually be delivered to patrons.
+        """
+        return (
+            (self.open_access or self.licenses_owned > 0)
+            and any(
+                [dm.delivery_mechanism.default_client_can_fulfill
+                for dm in self.delivery_mechanisms]
+            )
+        )
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
@@ -6683,7 +6695,7 @@ class CustomListEntry(Base):
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
 
-    def set_license_pool(self):
+    def set_license_pool(self, metadata=None, metadata_client=None):
         """If possible, set the best available LicensePool to be used when
         fulfilling requests for this CustomListEntry.
 
@@ -6696,23 +6708,49 @@ class CustomListEntry(Base):
             # This shouldn't happen, but no edition means no license pool.
             self.license_pool = None
             return self.license_pool
-        equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
-        pool_q = _db.query(LicensePool).filter(
-            LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
-                LicensePool.licenses_available.desc(),
-                LicensePool.patrons_in_hold_queue.asc())
-        pools = pool_q.limit(1).all()
-        if len(pools) == 0:
-            # There are no LicensePools for this Edition
-            self.license_pool = None
-        else:
-            old_license_pool = self.license_pool
-            self.license_pool = pools[0]
-            if old_license_pool != self.license_pool:
-                logging.info(
-                    "Changing license pool for list entry %r to %r", 
-                    self.edition, self.license_pool.identifier
-                )
+
+        new_license_pool = None
+        if not metadata:
+            from metadata_layer import Metadata
+            metadata = Metadata.from_edition(edition)
+
+        # Try to guess based on metadata, if we can get a high-quality
+        # guess.
+        potential_license_pools = metadata.guess_license_pools(
+            _db, metadata_client)
+        for lp, quality in sorted(
+                potential_license_pools.items(), key=lambda x: -x[1]):
+            if lp.deliverable and quality >= 0.8:
+                new_license_pool = lp
+                break
+
+        if not new_license_pool:
+            # Try using the less reliable, more expensive method of
+            # matching based on equivalent identifiers.
+            equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
+            pool_q = _db.query(LicensePool).filter(
+                LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
+                    LicensePool.licenses_available.desc(),
+                    LicensePool.patrons_in_hold_queue.asc())
+            pools = [x for x in pool_q if x.deliverable]
+            if pools:
+                new_license_pool = pools[0]
+
+        old_license_pool = self.license_pool
+        if old_license_pool != new_license_pool:
+            if old_license_pool:
+                old_id = old_license_pool.identifier
+            else:
+                old_id = None
+            if new_license_pool:
+                new_id = new_license_pool.identifier
+            else:
+                new_id = None
+            logging.info(
+                "Changing license pool for list entry %r to %r (was %r)", 
+                self.edition, new_id, old_id
+            )
+        self.license_pool = new_license_pool
         return self.license_pool
 
 from sqlalchemy.sql import compiler

@@ -81,7 +81,6 @@ class CustomListFromCSV(CSVMetadataImporter):
         for metadata in self.to_metadata(dictreader):
             entry = self.metadata_to_list_entry(
                 custom_list, data_source, now, metadata)
-            entry.set_license_pool()
 
     def metadata_to_list_entry(self, custom_list, data_source, now, metadata):
         """Convert a Metadata object to a CustomListEntry."""
@@ -190,6 +189,7 @@ class TitleFromExternalList(object):
             
         list_entry.annotation = self.annotation
 
+        list_entry.set_license_pool(self.metadata, metadata_client)
         return list_entry, is_new
 
     def to_edition(self, _db, metadata_client, overwrite_old_data=False):

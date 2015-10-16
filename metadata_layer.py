@@ -56,7 +56,7 @@ class ContributorData(object):
         """
         log = logging.getLogger("Abstract metadata layer")
         if self.sort_name:
-            log.info(
+            log.debug(
                 "%s already has a sort name: %s", 
                 self.display_name,
                 self.sort_name
@@ -102,7 +102,7 @@ class ContributorData(object):
                 Contributor.name != None).all()
         if contributors:
             log = logging.getLogger("Abstract metadata layer")
-            log.info(
+            log.debug(
                 "Determined that sort name of %s is %s based on previously existing contributor", 
                 display_name,
                 contributors[0].name
@@ -323,6 +323,41 @@ class Metadata(object):
         self.measurements = measurements or []
         self.formats = formats or []
 
+    @classmethod
+    def from_edition(self, edition):
+        """Create a basic Metadata object for the given Edition.
+
+        This doesn't contain everything but it contains enough
+        information to run guess_license_pools.
+        """
+        contributors = []
+        for contribution in edition.contributions:
+            c = contribution.contributor
+            contributors.append(
+                ContributorData(sort_name=c.name,
+                                display_name=c.display_name,
+                                roles=[contribution.role])
+            )
+        else:
+            if edition.sort_author:
+                contributors.append(
+                    ContributorData(sort_name=edition.sort_author,
+                                    display_name=edition.author,
+                                    roles=[Contributor.PRIMARY_AUTHOR_ROLE])
+                )
+        i = edition.primary_identifier
+        primary_identifier = IdentifierData(
+            type=i.type, identifier=i.identifier, weight=1)
+
+        return Metadata(
+            data_source=edition.data_source.name,
+            title=edition.title, 
+            subtitle=edition.subtitle,
+            sort_title=edition.sort_title,
+            primary_identifier=primary_identifier,
+            contributors=contributors
+        )
+
     def normalize_contributors(self, metadata_client):
         """Make sure that all contributors without a .sort_name get one."""
         for contributor in contributors:
@@ -364,6 +399,7 @@ class Metadata(object):
         pwid = Edition.calculate_permanent_work_id_for_title_and_author(
             self.title, sort_author, "book")
         self.permanent_work_id=pwid
+        return pwid
 
     def associate_with_identifiers_based_on_permanent_work_id(
             self, _db):
@@ -460,7 +496,11 @@ class Metadata(object):
         """Try to find existing license pools for this Metadata."""
         potentials = {}
         for contributor in self.contributors:
-            if not Contributor.AUTHOR_ROLE in contributor.roles:
+            if not any(
+                    x in contributor.roles for x in 
+                    (Contributor.AUTHOR_ROLE, 
+                     Contributor.PRIMARY_AUTHOR_ROLE)
+            ):
                 continue
             contributor.find_sort_name(_db, self.identifiers, metadata_client)
             confidence = 0
@@ -475,8 +515,7 @@ class Metadata(object):
             clause = and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)
             qu = base.filter(Edition.permanent_work_id==pwid).join(LicensePool, clause)
             success = self._run_query(qu, potentials, 0.95)
-
-            if contributor.sort_name:
+            if not success and contributor.sort_name:
                 qu = base.filter(Edition.sort_author==contributor.sort_name)
                 success = self._run_query(qu, potentials, 0.9)
             if not success and contributor.display_name:
@@ -495,7 +534,7 @@ class Metadata(object):
         success = False
         for i in qu:
             lp = i.license_pool
-            if lp and potentials.get(lp, 0) < confidence:
+            if lp and lp.deliverable and potentials.get(lp, 0) < confidence:
                 potentials[lp] = confidence
                 success = True
         return success
