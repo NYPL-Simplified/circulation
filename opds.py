@@ -529,13 +529,13 @@ class AcquisitionFeed(OPDSFeed):
 
         for l in sublanes:
             if l == lane and not all_works:
-                 # We've gotten to the (e.g.) 'All Science Fiction'
-                 # group, but we have not found any works whatsoever.
-                 # 
-                 # Instead of delivering a feed with a single group,
-                 # deliver nothing and require the caller to 
-                 # create a flat feed instead.
-                 return None
+                # We've gotten to the (e.g.) 'All Science Fiction'
+                # group, but we have not found any works whatsoever.
+                # 
+                # Instead of delivering a feed with a single group,
+                # deliver nothing and require the caller to 
+                # create a flat feed instead.
+                return None
 
             quality_min = Configuration.minimum_featured_quality()
 
