@@ -229,7 +229,7 @@ class WorkPresentationScript(WorkProcessingScript):
         work.calculate_presentation(
             choose_edition=True, classify=True, choose_summary=True,
             calculate_quality=True)
-
+  
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""

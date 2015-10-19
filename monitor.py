@@ -13,6 +13,7 @@ import log # This sets the appropriate log format and level.
 from config import Configuration
 from model import (
     get_one_or_create,
+    DataSource,
     Edition,
     CustomListEntry,
     Identifier,
@@ -287,6 +288,15 @@ class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
         calculate_quality=False, debug=True,
         search_index_client=self.search_index_client
     )
+
+class OverdriveReclassifierMonitor(ReclassifierMonitor):
+    """Reclassify only Overdrive books."""
+
+    def work_query(self):
+        return self._db.query(Work).join(Work.primary_edition).join(
+            Edition.data_source).filter(
+                DataSource.name==DataSource.OVERDRIVE).filter(
+                    Work.presentation_ready==True)
 
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):

@@ -537,17 +537,21 @@ fiction_genres = [
         dict(full_name=u"Media Tie-in SF", display_name=u"Movie and TV Novelizations", genres=[u"Media Tie-in SF"])
     ]),
     u"Short Stories",
-    (u"Suspense/Thriller", [
-        u"Historical Thriller",
-        u"Espionage",
-        u"Supernatural Thriller",
-        u"Medical Thriller",
-        u"Political Thriller",
-        u"Psychological Thriller",
-        u"Technothriller",
-        u"Legal Thriller",
-        u"Military Thriller",
-    ]),
+    dict(
+        full_name="Suspense/Thriller",
+        display_name="Thriller",
+        subgenres=[
+            u"Historical Thriller",
+            u"Espionage",
+            u"Supernatural Thriller",
+            u"Medical Thriller",
+            u"Political Thriller",
+            u"Psychological Thriller",
+            u"Technothriller",
+            u"Legal Thriller",
+            u"Military Thriller",
+        ]
+    ),
     u"Urban Fiction",
     u"Westerns",
     u"Women's Fiction",
