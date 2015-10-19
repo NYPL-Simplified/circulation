@@ -289,3 +289,67 @@ class RefreshMaterializedViewsScript(Script):
             db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
             print "%s refreshed in %.2f sec" % (view_name, b-a)
+
+
+class Explain(Script):
+    """Explain everything known about a given work."""
+    def run(self):
+        title = sys.argv[1]
+        editions = self._db.query(Edition).filter(Edition.title==title)
+        for edition in editions:
+            self.explain(edition)
+
+    def explain(self, edition):
+        print edition.title
+        work = edition.work
+        lp = edition.license_pool
+        for identifier in edition.equivalent_identifiers():
+            self.explain_identifier(
+                identifier, identifier==edition.primary_identifier
+            )
+        if work:
+            self.explain_work(work)
+        if lp:
+            self.explain_license_pool(lp)
+        print "Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+
+        if work:
+            print
+            work.calculate_presentation()
+            print
+            print "After recalculating presentation:"
+            self.explain_work(work)
+            self._db.commit()
+
+    def explain_identifier(self, identifier, primary=False):
+        if primary:
+            ident = "Primary identifier"
+        else:
+            ident = "Identifier"
+        print "%s: %s/%s" % (ident, identifier.type, identifier.identifier)
+
+    def explain_license_pool(self, pool):
+        print "Licensepool info:"
+        print " Delivery mechanisms:"
+        if pool.delivery_mechanisms:
+            for lpdm in pool.delivery_mechanisms:
+                dm = lpdm.delivery_mechanism
+                if dm.default_client_can_fulfill:
+                    fulfillable = "Fulfillable"
+                else:
+                    fulfillable = "Unfulfillable"
+                    print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
+        else:
+            print " No delivery mechanisms."
+        print " %s owned, %d available, %d holds, %d reserves" % (
+            pool.licenses_owned, pool.licenses_available, pool.patrons_in_hold_queue, pool.licenses_reserved
+        )
+
+    def explain_work(self, work):
+        print "Work info:"
+        print " Fiction: %s" % work.fiction
+        print " Audience: %s" % work.audience
+        print " Target age: %r" % work.target_age
+        print " %s genres." % (len(work.genres))
+        for genre in work.genres:
+            print " ", genre
