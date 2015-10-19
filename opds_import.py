@@ -16,6 +16,7 @@ from lxml import builder, etree
 from monitor import Monitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
+from config import Configuration
 from model import (
     get_one,
     get_one_or_create,
@@ -38,6 +39,11 @@ class SimplifiedOPDSLookup(object):
 
     LOOKUP_ENDPOINT = "lookup"
     CANONICALIZE_ENDPOINT = "canonical-author-name"
+
+    @classmethod
+    def from_config(cls, integration='Metadata Wrangler'):
+        url = Configuration.integration_url(integration)
+        return cls(url)
 
     def __init__(self, base_url):
         if not base_url.endswith('/'):
@@ -574,3 +580,5 @@ class OPDSImportMonitor(Monitor):
         response = requests.get(url)
         importer = self.import_class(self._db, response.content)
         return importer, importer.import_from_feed()
+
+

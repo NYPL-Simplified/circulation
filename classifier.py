@@ -537,7 +537,7 @@ fiction_genres = [
         dict(full_name=u"Media Tie-in SF", display_name=u"Movie and TV Novelizations", genres=[u"Media Tie-in SF"])
     ]),
     u"Short Stories",
-    (u"Thriller", [
+    (u"Suspense/Thriller", [
         u"Historical Thriller",
         u"Espionage",
         u"Supernatural Thriller",
@@ -917,7 +917,7 @@ class ThreeMClassifier(Classifier):
             "Sports & Recreation/",
         ],
         Study_Aids : "STUDY AIDS/",
-        Thriller : [
+        Suspense_Thriller : [
             "FICTION/Suspense/",
             "FICTION/Thrillers/",
         ],
@@ -1243,7 +1243,7 @@ class OverdriveClassifier(Classifier):
         Sports : "Sports & Recreations",
         Study_Aids : "Study Aids & Workbooks",
         Technology : ["Technology", "Engineering", "Transportation"],
-        Thriller : ["Suspense", "Thriller"],
+        Suspense_Thriller : ["Suspense", "Thriller"],
         Travel : ["Travel", "Travel Literature"],
         True_Crime : "True Crime",
         Urban_Fiction: ["African American Fiction", "Urban Fiction"],
@@ -2574,7 +2574,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "cars & trucks",
                ),
                
-               Thriller: match_kw(
+               Suspense_Thriller: match_kw(
                    "thriller",
                    "thrillers",
                    "suspense",
@@ -3009,7 +3009,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "The American Journal of Archaeology",
             "Sociology",
         ],
-        Thriller : [
+        Suspense_Thriller : [
             "Suspense",
             "Thriller",
         ],

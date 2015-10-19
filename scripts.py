@@ -12,6 +12,7 @@ from model import (
     CustomList,
     DataSource,
     Edition,
+    Identifier,
     LicensePool,
     Subject,
     Work,
@@ -298,6 +299,7 @@ class Explain(Script):
         editions = self._db.query(Edition).filter(Edition.title.ilike(title))
         for edition in editions:
             self.explain(edition)
+        self._db.commit()
 
     def explain(self, edition):
         print edition.title
@@ -314,12 +316,11 @@ class Explain(Script):
         print "Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
 
         if work:
-            print
-            work.calculate_presentation()
-            print
-            print "After recalculating presentation:"
-            self.explain_work(work)
-            self._db.commit()
+             print
+             work.calculate_presentation()
+             print
+             print "After recalculating presentation:"
+             self.explain_work(work)
 
     def explain_identifier(self, identifier, primary=False):
         if primary:
@@ -327,6 +328,16 @@ class Explain(Script):
         else:
             ident = "Identifier"
         print "%s: %s/%s" % (ident, identifier.type, identifier.identifier)
+
+        classifications = Identifier.classifications_for_identifier_ids(
+            self._db, [identifier.id])
+        for classification in classifications:
+            subject = classification.subject
+            print " %s says: %s w=%s" % (
+                classification.data_source.name,
+                subject.identifier, classification.weight
+            )
+
 
     def explain_license_pool(self, pool):
         print "Licensepool info:"
