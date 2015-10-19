@@ -295,7 +295,7 @@ class Explain(Script):
     """Explain everything known about a given work."""
     def run(self):
         title = sys.argv[1]
-        editions = self._db.query(Edition).filter(Edition.title==title)
+        editions = self._db.query(Edition).filter(Edition.title.ilike(title))
         for edition in editions:
             self.explain(edition)
 
