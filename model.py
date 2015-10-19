@@ -4435,7 +4435,7 @@ class Subject(Base):
                     "%s:%s audience %s=>%s", self.type, self.identifier,
                     self.audience, audience
                 )
-            self.audience = audience
+        self.audience = audience
 
         if fiction is not None:
             if self.fiction != fiction:
@@ -4443,7 +4443,7 @@ class Subject(Base):
                     "%s:%s fiction %s=>%s", self.type, self.identifier,
                     self.fiction, fiction
                 )
-            self.fiction = fiction
+        self.fiction = fiction
 
         if self.target_age:
             old_target_age = (self.target_age.lower, self.target_age.upper)
