@@ -333,9 +333,9 @@ class Explain(Script):
             self._db, [identifier.id])
         for classification in classifications:
             subject = classification.subject
-            print " %s says: %s w=%s" % (
+            print " %s says: %s/%s w=%s" % (
                 classification.data_source.name,
-                subject.identifier, classification.weight
+                subject.identifier, subject.name, classification.weight
             )
 
 
