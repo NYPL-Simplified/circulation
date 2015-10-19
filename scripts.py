@@ -25,6 +25,7 @@ from core.model import (
     Edition,
     Hyperlink,
     Identifier,
+    Lane,
     LicensePool,
     Representation,
     Subject,
