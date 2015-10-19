@@ -1160,6 +1160,28 @@ class OverdriveClassifier(Classifier):
         "Science Fiction & Fantasy",
         ])
 
+    NONFICTION = set([
+        "Biography & Autobiography",
+        "Business",
+        "Careers",
+        "Computer Technology",
+        "Cooking & Food",
+        "Family & Relationships",
+        "Finance",
+        "Health & Fitness",
+        "History",
+        "Politics",
+        "Psychology",
+        "Reference",
+        "Science",
+        "Self Help",
+        "Self-Improvement",
+        "Sociology",
+        "Sports & Recreations",
+        "Technology"
+        "Travel",
+    ])
+
     GENRES = {
         Antiques_Collectibles : "Antiques",
         Architecture : "Architecture",
@@ -1242,7 +1264,10 @@ class OverdriveClassifier(Classifier):
             # "Literature" on Overdrive seems to be synonymous with fiction,
             # but not necessarily "Literary Fiction".
             return True
-        return False
+        if (identifier in cls.NONFICTION or 'Nonfiction' in identifier
+            or 'Study' in identifier or 'Studies' in identifier):
+            return False
+        return None
 
     @classmethod
     def audience(cls, identifier, name):
@@ -1251,7 +1276,11 @@ class OverdriveClassifier(Classifier):
             return cls.AUDIENCE_CHILDREN
         elif "Young Adult" in identifier:
             return cls.AUDIENCE_YOUNG_ADULT
-        return cls.AUDIENCE_ADULT
+        elif identifier in ('Fiction', 'Nonfiction'):
+            return cls.AUDIENCE_ADULT
+        elif identifier == 'Erotic Literature':
+            return cls.AUDIENCE_ADULTS_ONLY
+        return None
 
     @classmethod
     def target_age(cls, identifier, name):
