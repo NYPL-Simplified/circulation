@@ -928,6 +928,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
     from core.model import dump_query
     Conf.log.debug(dump_query(query))
     page = query.all()
+
     b = time.time()
     Conf.log.info("Got %d results in %.2fsec." % (len(page), b-a))
 
