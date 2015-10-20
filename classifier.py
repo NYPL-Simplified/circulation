@@ -484,6 +484,7 @@ class Axis360AudienceClassifier(Classifier):
 # If the name of a genre is a 3-tuple, the genre is restricted to a
 # specific audience (e.g. erotica is adults-only), and the third item
 # in the tuple describes that audience.
+
 fiction_genres = [
     u"Adventure",
     u"Classics",
@@ -550,7 +551,8 @@ fiction_genres = [
             u"Technothriller",
             u"Legal Thriller",
             u"Military Thriller",
-        ]
+        ],
+        genres=['Suspense/Thriller']
     ),
     u"Urban Fiction",
     u"Westerns",
@@ -620,8 +622,7 @@ nonfiction_genres = [
     u"Literary Criticism",
     u"Periodicals",
     u"Philosophy",
-    u"Politics & Current Events",
-#    (u"Politics & Current Events", [u"Political Science"]),
+    (u"Politics & Current Events", [u"Political Science"]),
     (u"Reference & Study Aids", [
         u"Dictionaries",
         u"Foreign Language Study",

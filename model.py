@@ -4795,6 +4795,16 @@ class Lane(object):
                                 _db, self, genredata.subgenres)
 
 
+    @property
+    def url_name(self):
+        """Return the name of this lane to be used in URLs.
+
+        Basically, forward slash is changed to "__". This is necessary
+        because Flask tries to route "feed/Suspense%2FThriller" to
+        feed/Suspense/Thriller.
+        """
+        return self.name.replace("/", "__")
+
     def search(self, languages, query, search_client, limit=30):
         """Find works in this lane that match a search query.
         """        
