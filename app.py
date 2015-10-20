@@ -101,6 +101,7 @@ class Conf:
     sublanes = None
     name = None
     display_name = None
+    url_name = None
     parent = None
     urn_lookup_controller = None
     overdrive = None
