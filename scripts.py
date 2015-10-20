@@ -333,9 +333,14 @@ class Explain(Script):
             self._db, [identifier.id])
         for classification in classifications:
             subject = classification.subject
-            print " %s says: %s/%s w=%s" % (
+            genre = subject.genre
+            if genre:
+                genre = genre.name
+            else:
+                genre = "(!genre)"
+            print " %s says: %s/%s %s w=%s" % (
                 classification.data_source.name,
-                subject.identifier, subject.name, classification.weight
+                subject.identifier, subject.name, genre, classification.weight
             )
 
 
