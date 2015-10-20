@@ -253,6 +253,7 @@ class StandaloneApplicationConf(object):
         self.sublanes = make_lanes(self.db, lane_list)
         self.name = None
         self.display_name = None
+        self.url_name = None
 
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
