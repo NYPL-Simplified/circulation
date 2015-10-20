@@ -391,7 +391,7 @@ def acquisition_groups_cache_url(annotator, lane, languages):
     if not lane:
         lane_name = lane
     else:
-        lane_name = lane.name
+        lane_name = lane.url_name
     url = url_for('acquisition_groups', lane_name=lane_name, _external=True)
     if '?' in url:
         url += '&'
@@ -405,7 +405,7 @@ def make_acquisition_groups(annotator, lane, languages):
     if not lane:
         lane_name = lane
     else:
-        lane_name = lane.name
+        lane_name = lane.url_name
     url = cdn_url_for("acquisition_groups", lane_name=lane_name, _external=True)
     best_sellers_url = cdn_url_for("popular_feed", lane_name=lane_name, _external=True)
     staff_picks_url = cdn_url_for("staff_picks_feed", lane_name=lane_name, _external=True)
@@ -432,7 +432,7 @@ def make_acquisition_groups(annotator, lane, languages):
 def popular_feed_cache_url(annotator, lane_name, languages, order_facet,
                            offset, size):
     if isinstance(lane_name, Lane):
-        lane_name = lane_name.name
+        lane_name = lane_name.url_name
 
     url = url_for('popular_feed', lane_name=lane_name, order=order_facet,
                   after=offset, size=size,_external=True)
@@ -503,7 +503,7 @@ def make_popular_feed(_db, annotator, lane, languages, order_facet,
 def staff_picks_feed_cache_url(annotator, lane, languages, order_facet,
                                offset, size):
     if isinstance(lane, Lane):
-        lane_name = lane.name
+        lane_name = lane.url_name
     elif isinstance(lane, Conf):
         lane_name = None
     else:
@@ -535,7 +535,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
         lane_name = lane
         lane_display_name = lane
     else:
-        lane_name = lane.name
+        lane_name = lane.url_name
         lane_display_name = lane.display_name
 
     if lane_display_name:
@@ -886,7 +886,7 @@ def feed_url(lane, order_facet, offset, size, cdn=True):
     if not lane:
         lane_name = lane
     else:
-        lane_name = lane.name
+        lane_name = lane.url_name
     if not isinstance(order_facet, basestring):
         order_facet = Conf.database_field_to_order_facet[order_facet]
     if cdn:
@@ -963,6 +963,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
 @app.route('/feed/', defaults=dict(lane_name=None))
 @app.route('/feed/<lane_name>')
 def feed(lane_name):
+    lane_name = lane_name.replace("__", "/")
     languages = languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'recommended')

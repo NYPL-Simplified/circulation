@@ -100,9 +100,9 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes and not show_feed:
-            url = cdn_url_for('acquisition_groups', lane_name=lane.name, _external=True)
+            url = cdn_url_for('acquisition_groups', lane_name=lane.url_name, _external=True)
         else:
-            url = cdn_url_for('feed', lane_name=lane.name, order='author', _external=True)
+            url = cdn_url_for('feed', lane_name=lane.url_name, order='author', _external=True)
         return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
