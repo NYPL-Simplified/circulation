@@ -24,10 +24,11 @@ from core.model import (
 
 _db = production_session()
 
-log = logging.getLogger("Migration script - Fix Dewey 304")
 
 def reclassify(ddc):
-    for subject in _db.query(Subject).filter(Subject.type==Subject.DDC).filter(Subject.identifier.like(ddc)):
+    log = logging.getLogger("Migration script - Fix Dewey %s" % ddc)
+    for subject in _db.query(Subject).filter(Subject.type==Subject.DDC).filter(Subject.identifier.like(ddc + "%")):
+        log.info("Considering subject %s/%s", subject.identifier, subject.name)
         subject.assign_to_genre()
         for cl in subject.classifications:
             ids = cl.identifier.equivalent_identifier_ids()
@@ -35,12 +36,14 @@ def reclassify(ddc):
             editions = _db.query(Edition).filter(Edition.primary_identifier_id.in_(ids)).all()
             for edition in editions:
                 if edition.work:
-                    log.info("%s OLD: %r", edition.title, edition.work.genres)
+                    old_genres = set(edition.work.genres)
                     edition.work.calculate_presentation()
-                    log.info("%s NEW: %r", edition.title, edition.work.genres)
+                    if old_genres != set(edition.work.genres):
+                        log.info("%s GENRE CHANGE: %r -> %r", edition.title, old_genres, edition.work.genres)
                 else:
                     edition.calculate_presentation()
         _db.commit()
 
+reclassify("205")
 reclassify("304")
 reclassify("305")

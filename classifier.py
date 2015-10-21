@@ -1356,7 +1356,7 @@ class DeweyDecimalClassifier(Classifier):
         Medical : range(610, 620),
         Military_History : range(355, 360),
         Music : range(780, 789),
-        Periodicals : range(50, 60) + [105, 205, 305, 405, 505, 605, 705, 805, 905],
+        Periodicals : range(50, 60) + [105, 405, 505, 605, 705, 805, 905],
         Philosophy : range(160, 200),
         Photography : [771, 772, 773, 775, 778, 779],
         Poetry : [811, 821, 831, 841, 851, 861, 871, 874, 881, 884],
