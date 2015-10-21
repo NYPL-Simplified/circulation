@@ -7,6 +7,7 @@ Correct all 304.* and 305.* subjects, and reclassify every work classified under
 """
 import os
 import sys
+import logging
 from pdb import set_trace
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
@@ -23,18 +24,20 @@ from core.model import (
 
 _db = production_session()
 
+log = logging.getLogger("Migration script - Fix Dewey 304")
+
 def reclassify(ddc):
     for subject in _db.query(Subject).filter(Subject.type==Subject.DDC).filter(Subject.identifier.like(ddc)):
         subject.assign_to_genre()
         for cl in subject.classifications:
             ids = cl.identifier.equivalent_identifier_ids()
-            print "Looking for editions associated with %d ids." % len(ids)
+            log.info("Looking for editions associated with %d ids.", len(ids))
             editions = _db.query(Edition).filter(Edition.primary_identifier_id.in_(ids)).all()
             for edition in editions:
                 if edition.work:
-                    print "OLD: %r" % edition.work.genres
+                    log.info("%s OLD: %r", edition.title, edition.work.genres)
                     edition.work.calculate_presentation()
-                    print "NEW: %r" % edition.work.genres
+                    log.info("%s NEW: %r", edition.title, edition.work.genres)
                 else:
                     edition.calculate_presentation()
         _db.commit()
