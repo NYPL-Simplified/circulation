@@ -4449,12 +4449,13 @@ class Subject(Base):
             old_target_age = (self.target_age.lower, self.target_age.upper)
         else:
             old_target_age = None
-        if old_target_age != target_age and (
-                (target_age and (target_age.lower or target_age.upper))
-                or 
-                (old_target_age and 
-                 (old_target_age.lower or old_target_age.upper))
-        ):
+
+        if target_age:
+            new_target_age = (target_age.lower, target_age.upper)
+        else:
+            new_target_age = None
+
+        if old_target_age != new_target_age:
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, target_age
