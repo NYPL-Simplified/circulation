@@ -225,7 +225,9 @@ class TitleFromExternalList(object):
         try:
             edition, is_new = self.metadata.edition(_db)
         except ValueError, e:
-            print "Ignoring %s, no corresponding edition." % self.metadata.title
+            self.log.info(
+                "Ignoring %s, no corresponding edition.", self.metadata.title
+            )
             return None
         self.metadata.apply(
             edition=edition, 
