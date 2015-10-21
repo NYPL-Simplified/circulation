@@ -4583,7 +4583,8 @@ class LaneList(object):
                 sublanes = l.sublanes.lanes
                 for sl in sublanes:
                     _add_recursively(sl)
-            _add_recursively(lane)
+            if lane:
+                _add_recursively(lane)
 
         return lanes
 
@@ -4634,6 +4635,9 @@ class Lane(object):
         """Turn a descriptive dictionary into a Lane object."""
         if isinstance(d, Lane):
             return d
+
+        if d.get('suppress_lane'):
+            return None
 
         name = d.get('name') or d.get('full_name')
         display_name = d.get('display_name')

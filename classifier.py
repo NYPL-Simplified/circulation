@@ -620,7 +620,8 @@ nonfiction_genres = [
     ]),
     (u"Life Strategies", [], Classifier.AUDIENCE_YOUNG_ADULT),
     u"Literary Criticism",
-    u"Periodicals",
+    # Classify periodicals as such, but don't present a lane for them.
+    dict(full_name=u"Periodicals", suppress_lane=True),
     u"Philosophy",
     (u"Politics & Current Events", [u"Political Science"]),
     (u"Reference & Study Aids", [
