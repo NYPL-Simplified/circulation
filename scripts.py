@@ -299,21 +299,26 @@ class Explain(Script):
         editions = self._db.query(Edition).filter(Edition.title.ilike(title))
         for edition in editions:
             self.explain(edition)
-        self._db.commit()
+            print "-" * 80
+        #self._db.commit()
 
     def explain(self, edition):
-        print edition.title
+        print "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
         work = edition.work
         lp = edition.license_pool
+        print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
         for identifier in edition.equivalent_identifiers():
             self.explain_identifier(
-                identifier, identifier==edition.primary_identifier
+                identifier, identifier==edition.primary_identifier, 0
             )
-        if work:
-            self.explain_work(work)
         if lp:
             self.explain_license_pool(lp)
-        print "Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+        else:
+            print " No associated license pool."
+        if work:
+            self.explain_work(work)
+        else:
+            print " No associated work."
 
         if work:
              print
@@ -322,12 +327,15 @@ class Explain(Script):
              print "After recalculating presentation:"
              self.explain_work(work)
 
-    def explain_identifier(self, identifier, primary=False):
+    def explain_identifier(self, identifier, primary=False, level=0, strength=1):
+        indent = "  " * level
         if primary:
             ident = "Primary identifier"
         else:
             ident = "Identifier"
-        print "%s: %s/%s" % (ident, identifier.type, identifier.identifier)
+        if primary:
+            strength = 1
+        print "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
 
         classifications = Identifier.classifications_for_identifier_ids(
             self._db, [identifier.id])
@@ -338,10 +346,13 @@ class Explain(Script):
                 genre = genre.name
             else:
                 genre = "(!genre)"
-            print " %s says: %s/%s %s w=%s" % (
-                classification.data_source.name,
+            print "%s  %s says: %s/%s %s w=%s" % (
+                indent, classification.data_source.name,
                 subject.identifier, subject.name, genre, classification.weight
             )
+        for equivalency in identifier.equivalencies:
+            self.explain_identifier(equivalency.output, False, level+1,
+                                    equivalency.strength)
 
 
     def explain_license_pool(self, pool):
