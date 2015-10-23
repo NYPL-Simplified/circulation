@@ -3155,7 +3155,6 @@ class Work(Base):
         data = Identifier.recursively_equivalent_identifier_ids(
             _db, primary_identifier_ids, 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
-
         if classify:
             workgenres, self.fiction, self.audience, target_age = self.assign_genres(
                 flattened_data)
@@ -3375,7 +3374,6 @@ class Work(Base):
 
     def assign_genres(self, identifier_ids, cutoff=0.15):
         _db = Session.object_session(self)
-
         classifications = Identifier.classifications_for_identifier_ids(
             _db, identifier_ids)
 
