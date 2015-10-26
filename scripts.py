@@ -307,10 +307,8 @@ class Explain(Script):
         work = edition.work
         lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
-        for identifier in edition.equivalent_identifiers():
-            self.explain_identifier(
-                identifier, identifier==edition.primary_identifier, 0
-            )
+        seen = set()
+        self.explain_identifier(self.primary_identifier, True, seen, 1, 0)
         if lp:
             self.explain_license_pool(lp)
         else:
@@ -327,7 +325,7 @@ class Explain(Script):
              print "After recalculating presentation:"
              self.explain_work(work)
 
-    def explain_identifier(self, identifier, primary=False, level=0, strength=1):
+    def explain_identifier(self, identifier, primary, seen, strength, level):
         indent = "  " * level
         if primary:
             ident = "Primary identifier"
@@ -351,9 +349,11 @@ class Explain(Script):
                 subject.identifier, subject.name, genre, classification.weight
             )
         for equivalency in identifier.equivalencies:
-            self.explain_identifier(equivalency.output, False, level+1,
-                                    equivalency.strength)
-
+            output = equivalency.output
+            if output not in seen:
+                self.explain_identifier(equivalency.output, False, seen,
+                                        equivalency.strength, level+1)
+        seen.add(self)
 
     def explain_license_pool(self, pool):
         print "Licensepool info:"
