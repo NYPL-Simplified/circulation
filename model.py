@@ -2822,7 +2822,11 @@ class Work(Base):
             or_clause = or_(
                 LicensePool.open_access==True,
                 LicensePool.licenses_available > 0)
-            q = q.filter(or_clause)
+        else:
+            or_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_owned > 0)
+        q = q.filter(or_clause)
         q = q.filter(
             Edition.language.in_(languages),
             Work.was_merged_into == None,
