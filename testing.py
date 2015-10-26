@@ -220,6 +220,13 @@ class DatabaseTest(object):
                 url, media_type, "Dummy content", mirrored=True)
             link.resource.representation = representation
         else:
+
+            # Add a DeliveryMechanism for this licensepool
+            pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE,
+                DeliveryMechanism.ADOBE_DRM,
+                None
+            )
             pool.licenses_owned = pool.licenses_available = 1
         return pool
 
