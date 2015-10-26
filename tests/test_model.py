@@ -24,6 +24,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Complaint,
     Contributor,
     CoverageRecord,
     Credential,
@@ -2274,3 +2275,62 @@ class TestPatron(DatabaseTest):
             config[Configuration.POLICIES][key] = "(not a valid regexp"
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
+
+
+class TestComplaint(DatabaseTest):
+
+    def setup(self):
+        super(TestComplaint, self).setup()
+        self.edition, self.pool = self._edition(with_license_pool=True)
+        self.type = "http://librarysimplified.org/terms/problem/wrong-genre"
+
+    def test_success(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, "foo", "bar"
+        )
+        eq_(True, is_new)
+        eq_(self.type, complaint.type)
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)
+        assert abs(datetime.datetime.utcnow() -complaint.timestamp).seconds < 3
+
+        # A second complaint from the same source is folded into the
+        # original complaint.
+        complaint2, is_new = Complaint.register(
+            self.pool, self.type, "foo", "baz"
+        )
+        eq_(False, is_new)
+        eq_(complaint.id, complaint2.id)
+        eq_("baz", complaint.detail)
+
+        eq_(1, len(self.pool.complaints))
+
+    def test_success_no_source(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, None, None
+        )
+        eq_(True, is_new)
+        eq_(self.type, complaint.type)
+        eq_(None, complaint.source)
+
+        # A second identical complaint from no source is treated as a
+        # separate complaint.
+        complaint2, is_new = Complaint.register(
+            self.pool, self.type, None, None
+        )
+        eq_(True, is_new)
+        eq_(None, complaint.source)
+        assert complaint2.id != complaint.id
+
+        eq_(2, len(self.pool.complaints))
+
+    def test_failure_no_licensepool(self):
+        assert_raises(
+            ValueError, Complaint.register, self.pool, type, None, None
+        )
+
+    def test_unrecognized_type(self):
+        type = "http://librarysimplified.org/terms/problem/no-such-error"
+        assert_raises(
+            ValueError, Complaint.register, self.pool, type, None, None
+        )
