@@ -125,6 +125,16 @@ class CirculationManagerAnnotator(Annotator):
                 identifier=identifier_identifier, _external=True)
         )
 
+        # Add a link for reporting problems.
+        # First, add a permalink.
+        feed.add_link_to_entry(
+            entry, 
+            rel='issues',
+            href=url_for(
+                'report', data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
+        )
+
         can_borrow = False
         can_fulfill = False
         can_revoke = False

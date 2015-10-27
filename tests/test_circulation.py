@@ -484,7 +484,6 @@ class TestReportProblem(CirculationAppTest):
         [lp] = self.english_1.license_pools
         args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
         with self.app.test_request_context("/"):
-            set_trace()
             response = self.client.post('/works/%s/%s/report' % tuple(args),
                                         data=data)
         eq_(201, response.status_code)

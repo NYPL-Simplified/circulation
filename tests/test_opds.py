@@ -73,6 +73,17 @@ class TestOPDS(DatabaseTest):
         permalink = annotator.permalink_for(w1, pool, pool.identifier)
         eq_(entry['id'], permalink)
 
+    def test_acquisition_feed_includes_problem_reporting_link(self):
+        w1 = self._work(with_open_access_download=True)
+        self._db.commit()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [w1], CirculationManagerAnnotator(
+                None, Fantasy))
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        [issues_link] = [x for x in entry['links'] if x['rel'] == 'issues']
+        assert '/report' in issues_link['href']
+
     def test_acquisition_feed_includes_open_access_or_borrow_link(self):
         w1 = self._work(with_open_access_download=True)
         w2 = self._work(with_open_access_download=True)
