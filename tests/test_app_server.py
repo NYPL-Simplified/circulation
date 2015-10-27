@@ -1,3 +1,5 @@
+import json
+from flask import Flask
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -14,7 +16,10 @@ from model import (
     UnresolvedIdentifier,
 )
 
-from app_server import URNLookupController
+from app_server import (
+    URNLookupController,
+    ComplaintController,
+)
 
 class TestURNLookupController(DatabaseTest):
 
@@ -96,3 +101,51 @@ class TestURNLookupController(DatabaseTest):
         # input.
         eq_(404, code)
         eq_(controller.UNRECOGNIZED_IDENTIFIER, message)
+
+
+class TestComplaintController(DatabaseTest):
+    
+    def setup(self):
+        super(TestComplaintController, self).setup()
+        self.controller = ComplaintController()
+        self.edition, self.pool = self._edition(with_license_pool=True)
+        self.app = Flask(__name__)
+
+    def test_no_license_pool(self):
+        with self.app.test_request_context("/"):
+            response = self.controller.register(None, "{}")
+        assert response.status.startswith('400')
+        body = json.loads(response.data)
+        eq_("No license pool specified", body['title'])
+
+    def test_invalid_document(self):
+        with self.app.test_request_context("/"):
+            response = self.controller.register(self.pool, "not {a} valid document")
+        assert response.status.startswith('400')
+        body = json.loads(response.data)
+        eq_("Invalid problem detail document", body['title'])
+
+    def test_invalid_type(self):
+        data = json.dumps({"type": "http://not-a-recognized-type/"})
+        with self.app.test_request_context("/"):
+            response = self.controller.register(self.pool, data)
+        assert response.status.startswith('400')
+        body = json.loads(response.data)
+        eq_("Unrecognized problem type: http://not-a-recognized-type/",
+            body['title']
+        )
+
+    def test_success(self):
+        data = json.dumps(
+            {
+                "type": "http://librarysimplified.org/terms/problem/wrong-genre",
+                "source": "foo",
+                "detail": "bar",
+            }
+        )
+        with self.app.test_request_context("/"):
+            response = self.controller.register(self.pool, data)
+        assert response.status.startswith('201')
+        [complaint] = self.pool.complaints
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)

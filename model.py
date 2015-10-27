@@ -6801,7 +6801,7 @@ class CustomListEntry(Base):
 
 
 class Complaint(Base):
-    """A complaint about a LicensePool."""
+    """A complaint about a LicensePool (or, potentially, something else)."""
 
     __tablename__ = 'complaints'
 
@@ -6811,6 +6811,7 @@ class Complaint(Base):
                 'wrong-genre',
                 'wrong-audience', 
                 'wrong-age-range',
+                'bad-description',
                 'cannot-fulfill-loan', 
                 'cannot-issue-loan',
                 'cannot-render',
