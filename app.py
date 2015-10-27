@@ -32,6 +32,7 @@ from core.app_server import (
     cdn_url_for,
     entry_response,
     feed_response,
+    ComplaintController,
     HeartbeatController,
     URNLookupController,
     ErrorHandler,
@@ -52,6 +53,7 @@ from threem import (
 from core.model import (
     get_one,
     get_one_or_create,
+    Complaint,
     CustomListFeed,
     DataSource,
     production_session,
@@ -287,12 +289,12 @@ NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-av
 NO_ACCEPTABLE_FORMAT_PROBLEM = "http://librarysimplified.org/terms/problem/no-acceptable-format"
 ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
 LOAN_LIMIT_REACHED_PROBLEM = "http://librarysimplified.org/terms/problem/loan-limit-reached"
-CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/could-not-issue-loan"
-HOLD_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/could-not-place-hold"
+CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/cannot-issue-loan"
+HOLD_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-place-hold"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
 NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
-COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/could-not-mirror-to-remote"
+COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote"
 NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
 CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulfill-loan"
@@ -1310,6 +1312,26 @@ def borrow(data_source, identifier):
     else:
         status_code = 200
     return Response(content, status_code, headers)
+
+@app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
+def report(data_source, identifier):
+    """Report a problem with a book."""
+
+    # Turn source + identifier into a LicensePool
+    pool = _load_licensepool(data_source, identifier)
+    if isinstance(pool, Response):
+        # Something went wrong.
+        return pool
+
+    if flask.request.method == 'GET':
+        # Return a list of valid URIs to use as the type of a problem detail
+        # document.
+        data = "\n".join(Complaint.VALID_TYPES)
+        return Response(data, 200, {"Content-Type" : "text/uri-list"})
+
+    data = flask.request.data
+    controller = ComplaintController()
+    return controller.register(pool, data)
 
 # Loadstorm verification
 @app.route('/loadstorm-<code>.html')

@@ -4,6 +4,7 @@
 import re
 import base64
 import feedparser
+import random
 import json
 import os
 import urllib
@@ -30,6 +31,7 @@ from ..config import (
 )
 from ..core.model import (
     get_one,
+    Complaint,
     CustomList,
     DataSource,
     LaneList,
@@ -459,3 +461,34 @@ class TestStaffPicks(CirculationAppTest):
         assert 'after=1' in href
         assert 'size=1' in href
         assert 'order=title' in href
+
+
+class TestReportProblem(CirculationAppTest):
+
+    def test_get(self):
+        [lp] = self.english_1.license_pools
+        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
+        with self.app.test_request_context("/"):
+            response = self.client.get('/works/%s/%s/report' % tuple(args))
+        eq_(200, response.status_code)
+        eq_("text/uri-list", response.headers['Content-Type'])
+        for i in Complaint.VALID_TYPES:
+            assert i in response.data
+
+    def test_post_success(self):
+        error_type = random.choice(list(Complaint.VALID_TYPES))
+        data = json.dumps({ "type": error_type,
+                            "source": "foo",
+                            "detail": "bar"}
+        )
+        [lp] = self.english_1.license_pools
+        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
+        with self.app.test_request_context("/"):
+            set_trace()
+            response = self.client.post('/works/%s/%s/report' % tuple(args),
+                                        data=data)
+        eq_(201, response.status_code)
+        [complaint] = lp.complaints
+        eq_(error_type, complaint.type)
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)
