@@ -1008,15 +1008,19 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        if status:
-            kw = dict(status=status)
-            if since:
-                kw['since'] = _strftime(since)
-            if until:
-                kw['until'] = _strftime(until)
-            tag_name = "{%s}availability" % opds_ns
-            availability_tag = E._makeelement(tag_name, **kw)
-            tags.append(availability_tag)
+        elif license_pool.licenses_available > 0 and license_pool.licenses_owned > 0:
+            status = 'available'
+        else:
+            status='unavailable'
+
+        kw = dict(status=status)
+        if since:
+            kw['since'] = _strftime(since)
+        if until:
+            kw['until'] = _strftime(until)
+        tag_name = "{%s}availability" % opds_ns
+        availability_tag = E._makeelement(tag_name, **kw)
+        tags.append(availability_tag)
 
         # Open-access pools do not need to display <opds:holds> or <opds:copies>.
         if license_pool.open_access:
