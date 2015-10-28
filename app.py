@@ -1362,7 +1362,8 @@ def adobe_vendor_id_status():
 
 @app.route('/force_error/<string>')
 def force_error(string):
-    return problem(None, "Forced error: %s" % string, 500)
+    raise Exception("Forced error: %s" % string)
+    # return problem(None, "Forced error: %s" % string, 500)
 
 if __name__ == '__main__':
     debug = True
