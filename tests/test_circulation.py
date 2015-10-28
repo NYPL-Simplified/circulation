@@ -491,3 +491,14 @@ class TestReportProblem(CirculationAppTest):
         eq_(error_type, complaint.type)
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
+
+# class TestForceError(CirculationAppTest):
+#     """Test the handler that forces a 500 error."""
+
+#     def test_forced_error(self):
+#         with self.app.test_request_context("/"):
+#             response = self.client.get('/force_error/an_error_string')
+#             eq_(500, response.status_code)
+#             doc = json.loads(response.data)
+#             eq_(500, doc['status'])
+#             eq_('Forced error: an_error_string', doc['title'])
