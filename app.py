@@ -1360,10 +1360,10 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return Conf.adobe_vendor_id.status_handler()
 
-@app.route('/force_error/<string>')
-def force_error(string):
-    raise Exception("Forced error: %s" % string)
-    # return problem(None, "Forced error: %s" % string, 500)
+# @app.route('/force_error/<string>')
+# def force_error(string):
+#     raise Exception("Forced error: %s" % string)
+#     # return problem(None, "Forced error: %s" % string, 500)
 
 if __name__ == '__main__':
     debug = True
