@@ -505,7 +505,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         book.update(json.loads(content))
         license_pool, is_new = LicensePool.for_foreign_id(
-            DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
         return self.update_licensepool_with_book_info(
             book, license_pool, is_new
         )
