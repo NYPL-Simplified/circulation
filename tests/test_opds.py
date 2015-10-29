@@ -232,14 +232,12 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        eq_(etree.tostring(a), '<link rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>')
+        eq_(etree.tostring(a), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])    
-        eq_(etree.tostring(b), '<link rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>')
+        eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
-        # An acquisition link must specify at least one media type
-        assert_raises(ValueError, m, rel, href, [])
 
     def test_navigation_feed(self):
         original_feed = NavigationFeed.main_feed(self.conf, TestAnnotator)
