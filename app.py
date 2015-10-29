@@ -85,14 +85,10 @@ import urllib
 from core.util.flask_util import (
     problem,
     problem_raw,
-    languages_for_request as util_languages_for_request
+    languages_for_request
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from lanes import make_lanes
-
-def languages_for_request():
-    languages = util_languages_for_request()
-    return Configuration.force_language(languages)
 
 feed_cache = dict()
 
@@ -225,6 +221,42 @@ class Conf:
         df[MaterializedWorkWithGenre.sort_title] = "title"
         df[MaterializedWork.sort_author] = "author"
         df[MaterializedWorkWithGenre.sort_author] = "author"
+
+    @classmethod
+    def languages_for_request(cls):
+        languages = languages_for_request()
+
+        # We're going to end up with one single language here,
+        # unless Configuration.force_language intervenes.
+
+        # By default prefer our primary collection languages.
+        use_languages = [
+            x for x in languages
+            if x in cls.primary_collection_languages
+        ]
+
+        if not use_languages:
+            # Fallback to one of our other language collections.
+            use_languages = [
+                x for x in languages
+                if x in cls.other_collection_languages
+            ]
+
+        # Fallback to the originally specified languages.
+        if not use_languages:
+            use_languages = languages
+
+        # Absolute final fallback is the list of primary collection
+        # languages.
+        if not use_languages:
+            use_languages = cls.primary_collection_languages
+
+        # For the time being we only accept one language (unless
+        # force_language intervenes). 
+        if use_languages:
+            languages = [use_languages[0]]
+        return Configuration.force_language(languages)
+
 
     @classmethod
     def make_authentication_document(cls):
@@ -693,7 +725,7 @@ def navigation_feed(lane_name):
                 NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
         lane = Conf.sublanes.by_name[lane]
 
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
     this_url = cdn_url_for("navigation_feed", lane_name=lane_name, _external=True)
     key = (",".join(languages), this_url)
     # This feed will not change unless the application is upgraded,
@@ -744,7 +776,7 @@ def acquisition_groups(lane_name):
     else:
         lane = Conf.sublanes.by_name[lane_name]
 
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
 
     cache_url = acquisition_groups_cache_url(annotator, lane, languages)
@@ -967,7 +999,7 @@ def make_feed(_db, annotator, lane, languages, order_facet,
 @app.route('/feed/<lane_name>')
 def feed(lane_name):
     lane_name = lane_name.replace("__", "/")
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'recommended')
     offset = arg('after', None)
@@ -1039,7 +1071,7 @@ def staff_picks_feed(lane_name):
     else:
         lane = None
         lane_display_name = None
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
     arg = flask.request.args.get
     order_facet = arg('order', 'title')
     offset = int(arg('after', 0))
@@ -1073,7 +1105,7 @@ def popular_feed(lane_name):
     else:
         lane = None
         lane_display_name = None
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
 
     annotator = CirculationManagerAnnotator(Conf.circulation, lane)
     arg = flask.request.args.get
@@ -1108,7 +1140,7 @@ def popular_feed(lane_name):
 @app.route('/search/', defaults=dict(lane_name=None))
 @app.route('/search/<lane_name>')
 def lane_search(lane_name):
-    languages = languages_for_request()
+    languages = Conf.languages_for_request()
     query = flask.request.args.get('q')
     if lane_name:
         lane = Conf.sublanes.by_name[lane_name]
