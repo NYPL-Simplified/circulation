@@ -34,9 +34,11 @@ from ..core.model import (
     Complaint,
     CustomList,
     DataSource,
+    DeliveryMechanism,
     LaneList,
     Loan,
     Patron,
+    Representation,
     Resource,
     Edition,
     SessionManager,
@@ -278,6 +280,8 @@ class TestAcquisitionFeed(CirculationAppTest):
         for l in [patron.loans, patron.holds]:
             for loan in l:
                 pool = loan.license_pool
+                pool.set_delivery_mechanism(Representation.EPUB_MEDIA_TYPE,
+                                            DeliveryMechanism.ADOBE_DRM, None)
                 work = self._work()
                 work.license_pools = [pool]
                 work.editions[0].primary_identifier = pool.identifier

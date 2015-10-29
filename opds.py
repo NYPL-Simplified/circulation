@@ -135,6 +135,22 @@ class CirculationManagerAnnotator(Annotator):
                 identifier=identifier_identifier, _external=True)
         )
 
+        # Now we need to generate a <link> tag for every delivery mechanism
+        # that has well-defined media types.
+
+        link_tags = self.acquisition_links(
+            active_license_pool, active_loan, active_hold, feed,
+            data_source_name, identifier_identifier
+        )
+        for link in link_tags:
+            entry.append(link)
+
+    def acquisition_links(self, active_license_pool, active_loan, active_hold,
+                          feed, data_source_name, identifier_identifier):
+        """Generate a number of acquisition-related <link> tags."""
+
+        links = []
+
         can_borrow = False
         can_fulfill = False
         can_revoke = False
@@ -154,79 +170,77 @@ class CirculationManagerAnnotator(Annotator):
             can_revoke = (
                 not self.circulation or 
                 self.circulation.can_revoke_hold(
-                    active_license_pool, active_hold))
+                    active_license_pool, active_hold)
+            )
         else:
             # The patron has no existing relationship with this
             # work. Give them the opportunity to check out the work
             # or put it on hold.
             can_borrow = True
 
-        available = (
-            active_license_pool.open_access 
-            or active_license_pool.licenses_available > 0
-        )
-
-        license_tags = []
-        if active_license_pool.open_access:
-            open_access_url = open_access_media_type = None
-            if isinstance(work, BaseMaterializedWork):
-                open_access_url = work.open_access_download_url
-                # TODO: This is a bad heuristic.
-                if open_access_url and open_access_url.endswith('.epub'):
-                    open_access_media_type = OPDSFeed.EPUB_MEDIA_TYPE
-            else:
-                best_pool, best_link = active_license_pool.best_license_link
-                if best_link:
-                    representation = best_link.representation
-                    if representation.mirror_url:
-                        open_access_url = representation.mirror_url
-                    open_access_media_type = representation.media_type
-
-            if open_access_url:
-                kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
-                          href=open_access_url)
-                if open_access_media_type:
-                    kw['type'] = open_access_media_type
-                feed.add_link_to_entry(entry, **kw)
-            license_tags = []
-        else:
-            license_tags = feed.license_tags(
-                active_license_pool, active_loan, active_hold
-            )
-
-        if can_fulfill:
-            fulfill_url = url_for(
-                "fulfill", data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
-            feed.add_link_to_entry(
-                entry, children=license_tags,
-                rel=OPDSFeed.ACQUISITION_REL,
-                href=fulfill_url
-            )
-            license_tags = []
-
-        if can_borrow:
-            borrow_url = url_for(
-                "borrow", data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
-            feed.add_link_to_entry(
-                entry,
-                children=license_tags,
-                rel=OPDSFeed.BORROW_REL,
-                href=borrow_url
-            )
-            license_tags = []
-
+        # If there is something to be revoked for this book,
+        # add a link to revoke it.
         if can_revoke:
             url = url_for(
                 'revoke_loan_or_hold', data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
 
-            feed.add_link_to_entry(
-                entry, 
-                rel=OPDSFeed.REVOKE_LOAN_REL,
-                href=url
+            kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
+            revoke_link_tag = E._makeelement("link", **kw)
+            links.append(revoke_link_tag)
+
+        # Add a 'fulfill' or 'borrow' link for every useful
+        # delivery mechanism.
+        for lpdm in active_license_pool.delivery_mechanisms:
+            # If this is an open-access delivery mechanism,
+            # add an open-access link in addition to the 'fulfill'
+            # or 'borrow' link.
+            if lpdm.resource:
+                kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
+                          href=lpdm.resource.url)
+                rep = lpdm.resource.representation
+                if rep and rep.media_type:
+                    kw['type'] = rep.media_type
+                open_access_link_tag = E._makeelement("link", **kw)
+                links.append(open_access_link_tag)
+
+            license_tags = feed.license_tags(
+                active_license_pool, active_loan, active_hold
             )
+
+            if can_fulfill:
+                fulfill_url = url_for(
+                    "fulfill", data_source=data_source_name,
+                    identifier=identifier_identifier, _external=True)
+                rel=OPDSFeed.ACQUISITION_REL
+                format_types = feed.format_types(
+                    lpdm.delivery_mechanism, rel
+                )
+                link_tag = AcquisitionFeed.acquisition_link(
+                    rel=rel, href=fulfill_url,
+                    types=format_types
+                )
+                for tag in license_tags:
+                    link_tag.append(tag)
+                links.append(link_tag)
+
+            if can_borrow:
+                borrow_url = url_for(
+                    "borrow", data_source=data_source_name,
+                    identifier=identifier_identifier, _external=True)
+                rel = OPDSFeed.BORROW_REL
+                format_types = feed.format_types(
+                    lpdm.delivery_mechanism, rel
+                )
+                link_tag = AcquisitionFeed.acquisition_link(
+                    rel=rel, href=borrow_url,
+                    types=format_types
+                )
+                for tag in license_tags:
+                    link_tag.append(tag)
+                links.append(link_tag)
+
+        return links
 
     def summary(self, work):
         """Return an HTML summary of this work."""
@@ -298,4 +312,3 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         active_holds_by_work = { work : hold }
         annotator = cls(circulation, None, {}, active_holds_by_work)
         return AcquisitionFeed.single_entry(db, work, annotator)
-
