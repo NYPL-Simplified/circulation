@@ -424,7 +424,7 @@ class OPDSFeed(AtomFeed):
 
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
-    ENTRY_TYPE = "application/atom+xml;profile=opds-catalog"
+    ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
 
     GROUP_REL = "collection"
     FEATURED_REL = "http://opds-spec.org/featured"
@@ -970,11 +970,13 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def acquisition_link(cls, rel, href, types):
-        if len(types) == 0:
-            raise ValueError("Acquisition link must specify at least one type.")
-        initial_type = types[0]
-        indirect_types = types[1:]
-        link = E._makeelement("link", type=initial_type, rel=rel)
+        if types:            
+            initial_type = types[0]
+            indirect_types = types[1:]
+        else:
+            initial_type = None
+            indirect_types = []
+        link = E._makeelement("link", type=initial_type, rel=rel, href=href)
         parent = link
         for t in indirect_types:
             indirect_link = E._makeelement(
@@ -1008,7 +1010,10 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        elif license_pool.licenses_available > 0 and license_pool.licenses_owned > 0:
+        elif (license_pool.open_access or (
+                license_pool.licenses_available > 0 and
+                license_pool.licenses_owned > 0)
+          ):
             status = 'available'
         else:
             status='unavailable'
@@ -1042,7 +1047,32 @@ class AcquisitionFeed(OPDSFeed):
 
         return tags
 
+    def format_types(self, delivery_mechanism, rel):
+        """Given a delivery mechanism and a link relation, generate a set of
+        types suitable for passing into acquisition_link().
+        """
+        types = []
+        if rel not in (OPDSFeed.OPEN_ACCESS_REL, OPDSFeed.ACQUISITION_REL):
+            # Following this link will give you an OPDS entry,
+            # and then you'll get an ACQUISITION link that will give you
+            # the actual book.
+            types.append(OPDSFeed.ENTRY_TYPE)
+
+        # If this is a DRM-encrypted book, you have to get through the DRM
+        # to get the goodies inside.
+        drm = delivery_mechanism.drm_scheme_media_type
+        if drm:
+            types.append(drm)
+
+        # Finally, you get the goodies.
+        media = delivery_mechanism.content_type_media_type
+        if media:
+            types.append(media)
+        return types
+
+
 class LookupAcquisitionFeed(AcquisitionFeed):
+
     """Used when the work's primary identifier may be different
     from the identifier we should use in the feed.
     """

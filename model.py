@@ -6667,7 +6667,47 @@ class DeliveryMechanism(Base):
             return Edition.VIDEO_MEDIUM
         else:
             return None
-        
+
+    def is_media_type(self, x):
+        "Does this string look like a media type?"
+        if x is None:
+            return False
+
+        if x in (self.KINDLE_CONTENT_TYPE,
+                 self.NOOK_CONTENT_TYPE,
+                 self.STREAMING_TEXT_CONTENT_TYPE,
+                 self.STREAMING_AUDIO_CONTENT_TYPE,
+                 self.STREAMING_VIDEO_CONTENT_TYPE):
+            return False
+
+        if x in (
+                self.KINDLE_DRM,
+                self.NOOK_DRM,
+                self.STREAMING_DRM,
+                self.OVERDRIVE_DRM):
+            return False
+
+        return any(x.startswith(prefix) for prefix in 
+                   ['vnd.', 'application', 'text', 'video', 'audio', 'image'])
+
+    @property
+    def drm_scheme_media_type(self):
+        """Return the media type for this delivery mechanism's
+        DRM scheme, assuming it's represented that way.
+        """
+        if self.is_media_type(self.drm_scheme):
+            return self.drm_scheme
+        return None
+
+    @property
+    def content_type_media_type(self):
+        """Return the media type for this delivery mechanism's
+        content type, assuming it's represented as a media type.
+        """
+        if self.is_media_type(self.content_type):
+            return self.content_type
+        return None
+
 
 Index("ix_deliverymechanisms_drm_scheme_content_type", 
       DeliveryMechanism.drm_scheme, 
@@ -6819,6 +6859,7 @@ class Complaint(Base):
                 'cannot-fulfill-loan', 
                 'cannot-issue-loan',
                 'cannot-render',
+                'cannot-return',
               ]
     ])
 
