@@ -969,6 +969,10 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
+    def link(cls, rel, href, type):
+        return E._makeelement("link", type=type, rel=rel, href=href)
+
+    @classmethod
     def acquisition_link(cls, rel, href, types):
         if types:            
             initial_type = types[0]
@@ -976,14 +980,25 @@ class AcquisitionFeed(OPDSFeed):
         else:
             initial_type = None
             indirect_types = []
-        link = E._makeelement("link", type=initial_type, rel=rel, href=href)
-        parent = link
+        link = cls.link(rel, href, initial_type)
+        indirect = cls.indirect_acquisition(indirect_types)
+        if indirect:
+            link.append(indirect)
+        return link
+
+    @classmethod
+    def indirect_acquisition(cls, indirect_types):
+        top_level_parent = None
+        parent = None
         for t in indirect_types:
             indirect_link = E._makeelement(
                 "{%s}indirectAcquisition" % opds_ns, type=t)
-            parent.extend([indirect_link])
+            if parent is not None:
+                parent.extend([indirect_link])
             parent = indirect_link
-        return link
+            if top_level_parent is None:
+                top_level_parent = indirect_link
+        return top_level_parent
 
     def license_tags(self, license_pool, loan, hold):
         # Generate a list of licensing tags. These should be inserted
@@ -1047,17 +1062,11 @@ class AcquisitionFeed(OPDSFeed):
 
         return tags
 
-    def format_types(self, delivery_mechanism, rel):
-        """Given a delivery mechanism and a link relation, generate a set of
-        types suitable for passing into acquisition_link().
+    def format_types(self, delivery_mechanism):
+        """Generate a set of types suitable for passing into
+        acquisition_link().
         """
         types = []
-        if rel not in (OPDSFeed.OPEN_ACCESS_REL, OPDSFeed.ACQUISITION_REL):
-            # Following this link will give you an OPDS entry,
-            # and then you'll get an ACQUISITION link that will give you
-            # the actual book.
-            types.append(OPDSFeed.ENTRY_TYPE)
-
         # If this is a DRM-encrypted book, you have to get through the DRM
         # to get the goodies inside.
         drm = delivery_mechanism.drm_scheme_media_type

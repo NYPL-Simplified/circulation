@@ -155,6 +155,7 @@ class DatabaseTest(object):
         if with_license_pool:
             primary_edition, pool = primary_edition
         if with_open_access_download:
+            pool.open_access = True
             primary_edition.set_open_access_link()
         if new_edition:
             primary_edition.calculate_presentation()
