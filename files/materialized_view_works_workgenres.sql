@@ -34,7 +34,7 @@ as
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
      JOIN workgenres ON works.id = workgenres.work_id
      JOIN licensepooldeliveries on licensepools.id=licensepooldeliveries.license_pool_id
-     JOIN deliverymechanisms on deliverymechanisms.id=licensepooldeliveries.deliverymechanism_id
+     JOIN deliverymechanisms on deliverymechanisms.id=licensepooldeliveries.delivery_mechanism_id
   WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND editions.medium = 'Book'::medium AND works.simple_opds_entry IS NOT NULL AND deliverymechanisms.default_client_can_fulfill=true
   ORDER BY editions.sort_title, editions.sort_author;
 

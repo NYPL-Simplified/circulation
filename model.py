@@ -2822,7 +2822,11 @@ class Work(Base):
             or_clause = or_(
                 LicensePool.open_access==True,
                 LicensePool.licenses_available > 0)
-            q = q.filter(or_clause)
+        else:
+            or_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_owned > 0)
+        q = q.filter(or_clause)
         q = q.filter(
             Edition.language.in_(languages),
             Work.was_merged_into == None,
@@ -5467,6 +5471,9 @@ class LicensePool(Base):
     # One LicensePool may have many associated Hyperlinks.
     links = relationship("Hyperlink", backref="license_pool")
 
+    # One LicensePool can be associated with many Complaints.
+    complaints = relationship('Complaint', backref='license_pool')
+
     # The date this LicensePool first became available.
     availability_time = Column(DateTime, index=True)
 
@@ -6681,7 +6688,47 @@ class DeliveryMechanism(Base):
             return Edition.VIDEO_MEDIUM
         else:
             return None
-        
+
+    def is_media_type(self, x):
+        "Does this string look like a media type?"
+        if x is None:
+            return False
+
+        if x in (self.KINDLE_CONTENT_TYPE,
+                 self.NOOK_CONTENT_TYPE,
+                 self.STREAMING_TEXT_CONTENT_TYPE,
+                 self.STREAMING_AUDIO_CONTENT_TYPE,
+                 self.STREAMING_VIDEO_CONTENT_TYPE):
+            return False
+
+        if x in (
+                self.KINDLE_DRM,
+                self.NOOK_DRM,
+                self.STREAMING_DRM,
+                self.OVERDRIVE_DRM):
+            return False
+
+        return any(x.startswith(prefix) for prefix in 
+                   ['vnd.', 'application', 'text', 'video', 'audio', 'image'])
+
+    @property
+    def drm_scheme_media_type(self):
+        """Return the media type for this delivery mechanism's
+        DRM scheme, assuming it's represented that way.
+        """
+        if self.is_media_type(self.drm_scheme):
+            return self.drm_scheme
+        return None
+
+    @property
+    def content_type_media_type(self):
+        """Return the media type for this delivery mechanism's
+        content type, assuming it's represented as a media type.
+        """
+        if self.is_media_type(self.content_type):
+            return self.content_type
+        return None
+
 
 Index("ix_deliverymechanisms_drm_scheme_content_type", 
       DeliveryMechanism.drm_scheme, 
@@ -6812,6 +6859,82 @@ class CustomListEntry(Base):
             )
         self.license_pool = new_license_pool
         return self.license_pool
+
+
+class Complaint(Base):
+    """A complaint about a LicensePool (or, potentially, something else)."""
+
+    __tablename__ = 'complaints'
+
+    VALID_TYPES = set([
+        "http://librarysimplified.org/terms/problem/" + x
+        for x in [
+                'wrong-genre',
+                'wrong-audience', 
+                'wrong-age-range',
+                'wrong-title',
+                'wrong-medium',
+                'wrong-author',
+                'bad-cover-image',
+                'bad-description',
+                'cannot-fulfill-loan', 
+                'cannot-issue-loan',
+                'cannot-render',
+                'cannot-return',
+              ]
+    ])
+
+    id = Column(Integer, primary_key=True)
+
+    # One LicensePool can have many complaints lodged against it.
+    license_pool_id = Column(
+        Integer, ForeignKey('licensepools.id'), index=True)
+
+    # The type of complaint.
+    type = Column(String, nullable=False, index=True) 
+
+    # The source of the complaint.
+    source = Column(String, nullable=True, index=True)
+
+    # Detailed information about the complaint.
+    detail = Column(String, nullable=True)
+
+    timestamp = Column(DateTime, nullable=False)
+
+    @classmethod
+    def register(self, license_pool, type, source, detail):
+        """Register a problem detail document as a Complaint against the
+        given LicensePool.
+        """
+        if not license_pool:
+            raise ValueError("No license pool provided")
+        _db = Session.object_session(license_pool)
+        if type not in self.VALID_TYPES:
+            raise ValueError("Unrecognized complaint type: %s" % type)
+        now = datetime.datetime.utcnow()
+        if source:
+            complaint, is_new = get_one_or_create(
+                _db, Complaint,
+                license_pool=license_pool, 
+                source=source, type=type,
+                on_multiple='interchangeable',
+                create_method_kwargs = dict(
+                    timestamp=now,
+                )
+            )
+            complaint.timestamp = now
+            complaint.detail = detail
+        else:
+            complaint, is_new = create(
+                _db,
+                Complaint,
+                license_pool=license_pool, 
+                source=source, 
+                type=type,
+                timestamp=now,
+                detail=detail
+            )
+        return complaint, is_new
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

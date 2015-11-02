@@ -424,7 +424,7 @@ class OPDSFeed(AtomFeed):
 
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
     NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
-    ENTRY_TYPE = "application/atom+xml;profile=opds-catalog"
+    ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
 
     GROUP_REL = "collection"
     FEATURED_REL = "http://opds-spec.org/featured"
@@ -969,19 +969,36 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     @classmethod
+    def link(cls, rel, href, type):
+        return E._makeelement("link", type=type, rel=rel, href=href)
+
+    @classmethod
     def acquisition_link(cls, rel, href, types):
-        if len(types) == 0:
-            raise ValueError("Acquisition link must specify at least one type.")
-        initial_type = types[0]
-        indirect_types = types[1:]
-        link = E._makeelement("link", type=initial_type, rel=rel)
-        parent = link
+        if types:            
+            initial_type = types[0]
+            indirect_types = types[1:]
+        else:
+            initial_type = None
+            indirect_types = []
+        link = cls.link(rel, href, initial_type)
+        indirect = cls.indirect_acquisition(indirect_types)
+        if indirect:
+            link.append(indirect)
+        return link
+
+    @classmethod
+    def indirect_acquisition(cls, indirect_types):
+        top_level_parent = None
+        parent = None
         for t in indirect_types:
             indirect_link = E._makeelement(
                 "{%s}indirectAcquisition" % opds_ns, type=t)
-            parent.extend([indirect_link])
+            if parent is not None:
+                parent.extend([indirect_link])
             parent = indirect_link
-        return link
+            if top_level_parent is None:
+                top_level_parent = indirect_link
+        return top_level_parent
 
     def license_tags(self, license_pool, loan, hold):
         # Generate a list of licensing tags. These should be inserted
@@ -1008,15 +1025,22 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        if status:
-            kw = dict(status=status)
-            if since:
-                kw['since'] = _strftime(since)
-            if until:
-                kw['until'] = _strftime(until)
-            tag_name = "{%s}availability" % opds_ns
-            availability_tag = E._makeelement(tag_name, **kw)
-            tags.append(availability_tag)
+        elif (license_pool.open_access or (
+                license_pool.licenses_available > 0 and
+                license_pool.licenses_owned > 0)
+          ):
+            status = 'available'
+        else:
+            status='unavailable'
+
+        kw = dict(status=status)
+        if since:
+            kw['since'] = _strftime(since)
+        if until:
+            kw['until'] = _strftime(until)
+        tag_name = "{%s}availability" % opds_ns
+        availability_tag = E._makeelement(tag_name, **kw)
+        tags.append(availability_tag)
 
         # Open-access pools do not need to display <opds:holds> or <opds:copies>.
         if license_pool.open_access:
@@ -1038,7 +1062,26 @@ class AcquisitionFeed(OPDSFeed):
 
         return tags
 
+    def format_types(self, delivery_mechanism):
+        """Generate a set of types suitable for passing into
+        acquisition_link().
+        """
+        types = []
+        # If this is a DRM-encrypted book, you have to get through the DRM
+        # to get the goodies inside.
+        drm = delivery_mechanism.drm_scheme_media_type
+        if drm:
+            types.append(drm)
+
+        # Finally, you get the goodies.
+        media = delivery_mechanism.content_type_media_type
+        if media:
+            types.append(media)
+        return types
+
+
 class LookupAcquisitionFeed(AcquisitionFeed):
+
     """Used when the work's primary identifier may be different
     from the identifier we should use in the feed.
     """

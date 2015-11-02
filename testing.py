@@ -155,6 +155,7 @@ class DatabaseTest(object):
         if with_license_pool:
             primary_edition, pool = primary_edition
         if with_open_access_download:
+            pool.open_access = True
             primary_edition.set_open_access_link()
         if new_edition:
             primary_edition.calculate_presentation()
@@ -220,6 +221,13 @@ class DatabaseTest(object):
                 url, media_type, "Dummy content", mirrored=True)
             link.resource.representation = representation
         else:
+
+            # Add a DeliveryMechanism for this licensepool
+            pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE,
+                DeliveryMechanism.ADOBE_DRM,
+                None
+            )
             pool.licenses_owned = pool.licenses_available = 1
         return pool
 

@@ -13,11 +13,13 @@ from opds import (
     LookupAcquisitionFeed,
     OPDSFeed,
 )
+from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 from model import (
     get_one,
+    Complaint,
     CoverageRecord,
     DataSource,
     Edition,
@@ -314,3 +316,35 @@ class URNLookupController(object):
         return feed_response(opds_feed)
 
     
+class ComplaintController(object):
+    """A controller to register complaints against objects."""
+
+    def register(self, license_pool, raw_data):
+
+        if license_pool is None:
+            return problem(None, "No license pool specified", 400)
+
+        _db = Session.object_session(license_pool)
+        try:
+            data = json.loads(raw_data)
+        except ValueError, e:
+            return problem(None, "Invalid problem detail document", 400)
+
+        type = data.get('type')
+        source = data.get('source')
+        detail = data.get('detail')
+        if not type:
+            return problem(None, "No problem type specified.", 400)
+        if type not in Complaint.VALID_TYPES:
+            return problem(None, "Unrecognized problem type: %s" % type,
+                           400)
+
+        complaint = None
+        try:
+            complaint = Complaint.register(license_pool, type, source, detail)
+            _db.commit()
+        except ValueError, e:
+            return problem(None, "Error registering complaint: %s" % str(e), 400)
+
+        return make_response("Success", 201, {"Content-Type": "text/plain"})
+        
