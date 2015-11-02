@@ -392,4 +392,4 @@ class Explain(Script):
         print " Target age: %r" % work.target_age
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
-            print " ", genre.encode("utf8")
+            print " ", genre
