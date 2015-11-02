@@ -273,7 +273,7 @@ class CirculationManagerAnnotator(Annotator):
             )
             l.append(data)
 
-        if borrow_link:
+        if borrow_link is not None:
             links += [borrow_link]
         links.extend(open_access_links)
         links.extend(fulfill_links)
