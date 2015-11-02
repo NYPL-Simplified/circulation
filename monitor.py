@@ -102,7 +102,7 @@ class IdentifierSweepMonitor(Monitor):
 
     # The completion of each individual item should be logged at
     # this log level.
-    COMPLETION_LOG_LEVEL = logging.DEBUG
+    COMPLETION_LOG_LEVEL = logging.INFO
 
     def __init__(self, _db, name, interval_seconds=3600,
                  default_counter=0, batch_size=100):

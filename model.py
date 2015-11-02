@@ -3391,8 +3391,15 @@ class Work(Base):
         target_age_relevant_classifications = []
 
         total_weight = 0
+        classifications_from_distributor = set()
         for classification in classifications:
             subject = classification.subject
+            if classification.data_source.name in (
+                    [DataSource.THREEM, DataSource.OVERDRIVE,
+                     DataSource.GUTENBERG]
+            ):
+                classifications_from_distributor.add(classification)
+
             if (not subject.checked 
                 or subject.type == Classifier.FREEFORM_AUDIENCE):
                 subject.assign_to_genre()
@@ -3418,11 +3425,27 @@ class Work(Base):
                     subject.target_age.lower is not None
                     or subject.target_age.upper is not None):
                 target_age_relevant_classifications.append(classification)
+
         if fiction_s[True] > fiction_s[False]:
             fiction = True
         else:
             # We default to nonfiction.
             fiction = False
+
+        if classifications_from_distributor:
+            if not any(i.subject.audience not in (Classifier.AUDIENCE_ADULT, None)
+                       for i in classifications_from_distributor):
+                # If this was a book for children or young adults, the
+                # distributor would have given some indication of that
+                # fact. In the absense of any such indication, we can
+                # assume very strongly that this is a book for adults.
+                #
+                # 3M is terrible at distinguishing between childrens'
+                # books and YA books, but books for adults can be
+                # distinguished by their lack of childrens/YA
+                # classifications.
+                audience_s[Classifier.AUDIENCE_ADULT] += 500
+                pass
 
         unmarked = audience_s[None]
         adult = audience_s[Classifier.AUDIENCE_ADULT]

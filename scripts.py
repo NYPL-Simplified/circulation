@@ -361,9 +361,6 @@ class Explain(Script):
                 continue
             seen.add(equivalency.id)
             output = equivalency.output
-            if output.identifier == '38466680':
-                print "!!!UH_OH!!!"
-            #    set_trace()
             cls.explain_identifier(output, False, seen,
                                     equivalency.strength, level+1)
 
