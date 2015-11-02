@@ -220,6 +220,11 @@ class CirculationManagerAnnotator(Annotator):
         open_access_links = []
 
         for lpdm in active_license_pool.delivery_mechanisms:
+            # If the default client can't process this delivery mechanism,
+            # ignore it (for now)
+            if not lpdm.delivery_mechanism.default_client_can_fulfill:
+                continue
+
             # If this is an open-access delivery mechanism,
             # add an open-access link.
             if lpdm.resource and active_license_pool.open_access:
