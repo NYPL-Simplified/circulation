@@ -3449,7 +3449,6 @@ class Work(Base):
                 # distinguished by their lack of childrens/YA
                 # classifications.
                 audience_s[Classifier.AUDIENCE_ADULT] += 500
-                pass
 
         unmarked = audience_s[None]
         adult = audience_s[Classifier.AUDIENCE_ADULT]

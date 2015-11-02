@@ -307,7 +307,8 @@ class Explain(Script):
     def explain(cls, _db, edition):
         if edition.medium != 'Book':
             return
-        print "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+        output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+        print output.encode("utf8")
         work = edition.work
         lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
@@ -339,7 +340,8 @@ class Explain(Script):
             ident = "Identifier"
         if primary:
             strength = 1
-        print "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
+        output = "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
+        print output.encode("utf8")
 
         _db = Session.object_session(identifier)
         classifications = Identifier.classifications_for_identifier_ids(
@@ -390,4 +392,4 @@ class Explain(Script):
         print " Target age: %r" % work.target_age
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
-            print " ", genre
+            print " ", genre.encode("utf8")
