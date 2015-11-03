@@ -413,6 +413,7 @@ class Loan(Base):
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
     start = Column(DateTime)
     end = Column(DateTime)
 
@@ -3900,6 +3901,8 @@ class LicensePoolDeliveryMechanism(Base):
 
     resource_id = Column(Integer, ForeignKey('resources.id'), nullable=True)
 
+    # One LicensePoolDeliveryMechanism may fulfill many Loans.
+    fulfills = relationship("Loan", backref="fulfillment")
 
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
@@ -5624,13 +5627,16 @@ class LicensePool(Base):
         self.rights_status = status
         return status
 
-    def loan_to(self, patron, start=None, end=None):
+    def loan_to(self, patron, start=None, end=None, fulfillment=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
-        return get_one_or_create(
+        loan, is_new = get_one_or_create(
             _db, Loan, patron=patron, license_pool=self, 
             create_method_kwargs=kwargs)
+        if fulfillment:
+            loan.fulfillment = fulfillment
+        return loan, is_new
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)

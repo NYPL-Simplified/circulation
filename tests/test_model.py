@@ -1393,12 +1393,14 @@ class TestLoans(DatabaseTest):
         eq_([], patron.loans)
 
         # Loan them the book
-        loan, was_new = pool.loan_to(patron)
+        fulfillment = pool.delivery_mechanisms[0]
+        loan, was_new = pool.loan_to(patron, fulfillment=fulfillment)
 
         # Now they have a loan!
         eq_([loan], patron.loans)
         eq_(loan.patron, patron)
         eq_(loan.license_pool, pool)
+        eq_(fulfillment, loan.fulfillment)
         assert (datetime.datetime.utcnow() - loan.start) < datetime.timedelta(seconds=1)
 
         # TODO: At some future point it may be relevant that loan.end
