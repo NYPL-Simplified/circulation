@@ -982,7 +982,7 @@ class AcquisitionFeed(OPDSFeed):
             indirect_types = []
         link = cls.link(rel, href, initial_type)
         indirect = cls.indirect_acquisition(indirect_types)
-        if indirect:
+        if indirect is not None:
             link.append(indirect)
         return link
 

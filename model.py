@@ -6616,19 +6616,23 @@ class DeliveryMechanism(Base):
         backref="delivery_mechanism"
     )
 
-    def __repr__(self):   
+    @property
+    def name(self):
         if self.drm_scheme is self.NO_DRM:
             drm_scheme = "DRM-free"
         else:
             drm_scheme = self.drm_scheme
+        return "%s (%s)" % (self.content_type, drm_scheme)
+
+    def __repr__(self):   
 
         if self.default_client_can_fulfill:
             fulfillable = "fulfillable"
         else:
             fulfillable = "not fulfillable"
 
-        return "<Delivery mechanism: %s, %s, %s)>" % (
-            self.content_type, drm_scheme, fulfillable
+        return "<Delivery mechanism: %s, %s)>" % (
+            self.name, fulfillable
         )
 
     @classmethod
