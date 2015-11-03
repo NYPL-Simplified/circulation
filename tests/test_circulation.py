@@ -332,6 +332,10 @@ class TestCheckout(CirculationAppTest):
     def setup(self):
         super(TestCheckout, self).setup()
         self.pool = self.english_1.license_pools[0]
+        self.mech2 = self.pool.set_delivery_mechanism(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            None
+        )
         self.edition = self.pool.edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
@@ -367,7 +371,10 @@ class TestCheckout(CirculationAppTest):
                 self.data_source.name, self.identifier.identifier)
 
             # A loan has been created for this license pool.
-            eq_(1, self._db.query(Loan).filter(Loan.license_pool==self.pool).count())
+            loan = get_one(self._db, Loan, license_pool=self.pool)
+            assert loan != None
+            # The loan has yet to be fulfilled.
+            eq_(None, loan.fulfillment)
 
             # We've been given an OPDS feed with one entry, which tells us how 
             # to fulfill the license.
@@ -376,13 +383,43 @@ class TestCheckout(CirculationAppTest):
             [entry] = feed['entries']
             fulfillment_link = [x for x in entry['links']
                                if x['rel'] == OPDSFeed.ACQUISITION_REL][0]
+            [mech1, mech2] = self.pool.delivery_mechanisms
             expect = url_for('fulfill', data_source=self.data_source.name,
-                             identifier=self.identifier.identifier, _external=True)
+                             identifier=self.identifier.identifier, 
+                             mechanism_id=mech1.delivery_mechanism.id,
+                             _external=True)
             eq_(expect, fulfillment_link['href'])
 
-            # Now let's try to fulfill the license.
+            # Now let's try to fulfill the loan.
             response = self.circulation.fulfill(
-                self.data_source.name, self.identifier.identifier)
+                self.data_source.name, self.identifier.identifier,
+                mech1.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_(mech1.resource.url,
+                response.headers['Location'])
+
+            # The mechanism we used has been registered with the loan.
+            eq_(mech1, loan.fulfillment)
+
+            # Now that we've set a mechanism, we can fulfill the loan
+            # again without specifying a mechanism.
+            response = self.circulation.fulfill(
+                self.data_source.name, self.identifier.identifier
+            )
+            eq_(302, response.status_code)
+            eq_(mech1.resource.url,
+                response.headers['Location'])
+
+            # But we can't use some other mechanism -- we're stuck with
+            # the first one we chose.
+            response = self.circulation.fulfill(
+                self.data_source.name, self.identifier.identifier,
+                mech2.delivery_mechanism.id
+            )
+
+            eq_(400, response.status_code)
+            assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.data
 
     # TODO: We have disabled this functionality so that we can see what
     # Overdrive books look like in the catalog.

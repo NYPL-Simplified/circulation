@@ -20,11 +20,13 @@ from core.model import (
     CirculationEvent,
     Credential,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hold,
     Identifier,
     LicensePool,
     Loan,
+    Representation,
     Session,
 )
 
@@ -36,6 +38,22 @@ from core.monitor import (
 from circulation_exceptions import *
 
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
+
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
+
+    # Create a lookup table between common DeliveryMechanism identifiers
+    # and Overdrive format types.
+    epub = Representation.EPUB_MEDIA_TYPE
+    pdf = Representation.PDF_MEDIA_TYPE
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    no_drm = DeliveryMechanism.NO_DRM
+
+    delivery_mechanism_to_internal_format = {
+        (epub, no_drm): 'ebook-epub-open',
+        (epub, adobe_drm): 'ebook-epub-adobe',
+        (pdf, no_drm): 'ebook-pdf-open',
+        (pdf, adobe_drm): 'ebook-pdf-adobe',
+    }
 
     # TODO: This is a terrible choice but this URL should never be
     # displayed to a patron, so it doesn't matter much.
@@ -100,9 +118,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 response['error'] + "/" + response['error_description'])
         return credential
 
-    def checkout(self, patron, pin, licensepool, 
-                 format_type='ebook-epub-adobe'):
-
+    def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
 
         :param patron_obj: a Patron object for the patron who wants
@@ -114,16 +130,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         :param format_type: The patron's desired book format.
 
-        :return: a FulfillmentInfo object.
+        :return: a LoanInfo object.
         """
         
         identifier = licensepool.identifier
         overdrive_id=identifier.identifier
         headers = {"Content-Type": "application/json"}
         payload = dict(fields=[dict(name="reserveId", value=overdrive_id)])
-        if format_type:
-            field = dict(name="formatType", value=format_type)
-            payload['fields'].append(field)
         payload = json.dumps(payload)
 
         response = self.patron_request(
@@ -142,54 +155,25 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # we can handle it.
                 loan = self.get_loan(patron, pin, identifier.identifier)
                 expires = self.extract_expiration_date(loan)
-                fulfillment = self.fulfill(
-                    patron, pin, licensepool, format_type)
                 return LoanInfo(
                     licensepool.identifier.type,
                     licensepool.identifier.identifier,
                     None,
                     expires,
-                    fulfillment,
                 )
+        else:
+            set_trace()
+            # Try to extract the expiration date from the response.
+            pass
 
-        expires, download_link = self.extract_data_from_checkout_response(
-            response.json(), format_type, self.DEFAULT_ERROR_URL)
-
-        # Here's the loan info. The job of the rest of this method
-        # is to fill in loan.fulfillment with a FulfillmentInfo.
+        # Create the loan info. We don't know the expiration 
         loan = LoanInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             None,
-            expires,
+            None,
             None,
         )
-
-        # Now turn the download link into a fulfillment link, which
-        # will give us the ACSM file or equivalent.
-        if format_type:
-            content_link, content_type = self.get_fulfillment_link_from_download_link(
-            patron, pin, download_link)
-            # Even though we're given the media type of the ACSM file, we
-            # don't send it because we don't have the actual file, only
-            # a link to the file.
-            content_type = None
-            content = None
-        else:
-            # Again, this would only be used in a test scenario.
-            content_link = None
-            content_type = "text/plain"
-            content = ""
-
-        fulfillment = FulfillmentInfo(
-            licensepool.identifier.type,
-            licensepool.identifier.identifier,
-            content_link, 
-            content_type,
-            content,
-            None
-        )
-        loan.fulfillment_info = fulfillment
         return loan
 
     def checkin(self, patron, pin, licensepool):
@@ -237,9 +221,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         self.raise_exception_on_error(data)
         return data
 
-    def fulfill(self, patron, pin, licensepool, format_type):
+    def fulfill(self, patron, pin, licensepool, internal_format):
         url, media_type = self.get_fulfillment_link(
-            patron, pin, licensepool.identifier.identifier, format_type)
+            patron, pin, licensepool.identifier.identifier, internal_format)
         return FulfillmentInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
@@ -260,14 +244,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         if not loan['isFormatLockedIn']:
             # The format is not locked in. Lock it in.
-            #
-            # This can happen if someone checks out a book on the
-            # Overdrive website and then tries to fulfil the loan via
-            # Simplified.
+            # This will happen the first time someone tries to fulfill
+            # a loan.
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
                 raise CannotFulfill("Could not lock in format %s" % format_type)
+
+        # TODO: Verify that the asked-for format type is the same as the
+        # one in the loan.
 
         if format_type:
             download_link = self.get_download_link(
@@ -392,8 +377,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 hold_position=position
             )
 
-    def place_hold(self, patron, pin, licensepool, format_type, 
-                   notification_email_address):
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object

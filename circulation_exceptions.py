@@ -32,6 +32,18 @@ class LibraryInvalidInputException(InvalidInputException):
     """The library gave invalid input to the book provider."""
     status_code = 500
 
+class DeliveryMechanismError(InvalidInputException):
+    status_code = 400
+    """The patron broke the rules about delivery mechanisms."""
+
+class DeliveryMechanismMissing(DeliveryMechanismError):
+    """The patron needed to specify a delivery mechanism and didn't."""
+
+class DeliveryMechanismConflict(DeliveryMechanismError):
+    """The patron specified a delivery mechanism that conflicted with
+    one already set in stone.
+    """
+
 class CannotLoan(CirculationException):
     status_code = 500
 

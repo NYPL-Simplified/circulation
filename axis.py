@@ -18,9 +18,11 @@ from core.model import (
     CirculationEvent,
     get_one_or_create,
     Contributor,
+    DeliveryMechanism,
     Edition,
     Identifier,
     LicensePool,
+    Representation,
     Subject,
 )
 
@@ -37,14 +39,29 @@ from circulation_exceptions import *
 
 class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
-    allowable_formats = ["ePub"]
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
-    def checkout(self, patron, pin, licensepool, format_type):
+    # Create a lookup table between common DeliveryMechanism identifiers
+    # and Overdrive format types.
+    epub = Representation.EPUB_MEDIA_TYPE
+    pdf = Representation.PDF_MEDIA_TYPE
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    no_drm = DeliveryMechanism.NO_DRM
+
+    delivery_mechanism_to_internal_format = {
+        (epub, no_drm): 'ePub',
+        (epub, adobe_drm): 'ePub',
+        (pdf, no_drm): 'PDF',
+        (pdf, adobe_drm): 'PDF',
+    }
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+
         url = self.base_url + "checkout/v2" 
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
-        args = dict(titleId=title_id, patronId=patron_id, format=format_type,
-                    loanPeriod=1)
+        args = dict(titleId=title_id, patronId=patron_id, 
+                    format=internal_format)
         response = self.request(url, data=args, method="POST")
         try:
             return CheckoutResponseParser().process_all(response.content)

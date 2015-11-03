@@ -249,15 +249,20 @@ class CirculationManagerAnnotator(Annotator):
                 borrow_link.append(indirect_acquisition)
             
             if can_fulfill and format_types:
+                # If the loan has a distribution mechanism set, we
+                # will only show the fulfillment link for that
+                # mechanism.
+                if (active_loan and active_loan.fulfillment
+                    and active_loan.fulfillment != lpdm.delivery_mechanism):
+                    continue
+
                 # Create a new fulfillment link.
-                #
-                # TODO: include distribution mechanism ID in URL.
-                #
-                # TODO: if the loan has a distribution mechanism set,
-                # only show the fulfillment link for that mechanism.
                 fulfill_url = url_for(
                     "fulfill", data_source=data_source_name,
-                    identifier=identifier_identifier, _external=True)
+                    identifier=identifier_identifier, 
+                    mechanism_id=lpdm.delivery_mechanism.id,
+                    _external=True
+                )
                 rel=OPDSFeed.ACQUISITION_REL
                 link_tag = AcquisitionFeed.acquisition_link(
                     rel=rel, href=fulfill_url,

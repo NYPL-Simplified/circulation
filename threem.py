@@ -41,6 +41,16 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
+    SET_DELIVERY_MECHANISM_AT = None
+
+    # Create a lookup table between common DeliveryMechanism identifiers
+    # and Overdrive format types.
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    delivery_mechanism_to_internal_format = {
+        (Representation.EPUB_MEDIA_TYPE, adobe_drm): 'ePub',
+        (Representation.PDF_MEDIA_TYPE, adobe_drm): 'PDF',
+        (Representation.MP3_MEDIA_TYPE, adobe_drm) : 'MP3'
+    }
 
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
@@ -86,7 +96,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
     def checkout(
-            self, patron_obj, patron_password, licensepool, format_type=None):
+            self, patron_obj, patron_password, licensepool, 
+            delivery_mechanism
+    ):
 
         """Check out a book on behalf of a patron.
 
@@ -98,9 +110,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         time.
 
         :param licensepool: LicensePool for the book to be checked out.
-
-        :param format_type: The patron's desired book format. Not
-        used since 3M doesn't offer a choice.
 
         :return: a LoanInfo object
         """
@@ -123,25 +132,22 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             if error.message == 'Unknown error':
                 raise ThreeMException(response.content)
             if isinstance(error, AlreadyCheckedOut):
-                # It's already checked out. We just need to fulfill it.
-                needs_fulfillment = True
+                # It's already checked out. No problem.
+                pass
             else:
                 raise error
 
         # At this point we know we have a loan.
         loan_expires = CheckoutResponseParser().process_all(response.content)
-        fulfillment = self.fulfill(
-            patron_obj, patron_password, licensepool, format_type)
         loan = LoanInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             start_date=None,
             end_date=loan_expires,
-            fulfillment_info=fulfillment
         )
         return loan
 
-    def fulfill(self, patron, password, pool, format):
+    def fulfill(self, patron, password, pool, delivery_mechanism):
         response = self.get_fulfillment_file(
             patron.authorization_identifier, pool.identifier.identifier)
         return FulfillmentInfo(
@@ -168,7 +174,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         return self.request('checkin', body, method="PUT")
 
     def place_hold(self, patron, pin, licensepool, 
-                   format_type=None, hold_notification_email=None):
+                   hold_notification_email=None):
         """Place a hold.
 
         :return: a HoldInfo object.
@@ -448,6 +454,8 @@ class EventParser(XMLParser):
 
     EVENT_SOURCE = "3M"
     INPUT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
     # Map 3M's event names to our names.
     EVENT_NAMES = {

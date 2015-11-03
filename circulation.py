@@ -125,17 +125,14 @@ class CirculationAPI(object):
         """Find the API to use for the given license pool."""
         if licensepool.data_source.name==DataSource.OVERDRIVE:
             api = self.overdrive
-            possible_formats = ["ebook-epub-adobe", "ebook-epub-open"]
         elif licensepool.data_source.name==DataSource.THREEM:
             api = self.threem
-            possible_formats = [None]
         elif licensepool.data_source.name==DataSource.AXIS_360:
             api = self.axis
-            possible_formats = api.allowable_formats
         else:
-            return None, None
+            return None
 
-        return api, possible_formats
+        return api
 
     def can_revoke_hold(self, licensepool, hold):
         """Some circulation providers allow you to cancel a hold
@@ -144,50 +141,52 @@ class CirculationAPI(object):
         """
         if hold.position is None or hold.position > 0:
             return True
-        api, formats = self.api_for_license_pool(licensepool)
+        api = self.api_for_license_pool(licensepool)
         if api.CAN_REVOKE_HOLD_WHEN_RESERVED:
             return True
         return False
 
-    def borrow(self, patron, pin, licensepool, hold_notification_email):
-        """Either borrow a book or put it on hold. If the book is borrowed,
-        also fulfill the loan.
+    def borrow(self, patron, pin, licensepool, delivery_mechanism,
+               hold_notification_email):
+        """Either borrow a book or put it on hold. Don't worry about fulfilling
+        the loan yet.
         
-        :return: A 4-tuple (`Loan`, `Hold`, `FulfillmentInfo`,
-        `is_new`). Either `Loan` or `Hold` must be None, but not
-        both. If `Loan` is present, `FulfillmentInfo` must also be
-        present.
+        :return: A 3-tuple (`Loan`, `Hold`, `is_new`). Either `Loan`
+        or `Hold` must be None, but not both.
         """
         now = datetime.datetime.utcnow()
-
         if licensepool.open_access:
-            # We can fulfill open-access content ourselves.
-            best_pool, best_link = licensepool.best_license_link
-            if not best_link:
-                raise NoOpenAccessDownload()
+            # We can 'loan' open-access content ourselves just by
+            # putting a row in the database.
             now = datetime.datetime.utcnow()
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
-            fulfillment = self.fulfill_open_access(licensepool, best_link)
-            return loan, None, fulfillment, is_new
+            return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
         # to an external service to get the book. 
         #
         # This also means that our internal model of whether this book
         # is currently on loan or on hold might be wrong.
-        api, possible_formats = self.api_for_license_pool(licensepool)
+        api = self.api_for_license_pool(licensepool)
+
+        must_set_delivery_mechanism = (
+            api.SET_DELIVERY_MECHANISM_AT == BORROW_STEP)
+
+        if must_set_delivery_mechanism and not delivery_mechanism:
+            raise DeliveryMechanismMissing()
     
         content_link = content_expires = None
 
+        internal_format = api.internal_format(delivery_mechanism)
+
         # First, try to check out the book.
-        format_to_use = possible_formats[0]
         loan_info = None
         try:
             loan_info = api.checkout(
-                 patron, pin, licensepool,
-                 format_type=format_to_use)
+                patron, pin, licensepool, internal_format
+            )
         except AlreadyCheckedOut:
             # This is good, but we didn't get the real loan info.
             # Just fake it.
@@ -209,6 +208,9 @@ class CirculationAPI(object):
             loan, is_new = licensepool.loan_to(
                 patron, start=loan_info.start_date or now,
                 end=loan_info.end_date)
+
+            if must_set_delivery_mechanism:
+                loan.fulfillment = delivery_mechanism
             existing_hold = get_one(
                 self._db, Hold, patron=patron, license_pool=licensepool,
                 on_multiple='interchangeable'
@@ -218,21 +220,15 @@ class CirculationAPI(object):
                 # Delete the record of the hold.
                 self._db.delete(existing_hold)
             __transaction.commit()
-            if loan_info.fulfillment_info:
-                fulfillment = loan_info.fulfillment_info
-            else:
-                # The checkout operation did not get us fulfillment
-                # information. We must fulfill as a separate step.
-                fulfillment = self.fulfill(
-                    patron, pin, licensepool)
-            return loan, None, fulfillment, is_new
+            return loan, None, is_new
 
         # Checking out a book didn't work, so let's try putting
         # the book on hold.
         try:
             hold_info = api.place_hold(
-                patron, pin, licensepool, format_to_use, 
-                hold_notification_email)
+                patron, pin, licensepool,
+                hold_notification_email
+            )
         except AlreadyOnHold, e:
             hold_info = HoldInfo(
                 licensepool.identifier.type, licensepool.identifier.identifier,
@@ -256,53 +252,84 @@ class CirculationAPI(object):
         if existing_loan:
             self._db.delete(existing_loan)
         __transaction.commit()
-        return None, hold, None, is_new
+        return None, hold, is_new
 
-    def fulfill(self, patron, pin, licensepool):
-        """Fulfil a book that a patron has checked out.
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism):
+        """Fulfil a book that a patron has previously checked out.
+
+        :param delivery_mechanism: An explanation of how the patron
+        wants the book to be delivered. If the book has previously been
+        delivered through some other mechanism, this parameter is ignored
+        and the previously used mechanism takes precedence.
 
         :return: A FulfillmentInfo object.
         """
-
-        # The patron must have a loan for this book. We'll try
-        # fulfilling it even if the loan has expired--they may have
-        # renewed it out-of-band.
-        #loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
-        #if not loan:
-        #    raise NoActiveLoan()
-
         fulfillment = None
+        loan = get_one(
+            self._db, Loan, patron=patron, license_pool=licensepool,
+            on_multiple='interchangeable'
+        )
+        if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism:
+            raise DeliveryMechanismConflict(
+                "You already fulfilled this loan as %s, you can't also do it as %s" 
+                % (loan.fulfillment.delivery_mechanism.name, 
+                   delivery_mechanism.delivery_mechanism.name)
+            )
+
         if licensepool.open_access:
-            fulfillment = self.fulfill_open_access(licensepool)
+            fulfillment = self.fulfill_open_access(
+                licensepool, delivery_mechanism
+            )
         else:
-            api, possible_formats = self.api_for_license_pool(licensepool)
-            for f in possible_formats:
-                fulfillment = api.fulfill(patron, pin, licensepool, f)
-                if fulfillment and (
-                        fulfillment.content_link or fulfillment.content):
-                    break
-            else:
+            api = self.api_for_license_pool(licensepool)
+            internal_format = api.internal_format(delivery_mechanism)
+            fulfillment = api.fulfill(
+                patron, pin, licensepool, internal_format
+            )
+            if not fulfillment or not (
+                    fulfillment.content_link or fulfillment.content
+            ):
                 raise NoAcceptableFormat()
+        # Make sure the delivery mechanism we just used is associated
+        # with the loan.
+        if loan.fulfillment is None:
+            __transaction = self._db.begin_nested()
+            loan.fulfillment = delivery_mechanism
+            __transaction.commit()
         return fulfillment
 
-    def fulfill_open_access(self, licensepool, cached_best_link=None):
-        if cached_best_link:
-            best_pool, best_link = licensepool, cached_best_link
-        else:
-            best_pool, best_link = licensepool.best_license_link
-        if not best_link:
+    def fulfill_open_access(self, licensepool, delivery_mechanism):
+        # Keep track of a default way to fulfill this loan in case the
+        # patron's desired delivery mechanism isn't available.
+        fulfillment = None
+        for lpdm in licensepool.delivery_mechanisms:
+            if not (lpdm.resource and lpdm.resource.representation
+                    and lpdm.resource.representation.url):
+                # We don't actually know how to deliver this
+                # allegedly open-access book.
+                continue
+            if lpdm.delivery_mechanism == delivery_mechanism:
+                # We found it! This is how the patron wants
+                # the book to be delivered.
+                fulfillment = lpdm
+                break
+            elif not fulfillment:
+                # This will do in a pinch.
+                fulfillment = lpdm
+
+        if not fulfillment:
+            # There is just no way to fulfill this loan.
             raise NoOpenAccessDownload()
 
-        r = best_link.representation
-        if r.url:
-            content_link = r.url
-
-        media_type = best_link.representation.media_type
+        rep = fulfillment.resource.representation
+        content_link = rep.url
+        media_type = rep.media_type
         return FulfillmentInfo(
             identifier_type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
-            content_expires=None)
+            content_expires=None
+        )
 
     def revoke_loan(self, patron, pin, licensepool):
         """Revoke a patron's loan for a book."""
@@ -315,7 +342,7 @@ class CirculationAPI(object):
             self._db.delete(loan)
             __transaction.commit()
         if not licensepool.open_access:
-            api, possible_formats = self.api_for_license_pool(licensepool)
+            api = self.api_for_license_pool(licensepool)
             try:
                 api.checkin(patron, pin, licensepool)
             except NotCheckedOut, e:
@@ -333,7 +360,7 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if not licensepool.open_access:
-            api, possible_formats = self.api_for_license_pool(licensepool)
+            api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)
             except NotOnHold, e:
@@ -476,4 +503,38 @@ class CirculationAPI(object):
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
 
+    BORROW_STEP = 'borrow'
+    FULFILL_STEP = 'fulfill'
+
+    # In 3M only, when a book is in the 'reserved' state the patron
+    # cannot revoke their hold on the book.
     CAN_REVOKE_HOLD_WHEN_RESERVED = True
+
+    # If the client must set a delivery mechanism at the point of
+    # checkout (Axis 360), set this to BORROW_STEP. If the client may
+    # wait til the point of fulfillment to set a delivery mechanism
+    # (Overdrive), set this to FULFILL_STEP. If there is no choice of
+    # delivery mechanisms (3M), set this to None.
+    SET_DELIVERY_MECHANISM_AT = FULFILL_STEP
+
+    # Different APIs have different internal names for delivery
+    # mechanisms. This is a mapping of (content_type, drm_type)
+    # 2-tuples to those internal names.
+    #
+    # For instance, the combination ("application/epub+zip",
+    # "vnd.adobe/adept+xml") is called "ePub" in Axis 360 and 3M, but
+    # is called "ebook-epub-adobe" in Overdrive.
+    delivery_mechanism_to_internal_format = {}
+
+    def internal_format(self, delivery_mechanism):
+        """Look up the internal format for this delivery mechanism or
+        raise an exception.
+        """
+        d = delivery_mechanism.delivery_mechanism
+        key = (d.content_type, d.drm_type)
+        internal_format = self.delivery_mechanism_to_internal_format.get(key)
+        if not internal_format:
+            raise DeliveryMechanismError(
+                "Could not map Simplified delivery mechanism %s to internal delivery mechanism!" % delivery_mechanism.name
+            )
+        return internal_format

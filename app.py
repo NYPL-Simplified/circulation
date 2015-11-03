@@ -61,6 +61,7 @@ from core.model import (
     LaneList,
     Lane,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Loan,
     Patron,
     Identifier,
@@ -330,6 +331,7 @@ COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/cannot-
 NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
 FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
 CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulfill-loan"
+BAD_DELIVERY_MECHANISM_PROBLEM = "http://librarysimplified.org/terms/problem/bad-delivery-mechanism"
 CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-release-hold"
 
 def add_configuration_links(feed):
@@ -1188,6 +1190,21 @@ def _load_licensepool(data_source, identifier):
     pool = id_obj.licensed_through
     return pool
 
+def _load_licensepooldelivery(pool, mechanism_id):
+    mechanism = get_one(
+        Conf.db, LicensePoolDeliveryMechanism, license_pool=pool,
+        delivery_mechanism_id=mechanism_id
+    )
+
+    if not mechanism:
+        return problem(
+            BAD_DELIVERY_MECHANISM_PROBLEM, 
+            "Unsupported delivery mechanism for this book.",
+            400
+        )
+    return mechanism
+
+
 def _apply_borrowing_policy(patron, license_pool):
     if not patron.can_borrow(license_pool.work, Conf.policy):
         return problem(
@@ -1227,9 +1244,10 @@ def permalink(data_source, identifier):
         AcquisitionFeed.single_entry(Conf.db, work, annotator)
     )
 
-@app.route('/works/<data_source>/<identifier>/fulfill')
+@app.route('/works/<data_source>/<identifier>/fulfill/')
+@app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
 @requires_auth
-def fulfill(data_source, identifier):
+def fulfill(data_source, identifier, mechanism_id=None):
     """Fulfill a book that has already been checked out.
 
     If successful, this will serve the patron a downloadable copy of
@@ -1245,8 +1263,28 @@ def fulfill(data_source, identifier):
     pool = _load_licensepool(data_source, identifier)
     if isinstance(pool, Response):
         return pool
+
+    # Find the LicensePoolDeliveryMechanism they asked for.
+    mechanism = None
+    if mechanism_id:
+        mechanism = _load_licensepooldelivery(pool, mechanism_id)
+        if isinstance(mechanism, Response):
+            return mechanism
+
+    if not mechanism:
+        # See if the loan already has a mechanism set. We can use that.
+        loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+        if loan and loan.fulfillment:
+            mechanism =  loan.fulfillment
+        else:
+            return problem(
+                BAD_DELIVERY_MECHANISM_PROBLEM,
+                "You must specify a delivery mechanism to fulfill this loan.",
+                400
+            )
+
     try:
-        fulfillment = Conf.circulation.fulfill(patron, pin, pool)
+        fulfillment = Conf.circulation.fulfill(patron, pin, pool, mechanism)
     except NoActiveLoan, e:
         return problem(
             NO_ACTIVE_LOAN_PROBLEM, 
@@ -1254,7 +1292,9 @@ def fulfill(data_source, identifier):
             e.status_code)
     except CannotFulfill, e:
         return problem(CANNOT_FULFILL_PROBLEM, str(e), e.status_code)
-    
+    except DeliveryMechanismError, e:
+        return problem(BAD_DELIVERY_MECHANISM_PROBLEM, str(e), e.status_code)
+
     headers = dict()
     if fulfillment.content_link:
         status_code = 302
@@ -1267,8 +1307,10 @@ def fulfill(data_source, identifier):
 
 
 @app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
+@app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
+           methods=['GET', 'PUT'])
 @requires_auth
-def borrow(data_source, identifier):
+def borrow(data_source, identifier, mechanism_id=None):
     """Create a new loan or hold for a book.
 
     Return an OPDS Acquisition feed that includes a link of rel
@@ -1282,6 +1324,13 @@ def borrow(data_source, identifier):
     if isinstance(pool, Response):
         # Something went wrong.
         return pool
+
+    # Find the delivery mechanism they asked for, if any.
+    mechanism = None
+    if mechanism_id:
+        mechanism = _load_licensepooldelivery(mechanism_id)
+        if isinstance(mechanism, Response):
+            return mechanism
 
     if not pool:
         # I've never heard of this book.
@@ -1299,8 +1348,8 @@ def borrow(data_source, identifier):
     pin = flask.request.authorization.password
     problem_doc = None
     try:
-        loan, hold, fulfillment, is_new = Conf.circulation.borrow(
-            patron, pin, pool, Conf.hold_notification_email_address)
+        loan, hold, is_new = Conf.circulation.borrow(
+            patron, pin, pool, mechanism, Conf.hold_notification_email_address)
     except NoOpenAccessDownload, e:
         problem_doc = problem(
             NO_LICENSES_PROBLEM,
@@ -1310,6 +1359,8 @@ def borrow(data_source, identifier):
             INVALID_CREDENTIALS_PROBLEM, INVALID_CREDENTIALS_TITLE, 401)
     except PatronLoanLimitReached, e:
         problem_doc = problem(LOAN_LIMIT_REACHED_PROBLEM, str(e), 403)
+    except DeliveryMechanismError, e:
+        return problem(BAD_DELIVERY_MECHANISM_PROBLEM, str(e), e.status_code)
     except CannotLoan, e:
         problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
     except CannotHold, e:
