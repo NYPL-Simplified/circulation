@@ -1062,7 +1062,8 @@ class AcquisitionFeed(OPDSFeed):
 
         return tags
 
-    def format_types(self, delivery_mechanism):
+    @classmethod
+    def format_types(cls, delivery_mechanism):
         """Generate a set of types suitable for passing into
         acquisition_link().
         """
