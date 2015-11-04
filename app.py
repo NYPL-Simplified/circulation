@@ -324,6 +324,7 @@ ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-a
 LOAN_LIMIT_REACHED_PROBLEM = "http://librarysimplified.org/terms/problem/loan-limit-reached"
 CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/cannot-issue-loan"
 HOLD_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-place-hold"
+RENEW_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-renew-loan"
 NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
 NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
 NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
@@ -1365,6 +1366,8 @@ def borrow(data_source, identifier, mechanism_id=None):
         problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
     except CannotHold, e:
         problem_doc = problem(HOLD_FAILED_PROBLEM, str(e), 400)
+    except CannotRenew, e:
+        problem_doc = problem(RENEW_FAILED_PROBLEM, str(e), 400)
     except CirculationException, e:
         # Generic circulation error.
         problem_doc = problem(CHECKOUT_FAILED, str(e), 400)

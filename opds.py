@@ -192,98 +192,157 @@ class CirculationManagerAnnotator(Annotator):
 
         # Add next-step information for every useful delivery
         # mechanism.
+        borrow_links = []
+        api = self.circulation.api_for_license_pool(active_license_pool)
+        set_mechanism_at_borrow = (
+            api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
         if can_borrow:
             # Borrowing a book gives you an OPDS entry that gives you
             # fulfillment links.
-            borrow_url = url_for(
-                "borrow", data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
-            rel = OPDSFeed.BORROW_REL
-            borrow_link = AcquisitionFeed.link(
-                rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
-            )
+            if set_mechanism_at_borrow:
+                # The ebook distributor requires that the delivery
+                # mechanism be set at the point of checkout. This means
+                # a separate borrow link for each mechanism.
+                for mechanism in active_license_pool.delivery_mechanisms:
+                    borrow_links.append(
+                        self.borrow_link(
+                            data_source_name, identifier_identifier,
+                            mechanism, [mechanism]
+                        )
+                    )
+            else:
+                # The ebook distributor does not require that the
+                # delivery mechanism be set at the point of
+                # checkout. This means a single borrow link with
+                # indirectAcquisition tags for every delivery
+                # mechanism. If a delivery mechanism must be set, it
+                # will be set at the point of fulfillment.
+                borrow_links.append(
+                    self.borrow_link(
+                        data_source_name, identifier_identifier,
+                        None, active_license_pool.delivery_mechanisms
+                    )
+                )
 
             # Generate the licensing tags that tell you whether the book
             # is available.
             license_tags = feed.license_tags(
                 active_license_pool, active_loan, active_hold
             )
-            for t in license_tags:
-                borrow_link.append(t)
+            for link in borrow_links:
+                for t in license_tags:
+                    link.append(t)
 
-            # Later in this function, we will describe each delivery
-            # mechanism by appending an <indirectAcquisition> tag to
-            # this link.
-        else:
-            borrow_link = None
+        # Add links for fulfilling an active loan.
         fulfill_links = []
-        open_access_links = []
-
-        for lpdm in active_license_pool.delivery_mechanisms:
-            # If the default client can't process this delivery mechanism,
-            # ignore it (for now)
-            if not lpdm.delivery_mechanism.default_client_can_fulfill:
-                continue
-
-            # If this is an open-access delivery mechanism,
-            # add an open-access link.
-            if lpdm.resource and active_license_pool.open_access:
-                kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
-                          href=lpdm.resource.url)
-                rep = lpdm.resource.representation
-                if rep and rep.media_type:
-                    kw['type'] = rep.media_type
-                open_access_link_tag = AcquisitionFeed.link(**kw)
-                open_access_links.append(open_access_link_tag)
-
-            # If we end up creating an indirect acquisition tag, these
-            # are the formats mentioned in the indirect acquisition.
-            format_types = feed.format_types(
-                lpdm.delivery_mechanism
-            )
-
-            # If we can borrow this book, add this delivery mechanism
-            # to the borrow link as an indirect acquisition.
-            if can_borrow and format_types:
-                indirect_acquisition = feed.indirect_acquisition(format_types)
-                borrow_link.append(indirect_acquisition)
-            
-            if can_fulfill and format_types:
-                # If the loan has a distribution mechanism set, we
-                # will only show the fulfillment link for that
+        if can_fulfill:
+            if active_loan.fulfillment:
+                # The delivery mechanism for this loan has been
+                # set. There is only one fulfill link.
+                fulfill_links.append(
+                    self.fulfill_link(
+                        data_source_name, 
+                        identifier_identifier, active_loan.fulfillment
+                    )
+                )
+            else:
+                # The delivery mechanism for this loan has not been
+                # set. There is one fulfill link for every delivery
                 # mechanism.
-                if (active_loan and active_loan.fulfillment
-                    and active_loan.fulfillment != lpdm.delivery_mechanism):
-                    continue
-
-                # Create a new fulfillment link.
-                fulfill_url = url_for(
-                    "fulfill", data_source=data_source_name,
-                    identifier=identifier_identifier, 
-                    mechanism_id=lpdm.delivery_mechanism.id,
-                    _external=True
-                )
-                rel=OPDSFeed.ACQUISITION_REL
-                link_tag = AcquisitionFeed.acquisition_link(
-                    rel=rel, href=fulfill_url,
-                    types=format_types
-                )
-                fulfill_links.append(link_tag)
-
+                for lpdm in active_license_pool.delivery_mechanisms:
+                    fulfill_links.append(
+                        self.fulfill_link(
+                            data_source_name, 
+                            identifier_identifier, lpdm
+                        )
+                    )
+                                               
+        # If this is an open-access book, add an open-access link for
+        # every delivery mechanism with an associated resource.
+        open_access_links = []
+        if active_license_pool.open_access:
+            for lpdm in active_license_pool.delivery_mechanisms:
+                if lpdm.resource:
+                    open_access_links.append(self.open_access_tag(lpdm))
+           
         # Open-access links and fulfillment links are always
         # available.
-        for l in links:
-            data = E._makeelement(
-                "{%s}availability" % opds_ns, status="available"
-            )
-            l.append(data)
+        always_available = E._makeelement(
+            "{%s}availability" % opds_ns, status="available"
+        )
+        for l in fulfill_links, open_access_links:
+            for link in l:
+                if link:
+                    link.append(always_available)
 
-        if borrow_link is not None:
-            links += [borrow_link]
-        links.extend(open_access_links)
-        links.extend(fulfill_links)
-        
-        return links
+        return [x for x in borrow_links + fulfill_links + open_access_links
+                if x]
+
+    def borrow_link(self, data_source_name, identifier_identifier,
+                    borrow_mechanism, fulfillment_mechanisms):
+        if borrow_mechanism:
+            # Following this link will both borrow the book and set
+            # its delivery mechanism.
+            mechanism_id = borrow_mechanism.delivery_mechanism.id
+        else:
+            # Following this link will borrow the book but not set 
+            # its delivery mechanism.
+            mechanism_id = None
+        borrow_url = url_for(
+            "borrow", data_source=data_source_name,
+            identifier=identifier_identifier, 
+            mechanism_id=mechanism_id, _external=True)
+        rel = OPDSFeed.BORROW_REL
+        borrow_link = AcquisitionFeed.link(
+            rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
+        )
+
+        for lpdm in fulfillment_mechanisms:
+            # We have information about one or more delivery
+            # mechanisms that will be available at the point of
+            # fulfillment. To the extent possible, put information
+            # about these mechanisms into the <link> tag as
+            # <opds:indirectAcquisition> tags.
+
+            # These are the formats mentioned in the indirect
+            # acquisition.
+            format_types = AcquisitionFeed.format_types(lpdm.delivery_mechanism)
+
+            # If we can borrow this book, add this delivery mechanism
+            # to the borrow link as an <opds:indirectAcquisition>.
+            if format_types:
+                indirect_acquisition = AcquisitionFeed.indirect_acquisition(
+                    format_types
+                )
+                borrow_link.append(indirect_acquisition)
+        return borrow_link
+
+    def fulfill_link(self, data_source_name, identifier_identifier, lpdm):
+        """Create a new fulfillment link."""
+        format_types = AcquisitionFeed.format_types(lpdm.delivery_mechanism)
+        if not format_types:
+            return None
+            
+        fulfill_url = url_for(
+            "fulfill", data_source=data_source_name,
+            identifier=identifier_identifier, 
+            mechanism_id=lpdm.delivery_mechanism.id,
+            _external=True
+        )
+        rel=OPDSFeed.ACQUISITION_REL
+        link_tag = AcquisitionFeed.acquisition_link(
+            rel=rel, href=fulfill_url,
+            types=format_types
+        )
+        return link_tag
+
+    def open_access_link(self, lpdm):
+        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
+                  href=lpdm.resource.url)
+        rep = lpdm.resource.representation
+        if rep and rep.media_type:
+            kw['type'] = rep.media_type
+        return AcquisitionFeed.link(**kw)
 
     def summary(self, work):
         """Return an HTML summary of this work."""

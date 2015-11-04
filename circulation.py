@@ -172,7 +172,7 @@ class CirculationAPI(object):
         api = self.api_for_license_pool(licensepool)
 
         must_set_delivery_mechanism = (
-            api.SET_DELIVERY_MECHANISM_AT == BORROW_STEP)
+            api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
 
         if must_set_delivery_mechanism and not delivery_mechanism:
             raise DeliveryMechanismMissing()
@@ -530,8 +530,10 @@ class BaseCirculationAPI(object):
         """Look up the internal format for this delivery mechanism or
         raise an exception.
         """
+        if not delivery_mechanism:
+            return None
         d = delivery_mechanism.delivery_mechanism
-        key = (d.content_type, d.drm_type)
+        key = (d.content_type, d.drm_scheme)
         internal_format = self.delivery_mechanism_to_internal_format.get(key)
         if not internal_format:
             raise DeliveryMechanismError(

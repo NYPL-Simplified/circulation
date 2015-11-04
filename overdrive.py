@@ -160,18 +160,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                     licensepool.identifier.identifier,
                     None,
                     expires,
+                    None
                 )
         else:
-            set_trace()
             # Try to extract the expiration date from the response.
-            pass
+            expires = self.extract_expiration_date(response.data)
 
         # Create the loan info. We don't know the expiration 
         loan = LoanInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             None,
-            None,
+            expires,
             None,
         )
         return loan
