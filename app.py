@@ -1329,7 +1329,7 @@ def borrow(data_source, identifier, mechanism_id=None):
     # Find the delivery mechanism they asked for, if any.
     mechanism = None
     if mechanism_id:
-        mechanism = _load_licensepooldelivery(mechanism_id)
+        mechanism = _load_licensepooldelivery(pool, mechanism_id)
         if isinstance(mechanism, Response):
             return mechanism
 

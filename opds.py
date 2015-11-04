@@ -194,8 +194,13 @@ class CirculationManagerAnnotator(Annotator):
         # mechanism.
         borrow_links = []
         api = self.circulation.api_for_license_pool(active_license_pool)
-        set_mechanism_at_borrow = (
-            api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
+        if api:
+            set_mechanism_at_borrow = (
+                api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
+        else:
+            # This is most likely an open-access book. Just put one
+            # borrow link and figure out the rest later.
+            set_mechanism_at_borrow = False
         if can_borrow:
             # Borrowing a book gives you an OPDS entry that gives you
             # fulfillment links.
@@ -263,20 +268,10 @@ class CirculationManagerAnnotator(Annotator):
         if active_license_pool.open_access:
             for lpdm in active_license_pool.delivery_mechanisms:
                 if lpdm.resource:
-                    open_access_links.append(self.open_access_tag(lpdm))
-           
-        # Open-access links and fulfillment links are always
-        # available.
-        always_available = E._makeelement(
-            "{%s}availability" % opds_ns, status="available"
-        )
-        for l in fulfill_links, open_access_links:
-            for link in l:
-                if link:
-                    link.append(always_available)
+                    open_access_links.append(self.open_access_link(lpdm))
 
         return [x for x in borrow_links + fulfill_links + open_access_links
-                if x]
+                if x is not None]
 
     def borrow_link(self, data_source_name, identifier_identifier,
                     borrow_mechanism, fulfillment_mechanisms):
@@ -334,6 +329,11 @@ class CirculationManagerAnnotator(Annotator):
             rel=rel, href=fulfill_url,
             types=format_types
         )
+        always_available = E._makeelement(
+            "{%s}availability" % opds_ns, status="available"
+        )
+        link_tag.append(always_available)
+        print etree.tostring(link_tag)
         return link_tag
 
     def open_access_link(self, lpdm):
@@ -342,7 +342,12 @@ class CirculationManagerAnnotator(Annotator):
         rep = lpdm.resource.representation
         if rep and rep.media_type:
             kw['type'] = rep.media_type
-        return AcquisitionFeed.link(**kw)
+        link_tag = AcquisitionFeed.link(**kw)
+        always_available = E._makeelement(
+            "{%s}availability" % opds_ns, status="available"
+        )
+        link_tag.append(always_available)
+        return link_tag
 
     def summary(self, work):
         """Return an HTML summary of this work."""

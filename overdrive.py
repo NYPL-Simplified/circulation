@@ -164,7 +164,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 )
         else:
             # Try to extract the expiration date from the response.
-            expires = self.extract_expiration_date(response.data)
+            expires = self.extract_expiration_date(response.json())
 
         # Create the loan info. We don't know the expiration 
         loan = LoanInfo(
@@ -248,8 +248,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # a loan.
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
-            if response.status_code not in (201, 200):
+            if loan.status_code not in (201, 200):
                 raise CannotFulfill("Could not lock in format %s" % format_type)
+            loan = response.json()
 
         # TODO: Verify that the asked-for format type is the same as the
         # one in the loan.
