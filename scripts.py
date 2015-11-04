@@ -304,7 +304,7 @@ class Explain(Script):
         #self._db.commit()
 
     @classmethod
-    def explain(cls, _db, edition):
+    def explain(cls, _db, edition, calculate_presentation=False):
         if edition.medium != 'Book':
             return
         output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
@@ -323,7 +323,7 @@ class Explain(Script):
         else:
             print " No associated work."
 
-        if work:
+        if work and calculate_presentation:
              print "!!! About to calculate presentation!"
              work.calculate_presentation()
              print "!!! All done!"
