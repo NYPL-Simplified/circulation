@@ -5256,50 +5256,92 @@ class Lane(object):
 
 class WorkFeed(object):
     
-    """Identify a certain page in a certain feed."""
+    """Identify a feed of works in a way that can be used to generate
+    CachedFeed objects.
+    """
 
+    COLLECTION_MAIN = 'main'
+    COLLECTION_FULL = 'full'
+    COLLECTION_TOP_QUALITY = 'top'
+
+    AVAILABILITY_NOW = Work.CURRENTLY_AVAILABLE
+    AVAILABILITY_ALL = Work.ALL
+    AVAILABILITY_ALWAYS = 'open-access'
+
+    # Define constants for use in URLs that need to explain how a feed
+    # is ordered.
+    ORDER_TITLE = 'title'
+    ORDER_AUTHOR = 'author'
+    ORDER_LAST_UPDATE = 'last_update'
+    ORDER_WORK_ID = 'work_id'
+
+    # Define a mapping between those constants and database fields.
     order_facet_to_database_field = {
-        'title' : Edition.sort_title,
-        'author' : Edition.sort_author,
-        'last_update' : Work.last_update_time,
-        'work_id' : Work.id
+        ORDER_TITLE : Edition.sort_title,
+        ORDER_AUTHOR : Edition.sort_author,
+        ORDER_LAST_UPDATE : Work.last_update_time,
+        ORDER_WORK_ID : Work.id,
     }
 
+    # Define a reverse mapping.
     active_facet_for_field = {
-        Edition.title : "title",
-        Edition.sort_title : "title",
-        Edition.sort_author : "author",
-        Edition.author : "author"
+        Edition.title : ORDER_TITLE,
+        Edition.sort_title : ORDER_TITLE,
+        Edition.sort_author : ORDER_AUTHOR,
+        Edition.author : ORDER_AUTHOR,
     }
 
+    # Setting an order facet will promote the corresponding field to
+    # the top of this list but leave the rest of the list intact.
     default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
 
-    CURRENTLY_AVAILABLE = u"available"
-    ALL = u"all"
+    DEFAULT_AFTER = 0
+    DEFAULT_SIZE = 50
 
-    def __init__(self, languages, order_facet=None,
+    def __init__(self, languages, 
+                 collection_name=COLLECTION_MAIN, 
+                 availability=AVAILABILITY_ALL, 
+                 order_facet=ORDER_AUTHOR, 
                  sort_ascending=True,
-                 availability=CURRENTLY_AVAILABLE):
+                 list_duration_days=DEFAULT_LIST_DURATION
+    ):
+        # We need to know about these variables because they
+        # correspond to database fields. But subclasses are
+        # responsible for populating them.
+        self.lane = None
+        self.custom_list = None
+        self.custom_list_data_source = None
+        self.list_duration = None
+
+        self.collection_name = collection_name
+        self.availability = availability
+
+        # `languages` must end up a sorted list of languages.
         if isinstance(languages, basestring):
-            languages = [languages]
+            if ',' in languages:
+                languages = ','.split(languages)
+            else:
+                languages = [languages]
         elif not isinstance(languages, list):
             raise ValueError("Invalid value for languages: %r" % languages)
-        self.languages = languages
-        if not order_facet:
-            order_facet = []
-        elif not isinstance(order_facet, list):
-            order_facet = [order_facet]
-        self.order_by = [self.order_facet_to_database_field[x] for x in order_facet]
-        self.sort_ascending = sort_ascending
-        if sort_ascending:
-            self.sort_operator = operator.__gt__
-        else:
-            self.sort_operator = operator.__lt__
+        self.languages = sorted(languages)
+
+        # Convert `order_facet` (a constant) into `order_by` (a list
+        # of database fields)
+        self.order_facet = order_facet
+        self.order_by = self.order_facet_to_database_field[order_facet]
+
+        # Fill in `order_by` with the defaults to ensure a complete
+        # ordering of books.
         for i in self.default_sort_order:
             if not i in self.order_by:
                 self.order_by.append(i)
 
-        self.availability = availability
+        if not isinstance(sort_ascending, bool):
+            raise ValueError(
+                "Invalid value for sort_ascending: %r" % sort_ascending
+            )
+        self.sort_ascending = sort_ascending
 
     @property
     def active_facet(self):
@@ -5308,26 +5350,30 @@ class WorkFeed(object):
             return None
         return self.active_facet_for_field.get(self.order_by[0], None)
 
+    def page_feed(self, _db, offset, page_size, max_age, annotator):
+        """Return an OPDS document for the given page of this feed.
+
+        If possible, the feed will be obtained from a fresh CachedFeed
+        object.  If not, a new feed will be generated and stuck in the
+        database.
+        """
+        pass
+
     def base_query(self, _db):
-        """A query that will return every work that should go in this feed.
+        """A query that retrieves every work that should go in this feed.
 
         Subject to language and availability settings.
 
-        This may be filtered down further.
+        This will be filtered down further by page_query.
         """
         # By default, return every Work in the entire database.
-        return Work.feed_query(_db, self.languages, self.availability)
+        base = Work.feed_query(_db, self.languages, self.availability)
 
-    def page_query(self, _db, offset, page_size, extra_filter=None):
-        """Turn the base query into a query that retrieves a particular page 
-        of works.
+    def page_query(self, _db, offset, page_size):
+        """A query that retrieves a particular page of works.
         """
-
         query = self.base_query(_db)
-        primary_order_field = self.order_by[0]
 
-        if extra_filter is not None:
-            query = query.filter(extra_filter)
         if self.sort_ascending:
             m = lambda x: x.asc()
         else:
@@ -5335,35 +5381,25 @@ class WorkFeed(object):
 
         order_by = [m(x) for x in self.order_by]
         query = query.order_by(*order_by)
+        query = query.distinct(*self.order_by)
 
-        if order_by:
-            query = query.distinct(*self.order_by)
-        else:
-            logging.warn("Doing page query for feed with no order-by clause!")
-            # query = query.distinct(MaterializedWork.works_id)
-
-        #query = query.options(contains_eager(Work.license_pools),
-        #                      contains_eager(Work.primary_edition))
-
-        if offset:
-            query = query.offset(offset)
-        if page_size:
-            query = query.limit(page_size)
+        query = query.offset(offset)
+        query = query.limit(page_size)
 
         return query
-
 
 class LaneFeed(WorkFeed):
 
     """A WorkFeed where all the works come from a predefined lane."""
 
-    def __init__(self, lane, *args, **kwargs):
-        self.lane = lane
+    def __init__(self, lane, *args, **kwargs):        
         super(LaneFeed, self).__init__(*args, **kwargs)
+        self.lane = lane
 
     def base_query(self, _db):
-        return self.lane.works(self.languages, availability=self.availability)
-
+        return self.lane.works(
+            self.languages, availability=self.availability
+        )
 
 class CustomListFeed(WorkFeed):
 
@@ -5371,49 +5407,92 @@ class CustomListFeed(WorkFeed):
     custom lists.
     """
 
-    # Treat a work as a best-seller if it was last on the best-seller
-    # list two years ago.
-    best_seller_cutoff = datetime.timedelta(days=730)
+    # By default, consider a book to be a "best seller" if it was seen
+    # on a best-seller list in the past two years.
+    BEST_SELLER_LIST_DURATION = 730
 
     def __init__(self, lane, custom_list_data_source, languages,
-                 on_list_as_of=None, 
+                 list_duration_days=None, 
                  **kwargs):
+        super(CustomListFeed, self).__init__(languages, **kwargs)
         self.lane = lane
         self.custom_list_data_source = custom_list_data_source
-        self.on_list_as_of = on_list_as_of
-        if not 'order_facet' in kwargs:
-            kwargs['order_facet'] = ['title']
-        super(CustomListFeed, self).__init__(languages, **kwargs)
+
+        # `self.list_duration` must end up a timedelta
+        if list_duration_days is None:
+            self.list_duration = None
+        else:
+            self.list_duration = datetime.timedelta(days=list_duration_days)
 
     def base_query(self, _db):
-        if self.lane:
-            q = self.lane.works(
-                self.languages, availability=self.availability)
-        else:
+        if self.lane is None:
             q = Work.feed_query(_db, self.languages, self.availability)
+        else:
+            q = self.lane.works(
+                self.languages, availability=self.availability
+            )
         return self.restrict(_db, q)
 
     def restrict(self, _db, q):
+        if self.list_duration is None:
+            on_list_as_of = None
+        else:
+            on_list_as_of = datetime.datetime.utcnow() - self.list_duration
         return Work.restrict_to_custom_lists_from_data_source(
-            _db, q, self.custom_list_data_source, self.on_list_as_of)
+            _db, q, self.custom_list_data_source, on_list_as_of)
 
 
-class EnumeratedCustomListFeed(CustomListFeed):
+class CachedFeed(Base):
 
-    """A WorkFeed where all the works come from an enumerated set of
-    custom lists.
-    """
-    def __init__(self, lane, custom_lists, languages,
-                 on_list_as_of=None, 
-                 **kwargs):
-        super(EnumeratedCustomListFeed, self).__init__(
-            lane, None, languages, on_list_as_of, **kwargs)
-        self.custom_lists = custom_lists
+    __tablename__ = 'cachedfeeds'
+    id = Column(Integer, primary_key=True)
 
-    def restrict(self, _db, q):
-        return Work.restrict_to_custom_lists(
-            _db, q, self.custom_lists, self.on_list_as_of)
+    # We can do a feed for a given lane.
+    lane_name = Column(Unicode, nullable=True, index=True)
 
+    # We can do a feed from a given list.
+    custom_list_id = Column(Integer, ForeignKey('customlists.id'), 
+                            nullable=True, index=True)
+
+    # Or from all lists from a given data source.
+    list_data_source_id = Column(Integer, ForeignKey('datasources.id'), 
+                                 nullable=True, index=True)
+
+    # The feed will contain books that were on the given list(s) at any point
+    # in the previous `list_cutoff_time` seconds.
+    list_cutoff_duration = Column(Integer, nullable=True, default=0)
+
+    language_string = Column(Unicode, nullable=False)
+    collection_name = Column(Unicode, nullable=False, default=COLLECTION_MAIN)
+    availability = Column(Unicode, nullable=False, default=AVAILABILITY_NOW)
+    order_facet = Column(Unicode, nullable=False, default=ORDER_AUTHOR)
+    sort_ascending = Column(Boolean, nullable=False, default=True)
+
+    after = Column(Integer, nullable=False, default=DEFAULT_AFTER)
+    size = Column(Integer, nullable=False, default=DEFAULT_SIZE)
+
+    timestamp = Column(DateTime, nullable=False)
+
+    @classmethod
+    def for_lane(self, lane, *args, **kwargs):
+        return WorkFeed(lane, None, None, *args, **kwargs)
+        
+common_index_fields = [
+    WorkFeed.languages, WorkFeed.collection_name, 
+    WorkFeed.availability, WorkFeed.sort_by,
+    WorkFeed.sort_ascending, WorkFeed.after, 
+    WorkFeed.size,
+]
+
+Index("ix_cachedfeeds_lane_name", 
+      [WorkFeed.lane_name] + common_index_fields,
+)
+Index("ix_cachedfeeds_list_id", 
+      [WorkFeed.custom_list_id] + common_index_fields,
+)
+Index("ix_cachedfeeds_lists_from_data_source", 
+      [WorkFeed.list_data_source_id] + common_index_fields,
+)
 
 class LicensePool(Base):
 
