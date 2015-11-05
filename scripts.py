@@ -46,6 +46,12 @@ from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
 
+from circulation import CirculationAPI
+from overdrive import OverdriveAPI
+from threem import ThreeMAPI
+from axis import Axis360API
+
+
 class Script(CoreScript):
     def load_config(self):
         if not Configuration.instance:
@@ -255,6 +261,14 @@ class StandaloneApplicationConf(object):
         self.display_name = None
         self.url_name = None
 
+        overdrive = OverdriveAPI.from_environment(self.db)
+        threem = ThreeMAPI.from_environment(self.db)
+        axis = Axis360API.from_environment(self.db)
+            
+        self.circulation = CirculationAPI(
+            _db=self.db, overdrive=overdrive, threem=threem, axis=axis
+        )
+
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
@@ -353,7 +367,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             cache_url, (b-a), content_bytes)
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane)
+        annotator = CirculationManagerAnnotator(self.conf.circulation, lane)
         for languages in self.languages:
             cache_url = self.cache_url(annotator, lane, languages)
             get_method = self.make_get_method(annotator, lane, languages)
@@ -373,7 +387,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         return True
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane)
+        annotator = CirculationManagerAnnotator(self.conf.circulation, lane)
         size = 50
         for languages in self.languages:
             for facet in ('title', 'author'):
@@ -453,7 +467,7 @@ class CacheBestSellerFeeds(CacheRepresentationPerLane):
 
     def process_lane(self, lane):
         annotator = CirculationManagerAnnotator(
-            None, lane, facet_view='popular_feed'
+            self.conf.circulation, lane, facet_view='popular_feed'
         )
         max_size = 200
         page_size = 50
@@ -492,7 +506,9 @@ class CacheStaffPicksFeeds(CacheRepresentationPerLane):
     OTHER_COLLECTIONS = []
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane, facet_view='staff_picks_feed')
+        annotator = CirculationManagerAnnotator(
+            self.conf.circulation, lane, facet_view='staff_picks_feed'
+        )
         max_size = 200
         page_size = 50
         if lane:
