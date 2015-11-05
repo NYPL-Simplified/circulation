@@ -5299,11 +5299,10 @@ class WorkFeed(object):
     DEFAULT_SIZE = 50
 
     def __init__(self, languages, 
-                 collection_name=COLLECTION_MAIN, 
-                 availability=AVAILABILITY_ALL, 
-                 order_facet=ORDER_AUTHOR, 
+                 collection_name='main', 
+                 availability='all', 
+                 order_facet='author', 
                  sort_ascending=True,
-                 list_duration_days=DEFAULT_LIST_DURATION
     ):
         # We need to know about these variables because they
         # correspond to database fields. But subclasses are
@@ -5329,7 +5328,7 @@ class WorkFeed(object):
         # Convert `order_facet` (a constant) into `order_by` (a list
         # of database fields)
         self.order_facet = order_facet
-        self.order_by = self.order_facet_to_database_field[order_facet]
+        self.order_by = [self.order_facet_to_database_field[order_facet]]
 
         # Fill in `order_by` with the defaults to ensure a complete
         # ordering of books.
@@ -5397,11 +5396,15 @@ class LaneFeed(WorkFeed):
         self.lane = lane
 
     def base_query(self, _db):
-        return self.lane.works(
-            self.languages, availability=self.availability
-        )
+        if self.lane is None:
+            q = Work.feed_query(_db, self.languages, self.availability)
+        else:
+            q = self.lane.works(
+                self.languages, availability=self.availability
+            )
+        return q
 
-class CustomListFeed(WorkFeed):
+class CustomListFeed(LaneFeed):
 
     """A WorkFeed where all the works come from a given data source's
     custom lists.
@@ -5411,11 +5414,9 @@ class CustomListFeed(WorkFeed):
     # on a best-seller list in the past two years.
     BEST_SELLER_LIST_DURATION = 730
 
-    def __init__(self, lane, custom_list_data_source, languages,
-                 list_duration_days=None, 
+    def __init__(self, lane, custom_list_data_source, list_duration_days=None, 
                  **kwargs):
-        super(CustomListFeed, self).__init__(languages, **kwargs)
-        self.lane = lane
+        super(CustomListFeed, self).__init__(lane, **kwargs)
         self.custom_list_data_source = custom_list_data_source
 
         # `self.list_duration` must end up a timedelta
@@ -5425,12 +5426,7 @@ class CustomListFeed(WorkFeed):
             self.list_duration = datetime.timedelta(days=list_duration_days)
 
     def base_query(self, _db):
-        if self.lane is None:
-            q = Work.feed_query(_db, self.languages, self.availability)
-        else:
-            q = self.lane.works(
-                self.languages, availability=self.availability
-            )
+        q = super(CustomListFeed, self).base_query(_db)
         return self.restrict(_db, q)
 
     def restrict(self, _db, q):
@@ -5442,57 +5438,64 @@ class CustomListFeed(WorkFeed):
             _db, q, self.custom_list_data_source, on_list_as_of)
 
 
+class SingleCustomListFeed(CustomListFeed):
+
+    def __init__(self, custom_list, list_duration_days=None, 
+                 **kwargs):
+        super(SingleCustomListFeed, self).__init__(
+            None, None, list_duration_days, **kwargs)
+        self.custom_list = custom_list
+
+    def restrict(self, _db, q):
+        if self.list_duration is None:
+            on_list_as_of = None
+        else:
+            on_list_as_of = datetime.datetime.utcnow() - self.list_duration
+        return Work.restrict_to_custom_lists(
+            _db, q, [self.custom_list], on_list_as_of)
+
 class CachedFeed(Base):
 
     __tablename__ = 'cachedfeeds'
     id = Column(Integer, primary_key=True)
 
     # We can do a feed for a given lane.
-    lane_name = Column(Unicode, nullable=True, index=True)
+    lane_name = Column(Unicode, nullable=True)
 
     # We can do a feed from a given list.
     custom_list_id = Column(Integer, ForeignKey('customlists.id'), 
-                            nullable=True, index=True)
+                            nullable=True)
 
     # Or from all lists from a given data source.
     list_data_source_id = Column(Integer, ForeignKey('datasources.id'), 
-                                 nullable=True, index=True)
+                                 nullable=True)
 
     # The feed will contain books that were on the given list(s) at any point
-    # in the previous `list_cutoff_time` seconds.
-    list_cutoff_duration = Column(Integer, nullable=True, default=0)
+    # in the previous `list_cutoff_time` days.
+    list_duration_days = Column(Integer, nullable=True)
 
-    language_string = Column(Unicode, nullable=False)
-    collection_name = Column(Unicode, nullable=False, default=COLLECTION_MAIN)
-    availability = Column(Unicode, nullable=False, default=AVAILABILITY_NOW)
-    order_facet = Column(Unicode, nullable=False, default=ORDER_AUTHOR)
+    languages = Column(Unicode, nullable=False)
+    collection_name = Column(Unicode, nullable=False)
+    availability = Column(Unicode, nullable=False)
+    order_facet = Column(Unicode, nullable=False)
     sort_ascending = Column(Boolean, nullable=False, default=True)
 
-    after = Column(Integer, nullable=False, default=DEFAULT_AFTER)
-    size = Column(Integer, nullable=False, default=DEFAULT_SIZE)
+    after = Column(Integer, nullable=False)
+    size = Column(Integer, nullable=False)
 
     timestamp = Column(DateTime, nullable=False)
-
-    @classmethod
-    def for_lane(self, lane, *args, **kwargs):
-        return WorkFeed(lane, None, None, *args, **kwargs)
-        
+       
 common_index_fields = [
-    WorkFeed.languages, WorkFeed.collection_name, 
-    WorkFeed.availability, WorkFeed.sort_by,
-    WorkFeed.sort_ascending, WorkFeed.after, 
-    WorkFeed.size,
+    CachedFeed.languages, CachedFeed.collection_name, 
+    CachedFeed.availability, CachedFeed.order_facet,
+    CachedFeed.sort_ascending, CachedFeed.after, 
+    CachedFeed.size,
 ]
 
-Index("ix_cachedfeeds_lane_name", 
-      [WorkFeed.lane_name] + common_index_fields,
-)
-Index("ix_cachedfeeds_list_id", 
-      [WorkFeed.custom_list_id] + common_index_fields,
-)
-Index("ix_cachedfeeds_lists_from_data_source", 
-      [WorkFeed.list_data_source_id] + common_index_fields,
-)
+Index("ix_cachedfeeds_lane_name", CachedFeed.lane_name, *common_index_fields)
+Index("ix_cachedfeeds_list_id", CachedFeed.custom_list_id, *common_index_fields)
+Index("ix_cachedfeeds_lists_from_data_source", CachedFeed.list_data_source_id,
+      *common_index_fields)
 
 class LicensePool(Base):
 

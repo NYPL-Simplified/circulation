@@ -31,7 +31,7 @@ from model import (
     CustomListFeed,
     DataSource,
     DeliveryMechanism,
-    EnumeratedCustomListFeed,
+    SingleCustomListFeed,
     Genre,
     Hold,
     Hyperlink,
@@ -1814,38 +1814,40 @@ class TestWorkFeed(DatabaseTest):
 
         eq_([], feed.page_query(self._db, 4, 10).all())
 
-    def test_page_query_custom_filter(self):
-        work = self._work()
-        lane = self.fantasy_lane
-        language = "eng"
-        feed = LaneFeed(lane, language, order_facet='author')
-        # Let's exclude the only work.
-        q = feed.page_query(self._db, None, 10, Work.title != work.title)
+    # def test_page_query_custom_filter(self):
+    #     work = self._work()
+    #     lane = self.fantasy_lane
+    #     language = "eng"
+    #     feed = LaneFeed(lane, language, order_facet='author')
+    #     # Let's exclude the only work.
+    #     q = feed.page_query(self._db, None, 10, Work.title != work.title)
         
-        # The feed is empty.
-        eq_([], q.all())
+    #     # The feed is empty.
+    #     eq_([], q.all())
 
 class TestCustomList(DatabaseTest):
 
     def test_only_matching_work_ids_are_included(self):
 
-        # Two works.
+        # Two works from Project Gutenberg.
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
 
-        # A custom list.
+        # A custom list from the New York Times.
         custom_list, editions = self._customlist(
             num_entries=2, entries_exist_as_works=False)
         
-        # One of the works has the same permanent work ID as one of the
-        # editions on the list.
+        # One of the Gutenberg works has the same permanent work ID as
+        # one of the editions on the NYT list.
         w1.primary_edition.permanent_work_id = editions[0].permanent_work_id
 
         # The other work has a totally different permanent work ID.
         w2.primary_edition.permanent_work_id = "totally different work id"
 
-        # Now create a custom list feed.
-        feed = EnumeratedCustomListFeed(None, [custom_list], ["eng"])
+        # Now create a custom list feed containing books from all NYT
+        # custom lists.
+        feed = CustomListFeed(None, custom_list.data_source,
+                              languages="eng")
 
         # At first, the list entries are not associated with any IDs
         # that have a licensepool. set_license_pool() does nothing.
@@ -1858,7 +1860,7 @@ class TestCustomList(DatabaseTest):
         # the primary identifier of one of our license pools,
         # set_license_pool() does something.
         first_list_entry = custom_list.entries[0]
-        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        source = w1.license_pools[0].data_source
         first_list_entry.edition.primary_identifier.equivalent_to(
             source, w1.license_pools[0].identifier, 1)
         first_list_entry.set_license_pool()
@@ -1886,8 +1888,8 @@ class TestCustomList(DatabaseTest):
         w2.primary_edition.permanent_work_id = edition2.permanent_work_id
 
         # Now create a custom list feed with both lists.
-        feed = EnumeratedCustomListFeed(
-            None, [customlist1, customlist2], ["eng"])
+        feed = CustomListFeed(
+            None, customlist1.data_source, languages="eng")
 
         # Both works match.
         matches = set(feed.base_query(self._db).all())
@@ -1913,7 +1915,7 @@ class TestCustomList(DatabaseTest):
         # Let's ask for a complete feed of NYT lists.
         self._db.commit()
         nyt = DataSource.lookup(self._db, DataSource.NYT)
-        feed = CustomListFeed(None, nyt, ['eng'])
+        feed = CustomListFeed(None, nyt, languages='eng')
 
         # The two works on the NYT list are in the feed. The work from
         # the Bibliocommons feed is not.
@@ -1932,17 +1934,16 @@ class TestCustomList(DatabaseTest):
 
         # Create a feed for works whose last appearance on the list
         # was no more than one day ago.
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        feed = EnumeratedCustomListFeed(
-            None, [customlist], ["eng"],  one_day_ago)
+        feed = SingleCustomListFeed(
+            customlist, languages=["eng"], list_duration_days=1)
 
         # The work shows up.
         eq_([work], feed.base_query(self._db).all())
 
         # ... But let's say the work was last seen on the list a week ago.
-        one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
         [list_entry] = customlist.entries
-        list_entry.most_recent_appearance = one_week_ago
+        list_entry.most_recent_appearance = (
+            datetime.datetime.utcnow() - datetime.timedelta(days=7))
 
         # Now it no longer shows up.
         eq_([], feed.base_query(self._db).all())
