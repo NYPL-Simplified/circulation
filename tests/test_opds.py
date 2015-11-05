@@ -17,6 +17,8 @@ from ..core.classifier import (
     Fantasy,
 )
 
+from ..circulation import CirculationAPI
+
 from ..opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
@@ -33,7 +35,9 @@ class TestOPDS(DatabaseTest):
         from .. import app
         del os.environ['TESTING']
 
+
         super(TestOPDS, self).setup()
+        self.circulation = CirculationAPI(self._db)
         self.app = app.app.test_client()
         self.ctx = app.app.test_request_context()
         self.ctx.push()
@@ -65,7 +69,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
 
         works = self._db.query(Work)
-        annotator = CirculationManagerAnnotator(None, Fantasy)
+        annotator = CirculationManagerAnnotator(self.circulation, Fantasy)
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
@@ -78,7 +82,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
         feed = AcquisitionFeed(
             self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy))
+                self.circulation, Fantasy))
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [issues_link] = [x for x in entry['links'] if x['rel'] == 'issues']
@@ -94,7 +98,7 @@ class TestOPDS(DatabaseTest):
         works = self._db.query(Work)
         feed = AcquisitionFeed(
             self._db, "test", "url", works, CirculationManagerAnnotator(
-                None, Fantasy))
+                self.circulation, Fantasy))
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
@@ -108,7 +112,7 @@ class TestOPDS(DatabaseTest):
     def test_active_loan_feed(self):
         patron = self.default_patron
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron)
+            self.circulation, patron)
         # Nothing in the feed.
         feed = feedparser.parse(unicode(feed))
         eq_(0, len(feed['entries']))
@@ -119,7 +123,8 @@ class TestOPDS(DatabaseTest):
 
         # Get the feed.
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron)
+            self.circulation, patron
+        )
         feed = feedparser.parse(unicode(feed))
 
         # The only entry in the feed is the work currently out on loan
@@ -143,7 +148,7 @@ class TestOPDS(DatabaseTest):
 
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works,
-                               CirculationManagerAnnotator(None, Fantasy))
+                               CirculationManagerAnnotator(self.circulation, Fantasy))
         u = unicode(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
         assert holds_re.search(u) is not None

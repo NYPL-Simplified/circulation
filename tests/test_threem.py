@@ -10,6 +10,7 @@ from ..threem import (
     DummyThreeMAPI,
     PatronCirculationParser,
     CheckoutResponseParser,
+    ErrorParser,
 )
 
 from ..circulation import (

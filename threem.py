@@ -312,6 +312,10 @@ class ErrorParser(XMLParser):
 
     wrong_status = re.compile(
         "the patron document status was ([^ ]+) and not one of ([^ ]+)")
+
+    loan_limit_reached = re.compile(
+        "Patron cannot loan more than [0-9]+ document"
+    )
     
     error_mapping = {
         "The patron does not have the book on hold" : NotOnHold,
@@ -330,6 +334,10 @@ class ErrorParser(XMLParser):
 
         if message in self.error_mapping:
             return self.error_mapping[message](message)
+
+        m = self.loan_limit_reached.search(message)
+        if m:
+            return PatronLoanLimitReached(message)
 
         m = self.wrong_status.search(message)
         if not m:

@@ -131,9 +131,10 @@ class TestPermalink(CirculationAppTest):
     def test_permalink(self):
         [lp] = self.english_1.license_pools
         args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
+        circulation = CirculationAPI(self._db)
         with self.app.test_request_context("/"):
             response = self.client.get('/works/%s/%s' % tuple(args))
-            annotator = CirculationManagerAnnotator(None, None)
+            annotator = CirculationManagerAnnotator(circulation, None)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
                     self._db, self.english_1, annotator

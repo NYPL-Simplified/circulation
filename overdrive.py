@@ -150,7 +150,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # Clearly our info is out of date.
                 self.update_licensepool(identifier.identifier)
                 raise NoAvailableCopies()
-            if code == 'TitleAlreadyCheckedOut':
+            elif code == 'TitleAlreadyCheckedOut':
                 # Client should have used a fulfill link instead, but
                 # we can handle it.
                 loan = self.get_loan(patron, pin, identifier.identifier)
@@ -162,6 +162,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                     expires,
                     None
                 )
+            else:
+                raise CannotLoan(code)
         else:
             # Try to extract the expiration date from the response.
             expires = self.extract_expiration_date(response.json())

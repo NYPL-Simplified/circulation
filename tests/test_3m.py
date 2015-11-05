@@ -171,6 +171,8 @@ class TestErrorParser(object):
 
     TRIED_TO_CANCEL_NONEXISTENT_HOLD = '<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Code>Gen-001</Code><Message>The patron does not have the book on hold</Message></Error>'
 
+    TOO_MANY_LOANS = '<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Code>Gen-001</Code><Message>Patron cannot loan more than 12 documents</Message></Error>'
+
     def test_exception(self):
         parser = ErrorParser()
 
@@ -182,6 +184,9 @@ class TestErrorParser(object):
 
         error = parser.process_all(self.ALREADY_ON_HOLD)
         assert isinstance(error, AlreadyOnHold)
+
+        error = parser.process_all(self.TOO_MANY_LOANS)
+        assert isinstance(error, PatronLoanLimitReached)
 
         error = parser.process_all(self.TRIED_TO_CANCEL_NONEXISTENT_HOLD)
         assert isinstance(error, NotOnHold)

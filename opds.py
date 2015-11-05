@@ -150,8 +150,6 @@ class CirculationManagerAnnotator(Annotator):
                           feed, data_source_name, identifier_identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
 
-        links = []
-
         can_borrow = False
         can_fulfill = False
         can_revoke = False
@@ -181,6 +179,7 @@ class CirculationManagerAnnotator(Annotator):
 
         # If there is something to be revoked for this book,
         # add a link to revoke it.
+        revoke_links = []
         if can_revoke:
             url = url_for(
                 'revoke_loan_or_hold', data_source=data_source_name,
@@ -188,7 +187,7 @@ class CirculationManagerAnnotator(Annotator):
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
             revoke_link_tag = E._makeelement("link", **kw)
-            links.append(revoke_link_tag)
+            revoke_links.append(revoke_link_tag)
 
         # Add next-step information for every useful delivery
         # mechanism.
@@ -270,7 +269,8 @@ class CirculationManagerAnnotator(Annotator):
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
 
-        return [x for x in borrow_links + fulfill_links + open_access_links
+        return [x for x in borrow_links + fulfill_links + 
+                revoke_links + open_access_links
                 if x is not None]
 
     def borrow_link(self, data_source_name, identifier_identifier,
