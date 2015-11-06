@@ -32,7 +32,6 @@ from model import (
     BaseMaterializedWork,
     CustomList,
     CustomListEntry,
-    CustomListFeed,
     DataSource,
     Hyperlink,
     Lane,
@@ -43,6 +42,9 @@ from model import (
     Subject,
     Work,
     )
+from feed import (
+    CustomListFeed,
+)
 from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
@@ -484,7 +486,9 @@ class AcquisitionFeed(OPDSFeed):
 
         # Configure special groups
         best_seller_cutoff = (
-            datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
+            datetime.datetime.utcnow() - datetime.timedelta(
+                days=CustomListFeed.BEST_SELLER_LIST_DURATION)
+        )
         special_group_config = [
             (best_sellers_url, "Best Sellers", 
              DataSource.NYT, best_seller_cutoff,
