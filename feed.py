@@ -145,8 +145,8 @@ class LaneFeed(WorkFeed):
 
     """A WorkFeed where all the works come from a predefined lane."""
 
-    def __init__(self, lane, *args, **kwargs):        
-        super(LaneFeed, self).__init__(*args, **kwargs)
+    def __init__(self, lane, languages, *args, **kwargs):        
+        super(LaneFeed, self).__init__(languages, *args, **kwargs)
         self.lane = lane
 
     def base_query(self, _db):
@@ -168,9 +168,9 @@ class CustomListFeed(LaneFeed):
     # on a best-seller list in the past two years.
     BEST_SELLER_LIST_DURATION = 730
 
-    def __init__(self, lane, custom_list_data_source, list_duration_days=None, 
-                 **kwargs):
-        super(CustomListFeed, self).__init__(lane, **kwargs)
+    def __init__(self, lane, languages, custom_list_data_source, 
+                 list_duration_days=None, **kwargs):
+        super(CustomListFeed, self).__init__(lane, languages, **kwargs)
         self.custom_list_data_source = custom_list_data_source
 
         # `self.list_duration` must end up a timedelta
@@ -194,10 +194,10 @@ class CustomListFeed(LaneFeed):
 
 class SingleCustomListFeed(CustomListFeed):
 
-    def __init__(self, custom_list, list_duration_days=None, 
+    def __init__(self, languages, custom_list, list_duration_days=None, 
                  **kwargs):
         super(SingleCustomListFeed, self).__init__(
-            None, None, list_duration_days, **kwargs)
+            None, languages, list_duration_days, **kwargs)
         self.custom_list = custom_list
 
     def restrict(self, _db, q):

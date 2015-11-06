@@ -2592,6 +2592,9 @@ class Work(Base):
     NOT_APPLICABLE_APPEAL = "Not Applicable"
     NO_APPEAL = "None"
 
+    CURRENTLY_AVAILABLE = "currently_available"
+    ALL = "all"
+
     # If no quality data is available for a work, it will be assigned
     # a default quality based on where we got it.
     #
@@ -2799,9 +2802,6 @@ class Work(Base):
         # TODO: clean up the content
         if resource:
             self.summary_text = resource.representation.content
-
-    CURRENTLY_AVAILABLE = "currently_available"
-    ALL = "all"
 
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
