@@ -16,8 +16,11 @@ from model import (
     DataSource,
     Edition,
     Genre,
-    Lane,
     Work,
+)
+
+from lane import (
+    Lane,
 )
 
 from feed import (

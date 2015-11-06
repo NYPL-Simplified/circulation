@@ -20,13 +20,16 @@ from model import (
     Contributor,
     DataSource,
     Genre,
-    Lane,
-    LaneList,
     Measurement,
     Patron,
     Subject,
     Work,
     get_one_or_create,
+)
+
+from lane import (
+    Lane,
+    LaneList,
 )
 
 from opds import (    

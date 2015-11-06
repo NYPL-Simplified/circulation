@@ -34,7 +34,6 @@ from model import (
     CustomListEntry,
     DataSource,
     Hyperlink,
-    Lane,
     Resource,
     Identifier,
     Edition,
@@ -42,6 +41,9 @@ from model import (
     Subject,
     Work,
     )
+from lane import (
+    Lane,
+)
 from feed import (
     CustomListFeed,
 )
