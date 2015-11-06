@@ -35,13 +35,16 @@ from ..core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
-    LaneList,
     Loan,
     Patron,
     Representation,
     Resource,
     Edition,
     SessionManager,
+)
+
+from ..core.lane import (
+    LaneList,
 )
 
 from ..core.opds import (

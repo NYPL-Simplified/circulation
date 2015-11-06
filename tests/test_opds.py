@@ -8,10 +8,14 @@ import feedparser
 from . import DatabaseTest
 
 from ..core.model import (
-    LaneList,
-    Lane,
     Work,
 )
+
+from ..core.lane import (
+    LaneList,
+    Lane,
+)
+
 from ..core.classifier import (
     Classifier,
     Fantasy,

@@ -6,9 +6,11 @@ from core.classifier import (
     nonfiction_genres,
 )
 from core.model import (
+    Work,
+)
+from core.lane import (
     Lane,
     LaneList,
-    Work,
 )
 
 def make_lanes(_db, definitions=None):

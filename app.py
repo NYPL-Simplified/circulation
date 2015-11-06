@@ -54,12 +54,9 @@ from core.model import (
     get_one,
     get_one_or_create,
     Complaint,
-    CustomListFeed,
     DataSource,
     production_session,
     Hold,
-    LaneList,
-    Lane,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Loan,
@@ -67,10 +64,19 @@ from core.model import (
     Identifier,
     Representation,
     Work,
-    LaneFeed,
-    CustomListFeed,
     Edition,
     )
+
+from core.lane import (
+    LaneList,
+    Lane,
+)
+
+from core.feed import (
+    CustomListFeed,
+    LaneFeed,
+)
+
 from core.opensearch import OpenSearchDocument
 from opds import (
     CirculationManagerAnnotator,
@@ -511,7 +517,7 @@ def make_popular_feed(_db, annotator, lane, languages, order_facet,
     as_of = (datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
     nyt = DataSource.lookup(_db, DataSource.NYT)
     work_feed = CustomListFeed(
-        lane, nyt, languages, as_of, availability=CustomListFeed.ALL,
+        lane, languages, nyt, as_of, availability=CustomListFeed.AVAILABILITY_ALL,
         order_facet=order_facet)
     qu = work_feed.page_query(_db, offset, size)
     page = qu.all()
@@ -584,7 +590,7 @@ def make_staff_picks_feed(_db, annotator, lane, languages, order_facet,
 
     staff = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
     work_feed = CustomListFeed(
-        lane, staff, languages, availability=CustomListFeed.ALL,
+        lane, languages, staff, availability=CustomListFeed.AVAILABILITY_ALL,
         order_facet=order_facet
     )
     qu = work_feed.page_query(_db, offset, size)
