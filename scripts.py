@@ -3,6 +3,7 @@ import logging
 import sys
 from nose.tools import set_trace
 from sqlalchemy.sql.functions import func
+from sqlalchemy.orm.session import Session
 import time
 
 from config import Configuration
@@ -298,34 +299,40 @@ class Explain(Script):
         title = sys.argv[1]
         editions = self._db.query(Edition).filter(Edition.title.ilike(title))
         for edition in editions:
-            self.explain(edition)
+            self.explain(self._db, edition)
             print "-" * 80
         #self._db.commit()
 
-    def explain(self, edition):
-        print "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+    @classmethod
+    def explain(cls, _db, edition, calculate_presentation=False):
+        if edition.medium != 'Book':
+            return
+        output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+        print output.encode("utf8")
         work = edition.work
         lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
         seen = set()
-        self.explain_identifier(self.primary_identifier, True, seen, 1, 0)
+        cls.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
         if lp:
-            self.explain_license_pool(lp)
+            cls.explain_license_pool(lp)
         else:
             print " No associated license pool."
         if work:
-            self.explain_work(work)
+            cls.explain_work(work)
         else:
             print " No associated work."
 
-        if work:
-             print
+        if work and calculate_presentation:
+             print "!!! About to calculate presentation!"
              work.calculate_presentation()
+             print "!!! All done!"
              print
              print "After recalculating presentation:"
-             self.explain_work(work)
+             cls.explain_work(work)
 
-    def explain_identifier(self, identifier, primary, seen, strength, level):
+    @classmethod
+    def explain_identifier(cls, identifier, primary, seen, strength, level):
         indent = "  " * level
         if primary:
             ident = "Primary identifier"
@@ -333,10 +340,12 @@ class Explain(Script):
             ident = "Identifier"
         if primary:
             strength = 1
-        print "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
+        output = "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
+        print output.encode("utf8")
 
+        _db = Session.object_session(identifier)
         classifications = Identifier.classifications_for_identifier_ids(
-            self._db, [identifier.id])
+            _db, [identifier.id])
         for classification in classifications:
             subject = classification.subject
             genre = subject.genre
@@ -344,18 +353,21 @@ class Explain(Script):
                 genre = genre.name
             else:
                 genre = "(!genre)"
-            print "%s  %s says: %s/%s %s w=%s" % (
-                indent, classification.data_source.name,
-                subject.identifier, subject.name, genre, classification.weight
-            )
+            #print "%s  %s says: %s/%s %s w=%s" % (
+            #    indent, classification.data_source.name,
+            #    subject.identifier, subject.name, genre, classification.weight
+            #)
+        seen.add(identifier)
         for equivalency in identifier.equivalencies:
+            if equivalency.id in seen:
+                continue
+            seen.add(equivalency.id)
             output = equivalency.output
-            if output not in seen:
-                self.explain_identifier(equivalency.output, False, seen,
-                                        equivalency.strength, level+1)
-        seen.add(self)
+            cls.explain_identifier(output, False, seen,
+                                    equivalency.strength, level+1)
 
-    def explain_license_pool(self, pool):
+    @classmethod
+    def explain_license_pool(cls, pool):
         print "Licensepool info:"
         print " Delivery mechanisms:"
         if pool.delivery_mechanisms:
@@ -372,7 +384,8 @@ class Explain(Script):
             pool.licenses_owned, pool.licenses_available, pool.patrons_in_hold_queue, pool.licenses_reserved
         )
 
-    def explain_work(self, work):
+    @classmethod
+    def explain_work(cls, work):
         print "Work info:"
         print " Fiction: %s" % work.fiction
         print " Audience: %s" % work.audience
