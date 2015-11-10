@@ -122,10 +122,12 @@ class TestFacetsApply(DatabaseTest):
         # A high-quality open-access work.
         open_access_high = self._work(with_open_access_download=True)
         open_access_high.quality = 0.8
+        open_access_high.random = 0.2
         
         # A low-quality open-access work.
         open_access_low = self._work(with_open_access_download=True)
         open_access_low.quality = 0.2
+        open_access_low.random = 0.4
 
         # A high-quality licensed work which is not currently available.
         (licensed_e1, licensed_p1) = self._edition(
@@ -137,6 +139,7 @@ class TestFacetsApply(DatabaseTest):
         licensed_p1.open_access = False
         licensed_p1.licenses_owned = 1
         licensed_p1.licenses_available = 0
+        licensed_high.random = 0.3
 
         # A low-quality licensed work which is currently available.
         (licensed_e2, licensed_p2) = self._edition(
@@ -148,6 +151,7 @@ class TestFacetsApply(DatabaseTest):
         licensed_low.quality = 0.2
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
+        licensed_low.random = 0.1
 
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
@@ -186,6 +190,13 @@ class TestFacetsApply(DatabaseTest):
         assert open_access_low not in featured_collection
         assert licensed_low not in featured_collection
 
+        title_order = facetify(order=Facets.ORDER_TITLE)
+        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
+            title_order.all())
+
+        random_order = facetify(order=Facets.ORDER_RANDOM)
+        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
+            random_order.all())
 
 # class TestLanes(DatabaseTest):
 
