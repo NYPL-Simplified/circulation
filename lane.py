@@ -377,10 +377,6 @@ class Lane(object):
                  list_identifier=None,
                  list_seen_in_previous_days=None,
                  ):
-        self.sublanes = LaneList.from_description(
-            _db, self, sublanes
-        )
-
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
@@ -396,9 +392,9 @@ class Lane(object):
 
         # The lane may be restricted to items in particular media
         # and/or formats.
-        if isinstance(medium, basestring):
-            medium = [medium]
-        self.media = medium
+        if isinstance(media, basestring):
+            media = [media]
+        self.media = media
 
         if isinstance(format, basestring):
             format = [format]
@@ -420,6 +416,10 @@ class Lane(object):
         genres, sublanes = self.gather_genres(genres)
         self.genres, self.fiction = self.gather_matching_genres(
             genres, fiction
+        )
+
+        self.sublanes = LaneList.from_description(
+            _db, self, sublanes
         )
 
         if sublanes:
@@ -483,12 +483,12 @@ class Lane(object):
         # The lane may be restricted to books that are on one or
         # more specific lists.
         if not list_identifier:
-            self.lists = None
+            lists = None
         elif isinstance(list_identifier, CustomList):
-            self.lists = [list_identifier]
+            lists = [list_identifier]
         elif (isinstance(list_identifier, list) and
               isinstance(list_identifier[0], CustomList)):
-            self.lists = list_identifier
+            lists = list_identifier
         else:
             if isinstance(list_identifier, basestring):
                 list_identifiers = [list_identifier]
@@ -900,11 +900,12 @@ class LaneList(object):
     def from_description(cls, _db, parent_lane, description):
         lanes = LaneList(parent_lane)
         if parent_lane:
+            set_trace()
             default_fiction = parent_lane.fiction
-            default_audience = parent_lane.audience
+            default_audiences = parent_lane.audiences
         else:
             default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-            default_audience = Classifier.AUDIENCES_ADULT
+            default_audiences = [Classifier.AUDIENCES_ADULT]
 
         description = description or []
         for lane_description in description:
@@ -917,9 +918,9 @@ class LaneList(object):
                 elif len(lane_description) == 3:
                     name, subdescriptions, audience_restriction = lane_description
                     if (parent_lane and audience_restriction and 
-                        parent_lane.audience and
-                        parent_lane.audience != audience_restriction
-                        and not audience_restriction in parent_lane.audience):
+                        parent_lane.audiences and
+                        parent_lane.audiences != audience_restriction
+                        and not audience_restriction in parent_lane.audiences):
                         continue
                 lane_description = classifier.genres[name]
             if isinstance(lane_description, dict):
@@ -927,14 +928,14 @@ class LaneList(object):
             elif isinstance(lane_description, Genre):
                 lane = Lane(_db, lane_description.name, [lane_description],
                             Lane.IN_SAME_LANE, default_fiction,
-                            default_audience, parent_lane,
+                            default_audiences, parent_lane,
                             sublanes=genre.subgenres)
             elif isinstance(lane_description, GenreData):
                 # This very simple lane is the default view for a genre.
                 genre = lane_description
                 lane = Lane(_db, genre.name, [genre], Lane.IN_SUBLANES,
                             default_fiction,
-                            default_audience, parent_lane)
+                            default_audiences, parent_lane)
             elif isinstance(lane_description, Lane):
                 # The Lane object has already been created.
                 lane = lane_description

@@ -27,11 +27,13 @@ from config import (
 )
 
 from model import (
+    get_one_or_create,
     DataSource,
     Genre,
     Work,
     Edition,
     SessionManager,
+    WorkGenre,
 )
 
 
@@ -198,11 +200,92 @@ class TestFacetsApply(DatabaseTest):
         eq_([licensed_low, open_access_high, licensed_high, open_access_low],
             random_order.all())
 
-# class TestLanes(DatabaseTest):
+class TestLanes(DatabaseTest):
+
+    def setup(self):
+        super(TestLanes, self).setup()
+
+        # Look up the Fantasy genre and some of its subgenres.
+        self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        self.epic_fantasy, ig = Genre.lookup(self._db, classifier.Epic_Fantasy)
+        self.urban_fantasy, ig = Genre.lookup(
+            self._db, classifier.Urban_Fantasy
+        )
+
+        # Look up the History genre and some of its subgenres.
+        self.history, ig = Genre.lookup(self._db, classifier.History)
+        self.african_history, ig = Genre.lookup(
+            self._db, classifier.African_History
+        )
+
+        self.adult_works = {}
+        self.ya_works = {}
+        self.childrens_works = {}
+
+        def classify(work, genre):
+            wg, ignore = get_one_or_create(
+                self._db, WorkGenre, work=work, genre=genre)            
+
+        for genre in (self.fantasy, self.epic_fantasy, self.urban_fantasy,
+                      self.history, self.african_history):
+            fiction = True
+            if genre in (self.history, self.african_history):
+                fiction = False
+
+            # Create a number of books for each genre.
+            adult_work = self._work(
+                title="%s Adult" % genre.name, 
+                audience=Classifier.AUDIENCE_ADULT,
+                fiction=fiction
+            )
+            self.adult_works[genre] = adult_work
+            classify(adult_work, genre)
+
+            ya_work = self._work(
+                title="%s YA" % genre.name, 
+                audience=Classifier.AUDIENCE_YOUNG_ADULT,
+                fiction=fiction
+            )
+            self.ya_works[genre] = ya_work
+            classify(ya_work, genre)
+
+            childrens_work = self._work(
+                title="%s Childrens" % genre.name, 
+                audience=Classifier.AUDIENCE_CHILDREN,
+                fiction=fiction
+            )
+            childrens_work.target_age = NumericRange(7, 9)
+            self.childrens_works[genre] = childrens_work
+            classify(childrens_work, genre)
+
+
+        # Create a generic 'fiction' and 'nonfiction' book that are
+        # not in any genre.
+        self.nonfiction = self._work(title="Generic Nonfiction", fiction=False,
+                                audience=Classifier.AUDIENCE_ADULT)
+        self.fiction = self._work(title="Generic Fiction", fiction=True,
+                                  audience=Classifier.AUDIENCE_ADULT)
+
+        # Create a work of music.
+        self.music = self._work(title="Music", fiction=False,
+                                audience=Classifier.AUDIENCE_ADULT)
+        self.music.primary_edition.medium=Edition.MUSIC_MEDIUM
+
+        # Refresh the materialized views so that all these books are present
+        # in the 
+        SessionManager.refresh_materialized_views(self._db)
+        
+    def test_other_media(self):
+        lane = Lane(self._db, full_name="Music", genres=[], 
+                    media=Edition.MUSIC_MEDIUM,
+                    fiction=None)
+        foo = lane.works()
+        bar = lane.materialized_works()
+        set_trace()
 
 #     def test_setup(self):
-#         fantasy_genre, ig = Genre.lookup(self._db, classifier.Fantasy)
-#         epic_fantasy, ig = Genre.lookup(self._db, classifier.Epic_Fantasy)
+#         fantasy_genre, ig = 
+#         epic_fantasy, ig = 
 #         historical_fantasy, ig = Genre.lookup(
 #             self._db, classifier.Historical_Fantasy)
 #         urban_fantasy, ig = Genre.lookup(
