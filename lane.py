@@ -31,6 +31,192 @@ from model import (
     WorkGenre,
 )
 
+class Facets(object):
+
+    # Subset the collection, roughly, by quality.
+    COLLECTION_FULL = "full"
+    COLLECTION_MAIN = "main"
+    COLLECTION_FEATURED = "featured"
+
+    # Subset the collection by availability.
+    AVAILABLE_NOW = "currently_available"
+    AVAILABLE_ALL = "all"
+    AVAILABLE_OPEN_ACCESS = "open_access"
+
+    # The names of the order facets.
+    ORDER_TITLE = 'title'
+    ORDER_AUTHOR = 'author'
+    ORDER_LAST_UPDATE = 'last_update'
+    ORDER_WORK_ID = 'work_id'
+    ORDER_RANDOM = 'random'
+
+    ORDER_ASCENDING = "asc"
+    ORDER_DESCENDING = "desc"
+
+    @classmethod
+    def order_facet_to_database_field(
+            cls, order_facet, work_model, edition_model
+    ):
+        """Turn the name of an order facet into a database field
+        for use in an ORDER BY clause.
+        """
+        if order_facet == cls.ORDER_WORK_ID:
+            if work_model is Work:
+                return work_model.id
+            else:
+                # This is a materialized view and the field name is
+                # different.
+                return work_model.works_id
+
+        # In all other cases the field names are the same whether
+        # we are using Work/Edition or a materialized view.
+        order_facet_to_database_field = {
+            cls.ORDER_TITLE : edition_model.sort_title,
+            cls.ORDER_AUTHOR : edition_model.sort_author,
+            cls.ORDER_LAST_UPDATE : work_model.last_update_time,
+            cls.ORDER_RANDOM : work_model.random,
+        }
+        return order_facet_to_database_field[order_facet]
+
+    @classmethod
+    def database_field_to_order_facet(cls, database_field):
+        """The inverse of order_facet_to_database_field.
+
+        TODO: This method may not be necessary.
+        """
+        from model import (
+            MaterializedWork as mw,
+            MaterializedWorkWithGenre as mwg,
+        )
+
+        if database_field in (Edition.sort_title, mw.sort_title, 
+                              mwg.sort_title):
+            return cls.ORDER_TITLE
+
+        if database_field in (Edition.sort_author, mw.sort_author,
+                              mwg.sort_author):
+            return cls.ORDER_AUTHOR
+
+        if database_field in (Work.last_update_time, mw.last_update_time, 
+                              mwg.last_update_time):
+            return cls.ORDER_LAST_UPDATE
+
+        if database_field in (Work.id, mw.works_id, mwg.works_id):
+            return cls.ORDER_WORK_ID
+
+        if database_field in (Work.random, mw.random, mwg.random):
+            return cls.ORDER_RANDOM
+
+        return None
+
+    def __init__(self, collection, availability, order,
+                 order_ascending=True):
+
+        hold_policy = Configuration.hold_policy()
+        if (availability == self.AVAILABLE_ALL and 
+            hold_policy == Configuration.HOLD_POLICY_HIDE):
+            # Under normal circumstances we would show all works, but
+            # site configuration says to hide books that aren't
+            # available.
+            availability = self.AVAILABLE_NOW
+
+        self.collection = collection
+        self.availability = availability
+        self.order = order
+        if order_ascending == self.ORDER_ASCENDING:
+            order_ascending = True
+        elif order_ascending == self.ORDER_DESCENDING:
+            order_ascending = False
+        self.order_ascending = order_ascending
+
+    def apply(self, _db, q, work_model=Work, edition_model=Edition):
+        """Restrict a query so that it only matches works that fit
+        the given facets, and the query is ordered appropriately.
+        """
+        if self.availability == self.AVAILABLE_NOW:
+            availability_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_available > 0)
+        elif self.availability == self.AVAILABLE_ALL:
+            availability_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_owned > 0)
+        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
+            availability_clause = LicensePool.open_access==True
+        q = q.filter(availability_clause)
+
+        if self.collection == self.COLLECTION_FULL:
+            # Include everything.
+            pass
+        elif self.collection == self.COLLECTION_MAIN:
+            # Exclude open-access books with a rating of less than
+            # 0.3.
+            or_clause = or_(
+                LicensePool.open_access==False,
+                model.rating >= 0.3
+            )
+            q = q.filter(or_clause)
+        elif self.collection == self.COLLECTION_FEATURED:
+            # Exclude books with a rating of less than
+            # MINIMUM_FEATURED_QUALITY.
+            q = q.filter(
+                model.rating >= Configuration.minimum_featured_quality()
+            )
+
+        # Set the ORDER BY clause.
+        order_by = self.order_by(self.order, work_model, edition_model)
+        q = q.order_by(*order_by)
+
+        return q
+
+    def order_by(self, work_model, edition_model):
+        """Establish a complete ORDER BY clause for books."""
+        if work_model == Work:
+            work_id = Work.id
+        else:
+            work_id = work_model.works_id
+        default_sort_order = [
+            edition_model.sort_title, edition_model.sort_author, work_id
+        ]
+    
+        primary_order_by = self.order_facet_to_database_field(
+            self.order, work_model, edition_model
+        )
+        if primary_order_by:
+            # Promote the field designated by the sort facet to the top of
+            # the order-by list.
+            order_by = [primary_order_by]
+
+            for i in default_sort_order:
+                if i not in order_by:
+                    order_by.append(i)
+        else:
+            # Use the default sort order
+            order_by = default_order_by
+
+        # Set each field in the sort order to ascending or descending.
+        print [x.name for x in order_by]
+        if self.order_ascending:
+            order_by = [x.asc() for x in order_by]
+        else:
+            order_by = [x.desc() for x in order_by]
+        return order_by
+
+
+class Pagination(object):
+
+    DEFAULT_SIZE = 50
+    DEFAULT_FEATURED_SIZE = 10
+
+    def __init__(self, offset=0, size=DEFAULT_SIZE):
+        self.offset = offset
+        self.size = size
+
+    def apply(self, q):
+        """Modify the given query with OFFSET and LIMIT."""
+        return q.offset(self.offset).limit(self.size)
+
+
 class Lane(object):
 
     """A set of books that would go together in a display."""
@@ -38,6 +224,10 @@ class Lane(object):
     UNCLASSIFIED = u"unclassified"
     BOTH_FICTION_AND_NONFICTION = u"both fiction and nonfiction"
     FICTION_DEFAULT_FOR_GENRE = u"fiction default for genre"
+
+    # A book is considered a 'best seller' if it's been seen on
+    # the best seller list sometime in the past two years.
+    BEST_SELLER_LIST_DURATION = 730
 
     # Books classified in a subgenre of this lane's genre(s) will
     # be shown in separate lanes.
@@ -47,12 +237,29 @@ class Lane(object):
     # shown in this lane.
     IN_SAME_LANE = u"collapse"
 
+    @property
+    def url_name(self):
+        """Return the name of this lane to be used in URLs.
+
+        Basically, forward slash is changed to "__". This is necessary
+        because Flask tries to route "feed/Suspense%2FThriller" to
+        feed/Suspense/Thriller.
+        """
+        return self.name.replace("/", "__")
+
     def __repr__(self):
-        if self.sublanes.lanes:
-            sublanes = " (sublanes=%d)" % len(self.sublanes.lanes)
-        else:
-            sublanes = ""
-        return "<Lane %s%s>" % (self.name, sublanes)
+        template = "<Lane name=%(full_name), display=%(display_name), genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(languages)s, %(sublanes)d sublanes>"
+        output = template % dict(
+            full_name=self.name,
+            display_name=self.display_name,
+            genres = "+".join([g.name for g in self.genres]),
+            fiction=self.fiction,
+            audiences = "+".join(self.audiences),
+            age_range = self.age_range,
+            language="+".join(self.languages),
+            sublanes = len(self.sublanes.lanes)
+        )
+        return output.encode("ascii", "replace")
 
     @classmethod
     def from_dict(cls, _db, d, parent_lane):
@@ -65,6 +272,7 @@ class Lane(object):
 
         name = d.get('name') or d.get('full_name')
         display_name = d.get('display_name')
+
         genres = []
         for x in d.get('genres', []):
             genre, new = Genre.lookup(_db, x)
@@ -75,11 +283,21 @@ class Lane(object):
             genre, new = Genre.lookup(_db, x)
             if genre:
                 exclude_genres.append(genre)
+
         default_audience = None
         default_age_range = None
+        default_languages = None
         if parent_lane:
             default_audience = parent_lane.audience
             default_age_range = parent_lane.age_range
+            default_languages = parent_lane.languages
+
+        languages = d.get('languages', default_languages)
+        if not languages:
+            raise ValueError(
+                "No guidance as to which languages to use for %s!" % name
+            )
+
         audience = d.get('audience', default_audience)        
         age_range = None
         if 'age_range' in d:
@@ -91,7 +309,9 @@ class Lane(object):
                 cls.log.warn("Invalid age range for %s: %r", name, age_range)
                 age_range = None
         age_range = age_range or default_age_range
+
         appeal = d.get('appeal')
+
         subgenre_behavior = d.get('subgenre_behavior', Lane.IN_SUBLANES)
         fiction = d.get('fiction', Lane.FICTION_DEFAULT_FOR_GENRE)
         if fiction == 'default':
@@ -104,7 +324,7 @@ class Lane(object):
             genres=genres, subgenre_behavior=subgenre_behavior,
             fiction=fiction, audience=audience, parent=parent_lane, 
             sublanes=[], appeal=appeal, age_range=age_range,
-            exclude_genres=exclude_genres
+            exclude_genres=exclude_genres, languages=languages
         )
 
         # Now create sublanes, recursively.
@@ -134,7 +354,7 @@ class Lane(object):
         return Lane(
             _db, full_name, genres=[], subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=fiction,
-            audience=audience)
+            audiences=[audience])
 
     def __init__(self, 
                  _db, 
@@ -149,26 +369,67 @@ class Lane(object):
                  display_name=None,
                  age_range=None,
                  exclude_genres=None,
+                 languages=None,
+                 media=Edition.BOOK_MEDIUM,
+                 format=Edition.ELECTRONIC_FORMAT,
                  list_data_source=None,
                  list_identifier=None,
+                 list_seen_in_previous_days=None,
                  ):
+        self.sublanes = LaneList.from_description(
+            _db, self, sublanes
+        )
+
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.appeal = appeal
-        self.age_range = age_range
-        self.fiction = fiction
-        self.audience = audience
 
+        self.age_range = age_range
+        self.audiences = self.audience_list_for_age_range(audience, age_range)
+        self.languages = languages
+
+        if fiction is None:
+            fiction = self.FICTION_DEFAULT_FOR_GENRE
+
+        # The lane may be restricted to items in particular media
+        # and/or formats.
+        if isinstance(medium, basestring):
+            medium = [medium]
+        self.media = medium
+
+        if isinstance(format, basestring):
+            format = [format]
+        self.formats = format
+
+        # The lane may be restricted to books that are on a list
+        # from a given data source.
+        self.list_data_source, self.lists = self.custom_lists_for_identifier(
+            list_data_source, list_identifier)
+        self.list_seen_in_previous_days = list_seen_in_previous_days
+      
         self.exclude_genres = set()
         if exclude_genres:
             for genre in exclude_genres:
                 for l in genre.self_and_subgenres:
                     self.exclude_genres.add(l)
-        self.subgenre_behavior=subgenre_behavior
-        self.sublanes = LaneList.from_description(_db, self, sublanes)
+        self.subgenre_behavior = subgenre_behavior
 
+        genres, sublanes = self.gather_genres(genres)
+        self.genres, self.fiction = self.gather_matching_genres(
+            genres, fiction
+        )
+
+        if sublanes:
+            if self.sublanes.lanes:
+                raise ValueError(
+                    "Explicit list of sublanes was provided, but I'm also asked to turn subgenres into sublanes!"
+                )
+            else:
+                self.sublanes = sublanes           
+
+        # Run some sanity checks.
         ch = Classifier.AUDIENCE_CHILDREN
         ya = Classifier.AUDIENCE_YOUNG_ADULT
         if (
@@ -180,77 +441,6 @@ class Lane(object):
             raise ValueError(
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
-
-        if genres in (None, self.UNCLASSIFIED):
-            # We will only be considering works that are not
-            # classified under a genre.
-            self.genres = None
-            self.subgenre_behavior
-        else:
-            if not isinstance(genres, list):
-                genres = [genres]
-
-            # Turn names or GenreData objects into Genre objects. 
-            self.genres = []
-            for genre in genres:
-                if isinstance(genre, tuple):
-                    if len(genre) == 2:
-                        genre, subgenres = genre
-                    else:
-                        genre, subgenres, audience_restriction = genre
-                if isinstance(genre, GenreData):
-                    genredata = genre
-                else:
-                    if isinstance(genre, Genre):
-                        genre_name = genre.name
-                    else:
-                        genre_name = genre
-                    genredata = classifier.genres.get(genre_name)
-                if not isinstance(genre, Genre):
-                    genre, ignore = Genre.lookup(_db, genre)
-
-                if exclude_genres and genredata in exclude_genres:
-                    continue
-                self.genres.append(genre)
-                if subgenre_behavior:
-                    if not genredata:
-                        raise ValueError("Couldn't turn %r into GenreData object to find subgenres." % genre)
-
-                    if subgenre_behavior == self.IN_SAME_LANE:
-                        for subgenre_data in genredata.all_subgenres:
-                            subgenre, ignore = Genre.lookup(_db, subgenre_data)
-                            # Incorporate this genre's subgenres,
-                            # recursively, in this lane.
-                            if not exclude_genres or subgenre_data not in exclude_genres:
-                                self.genres.append(subgenre)
-                    elif subgenre_behavior == self.IN_SUBLANES:
-                        if self.sublanes.lanes:
-                            raise ValueError(
-                                "Explicit list of sublanes was provided, but I'm also asked to turn subgenres into sublanes!")
-                        self.sublanes = LaneList.from_description(
-                                _db, self, genredata.subgenres)
-
-
-    @property
-    def url_name(self):
-        """Return the name of this lane to be used in URLs.
-
-        Basically, forward slash is changed to "__". This is necessary
-        because Flask tries to route "feed/Suspense%2FThriller" to
-        feed/Suspense/Thriller.
-        """
-        return self.name.replace("/", "__")
-
-    @property
-    def all_matching_genres(self):
-        genres = set()
-        if self.genres:
-            for genre in self.genres:
-                #if self.subgenre_behavior == self.IN_SAME_LANE:
-                genres = genres.union(genre.self_and_subgenres)
-                #else:
-                #    genres.add(genre)
-        return genres
 
     def audience_list_for_age_range(self, audience, age_range):
         """Normalize a value for Work.audience based on .age_range
@@ -280,11 +470,114 @@ class Lane(object):
             audiences.add(Classifier.AUDIENCE_CHILDREN)
         if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
-        return audiences
+        return audiences      
 
-    def gather_matching_genres(self, fiction):
-        """Find all subgenres managed by this lane which match the
-        given fiction status.
+    def custom_lists_for_identifier(self, list_data_source, list_identifier):
+        """Turn a data source and an identifier into a specific list
+        of CustomLists.
+        """
+        if isinstance(list_data_source, basestring):
+            list_data_source = DataSource.lookup(self._db, list_data_source)
+
+        # The lane may be restricted to books that are on one or
+        # more specific lists.
+        if not list_identifier:
+            self.lists = None
+        elif isinstance(list_identifier, CustomList):
+            self.lists = [list_identifier]
+        elif (isinstance(list_identifier, list) and
+              isinstance(list_identifier[0], CustomList)):
+            self.lists = list_identifier
+        else:
+            if isinstance(list_identifier, basestring):
+                list_identifiers = [list_identifier]
+            q = _db.query(CustomList).filter(
+                CustomList.foreign_identifier.in_(list_identifiers))
+            if list_data_source:
+                q = q.filter(CustomList.data_source==self.list_data_source)
+            lists = q.all()
+        return list_data_source, lists
+
+    def gather_genres(self, descriptor):
+        """Turn a genre descriptor into a (genres, sublanes) 2-tuple."""
+        if descriptor in (None, self.UNCLASSIFIED):
+            # We will only be considering works that are not
+            # classified under a genre.
+            return None, None
+
+        if not isinstance(descriptor, list):
+            descriptor = [descriptor]
+
+        genres = []
+        sublanes = None
+        for orig_genre in descriptor:
+            # genre is a Genre database object; genredata is a 
+            # non-database GenreData object.
+            genre, genredata = self.load_genre(orig_genre)
+            if self.exclude_genres and genredata in self.exclude_genres:
+                continue
+
+            genres.append(genre)
+            if self.subgenre_behavior:
+                if not genredata:
+                    raise ValueError(
+                        "Couldn't turn %r into GenreData object to find subgenres." % 
+                        orig_genre
+                    )
+
+                if self.subgenre_behavior == self.IN_SAME_LANE:
+                    # All subgenres of this genre go into the same
+                    # lane as their parent.
+                    for subgenre_data in genredata.all_subgenres:
+                        subgenre, ignore = Genre.lookup(_db, subgenre_data)
+                        # Incorporate this genre's subgenres,
+                        # recursively, in this lane.
+                        if (not self.exclude_genres
+                            or subgenre_data not in self.exclude_genres):
+                            genres.append(subgenre)
+                elif self.subgenre_behavior == self.IN_SUBLANES:
+                    # Each subgenre of this genre goes into its own sublane.
+                    sublanes = LaneList.from_description(
+                        _db, self, genredata.subgenres)
+                else:
+                    raise ValueError(
+                        "Unknown subgenre behavior: %r" % self.subgenre_behavior
+                    )
+        return genres, sublanes
+
+    def load_genre(self, descriptor):
+        """Turn some kind of genre descriptor into a Genre object."""
+        if isinstance(genre, tuple):
+            if len(genre) == 2:
+                genre, subgenres = genre
+            else:
+                genre, subgenres, audience_restriction = genre
+            return genre
+
+        if isinstance(genre, GenreData):
+            genredata = genre
+        else:
+            if isinstance(genre, Genre):
+                genre_name = genre.name
+            else:
+                genre_name = genre
+            # It's in the database--just make sure it's not an old entry
+            # that shouldn't be in the database anymore.
+            genredata = classifier.genres.get(genre_name)
+        if not isinstance(genre, Genre):
+            genre, ignore = Genre.lookup(_db, genre)
+        return genre
+
+    def all_matching_genres(self, genres):
+        genres = set()
+        if genres:
+            for genre in genres:
+                genres = genres.union(genre.self_and_subgenres)
+        return genres
+
+    def gather_matching_genres(self, genres, fiction):
+        """Find all subgenres of the given gnres which match the given fiction
+        status.
         
         This may also turn into an additional restriction (or
         liberation) on the fiction status
@@ -294,21 +587,22 @@ class Lane(object):
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-        genres = self.all_matching_genres
-        for genre in self.genres:
+        genres = self.all_matching_genres(genres)
+        for genre in genres:
             if fiction_default_by_genre:
                 if fiction is None:
                     fiction = genre.default_fiction
                 elif fiction != genre.default_fiction:
                     raise ValueError(
-                        "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
+                        "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions."
+                    )
         if fiction is None:
             # This is an impossible situation. Rather than eliminate all books
             # from consideration, allow both fiction and nonfiction.
             fiction = self.BOTH_FICTION_AND_NONFICTION
         return genres, fiction
 
-    def works(self, languages, fiction=None, availability=Work.ALL):
+    def works(self):
         """Find Works that will go together in this Lane.
 
         Works will:
@@ -331,42 +625,67 @@ class Lane(object):
 
         * Have a delivery mechanism that can be rendered by the
           default client.
-
-        :param fiction: Override the fiction setting found in `self.fiction`.
-
         """
-        hold_policy = Configuration.hold_policy()
-        if (availability == Work.ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
-            # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
-            # available.
-            availability = Work.CURRENTLY_AVAILABLE
 
-        q = Work.feed_query(self._db, languages, availability)
-        audience = self.audience
-        if fiction is None:
-            if self.fiction is not None:
-                fiction = self.fiction
-            else:
-                fiction = self.FICTION_DEFAULT_FOR_GENRE
+        q = _db.query(Work).join(Work.primary_edition)
+        q = q.join(Work.license_pools).join(LicensePool.data_source).join(
+            LicensePool.identifier
+        )
+        q = q.options(
+            contains_eager(Work.license_pools),
+            contains_eager(Work.primary_edition),
+            contains_eager(Work.license_pools, LicensePool.data_source),
+            contains_eager(Work.license_pools, LicensePool.edition),
+            contains_eager(Work.license_pools, LicensePool.identifier),
+            defer(Work.verbose_opds_entry),
+            defer(Work.primary_edition, Edition.extra),
+            defer(Work.license_pools, LicensePool.edition, Edition.extra),
+        )
 
-        #if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
-        #    # No genre plus a boolean value for `fiction` means
-        #    # fiction or nonfiction not associated with any genre.
-        #    q = Work.with_no_genres(q)
-        if self.genres is not None:
-            genres, fiction = self.gather_matching_genres(fiction)
-            # logging.debug("Genres: %s" % ", ".join([x.name for x in genres]))
-            if genres:
-                q = q.join(Work.work_genres)
-                q = q.options(contains_eager(Work.work_genres))
-                q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
+        if self.genres:
+            q = q.join(Work.work_genres)
+            q = q.options(contains_eager(Work.work_genres))
+            q = q.filter(WorkGenre.genre_id.in_([g.id for g in self.genres]))
 
-        if self.audience != None:
-            audiences = self.audience_list_for_age_range(
-                self.audience, self.age_range)
-            q = q.filter(Work.audience.in_(audiences))
+        q = self.apply_filters(q, Work, Edition)
+
+    def materialized_works(self):
+        """Find MaterializedWorks that will go together in this Lane."""
+        from model import (
+            MaterializedWork,
+            MaterializedWorkWithGenre,
+        )
+        if self.genres:
+            mw =MaterializedWorkWithGenre
+            q = self._db.query(mw)
+            q = q.filter(mw.genre_id.in_([g.id for g in genres]))            
+        else:
+            mw = MaterializedWork
+            q = self._db.query(mw)
+
+        # Avoid eager loading of objects that are contained in the 
+        # materialized view.
+        q = q.options(
+            lazyload(mw.license_pool, LicensePool.data_source),
+            lazyload(mw.license_pool, LicensePool.identifier),
+            lazyload(mw.license_pool, LicensePool.edition),
+        )
+
+        q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
+        q = q.options(contains_eager(mw.license_pool))
+        q = self.apply_filters(q, mw, mw)
+
+    def apply_filters(cls, q, work_model=Work, edition_model=Edition):
+        """Apply filters to a base query against Work or a materialized view.
+
+        :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
+        :param edition_model: Either Edition, MaterializedWork, or MaterializedWorkWithGenre
+        """
+        if self.languages:
+            q = q.filter(edition_model.language.in_(self.languages))
+
+        if self.audiences:
+            q = q.filter(work_model.audience.in_(audiences))
             if (Classifier.AUDIENCE_CHILDREN in self.audience
                 or Classifier.AUDIENCE_YOUNG_ADULT in self.audience):
                     gutenberg = DataSource.lookup(
@@ -379,17 +698,17 @@ class Lane(object):
                     # This hack should be removed in favor of a
                     # whitelist system and some way of allowing adults
                     # to see books aimed at pre-1923 children.
-                    q = q.filter(Edition.data_source_id != gutenberg.id)
+                    q = q.filter(edition_model.data_source_id != gutenberg.id)
 
         if self.appeal != None:
-            q = q.filter(Work.primary_appeal==self.appeal)
+            q = q.filter(work_model.primary_appeal==self.appeal)
 
         if self.age_range != None:
             if (Classifier.AUDIENCE_ADULT in audiences
                 or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
                 # Books for adults don't have target ages. If we're including
                 # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = Work.target_age == None
+                audience_has_no_target_age = work_model.target_age == None
             else:
                 audience_has_no_target_age = False
 
@@ -399,7 +718,7 @@ class Lane(object):
                 r = NumericRange(age_range[0], age_range[0], '[]')
                 q = q.filter(
                     or_(
-                        Work.target_age.contains(r),
+                        work_model.target_age.contains(r),
                         audience_has_no_target_age
                     )
                 )
@@ -408,20 +727,34 @@ class Lane(object):
                 r = NumericRange(age_range[0], age_range[-1], '[]')
                 q = q.filter(
                     or_(
-                        Work.target_age.overlaps(r),
+                        work_model.target_age.overlaps(r),
                         audience_has_no_target_age
                     )
                 )
 
-        if fiction == self.UNCLASSIFIED:
-            q = q.filter(Work.fiction==None)
-        elif fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(Work.fiction==fiction)
+        if self.fiction == self.UNCLASSIFIED:
+            q = q.filter(work_model.fiction==None)
+        elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
+            q = q.filter(work_model.fiction==fiction)
 
+        q = q.filter(edition_model.medium.in_(self.media))
+        
+        # TODO: Also filter on formats.
+
+        # TODO: Only find works with unsuppressed LicensePools.
+
+        # Only find unmerged presentation-ready works.
+        q = q.filter(
+            work_model.was_merged_into == None,
+            work_model.presentation_ready == True,
+        )
+
+        # Only find books the default client can fulfill.
         q = q.filter(LicensePool.delivery_mechanisms.any(
             DeliveryMechanism.default_client_can_fulfill==True)
         )
         return q
+
 
     def search(self, languages, query, search_client, limit=30):
         """Find works in this lane that match a search query.
@@ -490,191 +823,61 @@ class Lane(object):
         for some reason.
         """
         k = "%" + query + "%"
-        q = self.works(languages=languages, fiction=fiction).filter(
+        q = self.works().filter(
             or_(Edition.title.ilike(k),
                 Edition.author.ilike(k)))
-        q = q.order_by(Work.quality.desc())
+        #q = q.order_by(Work.quality.desc())
         return q
 
-    def quality_sample(
-            self, languages, quality_min_start,
-            quality_min_rock_bottom, target_size, availability,
-            random_sample=True):
-        """Randomly select Works from this Lane that meet minimum quality
-        criteria.
+    def featured_works(self, size):
+        """Find a random sample of `size` featured books.
 
-        Bring the quality criteria as low as necessary to fill a feed
-        of the given size, but not below `quality_min_rock_bottom`.
+        It's semi-okay for this to be slow, since it will only be run to
+        create cached feeds.
+
+        :return: A list of MaterializedWork or MaterializedWorkWithGenre
+        objects.
         """
-        if isinstance(languages, basestring):
-            languages = [languages]
-
-        quality_min = quality_min_start
-        previous_quality_min = None
-        results = []
-        while (quality_min >= quality_min_rock_bottom
-               and len(results) < target_size):
-            remaining = target_size - len(results)
-            query = self.works(languages=languages, availability=availability)
-            total_size = query.count()
-            if quality_min < 0.05:
-                quality_min = 0
-
-            query = query.filter(
-                Work.quality >= quality_min,
-            )
-            if previous_quality_min is not None:
-                query = query.filter(
-                    Work.quality < previous_quality_min)
-
-            query_without_random_sample = query
-
-            if random_sample:
-                offset = random.random()
-                # logging.debug("Random offset=%.2f", offset)
-                if offset < 0.5:
-                    query = query.filter(Work.random >= offset)
-                else:
-                    query = query.filter(Work.random <= offset)
-
-            start = time.time()
-            # logging.debug(dump_query(query))
-            max_results = int(remaining*1.3)
-            query = query.limit(max_results)
-            r = query.all()
-
-            if random_sample and len(r) < (remaining-5):
-                # Disable the random sample--there are not enough works for
-                # it to operate properly.
-                query = query_without_random_sample.limit(max_results)
-                r = query.all()
-
-
-            #for i in r[:remaining]:
-            #    logging.debug("%s (random=%.2f quality=%.2f)", i.title, i.random, i.quality)
-            results.extend(r[:remaining])
-
-            if quality_min == quality_min_rock_bottom or quality_min == 0:
-                # We can't lower the bar any more.
+        books = []
+        # Prefer to feature available books in the featured
+        # collection, but if that fails, gradually degrade to
+        # featuring all books, no matter what the availability.
+        for (collection, availability) in (
+                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW),
+                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL),
+                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW),
+                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL),
+                (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
+        ):
+            facets = Facets(collection=collection, availability=availability,
+                            order=Facets.ORDER_RANDOM)
+            desperate = (collection==Facets.COLLECTION_FULL
+                         and availability == Facets.AVAILABLE_ALL)
+            books = self.featured_works_for_facets(facets, size, desperate)
+            if books:
                 break
+        return books
 
-            # Lower the bar, in case we didn't get enough results.
-            previous_quality_min = quality_min
-
-            if results or quality_min_rock_bottom < 0.1:
-                quality_min *= 0.5
-            else:
-                # We got absolutely no results. Lower the bar all the
-                # way immediately.
-                quality_min = quality_min_rock_bottom
-
-            if quality_min < quality_min_rock_bottom:
-                quality_min = quality_min_rock_bottom
-
-        logging.debug(
-            "%s: %s Quality %.2f got us to %d results in %.2fsec",
-            self.name, availability, quality_min, len(results), 
-            time.time()-start
-        )
-        return results
-
-    def materialized_works(self, languages=None, fiction=None, 
-                           availability=Work.ALL):
-        """Find MaterializedWorks that will go together in this Lane."""
-        audience = self.audience
-
-        from model import (
-            MaterializedWork,
-            MaterializedWorkWithGenre,
-        )
-
-        if fiction is None:
-            if self.fiction is not None:
-                fiction = self.fiction
-            else:
-                fiction = self.FICTION_DEFAULT_FOR_GENRE
-        genres = []
-        if self.genres is not None:
-            genres, fiction = self.gather_matching_genres(fiction)
-
-        if genres:
-            mw =MaterializedWorkWithGenre
-            q = self._db.query(mw)
-            q = q.filter(mw.genre_id.in_([g.id for g in genres]))            
+    def featured_works_for_facets(facets, size, desperate=False):
+        """Find a random sample of `size` featured books matching
+        the given facets.
+        """
+        query = self.materialized_works(facets)
+        total_size = query.count()
+        if total_size >= needed:
+            # There are enough results that we can take a random
+            # sample.
+            offset = random.randint(0, total_size-size)
         else:
-            mw = MaterializedWork
-            q = self._db.query(mw)
-        
-        q = q.with_labels()
-
-        if languages:
-            q = q.filter(mw.language.in_(languages))
-
-        # Avoid eager loading of objects that are contained in the 
-        # materialized view.
-        q = q.options(
-            lazyload(mw.license_pool, LicensePool.data_source),
-            lazyload(mw.license_pool, LicensePool.identifier),
-            lazyload(mw.license_pool, LicensePool.edition),
-        )
-        if self.audience != None:
-            audiences = self.audience_list_for_age_range(
-                self.audience, self.age_range)
-            if audiences:
-                q = q.filter(mw.audience.in_(audiences))
-                if (Classifier.AUDIENCE_CHILDREN in audiences 
-                    or Classifier.AUDIENCE_YOUNG_ADULT in audiences):
-                    gutenberg = DataSource.lookup(
-                        self._db, DataSource.GUTENBERG)
-                    # TODO: A huge hack to exclude Project Gutenberg
-                    # books (which were deemed appropriate for
-                    # pre-1923 children but are not necessarily so for
-                    # 21st-century children.)
-                    #
-                    # This hack should be removed in favor of a
-                    # whitelist system and some way of allowing adults
-                    # to see books aimed at pre-1923 children.
-                    q = q.filter(mw.data_source_id != gutenberg.id)
-
-        if self.age_range != None:
-            if (Classifier.AUDIENCE_ADULT in audiences
-                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
-                # Books for adults don't have target ages. If we're including
-                # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = mw.target_age == None
+            if desperate:
+                # There are not enough results that we can take a
+                # random sample. But we're desperate. Use these books.
+                offset = 0
             else:
-                audience_has_no_target_age = False
-
-            age_range = self.age_range
-            if isinstance(age_range, int):
-                age_range = [age_range]
-            age_range = sorted(self.age_range)
-            if len(age_range) == 1:
-                # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0], '[]')
-                q = q.filter(
-                    or_(
-                        mw.target_age.contains(r), 
-                        audience_has_no_target_age
-                    )
-                )
-            else:
-                # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1], '[]')
-                q = q.filter(
-                    or_(
-                        mw.target_age.overlaps(r),
-                        audience_has_no_target_age
-                    )
-                )
-
-        if fiction == self.UNCLASSIFIED:
-            q = q.filter(mw.fiction==None)
-        elif fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(mw.fiction==fiction)
-        q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
-        q = q.options(contains_eager(mw.license_pool))
-        return q
+                # We're not desperate. Just return nothing.
+                return []
+        works = query.offset(offset).limit(size).all()
+        return random.shuffle(works)
 
 
 class LaneList(object):

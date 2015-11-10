@@ -2000,6 +2000,9 @@ class Edition(Base):
     MUSIC_MEDIUM = u"Music"
     VIDEO_MEDIUM = u"Video"
 
+    ELECTRONIC_FORMAT = u"Electronic"
+    CODEX_FORMAT = u"Codex"
+
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/Book",
         AUDIO_MEDIUM : u"http://schema.org/AudioObject",

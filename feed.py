@@ -21,34 +21,6 @@ class WorkFeed(object):
     AVAILABILITY_ALL = Work.ALL
     AVAILABILITY_ALWAYS = 'open-access'
 
-    # Define constants for use in URLs that need to explain how a feed
-    # is ordered.
-    ORDER_TITLE = 'title'
-    ORDER_AUTHOR = 'author'
-    ORDER_LAST_UPDATE = 'last_update'
-    ORDER_WORK_ID = 'work_id'
-    ORDER_RANDOM = 'random'
-
-    # Define a mapping between those constants and database fields.
-    order_facet_to_database_field = {
-        ORDER_TITLE : Edition.sort_title,
-        ORDER_AUTHOR : Edition.sort_author,
-        ORDER_LAST_UPDATE : Work.last_update_time,
-        ORDER_WORK_ID : Work.id,
-    }
-
-    # Define a reverse mapping.
-    active_facet_for_field = {
-        Edition.title : ORDER_TITLE,
-        Edition.sort_title : ORDER_TITLE,
-        Edition.sort_author : ORDER_AUTHOR,
-        Edition.author : ORDER_AUTHOR,
-    }
-
-    # Setting an order facet will promote the corresponding field to
-    # the top of this list but leave the rest of the list intact.
-    default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
-
     DEFAULT_AFTER = 0
     DEFAULT_SIZE = 50
 
