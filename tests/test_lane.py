@@ -5,7 +5,7 @@ from nose.tools import (
 
 from psycopg2.extras import NumericRange
 
-from tests import (
+from . import (
     DatabaseTest,
 )
 
@@ -27,6 +27,7 @@ from config import (
 )
 
 from model import (
+    DataSource,
     Genre,
     Work,
     Edition,
@@ -112,6 +113,78 @@ class TestFacets(object):
                   mw.works_id.asc()]
         actual = order(Facets.ORDER_RANDOM, mw, mw, True)
         compare(expect, actual)
+
+class TestFacetsApply(DatabaseTest):
+
+    def test_apply(self):
+        # Set up works that are matched by different types of collections.
+
+        # A high-quality open-access work.
+        open_access_high = self._work(with_open_access_download=True)
+        open_access_high.quality = 0.8
+        
+        # A low-quality open-access work.
+        open_access_low = self._work(with_open_access_download=True)
+        open_access_low.quality = 0.2
+
+        # A high-quality licensed work which is not currently available.
+        (licensed_e1, licensed_p1) = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True)
+        licensed_high = self._work(primary_edition=licensed_e1)
+        licensed_high.license_pools.append(licensed_p1)
+        licensed_high.quality = 0.8
+        licensed_p1.open_access = False
+        licensed_p1.licenses_owned = 1
+        licensed_p1.licenses_available = 0
+
+        # A low-quality licensed work which is currently available.
+        (licensed_e2, licensed_p2) = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True)
+        licensed_p2.open_access = False
+        licensed_low = self._work(primary_edition=licensed_e2)
+        licensed_low.license_pools.append(licensed_p2)
+        licensed_low.quality = 0.2
+        licensed_p2.licenses_owned = 1
+        licensed_p2.licenses_available = 1
+
+        def facetify(collection=Facets.COLLECTION_FULL, 
+                     available=Facets.AVAILABLE_ALL,
+                     order=Facets.ORDER_TITLE
+        ):
+            f = Facets(collection, available, order)
+            return f.apply(self._db, qu)
+
+        # We start by finding all works.
+        qu = self._db.query(Work).join(Work.primary_edition).join(
+            Work.license_pools
+        )
+        eq_(4, qu.count())
+
+        # If we restrict to books currently available we lose one book.
+        available_now = facetify(available=Facets.AVAILABLE_NOW)
+        eq_(3, available_now.count())
+        assert licensed_high not in available_now
+
+        # If we restrict to open-access books we lose two books.
+        open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
+        eq_(2, open_access.count())
+        assert licensed_high not in open_access
+        assert licensed_low not in open_access
+
+        # If we restrict to the main collection we lose the low-quality
+        # open-access book.
+        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
+        eq_(3, main_collection.count())
+        assert open_access_low not in main_collection
+
+        # If we restrict to the featured collection we lose both
+        # low-quality books
+        featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
+        eq_(2, featured_collection.count())
+        assert open_access_low not in featured_collection
+        assert licensed_low not in featured_collection
 
 
 # class TestLanes(DatabaseTest):

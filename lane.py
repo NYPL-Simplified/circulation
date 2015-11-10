@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import random
 import time
 import logging
@@ -52,6 +53,26 @@ class Facets(object):
 
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
+
+    def __init__(self, collection, availability, order,
+                 order_ascending=True):
+
+        hold_policy = Configuration.hold_policy()
+        if (availability == self.AVAILABLE_ALL and 
+            hold_policy == Configuration.HOLD_POLICY_HIDE):
+            # Under normal circumstances we would show all works, but
+            # site configuration says to hide books that aren't
+            # available.
+            availability = self.AVAILABLE_NOW
+
+        self.collection = collection
+        self.availability = availability
+        self.order = order
+        if order_ascending == self.ORDER_ASCENDING:
+            order_ascending = True
+        elif order_ascending == self.ORDER_DESCENDING:
+            order_ascending = False
+        self.order_ascending = order_ascending
 
     @classmethod
     def order_facet_to_database_field(
@@ -109,26 +130,6 @@ class Facets(object):
 
         return None
 
-    def __init__(self, collection, availability, order,
-                 order_ascending=True):
-
-        hold_policy = Configuration.hold_policy()
-        if (availability == self.AVAILABLE_ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
-            # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
-            # available.
-            availability = self.AVAILABLE_NOW
-
-        self.collection = collection
-        self.availability = availability
-        self.order = order
-        if order_ascending == self.ORDER_ASCENDING:
-            order_ascending = True
-        elif order_ascending == self.ORDER_DESCENDING:
-            order_ascending = False
-        self.order_ascending = order_ascending
-
     def apply(self, _db, q, work_model=Work, edition_model=Edition):
         """Restrict a query so that it only matches works that fit
         the given facets, and the query is ordered appropriately.
@@ -149,22 +150,22 @@ class Facets(object):
             # Include everything.
             pass
         elif self.collection == self.COLLECTION_MAIN:
-            # Exclude open-access books with a rating of less than
+            # Exclude open-access books with a quality of less than
             # 0.3.
             or_clause = or_(
                 LicensePool.open_access==False,
-                model.rating >= 0.3
+                work_model.quality >= 0.3
             )
             q = q.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a rating of less than
+            # Exclude books with a quality of less than
             # MINIMUM_FEATURED_QUALITY.
             q = q.filter(
-                model.rating >= Configuration.minimum_featured_quality()
+                work_model.quality >= Configuration.minimum_featured_quality()
             )
 
         # Set the ORDER BY clause.
-        order_by = self.order_by(self.order, work_model, edition_model)
+        order_by = self.order_by(work_model, edition_model)
         q = q.order_by(*order_by)
 
         return q

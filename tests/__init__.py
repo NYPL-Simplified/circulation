@@ -12,7 +12,7 @@ sys.path.insert(0, parent)
 # being imported twice through two different paths. Uncomment this
 # set_trace() and see where the second one is happening.
 #
-#set_trace()
+# set_trace()
 from testing import (
     DatabaseTest,
     DummyMetadataClient,
