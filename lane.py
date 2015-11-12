@@ -537,7 +537,8 @@ class Lane(object):
             # genre is a Genre database object; genredata is a 
             # non-database GenreData object.
             genre, genredata = self.load_genre(orig_genre)
-            if self.exclude_genres and genredata in self.exclude_genres:
+            if self.exclude_genres and genre in self.exclude_genres:
+                set_trace()
                 continue
 
             genres.append(genre)
@@ -598,38 +599,40 @@ class Lane(object):
             genre, ignore = Genre.lookup(self._db, genre)
         return genre, genredata
 
-    def all_matching_genres(self, genres):
-        genres = set()
+    @classmethod
+    def all_matching_genres(cls, genres):
+        matches = set()
         if genres:
             for genre in genres:
-                genres = genres.union(genre.self_and_subgenres)
-        return genres
+                matches = matches.union(genre.self_and_subgenres)
+        return matches
 
-    def gather_matching_genres(self, genres, fiction):
-        """Find all subgenres of the given gnres which match the given fiction
+    @classmethod
+    def gather_matching_genres(cls, genres, fiction):
+        """Find all subgenres of the given genres which match the given fiction
         status.
         
         This may also turn into an additional restriction (or
         liberation) on the fiction status
         """
-        fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
+        fiction_default_by_genre = (fiction == cls.FICTION_DEFAULT_FOR_GENRE)
         if fiction_default_by_genre:
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-        genres = self.all_matching_genres(genres)
+        genres = cls.all_matching_genres(genres)
         for genre in genres:
             if fiction_default_by_genre:
                 if fiction is None:
                     fiction = genre.default_fiction
                 elif fiction != genre.default_fiction:
                     raise ValueError(
-                        "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions."
+                        "I was told to use the default fiction restriction, but the genres %s include contradictory fiction restrictions." % ", ".join([x.name for x in genres])
                     )
         if fiction is None:
             # This is an impossible situation. Rather than eliminate all books
             # from consideration, allow both fiction and nonfiction.
-            fiction = self.BOTH_FICTION_AND_NONFICTION
+            fiction = cls.BOTH_FICTION_AND_NONFICTION
         return genres, fiction
 
     def works(self):
@@ -689,7 +692,7 @@ class Lane(object):
         if self.genres:
             mw =MaterializedWorkWithGenre
             q = self._db.query(mw)
-            q = q.filter(mw.genre_id.in_([g.id for g in genres]))            
+            q = q.filter(mw.genre_id.in_([g.id for g in self.genres]))
         else:
             mw = MaterializedWork
             q = self._db.query(mw)

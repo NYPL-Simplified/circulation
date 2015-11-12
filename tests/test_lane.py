@@ -1,6 +1,7 @@
 from nose.tools import (
     eq_,
     set_trace,
+    assert_raises,
 )
 
 from psycopg2.extras import NumericRange
@@ -202,8 +203,52 @@ class TestFacetsApply(DatabaseTest):
 
 class TestLanes(DatabaseTest):
 
+    def test_all_matching_genres(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        cooking, ig = Genre.lookup(self._db, classifier.Cooking)
+        matches = Lane.all_matching_genres([fantasy, cooking])
+        names = sorted([x.name for x in matches])
+        eq_(
+            [u'Cooking', u'Epic Fantasy', u'Fantasy', u'Historical Fantasy', 
+             u'Urban Fantasy'], 
+            names
+        )
+
+    def test_gather_matching_genres(self):
+        self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+
+        self.cooking, ig = Genre.lookup(self._db, classifier.Cooking)
+        self.history, ig = Genre.lookup(self._db, classifier.History)
+
+        # Fantasy contains three subgenres and is restricted to fiction.
+        fantasy, default = Lane.gather_matching_genres(
+            [self.fantasy], Lane.FICTION_DEFAULT_FOR_GENRE
+        )
+        eq_(4, len(fantasy))
+        eq_(True, default)
+
+        fantasy, default = Lane.gather_matching_genres([self.fantasy], True)
+        eq_(4, len(fantasy))
+        eq_(True, default)
+
+        # We can make this lane but it won't contain any books.
+        # TODO: This seems a bit strange.
+        fantasy, default = Lane.gather_matching_genres([self.fantasy], False)
+        eq_(4, len(fantasy))
+        eq_(False, default)
+
+        # Fantasy and history have conflicting fiction defaults, so
+        # although we can make a lane that contains both, we can't
+        # have it use the default value.
+        assert_raises(ValueError, Lane.gather_matching_genres,
+            [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
+        )
+
+
+class TestLanesQuery(DatabaseTest):
+
     def setup(self):
-        super(TestLanes, self).setup()
+        super(TestLanesQuery, self).setup()
 
         # Look up the Fantasy genre and some of its subgenres.
         self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
@@ -401,131 +446,32 @@ class TestLanes(DatabaseTest):
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
             audience=Lane.AUDIENCE_ADULT,
         )
-
         # We get three books: Fantasy, Urban Fantasy, and Epic Fantasy.
         w, mw = test_expectations(
             lane, 3, lambda x: True
         )
-        set_trace()        
+        expect = [u'Epic Fantasy Adult', u'Fantasy Adult', u'Urban Fantasy Adult']
+        eq_(expect, sorted([x.sort_title for x in w]))
+        eq_(expect, sorted([x.sort_title for x in mw]))
 
-#     def test_setup(self):
-#         fantasy_genre, ig = 
-#         epic_fantasy, ig = 
-#         historical_fantasy, ig = Genre.lookup(
-#             self._db, classifier.Historical_Fantasy)
-#         urban_fantasy, ig = Genre.lookup(
-#             self._db, classifier.Urban_Fantasy)
-#         fantasy_subgenres = classifier.Fantasy.subgenres
+        # Here's a 'YA fantasy' lane in which urban fantasy is explicitly
+        # excluded (maybe because it has its own separate lane).
+        lane = Lane(
+            self._db, full_name="Adult Fantasy",
+            genres=[self.fantasy], 
+            exclude_genres=[self.urban_fantasy],
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
+            audience=Lane.AUDIENCE_ADULT,
+        )
+        # We get two books: Fantasy, Urban Fantasy, and Epic Fantasy.
+        w, mw = test_expectations(
+            lane, 2, lambda x: True
+        )
+        expect = [u'Epic Fantasy YA', u'Fantasy YA']
+        eq_(expect, sorted([x.sort_title for x in w]))
+        eq_(expect, sorted([x.sort_title for x in mw]))
 
-
-#         fantasy_and_subgenres = set([
-#             fantasy_genre, urban_fantasy, epic_fantasy, historical_fantasy])
-
-#         # Although the subgenres have their own lanes, the parent lane
-#         # also incorporates books from the subgenres.
-#         eq_(fantasy_and_subgenres, set(adult_fantasy_lane.genres))
-#         eq_(Classifier.AUDIENCE_ADULT, adult_fantasy_lane.audience)
-#         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, adult_fantasy_lane.fiction)
-
-#         # Here's a 'YA Fantasy' lane, which has no sublanes.
-#         ya_fantasy_lane = Lane(
-#             self._db, fantasy_genre.name, 
-#             [fantasy_genre], Lane.IN_SAME_LANE,
-#             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
-#             audience=Classifier.AUDIENCE_YOUNG_ADULT)
-
-#         # The parent lane also includes books from the subgenres.
-#         eq_(fantasy_and_subgenres, set(ya_fantasy_lane.genres))
-#         eq_(Classifier.AUDIENCE_YOUNG_ADULT, ya_fantasy_lane.audience)
-
-#         # Here's a 'YA Science Fiction' lane, which has no sublanes,
-#         # and which excludes Dystopian SF and Steampunk (which have their
-#         # own lanes on the same level as 'YA Science Fiction')
-#         ya_sf = Lane(
-#             self._db, full_name="YA Science Fiction",
-#             display_name="Science Fiction",
-#             genres=[classifier.Science_Fiction],
-#             subgenre_behavior=Lane.IN_SAME_LANE,
-#             exclude_genres=[
-#                 classifier.Dystopian_SF, classifier.Steampunk],
-#             audience=Classifier.AUDIENCE_YOUNG_ADULT)
-#         eq_([], ya_sf.sublanes.lanes)
-#         eq_("YA Science Fiction", ya_sf.name)
-#         eq_("Science Fiction", ya_sf.display_name)
-#         included_subgenres = [x.name for x in ya_sf.genres]
-#         assert "Cyberpunk" in included_subgenres
-#         assert "Dystopian SF" not in included_subgenres
-#         assert "Steampunk" not in included_subgenres
-
-#     def test_materialized_works(self):
-#         from model import (
-#             MaterializedWork,
-#             MaterializedWorkWithGenre,
-#         )
-
-#         # Look up two genres.
-#         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
-#         cooking, ig = Genre.lookup(self._db, classifier.Cooking)
-
-#         # Here's a fantasy book.
-#         w1 = self._work(genre=fantasy, with_license_pool=True)
-#         w1.simple_opds_entry = "foo"
-
-#         # Here's a cooking book.
-#         w2 = self._work(genre=cooking, fiction=False, with_license_pool=True)
-#         w2.simple_opds_entry = "bar"
-
-#         # Here's a fantasy book for children ages 7-9.
-#         w3 = self._work(genre=fantasy, fiction=True, with_license_pool=True,
-#                         audience=Classifier.AUDIENCE_CHILDREN)
-#         w3.target_age = NumericRange(7,9)
-#         w3.simple_opds_entry = "baz"
-        
-#         # Refresh the materialized views so that all three books are
-#         # included in the views.
-#         SessionManager.refresh_materialized_views(self._db)
-
-#         # Let's get materialized works from the Fantasy genre.
-#         fantasy_lane = Lane(
-#             self._db, full_name="Fantasy", genres=[classifier.Fantasy])
-#         [materialized] = fantasy_lane.materialized_works(['eng']).all()
-
-#         # This materialized work corresponds to the adult fantasy book. We
-#         # did not get an entry for the cooking book or the children's book.
-#         assert isinstance(materialized, MaterializedWorkWithGenre)
-#         eq_(materialized.works_id, w1.id)
-
-#         # Let's get materialized works of nonfiction.
-#         nonfiction_lane = Lane(
-#             self._db, full_name="Nonfiction", genres=[], fiction=False)
-#         [materialized] = nonfiction_lane.materialized_works().all()
-
-#         # This materialized work corresponds to the cooking book. We
-#         # did not get an entry for the other books.
-#         assert isinstance(materialized, MaterializedWork)
-#         eq_(materialized.works_id, w2.id)
-
-#         # Let's get materialized works suitable for children age 8.
-#         age_8_lane = Lane(
-#             self._db, full_name="Age 8", genres=[], audience='Children',
-#             age_range=[8]
-#         )
-#         [materialized] = age_8_lane.materialized_works().all()
-#         assert isinstance(materialized, MaterializedWork)
-#         eq_(materialized.works_id, w3.id)
-
-#         # We get the same book by asking for works suitable for
-#         # children ages 7-10.
-#         age_7_10_lane = Lane(
-#             self._db, full_name="Ages 7-10", genres=[], audience='Children',
-#             age_range=[7,10]
-#         )
-#         [materialized] = age_7_10_lane.materialized_works().all()
-#         assert isinstance(materialized, MaterializedWork)
-#         eq_(materialized.works_id, w3.id)
-
-#         # Verify that the language restriction works.
-#         eq_([], fantasy_lane.materialized_works(['fre']).all())
 
 #     def test_availability_restriction(self):
 
