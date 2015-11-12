@@ -254,6 +254,66 @@ class TestLanes(DatabaseTest):
             [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
         )
 
+    def test_subgenres_become_sublanes(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        lane = Lane(
+            self._db, "YA Fantasy", genres=fantasy, 
+            languages='eng',
+            audiences=Lane.AUDIENCE_YOUNG_ADULT,
+            age_range=[15,16],
+            subgenre_behavior=Lane.IN_SUBLANES
+        )
+        sublanes = lane.sublanes.lanes
+        names = sorted([x.name for x in sublanes])
+        eq_(["Epic Fantasy", "Historical Fantasy", "Urban Fantasy"],
+            names)
+
+        # Sublanes inherit settings from their parent.
+        assert all([x.languages==['eng'] for x in sublanes])
+        assert all([x.age_range==[15, 16] for x in sublanes])
+        assert all([x.audiences==set(['Young Adult']) for x in sublanes])
+
+    def test_custom_sublanes(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        urban_fantasy_lane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        fantasy_lane = Lane(
+            self._db, "Fantasy", fantasy, 
+            genres=fantasy,
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            sublanes=[urban_fantasy_lane]
+        )
+        eq_([urban_fantasy_lane], fantasy_lane.sublanes.lanes)
+
+        fantasy_lane = Lane(
+            self._db, "Fantasy", fantasy, 
+            genres=fantasy,
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            sublanes="Urban Fantasy"
+        )
+        eq_([urban_fantasy], [x.genres for x in fantasy_lane.sublanes.lanes])
+
+
+
+    def test_custom_lanes_conflict_with_subgenre_sublanes(self):
+
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        urban_fantasy_lane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        assert_raises(ValueError, Lane,
+            self._db, "Fantasy", fantasy, 
+            genres=fantasy,
+            audiences=Lane.AUDIENCE_YOUNG_ADULT,
+            subgenre_behavior=Lane.IN_SUBLANES,
+            sublanes=[urban_fantasy_lane]
+        )
+
 
 class TestLanesQuery(DatabaseTest):
 
@@ -543,8 +603,7 @@ class TestLanesQuery(DatabaseTest):
 #             eq_(1, len(hide_on_hold_works))
         
 
-# class TestLaneList(DatabaseTest):
-    
+   
 #     def test_from_description(self):
 #         lanes = LaneList.from_description(
 #             self._db,

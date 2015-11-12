@@ -4225,10 +4225,20 @@ class Genre(Base):
             return result, False
 
     @property
+    def genredata(self):
+        return classifier.genres[self.name]
+
+    @property
+    def subgenres(self):
+        for genre in self.self_and_subgenres:
+            if genre != self:
+                yield genre
+
+    @property
     def self_and_subgenres(self):
         _db = Session.object_session(self)
         genres = []
-        for genre_data in classifier.genres[self.name].self_and_subgenres:
+        for genre_data in self.genredata.self_and_subgenres:
             genres.append(self.lookup(_db, genre_data.name)[0])
         return genres
 

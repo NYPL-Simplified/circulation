@@ -277,78 +277,6 @@ class Lane(object):
         output = template % vars
         return output.encode("ascii", "replace")
 
-    @classmethod
-    def from_dict(cls, _db, d, parent_lane):
-        """Turn a descriptive dictionary into a Lane object."""
-        if isinstance(d, Lane):
-            return d
-
-        if d.get('suppress_lane'):
-            return None
-
-        name = d.get('name') or d.get('full_name')
-        display_name = d.get('display_name')
-
-        genres = []
-        for x in d.get('genres', []):
-            genre, new = Genre.lookup(_db, x)
-            if genre:
-                genres.append(genre)
-        exclude_genres = []
-        for x in d.get('exclude_genres', []):
-            genre, new = Genre.lookup(_db, x)
-            if genre:
-                exclude_genres.append(genre)
-
-        default_audience = None
-        default_age_range = None
-        default_languages = None
-        if parent_lane:
-            default_audience = parent_lane.audience
-            default_age_range = parent_lane.age_range
-            default_languages = parent_lane.languages
-
-        languages = d.get('languages', default_languages)
-        # if not languages:
-        #     raise ValueError(
-        #         "No guidance as to which languages to use for %s!" % name
-        #     )
-
-        audience = d.get('audience', default_audience)        
-        age_range = None
-        if 'age_range' in d:
-            age_range = d['age_range']
-            if not (
-                    isinstance(age_range, tuple) 
-                    or isinstance(age_range, list)
-            ):
-                cls.log.warn("Invalid age range for %s: %r", name, age_range)
-                age_range = None
-        age_range = age_range or default_age_range
-
-        appeal = d.get('appeal')
-
-        subgenre_behavior = d.get('subgenre_behavior', Lane.IN_SUBLANES)
-        fiction = d.get('fiction', Lane.FICTION_DEFAULT_FOR_GENRE)
-        if fiction == 'default':
-            fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-        if fiction == 'both':
-            fiction = Lane.BOTH_FICTION_AND_NONFICTION        
-
-        lane = Lane(
-            _db, full_name=name, display_name=display_name,
-            genres=genres, subgenre_behavior=subgenre_behavior,
-            fiction=fiction, audience=audience, parent=parent_lane, 
-            sublanes=[], appeal=appeal, age_range=age_range,
-            exclude_genres=exclude_genres, languages=languages
-        )
-
-        # Now create sublanes, recursively.
-        sublane_descs = d.get('sublanes', [])
-        lane.sublanes = LaneList.from_description(_db, lane, sublane_descs)
-            
-        return lane
-
     def __init__(self, 
                  _db, 
                  full_name,
@@ -384,7 +312,7 @@ class Lane(object):
         def set_from_parent(field_name, value, default=None):
             if not value:
                 if self.parent:
-                    value = getattr(self.parent, value, default)
+                    value = getattr(self.parent, field_name, default)
                 else:
                     value = default
             setattr(self, field_name, value)
@@ -392,7 +320,7 @@ class Lane(object):
         def set_list(field_name, value, default=None):
             if not value:
                 if self.parent:
-                    value = getattr(self.parent, value, default)
+                    value = getattr(self.parent, field_name, default)
                 else:
                     value = default
             if isinstance(value, basestring):
@@ -429,8 +357,10 @@ class Lane(object):
         # objects and the corresponding GenreData objects.
         genre_objects = []
         genre_data = []
+        if not any(isinstance(genres, x) for x in (list, tuple, set)):
+            genres = [genres]
         for genre in genres:            
-            obj, data = self.load_genre(genre)
+            obj, data = self.load_genre(self._db, genre)
             genre_objects.append(obj)
             genre_data.append(data)
 
@@ -439,7 +369,7 @@ class Lane(object):
         full_exclude_genredata = set()
         if exclude_genres:
             for genre in exclude_genres:
-                genre, ignore = self.load_genre(genre)
+                genre, ignore = self.load_genre(self._db, genre)
                 for l in genre.self_and_subgenres:
                     full_exclude_genres.add(l)
 
@@ -457,13 +387,14 @@ class Lane(object):
             # full_exclude_genres must get a constructed sublane.
             for genre in genres:                
                 for subgenre in genre.subgenres:
-                    subgenre_sublanes.append(
-                        Lane(
+                    if subgenre in full_exclude_genres:
+                        continue
+                    sublane = Lane(
                             self._db, full_name=subgenre.name,
                             parent=self, genres=[subgenre],
                             subgenre_behavior=self.IN_SUBLANES
-                        )
                     )
+                    subgenre_sublanes.append(sublane)
 
         if sublanes and subgenre_sublanes:
             raise ValueError(
@@ -471,13 +402,15 @@ class Lane(object):
             )
 
         if subgenre_sublanes:
-            self.sublanes = subgenre_sublanes
+            self.sublanes = LaneList(self)
+            for sl in subgenre_sublanes:
+                self.sublanes.add(sl)
         elif sublanes:
             self.sublanes = LaneList.from_description(
                 _db, self, sublanes
             )
         else:
-            self.sublanes = []
+            self.sublanes = LaneList.from_description(_db, self, [])
 
         # Run some sanity checks.
         ch = Classifier.AUDIENCE_CHILDREN
@@ -552,7 +485,26 @@ class Lane(object):
             lists = q.all()
         return list_data_source, lists
 
-    def load_genre(self, descriptor):
+
+    @classmethod
+    def from_description(cls, _db, parent, description):
+        genre = None
+        if isinstance(description, Lane):
+            # The lane has already been created.
+            description.parent = parent
+            return description
+        elif isinstance(description, dict):
+            if description.get('suppress_lane'):
+                return None
+            # Invoke the constructor
+            return Lane(_db, parent, **description)
+        else:
+            # This is a lane for a specific genre.
+            genre, genredata = Lane.load_genre(_db, description)
+            return Lane(_db, genre.name, parent=parent, genres=genre)
+
+    @classmethod
+    def load_genre(cls, _db, descriptor):
         """Turn some kind of genre descriptor into a (Genre, GenreData) 
         2-tuple.
 
@@ -579,7 +531,7 @@ class Lane(object):
             genredata = classifier.genres.get(genre_name)
 
         if not isinstance(genre, Genre):
-            genre, ignore = Genre.lookup(self._db, genre)
+            genre, ignore = Genre.lookup(_db, genre)
         return genre, genredata
 
     @classmethod
@@ -928,46 +880,9 @@ class LaneList(object):
     @classmethod
     def from_description(cls, _db, parent_lane, description):
         lanes = LaneList(parent_lane)
-        if parent_lane:
-            default_fiction = parent_lane.fiction
-            default_audiences = parent_lane.audiences
-        else:
-            default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-            default_audiences = Classifier.AUDIENCES_ADULT
-
         description = description or []
         for lane_description in description:
-            display_name=None
-            if isinstance(lane_description, basestring):
-                lane_description = classifier.genres[lane_description]
-            elif isinstance(lane_description, tuple):
-                if len(lane_description) == 2:
-                    name, subdescriptions = lane_description
-                elif len(lane_description) == 3:
-                    name, subdescriptions, audience_restriction = lane_description
-                    if (parent_lane and audience_restriction and 
-                        parent_lane.audiences and
-                        parent_lane.audiences != audience_restriction
-                        and not audience_restriction in parent_lane.audiences):
-                        continue
-                lane_description = classifier.genres[name]
-            if isinstance(lane_description, dict):
-                lane = Lane.from_dict(_db, lane_description, parent_lane)
-            elif isinstance(lane_description, Genre):
-                lane = Lane(_db, lane_description.name, [lane_description],
-                            Lane.IN_SAME_LANE, default_fiction,
-                            default_audiences, parent_lane,
-                            sublanes=genre.subgenres)
-            elif isinstance(lane_description, GenreData):
-                # This very simple lane is the default view for a genre.
-                genre = lane_description
-                lane = Lane(_db, genre.name, [genre], Lane.IN_SUBLANES,
-                            default_fiction,
-                            default_audiences, parent_lane)
-            elif isinstance(lane_description, Lane):
-                # The Lane object has already been created.
-                lane = lane_description
-                lane.parent = parent_lane
+            lane = Lane.from_description(_db, parent_lane, lane_description)
 
             def _add_recursively(l):
                 lanes.add(l)
