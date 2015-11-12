@@ -241,11 +241,11 @@ class TestLanes(DatabaseTest):
         eq_(True, default)
 
 
-        # We can make this lane but it won't contain any books.
-        # TODO: This seems a bit strange.
+        # Attempting to create a contradiction (like nonfiction fantasy)
+        # will create a lane broad enough to actually contain books
         fantasy, default = Lane.gather_matching_genres([self.fantasy], False)
         eq_(4, len(fantasy))
-        eq_(False, default)
+        eq_(Lane.BOTH_FICTION_AND_NONFICTION, default)
 
         # Fantasy and history have conflicting fiction defaults, so
         # although we can make a lane that contains both, we can't
@@ -385,34 +385,34 @@ class TestLanesQuery(DatabaseTest):
             assert all([mw_predicate(x) for x in mw])
             return w, mw
 
-        # The 'everything' lane contains 19 works.
-        lane = Lane.everything(self._db, media=None)
-        w, mw = test_expectations(lane, 19, lambda x: True)
+        # The 'everything' lane contains 18 works -- everything except
+        # the music.
+        lane = Lane(self._db, "Everything", media=None)
+        w, mw = test_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
-        spanish = Lane.everything(self._db, languages='spa')
-        eq_(['spa'], spanish.languages)
-        set_trace()
+        lane = Lane(self._db, "Spanish", languages='spa')
+        eq_(['spa'], lane.languages)
         w, mw = test_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'music' lane contains 1 work of music
-        lane = Lane.everything(self._db, media=Edition.MUSIC_MEDIUM)
+        lane = Lane(self._db, "Music", media=Edition.MUSIC_MEDIUM)
         w, mw = test_expectations(
             lane, 1, 
             lambda x: x.primary_edition.medium==Edition.MUSIC_MEDIUM,
             lambda x: x.medium==Edition.MUSIC_MEDIUM
         )
         
-        # The 'fiction' lane contains ten fiction books.
-        lane = Lane.everything(self._db, fiction=True)
+        # The 'English fiction' lane contains ten fiction books.
+        lane = Lane(self._db, "English Fiction", fiction=True, languages='eng')
         w, mw = test_expectations(
             lane, 10, lambda x: x.fiction
         )
 
         # The 'nonfiction' lane contains seven nonfiction books.
         # It does not contain the music.
-        lane = Lane.everything(self._db, fiction=False)
+        lane = Lane(self._db, "Nonfiction", fiction=False)
         w, mw = test_expectations(
             lane, 7, 
             lambda x: x.primary_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
@@ -420,7 +420,8 @@ class TestLanesQuery(DatabaseTest):
         )
 
         # The 'adults' lane contains five books for adults.
-        lane = Lane.everything(self._db, audience=Lane.AUDIENCE_ADULT)
+        lane = Lane(self._db, "Adult English",
+                    audiences=Lane.AUDIENCE_ADULT, languages='eng')
         w, mw = test_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_ADULT
         )
@@ -428,7 +429,9 @@ class TestLanesQuery(DatabaseTest):
         # This lane contains those five books plus two adults-only
         # books.
         audiences = [Lane.AUDIENCE_ADULT, Lane.AUDIENCE_ADULTS_ONLY]
-        lane = Lane.everything(self._db, audience=audiences)
+        lane = Lane(self._db, "Adult + Adult Only",
+                    audiences=audiences, languages='eng'
+        )
         w, mw = test_expectations(
             lane, 7, lambda x: x.audience in audiences
         )
@@ -436,14 +439,15 @@ class TestLanesQuery(DatabaseTest):
         assert(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
 
         # The 'Young Adults' lane contains five books.
-        lane = Lane.everything(self._db, audience=Lane.AUDIENCE_YOUNG_ADULT)
+        lane = Lane(self._db, "Young Adults", 
+                    audiences=Lane.AUDIENCE_YOUNG_ADULT)
         w, mw = test_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_YOUNG_ADULT
         )
 
         # There is one book suitable for seven-year-olds.
-        lane = Lane.everything(
-            self._db, audience=Lane.AUDIENCE_CHILDREN,
+        lane = Lane(
+            self._db, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=7
         )
         w, mw = test_expectations(
@@ -451,8 +455,8 @@ class TestLanesQuery(DatabaseTest):
         )
 
         # There are four books suitable for ages 10-12.
-        lane = Lane.everything(
-            self._db, audience=Lane.AUDIENCE_CHILDREN,
+        lane = Lane(
+            self._db, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=(10,12)
         )
         w, mw = test_expectations(
@@ -466,11 +470,11 @@ class TestLanesQuery(DatabaseTest):
         # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
         # have their own lanes.
         lane = Lane(
-            self._db, full_name="Adult Fantasy",
+            self._db, "Adult Fantasy",
             genres=[self.fantasy], 
             subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
-            audience=Lane.AUDIENCE_ADULT,
+            audiences=Lane.AUDIENCE_ADULT,
         )
         # We get three books: Fantasy, Urban Fantasy, and Epic Fantasy.
         w, mw = test_expectations(
@@ -488,7 +492,7 @@ class TestLanesQuery(DatabaseTest):
             exclude_genres=[self.urban_fantasy],
             subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
-            audience=Lane.AUDIENCE_YOUNG_ADULT,
+            audiences=Lane.AUDIENCE_YOUNG_ADULT,
         )
 
         # Urban Fantasy does not show up in this lane's genres.
