@@ -309,10 +309,10 @@ class Lane(object):
             default_languages = parent_lane.languages
 
         languages = d.get('languages', default_languages)
-        if not languages:
-            raise ValueError(
-                "No guidance as to which languages to use for %s!" % name
-            )
+        # if not languages:
+        #     raise ValueError(
+        #         "No guidance as to which languages to use for %s!" % name
+        #     )
 
         audience = d.get('audience', default_audience)        
         age_range = None
@@ -351,6 +351,7 @@ class Lane(object):
 
     @classmethod
     def everything(cls, _db, fiction=None,
+                   languages=None,
                    audience=None, media=Edition.BOOK_MEDIUM,
                    age_range=None
     ):
@@ -373,6 +374,7 @@ class Lane(object):
             _db, full_name, genres=[], subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=fiction,
             audience=audience,
+            languages=languages,
             age_range=age_range,
             media=media
         )
@@ -430,16 +432,16 @@ class Lane(object):
             list_data_source, list_identifier)
         self.list_seen_in_previous_days = list_seen_in_previous_days
       
-        self.exclude_genres = set()
+        self.subgenre_behavior = subgenre_behavior
+
+        full_exclude_genres = set()
         if exclude_genres:
             for genre in exclude_genres:
                 for l in genre.self_and_subgenres:
-                    self.exclude_genres.add(l)
-        self.subgenre_behavior = subgenre_behavior
-
+                    full_exclude_genres.add(l)
         genres, sublanes = self.gather_genres(genres)
         self.genres, self.fiction = self.gather_matching_genres(
-            genres, fiction
+            genres, fiction, full_exclude_genres
         )
 
         self.sublanes = LaneList.from_description(
@@ -537,9 +539,6 @@ class Lane(object):
             # genre is a Genre database object; genredata is a 
             # non-database GenreData object.
             genre, genredata = self.load_genre(orig_genre)
-            if self.exclude_genres and genre in self.exclude_genres:
-                set_trace()
-                continue
 
             genres.append(genre)
             if self.subgenre_behavior:
@@ -556,9 +555,6 @@ class Lane(object):
                         subgenre, ignore = Genre.lookup(self._db, subgenre_data)
                         # Incorporate this genre's subgenres,
                         # recursively, in this lane.
-                        if (not self.exclude_genres
-                            or subgenre_data not in self.exclude_genres):
-                            genres.append(subgenre)
                 elif self.subgenre_behavior == self.IN_SUBLANES:
                     # Each subgenre of this genre goes into its own sublane.
                     sublanes = LaneList.from_description(
@@ -600,15 +596,16 @@ class Lane(object):
         return genre, genredata
 
     @classmethod
-    def all_matching_genres(cls, genres):
+    def all_matching_genres(cls, genres, exclude_genres=None):
         matches = set()
+        exclude_genres = exclude_genres or []
         if genres:
             for genre in genres:
                 matches = matches.union(genre.self_and_subgenres)
-        return matches
+        return [x for x in matches if x not in exclude_genres]
 
     @classmethod
-    def gather_matching_genres(cls, genres, fiction):
+    def gather_matching_genres(cls, genres, fiction, exclude_genres=[]):
         """Find all subgenres of the given genres which match the given fiction
         status.
         
@@ -620,7 +617,7 @@ class Lane(object):
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-        genres = cls.all_matching_genres(genres)
+        genres = cls.all_matching_genres(genres, exclude_genres)
         for genre in genres:
             if fiction_default_by_genre:
                 if fiction is None:
@@ -633,6 +630,7 @@ class Lane(object):
             # This is an impossible situation. Rather than eliminate all books
             # from consideration, allow both fiction and nonfiction.
             fiction = cls.BOTH_FICTION_AND_NONFICTION
+
         return genres, fiction
 
     def works(self):

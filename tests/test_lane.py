@@ -216,6 +216,9 @@ class TestLanes(DatabaseTest):
 
     def test_gather_matching_genres(self):
         self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        self.urban_fantasy, ig = Genre.lookup(
+            self._db, classifier.Urban_Fantasy
+        )
 
         self.cooking, ig = Genre.lookup(self._db, classifier.Cooking)
         self.history, ig = Genre.lookup(self._db, classifier.History)
@@ -230,6 +233,13 @@ class TestLanes(DatabaseTest):
         fantasy, default = Lane.gather_matching_genres([self.fantasy], True)
         eq_(4, len(fantasy))
         eq_(True, default)
+
+        fantasy, default = Lane.gather_matching_genres(
+            [self.fantasy], True, [self.urban_fantasy]
+        )
+        eq_(3, len(fantasy))
+        eq_(True, default)
+
 
         # We can make this lane but it won't contain any books.
         # TODO: This seems a bit strange.
@@ -288,11 +298,11 @@ class TestLanesQuery(DatabaseTest):
             # source other than Gutenberg, or they'll get filtered
             # out.
             ya_edition = self._edition(
+                title="%s YA" % genre.name,                 
                 data_source_name=DataSource.OVERDRIVE,
                 with_license_pool=True
             )
             ya_work = self._work(
-                title="%s YA" % genre.name, 
                 audience=Lane.AUDIENCE_YOUNG_ADULT,
                 fiction=fiction,
                 with_license_pool=True,
@@ -303,10 +313,10 @@ class TestLanesQuery(DatabaseTest):
             ya_work.simple_opds_entry = '<entry>'
 
             childrens_edition = self._edition(
+                title="%s Childrens" % genre.name,
                 data_source_name=DataSource.OVERDRIVE, with_license_pool=True
             )
             childrens_work = self._work(
-                title="%s Childrens" % genre.name,
                 audience=Lane.AUDIENCE_CHILDREN,
                 fiction=fiction,
                 with_license_pool=True,
@@ -344,6 +354,15 @@ class TestLanesQuery(DatabaseTest):
         self.music.primary_edition.medium=Edition.MUSIC_MEDIUM
         self.music.simple_opds_entry = '<entry>'
 
+        # Create a Spanish book.
+        self.spanish = self._work(
+            title="Spanish book", fiction=True,
+            audience=Lane.AUDIENCE_ADULT,
+            with_license_pool=True,
+            language='spa'
+        )
+        self.spanish.simple_opds_entry = '<entry>'
+
         # Refresh the materialized views so that all these books are present
         # in the 
         SessionManager.refresh_materialized_views(self._db)
@@ -369,6 +388,12 @@ class TestLanesQuery(DatabaseTest):
         # The 'everything' lane contains 18 works.
         lane = Lane.everything(self._db, media=None)
         w, mw = test_expectations(lane, 18, lambda x: True)
+        set_trace()
+
+        # The 'Spanish' lane contains 1 book.
+        spanish = Lane.everything(self._db, languages='spa')
+        w, mw = test_expectations(lane, 1, lambda x: True)
+        eq_([self.spanish], w)
 
         # The 'music' lane contains 1 work of music
         lane = Lane.everything(self._db, media=Edition.MUSIC_MEDIUM)
@@ -462,9 +487,14 @@ class TestLanesQuery(DatabaseTest):
             exclude_genres=[self.urban_fantasy],
             subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
-            audience=Lane.AUDIENCE_ADULT,
+            audience=Lane.AUDIENCE_YOUNG_ADULT,
         )
-        # We get two books: Fantasy, Urban Fantasy, and Epic Fantasy.
+
+        # Urban Fantasy does not show up in this lane's genres.
+        eq_(["Epic Fantasy", "Fantasy", "Historical Fantasy"], 
+            sorted([x.name for x in lane.genres]))
+
+        # We get two books: Fantasy and Epic Fantasy.
         w, mw = test_expectations(
             lane, 2, lambda x: True
         )
@@ -508,44 +538,44 @@ class TestLanesQuery(DatabaseTest):
 #             eq_(1, len(hide_on_hold_works))
         
 
-# class TestLaneList(DatabaseTest):
+class TestLaneList(DatabaseTest):
     
-#     def test_from_description(self):
-#         lanes = LaneList.from_description(
-#             self._db,
-#             None,
-#             [dict(full_name="Fiction",
-#                   fiction=True,
-#                   audience=Classifier.AUDIENCE_ADULT,
-#                   genres=[]),
-#              classifier.Fantasy,
-#              dict(
-#                  full_name="Young Adult",
-#                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-#                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
-#                  genres=[]),
-#          ]
-#         )
+    def test_from_description(self):
+        lanes = LaneList.from_description(
+            self._db,
+            None,
+            [dict(full_name="Fiction",
+                  fiction=True,
+                  audience=Classifier.AUDIENCE_ADULT,
+                  genres=[]),
+             classifier.Fantasy,
+             dict(
+                 full_name="Young Adult",
+                 fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+                 audience=Classifier.AUDIENCE_YOUNG_ADULT,
+                 genres=[]),
+         ]
+        )
 
-#         fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
+        fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
 
-#         fiction = lanes.by_name['Fiction']
-#         young_adult = lanes.by_name['Young Adult']
-#         fantasy = lanes.by_name['Fantasy'] 
+        fiction = lanes.by_name['Fiction']
+        young_adult = lanes.by_name['Young Adult']
+        fantasy = lanes.by_name['Fantasy'] 
 
-#         eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
+        eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
 
-#         eq_("Fiction", fiction.name)
-#         eq_(Classifier.AUDIENCE_ADULT, fiction.audience)
-#         eq_([], fiction.genres)
-#         eq_(True, fiction.fiction)
+        eq_("Fiction", fiction.name)
+        eq_(Classifier.AUDIENCE_ADULT, fiction.audience)
+        eq_([], fiction.genres)
+        eq_(True, fiction.fiction)
 
-#         eq_("Fantasy", fantasy.name)
-#         eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
-#         eq_([fantasy_genre], fantasy.genres)
-#         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
+        eq_("Fantasy", fantasy.name)
+        eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
+        eq_([fantasy_genre], fantasy.genres)
+        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
 
-#         eq_("Young Adult", young_adult.name)
-#         eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audience)
-#         eq_([], young_adult.genres)
-#         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
+        eq_("Young Adult", young_adult.name)
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audience)
+        eq_([], young_adult.genres)
+        eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
