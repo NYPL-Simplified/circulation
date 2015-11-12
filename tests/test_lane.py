@@ -294,7 +294,7 @@ class TestLanes(DatabaseTest):
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes="Urban Fantasy"
         )
-        eq_([urban_fantasy], [x.genres for x in fantasy_lane.sublanes.lanes])
+        eq_([[urban_fantasy]], [x.genres for x in fantasy_lane.sublanes.lanes])
 
 
 

@@ -381,6 +381,8 @@ class Lane(object):
             genres, fiction, full_exclude_genres
         )
 
+        if sublanes and not isinstance(sublanes, list):
+            sublanes = [sublanes]
         subgenre_sublanes = []
         if self.subgenre_behavior == self.IN_SUBLANES:
             # All subgenres of the given genres that are not in
