@@ -288,6 +288,8 @@ class TestLanes(DatabaseTest):
         )
         eq_([urban_fantasy_lane], fantasy_lane.sublanes.lanes)
 
+        # You can just give the name of a genre as a sublane and it
+        # will work.
         fantasy_lane = Lane(
             self._db, "Fantasy", fantasy, 
             genres=fantasy,
@@ -560,12 +562,14 @@ class TestLanesQuery(DatabaseTest):
             sorted([x.name for x in lane.genres]))
 
         # We get two books: Fantasy and Epic Fantasy.
+        SessionManager.refresh_materialized_views(self._db)
         w, mw = test_expectations(
             lane, 2, lambda x: True
         )
         expect = [u'Epic Fantasy YA', u'Fantasy YA']
         eq_(expect, sorted([x.sort_title for x in w]))
-        eq_(expect, sorted([x.sort_title for x in mw]))
+
+        eq_(sorted([x.id for x in w]), sorted([x.works_id for x in mw]))
 
 
 #     def test_availability_restriction(self):
