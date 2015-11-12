@@ -411,20 +411,20 @@ class Lane(object):
             age_range = sorted(age_range)
         self.age_range = age_range
         self.audiences = self.audience_list_for_age_range(audience, age_range)
-        self.languages = languages
+
+        def to_list(x):
+            if isinstance(x, basestring):
+                x = [x]
+            return x
+        self.languages = to_list(languages)
 
         if fiction is None:
             fiction = self.FICTION_DEFAULT_FOR_GENRE
 
         # The lane may be restricted to items in particular media
         # and/or formats.
-        if isinstance(media, basestring):
-            media = [media]
-        self.media = media
-
-        if isinstance(format, basestring):
-            format = [format]
-        self.formats = format
+        self.media = to_list(media)
+        self.formats = to_list(format)
 
         # The lane may be restricted to books that are on a list
         # from a given data source.
@@ -439,6 +439,9 @@ class Lane(object):
             for genre in exclude_genres:
                 for l in genre.self_and_subgenres:
                     full_exclude_genres.add(l)
+
+        # Presumptively set fiction, since it is required by gather_genres()
+        self.fiction = fiction
         genres, sublanes = self.gather_genres(genres)
         self.genres, self.fiction = self.gather_matching_genres(
             genres, fiction, full_exclude_genres
@@ -480,9 +483,12 @@ class Lane(object):
         """
         if not audience:
             audience = []
-        if not isinstance(audience, list):
+        if isinstance(audience, basestring):
             audience = [audience]
-        audiences = set(audience)
+        if isinstance(audience, set):
+            audiences = audience
+        else:
+            audiences = set(audience)
         if not age_range:
             return audiences
 
@@ -558,7 +564,7 @@ class Lane(object):
                 elif self.subgenre_behavior == self.IN_SUBLANES:
                     # Each subgenre of this genre goes into its own sublane.
                     sublanes = LaneList.from_description(
-                        _db, self, genredata.subgenres)
+                        self._db, self, genredata.subgenres)
                 else:
                     raise ValueError(
                         "Unknown subgenre behavior: %r" % self.subgenre_behavior
@@ -715,6 +721,7 @@ class Lane(object):
         :param edition_model: Either Edition, MaterializedWork, or MaterializedWorkWithGenre
         """
         if self.languages:
+            set_trace()
             q = q.filter(edition_model.language.in_(self.languages))
 
         if self.audiences:
@@ -940,7 +947,7 @@ class LaneList(object):
             default_audiences = parent_lane.audiences
         else:
             default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-            default_audiences = [Classifier.AUDIENCES_ADULT]
+            default_audiences = Classifier.AUDIENCES_ADULT
 
         description = description or []
         for lane_description in description:

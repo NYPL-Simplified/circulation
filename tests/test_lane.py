@@ -385,13 +385,14 @@ class TestLanesQuery(DatabaseTest):
             assert all([mw_predicate(x) for x in mw])
             return w, mw
 
-        # The 'everything' lane contains 18 works.
+        # The 'everything' lane contains 19 works.
         lane = Lane.everything(self._db, media=None)
-        w, mw = test_expectations(lane, 18, lambda x: True)
-        set_trace()
+        w, mw = test_expectations(lane, 19, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
         spanish = Lane.everything(self._db, languages='spa')
+        eq_(['spa'], spanish.languages)
+        set_trace()
         w, mw = test_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
@@ -538,44 +539,44 @@ class TestLanesQuery(DatabaseTest):
 #             eq_(1, len(hide_on_hold_works))
         
 
-class TestLaneList(DatabaseTest):
+# class TestLaneList(DatabaseTest):
     
-    def test_from_description(self):
-        lanes = LaneList.from_description(
-            self._db,
-            None,
-            [dict(full_name="Fiction",
-                  fiction=True,
-                  audience=Classifier.AUDIENCE_ADULT,
-                  genres=[]),
-             classifier.Fantasy,
-             dict(
-                 full_name="Young Adult",
-                 fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 audience=Classifier.AUDIENCE_YOUNG_ADULT,
-                 genres=[]),
-         ]
-        )
+#     def test_from_description(self):
+#         lanes = LaneList.from_description(
+#             self._db,
+#             None,
+#             [dict(full_name="Fiction",
+#                   fiction=True,
+#                   audience=Classifier.AUDIENCE_ADULT,
+#                   genres=[]),
+#              classifier.Fantasy,
+#              dict(
+#                  full_name="Young Adult",
+#                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+#                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
+#                  genres=[]),
+#          ]
+#         )
 
-        fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
+#         fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
 
-        fiction = lanes.by_name['Fiction']
-        young_adult = lanes.by_name['Young Adult']
-        fantasy = lanes.by_name['Fantasy'] 
+#         fiction = lanes.by_name['Fiction']
+#         young_adult = lanes.by_name['Young Adult']
+#         fantasy = lanes.by_name['Fantasy'] 
 
-        eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
+#         eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
 
-        eq_("Fiction", fiction.name)
-        eq_(Classifier.AUDIENCE_ADULT, fiction.audience)
-        eq_([], fiction.genres)
-        eq_(True, fiction.fiction)
+#         eq_("Fiction", fiction.name)
+#         eq_(Classifier.AUDIENCE_ADULT, fiction.audience)
+#         eq_([], fiction.genres)
+#         eq_(True, fiction.fiction)
 
-        eq_("Fantasy", fantasy.name)
-        eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
-        eq_([fantasy_genre], fantasy.genres)
-        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
+#         eq_("Fantasy", fantasy.name)
+#         eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
+#         eq_([fantasy_genre], fantasy.genres)
+#         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
 
-        eq_("Young Adult", young_adult.name)
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audience)
-        eq_([], young_adult.genres)
-        eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
+#         eq_("Young Adult", young_adult.name)
+#         eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audience)
+#         eq_([], young_adult.genres)
+#         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
