@@ -19,6 +19,7 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import (
     contains_eager,
+    defer,
     lazyload,
 )
 
@@ -238,6 +239,11 @@ class Lane(object):
     # shown in this lane.
     IN_SAME_LANE = u"collapse"
 
+    AUDIENCE_ADULT = Classifier.AUDIENCE_ADULT
+    AUDIENCE_ADULTS_ONLY = Classifier.AUDIENCE_ADULTS_ONLY
+    AUDIENCE_YOUNG_ADULT = Classifier.AUDIENCE_YOUNG_ADULT
+    AUDIENCE_CHILDREN = Classifier.AUDIENCE_CHILDREN
+
     @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.
@@ -249,17 +255,26 @@ class Lane(object):
         return self.name.replace("/", "__")
 
     def __repr__(self):
-        template = "<Lane name=%(full_name), display=%(display_name), genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(languages)s, %(sublanes)d sublanes>"
-        output = template % dict(
-            full_name=self.name,
-            display_name=self.display_name,
-            genres = "+".join([g.name for g in self.genres]),
+        template = "<Lane name=%(full_name)s, display=%(display_name)s, media=%(media)s, genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(language)s, sublanes=%(sublanes)d>"
+
+        sublanes = getattr(self, 'sublanes', None)
+        if sublanes:
+            sublanes = sublanes.lanes
+        else:
+            sublanes = []
+
+        vars = dict(
+            full_name=self.name or "",
+            display_name=self.display_name or "",
+            genres = "+".join([g.name for g in self.genres] or ["all"]),
             fiction=self.fiction,
-            audiences = "+".join(self.audiences),
-            age_range = self.age_range,
-            language="+".join(self.languages),
-            sublanes = len(self.sublanes.lanes)
+            media=", ".join(self.media or ["all"]),
+            audiences = "+".join(self.audiences or ["all"]),
+            age_range = self.age_range or "all",
+            language="+".join(self.languages or ["all"]),
+            sublanes = len(sublanes)
         )
+        output = template % vars
         return output.encode("ascii", "replace")
 
     @classmethod
@@ -336,14 +351,16 @@ class Lane(object):
 
     @classmethod
     def everything(cls, _db, fiction=None,
-                   audience=None):
+                   audience=None, media=Edition.BOOK_MEDIUM,
+                   age_range=None
+    ):
         """Return a synthetic Lane that matches everything."""
         if fiction == True:
             what = 'fiction'
         elif fiction == False:
             what = 'nonfiction'
         else:
-            what = 'books'
+            what = "works"
         if audience == Classifier.AUDIENCE_ADULT:
             what = 'adult ' + what
         elif audience == Classifier.AUDIENCE_YOUNG_ADULT:
@@ -355,7 +372,10 @@ class Lane(object):
         return Lane(
             _db, full_name, genres=[], subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=fiction,
-            audiences=[audience])
+            audience=audience,
+            age_range=age_range,
+            media=media
+        )
 
     def __init__(self, 
                  _db, 
@@ -383,6 +403,10 @@ class Lane(object):
         self._db = _db
         self.appeal = appeal
 
+        if isinstance(age_range, int):
+            age_range = [age_range]
+        if age_range is not None:
+            age_range = sorted(age_range)
         self.age_range = age_range
         self.audiences = self.audience_list_for_age_range(audience, age_range)
         self.languages = languages
@@ -435,9 +459,7 @@ class Lane(object):
         ya = Classifier.AUDIENCE_YOUNG_ADULT
         if (
                 self.age_range 
-                and self.audience not in (ch, ya)
-                and (not isinstance(self.audience, list)
-                     or (ch not in self.audience and ya not in self.audience))
+                and not any(x in self.audiences for x in [ch, ya])
         ):
             raise ValueError(
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
@@ -530,7 +552,7 @@ class Lane(object):
                     # All subgenres of this genre go into the same
                     # lane as their parent.
                     for subgenre_data in genredata.all_subgenres:
-                        subgenre, ignore = Genre.lookup(_db, subgenre_data)
+                        subgenre, ignore = Genre.lookup(self._db, subgenre_data)
                         # Incorporate this genre's subgenres,
                         # recursively, in this lane.
                         if (not self.exclude_genres
@@ -547,13 +569,19 @@ class Lane(object):
         return genres, sublanes
 
     def load_genre(self, descriptor):
-        """Turn some kind of genre descriptor into a Genre object."""
-        if isinstance(genre, tuple):
-            if len(genre) == 2:
-                genre, subgenres = genre
+        """Turn some kind of genre descriptor into a (Genre, GenreData) 
+        2-tuple.
+
+        The descriptor might be a 2-tuple, a 3-tuple, a Genre object
+        or a GenreData object.
+        """
+        if isinstance(descriptor, tuple):
+            if len(descriptor) == 2:
+                genre, subgenres = descriptor
             else:
-                genre, subgenres, audience_restriction = genre
-            return genre
+                genre, subgenres, audience_restriction = descriptor
+        else:
+            genre = descriptor
 
         if isinstance(genre, GenreData):
             genredata = genre
@@ -565,9 +593,10 @@ class Lane(object):
             # It's in the database--just make sure it's not an old entry
             # that shouldn't be in the database anymore.
             genredata = classifier.genres.get(genre_name)
+
         if not isinstance(genre, Genre):
-            genre, ignore = Genre.lookup(_db, genre)
-        return genre
+            genre, ignore = Genre.lookup(self._db, genre)
+        return genre, genredata
 
     def all_matching_genres(self, genres):
         genres = set()
@@ -628,7 +657,7 @@ class Lane(object):
           default client.
         """
 
-        q = _db.query(Work).join(Work.primary_edition)
+        q = self._db.query(Work).join(Work.primary_edition)
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(
             LicensePool.identifier
         )
@@ -649,6 +678,7 @@ class Lane(object):
             q = q.filter(WorkGenre.genre_id.in_([g.id for g in self.genres]))
 
         q = self.apply_filters(q, Work, Edition)
+        return q
 
     def materialized_works(self):
         """Find MaterializedWorks that will go together in this Lane."""
@@ -675,8 +705,9 @@ class Lane(object):
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
         q = self.apply_filters(q, mw, mw)
+        return q
 
-    def apply_filters(cls, q, work_model=Work, edition_model=Edition):
+    def apply_filters(self, q, work_model=Work, edition_model=Edition):
         """Apply filters to a base query against Work or a materialized view.
 
         :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
@@ -686,9 +717,9 @@ class Lane(object):
             q = q.filter(edition_model.language.in_(self.languages))
 
         if self.audiences:
-            q = q.filter(work_model.audience.in_(audiences))
-            if (Classifier.AUDIENCE_CHILDREN in self.audience
-                or Classifier.AUDIENCE_YOUNG_ADULT in self.audience):
+            q = q.filter(work_model.audience.in_(self.audiences))
+            if (Classifier.AUDIENCE_CHILDREN in self.audiences
+                or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
                     gutenberg = DataSource.lookup(
                         self._db, DataSource.GUTENBERG)
                     # TODO: A huge hack to exclude Project Gutenberg
@@ -705,18 +736,17 @@ class Lane(object):
             q = q.filter(work_model.primary_appeal==self.appeal)
 
         if self.age_range != None:
-            if (Classifier.AUDIENCE_ADULT in audiences
-                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
+            if (Classifier.AUDIENCE_ADULT in self.audiences
+                or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
                 # Books for adults don't have target ages. If we're including
                 # books for adults, allow the target age to be empty.
                 audience_has_no_target_age = work_model.target_age == None
             else:
                 audience_has_no_target_age = False
 
-            age_range = sorted(self.age_range)
-            if len(age_range) == 1:
+            if len(self.age_range) == 1:
                 # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0], '[]')
+                r = NumericRange(self.age_range[0], self.age_range[0], '[]')
                 q = q.filter(
                     or_(
                         work_model.target_age.contains(r),
@@ -725,7 +755,7 @@ class Lane(object):
                 )
             else:
                 # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1], '[]')
+                r = NumericRange(self.age_range[0], self.age_range[-1], '[]')
                 q = q.filter(
                     or_(
                         work_model.target_age.overlaps(r),
@@ -736,19 +766,24 @@ class Lane(object):
         if self.fiction == self.UNCLASSIFIED:
             q = q.filter(work_model.fiction==None)
         elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(work_model.fiction==fiction)
+            q = q.filter(work_model.fiction==self.fiction)
 
-        q = q.filter(edition_model.medium.in_(self.media))
+        if self.media:
+            q = q.filter(edition_model.medium.in_(self.media))
         
         # TODO: Also filter on formats.
 
         # TODO: Only find works with unsuppressed LicensePools.
 
         # Only find unmerged presentation-ready works.
-        q = q.filter(
-            work_model.was_merged_into == None,
-            work_model.presentation_ready == True,
-        )
+        #
+        # Such works are automatically filtered out of 
+        # the materialized view.
+        if work_model == Work:
+            q = q.filter(
+                work_model.was_merged_into == None,
+                work_model.presentation_ready == True,
+            )
 
         # Only find books the default client can fulfill.
         q = q.filter(LicensePool.delivery_mechanisms.any(
@@ -900,7 +935,6 @@ class LaneList(object):
     def from_description(cls, _db, parent_lane, description):
         lanes = LaneList(parent_lane)
         if parent_lane:
-            set_trace()
             default_fiction = parent_lane.fiction
             default_audiences = parent_lane.audiences
         else:

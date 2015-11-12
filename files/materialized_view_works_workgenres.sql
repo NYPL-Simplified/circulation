@@ -7,6 +7,7 @@ as
     editions.permanent_work_id,
     editions.sort_author,
     editions.language,
+    editions.medium,
     editions.cover_full_url,
     editions.cover_thumbnail_url,
     editions.open_access_download_url,
@@ -35,7 +36,7 @@ as
      JOIN workgenres ON works.id = workgenres.work_id
      JOIN licensepooldeliveries on licensepools.id=licensepooldeliveries.license_pool_id
      JOIN deliverymechanisms on deliverymechanisms.id=licensepooldeliveries.delivery_mechanism_id
-  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND editions.medium = 'Book'::medium AND works.simple_opds_entry IS NOT NULL AND deliverymechanisms.default_client_can_fulfill=true
+  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND works.simple_opds_entry IS NOT NULL AND deliverymechanisms.default_client_can_fulfill=true
   ORDER BY editions.sort_title, editions.sort_author;
 
 create index mv_works_editions_adult_fiction_author_other_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_author, sort_title, works_id, language) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language <> 'eng';

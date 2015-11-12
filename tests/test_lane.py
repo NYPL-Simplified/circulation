@@ -222,10 +222,6 @@ class TestLanes(DatabaseTest):
         self.ya_works = {}
         self.childrens_works = {}
 
-        def classify(work, genre):
-            wg, ignore = get_one_or_create(
-                self._db, WorkGenre, work=work, genre=genre)            
-
         for genre in (self.fantasy, self.epic_fantasy, self.urban_fantasy,
                       self.history, self.african_history):
             fiction = True
@@ -235,53 +231,182 @@ class TestLanes(DatabaseTest):
             # Create a number of books for each genre.
             adult_work = self._work(
                 title="%s Adult" % genre.name, 
-                audience=Classifier.AUDIENCE_ADULT,
-                fiction=fiction
+                audience=Lane.AUDIENCE_ADULT,
+                fiction=fiction,
+                with_license_pool=True,
+                genre=genre,
             )
             self.adult_works[genre] = adult_work
-            classify(adult_work, genre)
+            adult_work.simple_opds_entry = '<entry>'
 
+            # Childrens and YA books need to be attached to a data
+            # source other than Gutenberg, or they'll get filtered
+            # out.
+            ya_edition = self._edition(
+                data_source_name=DataSource.OVERDRIVE,
+                with_license_pool=True
+            )
             ya_work = self._work(
                 title="%s YA" % genre.name, 
-                audience=Classifier.AUDIENCE_YOUNG_ADULT,
-                fiction=fiction
+                audience=Lane.AUDIENCE_YOUNG_ADULT,
+                fiction=fiction,
+                with_license_pool=True,
+                primary_edition=ya_edition,
+                genre=genre,
             )
             self.ya_works[genre] = ya_work
-            classify(ya_work, genre)
+            ya_work.simple_opds_entry = '<entry>'
 
-            childrens_work = self._work(
-                title="%s Childrens" % genre.name, 
-                audience=Classifier.AUDIENCE_CHILDREN,
-                fiction=fiction
+            childrens_edition = self._edition(
+                data_source_name=DataSource.OVERDRIVE, with_license_pool=True
             )
-            childrens_work.target_age = NumericRange(7, 9)
+            childrens_work = self._work(
+                title="%s Childrens" % genre.name,
+                audience=Lane.AUDIENCE_CHILDREN,
+                fiction=fiction,
+                with_license_pool=True,
+                primary_edition=childrens_edition,
+                genre=genre,
+            )
+            if genre == self.epic_fantasy:
+                childrens_work.target_age = NumericRange(7, 9, '[]')
+            else:
+                childrens_work.target_age = NumericRange(8, 10, '[]')
             self.childrens_works[genre] = childrens_work
-            classify(childrens_work, genre)
+            childrens_work.simple_opds_entry = '<entry>'
 
-
-        # Create a generic 'fiction' and 'nonfiction' book that are
-        # not in any genre.
-        self.nonfiction = self._work(title="Generic Nonfiction", fiction=False,
-                                audience=Classifier.AUDIENCE_ADULT)
-        self.fiction = self._work(title="Generic Fiction", fiction=True,
-                                  audience=Classifier.AUDIENCE_ADULT)
+        # Create generic 'Adults Only' fiction and nonfiction books
+        # that are not in any genre.
+        self.nonfiction = self._work(
+            title="Generic Nonfiction", fiction=False,
+            audience=Lane.AUDIENCE_ADULTS_ONLY,
+            with_license_pool=True
+        )
+        self.nonfiction.simple_opds_entry = '<entry>'
+        self.fiction = self._work(
+            title="Generic Fiction", fiction=True,
+            audience=Lane.AUDIENCE_ADULTS_ONLY,
+            with_license_pool=True
+        )
+        self.fiction.simple_opds_entry = '<entry>'
 
         # Create a work of music.
-        self.music = self._work(title="Music", fiction=False,
-                                audience=Classifier.AUDIENCE_ADULT)
+        self.music = self._work(
+            title="Music", fiction=False,
+            audience=Lane.AUDIENCE_ADULT,
+            with_license_pool=True,
+        )
         self.music.primary_edition.medium=Edition.MUSIC_MEDIUM
+        self.music.simple_opds_entry = '<entry>'
 
         # Refresh the materialized views so that all these books are present
         # in the 
         SessionManager.refresh_materialized_views(self._db)
+
+    def test_lanes(self):
+        # I'm putting all these tests into one method because the
+        # setup function is so very expensive.
+
+        def test_expectations(lane, expected_count, predicate,
+                              mw_predicate=None):
+            """Ensure that a database query and a query of the
+            materialized view give the same results.
+            """
+            mw_predicate = mw_predicate or predicate
+            w = lane.works().all()
+            mw = lane.materialized_works().all()
+            eq_(len(w), expected_count)
+            eq_(len(mw), expected_count)
+            assert all([predicate(x) for x in w])
+            assert all([mw_predicate(x) for x in mw])
+            return w, mw
+
+        # The 'everything' lane contains 18 works.
+        lane = Lane.everything(self._db, media=None)
+        w, mw = test_expectations(lane, 18, lambda x: True)
+
+        # The 'music' lane contains 1 work of music
+        lane = Lane.everything(self._db, media=Edition.MUSIC_MEDIUM)
+        w, mw = test_expectations(
+            lane, 1, 
+            lambda x: x.primary_edition.medium==Edition.MUSIC_MEDIUM,
+            lambda x: x.medium==Edition.MUSIC_MEDIUM
+        )
         
-    def test_other_media(self):
-        lane = Lane(self._db, full_name="Music", genres=[], 
-                    media=Edition.MUSIC_MEDIUM,
-                    fiction=None)
-        foo = lane.works()
-        bar = lane.materialized_works()
-        set_trace()
+        # The 'fiction' lane contains ten fiction books.
+        lane = Lane.everything(self._db, fiction=True)
+        w, mw = test_expectations(
+            lane, 10, lambda x: x.fiction
+        )
+
+        # The 'nonfiction' lane contains seven nonfiction books.
+        # It does not contain the music.
+        lane = Lane.everything(self._db, fiction=False)
+        w, mw = test_expectations(
+            lane, 7, 
+            lambda x: x.primary_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
+            lambda x: x.medium==Edition.BOOK_MEDIUM and not x.fiction
+        )
+
+        # The 'adults' lane contains five books for adults.
+        lane = Lane.everything(self._db, audience=Lane.AUDIENCE_ADULT)
+        w, mw = test_expectations(
+            lane, 5, lambda x: x.audience==Lane.AUDIENCE_ADULT
+        )
+
+        # This lane contains those five books plus two adults-only
+        # books.
+        audiences = [Lane.AUDIENCE_ADULT, Lane.AUDIENCE_ADULTS_ONLY]
+        lane = Lane.everything(self._db, audience=audiences)
+        w, mw = test_expectations(
+            lane, 7, lambda x: x.audience in audiences
+        )
+        assert(2, len([x for x in w if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
+        assert(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
+
+        # The 'Young Adults' lane contains five books.
+        lane = Lane.everything(self._db, audience=Lane.AUDIENCE_YOUNG_ADULT)
+        w, mw = test_expectations(
+            lane, 5, lambda x: x.audience==Lane.AUDIENCE_YOUNG_ADULT
+        )
+
+        # There is one book suitable for seven-year-olds.
+        lane = Lane.everything(
+            self._db, audience=Lane.AUDIENCE_CHILDREN,
+            age_range=7
+        )
+        w, mw = test_expectations(
+            lane, 1, lambda x: x.audience==Lane.AUDIENCE_CHILDREN
+        )
+
+        # There are four books suitable for ages 10-12.
+        lane = Lane.everything(
+            self._db, audience=Lane.AUDIENCE_CHILDREN,
+            age_range=(10,12)
+        )
+        w, mw = test_expectations(
+            lane, 4, lambda x: x.audience==Lane.AUDIENCE_CHILDREN
+        )
+       
+        #
+        # Now let's start messing with genres.
+        #
+
+        # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
+        # have their own lanes.
+        lane = Lane(
+            self._db, full_name="Adult Fantasy",
+            genres=[self.fantasy], 
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
+            audience=Lane.AUDIENCE_ADULT,
+        )
+
+        # We get three books: Fantasy, Urban Fantasy, and Epic Fantasy.
+        w, mw = test_expectations(
+            lane, 3, lambda x: True
+        )
+        set_trace()        
 
 #     def test_setup(self):
 #         fantasy_genre, ig = 
@@ -292,15 +417,6 @@ class TestLanes(DatabaseTest):
 #             self._db, classifier.Urban_Fantasy)
 #         fantasy_subgenres = classifier.Fantasy.subgenres
 
-#         # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
-#         # have their own lanes.
-#         adult_fantasy_lane = Lane(
-#             self._db, fantasy_genre.name, 
-#             [fantasy_genre], Lane.IN_SAME_LANE,
-#             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
-#             audience=Classifier.AUDIENCE_ADULT,
-#             sublanes=fantasy_subgenres
-#         )
 
 #         fantasy_and_subgenres = set([
 #             fantasy_genre, urban_fantasy, epic_fantasy, historical_fantasy])
