@@ -694,6 +694,7 @@ class TestLanesQuery(DatabaseTest):
         )
 
         fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
+        urban_fantasy_genre, ignore = Genre.lookup(self._db, classifier.Urban_Fantasy.name)
 
         fiction = lanes.by_name['Fiction']
         young_adult = lanes.by_name['Young Adult']
@@ -708,16 +709,16 @@ class TestLanesQuery(DatabaseTest):
         eq_(True, fiction.fiction)
 
         eq_("Fantasy", fantasy.name)
-        eq_(Classifier.AUDIENCES_ADULT, fantasy.audiences)
-        eq_([fantasy_genre], fantasy.genres)
-        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
+        eq_(set(), fantasy.audiences)
+        eq_(set(fantasy_genre.self_and_subgenres), set(fantasy.genres))
+        eq_(True, fantasy.fiction)
 
-        eq_("Urban Fantasy", fantasy.name)
-        eq_(Classifier.AUDIENCES_ADULT, urban_fantasy.audiences)
-        eq_([urban_fantasy_genre], fantasy.genres)
-        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, urban_fantasy.fiction)
+        eq_("Urban Fantasy", urban_fantasy.name)
+        eq_(set(), urban_fantasy.audiences)
+        eq_([urban_fantasy_genre], urban_fantasy.genres)
+        eq_(True, urban_fantasy.fiction)
 
         eq_("Young Adult", young_adult.name)
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audiences)
+        eq_(set([Classifier.AUDIENCE_YOUNG_ADULT]), young_adult.audiences)
         eq_([], young_adult.genres)
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
