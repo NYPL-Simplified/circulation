@@ -1,3 +1,5 @@
+import datetime
+
 from nose.tools import (
     eq_,
     set_trace,
@@ -530,7 +532,7 @@ class TestLanesQuery(DatabaseTest):
         #
 
         # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
-        # have their own lanes.
+        # are kept in the same place as generic Fantasy.
         lane = Lane(
             self._db, "Adult Fantasy",
             genres=[self.fantasy], 
@@ -562,15 +564,79 @@ class TestLanesQuery(DatabaseTest):
             sorted([x.name for x in lane.genres]))
 
         # We get two books: Fantasy and Epic Fantasy.
-        SessionManager.refresh_materialized_views(self._db)
         w, mw = test_expectations(
             lane, 2, lambda x: True
         )
         expect = [u'Epic Fantasy YA', u'Fantasy YA']
         eq_(expect, sorted([x.sort_title for x in w]))
-
         eq_(sorted([x.id for x in w]), sorted([x.works_id for x in mw]))
 
+        # Finally, test lanes based on lists. Create two lists, each
+        # with one book.
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        one_year_ago = datetime.datetime.utcnow() - datetime.timedelta(days=365)
+
+        fic_name = "Best Sellers - Fiction"
+        best_seller_list_1, ignore = self._customlist(
+            foreign_identifier=fic_name, name=fic_name,
+            num_entries=0
+        )
+        best_seller_list_1.add_entry(
+            self.fiction.primary_edition, first_appearance=one_day_ago
+        )
+        
+        nonfic_name = "Best Sellers - Nonfiction"
+        best_seller_list_2, ignore = self._customlist(
+            foreign_identifier=nonfic_name, name=nonfic_name, num_entries=0
+        )
+        best_seller_list_2.add_entry(
+            self.nonfiction.primary_edition, first_appearance=one_year_ago
+        )
+
+        # Create a lane for one specific list
+        fiction_best_sellers = Lane(
+            self._db, full_name="Fiction Best Sellers",
+            list_identifier=fic_name
+        )
+        w, mw = test_expectations(
+            fiction_best_sellers, 1, 
+            lambda x: x.sort_title == self.fiction.sort_title
+        )
+
+        # Create a lane for all best-sellers.
+        all_best_sellers = Lane(
+            self._db, full_name="All Best Sellers",
+            list_data_source=best_seller_list_1.data_source.name
+        )
+        w, mw = test_expectations(
+            all_best_sellers, 2, 
+            lambda x: x.sort_title in (
+                self.fiction.sort_title, self.nonfiction.sort_title
+            )
+        )
+
+        # Combine list membership with another criteria (nonfiction)
+        all_nonfiction_best_sellers = Lane(
+            self._db, full_name="All Nonfiction Best Sellers",
+            fiction=False,
+            list_data_source=best_seller_list_1.data_source.name
+        )
+        w, mw = test_expectations(
+            all_nonfiction_best_sellers, 1, 
+            lambda x: x.sort_title==self.nonfiction.sort_title
+        )
+
+        # Apply a cutoff date to a best-seller list,
+        # excluding the work that was last seen a year ago.
+        best_sellers_past_week = Lane(
+            self._db, full_name="Best Sellers - The Past Week",
+            list_data_source=best_seller_list_1.data_source.name,
+            list_seen_in_previous_days=7
+        )
+        w, mw = test_expectations(
+            best_sellers_past_week, 1, 
+            lambda x: x.sort_title==self.fiction.sort_title
+        )
 
 #     def test_availability_restriction(self):
 
@@ -608,42 +674,50 @@ class TestLanesQuery(DatabaseTest):
         
 
    
-#     def test_from_description(self):
-#         lanes = LaneList.from_description(
-#             self._db,
-#             None,
-#             [dict(full_name="Fiction",
-#                   fiction=True,
-#                   audience=Classifier.AUDIENCE_ADULT,
-#                   genres=[]),
-#              classifier.Fantasy,
-#              dict(
-#                  full_name="Young Adult",
-#                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-#                  audience=Classifier.AUDIENCE_YOUNG_ADULT,
-#                  genres=[]),
-#          ]
-#         )
+    def test_from_description(self):
+        """Create a LaneList from a simple description."""
+        lanes = LaneList.from_description(
+            self._db,
+            None,
+            [dict(
+                full_name="Fiction",
+                fiction=True,
+                audiences=Classifier.AUDIENCE_ADULT,
+            ),
+             classifier.Fantasy,
+             dict(
+                 full_name="Young Adult",
+                 fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+                 audiences=Classifier.AUDIENCE_YOUNG_ADULT,
+             ),
+         ]
+        )
 
-#         fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
+        fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
 
-#         fiction = lanes.by_name['Fiction']
-#         young_adult = lanes.by_name['Young Adult']
-#         fantasy = lanes.by_name['Fantasy'] 
+        fiction = lanes.by_name['Fiction']
+        young_adult = lanes.by_name['Young Adult']
+        fantasy = lanes.by_name['Fantasy'] 
+        urban_fantasy = lanes.by_name['Urban Fantasy'] 
 
-#         eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
+        eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
 
-#         eq_("Fiction", fiction.name)
-#         eq_(Classifier.AUDIENCE_ADULT, fiction.audience)
-#         eq_([], fiction.genres)
-#         eq_(True, fiction.fiction)
+        eq_("Fiction", fiction.name)
+        eq_(set([Classifier.AUDIENCE_ADULT]), fiction.audiences)
+        eq_([], fiction.genres)
+        eq_(True, fiction.fiction)
 
-#         eq_("Fantasy", fantasy.name)
-#         eq_(Classifier.AUDIENCES_ADULT, fantasy.audience)
-#         eq_([fantasy_genre], fantasy.genres)
-#         eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
+        eq_("Fantasy", fantasy.name)
+        eq_(Classifier.AUDIENCES_ADULT, fantasy.audiences)
+        eq_([fantasy_genre], fantasy.genres)
+        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, fantasy.fiction)
 
-#         eq_("Young Adult", young_adult.name)
-#         eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audience)
-#         eq_([], young_adult.genres)
-#         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
+        eq_("Urban Fantasy", fantasy.name)
+        eq_(Classifier.AUDIENCES_ADULT, urban_fantasy.audiences)
+        eq_([urban_fantasy_genre], fantasy.genres)
+        eq_(Lane.FICTION_DEFAULT_FOR_GENRE, urban_fantasy.fiction)
+
+        eq_("Young Adult", young_adult.name)
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, young_adult.audiences)
+        eq_([], young_adult.genres)
+        eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)

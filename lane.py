@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import datetime
 import random
 import time
 import logging
@@ -24,6 +25,8 @@ from sqlalchemy.orm import (
 )
 
 from model import (
+    CustomList,
+    CustomListEntry,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -480,7 +483,7 @@ class Lane(object):
         else:
             if isinstance(list_identifier, basestring):
                 list_identifiers = [list_identifier]
-            q = _db.query(CustomList).filter(
+            q = self._db.query(CustomList).filter(
                 CustomList.foreign_identifier.in_(list_identifiers))
             if list_data_source:
                 q = q.filter(CustomList.data_source==self.list_data_source)
@@ -499,7 +502,7 @@ class Lane(object):
             if description.get('suppress_lane'):
                 return None
             # Invoke the constructor
-            return Lane(_db, parent, **description)
+            return Lane(_db, parent=parent, **description)
         else:
             # This is a lane for a specific genre.
             genre, genredata = Lane.load_genre(_db, description)
@@ -737,6 +740,22 @@ class Lane(object):
         q = q.filter(LicensePool.delivery_mechanisms.any(
             DeliveryMechanism.default_client_can_fulfill==True)
         )
+
+        if self.list_data_source or self.lists:
+            q = q.join(LicensePool.custom_list_entries)
+            if self.list_data_source:
+                q = q.join(CustomListEntry.customlist).filter(
+                    CustomList.data_source==self.list_data_source)
+            else:
+                q = q.filter(
+                    CustomListEntry.list_id.in_([x.id for x in self.lists])
+                )
+            if self.list_seen_in_previous_days:
+                cutoff = datetime.datetime.utcnow() - datetime.timedelta(
+                    self.list_seen_in_previous_days
+                )
+                q = q.filter(CustomListEntry.most_recent_appearance
+                             >=cutoff)
         return q
 
 
