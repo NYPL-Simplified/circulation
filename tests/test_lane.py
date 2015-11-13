@@ -158,6 +158,9 @@ class TestFacetsApply(DatabaseTest):
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
 
+        qu = self._db.query(Work).join(Work.primary_edition).join(
+            Work.license_pools
+        )
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
@@ -165,43 +168,57 @@ class TestFacetsApply(DatabaseTest):
             f = Facets(collection, available, order)
             return f.apply(self._db, qu)
 
-        # We start by finding all works.
-        qu = self._db.query(Work).join(Work.primary_edition).join(
-            Work.license_pools
-        )
-        eq_(4, qu.count())
+        # When holds are allowed, we can find all works by asking
+        # for everything.
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
 
-        # If we restrict to books currently available we lose one book.
-        available_now = facetify(available=Facets.AVAILABLE_NOW)
-        eq_(3, available_now.count())
-        assert licensed_high not in available_now
+            everything = facetify()
+            eq_(4, everything.count())
 
-        # If we restrict to open-access books we lose two books.
-        open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
-        eq_(2, open_access.count())
-        assert licensed_high not in open_access
-        assert licensed_low not in open_access
+        # If we disallow holds, we lose one book even when we ask for
+        # everything.
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+            everything = facetify()
+            eq_(3, everything.count())
+            assert licensed_high not in everything
 
-        # If we restrict to the main collection we lose the low-quality
-        # open-access book.
-        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
-        eq_(3, main_collection.count())
-        assert open_access_low not in main_collection
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            # Even when holds are allowed, if we restrict to books
+            # currently available we lose the unavailable book.
+            available_now = facetify(available=Facets.AVAILABLE_NOW)
+            eq_(3, available_now.count())
+            assert licensed_high not in available_now
 
-        # If we restrict to the featured collection we lose both
-        # low-quality books
-        featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
-        eq_(2, featured_collection.count())
-        assert open_access_low not in featured_collection
-        assert licensed_low not in featured_collection
+            # If we restrict to open-access books we lose two books.
+            open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
+            eq_(2, open_access.count())
+            assert licensed_high not in open_access
+            assert licensed_low not in open_access
 
-        title_order = facetify(order=Facets.ORDER_TITLE)
-        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
-            title_order.all())
+            # If we restrict to the main collection we lose the low-quality
+            # open-access book.
+            main_collection = facetify(collection=Facets.COLLECTION_MAIN)
+            eq_(3, main_collection.count())
+            assert open_access_low not in main_collection
 
-        random_order = facetify(order=Facets.ORDER_RANDOM)
-        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
-            random_order.all())
+            # If we restrict to the featured collection we lose both
+            # low-quality books.
+            featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
+            eq_(2, featured_collection.count())
+            assert open_access_low not in featured_collection
+            assert licensed_low not in featured_collection
+
+            title_order = facetify(order=Facets.ORDER_TITLE)
+            eq_([open_access_high, open_access_low, licensed_high, licensed_low],
+                title_order.all())
+
+            random_order = facetify(order=Facets.ORDER_RANDOM)
+            eq_([licensed_low, open_access_high, licensed_high, open_access_low],
+                random_order.all())
+
 
 class TestLanes(DatabaseTest):
 
@@ -637,42 +654,6 @@ class TestLanesQuery(DatabaseTest):
             best_sellers_past_week, 1, 
             lambda x: x.sort_title==self.fiction.sort_title
         )
-
-#     def test_availability_restriction(self):
-
-#         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
-
-#         # Here's a fantasy book.
-#         w1 = self._work(genre=fantasy, with_license_pool=True)
-
-#         # The book is not available.
-#         w1.license_pools[0].licenses_available = 0
-#         w1.license_pools[0].open_access = False
-#         self._db.commit()
-
-#         fantasy_lane = Lane(
-#             self._db, full_name="Fantasy", genres=[fantasy])
-
-#         # So long as the hold behavior allows books to be put on hold,
-#         # the book will show up in lanes.
-#         with temp_config() as config:
-#             config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
-#             allow_on_hold_works = fantasy_lane.works(['eng']).all()
-#             eq_(1, len(allow_on_hold_works))
-
-#         # When the hold behavior is to hide unavailable books, the
-#         # book disappears.
-#         with temp_config() as config:
-#             config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
-#             hide_on_hold_works = fantasy_lane.works(['eng']).all()
-#             eq_([], hide_on_hold_works)
-
-#             # When the book becomes available, it shows up in lanes again.
-#             w1.license_pools[0].licenses_available = 1
-#             hide_on_hold_works = fantasy_lane.works(['eng']).all()
-#             eq_(1, len(hide_on_hold_works))
-        
-
    
     def test_from_description(self):
         """Create a LaneList from a simple description."""
