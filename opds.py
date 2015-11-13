@@ -42,7 +42,9 @@ from model import (
     Work,
     )
 from lane import (
+    Facets,
     Lane,
+    Pagination,
 )
 from feed import (
     CustomListFeed,
@@ -459,33 +461,27 @@ class AcquisitionFeed(OPDSFeed):
     STAFF_PICKS_LANGUAGES = ['eng']
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3,
-                 availability=Work.CURRENTLY_AVAILABLE, random_sample=True):
+    def featured(cls, lane, annotator):
         """The acquisition feed for 'featured' items from a given lane.
         """
         url = annotator.featured_feed_url(lane)
         feed_size = Configuration.featured_lane_size()
-        quality = Configuration.minimum_featured_quality()
-        works = lane.quality_sample(languages, quality_cutoff, 
-                                    min(0.1, quality_cutoff), feed_size,
-                                    availability, random_sample)
+        
+        facets = Facets(collection=Facets.COLLECTION_FEATURED)
+        works = lane.works(facets)
         return AcquisitionFeed(
             lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
             sublanes=lane.sublanes)
 
     @classmethod
     def featured_groups(
-            cls, url, best_sellers_url, staff_picks_url, languages, lane,
-            annotator, quality_cutoff=0.0):
+            cls, url, best_sellers_url, staff_picks_url, lane, annotator):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         feed_size = Configuration.featured_lane_size()
 
         all_works = []
-        if isinstance(languages, basestring):
-            languages = [languages]
-
         # Configure special groups
         best_seller_cutoff = (
             datetime.datetime.utcnow() - datetime.timedelta(

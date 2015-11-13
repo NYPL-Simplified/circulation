@@ -287,6 +287,9 @@ class Lane(object):
 
                  parent=None,
                  sublanes=[],
+                 include_best_sellers=False,
+                 include_staff_picks=False,
+                 include_all=True,
 
                  genres=[],
                  exclude_genres=None,
@@ -312,8 +315,17 @@ class Lane(object):
         self.parent = parent
         self._db = _db
 
+        # This controls which feeds to display when showing this lane
+        # and its sublanes as a group.
+        #
+        # This is not a sublane--it's a feed that renders  are subfeeds rendered as part of
+        # rendering a lane.
+        #
+        # e.g. "All Science Fiction"
+        self.include_all_feed = include_all
+
         def set_from_parent(field_name, value, default=None):
-            if not value:
+            if value is None:
                 if self.parent:
                     value = getattr(self.parent, field_name, default)
                 else:
@@ -321,7 +333,7 @@ class Lane(object):
             setattr(self, field_name, value)
 
         def set_list(field_name, value, default=None):
-            if not value:
+            if value is None:
                 if self.parent:
                     value = getattr(self.parent, field_name, default)
                 else:
@@ -358,14 +370,8 @@ class Lane(object):
 
         # However the genres came in, turn them into database Genre
         # objects and the corresponding GenreData objects.
-        genre_objects = []
-        genre_data = []
         if not any(isinstance(genres, x) for x in (list, tuple, set)):
             genres = [genres]
-        for genre in genres:            
-            obj, data = self.load_genre(self._db, genre)
-            genre_objects.append(obj)
-            genre_data.append(data)
 
         # Create a complete list of genres to exclude.
         full_exclude_genres = set()
@@ -417,9 +423,43 @@ class Lane(object):
         else:
             self.sublanes = LaneList.from_description(_db, self, [])
 
+        # Best-seller and staff pick lanes go at the top.
+        base_args = dict(
+            _db=self._db, parent=self, include_all=False, genres=genres,
+            exclude_genres=exclude_genres, fiction=fiction, 
+            audiences=audiences, age_range=age_range,
+            appeals=appeals, languages=languages, media=media, 
+            formats=formats
+        )
+        if include_staff_picks:
+            full_name = "%s - Staff Picks" % self.name
+            staff_picks_lane = Lane(
+                full_name=full_name, display_name="Staff Picks",
+                list_identifier="Staff Picks",
+                **base_args
+            )
+            self.sublanes.lanes.insert(0, staff_picks_lane)
+
+        if include_best_sellers:
+            full_name = "%s - Best Sellers" % self.name
+            best_seller_lane = Lane(
+                full_name=full_name, display_name="Best Sellers", 
+                list_data_source=DataSource.NYT,
+                list_seen_in_previous_days=365*2,
+                **base_args
+            )
+            self.sublanes.lanes.insert(0, best_seller_lane)
+
+
         # Run some sanity checks.
         ch = Classifier.AUDIENCE_CHILDREN
         ya = Classifier.AUDIENCE_YOUNG_ADULT
+        if ((include_best_sellers or include_staff_picks) and
+            (self.list_data_source or self.lists)):
+            raise ValueError(
+                "Cannot include best-seller or staff-picks in a lane based on lists."
+            )
+
         if (
                 self.age_range 
                 and not any(x in self.audiences for x in [ch, ya])
@@ -486,8 +526,13 @@ class Lane(object):
             q = self._db.query(CustomList).filter(
                 CustomList.foreign_identifier.in_(list_identifiers))
             if list_data_source:
-                q = q.filter(CustomList.data_source==self.list_data_source)
+                q = q.filter(CustomList.data_source==list_data_source)
             lists = q.all()
+            if not lists:
+                raise ValueError(
+                    "Could not find any matching lists: %s, %r" % (
+                        list_data_source, list_identifiers)
+                )
         return list_data_source, lists
 
 
@@ -583,7 +628,7 @@ class Lane(object):
             fiction = cls.BOTH_FICTION_AND_NONFICTION
         return genres, fiction
 
-    def works(self):
+    def works(self, facets=None, pagination=None):
         """Find Works that will go together in this Lane.
 
         Works will:
@@ -628,10 +673,11 @@ class Lane(object):
             q = q.options(contains_eager(Work.work_genres))
             q = q.filter(WorkGenre.genre_id.in_([g.id for g in self.genres]))
 
-        q = self.apply_filters(q, Work, Edition)
+        q = self.apply_filters(q, facets, pagination, Work, Edition)
+
         return q
 
-    def materialized_works(self):
+    def materialized_works(self, facets=None, pagination=None):
         """Find MaterializedWorks that will go together in this Lane."""
         from model import (
             MaterializedWork,
@@ -655,10 +701,10 @@ class Lane(object):
 
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
-        q = self.apply_filters(q, mw, mw)
+        q = self.apply_filters(q, facets, pagination, mw, mw)
         return q
 
-    def apply_filters(self, q, work_model=Work, edition_model=Edition):
+    def apply_filters(self, q, facets=None, pagination=None, work_model=Work, edition_model=Edition):
         """Apply filters to a base query against Work or a materialized view.
 
         :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
@@ -756,6 +802,12 @@ class Lane(object):
                 )
                 q = q.filter(CustomListEntry.most_recent_appearance
                              >=cutoff)
+
+        if facets:
+            q = facets.apply(q, work_model, edition_model)
+        if pagination:
+            q = pagination.apply(q)
+
         return q
 
 

@@ -233,6 +233,39 @@ class TestLanes(DatabaseTest):
             names
         )
 
+    def test_nonexistent_list_raises_exception(self):
+        assert_raises(
+            ValueError, Lane, self._db, 
+            "This Will Fail", list_identifier="No Such List"
+        )
+
+    def test_staff_picks_and_best_sellers_sublane(self):
+        staff_picks, ignore = self._customlist(
+            foreign_identifier="Staff Picks", name="Staff Picks!", 
+            data_source_name=DataSource.LIBRARY_STAFF,
+            num_entries=0
+        )
+        best_sellers, ignore = self._customlist(
+            foreign_identifier="NYT Best Sellers", name="Best Sellers!", 
+            data_source_name=DataSource.NYT,
+            num_entries=0
+        )
+        lane = Lane(
+            self._db, "Everything", 
+            include_staff_picks=True, include_best_sellers=True
+        )
+
+        # A staff picks sublane and a best-sellers sublane have been
+        # created for us.
+        best, picks = lane.sublanes.lanes
+        eq_("Best Sellers", best.display_name)
+        eq_("Everything - Best Sellers", best.name)
+        eq_(DataSource.NYT, best.list_data_source.name)
+
+        eq_("Staff Picks", picks.display_name)
+        eq_("Everything - Staff Picks", picks.name)
+        eq_([staff_picks], picks.lists)
+
     def test_gather_matching_genres(self):
         self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         self.urban_fantasy, ig = Genre.lookup(

@@ -203,13 +203,13 @@ class TestOPDS(DatabaseTest):
             None,
             [dict(full_name="Fiction",
                   fiction=True,
-                  audience=Classifier.AUDIENCE_ADULT,
+                  audiences=Classifier.AUDIENCE_ADULT,
                   genres=[]),
              Fantasy,
              dict(
                  full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 audience=Classifier.AUDIENCE_YOUNG_ADULT,
+                 audiences=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
              dict(full_name="Romance", fiction=True, genres=[],
                   sublanes=[
