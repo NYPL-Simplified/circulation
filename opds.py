@@ -463,7 +463,8 @@ class AcquisitionFeed(OPDSFeed):
     FACET_REL = "http://opds-spec.org/facet"
 
     @classmethod
-    def groups(cls, title, url, lane, annotator):
+    def groups(cls, _db, title, url, lane, annotator, 
+               use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
@@ -476,7 +477,13 @@ class AcquisitionFeed(OPDSFeed):
         for sublane in lane.sublanes:
             # .featured_works will try more and more desperately
             # to find works to fill the 'featured' group.
-            works = sublane.featured_works(feed_size)
+            works = sublane.featured_works(
+                feed_size, use_materialized_works=use_materialized_works)
+            if works is None:
+                set_trace()
+                works = sublane.featured_works(
+                    feed_size, use_materialized_works=use_materialized_works)
+
             if len(works) < (feed_size-5):
                 # This is pathetic. Every single book in this
                 # lane won't fill up the 'featured' group. Don't

@@ -254,7 +254,7 @@ class TestOPDS(DatabaseTest):
         b = m(rel, href, ["application/epub"])    
         eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
-    def test_group(self):
+    def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
         [lp] = work.license_pools
 
@@ -642,4 +642,22 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
         """
+        """Test the ability to create a paginated feed of works for a given
+        lane.
+        """       
+        fantasy_lane = self.lanes.by_name['Fantasy']
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1.quality = 0.75
+        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work2.quality = 0.75
+
+        with temp_config() as config:
+            set_trace()
+            config['policy'][Configuration.FEATURED_LANE_SIZE] = 2
+            groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, TestAnnotatorWithGroup, 
+                False
+            )
+            set_trace()
+
         # Test 'up' link and 'start' link

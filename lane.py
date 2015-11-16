@@ -1010,7 +1010,7 @@ class Lane(object):
         #q = q.order_by(Work.quality.desc())
         return q
 
-    def featured_works(self, size):
+    def featured_works(self, size, use_materialized_works=True):
         """Find a random sample of `size` featured books.
 
         It's semi-okay for this to be slow, since it will only be run to
@@ -1034,18 +1034,24 @@ class Lane(object):
                             order=Facets.ORDER_RANDOM)
             desperate = (collection==Facets.COLLECTION_FULL
                          and availability == Facets.AVAILABLE_ALL)
-            books = self.featured_works_for_facets(facets, size, desperate)
+            books = self.featured_works_for_facets(facets, size, desperate,
+                                                   use_materialized_works)
             if books:
                 break
         return books
 
-    def featured_works_for_facets(facets, size, desperate=False):
+    def featured_works_for_facets(
+            self, facets, size, desperate=False, use_materialized_works=True
+    ):
         """Find a random sample of `size` featured books matching
         the given facets.
         """
-        query = self.materialized_works(facets)
+        if use_materialized_works:
+            query = self.materialized_works(facets)
+        else:
+            query = self.works(facets)
         total_size = query.count()
-        if total_size >= needed:
+        if total_size >= size:
             # There are enough results that we can take a random
             # sample.
             offset = random.randint(0, total_size-size)
@@ -1058,7 +1064,8 @@ class Lane(object):
                 # We're not desperate. Just return nothing.
                 return []
         works = query.offset(offset).limit(size).all()
-        return random.shuffle(works)
+        random.shuffle(works)
+        return works
 
 
 class LaneList(object):
