@@ -252,7 +252,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def facet_url(cls, facet_group, value, other_facets):
+    def facet_url(cls, facets):
         return None
 
     @classmethod
@@ -456,6 +456,8 @@ class OPDSFeed(AtomFeed):
 
 class AcquisitionFeed(OPDSFeed):
 
+    FACET_REL = "http://opds-spec.org/facet"
+
     @classmethod
     def groups(cls, title, url, lane, annotator):
         """The acquisition feed for 'featured' items from a given lane's
@@ -516,18 +518,19 @@ class AcquisitionFeed(OPDSFeed):
 
         feed = AcquisitionFeed(
             _db, title, url, all_works, annotator,
-            facets=None
-            facet_groups=[]
         )
         return feed
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
-             facets=None, pagination=None):
+             facets=None, pagination=None, use_materialized_works=True):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
-        works = lane.materialized_works(facets, pagination)
+        if use_materialized_works:
+            works = lane.materialized_works(facets, pagination)
+        else:
+            works = lane.works(facets, pagination)
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
@@ -567,13 +570,15 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def facet_links(self, annotator, facets):
-        for title, value, group, selected, in facets.facet_groups:
-            url = annotator.facet_url(title, value, facets)
+        for group, value, new_facets, selected, in facets.facet_groups:
+            url = annotator.facet_url(new_facets)
             if not url:
                 continue
-            link = dict(href=url, title=title)
-            link['rel'] = "http://opds-spec.org/facet"
-            link['{%s}facetGroup' % opds_ns] = group
+            group_title = Facets.GROUP_DISPLAY_TITLES[group]
+            facet_title = Facets.FACET_DISPLAY_TITLES[value]
+            link = dict(href=url, title=facet_title)
+            link['rel'] = self.FACET_REL
+            link['{%s}facetGroup' % opds_ns] = group_title
             if selected:
                 link['{%s}activeFacet' % opds_ns] = "true"
             yield link
@@ -683,13 +688,6 @@ class AcquisitionFeed(OPDSFeed):
             title = (edition.title or "") + " "
         else:
             title = ""
-        if self.annotator:
-            if cache_hit:
-                record = self.annotator.cached_record
-            else:
-                record = self.annotator.uncached_record
-            record.append((title, after-before))
-
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,

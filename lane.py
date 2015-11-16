@@ -62,6 +62,29 @@ class Facets(object):
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
 
+    GROUP_DISPLAY_TITLES = {
+        ORDER_FACET_GROUP_NAME : "Sort by",
+        AVAILABILITY_FACET_GROUP_NAME : "Availability",
+        COLLECTION_FACET_GROUP_NAME : 'Collection',
+    }
+
+    FACET_DISPLAY_TITLES = {
+        ORDER_TITLE : 'Title',
+        ORDER_AUTHOR : 'Author',
+        ORDER_LAST_UPDATE : 'Last Update',
+        ORDER_ADDED_TO_COLLECTION : 'Recently Added',
+        ORDER_WORK_ID : 'Work ID',
+        ORDER_RANDOM : 'Random',
+
+        AVAILABLE_NOW : "Available now",
+        AVAILABLE_ALL : "All",
+        AVAILABLE_OPEN_ACCESS : "Always available",
+
+        COLLECTION_FULL : "Full Collection",
+        COLLECTION_MAIN : "Main Collection",
+        COLLECTION_FEATURED : "Featured Collection",
+    }
+
     @classmethod
     def default(cls):
         return cls(
@@ -73,7 +96,7 @@ class Facets(object):
 
     def __init__(self, collection, availability, order,
                  order_ascending=None):
-
+        
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -97,36 +120,54 @@ class Facets(object):
             order_ascending = False
         self.order_ascending = order_ascending
 
+    def navigate(self, collection=None, availability=None, order=None):
+        """Create a slightly different Facets object from this one."""
+        return Facets(collection or self.collection, 
+                      availability or self.availability, 
+                      order or self.order) 
+
+    def items(self):
+        yield (self.ORDER_FACET_GROUP_NAME, self.order)
+        yield (self.AVAILABILITY_FACET_GROUP_NAME,  self.availability)        
+        yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
+
     @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
-        (facet name, facet constant, facet group, selected)
+        (facet group, facet value, new Facets object, selected)
         for use in building OPDS facets.
         """
 
-        def dy(label, constant, group, value):
-            return (label, constant, group, value==constant)
+        def dy(new_value):
+            group = self.ORDER_FACET_GROUP_NAME
+            current_value = self.order
+            facets = self.navigate(order=new_value)
+            return (group, new_value, facets, current_value==new_value)
 
         # First, the order facets.
-        g = self.ORDER_FACET_GROUP_NAME
-        v = self.order
-        yield dy("Title", self.ORDER_TITLE, g, v)
-        yield dy("Author", self.ORDER_AUTHOR, g, v)
-        yield dy("Newly added", self.ORDER_ADDED_TO_COLLECTION, g, v)
+        yield dy(self.ORDER_TITLE)
+        yield dy(self.ORDER_AUTHOR)
+        #yield dy(self.ORDER_ADDED_TO_COLLECTION)
 
         # Next, the availability facets.
-        g = self.AVAILABILITY_FACET_GROUP_NAME
-        v = self.availability
-        yield dy("All books", self.AVAILABLE_ALL, g, v)
-        yield dy("Available now", self.AVAILABLE_NOW, g, v)
-        yield dy("Always available", self.AVAILABLE_OPEN_ACCESS, g, v)
+        def dy(group, new_value):
+            group = self.AVAILABILITY_FACET_GROUP_NAME
+            current_value = self.availability
+            facets = self.navigate(availability=new_value)
+            return (group, new_value, facets, new_value==current_value)
+        #yield dy(self.AVAILABLE_ALL)
+        #yield dy(self.AVAILABLE_NOW)
+        #yield dy(self.AVAILABLE_OPEN_ACCESS)
 
         # Next, the collection facets.
-        g = self.COLLECTION_FACET_GROUP_NAME
-        v = self.collection
-        yield dy("Main collection", self.AVAILABLE_ALL, g, v)
-        yield dy("Featured collection", self.AVAILABLE_NOW, g, v)
-        yield dy("Full collection", self.AVAILABLE_OPEN_ACCESS, g, v)
+        def dy(new_value):
+            group = self.COLLECTION_FACET_GROUP_NAME
+            current_value = self.collection
+            facets = self.navigate(collection=new_value)
+            return (group, new_value, facets, new_value==current_value)
+        #yield dy(self.AVAILABLE_ALL)
+        #yield dy(self.AVAILABLE_NOW)
+        #yield dy(self.AVAILABLE_OPEN_ACCESS)
 
     @classmethod
     def order_facet_to_database_field(
@@ -859,7 +900,7 @@ class Lane(object):
                              >=cutoff)
 
         if facets:
-            q = facets.apply(q, work_model, edition_model)
+            q = facets.apply(self._db, q, work_model, edition_model)
         if pagination:
             q = pagination.apply(q)
 

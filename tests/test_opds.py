@@ -28,6 +28,8 @@ from model import (
 )
 
 from lane import (
+    Facets,
+    Pagination,
     Lane,
     LaneList,
 )
@@ -36,7 +38,6 @@ from opds import (
      AtomFeed,
      OPDSFeed,
      AcquisitionFeed,
-     NavigationFeed,
      Annotator,
      VerboseAnnotator,
 )
@@ -63,8 +64,10 @@ class TestAnnotator(Annotator):
         return url
 
     @classmethod
-    def facet_url(cls, facet):
-        return "http://facet/" + facet
+    def facet_url(cls, facets):
+        return "http://facet/" + "&".join(
+            ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
+        )
 
 
 class TestAnnotatorWithGroup(TestAnnotator):
@@ -195,6 +198,15 @@ class TestAnnotators(DatabaseTest):
 
 class TestOPDS(DatabaseTest):
 
+    def links(self, entry, rel=None):
+        links = sorted(entry['links'], key=lambda x: (x['rel'], x.get('title')))
+        r = []
+        for l in links:
+            if (not rel or l['rel'] == rel or
+                (isinstance(rel, list) and l['rel'] in rel)):
+                r.append(l)
+        return r
+
     def setup(self):
         super(TestOPDS, self).setup()
 
@@ -292,21 +304,22 @@ class TestOPDS(DatabaseTest):
         eq_(work.primary_edition.permanent_work_id, 
             entry['simplified_pwid'])
 
-    def test_acquisition_feed_contains_facet_links(self):
+    def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
+        lane = Lane(self._db, "lane")
+        facets = Facets.default()
 
-        works = self._db.query(Work)
-        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               works, TestAnnotator, "author")
+        feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
+                                    lane, TestAnnotator, facets=facets)
         u = unicode(feed)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
-        by_author, by_title, self_link = sorted(
-            by_title['links'], key=lambda x: (x['rel'], x.get('title')))
-
+        [self_link] = self.links(by_title, 'self')
         eq_("http://the-url.com/", self_link['href'])
+        [by_author, by_title] = self.links(by_title, AcquisitionFeed.FACET_REL)
+
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,
@@ -320,13 +333,16 @@ class TestOPDS(DatabaseTest):
         eq_('http://opds-spec.org/facet', by_author['rel'])
         eq_('true', by_author['opds:activefacet'])
         eq_('Author', by_author['title'])
-        eq_(TestAnnotator.facet_url("author"), by_author['href'])
+        expect = Facets.default()
+        expect.order = Facets.ORDER_AUTHOR
+        eq_(TestAnnotator.facet_url(expect), by_author['href'])
 
         eq_('Sort by', by_title['opds:facetgroup'])
         eq_('http://opds-spec.org/facet', by_title['rel'])
         eq_('Title', by_title['title'])
         assert not 'opds:activefacet' in by_title
-        eq_(TestAnnotator.facet_url("title"), by_title['href'])
+        expect.order = Facets.ORDER_TITLE
+        eq_(TestAnnotator.facet_url(expect), by_title['href'])
 
     def test_acquisition_feed_includes_available_and_issued_tag(self):
         today = datetime.date.today()
@@ -536,7 +552,11 @@ class TestOPDS(DatabaseTest):
         # Clear out any default CDN settings
         Configuration.instance = new_config
         new_config['integrations'][Configuration.CDN_INTEGRATION] = {}
-        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+        feed = AcquisitionFeed(
+            self._db, "title", "http://the-url/", 
+            [work],
+            TestAnnotator
+        )
         feed = feedparser.parse(unicode(feed))
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                      'image' in x['rel']])
@@ -544,7 +564,6 @@ class TestOPDS(DatabaseTest):
         Configuration.instance = old_config
 
     def test_acquisition_feed_image_links_respect_cdn(self):
-        lane=self.lanes.by_name['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
@@ -553,7 +572,7 @@ class TestOPDS(DatabaseTest):
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
             config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
-            feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
+            feed = AcquisitionFeed(self._db, "", "", [work])
             feed = feedparser.parse(unicode(feed))
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
