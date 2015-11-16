@@ -39,27 +39,46 @@ from model import (
 class Facets(object):
 
     # Subset the collection, roughly, by quality.
+    COLLECTION_FACET_GROUP_NAME = 'collection'
     COLLECTION_FULL = "full"
     COLLECTION_MAIN = "main"
     COLLECTION_FEATURED = "featured"
 
     # Subset the collection by availability.
+    AVAILABILITY_FACET_GROUP_NAME = 'availability'
     AVAILABLE_NOW = "currently_available"
     AVAILABLE_ALL = "all"
     AVAILABLE_OPEN_ACCESS = "open_access"
 
     # The names of the order facets.
+    ORDER_FACET_GROUP_NAME = 'order'
     ORDER_TITLE = 'title'
     ORDER_AUTHOR = 'author'
     ORDER_LAST_UPDATE = 'last_update'
+    ORDER_ADDED_TO_COLLECTION = 'added'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
 
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
 
+    @classmethod
+    def default(cls):
+        return cls(
+            collection=cls.COLLECTION_MAIN,
+            availability=cls.AVAILABLE_ALL,
+            order=cls.ORDER_AUTHOR
+        )
+
+
     def __init__(self, collection, availability, order,
-                 order_ascending=True):
+                 order_ascending=None):
+
+        if order_ascending is None:
+            if order == self.ORDER_ADDED_TO_COLLECTION:
+                order_ascending = self.ORDER_DESCENDING
+            else:
+                order_ascending = self.ORDER_ASCENDING
 
         hold_policy = Configuration.hold_policy()
         if (availability == self.AVAILABLE_ALL and 
@@ -77,6 +96,37 @@ class Facets(object):
         elif order_ascending == self.ORDER_DESCENDING:
             order_ascending = False
         self.order_ascending = order_ascending
+
+    @property
+    def facet_groups(self):
+        """Yield a list of 4-tuples 
+        (facet name, facet constant, facet group, selected)
+        for use in building OPDS facets.
+        """
+
+        def dy(label, constant, group, value):
+            return (label, constant, group, value==constant)
+
+        # First, the order facets.
+        g = self.ORDER_FACET_GROUP_NAME
+        v = self.order
+        yield dy("Title", self.ORDER_TITLE, g, v)
+        yield dy("Author", self.ORDER_AUTHOR, g, v)
+        yield dy("Newly added", self.ORDER_ADDED_TO_COLLECTION, g, v)
+
+        # Next, the availability facets.
+        g = self.AVAILABILITY_FACET_GROUP_NAME
+        v = self.availability
+        yield dy("All books", self.AVAILABLE_ALL, g, v)
+        yield dy("Available now", self.AVAILABLE_NOW, g, v)
+        yield dy("Always available", self.AVAILABLE_OPEN_ACCESS, g, v)
+
+        # Next, the collection facets.
+        g = self.COLLECTION_FACET_GROUP_NAME
+        v = self.collection
+        yield dy("Main collection", self.AVAILABLE_ALL, g, v)
+        yield dy("Featured collection", self.AVAILABLE_NOW, g, v)
+        yield dy("Full collection", self.AVAILABLE_OPEN_ACCESS, g, v)
 
     @classmethod
     def order_facet_to_database_field(
@@ -99,6 +149,7 @@ class Facets(object):
             cls.ORDER_TITLE : edition_model.sort_title,
             cls.ORDER_AUTHOR : edition_model.sort_author,
             cls.ORDER_LAST_UPDATE : work_model.last_update_time,
+            cls.ORDER_ADDED_TO_COLLECTION : LicensePool.availability_time,
             cls.ORDER_RANDOM : work_model.random,
         }
         return order_facet_to_database_field[order_facet]
@@ -200,7 +251,7 @@ class Facets(object):
             order_by = default_order_by
 
         # Set each field in the sort order to ascending or descending.
-        print [x.name for x in order_by]
+        print [(x.name, self.order_ascending) for x in order_by]
         if self.order_ascending:
             order_by = [x.asc() for x in order_by]
         else:
@@ -318,8 +369,8 @@ class Lane(object):
         # This controls which feeds to display when showing this lane
         # and its sublanes as a group.
         #
-        # This is not a sublane--it's a feed that renders  are subfeeds rendered as part of
-        # rendering a lane.
+        # This is not a sublane--it's a group that's shown as part of the main
+        # lane.
         #
         # e.g. "All Science Fiction"
         self.include_all_feed = include_all
@@ -810,12 +861,21 @@ class Lane(object):
 
         return q
 
+    @property
+    def searchable(self):
+        """Can we use the search client to works in this lane?
 
-    def search(self, languages, query, search_client, limit=30):
+        If not, we have to fall back to a database search.
+        """
+        if self.list_data_source or self.lists:
+            return False
+        if self.age_range:
+            return False
+        return True
+
+    def search(self, query, search_client, limit=30):
         """Find works in this lane that match a search query.
         """        
-        if isinstance(languages, basestring):
-            languages = [languages]
 
         if self.fiction in (True, False):
             fiction = self.fiction
@@ -828,8 +888,8 @@ class Lane(object):
             a = time.time()
             try:
                 docs = search_client.query_works(
-                    query, Edition.BOOK_MEDIUM, languages, fiction,
-                    self.audience,
+                    query, self.media, self.languages, fiction,
+                    self.audiences,
                     self.all_matching_genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
@@ -870,7 +930,7 @@ class Lane(object):
             results = self._search_database(languages, fiction, query).limit(limit)
         return results
 
-    def _search_database(self, languages, fiction, query):
+    def _search_database(self, query):
         """Do a really awful database search for a book using ILIKE.
 
         This is useful if an app server has no external search

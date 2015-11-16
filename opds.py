@@ -252,7 +252,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def facet_url(cls, order):
+    def facet_url(cls, facet_group, value):
         return None
 
     @classmethod
@@ -481,99 +481,52 @@ class AcquisitionFeed(OPDSFeed):
         """
         feed_size = Configuration.featured_lane_size()
 
-        all_works = []
-        # Configure special groups
-        best_seller_cutoff = (
-            datetime.datetime.utcnow() - datetime.timedelta(
-                days=CustomListFeed.BEST_SELLER_LIST_DURATION)
-        )
-        special_group_config = [
-            (best_sellers_url, "Best Sellers", 
-             DataSource.NYT, best_seller_cutoff,
-             cls.BEST_SELLER_LANGUAGES), 
-        ]
+        works_and_lanes = []
 
-        if isinstance(lane, Lane) or Configuration.show_staff_picks_on_top_level():
-            special_group_config.append(
-                (staff_picks_url, "Staff Picks", 
-                 DataSource.LIBRARY_STAFF, None,
-                 cls.STAFF_PICKS_LANGUAGES)
-            )
+        # If there is a best-sellers or staff picks lane, it's
+        # already found in lane.sublanes.
+        for sublane in lane.sublanes:
+            works = sublane.featured_works(feed_size)
+            if len(works) < (feed_size-5):
+                # This is pathetic. Every single book in this
+                # lane won't fill up the 'featured' group. Don't
+                # show the lane at all.
+                pass
+            else:
+                for work in works:
+                    works_and_lanes.append((work, lane))
 
+        if not works_and_lanes:
+            # We did not find any works whatsoever. The groups feed is
+            # useless. Instead we need to display a flat feed--the
+            # contents of what would have been the 'all' feed.
+            return None
 
-        sublanes = list(lane.sublanes)
-        _db = None
-        for l in sublanes:
-            if l._db:
-                _db = l._db
-                break
-
-        # First generate the special lists (bestsellers and staff
-        # picks).
-        if isinstance(lane, Lane):
-            special_lists_lane = lane
-        else:
-            special_lists_lane = Lane.everything(_db)
-        all_works.extend(cls.generate_special_lists(
-            _db, languages, special_lists_lane, annotator, special_group_config)
-        )
-
-        if lane and lane.sublanes and lane.display_name:
-            # Every lane that has sublanes also gets an 'all' group,
-            # except the very top level.
-            logging.info(
-                "I intend to create an 'all' group for %s" % lane.name,
-            )
-            sublanes.append(lane)
-            all_group_label = 'All ' + lane.display_name
-        else:
-            all_group_label = None
-
-        for l in sublanes:
-            if l == lane and not all_works:
-                # We've gotten to the (e.g.) 'All Science Fiction'
-                # group, but we have not found any works whatsoever.
-                # 
-                # Instead of delivering a feed with a single group,
-                # deliver nothing and require the caller to 
-                # create a flat feed instead.
-                return None
-
-            quality_min = Configuration.minimum_featured_quality()
-
-            works = l.quality_sample(
-                languages, quality_min, quality_cutoff, feed_size,
-                Work.CURRENTLY_AVAILABLE)
-
-            if quality_cutoff == 0 and len(works) < (feed_size-5):
-                # There are so few works in this group that it doesn't
-                # even make sense to show it as a group.
-
-                # Try again, but don't restrict to currently available
-                # books.
-                works = l.quality_sample(
-                    languages, quality_min, quality_cutoff, feed_size,
-                    Work.ALL)
-
-            if quality_cutoff == 0 and len(works) < (feed_size-5):
-                # Okay, forget it.
-                continue
-
+        if lane.include_all_feed:
+            # Create an 'all' group so that patrons can browse every
+            # book in this lane.
+            works = lane.featured_works(feed_size)
             for work in works:
-                if l == lane:
-                    # This work is in the (e.g.) 'All Science Fiction'
-                    # group. Whether or not this lane has sublanes,
-                    # the group URI will point to a linear feed, not a
-                    # groups feed.
-                    v = dict(
-                        lane=lane,
-                        label=all_group_label,
-                        link_to_list_feed=True,
-                    )
-                else:
-                    v = l                   
-                annotator.lanes_by_work[work].append(v)
-                all_works.append(work)
+                works_and_lanes.append((work, None))
+
+        all_works = []
+        for work, sublane in works_and_lanes:
+            if sublane is None:
+                # This work is in the (e.g.) 'All Science Fiction'
+                # group. Whether or not this lane has sublanes,
+                # the group URI will point to a linear feed, not a
+                # groups feed.
+                v = dict(
+                    lane=sublane,
+                    label=all_group_label,
+                    link_to_list_feed=True,
+                )
+            else:
+                v = dict(
+                    lane=sublane
+                )
+            annotator.lanes_by_work[work].append(v)
+            all_works.append(work)
 
         feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
                                facet_groups=[])
@@ -584,47 +537,14 @@ class AcquisitionFeed(OPDSFeed):
         ('Author', 'author', 'Sort by')
     ]
 
-    @classmethod
-    def generate_special_lists(cls, _db, languages, lane, annotator, 
-                               configuration):
-        """Generate lists of entries for best-sellers and staff picks."""
-        all_works = []
-        if lane.parent is not None:
-            return all_works
-        feed_size = Configuration.featured_lane_size()
-        # If lane.parent is None, this is the very top level or a
-        # top-level lane (e.g. "Young Adult Fiction").
-        #
-        # These are the only lanes that get Staff Picks and
-        # Best-Sellers.
-        for group_uri, title, data_source_name, cutoff_point, available_languages in configuration:
-            available = False
-            if not any([lang in available_languages for lang in languages]):
-                continue
-            data_source = DataSource.lookup(_db, data_source_name)
-            q = lane.works(languages, availability=Work.ALL)
-            q = Work.restrict_to_custom_lists_from_data_source(
-                _db, q, data_source, cutoff_point)
-            a = time.time()
-            page = q.all()
-            b = time.time()
-            print "Got %s %s for %s in %.2f" % (
-                len(page), title, lane.name, (b-a))
-            if len(page) > feed_size:
-                sample = random.sample(page, feed_size)
-            else:
-                sample = page
-            for work in sample:
-                annotator.lanes_by_work[work].append(
-                    (group_uri, title)
-                )
-                all_works.append(work)
-        return all_works
-
     def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={},
-                 facet_groups=DEFAULT_FACET_GROUPS, precomposed_entries=[]):
+                 facets=None, pagination=None, sublanes=[], messages_by_urn={},
+                 precomposed_entries=[]):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
+
+        if not facets:
+            facets = Facets.default()
+
         lane_link = dict(rel="collection", href=url)
         first_time = time.time()
         totals = []
@@ -668,14 +588,14 @@ class AcquisitionFeed(OPDSFeed):
                 "Built feed of %d entries in %.2f sec" % (
                     total_entries, time.time()-first_time))
 
-        for title, order, facet_group, in facet_groups:
-            url = self.annotator.facet_url(order)
+        for title, value, group, selected, in facets.facet_groups:
+            url = self.annotator.facet_url(title, value)
             if not url:
                 continue
             link = dict(href=url, title=title)
             link['rel'] = "http://opds-spec.org/facet"
-            link['{%s}facetGroup' % opds_ns] = facet_group
-            if order==active_facet:
+            link['{%s}facetGroup' % opds_ns] = group
+            if selected:
                 link['{%s}activeFacet' % opds_ns] = "true"
             self.add_link(**link)
 

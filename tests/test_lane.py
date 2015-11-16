@@ -34,6 +34,7 @@ from model import (
     DataSource,
     Genre,
     Work,
+    LicensePool,
     Edition,
     SessionManager,
     WorkGenre,
@@ -70,6 +71,10 @@ class TestFacets(object):
         eq_([Work.last_update_time, mw.last_update_time, mwg.last_update_time],
             fields(Facets.ORDER_LAST_UPDATE))
 
+        # ...by most recently added...
+        eq_([LicensePool.availability_time] * 3,
+            fields(Facets.ORDER_ADDED_TO_COLLECTION))
+
         # ...or randomly.
         eq_([Work.random, mw.random, mwg.random],
             fields(Facets.ORDER_RANDOM))
@@ -80,7 +85,7 @@ class TestFacets(object):
             MaterializedWorkWithGenre as mwg,
         )
 
-        def order(facet, work, edition, ascending=True):
+        def order(facet, work, edition, ascending=None):
             f = Facets(
                 collection=Facets.COLLECTION_FULL, 
                 availability=Facets.AVAILABLE_ALL,
@@ -92,6 +97,7 @@ class TestFacets(object):
         def compare(a, b):
             assert(len(a) == len(b))
             for i in range(0, len(a)):
+                print "Trying field #%s" % i
                 assert(a[i].compare(b[i]))
 
         expect = [Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
@@ -118,6 +124,11 @@ class TestFacets(object):
                   mw.works_id.asc()]
         actual = order(Facets.ORDER_RANDOM, mw, mw, True)
         compare(expect, actual)
+
+        expect = [LicensePool.availability_time.desc(), Edition.sort_title.desc(), Edition.sort_author.desc(), Work.id.desc()]
+        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, Work, Edition, None)  
+        compare(expect, actual)
+
 
 class TestFacetsApply(DatabaseTest):
 
