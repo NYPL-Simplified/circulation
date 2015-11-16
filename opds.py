@@ -244,7 +244,11 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
-    def navigation_feed_url(cls, lane, order=None):
+    def feed_url(cls, pagination):
+        raise NotImplementedError()
+
+    @classmethod
+    def groups_url(cls, lane):
         raise NotImplementedError()
 
     @classmethod
@@ -531,15 +535,30 @@ class AcquisitionFeed(OPDSFeed):
             works = lane.materialized_works(facets, pagination)
         else:
             works = lane.works(facets, pagination)
+        works = works.all()
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
         for args in cls.facet_links(annotator, facets):
             feed.add_link(**args)
 
-        # TODO: render next and previous links if appropriate.
+        if len(works) > 0:
+            # There are works in this list. Add a 'next' link.
+            next_offset = pagination.offset + pagination.size
+            next_page = pagination.next_page
+            feed.add_link(rel="next", href=annotator.feed_url(next_page))
 
-        # TODO: render 'up' and 'start' links if appropriate.
+        if pagination.offset > 0:
+            first_page = pagination.first_page
+            feed.add_link(rel="first", href=annotator.feed_url(first_page))
+
+        previous_page = pagination.previous_page
+        if previous_page:
+            feed.add_link(rel="previous", href=annotator.feed_url(previous_page))
+
+        # We can always calculate the 'start' link and the 'up' link.
+        feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
+        feed.add_link(rel='start', href=annotator.groups_url(None))
 
         return feed
 

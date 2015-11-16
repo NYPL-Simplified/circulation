@@ -313,6 +313,27 @@ class Pagination(object):
         self.offset = offset
         self.size = size
 
+    @property
+    def query_args(self):
+        return "offset=%s&size=%s" % (self.offset, self.size)
+
+    @property
+    def first_page(self):
+        return Pagination(0, self.size)
+
+    @property
+    def next_page(self):
+        return Pagination(self.offset+self.size, self.size)
+
+    @property
+    def previous_page(self):
+        if self.offset <= 0:
+            return None
+        previous_offset = self.offset - self.size
+        previous_offset = max(0, previous_offset)
+        return Pagination(previous_offset, self.size)
+        
+
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
         return q.offset(self.offset).limit(self.size)

@@ -44,24 +44,23 @@ from opds import (
 
 from classifier import (
     Classifier,
+    Epic_Fantasy,
     Fantasy,
 )
 
 class TestAnnotator(Annotator):
 
     @classmethod
-    def navigation_feed_url(cls, lane):
-        url = "http://navigation-feed/"
-        if lane and lane.name:
-            url += lane.name
-        return url
+    def feed_url(cls, pagination):
+        return "http://feed/?" + pagination.query_args
 
     @classmethod
-    def featured_feed_url(cls, lane, order=None):
-        url = "http://featured-feed/" + lane.name
-        if order:
-            url += "?order=%s" % order
-        return url
+    def groups_url(cls, lane):
+        if lane:
+            name = lane.name
+        else:
+            name = ""
+        return "http://groups/%s" % name
 
     @classmethod
     def facet_url(cls, facets):
@@ -199,6 +198,8 @@ class TestAnnotators(DatabaseTest):
 class TestOPDS(DatabaseTest):
 
     def links(self, entry, rel=None):
+        if 'feed' in entry:
+            entry = entry['feed']
         links = sorted(entry['links'], key=lambda x: (x['rel'], x.get('title')))
         r = []
         for l in links:
@@ -601,8 +602,40 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a paginated feed of works for a given
         lane.
         """       
-        # Test 'up' link and 'start' link
-        # Test 'next' link and 'prev' link
+        fantasy_lane = self.lanes.by_name['Epic Fantasy']        
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+
+        pagination = Pagination(size=1)
+
+        def make_page(pagination):
+            return AcquisitionFeed.page(
+                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
+                pagination=pagination, use_materialized_works=False
+            )
+        works = make_page(pagination)
+        parsed = feedparser.parse(unicode(works))
+        eq_(work1.title, parsed['entries'][0]['title'])
+
+        # Make sure the links are in place.
+        [up] = self.links(parsed, 'up')
+        eq_(TestAnnotator.groups_url(Fantasy), up['href'])
+
+        [start] = self.links(parsed, 'start')
+        eq_(TestAnnotator.groups_url(None), start['href'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.feed_url(pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        works = make_page(pagination.next_page)
+        parsed = feedparser.parse(unicode(works))
+        [previous] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(pagination), previous['href'])
+        eq_(work2.title, parsed['entries'][0]['title'])
 
 
     def test_groups_feed(self):
