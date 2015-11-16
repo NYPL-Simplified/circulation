@@ -252,7 +252,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def facet_url(cls, facet_group, value):
+    def facet_url(cls, facet_group, value, other_facets):
         return None
 
     @classmethod
@@ -542,26 +542,8 @@ class AcquisitionFeed(OPDSFeed):
                  precomposed_entries=[]):
         super(AcquisitionFeed, self).__init__(title, url, annotator)
 
-        if not facets:
-            facets = Facets.default()
-
-        lane_link = dict(rel="collection", href=url)
-        first_time = time.time()
-        totals = []
-        if isinstance(works, Query):
-            a = time.time()
-            works = works.all()
-            b = time.time()
-            # print "Query executed in %.2f" % (b-a)
-        if annotator:
-            annotator.cached_record = []
-            annotator.uncached_record = []
-        for work in works:
-            a = time.time()
-            self.add_entry(work, lane_link)
-            totals.append(time.time()-a)
-        for entry in precomposed_entries:
-            self.feed.append(entry)
+        facets = facets or Facets.default()
+        pagination = pagination or Pagination.default()
 
         # Add minimal entries for the messages.
         for urn, (status, message) in messages_by_urn.items():
@@ -577,6 +559,27 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(message_tag)
             self.feed.append(entry)
 
+        # Add a full entry for each work.
+        first_time = time.time()
+        totals = []
+        if isinstance(works, Query):
+            a = time.time()
+            works = works.all()
+            b = time.time()
+            # print "Query executed in %.2f" % (b-a)
+        if annotator:
+            annotator.cached_record = []
+            annotator.uncached_record = []
+        lane_link = dict(rel="collection", href=url)
+        for work in works:
+            a = time.time()
+            self.add_entry(work, lane_link)
+            totals.append(time.time()-a)
+
+        # Add the precomposed entries.
+        for entry in precomposed_entries:
+            self.feed.append(entry)
+
         total_entries = len(totals) + len(precomposed_entries)
         #if total_entries:
         #    print "Feed contains %d entries, build times: %r" % (
@@ -588,8 +591,9 @@ class AcquisitionFeed(OPDSFeed):
                 "Built feed of %d entries in %.2f sec" % (
                     total_entries, time.time()-first_time))
 
+        # Add URLs to change faceted views of the collection.
         for title, value, group, selected, in facets.facet_groups:
-            url = self.annotator.facet_url(title, value)
+            url = self.annotator.facet_url(title, value, facets)
             if not url:
                 continue
             link = dict(href=url, title=title)

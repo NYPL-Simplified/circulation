@@ -264,6 +264,10 @@ class Pagination(object):
     DEFAULT_SIZE = 50
     DEFAULT_FEATURED_SIZE = 10
 
+    @classmethod
+    def default(cls):
+        return Pagination(0, cls.DEFAULT_SIZE)
+
     def __init__(self, offset=0, size=DEFAULT_SIZE):
         self.offset = offset
         self.size = size
