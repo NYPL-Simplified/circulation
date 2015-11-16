@@ -652,8 +652,7 @@ class TestOPDS(DatabaseTest):
         work2.quality = 0.75
 
         with temp_config() as config:
-            set_trace()
-            config['policy'][Configuration.FEATURED_LANE_SIZE] = 2
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
             groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, TestAnnotatorWithGroup, 
                 False
