@@ -602,22 +602,6 @@ class TestOPDS(DatabaseTest):
         eq_(["not open access", "open access"], sorted(
             [x['title'] for x in by_title['entries']]))
 
-    def test_featured_feed_ignores_low_quality_works(self):
-        lane=self.lanes.by_name['Fantasy']
-        good = self._work(genre=Fantasy, language="eng",
-                          with_open_access_download=True)
-        good.quality = 1
-        bad = self._work(genre=Fantasy, language="eng",
-                         with_open_access_download=True)
-        bad.quality = 0
-
-        # We get the good one and omit the bad one.
-        feed = AcquisitionFeed.featured(
-            "eng", lane, TestAnnotator, availability=Work.ALL, 
-            random_sample=False)
-        feed = feedparser.parse(unicode(feed))
-        eq_([good.title], [x['title'] for x in feed['entries']])
-
     def test_acquisition_feed_includes_image_links(self):
         lane=self.lanes.by_name['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
