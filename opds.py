@@ -456,23 +456,20 @@ class OPDSFeed(AtomFeed):
 
 class AcquisitionFeed(OPDSFeed):
 
-    # The languages in which we have best-seller and staff picks information
-    BEST_SELLER_LANGUAGES = ['eng']
-    STAFF_PICKS_LANGUAGES = ['eng']
-
     @classmethod
-    def featured_groups(
-            cls, url, best_sellers_url, staff_picks_url, lane, annotator):
+    def groups(cls, title, url, lane, annotator):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         feed_size = Configuration.featured_lane_size()
 
+        # This is a list rather than a dict because we want to 
+        # preserve the ordering of the lanes.
         works_and_lanes = []
 
-        # If there is a best-sellers or staff picks lane, it's
-        # already found in lane.sublanes.
         for sublane in lane.sublanes:
+            # .featured_works will try more and more desperately
+            # to find works to fill the 'featured' group.
             works = sublane.featured_works(feed_size)
             if len(works) < (feed_size-5):
                 # This is pathetic. Every single book in this
@@ -515,24 +512,46 @@ class AcquisitionFeed(OPDSFeed):
             annotator.lanes_by_work[work].append(v)
             all_works.append(work)
 
-        feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
-                               facet_groups=[])
+        # TODO: render 'up' and 'start' links if appropriate.
+
+        feed = AcquisitionFeed(
+            _db, title, url, all_works, annotator,
+            facets=None
+            facet_groups=[]
+        )
         return feed
 
-    DEFAULT_FACET_GROUPS = [
-        ('Title', 'title', 'Sort by'),
-        ('Author', 'author', 'Sort by')
-    ]
-
-    def __init__(self, _db, title, url, works, annotator=None,
-                 facets=None, pagination=None, sublanes=[], messages_by_urn={},
-                 precomposed_entries=[]):
-        super(AcquisitionFeed, self).__init__(title, url, annotator)
-
+    @classmethod
+    def page(cls, _db, title, url, lane, annotator=None,
+             facets=None, pagination=None):
+        """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
+        works = lane.materialized_works(facets, pagination)
+        feed = cls(_db, title, url, works, annotator)
 
-        # Add minimal entries for the messages.
+        # Add URLs to change faceted views of the collection.
+        for args in cls.facet_links(annotator, facets):
+            feed.add_link(**args)
+
+        # TODO: render next and previous links if appropriate.
+
+        # TODO: render 'up' and 'start' links if appropriate.
+
+        return feed
+
+    @classmethod
+    def single_entry(cls, _db, work, annotator, force_create=False):
+        """Create a single-entry feed for one specific work."""
+        feed = cls(_db, '', '', [], annotator=annotator)
+        if not isinstance(work, Edition) and not work.primary_edition:
+            return None
+        return feed.create_entry(work, None, even_if_no_license_pool=True,
+                                 force_create=force_create)
+
+    @classmethod
+    def render_messages(cls, messages_by_urn):
+        """Create minimal OPDS entries for custom messages."""
         for urn, (status, message) in messages_by_urn.items():
             entry = E.entry(
                 E.id(urn)
@@ -544,43 +563,12 @@ class AcquisitionFeed(OPDSFeed):
             message_tag = E._makeelement("{%s}message" % simplified_ns)
             message_tag.text = message
             entry.append(message_tag)
-            self.feed.append(entry)
+            yield entry
 
-        # Add a full entry for each work.
-        first_time = time.time()
-        totals = []
-        if isinstance(works, Query):
-            a = time.time()
-            works = works.all()
-            b = time.time()
-            # print "Query executed in %.2f" % (b-a)
-        if annotator:
-            annotator.cached_record = []
-            annotator.uncached_record = []
-        lane_link = dict(rel="collection", href=url)
-        for work in works:
-            a = time.time()
-            self.add_entry(work, lane_link)
-            totals.append(time.time()-a)
-
-        # Add the precomposed entries.
-        for entry in precomposed_entries:
-            self.feed.append(entry)
-
-        total_entries = len(totals) + len(precomposed_entries)
-        #if total_entries:
-        #    print "Feed contains %d entries, build times: %r" % (
-        #        len(totals), totals)
-        #else:
-        #    print "Feed is empty."
-        if total_entries > 0:
-            logging.debug(
-                "Built feed of %d entries in %.2f sec" % (
-                    total_entries, time.time()-first_time))
-
-        # Add URLs to change faceted views of the collection.
+    @classmethod
+    def facet_links(self, annotator, facets):
         for title, value, group, selected, in facets.facet_groups:
-            url = self.annotator.facet_url(title, value, facets)
+            url = annotator.facet_url(title, value, facets)
             if not url:
                 continue
             link = dict(href=url, title=title)
@@ -588,21 +576,35 @@ class AcquisitionFeed(OPDSFeed):
             link['{%s}facetGroup' % opds_ns] = group
             if selected:
                 link['{%s}activeFacet' % opds_ns] = "true"
-            self.add_link(**link)
+            yield link
+
+    def __init__(self, _db, title, url, works, annotator=None,
+                 messages_by_urn={}, precomposed_entries=[]):
+        """Turn a list of works, messages, and precomposed <opds> entries
+        into a feed.
+        """
+        super(AcquisitionFeed, self).__init__(title, url, annotator)
+
+        # Add minimal entries for the messages.
+        for entry in self.render_messages(messages_by_urn):
+            self.feed.append(entry)
+
+        lane_link = dict(rel="collection", href=url)
+        for work in works:
+            self.add_entry(work, lane_link)
+
+        # Add the precomposed entries.
+        for entry in precomposed_entries:
+            self.feed.append(entry)
 
     def add_entry(self, work, lane_link):
+        """Attempt to create an OPDS <entry>. If successful, append it to
+        the feed.
+        """
         entry = self.create_entry(work, lane_link)
         if entry is not None:
             self.feed.append(entry)
         return entry
-
-    @classmethod
-    def single_entry(cls, _db, work, annotator, force_create=False):
-        feed = cls(_db, '', '', [], annotator=annotator)
-        if not isinstance(work, Edition) and not work.primary_edition:
-            return None
-        return feed.create_entry(work, None, even_if_no_license_pool=True,
-                                 force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
                      force_create=False):

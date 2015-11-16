@@ -241,84 +241,6 @@ class TestOPDS(DatabaseTest):
         b = m(rel, href, ["application/epub"])    
         eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
-
-    def test_navigation_feed(self):
-        original_feed = NavigationFeed.main_feed(self.conf, TestAnnotator)
-        parsed = feedparser.parse(unicode(original_feed))
-        feed = parsed['feed']
-
-        # There's a self link.
-        self_link, start_link = sorted(feed.links)
-        eq_("http://navigation-feed/", self_link['href'])
-
-        # There's a link to the top level, which is the same as the
-        # self link.
-        eq_("http://navigation-feed/", start_link['href'])
-        eq_("start", start_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, start_link['type'])
-
-        # Every lane has an entry.
-        eq_(4, len(parsed['entries']))
-        tags = [x['title'] for x in parsed['entries']]
-        eq_(['Fantasy', 'Fiction', 'Romance', 'Young Adult'], sorted(tags))
-
-        # Let's look at one entry, Fiction, which has no sublanes.
-        toplevel = [x for x in parsed['entries'] if x.title == 'Fiction'][0]
-        eq_("http://featured-feed/Fiction", toplevel.id)
-
-        # There are two links to acquisition feeds.
-        featured, by_author = sorted(toplevel['links'])
-        eq_('http://featured-feed/Fiction', featured['href'])
-        eq_("Featured", featured['title'])
-        eq_(NavigationFeed.FEATURED_REL, featured['rel'])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, featured['type'])
-
-        eq_('http://featured-feed/Fiction?order=author', by_author['href'])
-        eq_("All Fiction", by_author['title'])
-        # eq_(None, by_author.get('rel'))
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, by_author['type'])
-
-        # Now let's look at one entry, Romance, which has a sublane.
-        toplevel = [x for x in parsed['entries'] if x.title == 'Romance'][0]
-        eq_("http://featured-feed/Romance", toplevel.id)
-
-        # Instead of an acquisition feed (by author), we have a navigation feed
-        # (the sublanes of Romance).
-        featured, sublanes = sorted(toplevel['links'])
-        eq_('http://navigation-feed/Romance', sublanes['href'])
-        eq_("Look inside Romance", sublanes['title'])
-        eq_("subsection", sublanes['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, sublanes['type'])
-
-    def test_navigation_feed_for_sublane(self):
-        original_feed = NavigationFeed.main_feed(
-            self.conf.sublanes.by_name['Romance'], TestAnnotator)
-        parsed = feedparser.parse(unicode(original_feed))
-        feed = parsed['feed']
-
-        start_link, up_link, self_link, alternate_link = sorted(feed.links)
-
-        # There's a self link.
-        eq_("http://navigation-feed/Romance", self_link['href'])
-        eq_("self", self_link['rel'])
-
-        # There's a link to the top level.
-        eq_("http://navigation-feed/", start_link['href'])
-        eq_("start", start_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, start_link['type'])
-
-        # There's a link to one level up.
-        eq_("http://navigation-feed/", up_link['href'])
-        eq_("up", up_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, up_link['type'])
-
-        # There's an alternate view of this feed.
-        #
-        # TODO: I don't really like this one.
-        eq_("http://featured-feed/Romance?order=author", alternate_link['href'])
-        eq_("alternate", alternate_link['rel'])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, alternate_link['type'])
-
     def test_group(self):
         work = self._work(with_open_access_download=True, authors="Alice")
         [lp] = work.license_pools
@@ -654,3 +576,18 @@ class TestOPDS(DatabaseTest):
         eq_("urn:bar", bar['id'])
         eq_("msg2", bar['simplified_message'])
         eq_("500", bar['simplified_status_code'])
+
+
+    def test_page_feed(self):
+        """Test the ability to create a paginated feed of works for a given
+        lane.
+        """       
+        # Test 'up' link and 'start' link
+        # Test 'next' link and 'prev' link
+
+
+    def test_groups_feed(self):
+        """Test the ability to create a grouped feed of recommended works for
+        a given lane.
+        """
+        # Test 'up' link and 'start' link
