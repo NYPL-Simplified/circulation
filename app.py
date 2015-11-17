@@ -855,7 +855,7 @@ def revoke_loan_or_hold(data_source, identifier):
             title = 'this book'
         else:
             title = '"%s"' % pool.work.title
-        msg = "I don't see an active loan or hold for %s, but that's not a problem."
+        msg = "I don't see an active loan or hold for %s, but that's not a problem." % title
         return Response(msg, 200, {"content-type": "text/plain"})
 
     pin = flask.request.authorization.password
