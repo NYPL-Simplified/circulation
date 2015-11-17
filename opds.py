@@ -254,6 +254,10 @@ class CirculationManagerAnnotator(Annotator):
                 # set. There is one fulfill link for every delivery
                 # mechanism.
                 for lpdm in active_license_pool.delivery_mechanisms:
+                    # TODO: remove this when the client is fixed to
+                    # ignore links it can't fulfill.
+                    if not lpdm.delivery_mechanism.default_client_can_fulfill:
+                        continue
                     fulfill_links.append(
                         self.fulfill_link(
                             data_source_name, 
