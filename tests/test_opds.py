@@ -55,7 +55,7 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def feed_url(cls, pagination):
-        return "http://feed/?" + pagination.query_args
+        return "http://feed/?" + pagination.query_string
 
     @classmethod
     def groups_url(cls, lane):

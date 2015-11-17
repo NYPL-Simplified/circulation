@@ -132,6 +132,10 @@ class Facets(object):
         yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
     @property
+    def query_string(self):
+        return "&".join("=".join(x) for x in items)
+
+    @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
         (facet group, facet value, new Facets object, selected)
@@ -314,7 +318,7 @@ class Pagination(object):
         self.size = size
 
     @property
-    def query_args(self):
+    def query_string(self):
         return "offset=%s&size=%s" % (self.offset, self.size)
 
     @property
@@ -426,6 +430,8 @@ class Lane(object):
                  list_data_source=None,
                  list_identifier=None,
                  list_seen_in_previous_days=None,
+
+                 max_age=None
                  ):
         self.name = full_name
         self.display_name = display_name or self.name

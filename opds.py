@@ -543,10 +543,14 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
-             facets=None, pagination=None, use_materialized_works=True):
+             facets=None, pagination=None, 
+             use_materialized_works=True):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
+
+        # Try to find a cached feed.
+
         if use_materialized_works:
             works = lane.materialized_works(facets, pagination)
         else:

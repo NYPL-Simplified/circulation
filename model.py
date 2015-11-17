@@ -4561,43 +4561,62 @@ class CachedFeed(Base):
     __tablename__ = 'cachedfeeds'
     id = Column(Integer, primary_key=True)
 
-    # We can do a feed for a given lane.
+    # Every feed is associated with a lane. If null, this is a feed
+    # for the top level.
     lane_name = Column(Unicode, nullable=True)
 
-    # We can do a feed from a given list.
-    custom_list_id = Column(Integer, ForeignKey('customlists.id'), 
-                            nullable=True)
-
-    # Or from all lists from a given data source.
-    list_data_source_id = Column(Integer, ForeignKey('datasources.id'), 
-                                 nullable=True)
-
-    # The feed will contain books that were on the given list(s) at any point
-    # in the previous `list_cutoff_time` days.
-    list_duration_days = Column(Integer, nullable=True)
-
-    languages = Column(Unicode, nullable=False)
-    collection_name = Column(Unicode, nullable=False)
-    availability = Column(Unicode, nullable=False)
-    order_facet = Column(Unicode, nullable=False)
-    sort_ascending = Column(Boolean, nullable=False, default=True)
-
-    after = Column(Integer, nullable=False)
-    size = Column(Integer, nullable=False)
-
+    # Every feed has a timestamp reflecting when it was created.
     timestamp = Column(DateTime, nullable=False)
-       
-common_index_fields = [
-    CachedFeed.languages, CachedFeed.collection_name, 
-    CachedFeed.availability, CachedFeed.order_facet,
-    CachedFeed.sort_ascending, CachedFeed.after, 
-    CachedFeed.size,
-]
 
-Index("ix_cachedfeeds_lane_name", CachedFeed.lane_name, *common_index_fields)
-Index("ix_cachedfeeds_list_id", CachedFeed.custom_list_id, *common_index_fields)
-Index("ix_cachedfeeds_lists_from_data_source", CachedFeed.list_data_source_id,
-      *common_index_fields)
+    # A feed is of a certain type--currently either 'page' or 'groups'.
+    type = Column(Unicode, nullable=False)
+
+    # A 'page' feed is associated with a set of values for the facet
+    # groups.
+    facets = Column(Unicode, nullable=True)
+
+    # A 'page' feed is associated with a set of values for pagination.
+    pagination = Column(Unicode, nullable=False)
+
+    # The content of the feed.
+    content = Column(Unicode, nullable=False)
+
+    GROUPS_TYPE = 'groups'
+    PAGE_TYPE = 'page'
+       
+    @classmethod
+    def fetch(cls, lane, type, facets, pagination, annotator):
+        if type == cls.GROUPS_TYPE:
+            max_age = lane.max_age
+        cached_after = datetime.datetime.utcnow() - max_age
+
+        facets_key = facets.query_string
+        pagination_key = pagination.query_string        
+        if lane:
+            lane_name = lane.name
+        else:
+            lane_name = None
+
+        feed, feed_cached = get_one_or_create(
+            _db, CachedFeed, on_multiple='interchangeable',
+            lane_name=lane_name,
+            type=CachedFeed.PAGE_TYPE,
+            facets=facets_key,
+            pagination=pagination_key,
+            )
+
+        if feed.timestamp >= cached_after:
+            # Cachable!
+            return feed.content
+
+
+        if feed.
+        
+
+Index(
+    "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
+    CachedFeed.facets, CachedFeed.pagination
+)
 
 class LicensePool(Base):
 
