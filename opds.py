@@ -105,6 +105,9 @@ class Annotator(object):
     def group_uri(cls, work, license_pool, identifier):
         return None, ""
 
+    def group_uri_for_lane(cls, lane):
+        return None, ""
+
     @classmethod
     def rating_tag(cls, type_uri, value):
         """Generate a schema:Rating tag for the given type and value."""
@@ -469,7 +472,7 @@ class AcquisitionFeed(OPDSFeed):
         sublanes, organized into per-lane groups.
         """
         feed_size = Configuration.featured_lane_size()
-
+       
         # This is a list rather than a dict because we want to 
         # preserve the ordering of the lanes.
         works_and_lanes = []
@@ -484,7 +487,7 @@ class AcquisitionFeed(OPDSFeed):
                 works = sublane.featured_works(
                     feed_size, use_materialized_works=use_materialized_works)
 
-            if len(works) < (feed_size-5):
+            if not works or len(works) < (feed_size-5):
                 # This is pathetic. Every single book in this
                 # lane won't fill up the 'featured' group. Don't
                 # show the lane at all.
@@ -525,11 +528,17 @@ class AcquisitionFeed(OPDSFeed):
             annotator.lanes_by_work[work].append(v)
             all_works.append(work)
 
-        # TODO: render 'up' and 'start' links if appropriate.
-
         feed = AcquisitionFeed(
             _db, title, url, all_works, annotator,
         )
+
+        # Render a 'start' link and an 'up' link.
+        start_uri, start_title = annotator.group_uri_for_lane(None)
+        feed.add_link(href=start_uri, title=start_title, rel="start")
+
+        up_uri, up_title = annotator.group_uri_for_lane(lane.parent)
+        feed.add_link(href=up_uri, title=up_title, rel="up")
+
         return feed
 
     @classmethod

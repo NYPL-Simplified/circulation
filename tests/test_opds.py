@@ -1,3 +1,4 @@
+from collections import defaultdict
 import feedparser
 import datetime
 from lxml import etree
@@ -46,6 +47,8 @@ from classifier import (
     Classifier,
     Epic_Fantasy,
     Fantasy,
+    Urban_Fantasy,
+    History,
 )
 
 class TestAnnotator(Annotator):
@@ -71,9 +74,25 @@ class TestAnnotator(Annotator):
 
 class TestAnnotatorWithGroup(TestAnnotator):
 
-    @classmethod
-    def group_uri(cls, work, license_pool, identifier):
-        return "http://group/" + str(work.id), "Group Title!"
+    def __init__(self):
+        self.lanes_by_work = defaultdict(list)
+
+    def group_uri(self, work, license_pool, identifier):
+        lanes = self.lanes_by_work.get(work, None)
+        if lanes:
+            lane_name = lanes[0]['lane'].display_name
+        else:
+            lane_name = str(work.id)
+        return ("http://group/%s" % lane_name,
+                "Group Title for %s!" % lane_name)
+
+    def group_uri_for_lane(self, lane):
+        if lane:
+            return ("http://groups/%s" % lane.display_name, 
+                    "Groups of %s" % lane.display_name)
+        else:
+            return "http://groups/", "Top-level groups"
+
 
 
 class TestAnnotators(DatabaseTest):
@@ -217,8 +236,9 @@ class TestOPDS(DatabaseTest):
             [dict(full_name="Fiction",
                   fiction=True,
                   audiences=Classifier.AUDIENCE_ADULT,
-                  genres=[]),
-             Fantasy,
+                  genres=[],
+                  sublanes=[Fantasy]),
+             History,
              dict(
                  full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
@@ -258,12 +278,13 @@ class TestOPDS(DatabaseTest):
         work = self._work(with_open_access_download=True, authors="Alice")
         [lp] = work.license_pools
 
+        annotator = TestAnnotatorWithGroup()
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               [work], TestAnnotatorWithGroup)
+                               [work], annotator)
         u = unicode(feed)
         parsed = feedparser.parse(u)
         [group_link] = parsed.entries[0]['links']
-        expect_uri, expect_title = TestAnnotatorWithGroup.group_uri(
+        expect_uri, expect_title = annotator.group_uri(
             work, lp, lp.identifier)
         eq_(OPDSFeed.GROUP_REL, group_link['rel'])
         eq_(expect_uri, group_link['href'])
@@ -642,21 +663,50 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
         """
-        """Test the ability to create a paginated feed of works for a given
-        lane.
-        """       
         fantasy_lane = self.lanes.by_name['Fantasy']
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
-        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
 
         with temp_config() as config:
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+            annotator = TestAnnotatorWithGroup()
             groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, TestAnnotatorWithGroup, 
+                self._db, "test", self._url, fantasy_lane, annotator, 
                 False
             )
-            set_trace()
+            parsed = feedparser.parse(unicode(groups))
+            
+            # There are two entries, one for each work.
+            e1, e2 = parsed['entries']
 
-        # Test 'up' link and 'start' link
+            # Each entry has one and only one link.
+            [l1], [l2] = e1['links'], e2['links']
+
+            # That link is a 'collection' link that groups the works together
+            # under Fantasy (not Epic Fantasy or Urban Fantasy).
+            assert all([l['rel'] == 'collection' for l in (l1, l2)])
+            assert all([l['href'] == 'http://group/Fantasy' for l in (l1, l2)])
+            assert all([l['title'] == 'Group Title for Fantasy!'
+                        for l in (l1, l2)])
+
+            # The feed itself has an 'up' link which points to the
+            # groups for Fiction, and a 'start' link which points to
+            # the top-level groups feed.
+            [up_link] = self.links(parsed['feed'], 'up')
+            eq_("http://groups/Fiction", up_link['href'])
+
+            [start_link] = self.links(parsed['feed'], 'start')
+            eq_("http://groups/", start_link['href'])
+            eq_("Top-level groups", start_link['title'])
+
+        # If we require more books to fill up a featured lane than are
+        # available, then the groups() method returns None.
+        with temp_config() as config:
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 10
+            groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, annotator, 
+                False
+            )
+            eq_(groups, None)
