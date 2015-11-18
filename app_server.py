@@ -86,7 +86,8 @@ def _make_response(content, content_type, cache_for):
 class ErrorHandler(object):
     def __init__(self, conf, debug):
         self.conf = conf
-        self.debug = debug
+        #self.debug = debug
+        self.debug = True
 
     def handle(self, exception):
         self.conf.db.rollback()
