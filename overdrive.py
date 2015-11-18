@@ -571,7 +571,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         download_link = self.extract_download_link(format, error_url)
 
-    def extract_download_link(self, format, error_url):
+    @classmethod
+    def extract_download_link(cls, format, error_url):
         format_type = format.get('formatType', '(unknown)')
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
