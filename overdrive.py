@@ -569,7 +569,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             msg = "Could not find specified format %s. Available formats: %s"
             raise IOError(msg % (format_type, ", ".join(available_formats)))
 
-        download_link = self.extract_download_link(format, error_url)
+        return self.extract_download_link(format, error_url)
 
     @classmethod
     def extract_download_link(cls, format, error_url):
