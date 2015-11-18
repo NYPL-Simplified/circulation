@@ -250,7 +250,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # a loan.
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
-            if loan.status_code not in (201, 200):
+            if response.status_code not in (201, 200):
                 raise CannotFulfill("Could not lock in format %s" % format_type)
             loan = response.json()
 
