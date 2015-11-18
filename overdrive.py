@@ -549,12 +549,16 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     def get_download_link(self, checkout_response, format_type, error_url):
         link = None
         format = None
+        available_formats = []
         for f in checkout_response.get('formats', []):
-            if f['formatType'] == format_type:
+            this_type = f['formatType']
+            available_formats.append(this_type)
+            if this_type == format_type:
                 format = f
                 break
         if not format:
-            raise IOError("Could not find specified format %s" % format_type)
+            msg = "Could not find specified format %s. Available formats: %s"
+            raise IOError(msg % (format_type, ", ".join(available_formats)))
 
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
