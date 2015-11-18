@@ -252,19 +252,26 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
                 raise CannotFulfill("Could not lock in format %s" % format_type)
-            loan = self.get_loan(patron, pin, overdrive_id)
-            # loan = response.json()
+            response = response.json()
+            try:
+                download_link = self.extract_download_link(
+                    response, self.DEFAULT_ERROR_URL)
+            except IOError, e:
+                # Get the loan fresh and see if that solves the problem.
+                loan = self.get_loan(patron, pin, overdrive_id)
 
         # TODO: Verify that the asked-for format type is the same as the
         # one in the loan.
 
-        if format_type:
+        if format_type and not download_link:
             download_link = self.get_download_link(
                 loan, format_type, self.DEFAULT_ERROR_URL)
             if not download_link:
                 raise CannotFulfill(
                     "No download link for %s, format %s" % (
                         overdrive_id, format_type))
+
+        if download_link:
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
         else:
@@ -561,6 +568,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             msg = "Could not find specified format %s. Available formats: %s"
             raise IOError(msg % (format_type, ", ".join(available_formats)))
 
+        download_link = self.extract_download_link(format, error_url)
+
+    def extract_download_link(self, format, error_url):
+        format_type = format.get('formatType', '(unknown)')
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
         templates = format['linkTemplates']
@@ -571,6 +582,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return download_link.replace("{errorpageurl}", error_url)
         else:
             return None
+
 
     def recently_changed_ids(self, start, cutoff):
         """Get IDs of books whose status has changed between the start time
