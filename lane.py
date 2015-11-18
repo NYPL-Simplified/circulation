@@ -1,3 +1,4 @@
+from collections import defaultdict
 from nose.tools import set_trace
 import datetime
 import random
@@ -1107,7 +1108,7 @@ class LaneList(object):
     def __init__(self, parent=None):
         self.parent = parent
         self.lanes = []
-        self.by_name = dict()
+        self.by_languages = defaultdict(dict)
 
     def __len__(self):
         return len(self.lanes)
@@ -1116,10 +1117,17 @@ class LaneList(object):
         return self.lanes.__iter__()
 
     def add(self, lane):
+        """A given set of languages may have only one lane with a given name."""
         if lane.parent == self.parent:
             self.lanes.append(lane)
-        if lane.name in self.by_name and self.by_name[lane.name] is not lane:
-            raise ValueError("Duplicate lane: %s" % lane.name)
-        self.by_name[lane.name] = lane
+
+        this_language = self.by_languages[lane.languages]
+        if lane.name in this_language and this_language[lane.name] is not lane:
+            raise ValueError(
+                "Duplicate lane for languages %r: %s" % (
+                    lane.languages, lane.name
+                )
+            )
+        this_language[lane.name] = lane
 
 

@@ -565,7 +565,7 @@ class TestOPDS(DatabaseTest):
             [x['title'] for x in by_title['entries']]))
 
     def test_acquisition_feed_includes_image_links(self):
-        lane=self.lanes.by_name['Fantasy']
+        lane=self.lanes.by_languages[None]['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
@@ -625,7 +625,7 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a paginated feed of works for a given
         lane.
         """       
-        fantasy_lane = self.lanes.by_name['Epic Fantasy']        
+        fantasy_lane = self.lanes.by_languages[None]['Epic Fantasy']        
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
 
@@ -665,7 +665,7 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
         """
-        fantasy_lane = self.lanes.by_name['Fantasy']
+        fantasy_lane = self.lanes.by_languages[None]['Fantasy']
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
@@ -715,7 +715,7 @@ class TestOPDS(DatabaseTest):
 
     def test_empty_groups_feed_is_none(self):
 
-        fantasy_lane = self.lanes.by_name['Fantasy']
+        fantasy_lane = self.lanes.by_languages[None]['Fantasy']
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
@@ -736,7 +736,7 @@ class TestOPDS(DatabaseTest):
     def test_cache(self):
         work1 = self._work(title="The Original Title",
                            genre=Epic_Fantasy, with_open_access_download=True)
-        fantasy_lane = self.lanes.by_name['Fantasy']
+        fantasy_lane = self.lanes.by_languages[None]['Fantasy']
 
         def make_page():
             return AcquisitionFeed.page(

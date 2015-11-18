@@ -4571,6 +4571,9 @@ class CachedFeed(Base):
     # for the top level.
     lane_name = Column(Unicode, nullable=True)
 
+    # Every feed includes book from a subset of available languages
+    languages = Column(Unicode)
+
     # Every feed has a timestamp reflecting when it was created.
     timestamp = Column(DateTime, nullable=True)
 
@@ -4603,6 +4606,11 @@ class CachedFeed(Base):
         else:
             lane_name = None
 
+        if not lane.languages:
+            languages_key = None
+        else:
+            languages_key = ",".join(lane.languages)
+
         if facets:
             facets_key = facets.query_string
         else:
@@ -4619,6 +4627,7 @@ class CachedFeed(Base):
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
             type=CachedFeed.PAGE_TYPE,
+            languages=languages_key,
             facets=facets_key,
             pagination=pagination_key,
             )
