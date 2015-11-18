@@ -24,6 +24,7 @@ from model import (
     Measurement,
     Patron,
     Subject,
+    WillNotGenerateExpensiveFeed,
     Work,
     get_one_or_create,
 )
@@ -332,9 +333,10 @@ class TestOPDS(DatabaseTest):
         lane = Lane(self._db, "lane")
         facets = Facets.default()
 
-        feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
+        cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
                                     lane, TestAnnotator, facets=facets)
-        u = unicode(feed)
+        
+        u = cached_feed.content
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
@@ -634,8 +636,8 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
                 pagination=pagination, use_materialized_works=False
             )
-        works = make_page(pagination)
-        parsed = feedparser.parse(unicode(works))
+        cached_works = make_page(pagination)
+        parsed = feedparser.parse(unicode(cached_works.content))
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -652,8 +654,8 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        works = make_page(pagination.next_page)
-        parsed = feedparser.parse(unicode(works))
+        cached_works = make_page(pagination.next_page)
+        parsed = feedparser.parse(cached_works.content)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
@@ -671,12 +673,22 @@ class TestOPDS(DatabaseTest):
 
         with temp_config() as config:
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
             annotator = TestAnnotatorWithGroup()
-            groups = AcquisitionFeed.groups(
+
+            # By policy, group feeds are cached forever, which means
+            # an attempt to generate them will fail.
+            assert_raises(
+                WillNotGenerateExpensiveFeed, AcquisitionFeed.groups,
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                False
+                False, False
             )
-            parsed = feedparser.parse(unicode(groups))
+
+            cached_groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, annotator, 
+                True, False
+            )
+            parsed = feedparser.parse(cached_groups.content)
             
             # There are two entries, one for each work.
             e1, e2 = parsed['entries']
@@ -701,12 +713,61 @@ class TestOPDS(DatabaseTest):
             eq_("http://groups/", start_link['href'])
             eq_("Top-level groups", start_link['title'])
 
+    def test_empty_groups_feed_is_none(self):
+
+        fantasy_lane = self.lanes.by_name['Fantasy']
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1.quality = 0.75
+        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
+        work2.quality = 0.75
+
+        annotator = TestAnnotatorWithGroup()
+
         # If we require more books to fill up a featured lane than are
         # available, then the groups() method returns None.
         with temp_config() as config:
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 10
             groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                False
+                True, False
             )
             eq_(groups, None)
+
+    def test_cache(self):
+        work1 = self._work(title="The Original Title",
+                           genre=Epic_Fantasy, with_open_access_download=True)
+        fantasy_lane = self.lanes.by_name['Fantasy']
+
+        def make_page():
+            return AcquisitionFeed.page(
+                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
+                pagination=Pagination.default(), use_materialized_works=False
+            )
+
+        with temp_config() as config:
+            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 10
+
+            cached1 = make_page()
+            assert work1.title in cached1.content
+            old_timestamp = cached1.timestamp
+
+            work2 = self._work(
+                title="A Brand New Title", 
+                genre=Epic_Fantasy, with_open_access_download=True
+            )
+
+            # The new work does not show up in the feed because 
+            # we get the old cached version.
+            cached2 = make_page()
+            assert work2.title not in cached2.content
+            assert cached2.timestamp == old_timestamp
+            
+            # Change the policy to disable caching, and we get
+            # a brand new page with the new work.
+            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 0
+
+            cached3 = make_page()
+            assert cached3.timestamp > old_timestamp
+            assert work2.title in cached3.content
+
+

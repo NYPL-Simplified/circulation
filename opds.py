@@ -30,6 +30,7 @@ from config import Configuration
 from classifier import Classifier
 from model import (
     BaseMaterializedWork,
+    CachedFeed,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -39,6 +40,7 @@ from model import (
     Edition,
     Measurement,
     Subject,
+    WillNotGenerateExpensiveFeed,
     Work,
     )
 from lane import (
@@ -467,10 +469,24 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator, 
+               force_refresh=False,
                use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
+        # Find or create a CachedFeed.
+        cached, usable = CachedFeed.fetch(
+            _db,
+            lane=lane, 
+            type=CachedFeed.GROUPS_TYPE, 
+            facets=None,
+            pagination=None,
+            annotator=annotator,
+            force_refresh=force_refresh
+        )
+        if usable:
+            return cached
+
         feed_size = Configuration.featured_lane_size()
        
         # This is a list rather than a dict because we want to 
@@ -482,11 +498,6 @@ class AcquisitionFeed(OPDSFeed):
             # to find works to fill the 'featured' group.
             works = sublane.featured_works(
                 feed_size, use_materialized_works=use_materialized_works)
-            if works is None:
-                set_trace()
-                works = sublane.featured_works(
-                    feed_size, use_materialized_works=use_materialized_works)
-
             if not works or len(works) < (feed_size-5):
                 # This is pathetic. Every single book in this
                 # lane won't fill up the 'featured' group. Don't
@@ -539,17 +550,32 @@ class AcquisitionFeed(OPDSFeed):
         up_uri, up_title = annotator.group_uri_for_lane(lane.parent)
         feed.add_link(href=up_uri, title=up_title, rel="up")
 
-        return feed
+        content = unicode(feed)
+        cached.update(content)
+        return cached
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
              facets=None, pagination=None, 
-             use_materialized_works=True):
+             force_refresh=False,
+             use_materialized_works=True
+    ):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
 
-        # Try to find a cached feed.
+        # Find or create a CachedFeed.
+        cached, usable = CachedFeed.fetch(
+            _db,
+            lane=lane, 
+            type=CachedFeed.PAGE_TYPE, 
+            facets=facets, 
+            pagination=pagination, 
+            annotator=annotator,
+            force_refresh=force_refresh
+        )
+        if usable:
+            return cached
 
         if use_materialized_works:
             works = lane.materialized_works(facets, pagination)
@@ -580,7 +606,10 @@ class AcquisitionFeed(OPDSFeed):
         feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
         feed.add_link(rel='start', href=annotator.groups_url(None))
 
-        return feed
+        content = unicode(feed)
+        cached.update(content)
+
+        return cached
 
     @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):

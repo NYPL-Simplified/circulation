@@ -133,7 +133,7 @@ class Facets(object):
 
     @property
     def query_string(self):
-        return "&".join("=".join(x) for x in items)
+        return "&".join("=".join(x) for x in self.items())
 
     @property
     def facet_groups(self):
@@ -430,8 +430,6 @@ class Lane(object):
                  list_data_source=None,
                  list_identifier=None,
                  list_seen_in_previous_days=None,
-
-                 max_age=None
                  ):
         self.name = full_name
         self.display_name = display_name or self.name

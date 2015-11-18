@@ -280,10 +280,10 @@ def get_one_or_create(db, model, create_method='',
             obj = create(db, model, create_method, create_method_kwargs, **kwargs)
             __transaction.commit()
             return obj
-        except IntegrityError:
+        except IntegrityError, e:
             logging.error(
-                "INTEGRITY ERROR on %r %r, %r", model, create_method_kwargs, 
-                kwargs)
+                "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs, 
+                kwargs, e)
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
@@ -4556,6 +4556,12 @@ class Classification(Base):
             return q[subject_type]
         return 0.1
 
+class WillNotGenerateExpensiveFeed(Exception):
+    """This exception is raised when a feed is not cached, but it's too
+    expensive to generate.
+    """
+    pass
+
 class CachedFeed(Base):
 
     __tablename__ = 'cachedfeeds'
@@ -4566,7 +4572,7 @@ class CachedFeed(Base):
     lane_name = Column(Unicode, nullable=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=True)
 
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -4579,25 +4585,37 @@ class CachedFeed(Base):
     pagination = Column(Unicode, nullable=False)
 
     # The content of the feed.
-    content = Column(Unicode, nullable=False)
+    content = Column(Unicode, nullable=True)
 
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
-       
-    @classmethod
-    def fetch(cls, lane, type, facets, pagination, annotator):
-        if type == cls.GROUPS_TYPE:
-            max_age = lane.max_age
-        cached_after = datetime.datetime.utcnow() - max_age
 
-        facets_key = facets.query_string
-        pagination_key = pagination.query_string        
+    @classmethod
+    def fetch(cls, _db, lane, type, facets, pagination, annotator,
+              force_refresh=False):
+        if type == cls.GROUPS_TYPE:
+            max_age = Configuration.groups_max_age()
+        elif type == cls.PAGE_TYPE:
+            max_age = Configuration.page_max_age()
+
         if lane:
             lane_name = lane.name
         else:
             lane_name = None
 
-        feed, feed_cached = get_one_or_create(
+        if facets:
+            facets_key = facets.query_string
+        else:
+            facets_key = ""
+
+        if pagination:
+            pagination_key = pagination.query_string
+        else:
+            pagination_key = ""
+
+        # Get a CachedFeed object. We will either return its .content,
+        # or update its .content.
+        feed, is_new = get_one_or_create(
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
             type=CachedFeed.PAGE_TYPE,
@@ -4605,13 +4623,28 @@ class CachedFeed(Base):
             pagination=pagination_key,
             )
 
-        if feed.timestamp >= cached_after:
-            # Cachable!
-            return feed.content
+        if max_age is Configuration.CACHE_FOREVER:
+            # This feed is so expensive to generate that it must be cached
+            # forever (unless force_refresh is True).
+            if not is_new and feed.content:
+                # Cacheable!
+                return feed, True
+            elif not force_refresh:
+                # We're supposed to generate this feed, but it's too
+                # expensive.
+                raise WillNotGenerateExpensiveFeed(lane.name)
+        elif not force_refresh:
+            cutoff = datetime.datetime.utcnow() - max_age
+            if feed.timestamp and feed.content and feed.timestamp >= cutoff:
+                # Cachable!
+                return feed, True
 
+        # Either there is no cached feed or it's time to update it.
+        return feed, False
 
-        if feed.
-        
+    def update(self, content):
+        self.content = content
+        self.timestamp = datetime.datetime.utcnow()
 
 Index(
     "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
