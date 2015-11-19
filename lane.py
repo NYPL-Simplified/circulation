@@ -17,6 +17,7 @@ from config import Configuration
 
 from sqlalchemy import (
     or_,
+    not_,
 )
 
 from sqlalchemy.orm import (
@@ -379,6 +380,20 @@ class Lane(object):
         """
         return self.name.replace("/", "__")
 
+    @property
+    def language_key(self):
+        """Return a string identifying the languages used in this lane.
+
+        This will usually be in the form of 'eng,spa' (English and Spanish)
+        or '!eng,!spa' (everything except English and Spanish)
+        """
+        key = ""
+        if self.languages:
+            key += ",".join(self.languages)
+        if self.exclude_languages:
+            key = ",".join("!" + l for l in self.exclude_languages)
+        return key
+
     def __repr__(self):
         template = "<Lane name=%(full_name)s, display=%(display_name)s, media=%(media)s, genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(language)s, sublanes=%(sublanes)d>"
 
@@ -397,8 +412,13 @@ class Lane(object):
             audiences = "+".join(self.audiences or ["all"]),
             age_range = self.age_range or "all",
             language="+".join(self.languages or ["all"]),
+            exclude_language="+".join(self.exclude_languages or ["none"]),
             sublanes = len(sublanes)
         )
+
+        if self.exclude_languages:
+            exclude_language = "-(%s)" % "+".join(self.exclude_languages)
+
         output = template % vars
         return output.encode("ascii", "replace")
 
@@ -425,6 +445,7 @@ class Lane(object):
                  appeals=None,
 
                  languages=None,
+                 exclude_languages=None,
                  media=Edition.BOOK_MEDIUM,
                  formats=Edition.ELECTRONIC_FORMAT,
 
@@ -473,6 +494,7 @@ class Lane(object):
         self.audiences = self.audience_list_for_age_range(audiences, age_range)
 
         set_list('languages', languages)
+        set_list('exclude_languages', exclude_languages)
         set_list('appeals', appeals)
 
         # The lane may be restricted to items in particular media
@@ -550,7 +572,8 @@ class Lane(object):
             _db=self._db, parent=self, include_all=False, genres=genres,
             exclude_genres=exclude_genres, fiction=fiction, 
             audiences=audiences, age_range=age_range,
-            appeals=appeals, languages=languages, media=media, 
+            appeals=appeals, languages=languages, 
+            exclude_languages=exclude_languages, media=media, 
             formats=formats
         )
         if include_staff_picks:
@@ -755,7 +778,8 @@ class Lane(object):
 
         Works will:
 
-        * Be in one of the languages listed in `languages`.
+        * Be in one of the languages listed in `languages`,
+          and not one of the languages listed in `exclude_languages`.
 
         * Be filed under of the genres listed in `self.genres` (or, if
           `self.include_subgenres` is True, any of those genres'
@@ -834,6 +858,9 @@ class Lane(object):
         """
         if self.languages:
             q = q.filter(edition_model.language.in_(self.languages))
+
+        if self.exclude_languages:
+            q = q.filter(not_(edition_model.language.in_(self.exclude_languages)))
 
         if self.audiences:
             q = q.filter(work_model.audience.in_(self.audiences))
@@ -959,8 +986,8 @@ class Lane(object):
             a = time.time()
             try:
                 docs = search_client.query_works(
-                    query, self.media, self.languages, fiction,
-                    self.audiences,
+                    query, self.media, self.languages, self.exclude_languages,
+                    fiction, self.audiences,
                     self.all_matching_genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
@@ -998,7 +1025,7 @@ class Lane(object):
                     )
 
         if not results:
-            results = self._search_database(languages, fiction, query).limit(limit)
+            results = self._search_database(query).limit(limit)
         return results
 
     def _search_database(self, query):
@@ -1121,11 +1148,11 @@ class LaneList(object):
         if lane.parent == self.parent:
             self.lanes.append(lane)
 
-        this_language = self.by_languages[lane.languages]
+        this_language = self.by_languages[lane.language_key]
         if lane.name in this_language and this_language[lane.name] is not lane:
             raise ValueError(
-                "Duplicate lane for languages %r: %s" % (
-                    lane.languages, lane.name
+                "Duplicate lane for language key %s: %s" % (
+                    lane.language_key, lane.name
                 )
             )
         this_language[lane.name] = lane

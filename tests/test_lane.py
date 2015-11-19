@@ -521,6 +521,13 @@ class TestLanesQuery(DatabaseTest):
         w, mw = test_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
+        # The 'everything except English' lane contains that same book.
+        lane = Lane(self._db, "Not English", exclude_languages='eng')
+        eq_(None, lane.languages)
+        eq_(['eng'], lane.exclude_languages)
+        w, mw = test_expectations(lane, 1, lambda x: True)
+        eq_([self.spanish], w)
+
         # The 'music' lane contains 1 work of music
         lane = Lane(self._db, "Music", media=Edition.MUSIC_MEDIUM)
         w, mw = test_expectations(
@@ -721,10 +728,10 @@ class TestLanesQuery(DatabaseTest):
         fantasy_genre, ignore = Genre.lookup(self._db, classifier.Fantasy.name)
         urban_fantasy_genre, ignore = Genre.lookup(self._db, classifier.Urban_Fantasy.name)
 
-        fiction = lanes.by_name['Fiction']
-        young_adult = lanes.by_name['Young Adult']
-        fantasy = lanes.by_name['Fantasy'] 
-        urban_fantasy = lanes.by_name['Urban Fantasy'] 
+        fiction = lanes.by_languages['']['Fiction']
+        young_adult = lanes.by_languages['']['Young Adult']
+        fantasy = lanes.by_languages['']['Fantasy'] 
+        urban_fantasy = lanes.by_languages['']['Urban Fantasy'] 
 
         eq_(set([fantasy, fiction, young_adult]), set(lanes.lanes))
 
