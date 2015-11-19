@@ -108,19 +108,6 @@ class Conf:
 
     configuration = None
 
-    # When constructing URLs, this dictionary says which value for
-    # 'order' to use, given a WorkFeed ordered by the given database
-    # field.
-    #
-    # Once the database is intialized, MaterializedWork and
-    # MaterializedWorkWithGenre will add to this dictionary.
-    database_field_to_order_facet = {
-        Edition.sort_title : "title",
-        Edition.title : "title",
-        Edition.sort_author : "author",
-        Edition.author : "author",
-    }
-
     @classmethod
     def initialize(cls, _db=None, lanes=None):
         def log_lanes(lanelist, level=0):
@@ -206,19 +193,6 @@ class Conf:
             cls.adobe_vendor_id = None
 
         cls.make_authentication_document()
-
-        # Now that the database is initialized, we can import the
-        # classes based on materialized views and work with them.
-        # 
-        from core.model import (
-            MaterializedWork,
-            MaterializedWorkWithGenre,
-        )
-        df = Conf.database_field_to_order_facet
-        df[MaterializedWork.sort_title] = "title"
-        df[MaterializedWorkWithGenre.sort_title] = "title"
-        df[MaterializedWork.sort_author] = "author"
-        df[MaterializedWorkWithGenre.sort_author] = "author"
 
     @classmethod
     def languages_for_request(cls):
@@ -312,31 +286,6 @@ def shutdown_session(exception):
         else:
             Conf.db.commit()
 
-REMOTE_INTEGRATION_FAILED = "http://librarysimplified.org/terms/problem/remote-integration-failed"
-CANNOT_GENERATE_FEED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-generate-feed"
-INVALID_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-invalid"
-INVALID_CREDENTIALS_TITLE = "A valid library card barcode number and PIN are required."
-EXPIRED_CREDENTIALS_PROBLEM = "http://librarysimplified.org/terms/problem/credentials-expired"
-EXPIRED_CREDENTIALS_TITLE = "Your library card has expired. You need to renew it."
-NO_LICENSES_PROBLEM = "http://librarysimplified.org/terms/problem/no-licenses"
-NO_AVAILABLE_LICENSE_PROBLEM = "http://librarysimplified.org/terms/problem/no-available-license"
-NO_ACCEPTABLE_FORMAT_PROBLEM = "http://librarysimplified.org/terms/problem/no-acceptable-format"
-ALREADY_CHECKED_OUT_PROBLEM = "http://librarysimplified.org/terms/problem/loan-already-exists"
-LOAN_LIMIT_REACHED_PROBLEM = "http://librarysimplified.org/terms/problem/loan-limit-reached"
-CHECKOUT_FAILED = "http://librarysimplified.org/terms/problem/cannot-issue-loan"
-HOLD_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-place-hold"
-RENEW_FAILED_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-renew-loan"
-NO_ACTIVE_LOAN_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
-NO_ACTIVE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-hold"
-NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/no-active-loan"
-COULD_NOT_MIRROR_TO_REMOTE = "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote"
-NO_SUCH_LANE_PROBLEM = "http://librarysimplified.org/terms/problem/unknown-lane"
-FORBIDDEN_BY_POLICY_PROBLEM = "http://librarysimplified.org/terms/problem/forbidden-by-policy"
-CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulfill-loan"
-BAD_DELIVERY_MECHANISM_PROBLEM = "http://librarysimplified.org/terms/problem/bad-delivery-mechanism"
-CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-release-hold"
-
-
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -361,6 +310,20 @@ def requires_auth(f):
 
 def lane_url(cls, lane, order=None):
     return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
+
+def feed_url(lane, order_facet, offset, size, cdn=True):
+    if not lane:
+        lane_name = lane
+    else:
+        lane_name = lane.url_name
+    if not isinstance(order_facet, basestring):
+        order_facet = Conf.database_field_to_order_facet[order_facet]
+    if cdn:
+        m = cdn_url_for
+    else:
+        m = url_for
+    return m('feed', lane_name=lane_name, order=order_facet,
+             after=offset, size=size, _external=True)
 
 index_controller = IndexController(Conf)
 @app.route('/')
@@ -406,6 +369,19 @@ loan_controller = LoanController(setup)
 def active_loans():
     return loan_controller.sync()
 
+@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
+@app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
+           methods=['GET', 'PUT'])
+@requires_auth
+def borrow(data_source, identifier, mechanism_id=None):
+    return loan_controller.borrow(data_source, identifier, mechanism_id)
+
+@app.route('/works/<data_source>/<identifier>/fulfill/')
+@app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
+@requires_auth
+def fulfill(data_source, identifier, mechanism_id=None):
+    return loan_controller.fulfill(data_source, identifier, mechanism_id)
+
 @app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 def revoke_loan_or_hold(data_source, identifier):
@@ -416,217 +392,20 @@ def revoke_loan_or_hold(data_source, identifier):
 def loan_or_hold_detail(data_source, identifier):
     return loan_controller.detail(data_source, identifier)
 
-def feed_url(lane, order_facet, offset, size, cdn=True):
-    if not lane:
-        lane_name = lane
-    else:
-        lane_name = lane.url_name
-    if not isinstance(order_facet, basestring):
-        order_facet = Conf.database_field_to_order_facet[order_facet]
-    if cdn:
-        m = cdn_url_for
-    else:
-        m = url_for
-    return m('feed', lane_name=lane_name, order=order_facet,
-             after=offset, size=size, _external=True)
-
 @app.route('/works/')
 def work():
     annotator = CirculationManagerAnnotator(Conf.circulation, None)
     return URNLookupController(Conf.db).work_lookup(annotator, 'work')
     # Conf.urn_lookup_controller.permalink(urn, annotator)
 
+works_controller = WorksController(Conf)
 @app.route('/works/<data_source>/<identifier>')
 def permalink(data_source, identifier):
-    """Serve an entry for a single book.
-
-    This does not include any loan or hold-specific information for
-    the authenticated patron.
-
-    This is different from the /works lookup protocol, in that it
-    returns a single entry while the /works lookup protocol returns a
-    feed containing any number of entries.
-    """
-    pool = _load_licensepool(data_source, identifier)
-    work = pool.work
-    annotator = CirculationManagerAnnotator(Conf.circulation, None)
-    return entry_response(
-        AcquisitionFeed.single_entry(Conf.db, work, annotator)
-    )
-
-@app.route('/works/<data_source>/<identifier>/fulfill/')
-@app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
-@requires_auth
-def fulfill(data_source, identifier, mechanism_id=None):
-    """Fulfill a book that has already been checked out.
-
-    If successful, this will serve the patron a downloadable copy of
-    the book, or a DRM license file which can be used to get the
-    book). Alternatively, it may serve an HTTP redirect that sends the
-    patron to a copy of the book or a license file.
-    """
-    patron = flask.request.patron
-    header = flask.request.authorization
-    pin = header.password
-
-    # Turn source + identifier into a LicensePool
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        return pool
-
-    # Find the LicensePoolDeliveryMechanism they asked for.
-    mechanism = None
-    if mechanism_id:
-        mechanism = _load_licensepooldelivery(pool, mechanism_id)
-        if isinstance(mechanism, Response):
-            return mechanism
-
-    if not mechanism:
-        # See if the loan already has a mechanism set. We can use that.
-        loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
-        if loan and loan.fulfillment:
-            mechanism =  loan.fulfillment
-        else:
-            return problem(
-                BAD_DELIVERY_MECHANISM_PROBLEM,
-                "You must specify a delivery mechanism to fulfill this loan.",
-                400
-            )
-
-    try:
-        fulfillment = Conf.circulation.fulfill(patron, pin, pool, mechanism)
-    except NoActiveLoan, e:
-        return problem(
-            NO_ACTIVE_LOAN_PROBLEM, 
-            "Can't fulfill request because you have no active loan for this work.",
-            e.status_code)
-    except CannotFulfill, e:
-        return problem(CANNOT_FULFILL_PROBLEM, str(e), e.status_code)
-    except DeliveryMechanismError, e:
-        return problem(BAD_DELIVERY_MECHANISM_PROBLEM, str(e), e.status_code)
-
-    headers = dict()
-    if fulfillment.content_link:
-        status_code = 302
-        headers["Location"] = fulfillment.content_link
-    else:
-        status_code = 200
-    if fulfillment.content_type:
-        headers['Content-Type'] = fulfillment.content_type
-    return Response(fulfillment.content, status_code, headers)
-
-
-@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
-@app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
-           methods=['GET', 'PUT'])
-@requires_auth
-def borrow(data_source, identifier, mechanism_id=None):
-    """Create a new loan or hold for a book.
-
-    Return an OPDS Acquisition feed that includes a link of rel
-    "http://opds-spec.org/acquisition", which can be used to fetch the
-    book or the license file.
-    """
-    headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-
-    # Turn source + identifier into a LicensePool
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        # Something went wrong.
-        return pool
-
-    # Find the delivery mechanism they asked for, if any.
-    mechanism = None
-    if mechanism_id:
-        mechanism = _load_licensepooldelivery(pool, mechanism_id)
-        if isinstance(mechanism, Response):
-            return mechanism
-
-    if not pool:
-        # I've never heard of this book.
-        return problem(
-            NO_LICENSES_PROBLEM, 
-            "I don't have any licenses for that work.", 404)
-
-    patron = flask.request.patron
-    problem_doc = _apply_borrowing_policy(patron, pool)
-    if problem_doc:
-        # As a matter of policy, the patron is not allowed to check
-        # this book out.
-        return problem_doc
-
-    pin = flask.request.authorization.password
-    problem_doc = None
-    try:
-        loan, hold, is_new = Conf.circulation.borrow(
-            patron, pin, pool, mechanism, Conf.hold_notification_email_address)
-    except NoOpenAccessDownload, e:
-        problem_doc = problem(
-            NO_LICENSES_PROBLEM,
-            "Sorry, couldn't find an open-access download link.", 404)
-    except PatronAuthorizationFailedException, e:
-        problem_doc = problem(
-            INVALID_CREDENTIALS_PROBLEM, INVALID_CREDENTIALS_TITLE, 401)
-    except PatronLoanLimitReached, e:
-        problem_doc = problem(LOAN_LIMIT_REACHED_PROBLEM, str(e), 403)
-    except DeliveryMechanismError, e:
-        return problem(BAD_DELIVERY_MECHANISM_PROBLEM, str(e), e.status_code)
-    except CannotLoan, e:
-        problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
-    except CannotHold, e:
-        problem_doc = problem(HOLD_FAILED_PROBLEM, str(e), 400)
-    except CannotRenew, e:
-        problem_doc = problem(RENEW_FAILED_PROBLEM, str(e), 400)
-    except CirculationException, e:
-        # Generic circulation error.
-        problem_doc = problem(CHECKOUT_FAILED, str(e), 400)
-
-    if problem_doc:
-        return problem_doc
-
-    # At this point we have either a loan or a hold. If a loan, serve
-    # a feed that tells the patron how to fulfill the loan. If a hold,
-    # serve a feed that talks about the hold.
-    if loan:
-        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-            Conf.circulation, loan)
-    elif hold:
-        feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-            Conf.circulation, hold)
-    else:
-        # This should never happen -- we should have sent a more specific
-        # error earlier.
-        return problem(HOLD_FAILED_PROBLEM, "", 400)
-    add_configuration_links(feed)
-    if isinstance(feed, OPDSFeed):
-        content = unicode(feed)
-    else:
-        content = etree.tostring(feed)
-    if is_new:
-        status_code = 201
-    else:
-        status_code = 200
-    return Response(content, status_code, headers)
-
+    return works_controller.permalink(data_source, identifier)
+    
 @app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
 def report(data_source, identifier):
-    """Report a problem with a book."""
-
-    # Turn source + identifier into a LicensePool
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        # Something went wrong.
-        return pool
-
-    if flask.request.method == 'GET':
-        # Return a list of valid URIs to use as the type of a problem detail
-        # document.
-        data = "\n".join(Complaint.VALID_TYPES)
-        return Response(data, 200, {"Content-Type" : "text/uri-list"})
-
-    data = flask.request.data
-    controller = ComplaintController()
-    return controller.register(pool, data)
+    return works_controller.report(data_source, identifier)
 
 # Loadstorm verification
 @app.route('/loadstorm-<code>.html')
