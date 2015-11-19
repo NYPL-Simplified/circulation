@@ -35,13 +35,16 @@ from ..core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
-    LaneList,
     Loan,
     Patron,
     Representation,
     Resource,
     Edition,
     SessionManager,
+)
+
+from ..core.lane import (
+    LaneList,
 )
 
 from ..core.opds import (
@@ -71,7 +74,9 @@ class CirculationTest(DatabaseTest):
              dict(full_name="Nonfiction", fiction=False, genres=[]),
 
              dict(full_name="Romance", fiction=True, genres=[],
-                  subgenres=[dict(full_name="Contemporary Romance")])])
+                  sublanes=["Contemporary Romance"])
+         ]
+        )
 
         circulation.Conf.initialize(self._db, self.lanes)
         self.circulation = circulation

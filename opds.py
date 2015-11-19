@@ -193,7 +193,9 @@ class CirculationManagerAnnotator(Annotator):
         # Add next-step information for every useful delivery
         # mechanism.
         borrow_links = []
-        api = self.circulation.api_for_license_pool(active_license_pool)
+        api = None
+        if self.circulation:
+            api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
                 api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)

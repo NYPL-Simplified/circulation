@@ -37,6 +37,9 @@ from core.app_server import (
     URNLookupController,
     ErrorHandler,
 )
+from core.lane import (
+    Lane,
+)
 from adobe_vendor_id import AdobeVendorIDController
 from axis import (
     Axis360API,
@@ -54,12 +57,9 @@ from core.model import (
     get_one,
     get_one_or_create,
     Complaint,
-    CustomListFeed,
     DataSource,
     production_session,
     Hold,
-    LaneList,
-    Lane,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Loan,
@@ -67,8 +67,6 @@ from core.model import (
     Identifier,
     Representation,
     Work,
-    LaneFeed,
-    CustomListFeed,
     Edition,
     )
 from core.opensearch import OpenSearchDocument
@@ -79,7 +77,6 @@ from opds import (
 from core.opds import (
     E,
     AcquisitionFeed,
-    NavigationFeed,
     OPDSFeed,
 )
 import urllib
@@ -178,11 +175,11 @@ class Conf:
 
         language_policy = Configuration.language_policy()
 
-        cls.primary_collection_languages = language_policy[
-            Configuration.PRIMARY_LANGUAGE_COLLECTIONS
-        ]
+        cls.primary_collection_languages = language_policy.get(
+            Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']
+        )
         cls.other_collection_languages = language_policy.get(
-            Configuration.OTHER_LANGUAGE_COLLECTIONS, []
+            Configuration.SMALL_COLLECTION_LANGUAGES, []
         )
 
         cls.hold_notification_email_address = Configuration.default_notification_email_address()
@@ -714,56 +711,6 @@ def service_status():
 
     doc = template % dict(statuses="\n".join(statuses))
     return make_response(doc, 200, {"Content-Type": "text/html"})
-
-
-@app.route('/lanes', defaults=dict(lane_name=None))
-@app.route('/lanes/', defaults=dict(lane_name=None))
-@app.route('/lanes/<lane_name>')
-def navigation_feed(lane_name):
-    if lane_name is None:
-        lane = Conf
-    else:
-        if lane_name not in Conf.sublanes.by_name:
-            return problem(
-                NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
-        lane = Conf.sublanes.by_name[lane]
-
-    languages = Conf.languages_for_request()
-    this_url = cdn_url_for("navigation_feed", lane_name=lane_name, _external=True)
-    key = (",".join(languages), this_url)
-    # This feed will not change unless the application is upgraded,
-    # so there's no need to expire the cache.
-    if key in feed_cache:
-        return feed_response(feed_cache[key], acquisition=False, cache_for=7200)
-        
-    feed = NavigationFeed.main_feed(
-        lane, CirculationManagerAnnotator(Conf.circulation, lane))
-
-    if not lane.parent:
-        # Top-level lanes are the only ones that have best-seller
-        # and staff pick lanes.
-        feed.add_link(
-            rel=NavigationFeed.POPULAR_REL, title="Best Sellers",
-            type=NavigationFeed.ACQUISITION_FEED_TYPE,
-            href=cdn_url_for('popular_feed', lane_name=lane.name, _external=True))
-        if lane != Conf or Conf.configuration.show_staff_picks_on_top_level():
-            feed.add_link(
-                rel=NavigationFeed.RECOMMENDED_REL, title="Staff Picks",
-                type=NavigationFeed.ACQUISITION_FEED_TYPE,
-                href=cdn_url_for('staff_picks_feed', lane_name=lane.name, _external=True))
-
-    feed.add_link(
-        rel="search", 
-        type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane_name=None, _external=True))
-    feed.add_link(
-        rel="http://opds-spec.org/shelf", 
-        href=url_for('active_loans', _external=True))
-
-    add_configuration_links(feed)
-    feed = unicode(feed)
-    feed_cache[key] = feed
-    return feed_response(feed, acquisition=False, cache_for=7200)
 
 def lane_url(cls, lane, order=None):
     return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
