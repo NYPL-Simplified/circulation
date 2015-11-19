@@ -127,7 +127,6 @@ class Conf:
                 lanes = make_lanes(_db, lane_list)
             cls.db = _db
             cls.sublanes = lanes
-            cls.urn_lookup_controller = URNLookupController(cls.db)
             cls.overdrive = DummyOverdriveAPI(cls.db)
             cls.threem = DummyThreeMAPI(cls.db)
             cls.axis = None
@@ -141,7 +140,6 @@ class Conf:
                 cls.db = _db
             lanes = make_lanes(cls.db, lane_list)
             cls.sublanes = lanes
-            cls.urn_lookup_controller = URNLookupController(cls.db)
             cls.overdrive = OverdriveAPI.from_environment(cls.db)
             cls.threem = ThreeMAPI.from_environment(cls.db)
             cls.axis = Axis360API.from_environment(cls.db)
@@ -156,6 +154,7 @@ class Conf:
             else:
                 cls.log.warn("No external search server configured.")
                 cls.search = None
+        cls.urn_lookup_controller = URNLookupController(cls.db)
         cls.log.debug("Lane layout:")
         log_lanes(lanes)
 
@@ -226,11 +225,7 @@ else:
     Conf.testing = False
     Conf.initialize()
 
-class CirculationManager(Flask):
-    pass
-
-    
-app = CirculationManager(__name__)
+app = Flask(__name__)
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
@@ -271,35 +266,10 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-def lane_url(cls, lane, order=None):
-    return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
-
-def feed_url(lane, order_facet, offset, size, cdn=True):
-    if not lane:
-        lane_name = lane
-    else:
-        lane_name = lane.url_name
-    if not isinstance(order_facet, basestring):
-        order_facet = Conf.database_field_to_order_facet[order_facet]
-    if cdn:
-        m = cdn_url_for
-    else:
-        m = url_for
-    return m('feed', lane_name=lane_name, order=order_facet,
-             after=offset, size=size, _external=True)
-
 index_controller = IndexController(Conf)
 @app.route('/')
 def index():
     return index_controller()
-
-@app.route('/heartbeat')
-def hearbeat():
-    return HeartbeatController().heartbeat()
-
-@app.route('/service_status')
-def service_status():
-    return ServiceStatusController(Conf)()
 
 opds_feeds = OPDSFeedController(Conf)
 @app.route('/groups', defaults=dict(lane_name=None, languages=None))
@@ -370,15 +340,6 @@ def permalink(data_source, identifier):
 def report(data_source, identifier):
     return works_controller.report(data_source, identifier)
 
-# Loadstorm verification
-@app.route('/loadstorm-<code>.html')
-def loadstorm_verify(code):
-    c = Configuration.integration("Loadstorm", required=True)
-    if code == c['verification_code']:
-        return Response("", 200)
-    else:
-        return Response("", 404)
-
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
 @requires_auth
@@ -396,6 +357,23 @@ def adobe_vendor_id_accountinfo():
 @app.route('/AdobeAuth/Status')
 def adobe_vendor_id_status():
     return Conf.adobe_vendor_id.status_handler()
+
+# Controllers used for operations purposes
+@app.route('/heartbeat')
+def hearbeat():
+    return HeartbeatController().heartbeat()
+
+@app.route('/service_status')
+def service_status():
+    return ServiceStatusController(Conf)()
+
+@app.route('/loadstorm-<code>.html')
+def loadstorm_verify(code):
+    c = Configuration.integration("Loadstorm", required=True)
+    if code == c['verification_code']:
+        return Response("", 200)
+    else:
+        return Response("", 404)
 
 # @app.route('/force_error/<string>')
 # def force_error(string):
