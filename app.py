@@ -83,7 +83,6 @@ import urllib
 from core.util.flask_util import (
     problem,
     problem_raw,
-    languages_for_request
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from lanes import make_lanes
@@ -193,42 +192,6 @@ class Conf:
             cls.adobe_vendor_id = None
 
         cls.make_authentication_document()
-
-    @classmethod
-    def languages_for_request(cls):
-        languages = languages_for_request()
-
-        # We're going to end up with one single language here,
-        # unless Configuration.force_language intervenes.
-
-        # By default prefer our primary collection languages.
-        use_languages = [
-            x for x in languages
-            if x in cls.primary_collection_languages
-        ]
-
-        if not use_languages:
-            # Fallback to one of our other language collections.
-            use_languages = [
-                x for x in languages
-                if x in cls.other_collection_languages
-            ]
-
-        # Fallback to the originally specified languages.
-        if not use_languages:
-            use_languages = languages
-
-        # Absolute final fallback is the list of primary collection
-        # languages.
-        if not use_languages:
-            use_languages = cls.primary_collection_languages
-
-        # For the time being we only accept one language (unless
-        # force_language intervenes). 
-        if use_languages:
-            languages = [use_languages[0]]
-        return Configuration.force_language(languages)
-
 
     @classmethod
     def make_authentication_document(cls):
