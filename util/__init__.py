@@ -560,6 +560,27 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             return cls.english_names_to_three[s]
         return None
 
+    @classmethod
+    def name_for_languageset(cls, languages):
+        if isinstance(languages, basestring):
+            languages = languages.split(",")
+        all_names = []
+        if not languages:
+            return ""
+        for l in languages:
+            normalized = cls.string_to_alpha_3(l)
+            names = cls.english_names.get(normalized, [])
+            if not names:
+                raise ValueError("No English name for %s" % l)
+            all_names.append(names[0])
+        if len(all_names) == 1:
+            return all_names[0]
+        if len(all_names) == 2:
+            return " & ".join(all_names)
+        last = all_names[-1]
+        first = all_names[:-1]
+        return ", ".join(first) + ", & " + last
+
 def languages_from_accept(accept_languages):
     """Turn a list of (locale, quality) 2-tuples into a list of language codes."""
     seen = set([])

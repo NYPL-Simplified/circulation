@@ -55,6 +55,16 @@ class TestLanguageCodes(object):
         eq_(None, m("NO SUCH LANGUAGE"))
         eq_(None, None)
 
+    def test_name_for_languageset(self):
+        m = LanguageCodes.name_for_languageset
+        eq_("", m([]))
+        eq_("English", m(["en"]))
+        eq_("English", m(["eng"]))
+        eq_("English & Spanish", m(["eng", "spa"]))
+        eq_("Spanish & English", m("spa,eng"))
+        eq_("Spanish, English, & Chinese", m(["spa","eng","chi"]))
+        assert_raises(ValueError(m, ["eng, nxx"]))
+
 class DummyAuthor(object):
 
     def __init__(self, name, aliases=[]):
