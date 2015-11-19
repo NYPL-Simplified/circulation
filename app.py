@@ -289,7 +289,126 @@ else:
     Conf.testing = False
     Conf.initialize()
 
-app = Flask(__name__)
+class CirculationManager(Flask):
+
+    @classmethod
+    def authenticated_patron(cls, barcode, pin):
+        """Look up the patron authenticated by the given barcode/pin.
+
+        If there's a problem, return a 2-tuple (URI, title) for use in a
+        Problem Detail Document.
+
+        If there's no problem, return a Patron object.
+        """
+        patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
+        if not patron:
+            return (INVALID_CREDENTIALS_PROBLEM,
+                    INVALID_CREDENTIALS_TITLE)
+
+        # Okay, we know who they are and their PIN is valid. But maybe the
+        # account has expired?
+        if not patron.authorization_is_active:
+            return (EXPIRED_CREDENTIALS_PROBLEM,
+                    EXPIRED_CREDENTIALS_TITLE)
+
+        # No, apparently we're fine.
+        return patron
+
+    @classmethod
+    def authenticate(cls, uri, title):
+        """Sends a 401 response that demands basic auth."""
+        data = Conf.opds_authentication_document
+        headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
+                   'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+        return Response(data, 401, headers)
+
+    @classmethod
+    def load_lane(cls, language, name):
+        pass
+
+    @classmethod
+    def load_facets(cls, request):
+        pass
+
+    @classmethod
+    def load_pagination(cls, request):
+        pass
+
+    @classmethod
+    def load_licensepool(cls, data_source, identifier):
+        if isinstance(data_source, DataSource):
+            source = data_source
+        else:
+            source = DataSource.lookup(Conf.db, data_source)
+        if source is None:
+            return problem(None, "No such data source: %s" % data_source, 404)
+
+        if isinstance(identifier, Identifier):
+            id_obj = identifier
+        else:
+            identifier_type = source.primary_identifier_type
+            id_obj, ignore = Identifier.for_foreign_id(
+                Conf.db, identifier_type, identifier, autocreate=False)
+        if not id_obj:
+            # TODO
+            return problem(
+                NO_LICENSES_PROBLEM, "I never heard of such a book.", 404)
+        pool = id_obj.licensed_through
+        return pool
+
+    @classmethod
+    def load_licensepooldelivery(cls, pool, mechanism_id):
+        mechanism = get_one(
+            Conf.db, LicensePoolDeliveryMechanism, license_pool=pool,
+            delivery_mechanism_id=mechanism_id
+        )
+
+        if not mechanism:
+            return problem(
+                BAD_DELIVERY_MECHANISM_PROBLEM, 
+                "Unsupported delivery mechanism for this book.",
+                400
+            )
+        return mechanism
+
+    @classmethod
+    def apply_borrowing_policy(cls, patron, license_pool):
+        if not patron.can_borrow(license_pool.work, Conf.policy):
+            return problem(
+                FORBIDDEN_BY_POLICY_PROBLEM, 
+                "Library policy prohibits us from lending you this book.",
+                451
+            )
+
+        if (license_pool.licenses_available == 0 and
+            Configuration.hold_policy() !=
+            Configuration.HOLD_POLICY_ALLOW
+        ):
+            return problem(
+                FORBIDDEN_BY_POLICY_PROBLEM, 
+                "Library policy prohibits the placement of holds.",
+                403
+            )        
+        return None
+
+    @classmethod
+    def add_configuration_links(cls, feed):
+        for rel, value in (
+                ("terms-of-service", Configuration.terms_of_service_url()),
+                ("privacy-policy", Configuration.privacy_policy_url()),
+                ("copyright", Configuration.acknowledgements_url()),
+        ):
+            if value:
+                d = dict(href=value, type="text/html", rel=rel)
+                if isinstance(feed, OPDSFeed):
+                    feed.add_link(**d)
+                else:
+                    # This is an ElementTree object.
+                    link = E.link(**d)
+                    feed.append(link)
+
+    
+app = CirculationManager(__name__)
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
@@ -332,51 +451,6 @@ CANNOT_FULFILL_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-fulf
 BAD_DELIVERY_MECHANISM_PROBLEM = "http://librarysimplified.org/terms/problem/bad-delivery-mechanism"
 CANNOT_RELEASE_HOLD_PROBLEM = "http://librarysimplified.org/terms/problem/cannot-release-hold"
 
-def add_configuration_links(feed):
-    for rel, value in (
-            ("terms-of-service", Configuration.terms_of_service_url()),
-            ("privacy-policy", Configuration.privacy_policy_url()),
-            ("copyright", Configuration.acknowledgements_url()),
-    ):
-        if value:
-            d = dict(href=value, type="text/html", rel=rel)
-            if isinstance(feed, OPDSFeed):
-                feed.add_link(**d)
-            else:
-                # This is an ElementTree object.
-                link = E.link(**d)
-                feed.append(link)
-
-
-def authenticated_patron(barcode, pin):
-    """Look up the patron authenticated by the given barcode/pin.
-
-    If there's a problem, return a 2-tuple (URI, title) for use in a
-    Problem Detail Document.
-
-    If there's no problem, return a Patron object.
-    """
-    patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
-    if not patron:
-        return (INVALID_CREDENTIALS_PROBLEM,
-                INVALID_CREDENTIALS_TITLE)
-
-    # Okay, we know who they are and their PIN is valid. But maybe the
-    # account has expired?
-    if not patron.authorization_is_active:
-        return (EXPIRED_CREDENTIALS_PROBLEM,
-                EXPIRED_CREDENTIALS_TITLE)
-
-    # No, apparently we're fine.
-    return patron
-
-
-def authenticate(uri, title):
-    """Sends a 401 response that demands basic auth."""
-    data = Conf.opds_authentication_document
-    headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
-               'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
-    return Response(data, 401, headers)
 
 def requires_auth(f):
     @wraps(f)
@@ -715,10 +789,12 @@ def service_status():
 def lane_url(cls, lane, order=None):
     return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
 
-@app.route('/groups', defaults=dict(lane_name=None))
-@app.route('/groups/', defaults=dict(lane_name=None))
-@app.route('/groups/<lane_name>')
-def acquisition_groups(lane_name):
+@app.route('/groups', defaults=dict(lane_name=None, languages=None))
+@app.route('/groups/', defaults=dict(lane_name=None, languages=None))
+@app.route('/groups/<languages>', defaults=dict(lane_name=None)))
+@app.route('/groups/<languages>/', defaults=dict(languages=None)))
+@app.route('/groups/<languages>/<lane_name>')
+def acquisition_groups(languages, lane_name):
     if lane_name is None:
         lane = Conf
     elif lane_name not in Conf.sublanes.by_name:
@@ -1116,63 +1192,6 @@ def work():
     annotator = CirculationManagerAnnotator(Conf.circulation, None)
     return URNLookupController(Conf.db).work_lookup(annotator, 'work')
     # Conf.urn_lookup_controller.permalink(urn, annotator)
-
-def _load_licensepool(data_source, identifier):
-    if isinstance(data_source, DataSource):
-        source = data_source
-    else:
-        source = DataSource.lookup(Conf.db, data_source)
-    if source is None:
-        return problem(None, "No such data source: %s" % data_source, 404)
-
-    if isinstance(identifier, Identifier):
-        id_obj = identifier
-    else:
-        identifier_type = source.primary_identifier_type
-        id_obj, ignore = Identifier.for_foreign_id(
-            Conf.db, identifier_type, identifier, autocreate=False)
-    if not id_obj:
-        # TODO
-        return problem(
-            NO_LICENSES_PROBLEM, "I never heard of such a book.", 404)
-    pool = id_obj.licensed_through
-    return pool
-
-def _load_licensepooldelivery(pool, mechanism_id):
-    mechanism = get_one(
-        Conf.db, LicensePoolDeliveryMechanism, license_pool=pool,
-        delivery_mechanism_id=mechanism_id
-    )
-
-    if not mechanism:
-        return problem(
-            BAD_DELIVERY_MECHANISM_PROBLEM, 
-            "Unsupported delivery mechanism for this book.",
-            400
-        )
-    return mechanism
-
-
-def _apply_borrowing_policy(patron, license_pool):
-    if not patron.can_borrow(license_pool.work, Conf.policy):
-        return problem(
-            FORBIDDEN_BY_POLICY_PROBLEM, 
-            "Library policy prohibits us from lending you this book.",
-            451
-        )
-
-    if (license_pool.licenses_available == 0 and
-        Configuration.hold_policy() !=
-        Configuration.HOLD_POLICY_ALLOW
-    ):
-        return problem(
-            FORBIDDEN_BY_POLICY_PROBLEM, 
-            "Library policy prohibits the placement of holds.",
-            403
-        )        
-
-    return None
-
 
 @app.route('/works/<data_source>/<identifier>')
 def permalink(data_source, identifier):
