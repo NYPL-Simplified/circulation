@@ -663,8 +663,6 @@ class GenreData(object):
         self.subgenres = []
         if isinstance(audience_restriction, basestring):
             audience_restriction = [audience_restriction]
-        elif audience_restriction and not isinstance(audience_restriction, list):
-            set_trace()
         self.audience_restriction = audience_restriction
 
     def __repr__(self):
@@ -764,6 +762,21 @@ class GenreData(object):
         for sub in subgenres:
             cls.add_genre(namespace, genres, sub, [], fiction,
                           genre_data, audience_restriction)
+
+    def to_lane(self, _db, **args):
+        """Turn this GenreData object into a Lane that matches
+        every book in the genre.
+        """
+        from lane import Lane
+        return Lane(
+            _db, 
+            full_name=self.name, 
+            fiction=self.is_fiction,
+            audiences = self.audience_restriction,
+            genres=self,
+            subgenre_behavior=Lane.IN_SUBLANES,
+            **args
+        )
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)

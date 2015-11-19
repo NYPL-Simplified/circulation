@@ -344,6 +344,10 @@ class Pagination(object):
         """Modify the given query with OFFSET and LIMIT."""
         return q.offset(self.offset).limit(self.size)
 
+class UndefinedLane(Exception):
+    """Cannot create a lane because its definition is contradictory
+    or incomplete.
+    """
 
 class Lane(object):
 
@@ -411,8 +415,7 @@ class Lane(object):
             media=", ".join(self.media or ["all"]),
             audiences = "+".join(self.audiences or ["all"]),
             age_range = self.age_range or "all",
-            language="+".join(self.languages or ["all"]),
-            exclude_language="+".join(self.exclude_languages or ["none"]),
+            language=self.language_key or "all",
             sublanes = len(sublanes)
         )
 
@@ -457,6 +460,8 @@ class Lane(object):
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
+
+        self.log = logging.getLogger("Lane %s" % self.name)
 
         # This controls which feeds to display when showing this lane
         # and its sublanes as a group.
@@ -514,12 +519,10 @@ class Lane(object):
 
         # However the genres came in, turn them into database Genre
         # objects and the corresponding GenreData objects.
-        if not any(isinstance(genres, x) for x in (list, tuple, set)):
-            genres = [genres]
+        genres, genredata = self.load_genres(self._db, genres)
 
         # Create a complete list of genres to exclude.
         full_exclude_genres = set()
-        full_exclude_genredata = set()
         if exclude_genres:
             for genre in exclude_genres:
                 genre, ignore = self.load_genre(self._db, genre)
@@ -552,7 +555,7 @@ class Lane(object):
                     subgenre_sublanes.append(sublane)
 
         if sublanes and subgenre_sublanes:
-            raise ValueError(
+            raise UndefinedLane(
                 "Explicit list of sublanes was provided, but I'm also asked to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
             )
 
@@ -578,22 +581,32 @@ class Lane(object):
         )
         if include_staff_picks:
             full_name = "%s - Staff Picks" % self.name
-            staff_picks_lane = Lane(
-                full_name=full_name, display_name="Staff Picks",
-                list_identifier="Staff Picks",
-                **base_args
-            )
-            self.sublanes.lanes.insert(0, staff_picks_lane)
+            try:
+                staff_picks_lane = Lane(
+                    full_name=full_name, display_name="Staff Picks",
+                    list_identifier="Staff Picks",
+                    **base_args
+                )
+            except UndefinedLane, e:
+                # Not a big deal, just don't add the lane.
+                staff_picks_lane = None
+            if staff_picks_lane:
+                self.sublanes.lanes.insert(0, staff_picks_lane)
 
         if include_best_sellers:
             full_name = "%s - Best Sellers" % self.name
-            best_seller_lane = Lane(
-                full_name=full_name, display_name="Best Sellers", 
-                list_data_source=DataSource.NYT,
-                list_seen_in_previous_days=365*2,
-                **base_args
-            )
-            self.sublanes.lanes.insert(0, best_seller_lane)
+            try:
+                best_seller_lane = Lane(
+                    full_name=full_name, display_name="Best Sellers", 
+                    list_data_source=DataSource.NYT,
+                    list_seen_in_previous_days=365*2,
+                    **base_args
+                )
+            except UndefinedLane, e:
+                # Not a big deal, just don't add the lane.
+                best_seller_lane = None
+            if best_seller_lane:
+                self.sublanes.lanes.insert(0, best_seller_lane)
 
 
         # Run some sanity checks.
@@ -601,7 +614,7 @@ class Lane(object):
         ya = Classifier.AUDIENCE_YOUNG_ADULT
         if ((include_best_sellers or include_staff_picks) and
             (self.list_data_source or self.lists)):
-            raise ValueError(
+            raise UndefinedLane(
                 "Cannot include best-seller or staff-picks in a lane based on lists."
             )
 
@@ -609,7 +622,7 @@ class Lane(object):
                 self.age_range 
                 and not any(x in self.audiences for x in [ch, ya])
         ):
-            raise ValueError(
+            raise UndefinedLane(
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
 
@@ -674,9 +687,9 @@ class Lane(object):
                 q = q.filter(CustomList.data_source==list_data_source)
             lists = q.all()
             if not lists:
-                raise ValueError(
-                    "Could not find any matching lists: %s, %r" % (
-                        list_data_source, list_identifiers)
+                raise UndefinedLane(
+                    "Could not find any matching lists: %s, %r" %
+                    (list_data_source, list_identifiers)
                 )
         return list_data_source, lists
 
@@ -730,6 +743,23 @@ class Lane(object):
         return genre, genredata
 
     @classmethod
+    def load_genres(cls, _db, genres):
+        """Turn a list of genre-like things into a list of Genre objects
+        and a list of GenreData objects.
+        """
+        genre_obj = []
+        genre_data = []
+        if genres is None:
+            return genre_obj, genre_data
+        if not any(isinstance(genres, x) for x in (list, tuple, set)):
+            genres = [genres]
+        for name in genres:
+            genre, data = cls.load_genre(_db, name)
+            genre_obj.append(genre)
+            genre_data.append(data)
+        return genre_obj, genre_data
+
+    @classmethod
     def all_matching_genres(cls, genres, exclude_genres=None):
         matches = set()
         exclude_genres = exclude_genres or []
@@ -759,7 +789,7 @@ class Lane(object):
                 if fiction is None:
                     fiction = genre.default_fiction
                 elif fiction != genre.default_fiction:
-                    raise ValueError(
+                    raise UndefinedLane(
                         "I was told to use the default fiction restriction, but the genres %s include contradictory fiction restrictions." % ", ".join([x.name for x in genres])
                     )
             else:
