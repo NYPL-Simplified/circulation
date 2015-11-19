@@ -49,13 +49,13 @@ def make_lanes_default(_db):
 
     for language_set in Configuration.large_collection_languages():
         seen_languages = seen_languages.union(set(language_set))
-        top_level_lanes.extend(lanes_for_large_collection(language_set))
+        top_level_lanes.extend(lanes_for_large_collection(_db, language_set))
 
     for language_set in Configuration.small_collection_languages():
         seen_languages = seen_languages.union(set(language_set))
-        top_level_lanes.append(lane_for_small_collection(language_set))
+        top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
-    top_level_lanes.append(lane_for_other_languages(seen_languages))
+    top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
 
     return LaneList.from_description(_db, None, top_level_lanes)
 
@@ -300,9 +300,10 @@ def lane_for_other_languages(_db, exclude_languages):
         **common_args
     )
 
+    set_trace()
     return Lane(
         _db, 
         full_name="Other Languages", 
-        exclude_languages=exclude_languages, 
-        sublanes=[adult_fiction, adult_nonfiction, ya_children]
+        sublanes=[adult_fiction, adult_nonfiction, ya_children],
+        **common_args
     )

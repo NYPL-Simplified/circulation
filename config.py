@@ -14,8 +14,8 @@ class Configuration(CoreConfiguration):
     AUTHENTICATION_POLICY = "authentication"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
-    LARGE_LANGUAGE_COLLECTIONS = "large_collections"
-    SMALL_LANGUAGE_COLLECTIONS = "small_collections"
+    LARGE_COLLECTION_LANGUAGES = "large_collections"
+    SMALL_COLLECTION_LANGUAGES = "small_collections"
 
     LANES_POLICY = "lanes"
 
@@ -60,14 +60,14 @@ class Configuration(CoreConfiguration):
         value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
         if isinstance(value, list):
             return value
-        return value.split(",")
+        return [[x] for x in value.split(',')]
 
     @classmethod
     def small_collection_languages(cls):
         value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
         if isinstance(value, list):
             return value
-        return value.split(',')
+        return [[x] for x in value.split(',')]
 
     @classmethod
     def force_language(cls, language):
