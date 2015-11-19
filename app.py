@@ -290,122 +290,7 @@ else:
     Conf.initialize()
 
 class CirculationManager(Flask):
-
-    @classmethod
-    def authenticated_patron(cls, barcode, pin):
-        """Look up the patron authenticated by the given barcode/pin.
-
-        If there's a problem, return a 2-tuple (URI, title) for use in a
-        Problem Detail Document.
-
-        If there's no problem, return a Patron object.
-        """
-        patron = Conf.auth.authenticated_patron(Conf.db, barcode, pin)
-        if not patron:
-            return (INVALID_CREDENTIALS_PROBLEM,
-                    INVALID_CREDENTIALS_TITLE)
-
-        # Okay, we know who they are and their PIN is valid. But maybe the
-        # account has expired?
-        if not patron.authorization_is_active:
-            return (EXPIRED_CREDENTIALS_PROBLEM,
-                    EXPIRED_CREDENTIALS_TITLE)
-
-        # No, apparently we're fine.
-        return patron
-
-    @classmethod
-    def authenticate(cls, uri, title):
-        """Sends a 401 response that demands basic auth."""
-        data = Conf.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
-                   'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
-        return Response(data, 401, headers)
-
-    @classmethod
-    def load_lane(cls, language, name):
-        pass
-
-    @classmethod
-    def load_facets(cls, request):
-        pass
-
-    @classmethod
-    def load_pagination(cls, request):
-        pass
-
-    @classmethod
-    def load_licensepool(cls, data_source, identifier):
-        if isinstance(data_source, DataSource):
-            source = data_source
-        else:
-            source = DataSource.lookup(Conf.db, data_source)
-        if source is None:
-            return problem(None, "No such data source: %s" % data_source, 404)
-
-        if isinstance(identifier, Identifier):
-            id_obj = identifier
-        else:
-            identifier_type = source.primary_identifier_type
-            id_obj, ignore = Identifier.for_foreign_id(
-                Conf.db, identifier_type, identifier, autocreate=False)
-        if not id_obj:
-            # TODO
-            return problem(
-                NO_LICENSES_PROBLEM, "I never heard of such a book.", 404)
-        pool = id_obj.licensed_through
-        return pool
-
-    @classmethod
-    def load_licensepooldelivery(cls, pool, mechanism_id):
-        mechanism = get_one(
-            Conf.db, LicensePoolDeliveryMechanism, license_pool=pool,
-            delivery_mechanism_id=mechanism_id
-        )
-
-        if not mechanism:
-            return problem(
-                BAD_DELIVERY_MECHANISM_PROBLEM, 
-                "Unsupported delivery mechanism for this book.",
-                400
-            )
-        return mechanism
-
-    @classmethod
-    def apply_borrowing_policy(cls, patron, license_pool):
-        if not patron.can_borrow(license_pool.work, Conf.policy):
-            return problem(
-                FORBIDDEN_BY_POLICY_PROBLEM, 
-                "Library policy prohibits us from lending you this book.",
-                451
-            )
-
-        if (license_pool.licenses_available == 0 and
-            Configuration.hold_policy() !=
-            Configuration.HOLD_POLICY_ALLOW
-        ):
-            return problem(
-                FORBIDDEN_BY_POLICY_PROBLEM, 
-                "Library policy prohibits the placement of holds.",
-                403
-            )        
-        return None
-
-    @classmethod
-    def add_configuration_links(cls, feed):
-        for rel, value in (
-                ("terms-of-service", Configuration.terms_of_service_url()),
-                ("privacy-policy", Configuration.privacy_policy_url()),
-                ("copyright", Configuration.acknowledgements_url()),
-        ):
-            if value:
-                d = dict(href=value, type="text/html", rel=rel)
-                if isinstance(feed, OPDSFeed):
-                    feed.add_link(**d)
-                else:
-                    # This is an ElementTree object.
-                    link = E.link(**d)
-                    feed.append(link)
+    pass
 
     
 app = CirculationManager(__name__)
@@ -474,28 +359,13 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
+def lane_url(cls, lane, order=None):
+    return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
+
+index_controller = IndexController(Conf)
 @app.route('/')
-def index():    
-
-    # The simple case: the app is equally open to all clients.
-    policy = Configuration.root_lane_policy()
-    if not policy:
-        return redirect(cdn_url_for('acquisition_groups'))
-
-    # The more complex case. We must authorize the patron, check
-    # their type, and redirect them to an appropriate feed.
-    return appropriate_index_for_patron_type()
-
-@requires_auth
-def authenticated_patron_root_lane():
-    patron = flask.request.patron
-    policy = Configuration.root_lane_policy()
-    return policy.get(patron.external_type)
-
-@requires_auth
-def appropriate_index_for_patron_type():
-    root_lane = authenticated_patron_root_lane()
-    return redirect(cdn_url_for('acquisition_groups', lane_name=root_lane))
+def index():
+    return index_controller()
 
 @app.route('/heartbeat')
 def hearbeat():
@@ -503,231 +373,48 @@ def hearbeat():
 
 @app.route('/service_status')
 def service_status():
-    conf = Configuration.authentication_policy()
-    username = conf[Configuration.AUTHENTICATION_TEST_USERNAME]
-    password = conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
+    return ServiceStatusController(Conf)()
 
-    template = """<!DOCTYPE HTML>
-<html lang="en" class="">
-<head>
-<meta charset="utf8">
-</head>
-<body>
-<ul>
-%(statuses)s
-</ul>
-</body>
-</html>
-"""
-    timings = dict()
-
-    patrons = []
-    def _add_timing(k, x):
-        try:
-            a = time.time()
-            x()
-            b = time.time()
-            result = b-a
-        except Exception, e:
-            result = e
-        if isinstance(result, float):
-            timing = "SUCCESS: %.2fsec" % result
-        else:
-            timing = "FAILURE: %s" % result
-        timings[k] = timing
-
-    def do_patron():
-        patron = Conf.auth.authenticated_patron(Conf.db, username, password)
-        patrons.append(patron)
-        if patron:
-            return patron
-        else:
-            raise ValueError("Could not authenticate test patron!")
-
-    _add_timing('Patron authentication', do_patron)
-
-    patron = patrons[0]
-    def do_overdrive():
-        if not Conf.overdrive:
-            raise ValueError("Overdrive not configured")
-        return Conf.overdrive.patron_activity(patron, password)
-    _add_timing('Overdrive patron account', do_overdrive)
-
-    def do_threem():
-        if not Conf.threem:
-            raise ValueError("3M not configured")
-        return Conf.threem.patron_activity(patron, password)
-    _add_timing('3M patron account', do_threem)
-
-    def do_axis():
-        if not Conf.axis:
-            raise ValueError("Axis not configured")
-        return Conf.axis.patron_activity(patron, password)
-    _add_timing('Axis patron account', do_axis)
-
-    statuses = []
-    for k, v in sorted(timings.items()):
-        statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
-
-    doc = template % dict(statuses="\n".join(statuses))
-    return make_response(doc, 200, {"Content-Type": "text/html"})
-
-def lane_url(cls, lane, order=None):
-    return cdn_url_for('feed', lane_name=lane.name, order=order, _external=True)
-
+opds_feeds = OPDSFeedController(Conf)
 @app.route('/groups', defaults=dict(lane_name=None, languages=None))
 @app.route('/groups/', defaults=dict(lane_name=None, languages=None))
 @app.route('/groups/<languages>', defaults=dict(lane_name=None)))
 @app.route('/groups/<languages>/', defaults=dict(languages=None)))
 @app.route('/groups/<languages>/<lane_name>')
 def acquisition_groups(languages, lane_name):
-    if lane_name is None:
-        lane = Conf
-    elif lane_name not in Conf.sublanes.by_name:
-        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
-    else:
-        lane = Conf.sublanes.by_name[lane_name]
+    return opds_feed.groups(languages, lane_name)
 
-    languages = Conf.languages_for_request()
-    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
+@app.route('/feed', defaults=dict(lane_name=None, languages=None))
+@app.route('/feed/', defaults=dict(lane_name=None, languages=None))
+@app.route('/feed/<languages>', defaults=dict(lane_name=None)))
+@app.route('/feed/<languages>/', defaults=dict(languages=None)))
+@app.route('/feed/<languages>/<lane_name>')
+def feed(languages, lane_name):
+    return opds_feed.feed(languages, lane_name)
 
-    cache_url = acquisition_groups_cache_url(annotator, lane, languages)
-    def get(*args, **kwargs):
-        for l in languages:
-            if l in Conf.primary_collection_languages:
-                # Attempting to create a groups feed for a primary
-                # collection language will hang the database. It also
-                # should never be necessary, since that stuff is
-                # supposed to be precalculated by a script. It's
-                # better to just refuse to do the work.
-                return problem_raw(
-                    CANNOT_GENERATE_FEED_PROBLEM,
-                    "Refusing to dynamically create a groups feed for a primary collection language (%s). This feed must be precalculated." % l, 400)
+@app.route('/search', defaults=dict(lane_name=None, languages=None))
+@app.route('/search/', defaults=dict(lane_name=None, languages=None))
+@app.route('/search/<languages>', defaults=dict(lane_name=None)))
+@app.route('/search/<languages>/', defaults=dict(languages=None)))
+@app.route('/search/<languages>/<lane_name>')
+def lane_search(languages, lane_name):
+    return opds_feed.search(languages, lane_name)
 
-        return make_acquisition_groups(annotator, lane, languages)
-    a = time.time()
-    feed_rep, cached = Representation.get(
-        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-        max_age=None)
-    feed_xml = feed_rep.content
-    b = time.time()
-    Conf.log.info(
-        "That took %.2f, cached=%r, size=%s", b-a, cached, len(feed_xml)
-    )
-    return feed_response(feed_xml, acquisition=True)
-
-
+loan_controller = LoanController(setup)
 @app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
 def active_loans():
-
-    if flask.request.method=='HEAD':
-        return Response()
-
-    patron = flask.request.patron
-
-    # First synchronize our local list of loans and holds with all
-    # third-party loan providers.
-    if patron.authorization_identifier and len(patron.authorization_identifier) >= 7:
-        # TODO: Barcodes less than 7 digits are dummy code that allow
-        # the creation of arbitrary test accounts that are limited to
-        # public domain books. We cannot ask Overdrive or 3M about
-        # these barcodes.
-        header = flask.request.authorization
-        try:
-            Conf.circulation.sync_bookshelf(patron, header.password)
-        except Exception, e:
-            # If anything goes wrong, omit the sync step and just
-            # display the current active loans, as we understand them.
-            Conf.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
-
-    # Then make the feed.
-    feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-        Conf.circulation, patron)
-    return feed_response(feed, cache_for=None)
+    return loan_controller.sync()
 
 @app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 def revoke_loan_or_hold(data_source, identifier):
-    patron = flask.request.patron
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        return pool
-    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
-    if loan:
-        hold = None
-    else:
-        hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
-
-    if not loan and not hold:
-        if not pool.work:
-            title = 'this book'
-        else:
-            title = '"%s"' % pool.work.title
-        return problem(
-            NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
-            'You have no active loan or hold for %s.' % title,
-            404)
-
-    pin = flask.request.authorization.password
-    if loan:
-        try:
-            Conf.circulation.revoke_loan(patron, pin, pool)
-        except RemoteRefusedReturn, e:
-            uri = COULD_NOT_MIRROR_TO_REMOTE
-            title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-            return problem(uri, title, 500)
-        except CannotReturn, e:
-            title = "Loan deleted locally but remote failed: %s" % str(e)
-            return problem(uri, title, 500)
-    elif hold:
-        if not Conf.circulation.can_revoke_hold(pool, hold):
-            title = "Cannot release a hold once it enters reserved state."
-            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 400)
-        try:
-            Conf.circulation.release_hold(patron, pin, pool)
-        except CannotReleaseHold, e:
-            title = "Hold released locally but remote failed: %s" % str(e)
-            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 500)
-
-    work = pool.work
-    annotator = CirculationManagerAnnotator(Conf.circulation, None)
-    return entry_response(
-        AcquisitionFeed.single_entry(Conf.db, work, annotator)
-    )
-
+    return loan_controller.revoke(data_source, identifier)
 
 @app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 def loan_or_hold_detail(data_source, identifier):
-    patron = flask.request.patron
-    pool = _load_licensepool(data_source, identifier)
-    if isinstance(pool, Response):
-        return pool
-    loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
-    if loan:
-        hold = None
-    else:
-        hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
-
-    if not loan and not hold:
-        return problem(
-            NO_ACTIVE_LOAN_OR_HOLD_PROBLEM, 
-            'You have no active loan or hold for "%s".' % pool.work.title,
-            404)
-
-    if flask.request.method=='GET':
-        if loan:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                Conf.circulation, loan)
-        else:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-                Conf.circulation, hold)
-        feed = unicode(feed)
-        return feed_response(feed, None)
-
-    if flask.request.method=='DELETE':
-        return revoke_loan_or_hold(data_source, identifier)
+    return loan_controller.detail(data_source, identifier)
 
 def feed_url(lane, order_facet, offset, size, cdn=True):
     if not lane:
@@ -742,149 +429,6 @@ def feed_url(lane, order_facet, offset, size, cdn=True):
         m = url_for
     return m('feed', lane_name=lane_name, order=order_facet,
              after=offset, size=size, _external=True)
-
-
-def make_feed(_db, annotator, lane, languages, order_facet,
-              offset, size):
-
-    from core.materialized_view import (
-        MaterializedWorkLaneFeed,
-    )
-
-    work_feed = MaterializedWorkLaneFeed.factory(lane, languages, order_facet)
-    if order_facet == 'title':
-        title = "%s: By title" % lane.display_name
-    elif order_facet == 'author':
-        title = "%s: By author" % lane.display_name
-    else:
-        title = lane.name
-
-    a = time.time()
-    query = work_feed.page_query(_db, offset, size)
-    from core.model import dump_query
-    Conf.log.debug(dump_query(query))
-    page = query.all()
-
-    b = time.time()
-    Conf.log.info("Got %d results in %.2fsec." % (len(page), b-a))
-
-    # Turn the set of works into an OPDS feed.
-    this_url = feed_url(lane, order_facet, offset, size)
-    opds_feed = AcquisitionFeed(_db, title, this_url, page,
-                                annotator, work_feed.active_facet)
-
-    # Add a 'next' link unless this page is empty.
-    if len(page) == 0:
-        offset = None
-    else:
-        offset = int(offset or 0)
-        offset += size
-        next_url = feed_url(lane, order_facet, offset, size)
-        opds_feed.add_link(rel="next", href=next_url)
-
-    # Add a 'search' link.
-    search_link = dict(
-        rel="search",
-        type="application/opensearchdescription+xml",
-        href=url_for('lane_search', lane_name=lane.name, _external=True))
-    opds_feed.add_link(**search_link)
-    add_configuration_links(opds_feed)
-    return (200,
-            {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-            unicode(opds_feed),
-        )
-
-
-@app.route('/feed', defaults=dict(lane_name=None))
-@app.route('/feed/', defaults=dict(lane_name=None))
-@app.route('/feed/<lane_name>')
-def feed(lane_name):
-    lane_name = lane_name.replace("__", "/")
-    languages = Conf.languages_for_request()
-    arg = flask.request.args.get
-    order_facet = arg('order', 'recommended')
-    offset = arg('after', None)
-
-    if lane_name not in Conf.sublanes.by_name:
-        return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
-
-    lane = Conf.sublanes.by_name[lane_name]
-
-    key = (lane, ",".join(languages), order_facet)
-    feed_xml = None
-    annotator = CirculationManagerAnnotator(Conf.circulation, lane)
-
-    feed_xml = None
-    if order_facet == 'recommended':
-        cache_url = featured_feed_cache_url(annotator, lane, languages)
-        def get(*args, **kwargs):
-            return make_featured_feed(annotator, lane, languages)
-        # Recommended feeds are cached until explicitly updated by 
-        # something running outside of this web app.
-        max_age = None
-    else:
-        if not order_facet in ('title', 'author'):
-            return problem(
-                None,
-                "I don't know how to order a feed by '%s'" % order_facet,
-                400)
-
-        size = arg('size', '50')
-        try:
-            size = int(size)
-        except ValueError:
-            return problem(None, "Invalid size: %s" % size, 400)
-        size = min(size, 100)
-
-        offset = arg('after', None)
-        if offset:
-            try:
-                offset = int(offset)
-            except ValueError:
-                return problem(None, "Invalid offset: %s" % offset, 400)
-
-        status, media_type, feed_xml = make_feed(
-            Conf.db, annotator, lane, languages, order_facet,
-            offset, size)
-        return feed_response(feed_xml)
-
-    #print "Getting feed."
-    #a = time.time()
-    feed_rep, cached = Representation.get(
-        Conf.db, cache_url, get, accept=OPDSFeed.ACQUISITION_FEED_TYPE,
-        max_age=max_age)
-    #b = time.time()
-    #print "That took %.2f, cached=%r" % (b-a, cached)
-
-    if feed_rep.fetch_exception:
-        Conf.log.error("ERROR: getting feed %s: %s", cache_url, feed_rep.fetch_exception)
-    feed_xml = feed_rep.content
-    return feed_response(feed_xml)
-
-@app.route('/search', defaults=dict(lane_name=None))
-@app.route('/search/', defaults=dict(lane_name=None))
-@app.route('/search/<lane_name>')
-def lane_search(lane_name):
-    languages = Conf.languages_for_request()
-    query = flask.request.args.get('q')
-    if lane_name:
-        lane = Conf.sublanes.by_name[lane_name]
-    else:
-        # Create a synthetic Lane that includes absolutely everything.
-        lane = Lane.everything(Conf.db)
-        lane_name = None
-    this_url = url_for('lane_search', lane_name=lane_name, _external=True)
-    if not query:
-        # Send the search form
-        return OpenSearchDocument.for_lane(lane, this_url)
-    # Run a search.    
-    results = lane.search(languages, query, Conf.search, 30)
-    info = OpenSearchDocument.search_info(lane)
-    opds_feed = AcquisitionFeed(
-        Conf.db, info['name'], 
-        this_url + "?q=" + urllib.quote(query.encode("utf8")),
-        results, CirculationManagerAnnotator(Conf.circulation, lane))
-    return feed_response(opds_feed)
 
 @app.route('/works/')
 def work():
