@@ -1,42 +1,162 @@
-class ProblemDetail(object):
-
-      def __init__(self, uri, title=None):
-            self.uri = uri
-            self.title = title
-
-pd = ProblemDetail()
+from core.util.problem_detail import ProblemDetail as pd
 
 REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
-      "The library cannot complete your request because a third-party service has failed."
+      500,
+      "Third-party service failed.",
+      "The library cannot complete your request because a third-party service has failed.",
 )
-CANNOT_GENERATE_FEED_PROBLEM = pd(
+
+CANNOT_GENERATE_FEED = pd(
       "http://librarysimplified.org/terms/problem/cannot-generate-feed",
-      "This feed should have been pre-cached. It's too expensive to generate dynamically."
+      500,
+      "Feed should be been pre-cached.",
+      "This feed should have been pre-cached. It's too expensive to generate dynamically.",
 )
-INVALID_CREDENTIALS_PROBLEM = pd(
+
+INVALID_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/credentials-invalid",
-      "A valid library card barcode number and PIN are required."
+      401,
+      "Invalid credentials",
+      "A valid library card barcode number and PIN are required.",
 )
-EXPIRED_CREDENTIALS_PROBLEM = pd(
+
+EXPIRED_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/credentials-expired",
-      "Your library card has expired. You need to renew it."
+      403,
+      "Expired credentials.",
+      "Your library card has expired. You need to renew it.",
 )
-NO_LICENSES_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-licenses")
-NO_AVAILABLE_LICENSE_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-available-license")
-NO_ACCEPTABLE_FORMAT_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-acceptable-format")
-ALREADY_CHECKED_OUT_PROBLEM = pd("http://librarysimplified.org/terms/problem/loan-already-exists")
-LOAN_LIMIT_REACHED_PROBLEM = pd("http://librarysimplified.org/terms/problem/loan-limit-reached")
-CHECKOUT_FAILED = pd("http://librarysimplified.org/terms/problem/cannot-issue-loan")
-HOLD_FAILED_PROBLEM = pd("http://librarysimplified.org/terms/problem/cannot-place-hold")
-RENEW_FAILED_PROBLEM = pd("http://librarysimplified.org/terms/problem/cannot-renew-loan")
-NO_ACTIVE_LOAN_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-active-loan")
-NO_ACTIVE_HOLD_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-active-hold")
-NO_ACTIVE_LOAN_OR_HOLD_PROBLEM = pd("http://librarysimplified.org/terms/problem/no-active-loan")
-COULD_NOT_MIRROR_TO_REMOTE = pd("http://librarysimplified.org/terms/problem/cannot-mirror-to-remote")
-NO_SUCH_LANE_PROBLEM = pd("http://librarysimplified.org/terms/problem/unknown-lane")
-FORBIDDEN_BY_POLICY_PROBLEM = pd("http://librarysimplified.org/terms/problem/forbidden-by-policy")
-CANNOT_FULFILL_PROBLEM = pd("http://librarysimplified.org/terms/problem/cannot-fulfill-loan")
-BAD_DELIVERY_MECHANISM_PROBLEM = pd("http://librarysimplified.org/terms/problem/bad-delivery-mechanism")
-CANNOT_RELEASE_HOLD_PROBLEM = pd("http://librarysimplified.org/terms/problem/cannot-release-hold")
+
+NO_LICENSES = pd(
+      "http://librarysimplified.org/terms/problem/no-licenses",
+      403,
+      "No licenses.",
+      "The library currently has no licenses for this book.",
+)
+
+NO_AVAILABLE_LICENSE = pd(
+      "http://librarysimplified.org/terms/problem/no-available-license",
+      403,
+      "No available license.",
+      "All licenses for this book are loaned out.",
+)
+
+NO_ACCEPTABLE_FORMAT = pd(
+      "http://librarysimplified.org/terms/problem/no-acceptable-format",
+      400,
+      "No acceptable format.",
+      "Could not deliver this book in an acceptable format.",
+)
+
+ALREADY_CHECKED_OUT = pd(
+      "http://librarysimplified.org/terms/problem/loan-already-exists",
+      400,
+      "Already checked out",
+      "You have already checked out this book.",
+)
+
+LOAN_LIMIT_REACHED_PROBLEM = pd(
+      "http://librarysimplified.org/terms/problem/loan-limit-reached",
+      403,
+      "Loan limit reached.",
+      "You have reached your loan limit. You cannot borrow anything further until you return something.",
+)
+
+CHECKOUT_FAILED = pd(
+      "http://librarysimplified.org/terms/problem/cannot-issue-loan",
+      500,
+      "Could not issue loan.",
+      "Could not issue loan (reason unknown).",
+)
+
+HOLD_FAILED = pd(
+      "http://librarysimplified.org/terms/problem/cannot-place-hold",
+      500,
+      "Could not place hold.",
+      "Could not place hold (reason unknown).",
+)
+
+RENEW_FAILED = pd(
+      "http://librarysimplified.org/terms/problem/cannot-renew-loan",
+      500,
+      "Could not renew loan.",
+      "Could not renew loan (reason unknown).",
+)
+
+NO_ACTIVE_LOAN = pd(
+      "http://librarysimplified.org/terms/problem/no-active-loan",
+      400,
+      "No active loan.",
+      "You can't do this without first borrowing this book.",
+)
+
+NO_ACTIVE_HOLD = pd(
+      "http://librarysimplified.org/terms/problem/no-active-hold",
+      400,
+      "No active hold.",
+      "You can't do this without first putting this book on hold.",
+)
+
+NO_ACTIVE_LOAN_OR_HOLD = pd(
+      "http://librarysimplified.org/terms/problem/no-active-loan",
+      400,
+      "No active loan or hold.",
+      "You can't do this without first borrowing this book or putting it on hold.",
+)
+
+COULD_NOT_MIRROR_TO_REMOTE = pd(
+      "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
+      500,
+      "Cannot mirror local state to remote.",
+      "Could not convince a third party to accept the change you made. It's likely to show up again soon.",
+)
+
+INVALID_INPUT = pd(
+      "http://librarysimplified.org/terms/problem/invalid-input",
+      400,
+      "Invalid input.",
+      "You provided invalid or unrecognized input.",
+)
+
+NO_SUCH_LANE = pd(
+      "http://librarysimplified.org/terms/problem/unknown-lane",
+      404,
+      "No such lane.",
+      "You asked for a nonexistent lane.",
+)
+
+FORBIDDEN_BY_POLICY = pd(
+      "http://librarysimplified.org/terms/problem/forbidden-by-policy",
+      451,
+      "Forbidden by policy.",
+      "Library policy prevents us from carrying out your request.",
+)
+
+CANNOT_FULFILL = pd(
+      "http://librarysimplified.org/terms/problem/cannot-fulfill-loan",
+      400,
+      "Cannot fulfill loan.",
+      "Cannot fulfill loan.",
+)
+
+BAD_DELIVERY_MECHANISM = pd(
+      "http://librarysimplified.org/terms/problem/bad-delivery-mechanism",
+      400,
+      "Unsupported delivery mechanism.",
+      "You selected a delivery mechanism that's not supported by this book.",
+)
+
+CANNOT_RELEASE_HOLD_ON_RESERVED = pd(
+      "http://librarysimplified.org/terms/problem/cannot-release-hold",
+      400,
+      "Cannot release hold on reserved book.",
+      "Cannot release a hold once it enters reserved state.",
+)
+
+CANNOT_RELEASE_HOLD_REMOTE = pd(
+      "http://librarysimplified.org/terms/problem/cannot-release-hold",
+      500,
+      "Failed to release hold.",
+      "Hold released locally but remote failed. The hold is likely to show up again soon.",
 )

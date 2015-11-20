@@ -1,27 +1,12 @@
-# TODO: the feeds generated for lanes need to have search links, like so.
-    # # Add a 'search' link.
-    # search_link = dict(
-    #     rel="search",
-    #     type="application/opensearchdescription+xml",
-    #     href=url_for('lane_search', lane_name=lane.name, _external=True))
-    # opds_feed.add_link(**search_link)
-    # add_configuration_links(opds_feed)
-    # return (200,
-    #         {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-    #         unicode(opds_feed),
-    #     )
-
-
-
 from config import Configuration
 import flask
 import cdn_url_for
 
 class CirculationManagerController(object):
 
-    def __init__(self, setup):
-        self.setup = setup
-        self._db = self.setup.db
+    def __init__(self, manager):
+        self.manager = manager
+        self._db = self.manager._db
 
     def authenticated_patron(self, barcode, pin):
         """Look up the patron authenticated by the given barcode/pin.
@@ -31,7 +16,7 @@ class CirculationManagerController(object):
 
         If there's no problem, return a Patron object.
         """
-        patron = self.setup.auth.authenticated_patron(
+        patron = self.manager.auth.authenticated_patron(
             self._db, barcode, pin
         )
         if not patron:
@@ -49,18 +34,18 @@ class CirculationManagerController(object):
 
     def authenticate(self, uri, title):
         """Sends a 401 response that demands basic auth."""
-        data = self.setup.opds_authentication_document
+        data = self.manager.opds_authentication_document
         headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
                    'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
         return Response(data, 401, headers)
 
     def load_lane(self, language, name):
         if name is None:
-            lane = self.setup
+            lane = self.manager
         else:
             lane_name = lane_name.replace("__", "/")
-            if name in self.setup.sublanes.by_name:
-                lane = self.setup.sublanes.by_name[lane_name]
+            if name in self.manager.sublanes.by_name:
+                lane = self.manager.sublanes.by_name[lane_name]
             else:
                 return problem(NO_SUCH_LANE_PROBLEM, "No such lane: %s" % lane_name, 404)
         return lane
@@ -77,16 +62,19 @@ class CirculationManagerController(object):
 
         pass
 
-    def load_pagination(self, request):
+    def load_pagination(self):
         arg = flask.request.args.get
         size = arg('size', '50')
+        offset = arg('after', None)
+
+        return self.create_pagination(size, offset)
+
+    def create_pagination(self, size, offset):
         try:
             size = int(size)
         except ValueError:
             return problem(None, "Invalid size: %s" % size, 400)
         size = min(size, 100)
-
-        offset = arg('after', None)
         if offset:
             try:
                 offset = int(offset)
@@ -108,7 +96,7 @@ class CirculationManagerController(object):
         else:
             identifier_type = source.primary_identifier_type
             id_obj, ignore = Identifier.for_foreign_id(
-                Conf.db, identifier_type, identifier, autocreate=False)
+                self.manager._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
             # TODO
             return problem(
@@ -119,7 +107,7 @@ class CirculationManagerController(object):
     @classmethod
     def load_licensepooldelivery(cls, pool, mechanism_id):
         mechanism = get_one(
-            Conf.db, LicensePoolDeliveryMechanism, license_pool=pool,
+            self.manager._db, LicensePoolDeliveryMechanism, license_pool=pool,
             delivery_mechanism_id=mechanism_id
         )
 
@@ -133,7 +121,7 @@ class CirculationManagerController(object):
 
     @classmethod
     def apply_borrowing_policy(cls, patron, license_pool):
-        if not patron.can_borrow(license_pool.work, Conf.policy):
+        if not patron.can_borrow(license_pool.work, self.manager.policy):
             return problem(
                 FORBIDDEN_BY_POLICY_PROBLEM, 
                 "Library policy prohibits us from lending you this book.",
@@ -201,7 +189,7 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, Response):
             return lane
 
-        annotator = CirculationManagerAnnotator(self.setup.circulation, lane)
+        annotator = CirculationManagerAnnotator(self.manager.circulation, lane)
         feed = AcquisitionFeed.groups(_db, title, url, lane, annotator)
         return feed_response(feed)
 
@@ -211,7 +199,7 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, Response):
             return lane
 
-        annotator = CirculationManagerAnnotator(Conf.circulation, lane)
+        annotator = CirculationManagerAnnotator(self.manager.circulation, lane)
         feed = AcquisitionFeed.page(
             _db, title, url, lane, annotator=annotator,
             facets=facets, pagination=pagination
@@ -225,9 +213,9 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
         # Run a search.    
-        results = lane.search(languages, query, Conf.search, 30)
+        results = lane.search(languages, query, self.manager.search, 30)
         info = OpenSearchDocument.search_info(lane)
-        annotator =CirculationManagerAnnotator(self.setup.circulation, lane)
+        annotator =CirculationManagerAnnotator(self.manager.circulation, lane)
         opds_feed = AcquisitionFeed(
             self._db, info['name'], 
             this_url + "?q=" + urllib.quote(query.encode("utf8")),
@@ -252,15 +240,15 @@ class LoanController(CirculationManagerController):
             # these barcodes.
             header = flask.request.authorization
             try:
-                Conf.circulation.sync_bookshelf(patron, header.password)
+                self.manager.circulation.sync_bookshelf(patron, header.password)
             except Exception, e:
                 # If anything goes wrong, omit the sync step and just
                 # display the current active loans, as we understand them.
-                Conf.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
+                self.manager.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
 
         # Then make the feed.
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            Conf.circulation, patron)
+            self.manager.circulation, patron)
         return feed_response(feed, cache_for=None)
 
     def borrow(self, data_source, identifier, mechanism_id=None):
@@ -274,7 +262,7 @@ class LoanController(CirculationManagerController):
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
 
         # Turn source + identifier into a LicensePool
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, Response):
             # Something went wrong.
             return pool
@@ -282,7 +270,7 @@ class LoanController(CirculationManagerController):
         # Find the delivery mechanism they asked for, if any.
         mechanism = None
         if mechanism_id:
-            mechanism = _load_licensepooldelivery(pool, mechanism_id)
+            mechanism = self.load_licensepooldelivery(pool, mechanism_id)
             if isinstance(mechanism, Response):
                 return mechanism
 
@@ -301,9 +289,10 @@ class LoanController(CirculationManagerController):
 
         pin = flask.request.authorization.password
         problem_doc = None
+
         try:
-            loan, hold, is_new = Conf.circulation.borrow(
-                patron, pin, pool, mechanism, Conf.hold_notification_email_address)
+            loan, hold, is_new = self.manager.circulation.borrow(
+                patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
         except NoOpenAccessDownload, e:
             problem_doc = problem(
                 NO_LICENSES_PROBLEM,
@@ -333,10 +322,10 @@ class LoanController(CirculationManagerController):
         # serve a feed that talks about the hold.
         if loan:
             feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                Conf.circulation, loan)
+                self.manager.circulation, loan)
         elif hold:
             feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-                Conf.circulation, hold)
+                self.manager.circulation, hold)
         else:
             # This should never happen -- we should have sent a more specific
             # error earlier.
@@ -365,20 +354,20 @@ class LoanController(CirculationManagerController):
         pin = header.password
     
         # Turn source + identifier into a LicensePool
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, Response):
             return pool
     
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
-            mechanism = _load_licensepooldelivery(pool, mechanism_id)
+            mechanism = self.load_licensepooldelivery(pool, mechanism_id)
             if isinstance(mechanism, Response):
                 return mechanism
     
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
-            loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+            loan = get_one(self.manager._db, Loan, patron=patron, license_pool=pool)
             if loan and loan.fulfillment:
                 mechanism =  loan.fulfillment
             else:
@@ -389,7 +378,7 @@ class LoanController(CirculationManagerController):
                 )
     
         try:
-            fulfillment = Conf.circulation.fulfill(patron, pin, pool, mechanism)
+            fulfillment = self.manager.circulation.fulfill(patron, pin, pool, mechanism)
         except NoActiveLoan, e:
             return problem(
                 NO_ACTIVE_LOAN_PROBLEM, 
@@ -413,14 +402,14 @@ class LoanController(CirculationManagerController):
 
     def revoke(self, data_source, identifier):
         patron = flask.request.patron
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, Response):
             return pool
-        loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+        loan = get_one(self.manager._db, Loan, patron=patron, license_pool=pool)
         if loan:
             hold = None
         else:
-            hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+            hold = get_one(self.manager._db, Hold, patron=patron, license_pool=pool)
 
         if not loan and not hold:
             if not pool.work:
@@ -435,7 +424,7 @@ class LoanController(CirculationManagerController):
         pin = flask.request.authorization.password
         if loan:
             try:
-                Conf.circulation.revoke_loan(patron, pin, pool)
+                self.manager.circulation.revoke_loan(patron, pin, pool)
             except RemoteRefusedReturn, e:
                 uri = COULD_NOT_MIRROR_TO_REMOTE
                 title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
@@ -444,19 +433,19 @@ class LoanController(CirculationManagerController):
                 title = "Loan deleted locally but remote failed: %s" % str(e)
                 return problem(uri, title, 500)
         elif hold:
-            if not Conf.circulation.can_revoke_hold(pool, hold):
+            if not self.manager.circulation.can_revoke_hold(pool, hold):
                 title = "Cannot release a hold once it enters reserved state."
                 return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 400)
             try:
-                Conf.circulation.release_hold(patron, pin, pool)
+                self.manager.circulation.release_hold(patron, pin, pool)
             except CannotReleaseHold, e:
                 title = "Hold released locally but remote failed: %s" % str(e)
                 return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 500)
 
         work = pool.work
-        annotator = CirculationManagerAnnotator(Conf.circulation, None)
+        annotator = CirculationManagerAnnotator(self.manager.circulation, None)
         return entry_response(
-            AcquisitionFeed.single_entry(Conf.db, work, annotator)
+            AcquisitionFeed.single_entry(self.manager._db, work, annotator)
         )
 
     def detail(self, data_source, identifier):
@@ -464,14 +453,14 @@ class LoanController(CirculationManagerController):
             return self.revoke_loan_or_hold(data_source, identifier)
 
         patron = flask.request.patron
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, Response):
             return pool
-        loan = get_one(Conf.db, Loan, patron=patron, license_pool=pool)
+        loan = get_one(self.manager._db, Loan, patron=patron, license_pool=pool)
         if loan:
             hold = None
         else:
-            hold = get_one(Conf.db, Hold, patron=patron, license_pool=pool)
+            hold = get_one(self.manager._db, Hold, patron=patron, license_pool=pool)
 
         if not loan and not hold:
             return problem(
@@ -482,10 +471,10 @@ class LoanController(CirculationManagerController):
         if flask.request.method=='GET':
             if loan:
                 feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                    Conf.circulation, loan)
+                    self.manager.circulation, loan)
             else:
                 feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-                    Conf.circulation, hold)
+                    self.manager.circulation, hold)
             feed = unicode(feed)
             return feed_response(feed, None)
 
@@ -501,18 +490,18 @@ class WorkController(CirculationManagerController):
         returns a single entry while the /works lookup protocol returns a
         feed containing any number of entries.
         """
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         work = pool.work
-        annotator = CirculationManagerAnnotator(Conf.circulation, None)
+        annotator = CirculationManagerAnnotator(self.manager.circulation, None)
         return entry_response(
-            AcquisitionFeed.single_entry(Conf.db, work, annotator)
+            AcquisitionFeed.single_entry(self.manager._db, work, annotator)
         )
 
-    def report(data_source, identifier):
+    def report(self, data_source, identifier):
         """Report a problem with a book."""
     
         # Turn source + identifier into a LicensePool
-        pool = _load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, Response):
             # Something went wrong.
             return pool
@@ -600,3 +589,17 @@ class ServiceStatusController(CirculationManagerController):
 
         doc = template % dict(statuses="\n".join(statuses))
         return make_response(doc, 200, {"Content-Type": "text/html"})
+
+
+# TODO: the feeds generated for lanes need to have search links, like so.
+    # # Add a 'search' link.
+    # search_link = dict(
+    #     rel="search",
+    #     type="application/opensearchdescription+xml",
+    #     href=url_for('lane_search', lane_name=lane.name, _external=True))
+    # opds_feed.add_link(**search_link)
+    # add_configuration_links(opds_feed)
+    # return (200,
+    #         {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
+    #         unicode(opds_feed),
+    #     )

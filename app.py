@@ -87,113 +87,124 @@ from core.util.flask_util import (
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from lanes import make_lanes
 
-feed_cache = dict()
+class CirculationManager(object):
 
-class Conf:
-    log = logging.getLogger("Circulation web app")
+    def __init__(self, _db=None, lanes=None, testing=False):
 
-    db = None
-    sublanes = None
-    name = None
-    display_name = None
-    url_name = None
-    parent = None
-    urn_lookup_controller = None
-    overdrive = None
-    threem = None
-    auth = None
-    search = None
-    policy = None
-
-    configuration = None
-
-    @classmethod
-    def initialize(cls, _db=None, lanes=None):
-        def log_lanes(lanelist, level=0):
-            for lane in lanelist.lanes:
-                cls.log.debug("%s%s", "-" * level, lane.name)
-                log_lanes(lane.sublanes, level+1)
+        self.log = logging.getLogger("Circulation manager web app")
 
         try:
-            cls.config = Configuration.load()
+            self.config = Configuration.load()
         except CannotLoadConfiguration, e:
-            cls.log.error("Could not load configuration file: %s" % e)
+            self.log.error("Could not load configuration file: %s" % e)
             sys.exit()
-        _db = _db or cls.db
-        lane_list = Configuration.policy(Configuration.LANES_POLICY)
 
-        if cls.testing:
-            if not lanes:
-                lanes = make_lanes(_db, lane_list)
-            cls.db = _db
-            cls.sublanes = lanes
-            cls.overdrive = DummyOverdriveAPI(cls.db)
-            cls.threem = DummyThreeMAPI(cls.db)
-            cls.axis = None
-            cls.auth = Authenticator.initialize(cls.db, test=True)
-            cls.search = DummyExternalSearchIndex()
-            cls.policy = {}
-            cls.hold_notification_email_address = 'test@test'
+        if _db is None and not self.testing:
+            _db = production_session()
+        self._db = _db
+
+        self.testing = testing
+        self.lanes = make_lanes(_db, lanes)
+        self.sublanes = self.lanes
+
+        self.auth = Authenticator.initialize(self._db, test=testing)
+        self.setup_circulation()
+        self.search = self.setup_search()
+        self.policy = self.setup_policy()
+
+        self.setup_controllers()
+        self.urn_lookup_controller = URNLookupController(self._db)
+        self.setup_adobe_vendor_id()
+
+        if self.testing:
+            self.hold_notification_email_address = 'test@test'
         else:
-            if cls.db is None:
-                _db = production_session()
-                cls.db = _db
-            lanes = make_lanes(cls.db, lane_list)
-            cls.sublanes = lanes
-            cls.overdrive = OverdriveAPI.from_environment(cls.db)
-            cls.threem = ThreeMAPI.from_environment(cls.db)
-            cls.axis = Axis360API.from_environment(cls.db)
-            cls.auth = Authenticator.initialize(cls.db, test=False)
-            cls.policy = load_lending_policy(
+            self.hold_notification_email_address = Configuration.default_notification_email_address()
+
+        self.opds_authentication_document = self.create_authentication_document()
+        self.log.debug("Lane layout:")
+        self.log_lanes()
+
+    def log_lanes(self, lanelist=None, level=0):
+        """Output information about the lane layout."""
+        lanelist = lanelist or self.lanes
+        for lane in lanelist.lanes:
+            self.log.debug("%s%r", "-" * level, lane)
+            self.log_lanes(lane.sublanes, level+1)
+
+    def setup_search(self):
+        """Set up a search client."""
+        if self.testing:
+            return DummyExternalSearchIndex()
+        else:
+            if Configuration.integration(
+                    Configuration.ELASTICSEARCH_INTEGRATION):
+                return ExternalSearchIndex()
+            else:
+                self.log.warn("No external search server configured.")
+                return None
+
+    def setup_policy(self):
+        if self.testing:
+            return {}
+        else:
+            return load_lending_policy(
                 Configuration.policy('lending', {})
             )
 
-            if Configuration.integration(
-                    Configuration.ELASTICSEARCH_INTEGRATION):
-                cls.search = ExternalSearchIndex()
-            else:
-                cls.log.warn("No external search server configured.")
-                cls.search = None
-        cls.urn_lookup_controller = URNLookupController(cls.db)
-        cls.log.debug("Lane layout:")
-        log_lanes(lanes)
+    def setup_circulation(self):
+        """Set up distributor APIs and a the Circulation object."""
+        if self.testing:
 
-        language_policy = Configuration.language_policy()
-
-        cls.primary_collection_languages = language_policy.get(
-            Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']
+            self.overdrive = DummyOverdriveAPI(self._db)
+            self.threem = DummyThreeMAPI(self._db)
+            self.axis = None
+        else:
+            self.overdrive = OverdriveAPI.from_environment(self._db)
+            self.threem = ThreeMAPI.from_environment(self._db)
+            self.axis = Axis360API.from_environment(self._db)
+        self.circulation = CirculationAPI(
+            _db=self._db, 
+            threem=self.threem, 
+            overdrive=self.overdrive,
+            axis=self.axis
         )
-        cls.other_collection_languages = language_policy.get(
-            Configuration.SMALL_COLLECTION_LANGUAGES, []
-        )
 
-        cls.hold_notification_email_address = Configuration.default_notification_email_address()
 
-        cls.circulation = CirculationAPI(
-            _db=cls.db, threem=cls.threem, overdrive=cls.overdrive,
-            axis=cls.axis)
-        cls.log = logging.getLogger("Circulation web app")
+    def setup_controllers(self):
+        """Set up all the controllers that will be used by the web app."""
+        self.index_controller = IndexController(self)
+        self.opds_feeds = OPDSFeedController(self)
+        self.loans = LoanController(self)
+        self.urn_lookup = URNLookupController(self._db)
+        self.works_controller = WorksController(self)
 
+        self.heartbeat = HearbeatController()
+        self.service_status = ServiceStatusController(self)
+
+    def setup_adobe_vendor_id(self):
+        """Set up the controller for Adobe Vendor ID."""
         adobe = Configuration.integration(
             Configuration.ADOBE_VENDOR_ID_INTEGRATION
         )
         vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
         node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
         if vendor_id and node_value:
-            cls.adobe_vendor_id = AdobeVendorIDController(
-                cls.db,
+            self.adobe_vendor_id = AdobeVendorIDController(
+                self.db,
                 vendor_id,
                 node_value,
-                cls.auth
+                self.auth
             )
         else:
             cls.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
-            cls.adobe_vendor_id = None
+            self.adobe_vendor_id = None
 
-        cls.make_authentication_document()
 
-    @classmethod
-    def make_authentication_document(cls):
+    def create_authentication_document(self):
+        """Create the OPDS authentication document to be used when
+        there's a 401 error.
+        """
         base_opds_document = Configuration.base_opds_authentication_document()
         auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
         circulation_manager_url = Configuration.integration_url(
@@ -216,7 +227,7 @@ class Conf:
             "PIN", links=links
             )
 
-        cls.opds_authentication_document = json.dumps(doc)
+        return json.dumps(doc)
 
 if os.environ.get('TESTING') == "True":
     Conf.testing = True
@@ -231,18 +242,18 @@ logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
 
-h = ErrorHandler(Conf, app.config['DEBUG'])
+h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
 def exception_handler(exception):
     return h.handle(exception)
 
 @app.teardown_request
 def shutdown_session(exception):
-    if Conf.db:
+    if app.cm.db:
         if exception:
-            Conf.db.rollback()
+            app.cm.db.rollback()
         else:
-            Conf.db.commit()
+            app.cm.db.commit()
 
 def requires_auth(f):
     @wraps(f)
@@ -266,19 +277,17 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-index_controller = IndexController(Conf)
 @app.route('/')
 def index():
-    return index_controller()
+    return app.manager.index_controller()
 
-opds_feeds = OPDSFeedController(Conf)
 @app.route('/groups', defaults=dict(lane_name=None, languages=None))
 @app.route('/groups/', defaults=dict(lane_name=None, languages=None))
 @app.route('/groups/<languages>', defaults=dict(lane_name=None)))
 @app.route('/groups/<languages>/', defaults=dict(languages=None)))
 @app.route('/groups/<languages>/<lane_name>')
 def acquisition_groups(languages, lane_name):
-    return opds_feed.groups(languages, lane_name)
+    return app.manager.opds_feeds.groups(languages, lane_name)
 
 @app.route('/feed', defaults=dict(lane_name=None, languages=None))
 @app.route('/feed/', defaults=dict(lane_name=None, languages=None))
@@ -286,7 +295,7 @@ def acquisition_groups(languages, lane_name):
 @app.route('/feed/<languages>/', defaults=dict(languages=None)))
 @app.route('/feed/<languages>/<lane_name>')
 def feed(languages, lane_name):
-    return opds_feed.feed(languages, lane_name)
+    return app.manager.opds_feeds.feed(languages, lane_name)
 
 @app.route('/search', defaults=dict(lane_name=None, languages=None))
 @app.route('/search/', defaults=dict(lane_name=None, languages=None))
@@ -294,78 +303,74 @@ def feed(languages, lane_name):
 @app.route('/search/<languages>/', defaults=dict(languages=None)))
 @app.route('/search/<languages>/<lane_name>')
 def lane_search(languages, lane_name):
-    return opds_feed.search(languages, lane_name)
+    return app.manager.opds_feeds.search(languages, lane_name)
 
-loan_controller = LoanController(setup)
 @app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
 def active_loans():
-    return loan_controller.sync()
+    return app.manager.loans.sync()
 
 @app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
 @app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
 @requires_auth
 def borrow(data_source, identifier, mechanism_id=None):
-    return loan_controller.borrow(data_source, identifier, mechanism_id)
+    return app.manager.loans.borrow(data_source, identifier, mechanism_id)
 
 @app.route('/works/<data_source>/<identifier>/fulfill/')
 @app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
 @requires_auth
 def fulfill(data_source, identifier, mechanism_id=None):
-    return loan_controller.fulfill(data_source, identifier, mechanism_id)
+    return app.manager.loans.fulfill(data_source, identifier, mechanism_id)
 
 @app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 def revoke_loan_or_hold(data_source, identifier):
-    return loan_controller.revoke(data_source, identifier)
+    return app.manager.loans.revoke(data_source, identifier)
 
 @app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 def loan_or_hold_detail(data_source, identifier):
-    return loan_controller.detail(data_source, identifier)
+    return app.manager.loans.detail(data_source, identifier)
 
 @app.route('/works/')
 def work():
     annotator = CirculationManagerAnnotator(Conf.circulation, None)
-    return URNLookupController(Conf.db).work_lookup(annotator, 'work')
-    # Conf.urn_lookup_controller.permalink(urn, annotator)
+    return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
-works_controller = WorksController(Conf)
 @app.route('/works/<data_source>/<identifier>')
 def permalink(data_source, identifier):
-    return works_controller.permalink(data_source, identifier)
+    return app.manager.works_controller.permalink(data_source, identifier)
     
 @app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
 def report(data_source, identifier):
-    return works_controller.report(data_source, identifier)
+    return app.manager.works_controller.report(data_source, identifier)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
 @requires_auth
 def adobe_vendor_id_get_token():
-    return Conf.adobe_vendor_id.create_authdata_handler(flask.request.patron)
+    return app.manager.adobe_vendor_id.create_authdata_handler(flask.request.patron)
 
 @app.route('/AdobeAuth/SignIn', methods=['POST'])
 def adobe_vendor_id_signin():
-    return Conf.adobe_vendor_id.signin_handler()
+    return app.manager.adobe_vendor_id.signin_handler()
 
 @app.route('/AdobeAuth/AccountInfo', methods=['POST'])
 def adobe_vendor_id_accountinfo():
-    return Conf.adobe_vendor_id.userinfo_handler()
+    return app.manager.adobe_vendor_id.userinfo_handler()
 
 @app.route('/AdobeAuth/Status')
 def adobe_vendor_id_status():
-    return Conf.adobe_vendor_id.status_handler()
-
+    return app.manager.adobe_vendor_id.status_handler()
 # Controllers used for operations purposes
 @app.route('/heartbeat')
 def hearbeat():
-    return HeartbeatController().heartbeat()
+    return app.manager.heartbeat.heartbeat()
 
 @app.route('/service_status')
 def service_status():
-    return ServiceStatusController(Conf)()
+    return app.manager.service_status()
 
 @app.route('/loadstorm-<code>.html')
 def loadstorm_verify(code):
@@ -391,5 +396,6 @@ if __name__ == '__main__':
     else:
         host = netloc
         port = 80
-    Conf.log.info("Starting app on %s:%s", host, port)
+    app.manager = CirculationManager()
+    app.manager.log.info("Starting app on %s:%s", host, port)
     app.run(debug=debug, host=host, port=port)
