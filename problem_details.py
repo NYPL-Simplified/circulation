@@ -128,7 +128,7 @@ NO_SUCH_LANE = pd(
 
 FORBIDDEN_BY_POLICY = pd(
       "http://librarysimplified.org/terms/problem/forbidden-by-policy",
-      451,
+      403,
       "Forbidden by policy.",
       "Library policy prevents us from carrying out your request.",
 )
@@ -147,16 +147,8 @@ BAD_DELIVERY_MECHANISM = pd(
       "You selected a delivery mechanism that's not supported by this book.",
 )
 
-CANNOT_RELEASE_HOLD_ON_RESERVED = pd(
+CANNOT_RELEASE_HOLD = pd(
       "http://librarysimplified.org/terms/problem/cannot-release-hold",
       400,
-      "Cannot release hold on reserved book.",
-      "Cannot release a hold once it enters reserved state.",
-)
-
-CANNOT_RELEASE_HOLD_REMOTE = pd(
-      "http://librarysimplified.org/terms/problem/cannot-release-hold",
-      500,
-      "Failed to release hold.",
-      "Hold released locally but remote failed. The hold is likely to show up again soon.",
+      "Cannot release hold.",
 )

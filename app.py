@@ -28,10 +28,8 @@ from circulation import CirculationAPI
 from circulation_exceptions import *
 from authenticator import Authenticator
 from core.app_server import (
-    load_lending_policy,
     cdn_url_for,
-    entry_response,
-    feed_response,
+    load_lending_policy,
     ComplaintController,
     HeartbeatController,
     URNLookupController,
@@ -56,7 +54,6 @@ from threem import (
 from core.model import (
     get_one,
     get_one_or_create,
-    Complaint,
     DataSource,
     production_session,
     Hold,
@@ -69,7 +66,6 @@ from core.model import (
     Work,
     Edition,
     )
-from core.opensearch import OpenSearchDocument
 from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
@@ -124,6 +120,13 @@ class CirculationManager(object):
         self.opds_authentication_document = self.create_authentication_document()
         self.log.debug("Lane layout:")
         self.log_lanes()
+
+    def cdn_url_for(self, view, *args, **kwargs):
+        return cdn_url_for(view, *args, **kwargs)
+
+    def url_for(self, view, *args, **kwargs):
+        kwargs['_external'] = True
+        return url_for(view, *args, **kwargs)
 
     def log_lanes(self, lanelist=None, level=0):
         """Output information about the lane layout."""
