@@ -249,8 +249,7 @@ class StandaloneApplicationConf(object):
     def __init__(self, _db):
         self.db = _db
         self.parent = None
-        lane_list = Configuration.policy(Configuration.LANES_POLICY)
-        self.sublanes = make_lanes(self.db, lane_list)
+        self.sublanes = make_lanes(self.db)
         self.name = None
         self.display_name = None
         self.url_name = None
@@ -258,21 +257,8 @@ class StandaloneApplicationConf(object):
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
-    PRIMARY_COLLECTIONS = 'primary'
-    OTHER_COLLECTIONS = 'other'
-
     def __init__(self, languages=None):
         self.conf = StandaloneApplicationConf(self._db)
-        language_policy = Configuration.policy("languages", {})
-        primary_lang = language_policy['primary']
-        other_lang = language_policy.get('other', [])
-        if not languages:
-            languages = primary_lang + other_lang
-        elif languages == self.PRIMARY_COLLECTIONS:
-            languages = primary_lang
-        elif languages == self.OTHER_COLLECTIONS:
-            languages = other_lang
-        self.languages = languages
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
         )
@@ -333,31 +319,18 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     cache_url_method = None
 
-    def generate_feed(self, cache_url, get_method, max_age=0):
+    def process_lane(self, lane):
+        annotator = CirculationManagerAnnotator(None, lane)
         a = time.time()
-        self.log.debug("Generating %s.", cache_url)
-        feed_rep, ignore = Representation.get(
-            self._db, cache_url, get_method,
-            accept=self.ACCEPT_HEADER, max_age=0)
+        self.log.debug("Generating %s.", cache_url)       
+        feed_rep = do_generate(max_age)
         b = time.time()
-        if feed_rep.fetch_exception:
-            self.log.error(
-                "Exception caching feed representation for %s: %s.",
-                cache_url, feed_rep.fetch_exception
-                )
         if feed_rep.content:
-            content_bytes = len(feed_rep.content)
+            content_bytes = len(feed_rep)
         else:
             content_bytes = 0
         self.log.info("Generated %s. Took %.2fsec to make %d bytes.",
             cache_url, (b-a), content_bytes)
-
-    def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane)
-        for languages in self.languages:
-            cache_url = self.cache_url(annotator, lane, languages)
-            get_method = self.make_get_method(annotator, lane, languages)
-            self.generate_feed(cache_url, get_method)
 
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
