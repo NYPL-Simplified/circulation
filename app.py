@@ -9,8 +9,6 @@ from flask import (
 )
 
 from config import Configuration
-from circulation import CirculationAPI
-from circulation_exceptions import *
 from core.app_server import (
     ErrorHandler,
 )
@@ -18,6 +16,9 @@ from core.app_server import (
 import urllib
 from core.util.flask_util import (
     problem,
+)
+from opds import (
+    CirculationManagerAnnotator,
 )
 
 app = Flask(__name__)
