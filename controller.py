@@ -284,11 +284,7 @@ class LoanController(CirculationManagerController):
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
-        if patron.authorization_identifier and len(patron.authorization_identifier) >= 7:
-            # TODO: Barcodes less than 7 digits are dummy code that allow
-            # the creation of arbitrary test accounts that are limited to
-            # public domain books. We cannot ask Overdrive or 3M about
-            # these barcodes.
+        if patron.authorization_identifier:
             header = flask.request.authorization
             try:
                 self.circulation.sync_bookshelf(patron, header.password)
