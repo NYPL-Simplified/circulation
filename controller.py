@@ -32,6 +32,7 @@ from core.external_search import (
 from core.lane import (
     Facets, 
     Pagination,
+    LaneList,
 )
 from core.model import (
     get_one,
@@ -104,7 +105,10 @@ class CirculationManager(object):
         self._db = _db
 
         self.testing = testing
-        self.lanes = make_lanes(_db, lanes)
+        if isinstance(lanes, LaneList):
+            self.lanes = lanes
+        else:
+            self.lanes = make_lanes(_db, lanes)
         self.sublanes = self.lanes
 
         self.auth = Authenticator.initialize(self._db, test=testing)
@@ -122,8 +126,8 @@ class CirculationManager(object):
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
         self.opds_authentication_document = self.create_authentication_document()
-        self.log.debug("Lane layout:")
-        self.log_lanes()
+        #self.log.debug("Lane layout:")
+        #self.log_lanes()
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -243,9 +247,7 @@ def requires_auth(f):
         header = flask.request.authorization
         if not header:
             # No credentials were provided.
-            return authenticate(
-                INVALID_CREDENTIALS_PROBLEM,
-                INVALID_CREDENTIALS_TITLE)
+            return authenticate()
 
         try:
             patron = authenticated_patron(header.username, header.password)
@@ -290,7 +292,7 @@ class CirculationManagerController(object):
         # No, apparently we're fine.
         return patron
 
-    def authenticate(self, uri, title):
+    def authenticate(self):
         """Sends a 401 response that demands basic auth."""
         data = self.manager.opds_authentication_document
         headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
@@ -303,15 +305,17 @@ class CirculationManagerController(object):
             # The top-level lane.
             return self.manager
 
-        name = name.replace("__", "/")
-        if not language_key in languages:
-            return NO_SUCH_NAME_PROBLEM.detail(
+        if not language_key in self.manager.sublanes.by_languages:
+            return NO_SUCH_LANE.detailed(
                 "Unrecognized language key: %s" % language_key
             )
 
+        if name:
+            name = name.replace("__", "/")
+
         lanes = self.manager.sublanes.by_languages[language_key]
         if name not in lanes:
-            return NO_SUCH_LANE_PROBLEM.detail(
+            return NO_SUCH_LANE.detailed(
                 "No such lane: %s" % name
             )
         return lanes[name]
@@ -333,7 +337,7 @@ class CirculationManagerController(object):
     def load_facets(self, order):
         """Turn user input into a Facets object."""
         if not order in Facets.ORDER_FACETS:
-            return INVALID_INPUT.detail(
+            return INVALID_INPUT.detailed(
                 "I don't know how to order a feed by '%s'" % order,
                 400
             )
@@ -345,13 +349,13 @@ class CirculationManagerController(object):
         try:
             size = int(size)
         except ValueError:
-            return INVALID_INPUT.detail("Invalid size: %s" % size)
+            return INVALID_INPUT.detailed("Invalid size: %s" % size)
         size = min(size, 100)
         if offset:
             try:
                 offset = int(offset)
             except ValueError:
-                return INVALID_INPUT.detail("Invalid offset: %s" % offset)
+                return INVALID_INPUT.detailed("Invalid offset: %s" % offset)
         return Pagination(offset, size)
 
     def load_licensepool(self, data_source, identifier):
@@ -361,7 +365,7 @@ class CirculationManagerController(object):
         else:
             source = DataSource.lookup(self._db, data_source)
         if source is None:
-            return INVALID_INPUT.detail("No such data source: %s" % data_source)
+            return INVALID_INPUT.detailed("No such data source: %s" % data_source)
 
         if isinstance(identifier, Identifier):
             id_obj = identifier
@@ -370,7 +374,7 @@ class CirculationManagerController(object):
             id_obj, ignore = Identifier.for_foreign_id(
                 self._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
-            return NO_LICENSES_PROBLEM.detail("I've never heard of this work.")
+            return NO_LICENSES.detailed("I've never heard of this work.")
         pool = id_obj.licensed_through
         return pool
 
@@ -386,7 +390,7 @@ class CirculationManagerController(object):
     @classmethod
     def apply_borrowing_policy(cls, patron, license_pool):
         if not patron.can_borrow(license_pool.work, self.manager.policy):
-            return FORBIDDEN_BY_POLICY_PROBLEM.detail(
+            return FORBIDDEN_BY_POLICY.detailed(
                 "Library policy prohibits us from lending you this book.",
                 status_code=451
             )
@@ -395,7 +399,7 @@ class CirculationManagerController(object):
             Configuration.hold_policy() !=
             Configuration.HOLD_POLICY_ALLOW
         ):
-            return FORBIDDEN_BY_POLICY_PROBLEM.detail(
+            return FORBIDDEN_BY_POLICY.detailed(
                 "Library policy prohibits the placement of holds.",
                 status_code=403
             )        
@@ -551,7 +555,7 @@ class LoanController(CirculationManagerController):
 
         if not pool:
             # I've never heard of this book.
-            return NO_LICENSES_PROBLEM.detail(
+            return NO_LICENSES.detailed(
                 "I don't understand which work you're asking about."
             )
 
@@ -569,27 +573,27 @@ class LoanController(CirculationManagerController):
             loan, hold, is_new = self.circulation.borrow(
                 patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
         except NoOpenAccessDownload, e:
-            problem_doc = NO_LICENSES.detail(
+            problem_doc = NO_LICENSES.detailed(
                 "Sorry, couldn't find an open-access download link.", 
                 status_code=404
             )
         except PatronAuthorizationFailedException, e:
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
-            problem_doc = LOAN_LIMIT_REACHED.detail(str(e))
+            problem_doc = LOAN_LIMIT_REACHED.detailed(str(e))
         except DeliveryMechanismError, e:
-            return BAD_DELIVERY_MECHANISM.detail(
+            return BAD_DELIVERY_MECHANISM.detailed(
                 str(e), status_code=e.status_code
             )
         except CannotLoan, e:
-            problem_doc = CHECKOUT_FAILED.detail(str(e))
+            problem_doc = CHECKOUT_FAILED.detailed(str(e))
         except CannotHold, e:
-            problem_doc = HOLD_FAILED.detail(str(e))
+            problem_doc = HOLD_FAILED.detailed(str(e))
         except CannotRenew, e:
-            problem_doc = RENEW_FAILED.detail(str(e))
+            problem_doc = RENEW_FAILED.detailed(str(e))
         except CirculationException, e:
             # Generic circulation error.
-            problem_doc = CHECKOUT_FAILED.detail(str(e))
+            problem_doc = CHECKOUT_FAILED.detailed(str(e))
 
         if problem_doc:
             return problem_doc
@@ -606,7 +610,7 @@ class LoanController(CirculationManagerController):
         else:
             # This should never happen -- we should have sent a more specific
             # error earlier.
-            return HOLD_FAILED_PROBLEM
+            return HOLD_FAILED
         self.add_configuration_links(feed)
         if isinstance(feed, OPDSFeed):
             content = unicode(feed)
@@ -649,23 +653,23 @@ class LoanController(CirculationManagerController):
             if loan and loan.fulfillment:
                 mechanism =  loan.fulfillment
             else:
-                return BAD_DELIVERY_MECHANISM.detail(
+                return BAD_DELIVERY_MECHANISM.detailed(
                     "You must specify a delivery mechanism to fulfill this loan."
                 )
     
         try:
             fulfillment = self.circulation.fulfill(patron, pin, pool, mechanism)
         except NoActiveLoan, e:
-            return NO_ACTIVE_LOAN.detail( 
+            return NO_ACTIVE_LOAN.detailed( 
                     "Can't fulfill request because you have no active loan for this work.",
                     status_code=e.status_code
             )
         except CannotFulfill, e:
-            return CANNOT_FULFILL.detail(
+            return CANNOT_FULFILL.detailed(
                 str(e), status_code=e.status_code
             )
         except DeliveryMechanismError, e:
-            return BAD_DELIVERY_MECHANISM.detail(
+            return BAD_DELIVERY_MECHANISM.detailed(
                 str(e), status_code=e.status_code
             )
     
@@ -696,7 +700,7 @@ class LoanController(CirculationManagerController):
                 title = 'this book'
             else:
                 title = '"%s"' % pool.work.title
-            return NO_ACTIVE_LOAN_OR_HOLD.detail(
+            return NO_ACTIVE_LOAN_OR_HOLD.detailed(
                 'You have no active loan or hold for %s.' % title,
                 status_code=404
             )
@@ -707,19 +711,19 @@ class LoanController(CirculationManagerController):
                 self.circulation.revoke_loan(patron, pin, pool)
             except RemoteRefusedReturn, e:
                 title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-                return COULD_NOT_MIRROR_TO_REMOTE.detail(title, status_code=500)
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=500)
             except CannotReturn, e:
                 title = "Loan deleted locally but remote failed: %s" % str(e)
-                return COULD_NOT_MIRROR_TO_REMOTE.detail(title, 500)
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 500)
         elif hold:
             if not self.circulation.can_revoke_hold(pool, hold):
                 title = "Cannot release a hold once it enters reserved state."
-                return CANNOT_RELEASE_HOLD.detail(title, 400)
+                return CANNOT_RELEASE_HOLD.detailed(title, 400)
             try:
                 self.circulation.release_hold(patron, pin, pool)
             except CannotReleaseHold, e:
                 title = "Hold released locally but remote failed: %s" % str(e)
-                return CANNOT_RELEASE_HOLD.detail(title, 500)
+                return CANNOT_RELEASE_HOLD.detailed(title, 500)
 
         work = pool.work
         annotator = CirculationManagerAnnotator(self.circulation, None)
@@ -742,7 +746,7 @@ class LoanController(CirculationManagerController):
             hold = get_one(self._db, Hold, patron=patron, license_pool=pool)
 
         if not loan and not hold:
-            return NO_ACTIVE_LOAN_OR_HOLD.detail( 
+            return NO_ACTIVE_LOAN_OR_HOLD.detailed( 
                 'You have no active loan or hold for "%s".' % pool.work.title,
                 status_code=404
             )

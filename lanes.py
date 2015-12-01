@@ -261,7 +261,7 @@ def lane_for_small_collection(_db, languages):
 
     name = LanguageCodes.name_for_languageset(languages)
     return Lane(
-        _db, full_name=name, languages=languages, 
+        _db, full_name=None, display_name=name, languages=languages, 
         sublanes=[adult_fiction, adult_nonfiction, ya_children]
     )
 
