@@ -114,7 +114,9 @@ class CirculationManager(object):
         self.auth = Authenticator.initialize(self._db, test=testing)
         self.setup_circulation()
         self.search = self.setup_search()
-        self.policy = self.setup_policy()
+        self.lending_policy = load_lending_policy(
+            Configuration.policy('lending', {})
+        )
 
         self.setup_controllers()
         self.urn_lookup_controller = URNLookupController(self._db)
@@ -155,14 +157,6 @@ class CirculationManager(object):
             else:
                 self.log.warn("No external search server configured.")
                 return None
-
-    def setup_policy(self):
-        if self.testing:
-            return {}
-        else:
-            return load_lending_policy(
-                Configuration.policy('lending', {})
-            )
 
     def setup_circulation(self):
         """Set up distributor APIs and a the Circulation object."""
@@ -387,9 +381,8 @@ class CirculationManagerController(object):
         )
         return mechanism or BAD_DELIVERY_MECHANISM
 
-    @classmethod
-    def apply_borrowing_policy(cls, patron, license_pool):
-        if not patron.can_borrow(license_pool.work, self.manager.policy):
+    def apply_borrowing_policy(self, patron, license_pool):
+        if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
             return FORBIDDEN_BY_POLICY.detailed(
                 "Library policy prohibits us from lending you this book.",
                 status_code=451

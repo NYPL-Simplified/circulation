@@ -11,14 +11,13 @@ from ..controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from ..core.app_server import (
+    load_lending_policy
+)
 from ..core.model import (
     Patron
 )
-from ..problem_details import (
-    INVALID_CREDENTIALS,
-    EXPIRED_CREDENTIALS,
-    NO_SUCH_LANE,
-)
+from ..problem_details import *
 
 from ..lanes import make_lanes_default
 
@@ -71,3 +70,37 @@ class TestBaseController(DatabaseTest):
 
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
+
+    def test_apply_borrowing_policy_when_holds_prohibited(self):
+        
+        patron = self.controller.authenticated_patron("5", "5555")
+        with temp_config() as config:
+            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+            work = self._work(with_license_pool=True)
+            [pool] = work.license_pools
+            pool.licenses_available = 0
+            problem = self.controller.apply_borrowing_policy(
+                patron, pool
+            )
+            eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
+
+    def test_apply_borrowing_policy_for_audience_restriction(self):
+
+        patron = self.controller.authenticated_patron("5", "5555")
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+
+        self.manager.lending_policy = load_lending_policy(
+            {
+                "60": {"audiences": ["Children"]}, 
+                "152": {"audiences": ["Children"]}, 
+                "62": {"audiences": ["Children"]}
+            }
+        )
+
+        patron._external_type = '10'
+        eq_(None, self.controller.apply_borrowing_policy(patron, pool))
+
+        patron._external_type = '152'
+        problem = self.controller.apply_borrowing_policy(patron, pool)
+        eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
