@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import json
 import logging
 import sys
@@ -136,7 +137,8 @@ class CirculationManager(object):
         lanelist = lanelist or self.lanes
         for lane in lanelist.lanes:
             self.log.debug("%s%r", "-" * level, lane)
-            self.log_lanes(lane.sublanes, level+1)
+            if lane.sublanes:
+                self.log_lanes(lane.sublanes, level+1)
 
     def setup_search(self):
         """Set up a search client."""

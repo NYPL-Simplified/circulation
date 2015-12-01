@@ -106,4 +106,4 @@ class TestLaneCreation(DatabaseTest):
             eq_(['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', 'Spanish', 'Chinese', 'Other Languages'],
                 [x.name for x in lane_list.lanes]
             )
-            
+
