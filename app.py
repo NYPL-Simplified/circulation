@@ -394,7 +394,7 @@ def requires_auth(f):
         try:
             patron = authenticated_patron(header.username, header.password)
         except RemoteInitiatedServerError,e:
-            return problem(REMOTE_INTEGRATION_FAILED, e.message, 500)
+            return problem(REMOTE_INTEGRATION_FAILED, e.message, 503)
         if isinstance(patron, tuple):
             flask.request.patron = None
             return authenticate(*patron)
@@ -865,10 +865,10 @@ def revoke_loan_or_hold(data_source, identifier):
         except RemoteRefusedReturn, e:
             uri = COULD_NOT_MIRROR_TO_REMOTE
             title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-            return problem(uri, title, 500)
+            return problem(uri, title, 503)
         except CannotReturn, e:
             title = "Loan deleted locally but remote failed: %s" % str(e)
-            return problem(uri, title, 500)
+            return problem(uri, title, 503)
     elif hold:
         if not Conf.circulation.can_revoke_hold(pool, hold):
             title = "Cannot release a hold once it enters reserved state."
@@ -877,7 +877,7 @@ def revoke_loan_or_hold(data_source, identifier):
             Conf.circulation.release_hold(patron, pin, pool)
         except CannotReleaseHold, e:
             title = "Hold released locally but remote failed: %s" % str(e)
-            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 500)
+            return problem(CANNOT_RELEASE_HOLD_PROBLEM, title, 503)
 
     work = pool.work
     annotator = CirculationManagerAnnotator(Conf.circulation, None)
