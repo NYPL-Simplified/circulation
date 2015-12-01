@@ -105,9 +105,6 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     def update_patron(self, patron, identifier, dump=None):
         """Update a Patron record with information from a data dump."""
-        if self.is_test_identifier(identifier):
-            # TODO: This is a test identifier.
-            return
         if not dump:
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
