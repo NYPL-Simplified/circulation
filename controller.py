@@ -1,33 +1,261 @@
+import json
+import logging
+import sys
+import time
+import urlparse
+import uuid
+
+from lxml import etree
+
+from functools import wraps
 import flask
 from flask import (
     Response,
     redirect,
+
 )
 
-from config import Configuration
 from core.app_server import (
     entry_response,
     feed_response,
+    cdn_url_for,
+    load_lending_policy,
+    ComplaintController,
+    HeartbeatController,
+    URNLookupController,
 )
-
-from core.opensearch import OpenSearchDocument
-from core.util.problem_detail import ProblemDetail
-
+from core.external_search import (
+    ExternalSearchIndex,
+    DummyExternalSearchIndex,
+)
 from core.lane import (
     Facets, 
     Pagination,
 )
-from core.opds import (
-    OPDSFeed,
-)
 from core.model import (
+    get_one,
     Complaint,
     DataSource,
+    Hold,
     Identifier,
+    Loan,
     LicensePoolDeliveryMechanism,
+    production_session,
+)
+from core.opds import (
+    E,
+    AcquisitionFeed,
+    OPDSFeed,
+)
+from core.opensearch import OpenSearchDocument
+from core.util.flask_util import (
+    problem,
+)
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
+from core.util.problem_detail import ProblemDetail
+
+from circulation_exceptions import *
+from config import Configuration
+
+from opds import (
+    CirculationManagerAnnotator,
+    CirculationManagerLoanAndHoldAnnotator,
+)
+from problem_details import *
+
+from authenticator import Authenticator
+from config import (
+    Configuration, 
+    CannotLoadConfiguration
 )
 
-from problem_details import *
+from lanes import make_lanes
+
+from adobe_vendor_id import AdobeVendorIDController
+from axis import (
+    Axis360API,
+)
+from overdrive import (
+    OverdriveAPI,
+    DummyOverdriveAPI,
+)
+from threem import (
+    ThreeMAPI,
+    DummyThreeMAPI,
+)
+
+from circulation import CirculationAPI
+
+class CirculationManager(object):
+
+    def __init__(self, _db=None, lanes=None, testing=False):
+
+        self.log = logging.getLogger("Circulation manager web app")
+
+        try:
+            self.config = Configuration.load()
+        except CannotLoadConfiguration, e:
+            self.log.error("Could not load configuration file: %s" % e)
+            sys.exit()
+
+        if _db is None and not self.testing:
+            _db = production_session()
+        self._db = _db
+
+        self.testing = testing
+        self.lanes = make_lanes(_db, lanes)
+        self.sublanes = self.lanes
+
+        self.auth = Authenticator.initialize(self._db, test=testing)
+        self.setup_circulation()
+        self.search = self.setup_search()
+        self.policy = self.setup_policy()
+
+        self.setup_controllers()
+        self.urn_lookup_controller = URNLookupController(self._db)
+        self.setup_adobe_vendor_id()
+
+        if self.testing:
+            self.hold_notification_email_address = 'test@test'
+        else:
+            self.hold_notification_email_address = Configuration.default_notification_email_address()
+
+        self.opds_authentication_document = self.create_authentication_document()
+        self.log.debug("Lane layout:")
+        self.log_lanes()
+
+    def cdn_url_for(self, view, *args, **kwargs):
+        return cdn_url_for(view, *args, **kwargs)
+
+    def url_for(self, view, *args, **kwargs):
+        kwargs['_external'] = True
+        return url_for(view, *args, **kwargs)
+
+    def log_lanes(self, lanelist=None, level=0):
+        """Output information about the lane layout."""
+        lanelist = lanelist or self.lanes
+        for lane in lanelist.lanes:
+            self.log.debug("%s%r", "-" * level, lane)
+            self.log_lanes(lane.sublanes, level+1)
+
+    def setup_search(self):
+        """Set up a search client."""
+        if self.testing:
+            return DummyExternalSearchIndex()
+        else:
+            if Configuration.integration(
+                    Configuration.ELASTICSEARCH_INTEGRATION):
+                return ExternalSearchIndex()
+            else:
+                self.log.warn("No external search server configured.")
+                return None
+
+    def setup_policy(self):
+        if self.testing:
+            return {}
+        else:
+            return load_lending_policy(
+                Configuration.policy('lending', {})
+            )
+
+    def setup_circulation(self):
+        """Set up distributor APIs and a the Circulation object."""
+        if self.testing:
+
+            self.overdrive = DummyOverdriveAPI(self._db)
+            self.threem = DummyThreeMAPI(self._db)
+            self.axis = None
+        else:
+            self.overdrive = OverdriveAPI.from_environment(self._db)
+            self.threem = ThreeMAPI.from_environment(self._db)
+            self.axis = Axis360API.from_environment(self._db)
+        self.circulation = CirculationAPI(
+            _db=self._db, 
+            threem=self.threem, 
+            overdrive=self.overdrive,
+            axis=self.axis
+        )
+
+
+    def setup_controllers(self):
+        """Set up all the controllers that will be used by the web app."""
+        self.index_controller = IndexController(self)
+        self.opds_feeds = OPDSFeedController(self)
+        self.loans = LoanController(self)
+        self.urn_lookup = URNLookupController(self._db)
+        self.work_controller = WorkController(self)
+
+        self.heartbeat = HeartbeatController()
+        self.service_status = ServiceStatusController(self)
+
+    def setup_adobe_vendor_id(self):
+        """Set up the controller for Adobe Vendor ID."""
+        adobe = Configuration.integration(
+            Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        )
+        vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
+        node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
+        if vendor_id and node_value:
+            self.adobe_vendor_id = AdobeVendorIDController(
+                self._db,
+                vendor_id,
+                node_value,
+                self.auth
+            )
+        else:
+            cls.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
+            self.adobe_vendor_id = None
+
+
+    def create_authentication_document(self):
+        """Create the OPDS authentication document to be used when
+        there's a 401 error.
+        """
+        base_opds_document = Configuration.base_opds_authentication_document()
+        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
+        circulation_manager_url = Configuration.integration_url(
+            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
+        scheme, netloc, path, parameters, query, fragment = (
+            urlparse.urlparse(circulation_manager_url))
+        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
+
+        links = {}
+        for rel, value in (
+                ("terms-of-service", Configuration.terms_of_service_url()),
+                ("privacy-policy", Configuration.privacy_policy_url()),
+                ("copyright", Configuration.acknowledgements_url()),
+        ):
+            if value:
+                links[rel] = dict(href=value, type="text/html")
+
+        doc = OPDSAuthenticationDocument.fill_in(
+            base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
+            "PIN", links=links
+            )
+
+        return json.dumps(doc)
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        header = flask.request.authorization
+        if not header:
+            # No credentials were provided.
+            return authenticate(
+                INVALID_CREDENTIALS_PROBLEM,
+                INVALID_CREDENTIALS_TITLE)
+
+        try:
+            patron = authenticated_patron(header.username, header.password)
+        except RemoteInitiatedServerError,e:
+            return problem(REMOTE_INTEGRATION_FAILED, e.message, 503)
+        if isinstance(patron, tuple):
+            flask.request.patron = None
+            return authenticate(*patron)
+        else:
+            flask.request.patron = patron
+        return f(*args, **kwargs)
+    return decorated
 
 class CirculationManagerController(object):
 

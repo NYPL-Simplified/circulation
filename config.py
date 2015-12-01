@@ -58,6 +58,8 @@ class Configuration(CoreConfiguration):
     @classmethod
     def large_collection_languages(cls):
         value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
+        if not value:
+            return []
         if isinstance(value, list):
             return value
         return [[x] for x in value.split(',')]
@@ -65,6 +67,8 @@ class Configuration(CoreConfiguration):
     @classmethod
     def small_collection_languages(cls):
         value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
+        if not value:
+            return []
         if isinstance(value, list):
             return value
         return [[x] for x in value.split(',')]
