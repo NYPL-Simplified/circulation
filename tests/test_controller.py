@@ -114,7 +114,9 @@ class TestBaseController(DatabaseTest):
 
     def test_load_licensepool(self):
         licensepool = self._licensepool(edition=None)
-        loaded_licensepool = self.controller.load_licensepool(licensepool.data_source.name, licensepool.identifier.identifier)
+        loaded_licensepool = self.controller.load_licensepool(
+            licensepool.data_source.name, licensepool.identifier.identifier
+        )
         eq_(licensepool, loaded_licensepool)
 
         problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.identifier)
@@ -126,7 +128,6 @@ class TestBaseController(DatabaseTest):
     def test_load_licensepooldelivery(self):
         licensepool = self._licensepool(edition=None, with_open_access_download=True)
         delivery = self.controller.load_licensepooldelivery(licensepool, licensepool.delivery_mechanisms[0].id)
-        set_trace()
         eq_(licensepool.delivery_mechanisms[0], delivery)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
