@@ -20,7 +20,7 @@ from core.util.flask_util import (
 from opds import (
     CirculationManagerAnnotator,
 )
-from controller import requires_auth
+from functools import wraps
 
 app = Flask(__name__)
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
@@ -48,6 +48,18 @@ def shutdown_session(exception):
         else:
             app.manager._db.commit()
 
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        patron = app.manager.index_controller.authenticated_patron_from_request()
+        if isinstance(patron, ProblemDetail):
+            return patron
+        elif isinstance(patron, Response):
+            return patron
+        else:
+            return f(*args, **kwargs)
+    return decorated
+        
 @app.route('/')
 def index():
     return app.manager.index_controller()

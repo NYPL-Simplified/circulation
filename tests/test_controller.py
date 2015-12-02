@@ -28,6 +28,7 @@ from ..problem_details import *
 from ..lanes import make_lanes_default
 from flask import url_for
 from ..core.util.cdn import cdnify
+import base64
 
 class TestCirculationManager(CirculationManager):
 
@@ -43,6 +44,9 @@ class ControllerTest(DatabaseTest):
         from ..app import app
         del os.environ['TESTING']
         self.app = app
+
+        self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
+        self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
         with temp_config() as config:
             languages = Configuration.language_policy()
@@ -188,10 +192,18 @@ class TestBaseController(ControllerTest):
 class TestIndexController(ControllerTest):
     
     def test_simple_redirect(self):
-        with self.app.test_request_context('/'):
-            response = self.manager.index_controller()
-            eq_(302, response.status_code)
-            eq_("http://cdn/groups/", response.headers['location'])
+        with temp_config() as config:
+            config['policies'][Configuration.ROOT_LANE_POLICY] = None
+            with self.app.test_request_context('/'):
+                response = self.manager.index_controller()
+                eq_(302, response.status_code)
+                eq_("http://cdn/groups/", response.headers['location'])
 
-
-    
+    def test_authenticated_patron_root_lane(self):
+        with temp_config() as config:
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "5": "Adult Fiction" }
+            config['policies'][Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION] = "^(.)"
+            with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.invalid_auth)):
+                response = self.manager.index_controller()
+                eq_(401, response.status_code)

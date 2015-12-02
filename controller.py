@@ -235,25 +235,6 @@ class CirculationManager(object):
 
         return json.dumps(doc)
 
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        header = flask.request.authorization
-        if not header:
-            # No credentials were provided.
-            return authenticate()
-
-        try:
-            patron = authenticated_patron(header.username, header.password)
-        except RemoteInitiatedServerError,e:
-            return problem(REMOTE_INTEGRATION_FAILED, e.message, 503)
-        if isinstance(patron, tuple):
-            flask.request.patron = None
-            return authenticate(*patron)
-        else:
-            flask.request.patron = patron
-        return f(*args, **kwargs)
-    return decorated
 
 class CirculationManagerController(object):
 
@@ -263,6 +244,24 @@ class CirculationManagerController(object):
         self.circulation = self.manager.circulation
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
+
+    def authenticated_patron_from_request(self):
+        header = flask.request.authorization
+        if not header:
+            # No credentials were provided.
+            return self.authenticate()
+
+        try:
+            patron = self.authenticated_patron(header.username, header.password)
+        except RemoteInitiatedServerError,e:
+            return problem(REMOTE_INTEGRATION_FAILED, e.message, 503)
+        if isinstance(patron, ProblemDetail):
+            flask.request.patron = None
+            return patron
+        else:
+            flask.request.patron = patron
+            return patron
+        
 
     def authenticated_patron(self, barcode, pin):
         """Look up the patron authenticated by the given barcode/pin.
@@ -425,17 +424,25 @@ class IndexController(CirculationManagerController):
 
         # The more complex case. We must authorize the patron, check
         # their type, and redirect them to an appropriate feed.
-        return appropriate_index_for_patron_type()
+        return self.appropriate_index_for_patron_type()
 
-    @requires_auth
     def authenticated_patron_root_lane(self):
-        patron = flask.request.patron
+        patron = self.authenticated_patron_from_request()
+        if isinstance(patron, ProblemDetail):
+            return patron
+        if isinstance(patron, Response):
+            return patron
+
         policy = Configuration.root_lane_policy()
         return policy.get(patron.external_type)
 
-    @requires_auth
-    def appropriate_index_for_patron_type():
-        root_lane = authenticated_patron_root_lane()
+    def appropriate_index_for_patron_type(self):
+        root_lane = self.authenticated_patron_root_lane()
+        if isinstance(root_lane, ProblemDetail):
+            return root_lane
+        if isinstance(root_lane, Response):
+            return root_lane
+            
         return redirect(
             self.cdn_url_for(
                 'acquisition_groups', 

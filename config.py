@@ -20,6 +20,7 @@ class Configuration(CoreConfiguration):
     LANES_POLICY = "lanes"
 
     ROOT_LANE_POLICY = "root_lane"
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
 
     ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
     ADOBE_VENDOR_ID = "vendor_id"
