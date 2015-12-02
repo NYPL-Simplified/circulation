@@ -7,7 +7,7 @@ import json as j
 JSON_MEDIA_TYPE = "application/problem+json"
 
 
-def json(type, title, status, detail=None, instance=None):
+def json(type, status, title, detail=None, instance=None):
     d = dict(type=type, title=title, status=status)
     if detail:
         d['detail'] = detail
@@ -19,7 +19,7 @@ class ProblemDetail(object):
 
     """A common type of problem."""
 
-    def __init__(self, uri, title=None, status_code=None, detail=None,
+    def __init__(self, uri, status_code=None, title=None, detail=None,
                  instance=None):
         self.uri = uri
         self.title = title
@@ -30,12 +30,12 @@ class ProblemDetail(object):
     def response(self):
         """Create a Flask response."""
         return json(
-            self.uri, self.title, self.status_code, self.detail, 
+            self.uri, self.status_code, self.title, self.detail, 
             instance
         )
 
-    def detailed(self, detail, title=None, status_code=None, instance=None):
+    def detailed(self, detail, status_code=None, title=None, instance=None):
         """Create a ProblemDetail for a specific occurance of a problem."""
         return ProblemDetail(
-            self.uri, title or self.title, status_code or self.status_code, 
+            self.uri, status_code or self.status_code, title or self.title, 
             detail, instance)
