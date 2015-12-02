@@ -127,8 +127,13 @@ class TestBaseController(DatabaseTest):
 
     def test_load_licensepooldelivery(self):
         licensepool = self._licensepool(edition=None, with_open_access_download=True)
-        delivery = self.controller.load_licensepooldelivery(licensepool, licensepool.delivery_mechanisms[0].id)
-        eq_(licensepool.delivery_mechanisms[0], delivery)
+        lpdm = licensepool.delivery_mechanisms[0]
+        delivery = self.controller.load_licensepooldelivery(licensepool, lpdm.delivery_mechanism.id)
+        eq_(lpdm, delivery)
+
+        adobe_licensepool = self._licensepool(edition=None, with_open_access_download=False)
+        problem_detail = self.controller.load_licensepooldelivery(adobe_licensepool, lpdm.delivery_mechanism.id)
+        eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
