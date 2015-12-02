@@ -17,6 +17,11 @@ from ..core.app_server import (
 from ..core.model import (
     Patron
 )
+from ..core.lane import (
+    Facets,
+    Pagination,
+)
+import flask
 from ..problem_details import *
 
 from ..lanes import make_lanes_default
@@ -70,6 +75,16 @@ class TestBaseController(DatabaseTest):
 
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
+
+    def test_load_facets_from_request(self):
+        testapp = flask.Flask(__name__)
+        with testapp.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
+            facets = self.controller.load_facets_from_request()
+            eq_(Facets.ORDER_TITLE, facets.order)
+
+        with testapp.test_request_context('/?order=bad_facet'):
+            problemdetail = self.controller.load_facets_from_request()
+            eq_(INVALID_INPUT.uri, problemdetail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         

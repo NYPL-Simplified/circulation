@@ -314,7 +314,7 @@ class CirculationManagerController(object):
             )
         return lanes[name]
 
-    def load_facets_from_request(self, request):
+    def load_facets_from_request(self):
         """Figure out which Facets object this request is asking for."""
         arg = flask.request.args.get
         order = arg('order', Facets.DEFAULT_ORDER_FACET)
@@ -335,7 +335,7 @@ class CirculationManagerController(object):
                 "I don't know how to order a feed by '%s'" % order,
                 400
             )
-        return Facets(order=order)
+        return Facets(collection=None, availability=None, order=order)
 
     @classmethod
     def load_pagination(self, size, offset):
