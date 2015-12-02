@@ -201,9 +201,23 @@ class TestIndexController(ControllerTest):
 
     def test_authenticated_patron_root_lane(self):
         with temp_config() as config:
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "5": "Adult Fiction" }
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": ["eng", "Adult Fiction"] }
             config['policies'][Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION] = "^(.)"
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
                 response = self.manager.index_controller()
                 eq_(401, response.status_code)
+
+            with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+                response = self.manager.index_controller()
+                eq_(302, response.status_code)
+                eq_("http://cdn/groups/eng/Adult%20Fiction", response.headers['location'])
+
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": None }
+            with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+                response = self.manager.index_controller()
+                eq_(302, response.status_code)
+                eq_("http://cdn/groups/", response.headers['location'])
+

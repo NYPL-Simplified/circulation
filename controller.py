@@ -434,7 +434,13 @@ class IndexController(CirculationManagerController):
             return patron
 
         policy = Configuration.root_lane_policy()
-        return policy.get(patron.external_type)
+        lane_info = policy.get(patron.external_type)
+        if lane_info is None:
+            return None
+        else:
+            lang_key, name = lane_info
+            return self.load_lane(lang_key, name)
+        
 
     def appropriate_index_for_patron_type(self):
         root_lane = self.authenticated_patron_root_lane()
@@ -442,12 +448,18 @@ class IndexController(CirculationManagerController):
             return root_lane
         if isinstance(root_lane, Response):
             return root_lane
-            
+        if root_lane is None:
+            return redirect(
+                self.cdn_url_for(
+                    'acquisition_groups'
+                )
+            )
+    
         return redirect(
             self.cdn_url_for(
                 'acquisition_groups', 
                 languages=root_lane.language_key,
-                lane=lane.name
+                lane_name=root_lane.url_name
             )
         )
 
