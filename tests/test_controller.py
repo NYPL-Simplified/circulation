@@ -112,6 +112,16 @@ class TestBaseController(DatabaseTest):
             pagination = self.controller.load_pagination_from_request()
             eq_(100, pagination.size)
 
+    def test_load_licensepool(self):
+        licensepool = self._licensepool(edition=None)
+        loaded_licensepool = self.controller.load_licensepool(licensepool.data_source.name, licensepool.identifier.identifier)
+        eq_(licensepool, loaded_licensepool)
+
+        problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.identifier)
+        eq_(INVALID_INPUT.uri, problem_detail.uri)
+        
+        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier")
+        eq_(NO_LICENSES.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
