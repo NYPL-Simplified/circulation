@@ -48,9 +48,6 @@ from lane import (
     Lane,
     Pagination,
 )
-from feed import (
-    CustomListFeed,
-)
 from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
