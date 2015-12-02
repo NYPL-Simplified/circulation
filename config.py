@@ -4,6 +4,7 @@ from nose.tools import set_trace
 import os
 import json
 import logging
+import copy
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -13,7 +14,7 @@ def temp_config(new_config=None, replacement_classes=None):
     old_config = Configuration.instance
     replacement_classes = replacement_classes or [Configuration]
     if new_config is None:
-        new_config = dict(old_config)
+        new_config = copy.deepcopy(old_config)
     try:
         for c in replacement_classes:
             c.instance = new_config
