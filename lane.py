@@ -61,6 +61,9 @@ class Facets(object):
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
 
+    ORDER_FACETS = [ORDER_TITLE, ORDER_AUTHOR]
+    DEFAULT_ORDER_FACET = ORDER_AUTHOR
+
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
 
@@ -424,6 +427,16 @@ class Lane(object):
 
         output = template % vars
         return output.encode("ascii", "replace")
+
+    def debug(self, level=0):
+        """Output information about the lane layout."""
+        print "%s%r" % ("-" * level, self)
+        for lane in self.sublanes.lanes:
+            lane.debug(level+1)
+
+        #self.log.debug("%s%r", "-" * level, self)
+        #for lane in self.sublanes.lanes:
+        #    lane.debug(level+1)
 
     def __init__(self, 
                  _db, 
@@ -1186,5 +1199,3 @@ class LaneList(object):
                 )
             )
         this_language[lane.name] = lane
-
-

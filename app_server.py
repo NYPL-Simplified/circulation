@@ -84,12 +84,12 @@ def _make_response(content, content_type, cache_for):
                                         "Cache-Control": cache_control})
 
 class ErrorHandler(object):
-    def __init__(self, conf, debug):
-        self.conf = conf
+    def __init__(self, app, debug):
+        self.app = app
         self.debug = debug
 
     def handle(self, exception):
-        self.conf.db.rollback()
+        self.app.manager._db.rollback()
         logging.error(
             "Exception in web app: %s", exception, exc_info=exception)
         tb = traceback.format_exc()
