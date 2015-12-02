@@ -15,6 +15,7 @@ from core.model import (
     Session,
     BaseMaterializedWork,
 )
+from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
@@ -198,7 +199,7 @@ class CirculationManagerAnnotator(Annotator):
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
-                api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
+                api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
         else:
             # This is most likely an open-access book. Just put one
             # borrow link and figure out the rest later.

@@ -168,7 +168,7 @@ class CirculationManager(object):
             self.overdrive = DummyOverdriveAPI(self._db)
             self.threem = DummyThreeMAPI(self._db)
             self.axis = None
-            self.circulation = DummyCirculationAPI()
+            self.circulation = DummyCirculationAPI(self._db)
         else:
             self.overdrive = OverdriveAPI.from_environment(self._db)
             self.threem = ThreeMAPI.from_environment(self._db)

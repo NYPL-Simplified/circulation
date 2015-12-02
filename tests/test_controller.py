@@ -4,6 +4,7 @@ from nose.tools import (
     set_trace,
 )
 import os
+import datetime
 from . import DatabaseTest
 from ..config import (
     Configuration,
@@ -22,6 +23,8 @@ from ..core.model import (
     Representation,
     Loan,
     Hold,
+    DataSource,
+    Identifier,
     get_one,
 )
 from ..core.lane import (
@@ -30,6 +33,11 @@ from ..core.lane import (
 )
 import flask
 from ..problem_details import *
+from ..circulation_exceptions import *
+from ..circulation import (
+    HoldInfo,
+    LoanInfo,
+)
 
 from ..lanes import make_lanes_default
 from flask import url_for
@@ -257,7 +265,7 @@ class TestLoanController(ControllerTest):
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
-    def test_borrow(self):
+    def test_borrow_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
@@ -315,21 +323,81 @@ class TestLoanController(ControllerTest):
             eq_(400, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
 
-    # TODO: We have disabled this functionality so that we can see what
-    # Overdrive books look like in the catalog.
+    def test_borrow_creates_hold_when_no_available_copies(self):
+         threem_edition, pool = self._edition(
+             with_open_access_download=False,
+             data_source_name=DataSource.THREEM,
+             identifier_type=Identifier.THREEM_ID,
+             with_license_pool=True,
+         )
+         threem_book = self._work(
+             primary_edition=threem_edition,
+         )
+         pool.licenses_available = 0
+         pool.open_access = False
 
-    # def test_checkout_fails_when_no_available_licenses(self):
-    #     pool = self.english_2.license_pools[0]
-    #     pool.open_access = False
-    #     edition = pool.edition
-    #     data_source = edition.data_source
-    #     identifier = edition.primary_identifier
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             self.manager.loans.authenticated_patron_from_request()
+             self.manager.circulation.queue_checkout(NoAvailableCopies())
+             self.manager.circulation.queue_hold(HoldInfo(
+                 pool.identifier.type,
+                 pool.identifier.identifier,
+                 datetime.datetime.utcnow(),
+                 datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                 1,
+             ))
+             response = self.manager.loans.borrow(
+                 DataSource.THREEM, pool.identifier.identifier)
+             eq_(201, response.status_code)
 
-    #     with self.app.test_request_context(
-    #             "/", headers=dict(Authorization=self.valid_auth)):
-    #         response = self.circulation.checkout(
-    #             data_source.name, identifier.identifier)
-    #         eq_(404, response.status_code)
-    #         assert "Sorry, couldn't find an available license." in response.data
-    #     pool.open_access = True
+             # A hold has been created for this license pool.
+             hold = get_one(self._db, Hold, license_pool=pool)
+             assert hold != None
 
+    def test_revoke_loan(self):
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             patron = self.manager.loans.authenticated_patron_from_request()
+             loan, newly_created = self.pool.loan_to(patron)
+
+             self.manager.circulation.queue_checkin(True)
+
+             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
+
+             eq_(200, response.status_code)
+             
+    def test_revoke_hold(self):
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             patron = self.manager.loans.authenticated_patron_from_request()
+             hold, newly_created = self.pool.on_hold_to(patron, position=0)
+
+             self.manager.circulation.queue_release_hold(True)
+
+             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
+
+             eq_(200, response.status_code)
+
+    def test_3m_cant_revoke_hold_if_reserved(self):
+         threem_edition, pool = self._edition(
+             with_open_access_download=False,
+             data_source_name=DataSource.THREEM,
+             identifier_type=Identifier.THREEM_ID,
+             with_license_pool=True,
+         )
+         threem_book = self._work(
+             primary_edition=threem_edition,
+         )
+         pool.open_access = False
+
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             patron = self.manager.loans.authenticated_patron_from_request()
+             hold, newly_created = pool.on_hold_to(patron, position=0)
+             response = self.manager.loans.revoke(pool.data_source.name, pool.identifier.identifier)
+             eq_(400, response.status_code)
+             eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
+             eq_("Cannot release a hold once it enters reserved state.", response.detail)
+
+             

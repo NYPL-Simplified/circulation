@@ -1,7 +1,9 @@
 from nose.tools import set_trace
 from circulation_exceptions import *
 import datetime
+from collections import defaultdict
 from threading import Thread
+import logging
 
 from core.model import (
     get_one,
@@ -172,7 +174,7 @@ class CirculationAPI(object):
         api = self.api_for_license_pool(licensepool)
 
         must_set_delivery_mechanism = (
-            api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
+            api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
 
         if must_set_delivery_mechanism and not delivery_mechanism:
             raise DeliveryMechanismMissing()
@@ -500,9 +502,10 @@ class CirculationAPI(object):
         return active_loans, active_holds
 
 
-class DummyCirculationAPI(object):
+class DummyCirculationAPI(CirculationAPI):
 
-    def __init__(self):
+    def __init__(self, db):
+        super(DummyCirculationAPI, self).__init__(db)
         self.responses = defaultdict(list)
         self.active_loans = []
         self.active_holds = []
@@ -526,49 +529,60 @@ class DummyCirculationAPI(object):
         self.responses[k].append(v)
 
     def _return_or_raise(self, k):
+        logging.debug(k)
         l = self.responses[k]
         v = l.pop()
-        if isinstance(v, exception):
+        if isinstance(v, Exception):
             raise v
         return v
 
-    class FakeAPI(object):    
+    class FakeAPI(object):
+        def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved, dummy):
+            self.SET_DELIVERY_MECHANISM_AT = set_delivery_mechanism_at
+            self.CAN_REVOKE_HOLD_WHEN_RESERVED = can_revoke_hold_when_reserved
+            self.dummy = dummy
 
         def checkout(
                 self, patron_obj, patron_password, licensepool, 
                 delivery_mechanism
         ):
             # Should be a LoanInfo.
-            return self._return_or_raise(self.checkout_responses)
+            return self.dummy._return_or_raise('checkout')
                 
         def place_hold(self, patron, pin, licensepool, 
                        hold_notification_email=None):
             # Should be a HoldInfo.
-            return self._return_or_raise('place_hold')
+            return self.dummy._return_or_raise('hold')
 
         def fulfill(self, patron, password, pool, delivery_mechanism):
             # Should be a FulfillmentInfo.
-            return self._return_or_raise('fulfill')
+            return self.dummy._return_or_raise('fulfill')
 
         def checkin(self, patron, pin, licensepool):
             # Return value is not checked.
-            return self._return_or_raise('checkin')
+            return self.dummy._return_or_raise('checkin')
 
         def release_hold(self, patron, pin, licensepool):
             # Return value is not checked.
-            return self._return_or_raise('release_hold')
+            return self.dummy._return_or_raise('release_hold')
 
         def patron_activity(self, patron, pin):
             # Should be a 2-tuple containing a list of LoanInfo and a
             # list of HoldInfo.
-            return self.active_loans, self.active_holds
+            return self.dummy.active_loans, self.dummy.active_holds
 
-    @property
-    def apis(self):
-        return [FakeAPI()]
+        def internal_format(self, delivery_mechanism):
+            return delivery_mechanism
 
     def api_for_license_pool(self, licensepool):
-        return FakeAPI()
+        set_delivery_mechanism_at = BaseCirculationAPI.FULFILL_STEP
+        can_revoke_hold_when_reserved = True
+        if licensepool.data_source.name == DataSource.AXIS_360:
+            set_delivery_mechanism_at = BaseCirculationAPI.BORROW_STEP
+        if licensepool.data_source.name == DataSource.THREEM:
+            can_revoke_hold_when_reserved = False
+        
+        return self.FakeAPI(set_delivery_mechanism_at, can_revoke_hold_when_reserved, self)
 
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
