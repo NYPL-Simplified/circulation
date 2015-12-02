@@ -3926,6 +3926,9 @@ class LicensePoolDeliveryMechanism(Base):
     # One LicensePoolDeliveryMechanism may fulfill many Loans.
     fulfills = relationship("Loan", backref="fulfillment")
 
+    def __repr__(self):
+        return "%r %r" % (self.license_pool, self.delivery_mechanism)
+
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
@@ -4728,6 +4731,12 @@ class LicensePool(Base):
     __table_args__ = (
         UniqueConstraint('identifier_id'),
     )
+
+    def __repr__(self):
+        return "<LicensePool #%s owned=%d available=%d reserved=%d holds=%d>" % (
+            self.id, self.licenses_owned, self.licenses_available, 
+            self.licenses_reserved, self.patrons_in_hold_queue
+        )
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):
