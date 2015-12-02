@@ -325,7 +325,7 @@ class CirculationManagerController(object):
         arg = flask.request.args.get
         size = arg('size', Pagination.DEFAULT_SIZE)
         offset = arg('after', 0)
-        return load_pagination(size, offset)
+        return self.load_pagination(size, offset)
 
     @classmethod
     def load_facets(self, order):

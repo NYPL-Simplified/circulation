@@ -86,6 +86,33 @@ class TestBaseController(DatabaseTest):
             problemdetail = self.controller.load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
 
+    def test_load_pagination_from_request(self):
+        testapp = flask.Flask(__name__)
+        with testapp.test_request_context('/?size=50&after=10'):
+            pagination = self.controller.load_pagination_from_request()
+            eq_(50, pagination.size)
+            eq_(10, pagination.offset)
+
+        with testapp.test_request_context('/'):
+            pagination = self.controller.load_pagination_from_request()
+            eq_(Pagination.DEFAULT_SIZE, pagination.size)
+            eq_(0, pagination.offset)
+
+        with testapp.test_request_context('/?size=string'):
+            pagination = self.controller.load_pagination_from_request()
+            eq_(INVALID_INPUT.uri, pagination.uri)
+            eq_("Invalid size: string", pagination.detail)
+
+        with testapp.test_request_context('/?after=string'):
+            pagination = self.controller.load_pagination_from_request()
+            eq_(INVALID_INPUT.uri, pagination.uri)
+            eq_("Invalid offset: string", pagination.detail)
+
+        with testapp.test_request_context('/?size=5000'):
+            pagination = self.controller.load_pagination_from_request()
+            eq_(100, pagination.size)
+
+
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
         patron = self.controller.authenticated_patron("5", "5555")
