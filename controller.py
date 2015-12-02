@@ -372,8 +372,7 @@ class CirculationManagerController(object):
         pool = id_obj.licensed_through
         return pool
 
-    @classmethod
-    def load_licensepooldelivery(cls, pool, mechanism_id):
+    def load_licensepooldelivery(self, pool, mechanism_id):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
             self._db, LicensePoolDeliveryMechanism, license_pool=pool,

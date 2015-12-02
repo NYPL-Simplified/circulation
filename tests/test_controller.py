@@ -123,6 +123,12 @@ class TestBaseController(DatabaseTest):
         problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier")
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
+    def test_load_licensepooldelivery(self):
+        licensepool = self._licensepool(edition=None, with_open_access_download=True)
+        delivery = self.controller.load_licensepooldelivery(licensepool, licensepool.delivery_mechanisms[0].id)
+        set_trace()
+        eq_(licensepool.delivery_mechanisms[0], delivery)
+
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
         patron = self.controller.authenticated_patron("5", "5555")
