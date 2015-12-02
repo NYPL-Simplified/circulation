@@ -500,6 +500,54 @@ class CirculationAPI(object):
         return active_loans, active_holds
 
 
+class DummyCirculationAPI(object):
+
+    def __init__(self):
+        self.borrow_responses = []
+        self.fulfill_responses = []
+        self.revoke_responses = []
+        self.release_responses = []
+        self.active_loans = []
+        self.active_holds = []
+
+    def queue_borrow(self, response):
+        self._queue(self.borrow_responses, response)
+
+    def queue_fulfill(self, response):
+        self._queue(self.fulfill_responses, response)
+
+    def queue_revoke(self, response):
+        self._queue(self.revoke_responses, response)
+
+    def queue_release(self, response):
+        self._queue(self.release_responses, response)
+
+    def _queue(self, l, v):
+        l.append(v)
+
+    def _return_or_raise(self, l):
+        v = l.pop()
+        if isinstance(v, exception):
+            raise v
+        return v
+        
+    def borrow(self, patron, pin, licensepool, delivery_mechanism,
+               hold_notification_email):
+        return self._return_or_raise(self.borrow_responses)
+
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism):
+        return self._return_or_raise(self.fulfill_responses)
+
+    def revoke_loan(self, patron, pin, licensepool):
+        return self._return_or_raise(self.revoke_responses)
+
+    def release_hold(self, patron, pin, licensepool):
+        return self._return_or_raise(self.release_responses)
+
+    def sync_bookshelf(self, patron, pin):
+        return self.active_loans, self.active_holds
+    
+
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
 

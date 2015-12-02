@@ -86,7 +86,10 @@ from threem import (
     DummyThreeMAPI,
 )
 
-from circulation import CirculationAPI
+from circulation import (
+    CirculationAPI,
+    DummyCirculationAPI,
+)
 
 class CirculationManager(object):
 
@@ -165,16 +168,17 @@ class CirculationManager(object):
             self.overdrive = DummyOverdriveAPI(self._db)
             self.threem = DummyThreeMAPI(self._db)
             self.axis = None
+            self.circulation = DummyCirculationAPI()
         else:
             self.overdrive = OverdriveAPI.from_environment(self._db)
             self.threem = ThreeMAPI.from_environment(self._db)
             self.axis = Axis360API.from_environment(self._db)
-        self.circulation = CirculationAPI(
-            _db=self._db, 
-            threem=self.threem, 
-            overdrive=self.overdrive,
-            axis=self.axis
-        )
+            self.circulation = CirculationAPI(
+                _db=self._db, 
+                threem=self.threem, 
+                overdrive=self.overdrive,
+                axis=self.axis
+            )
 
 
     def setup_controllers(self):
