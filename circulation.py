@@ -503,50 +503,72 @@ class CirculationAPI(object):
 class DummyCirculationAPI(object):
 
     def __init__(self):
-        self.borrow_responses = []
-        self.fulfill_responses = []
-        self.revoke_responses = []
-        self.release_responses = []
+        self.responses = defaultdict(list)
         self.active_loans = []
         self.active_holds = []
 
-    def queue_borrow(self, response):
-        self._queue(self.borrow_responses, response)
+    def queue_checkout(self, response):
+        self._queue('checkout', response)
+
+    def queue_hold(self, response):
+        self._queue('hold', response)
 
     def queue_fulfill(self, response):
-        self._queue(self.fulfill_responses, response)
+        self._queue('fulfill', response)
 
-    def queue_revoke(self, response):
-        self._queue(self.revoke_responses, response)
+    def queue_checkin(self, response):
+        self._queue('checkin', response)
 
-    def queue_release(self, response):
-        self._queue(self.release_responses, response)
+    def queue_release_hold(self, response):
+        self._queue('release_hold', response)
 
-    def _queue(self, l, v):
-        l.append(v)
+    def _queue(self, k, v):
+        self.responses[k].append(v)
 
-    def _return_or_raise(self, l):
+    def _return_or_raise(self, k):
+        l = self.responses[k]
         v = l.pop()
         if isinstance(v, exception):
             raise v
         return v
-        
-    def borrow(self, patron, pin, licensepool, delivery_mechanism,
-               hold_notification_email):
-        return self._return_or_raise(self.borrow_responses)
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism):
-        return self._return_or_raise(self.fulfill_responses)
+    class FakeAPI(object):    
 
-    def revoke_loan(self, patron, pin, licensepool):
-        return self._return_or_raise(self.revoke_responses)
+        def checkout(
+                self, patron_obj, patron_password, licensepool, 
+                delivery_mechanism
+        ):
+            # Should be a LoanInfo.
+            return self._return_or_raise(self.checkout_responses)
+                
+        def place_hold(self, patron, pin, licensepool, 
+                       hold_notification_email=None):
+            # Should be a HoldInfo.
+            return self._return_or_raise('place_hold')
 
-    def release_hold(self, patron, pin, licensepool):
-        return self._return_or_raise(self.release_responses)
+        def fulfill(self, patron, password, pool, delivery_mechanism):
+            # Should be a FulfillmentInfo.
+            return self._return_or_raise('fulfill')
 
-    def sync_bookshelf(self, patron, pin):
-        return self.active_loans, self.active_holds
-    
+        def checkin(self, patron, pin, licensepool):
+            # Return value is not checked.
+            return self._return_or_raise('checkin')
+
+        def release_hold(self, patron, pin, licensepool):
+            # Return value is not checked.
+            return self._return_or_raise('release_hold')
+
+        def patron_activity(self, patron, pin):
+            # Should be a 2-tuple containing a list of LoanInfo and a
+            # list of HoldInfo.
+            return self.active_loans, self.active_holds
+
+    @property
+    def apis(self):
+        return [FakeAPI()]
+
+    def api_for_license_pool(self, licensepool):
+        return FakeAPI()
 
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
