@@ -2,6 +2,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import os
 from . import DatabaseTest
 from ..config import (
     Configuration,
@@ -25,18 +26,34 @@ import flask
 from ..problem_details import *
 
 from ..lanes import make_lanes_default
+from flask import url_for
+from ..core.util.cdn import cdnify
 
-class TestBaseController(DatabaseTest):
+class TestCirculationManager(CirculationManager):
 
+    def cdn_url_for(self, view, *args, **kwargs):
+        base_url = url_for(view, *args, **kwargs)
+        return cdnify(base_url, "http://cdn/")
+
+class ControllerTest(DatabaseTest):
     def setup(self):
-        super(TestBaseController, self).setup()
+        super(ControllerTest, self).setup()
+
+        os.environ['TESTING'] = "True"
+        from ..app import app
+        del os.environ['TESTING']
+        self.app = app
+
         with temp_config() as config:
             languages = Configuration.language_policy()
             languages[Configuration.LARGE_COLLECTION_LANGUAGES] = 'eng'
             languages[Configuration.SMALL_COLLECTION_LANGUAGES] = 'spa,chi'
             lanes = make_lanes_default(self._db)
-            self.manager = CirculationManager(self._db, lanes=lanes, testing=True)
+            self.manager = TestCirculationManager(self._db, lanes=lanes, testing=True)
+            self.app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
+
+class TestBaseController(ControllerTest):
 
     def test_authenticated_patron_invalid_credentials(self):
         value = self.controller.authenticated_patron("5", "1234")
@@ -77,38 +94,36 @@ class TestBaseController(DatabaseTest):
         eq_("No such lane: No such lane", no_such_lane.detail)
 
     def test_load_facets_from_request(self):
-        testapp = flask.Flask(__name__)
-        with testapp.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
+        with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             facets = self.controller.load_facets_from_request()
             eq_(Facets.ORDER_TITLE, facets.order)
 
-        with testapp.test_request_context('/?order=bad_facet'):
+        with self.app.test_request_context('/?order=bad_facet'):
             problemdetail = self.controller.load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
 
     def test_load_pagination_from_request(self):
-        testapp = flask.Flask(__name__)
-        with testapp.test_request_context('/?size=50&after=10'):
+        with self.app.test_request_context('/?size=50&after=10'):
             pagination = self.controller.load_pagination_from_request()
             eq_(50, pagination.size)
             eq_(10, pagination.offset)
 
-        with testapp.test_request_context('/'):
+        with self.app.test_request_context('/'):
             pagination = self.controller.load_pagination_from_request()
             eq_(Pagination.DEFAULT_SIZE, pagination.size)
             eq_(0, pagination.offset)
 
-        with testapp.test_request_context('/?size=string'):
+        with self.app.test_request_context('/?size=string'):
             pagination = self.controller.load_pagination_from_request()
             eq_(INVALID_INPUT.uri, pagination.uri)
             eq_("Invalid size: string", pagination.detail)
 
-        with testapp.test_request_context('/?after=string'):
+        with self.app.test_request_context('/?after=string'):
             pagination = self.controller.load_pagination_from_request()
             eq_(INVALID_INPUT.uri, pagination.uri)
             eq_("Invalid offset: string", pagination.detail)
 
-        with testapp.test_request_context('/?size=5000'):
+        with self.app.test_request_context('/?size=5000'):
             pagination = self.controller.load_pagination_from_request()
             eq_(100, pagination.size)
 
@@ -168,3 +183,15 @@ class TestBaseController(DatabaseTest):
         patron._external_type = '152'
         problem = self.controller.apply_borrowing_policy(patron, pool)
         eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
+
+
+class TestIndexController(ControllerTest):
+    
+    def test_simple_redirect(self):
+        with self.app.test_request_context('/'):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/groups/", response.headers['location'])
+
+
+    

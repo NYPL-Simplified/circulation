@@ -20,6 +20,7 @@ from core.util.flask_util import (
 from opds import (
     CirculationManagerAnnotator,
 )
+from controller import requires_auth
 
 app = Flask(__name__)
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
@@ -28,8 +29,8 @@ app.config['DEBUG'] = debug
 app.debug = debug
 
 if os.environ.get('TESTING') == "True":
-    app.manager.testing = True
-    # It's the test's responsibility to call initialize()
+    pass
+    # It's the test's responsibility to set the manager object
 else:
     app.manager.testing = False
     Conf.initialize()
@@ -41,11 +42,11 @@ def exception_handler(exception):
 
 @app.teardown_request
 def shutdown_session(exception):
-    if app.cm.db:
+    if app.manager._db:
         if exception:
-            app.cm.db.rollback()
+            app.manager._db.rollback()
         else:
-            app.cm.db.commit()
+            app.manager._db.commit()
 
 @app.route('/')
 def index():
