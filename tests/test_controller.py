@@ -1,3 +1,4 @@
+# encoding=utf8
 from nose.tools import (
     eq_,
     set_trace,
@@ -16,7 +17,12 @@ from ..core.app_server import (
     load_lending_policy
 )
 from ..core.model import (
-    Patron
+    Patron,
+    DeliveryMechanism,
+    Representation,
+    Loan,
+    Hold,
+    get_one,
 )
 from ..core.lane import (
     Facets,
@@ -29,6 +35,8 @@ from ..lanes import make_lanes_default
 from flask import url_for
 from ..core.util.cdn import cdnify
 import base64
+import feedparser
+from ..core.opds import OPDSFeed
 
 class TestCirculationManager(CirculationManager):
 
@@ -44,6 +52,21 @@ class ControllerTest(DatabaseTest):
         from ..app import app
         del os.environ['TESTING']
         self.app = app
+
+        # Create two English books and a French book.
+        self.english_1 = self._work(
+            "Quite British", "John Bull", language="eng", fiction=True,
+            with_open_access_download=True
+        )
+
+        self.english_2 = self._work(
+            "Totally American", "Uncle Sam", language="eng", fiction=False,
+            with_open_access_download=True
+        )
+        self.french_1 = self._work(
+            u"Très Français", "Marianne", language="fre", fiction=False,
+            with_open_access_download=True
+        )
 
         self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
@@ -220,4 +243,93 @@ class TestIndexController(ControllerTest):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
+
+
+class TestLoanController(ControllerTest):
+    def setup(self):
+        super(TestLoanController, self).setup()
+        self.pool = self.english_1.license_pools[0]
+        self.mech2 = self.pool.set_delivery_mechanism(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            None
+        )
+        self.edition = self.pool.edition
+        self.data_source = self.edition.data_source
+        self.identifier = self.edition.primary_identifier
+
+    def test_borrow(self):
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.borrow(
+                self.data_source.name, self.identifier.identifier)
+
+            # A loan has been created for this license pool.
+            loan = get_one(self._db, Loan, license_pool=self.pool)
+            assert loan != None
+            # The loan has yet to be fulfilled.
+            eq_(None, loan.fulfillment)
+
+            # We've been given an OPDS feed with one entry, which tells us how 
+            # to fulfill the license.
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            fulfillment_links = [x['href'] for x in entry['links']
+                                if x['rel'] == OPDSFeed.ACQUISITION_REL]
+            [mech1, mech2] = self.pool.delivery_mechanisms
+            expects = [url_for('fulfill', data_source=self.data_source.name,
+                              identifier=self.identifier.identifier, 
+                              mechanism_id=mech.delivery_mechanism.id,
+                               _external=True) for mech in [mech1, mech2]]
+            eq_(set(expects), set(fulfillment_links))
+
+            # Now let's try to fulfill the loan.
+            response = self.manager.loans.fulfill(
+                self.data_source.name, self.identifier.identifier,
+                mech1.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_(mech1.resource.url,
+                response.headers['Location'])
+
+            # The mechanism we used has been registered with the loan.
+            eq_(mech1, loan.fulfillment)
+
+            # Now that we've set a mechanism, we can fulfill the loan
+            # again without specifying a mechanism.
+            response = self.manager.loans.fulfill(
+                self.data_source.name, self.identifier.identifier
+            )
+            eq_(302, response.status_code)
+            eq_(mech1.resource.url,
+                response.headers['Location'])
+
+            # But we can't use some other mechanism -- we're stuck with
+            # the first one we chose.
+            response = self.manager.loans.fulfill(
+                self.data_source.name, self.identifier.identifier,
+                mech2.delivery_mechanism.id
+            )
+
+            eq_(400, response.status_code)
+            assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
+
+    # TODO: We have disabled this functionality so that we can see what
+    # Overdrive books look like in the catalog.
+
+    # def test_checkout_fails_when_no_available_licenses(self):
+    #     pool = self.english_2.license_pools[0]
+    #     pool.open_access = False
+    #     edition = pool.edition
+    #     data_source = edition.data_source
+    #     identifier = edition.primary_identifier
+
+    #     with self.app.test_request_context(
+    #             "/", headers=dict(Authorization=self.valid_auth)):
+    #         response = self.circulation.checkout(
+    #             data_source.name, identifier.identifier)
+    #         eq_(404, response.status_code)
+    #         assert "Sorry, couldn't find an available license." in response.data
+    #     pool.open_access = True
 

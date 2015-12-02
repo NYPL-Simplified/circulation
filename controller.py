@@ -521,7 +521,7 @@ class OPDSFeedController(CirculationManagerController):
 
 class LoanController(CirculationManagerController):
 
-    def sync():
+    def sync(self):
         if flask.request.method=='HEAD':
             return Response()
 
@@ -571,7 +571,7 @@ class LoanController(CirculationManagerController):
             )
 
         patron = flask.request.patron
-        problem_doc = _apply_borrowing_policy(patron, pool)
+        problem_doc = self.apply_borrowing_policy(patron, pool)
         if problem_doc:
             # As a matter of policy, the patron is not allowed to check
             # this book out.
