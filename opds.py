@@ -208,7 +208,7 @@ class CirculationManagerAnnotator(Annotator):
                           feed, data_source_name, identifier_identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
 
-        links = []
+        revoke_links = []
 
         can_borrow = False
         can_fulfill = False
@@ -246,7 +246,7 @@ class CirculationManagerAnnotator(Annotator):
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
             revoke_link_tag = E._makeelement("link", **kw)
-            links.append(revoke_link_tag)
+            revoke_links.append(revoke_link_tag)
 
         # Add next-step information for every useful delivery
         # mechanism.
@@ -330,7 +330,7 @@ class CirculationManagerAnnotator(Annotator):
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
 
-        return [x for x in borrow_links + fulfill_links + open_access_links
+        return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
                 if x is not None]
 
     def borrow_link(self, data_source_name, identifier_identifier,
