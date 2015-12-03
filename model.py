@@ -4598,11 +4598,14 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
-              force_refresh=False):
-        if type == cls.GROUPS_TYPE:
-            max_age = Configuration.groups_max_age()
-        elif type == cls.PAGE_TYPE:
-            max_age = Configuration.page_max_age()
+              force_refresh=False, max_age=None):
+        if max_age is None:
+            if type == cls.GROUPS_TYPE:
+                max_age = Configuration.groups_max_age()
+            elif type == cls.PAGE_TYPE:
+                max_age = Configuration.page_max_age()
+        if isinstance(max_age, int):
+            max_age = datetime.timedelta(seconds=max_age)
 
         if lane:
             lane_name = lane.name
@@ -4647,9 +4650,11 @@ class CachedFeed(Base):
                 raise WillNotGenerateExpensiveFeed(lane.name)
         elif not force_refresh:
             cutoff = datetime.datetime.utcnow() - max_age
-            if feed.timestamp and feed.content and feed.timestamp >= cutoff:
-                # Cachable!
-                return feed, True
+            fresh = False
+            if feed.timestamp and feed.content:
+                if feed.timestamp >= cutoff:
+                    fresh = True
+            return feed, fresh
 
         # Either there is no cached feed or it's time to update it.
         return feed, False
