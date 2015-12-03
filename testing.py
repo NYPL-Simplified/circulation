@@ -169,15 +169,15 @@ class DatabaseTest(object):
             genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
         work.genres = [genre]
         work.random = 0.5
+        work.editions = [primary_edition]
+        primary_edition.is_primary_for_work = True
+        work.primary_edition = primary_edition
         if pool != None:
             work.license_pools.append(pool)
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
-        work.editions = [primary_edition]
-        primary_edition.is_primary_for_work = True
-        work.primary_edition = primary_edition
         return work
 
     def _coverage_record(self, edition, coverage_source):

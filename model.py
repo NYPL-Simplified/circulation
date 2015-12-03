@@ -4629,7 +4629,7 @@ class CachedFeed(Base):
         feed, is_new = get_one_or_create(
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
-            type=CachedFeed.PAGE_TYPE,
+            type=CachedFeed.GROUPS_TYPE,
             languages=languages_key,
             facets=facets_key,
             pagination=pagination_key,
@@ -4657,6 +4657,18 @@ class CachedFeed(Base):
     def update(self, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
+
+    def __repr__(self):
+        if self.content:
+            length = len(self.content)
+        else:
+            length = "No content"
+        return "<CachedFeed #%s %s %s %s %s %s %s %s >" % (
+            self.id, self.languages, self.lane_name, self.type, 
+            self.facets, self.pagination,
+            self.timestamp, length
+        )
+    
 
 Index(
     "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
