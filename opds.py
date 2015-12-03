@@ -15,6 +15,7 @@ from core.model import (
     Session,
     BaseMaterializedWork,
 )
+from core.lane import Lane
 from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 
@@ -28,17 +29,36 @@ class CirculationManagerAnnotator(Annotator):
         self.lanes_by_work = defaultdict(list)
         self.facet_view=facet_view
 
-    def facet_url(self, order):
-        if self.lane:
+    @property
+    def _lane_name_and_languages(self):
+        if isinstance(self.lane, Lane):
             lane_name = self.lane.name
+            languages = self.lane.languages
         else:
             lane_name = None
+            languages = None
+        return (lane_name, languages)
+
+    def facet_url(self, order):
+        lane_name, languages = self._lane_name_and_languages
         return cdn_url_for(
-            self.facet_view, lane_name=lane_name, order=order, _external=True)
+            self.facet_view, lane_name=lane_name, languages=languages, order=order, _external=True)
 
     def permalink_for(self, work, license_pool, identifier):
         return url_for('work', data_source=license_pool.data_source.name,
                        identifier=identifier.identifier, _external=True)
+
+    def groups_url(self, lane):
+        lane_name, languages = self._lane_name_and_languages
+        return cdn_url_for(
+            "acquisition_groups", lane_name=lane_name, languages=languages, _external=True)
+
+    def feed_url(self, lane, facets, pagination):
+        lane_name, languages = self._lane_name_and_languages
+        kwargs = dict(facets.items())
+        kwargs.update(dict(pagination.items()))
+        return cdn_url_for(
+            "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
     @classmethod
     def featured_feed_url(cls, lane, order=None, cdn=True):
@@ -46,15 +66,7 @@ class CirculationManagerAnnotator(Annotator):
             m = cdn_url_for
         else:
             m = url_for
-        return m('feed', lane_name=lane.name, order=order, _external=True)
-
-    @classmethod
-    def navigation_feed_url(self, lane):
-        if not lane:
-            lane_name = None
-        else:
-            lane_name = lane.name
-        return cdn_url_for('navigation_feed', lane_name=lane_name, _external=True)
+        return m('feed', languages=lane.languages, lane_name=lane.name, order=order, _external=True)
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -78,7 +90,7 @@ class CirculationManagerAnnotator(Annotator):
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
-            url = cdn_url_for('acquisition_groups', lane_name=None, _external=True)
+            url = cdn_url_for('acquisition_groups', languages=None, lane_name=None, _external=True)
             title = "All Books"
             return url, title
 
@@ -102,9 +114,9 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
         if lane.sublanes and not show_feed:
-            url = cdn_url_for('acquisition_groups', lane_name=lane.url_name, _external=True)
+            url = cdn_url_for('acquisition_groups', languages=lane.languages, lane_name=lane.url_name, _external=True)
         else:
-            url = cdn_url_for('feed', lane_name=lane.url_name, order='author', _external=True)
+            url = cdn_url_for('feed', languages=lane.languages, lane_name=lane.url_name, order='author', _external=True)
         return url, lane_name
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):

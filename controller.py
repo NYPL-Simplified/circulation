@@ -93,6 +93,14 @@ from circulation import (
 
 class CirculationManager(object):
 
+    # The CirculationManager is treated as the top-level lane
+    name = 'All Books'
+    display_name = 'All Books'
+    languages = None
+    include_all_feed = False
+    url_name = None
+    parent = None
+
     def __init__(self, _db=None, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
@@ -472,17 +480,17 @@ class OPDSFeedController(CirculationManagerController):
 
     def groups(self, languages, lane_name):
         """Build or retrieve a grouped acquisition feed."""
-        lane = CirculationManager.load_lane(languages, lane_name)
+        lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
+        url = self.cdn_url_for(
+            "acquisition_groups", languages=languages, lane_name=lane_name
+        )
 
-        if lane:
-            title = lane.groups_title()
-        else:
-            title = 'All Books'
+        title = lane.display_name
 
         annotator = CirculationManagerAnnotator(self.circulation, lane)
-        feed = AcquisitionFeed.groups(_db, title, url, lane, annotator)
+        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
         return feed_response(feed)
 
     def feed(self, languages, lane_name):
@@ -493,14 +501,14 @@ class OPDSFeedController(CirculationManagerController):
         url = self.cdn_url_for(
             "feed", languages=languages, lane_name=lane_name
         )
-        if lane:
-            title = lane.feed_title()
-        else:
-            title = 'All Books'
+
+        title = lane.display_name
+
         annotator = CirculationManagerAnnotator(self.circulation, lane)
         feed = AcquisitionFeed.page(
-            _db, title, url, lane, annotator=annotator,
-            facets=facets, pagination=pagination
+            self._db, title, url, lane, annotator=annotator,
+            facets=self.load_facets_from_request(),
+            pagination=self.load_pagination_from_request()
         )
         return feed_response(feed)
 

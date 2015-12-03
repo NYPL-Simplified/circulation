@@ -111,11 +111,6 @@ class CirculationAppTest(CirculationTest):
 
 class TestNavigationFeed(CirculationAppTest):
 
-    def test_root_redirects_to_groups_feed(self):
-        response = self.client.get('/')
-        eq_(302, response.status_code)
-        assert response.headers['Location'].endswith('/groups/')
-
     def test_presence_of_extra_links(self):
         with self.app.test_request_context("/"):
             response = self.circulation.navigation_feed(None)
@@ -171,37 +166,6 @@ class TestNavigationFeed(CirculationAppTest):
 
                 eq_("search", search[0])
                 assert search[1].endswith('/search/Fiction')
-
-    def test_lane_without_language_preference_uses_default_language(self):
-        with self.app.test_request_context("/"):
-            response = self.circulation.feed('Nonfiction')
-            assert "Totally American" in response.data
-            assert "Quite British" not in response.data # Wrong lane
-            assert u"Tr&#232;s Fran&#231;ais" not in response.data # Wrong language
-
-        # Now change the default language.
-        old_default = os.environ.get('DEFAULT_LANGUAGES', 'eng')
-        
-        os.environ['DEFAULT_LANGUAGES'] = "fre"
-        with self.app.test_request_context("/"):
-            response = self.circulation.feed('Nonfiction')
-            assert "Totally American" not in response.data
-            assert u"Tr&#232;s Fran&#231;ais" in response.data
-        os.environ['DEFAULT_LANGUAGES'] = old_default
-
-    def test_lane_with_language_preference(self):
-        
-        with self.app.test_request_context(
-                "/", headers={"Accept-Language": "fr"}):
-            response = self.circulation.feed('Nonfiction')
-            assert "Totally American" not in response.data
-            assert "Tr&#232;s Fran&#231;ais" in response.data
-
-        with self.app.test_request_context(
-                "/", headers={"Accept-Language": "fr,en-us"}):
-            response = self.circulation.feed('Nonfiction')
-            assert "Totally American" in response.data
-            # assert "Tr&#232;s Fran&#231;ais" in response.data
 
 
 class TestAcquisitionFeed(CirculationAppTest):

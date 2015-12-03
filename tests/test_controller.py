@@ -26,6 +26,8 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
+    SessionManager,
+    CachedFeed,
     get_one,
 )
 from ..core.lane import (
@@ -448,3 +450,37 @@ class TestWorkController(ControllerTest):
         eq_(error_type, complaint.type)
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
+
+
+class TestFeedController(ControllerTest):
+
+    def test_feed(self):
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/"):
+            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+
+            assert self.english_1.title in response.data
+            assert self.english_2.title not in response.data
+            assert self.french_1.title not in response.data
+
+    def test_groups(self):
+        with temp_config() as config:
+            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = 10
+            config['policies'][Configuration.MINIMUM_FEATURED_QUALITY] = 0
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+
+            for i in range(2):
+                self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
+                self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
+        
+            SessionManager.refresh_materialized_views(self._db)
+            with self.app.test_request_context("/"):
+                #AcquisitionFeed.groups(self._db, "All Books", "", self.manager, CirculationManagerAnnotator(self.manager.circulation, self.manager), force_refresh=True)
+                response = self.manager.opds_feeds.groups(None, None)
+
+                set_trace()
+                pass
+        
+        
+        
+        
