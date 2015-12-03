@@ -104,9 +104,6 @@ class Annotator(object):
     def group_uri(cls, work, license_pool, identifier):
         return None, ""
 
-    def group_uri_for_lane(cls, lane):
-        return None, ""
-
     @classmethod
     def rating_tag(cls, type_uri, value):
         """Generate a schema:Rating tag for the given type and value."""
@@ -482,7 +479,7 @@ class AcquisitionFeed(OPDSFeed):
             force_refresh=force_refresh
         )
         if usable:
-            return cached
+            return cached.content
 
         feed_size = Configuration.featured_lane_size()
        
@@ -541,15 +538,16 @@ class AcquisitionFeed(OPDSFeed):
         )
 
         # Render a 'start' link and an 'up' link.
-        start_uri, start_title = annotator.group_uri_for_lane(None)
-        feed.add_link(href=start_uri, title=start_title, rel="start")
+        start_uri = annotator.groups_url(None)
+        feed.add_link(href=start_uri, rel="start")
 
-        up_uri, up_title = annotator.group_uri_for_lane(lane.parent)
-        feed.add_link(href=up_uri, title=up_title, rel="up")
+        if lane.parent:
+            up_uri = annotator.groups_url(lane.parent)
+            feed.add_link(href=up_uri, rel="up")
 
         content = unicode(feed)
         cached.update(content)
-        return cached
+        return cached.content
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
@@ -572,7 +570,7 @@ class AcquisitionFeed(OPDSFeed):
             force_refresh=force_refresh
         )
         if usable:
-            return cached
+            return cached.content
 
         if use_materialized_works:
             works = lane.materialized_works(facets, pagination)
@@ -587,26 +585,23 @@ class AcquisitionFeed(OPDSFeed):
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            next_offset = pagination.offset + pagination.size
-            next_page = pagination.next_page
-            feed.add_link(rel="next", href=annotator.feed_url(next_page))
+            feed.add_link(rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
 
         if pagination.offset > 0:
-            first_page = pagination.first_page
-            feed.add_link(rel="first", href=annotator.feed_url(first_page))
+            feed.add_link(rel="first", href=annotator.feed_url(lane, facets, pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(previous_page))
 
-        # We can always calculate the 'start' link and the 'up' link.
-        feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
+        if lane.parent:
+            feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
         feed.add_link(rel='start', href=annotator.groups_url(None))
 
         content = unicode(feed)
         cached.update(content)
 
-        return cached
+        return cached.content
 
     @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):

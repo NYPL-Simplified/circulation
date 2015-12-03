@@ -108,6 +108,10 @@ class Facets(object):
             else:
                 order_ascending = self.ORDER_ASCENDING
 
+        collection = collection or self.COLLECTION_FULL
+        availability = availability or self.AVAILABLE_ALL
+        order = order or self.ORDER_AUTHOR
+
         hold_policy = Configuration.hold_policy()
         if (availability == self.AVAILABLE_ALL and 
             hold_policy == Configuration.HOLD_POLICY_HIDE):
@@ -132,9 +136,12 @@ class Facets(object):
                       order or self.order) 
 
     def items(self):
-        yield (self.ORDER_FACET_GROUP_NAME, self.order)
-        yield (self.AVAILABILITY_FACET_GROUP_NAME,  self.availability)        
-        yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
+        if self.order:
+            yield (self.ORDER_FACET_GROUP_NAME, self.order)
+        if self.availability:
+            yield (self.AVAILABILITY_FACET_GROUP_NAME,  self.availability)        
+        if self.collection:
+            yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
     @property
     def query_string(self):
@@ -301,7 +308,6 @@ class Facets(object):
             order_by = default_order_by
 
         # Set each field in the sort order to ascending or descending.
-        print [(x.name, self.order_ascending) for x in order_by]
         if self.order_ascending:
             order_by = [x.asc() for x in order_by]
         else:
@@ -322,9 +328,13 @@ class Pagination(object):
         self.offset = offset
         self.size = size
 
+    def items(self):
+        yield("offset", self.offset)
+        yield("size", self.size)
+
     @property
     def query_string(self):
-        return "offset=%s&size=%s" % (self.offset, self.size)
+       return "&".join("=".join(map(str, x)) for x in self.items())
 
     @property
     def first_page(self):
