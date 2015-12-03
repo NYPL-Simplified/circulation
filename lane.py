@@ -329,7 +329,7 @@ class Pagination(object):
         self.size = size
 
     def items(self):
-        yield("offset", self.offset)
+        yield("after", self.offset)
         yield("size", self.size)
 
     @property
