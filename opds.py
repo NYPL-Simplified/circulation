@@ -273,7 +273,7 @@ class CirculationManagerAnnotator(Annotator):
                     fulfill_links.append(
                         self.fulfill_link(
                             data_source_name, 
-                            identifier_identifier, lpdm
+                            identifier_identifier, lpdm.delivery_mechanism
                         )
                     )
                                                
