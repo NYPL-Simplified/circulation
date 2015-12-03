@@ -84,28 +84,6 @@ class CirculationTest(DatabaseTest):
         self.app = circulation.app
         self.client = circulation.app.test_client()
 
-class AuthenticationTest(CirculationTest):
-
-    def test_valid_barcode(self):
-        patron = self.circulation.authenticated_patron("1", "1111")
-        eq_("1", patron.authorization_identifier)
-
-    def test_invalid_barcode(self):
-        uri, title = self.circulation.authenticated_patron("1", "1112")
-        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
-
-    def test_no_such_patron(self):
-        uri, title = self.circulation.authenticated_patron("404111", "4444")
-        eq_(circulation.INVALID_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.INVALID_CREDENTIALS_TITLE, title)
-
-    def test_expired_barcode(self):
-        uri, title = self.circulation.authenticated_patron("410111", "4444")
-        eq_(circulation.EXPIRED_CREDENTIALS_PROBLEM, uri)
-        eq_(circulation.EXPIRED_CREDENTIALS_TITLE, title)
-
-
 class CirculationAppTest(CirculationTest):
     # TODO: The language-based tests assumes that the default sitewide
     # language is English.
@@ -130,23 +108,6 @@ class CirculationAppTest(CirculationTest):
 
         self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
-
-class TestPermalink(CirculationAppTest):
-
-    def test_permalink(self):
-        [lp] = self.english_1.license_pools
-        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
-        with self.app.test_request_context("/"):
-            response = self.client.get('/works/%s/%s' % tuple(args))
-            annotator = CirculationManagerAnnotator(None, None)
-            expect = etree.tostring(
-                AcquisitionFeed.single_entry(
-                    self._db, self.english_1, annotator
-                )
-            )
-        eq_(200, response.status_code)
-        eq_(expect, response.data)
-        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
 class TestNavigationFeed(CirculationAppTest):
 
@@ -396,35 +357,6 @@ class TestStaffPicks(CirculationAppTest):
         assert 'size=1' in href
         assert 'order=title' in href
 
-
-class TestReportProblem(CirculationAppTest):
-
-    def test_get(self):
-        [lp] = self.english_1.license_pools
-        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
-        with self.app.test_request_context("/"):
-            response = self.client.get('/works/%s/%s/report' % tuple(args))
-        eq_(200, response.status_code)
-        eq_("text/uri-list", response.headers['Content-Type'])
-        for i in Complaint.VALID_TYPES:
-            assert i in response.data
-
-    def test_post_success(self):
-        error_type = random.choice(list(Complaint.VALID_TYPES))
-        data = json.dumps({ "type": error_type,
-                            "source": "foo",
-                            "detail": "bar"}
-        )
-        [lp] = self.english_1.license_pools
-        args = map(urllib.quote, [lp.data_source.name, lp.identifier.identifier])
-        with self.app.test_request_context("/"):
-            response = self.client.post('/works/%s/%s/report' % tuple(args),
-                                        data=data)
-        eq_(201, response.status_code)
-        [complaint] = lp.complaints
-        eq_(error_type, complaint.type)
-        eq_("foo", complaint.source)
-        eq_("bar", complaint.detail)
 
 # class TestForceError(CirculationAppTest):
 #     """Test the handler that forces a 500 error."""

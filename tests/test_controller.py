@@ -25,6 +25,7 @@ from ..core.model import (
     Hold,
     DataSource,
     Identifier,
+    Complaint,
     get_one,
 )
 from ..core.lane import (
@@ -44,7 +45,14 @@ from flask import url_for
 from ..core.util.cdn import cdnify
 import base64
 import feedparser
-from ..core.opds import OPDSFeed
+from ..core.opds import (
+    OPDSFeed,
+    AcquisitionFeed,
+)
+from ..opds import CirculationManagerAnnotator
+from lxml import etree
+import random
+import json
 
 class TestCirculationManager(CirculationManager):
 
@@ -401,3 +409,42 @@ class TestLoanController(ControllerTest):
              eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
              
+class TestWorkController(ControllerTest):
+
+    def test_permalink(self):
+        [lp] = self.english_1.license_pools
+        with self.app.test_request_context("/"):
+            response = self.manager.work_controller.permalink(lp.data_source.name, lp.identifier.identifier)
+            annotator = CirculationManagerAnnotator(None, None)
+            expect = etree.tostring(
+                AcquisitionFeed.single_entry(
+                    self._db, self.english_1, annotator
+                )
+            )
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_report_problem_get(self):
+        [lp] = self.english_1.license_pools
+        with self.app.test_request_context("/"):
+            response = self.manager.work_controller.report(lp.data_source.name, lp.identifier.identifier)
+        eq_(200, response.status_code)
+        eq_("text/uri-list", response.headers['Content-Type'])
+        for i in Complaint.VALID_TYPES:
+            assert i in response.data
+
+    def test_report_problem_post_success(self):
+        error_type = random.choice(list(Complaint.VALID_TYPES))
+        data = json.dumps({ "type": error_type,
+                            "source": "foo",
+                            "detail": "bar"}
+        )
+        [lp] = self.english_1.license_pools
+        with self.app.test_request_context("/", method="POST", data=data):
+            response = self.manager.work_controller.report(lp.data_source.name, lp.identifier.identifier)
+        eq_(201, response.status_code)
+        [complaint] = lp.complaints
+        eq_(error_type, complaint.type)
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)
