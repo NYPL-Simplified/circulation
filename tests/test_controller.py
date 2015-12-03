@@ -10,6 +10,7 @@ from ..config import (
     Configuration,
     temp_config,
 )
+from collections import Counter
 from ..controller import (
     CirculationManager,
     CirculationManagerController,
@@ -463,6 +464,32 @@ class TestFeedController(ControllerTest):
             assert self.english_2.title not in response.data
             assert self.french_1.title not in response.data
 
+    def test_multipage_feed(self):
+        self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?size=1"):
+            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            
+            eq_(1, len(entries))
+
+            links = feed['feed']['links']
+            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
+            facet_links = [x for x in links if x['rel'] == 'http://opds-spec.org/facet']
+            search_link = [x for x in links if x['rel'] == 'search'][0]['href']
+            shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
+            assert 'after=1' in next_link
+            assert 'size=1' in next_link
+
+            assert any('order=title' in x['href'] for x in facet_links)
+            assert any('order=author' in x['href'] for x in facet_links)
+
+            assert search_link.endswith('/search/eng/Adult%20Fiction')
+            assert shelf_link.endswith('/loans/')
+
+
     def test_groups(self):
         with temp_config() as config:
             config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = 10
@@ -475,12 +502,20 @@ class TestFeedController(ControllerTest):
         
             SessionManager.refresh_materialized_views(self._db)
             with self.app.test_request_context("/"):
-                #AcquisitionFeed.groups(self._db, "All Books", "", self.manager, CirculationManagerAnnotator(self.manager.circulation, self.manager), force_refresh=True)
                 response = self.manager.opds_feeds.groups(None, None)
 
-                set_trace()
-                pass
-        
+                feed = feedparser.parse(response.data)
+                entries = feed['entries']
+                
+                counter = Counter()
+                for entry in entries:
+                    links = [x for x in entry.links if x['rel'] == 'collection']
+                    for link in links:
+                        counter[link['title']] += 1
+
+                eq_(2, counter['Nonfiction'])
+                eq_(2, counter['Fiction'])
+                eq_(1, counter['Other Languages'])
         
         
         
