@@ -1041,7 +1041,7 @@ class Lane(object):
             a = time.time()
             try:
                 docs = search_client.query_works(
-                    query, self.media, self.languages, self.exclude_languages,
+                    query, self.media, self.languages,
                     fiction, list(self.audiences),
                     self.all_matching_genres(self.genres),
                     fields=["_id", "title", "author", "license_pool_id"],

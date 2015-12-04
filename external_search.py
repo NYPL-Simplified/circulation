@@ -24,7 +24,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.log.info("Creating index %s", self.works_index)
             self.indices.create(self.works_index)
 
-    def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
+    def query_works(self, query_string, media, languages, fiction, audience,
                     in_any_of_these_genres=[], fields=None, limit=30):
         if not self.works_index:
             return []
@@ -37,15 +37,15 @@ class ExternalSearchIndex(Elasticsearch):
             ),
         )
         body = dict(query=q)
-        args = dict(
+        search_args = dict(
             index=self.works_index,
             body=dict(query=q),
             size=limit,
         )
         if fields is not None:
-            args['fields'] = fields
+            search_args['fields'] = fields
         #print "Args looks like: %r" % args
-        results = self.search(**args)
+        results = self.search(**search_args)
         #print "Results: %r" % results
         return results
 
@@ -80,7 +80,7 @@ class ExternalSearchIndex(Elasticsearch):
             clauses.append(dict(terms={"classifications.term" : genre_ids}))
         if media:
             media = [_f(medium) for medium in media]
-            clauses.append(dict(term=dict(media=media)))
+            clauses.append({"or": [dict(term=dict(medium=medium)) for medium in media]})
         if fiction is not None:
             value = "fiction" if fiction == True else "nonfiction"
             clauses.append(dict(term=dict(fiction=value)))
@@ -88,7 +88,10 @@ class ExternalSearchIndex(Elasticsearch):
             if isinstance(audience, list):
                 audience = [_f(aud) for aud in audience]
             clauses.append(dict(term=dict(audience=audience)))
-        return {"and" :clauses}
+        if len(clauses) > 0:
+            return {"and" :clauses}
+        else:
+            return {}
 
 
 class DummyExternalSearchIndex(object):
