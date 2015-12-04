@@ -24,7 +24,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.log.info("Creating index %s", self.works_index)
             self.indices.create(self.works_index)
 
-    def query_works(self, query_string, medium, languages, fiction, audience,
+    def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     in_any_of_these_genres=[], fields=None, limit=30):
         if not self.works_index:
             return []
@@ -32,7 +32,7 @@ class ExternalSearchIndex(Elasticsearch):
             filtered=dict(
                 query=self.make_query(query_string),
                 filter=self.make_filter(
-                    medium, languages, fiction, audience,
+                    media, languages, fiction, audience,
                     in_any_of_these_genres),
             ),
         )
@@ -66,7 +66,7 @@ class ExternalSearchIndex(Elasticsearch):
                               should=[should_multi_match]),
         )
 
-    def make_filter(self, medium, languages, fiction, audience, genres):
+    def make_filter(self, media, languages, fiction, audience, genres):
         def _f(s):
             if not s:
                 return s
@@ -78,8 +78,9 @@ class ExternalSearchIndex(Elasticsearch):
         if genres:
             genre_ids = [genre.id for genre in genres]
             clauses.append(dict(terms={"classifications.term" : genre_ids}))
-        if medium:
-            clauses.append(dict(term=dict(medium=_f(medium))))
+        if media:
+            media = [_f(medium) for medium in media]
+            clauses.append(dict(term=dict(media=media)))
         if fiction is not None:
             value = "fiction" if fiction == True else "nonfiction"
             clauses.append(dict(term=dict(fiction=value)))
