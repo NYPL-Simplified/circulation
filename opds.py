@@ -129,7 +129,6 @@ class CirculationManagerAnnotator(Annotator):
             return None, ""
 
         lanes = self.lanes_by_work[work]
-
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
@@ -139,19 +138,22 @@ class CirculationManagerAnnotator(Annotator):
 
         lane = lanes[0]
         self.lanes_by_work[work] = lanes[1:]
-        lane_name = None
+        lane_name = ''
         show_feed = False
         if isinstance(lane, dict):
             show_feed = lane.get('link_to_list_feed', show_feed)
             title = lane.get('label', lane_name)
             lane = lane['lane']
+
         if isinstance(lane, basestring):
             return lane, lane_name
 
         lane_name = lane_name or lane.url_name
-        if isinstance(lane, Lane):
-            languages = lane.language_key
+        if hasattr(lane, 'display_name') and not title:
             title = lane.display_name
+
+        if hasattr(lane, 'language_key'):
+            languages = lane.language_key
         else:
             languages = None
 
@@ -211,13 +213,18 @@ class CirculationManagerAnnotator(Annotator):
             lane_name = lane.url_name
             languages = lane.language_key
         else:
-            lane_name = 'All Books'
+            lane_name = None
             languages = None
 
+        search_url = self.url_for(
+            'lane_search', languages=languages, lane_name=lane_name,
+            _external=True
+        )
         search_link = dict(
             rel="search",
             type="application/opensearchdescription+xml",
-            href=self.url_for('lane_search', languages=languages, lane_name=lane_name, _external=True))
+            href=search_url
+        )
         feed.add_link(**search_link)
 
         shelf_link = dict(
@@ -508,12 +515,12 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work
-        url = self.url_for(
-            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
-            identifier=loan.license_pool.identifier.identifier, _external=True)
         active_loans_by_work = { work : loan }
         annotator = cls(circulation, None, active_loans_by_work, {}, 
                         test_mode=test_mode)
+        url = annotator.url_for(
+            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
+            identifier=loan.license_pool.identifier.identifier, _external=True)
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
@@ -523,9 +530,6 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
         work = hold.license_pool.work
-        url = self.url_for(
-            'loan_or_hold_detail', data_source=hold.license_pool.data_source,
-            identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
         annotator = cls(circulation, None, {}, active_holds_by_work, 
                         test_mode=test_mode)

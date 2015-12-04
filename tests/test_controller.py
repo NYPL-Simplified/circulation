@@ -549,16 +549,17 @@ class TestFeedController(ControllerTest):
 
             links = feed['feed']['links']
             next_link = [x for x in links if x['rel'] == 'next'][0]['href']
-            facet_links = [x for x in links if x['rel'] == 'http://opds-spec.org/facet']
-            search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert 'after=1' in next_link
             assert 'size=1' in next_link
 
+            facet_links = [x for x in links if x['rel'] == 'http://opds-spec.org/facet']
             assert any('order=title' in x['href'] for x in facet_links)
             assert any('order=author' in x['href'] for x in facet_links)
 
+            search_link = [x for x in links if x['rel'] == 'search'][0]['href']
             assert search_link.endswith('/search/eng/Adult%20Fiction')
+
+            shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
 
 
@@ -584,7 +585,6 @@ class TestFeedController(ControllerTest):
                     links = [x for x in entry.links if x['rel'] == 'collection']
                     for link in links:
                         counter[link['title']] += 1
-
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
                 eq_(1, counter['Other Languages'])

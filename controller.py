@@ -474,7 +474,7 @@ class OPDSFeedController(CirculationManagerController):
 
         annotator = CirculationManagerAnnotator(self.circulation, lane)
         feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
-        return feed_response(feed)
+        return feed_response(feed.content)
 
     def feed(self, languages, lane_name):
         """Build or retrieve a paginated acquisition feed."""
@@ -493,7 +493,7 @@ class OPDSFeedController(CirculationManagerController):
             facets=self.load_facets_from_request(),
             pagination=self.load_pagination_from_request()
         )
-        return feed_response(feed)
+        return feed_response(feed.content)
 
     def search(self, languages, lane_name, query):
         lane = self.load_lane(languages, lane_name)
@@ -617,7 +617,6 @@ class LoanController(CirculationManagerController):
             # This should never happen -- we should have sent a more specific
             # error earlier.
             return HOLD_FAILED
-        self.add_configuration_links(feed)
         if isinstance(feed, OPDSFeed):
             content = unicode(feed)
         else:
