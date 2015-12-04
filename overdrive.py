@@ -162,6 +162,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                     expires,
                     None
                 )
+            elif code == 'PatronHasExceededCheckoutLimit':
+                raise PatronLoanLimitReached()
             else:
                 raise CannotLoan(code)
         else:
