@@ -101,6 +101,13 @@ class Annotator(object):
         pass
 
     @classmethod
+    def annotate_feed(cls, feed, lane):
+        """Make any custom modifications necessary to integrate this
+        OPDS feed into the application's workflow.
+        """
+        pass
+
+    @classmethod
     def group_uri(cls, work, license_pool, identifier):
         return None, ""
 
@@ -499,7 +506,7 @@ class AcquisitionFeed(OPDSFeed):
                 pass
             else:
                 for work in works:
-                    works_and_lanes.append((work, lane))
+                    works_and_lanes.append((work, sublane))
 
         if not works_and_lanes:
             # We did not find any works whatsoever. The groups feed is
@@ -550,6 +557,8 @@ class AcquisitionFeed(OPDSFeed):
                 title = top_level_title
             up_uri = annotator.groups_url(lane.parent)
             feed.add_link(href=up_uri, rel="up", title=title)
+
+        annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
         cached.update(content)
@@ -603,6 +612,8 @@ class AcquisitionFeed(OPDSFeed):
         if lane.parent:
             feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
         feed.add_link(rel='start', href=annotator.groups_url(None))
+
+        annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
         cached.update(content)
