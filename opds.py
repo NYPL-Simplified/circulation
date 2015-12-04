@@ -243,7 +243,7 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
-    def feed_url(cls, pagination):
+    def feed_url(cls, lane, facets, pagination):
         raise NotImplementedError()
 
     @classmethod
@@ -538,16 +538,22 @@ class AcquisitionFeed(OPDSFeed):
         )
 
         # Render a 'start' link and an 'up' link.
+        top_level_title = "Collection Home"
         start_uri = annotator.groups_url(None)
-        feed.add_link(href=start_uri, rel="start")
+        feed.add_link(href=start_uri, rel="start", title=top_level_title)
 
         if lane.parent:
+            parent = lane.parent
+            if isinstance(parent, Lane):
+                title = lane.parent.display_name
+            else:
+                title = top_level_title
             up_uri = annotator.groups_url(lane.parent)
-            feed.add_link(href=up_uri, rel="up")
+            feed.add_link(href=up_uri, rel="up", title=title)
 
         content = unicode(feed)
         cached.update(content)
-        return cached.content
+        return cached
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
@@ -570,7 +576,7 @@ class AcquisitionFeed(OPDSFeed):
             force_refresh=force_refresh
         )
         if usable:
-            return cached.content
+            return cached
 
         if use_materialized_works:
             works = lane.materialized_works(facets, pagination)
@@ -592,7 +598,7 @@ class AcquisitionFeed(OPDSFeed):
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link(rel="previous", href=annotator.feed_url(previous_page))
+            feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
         if lane.parent:
             feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
@@ -601,7 +607,7 @@ class AcquisitionFeed(OPDSFeed):
         content = unicode(feed)
         cached.update(content)
 
-        return cached.content
+        return cached
 
     @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):
@@ -854,12 +860,15 @@ class AcquisitionFeed(OPDSFeed):
         # available to people using this application.
         now = datetime.datetime.utcnow()
         today = datetime.date.today()
-        if (license_pool and license_pool.availability_time and
-            license_pool.availability_time <= now):
-            availability_tag = E._makeelement("published")
-            # TODO: convert to local timezone.
-            availability_tag.text = _strftime(license_pool.availability_time)
-            entry.extend([availability_tag])
+        if license_pool and license_pool.availability_time:
+            avail = license_pool.availability_time
+            if isinstance(avail, datetime.datetime):
+                avail = avail.date()
+            if avail <= today:
+                availability_tag = E._makeelement("published")
+                # TODO: convert to local timezone.
+                availability_tag.text = _strftime(license_pool.availability_time)
+                entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
         # from Entry.published (which may refer to the print edition

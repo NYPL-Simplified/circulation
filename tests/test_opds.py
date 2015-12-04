@@ -55,8 +55,15 @@ from classifier import (
 class TestAnnotator(Annotator):
 
     @classmethod
-    def feed_url(cls, pagination):
-        return "http://feed/?" + pagination.query_string
+    def feed_url(cls, lane, facets, pagination):
+        base = "http://%s/" % lane.url_name
+        sep = '?'
+        if facets:
+            base += sep + facets.query_string
+            sep = '&'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
 
     @classmethod
     def groups_url(cls, lane):
@@ -142,6 +149,7 @@ class TestAnnotators(DatabaseTest):
         work.appeal_character = 0.2
         work.appeal_story = 0.3
         work.appeal_setting = 0.4
+        work.calculate_opds_entries(verbose=True)
 
         category_tags = VerboseAnnotator.categories(work)
         appeal_tags = category_tags[Work.APPEALS_URI]
@@ -164,6 +172,7 @@ class TestAnnotators(DatabaseTest):
         c.wikipedia_name = "Givenname Familyname (Author)"
         c.viaf = "100"
         c.lc = "n100"
+        work.calculate_opds_entries(verbose=True)
 
         author_tag = VerboseAnnotator.detailed_author(c)
 
@@ -200,10 +209,13 @@ class TestAnnotators(DatabaseTest):
         work.quality = 1.0/3
         work.popularity = 0.25
         work.rating = 0.6
-        annotator = VerboseAnnotator
-        feed = AcquisitionFeed(self._db, self._str, self._url, [work], annotator)
+        work.calculate_opds_entries(verbose=True)
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [work], VerboseAnnotator
+        )
         url = self._url
         tag = feed.create_entry(work, url, None)
+
         nsmap = dict(schema='http://schema.org/')
         ratings = [(rating.get('{http://schema.org/}ratingValue'),
                     rating.get('{http://schema.org/}additionalType'))
@@ -336,7 +348,7 @@ class TestOPDS(DatabaseTest):
         cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
                                     lane, TestAnnotator, facets=facets)
         
-        u = cached_feed.content
+        u = unicode(cached_feed.content)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
@@ -403,6 +415,9 @@ class TestOPDS(DatabaseTest):
         work4.primary_edition.published = the_future
         work4.license_pools[0].availability_time = None
 
+        for w in work1, work2, work3, work4:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         with_times = AcquisitionFeed(
@@ -431,6 +446,8 @@ class TestOPDS(DatabaseTest):
         work2.primary_edition.publisher = None
 
         self._db.commit()
+        for w in work, work2:
+            w.calculate_opds_entries(verbose=False)
 
         works = self._db.query(Work)
         with_publisher = AcquisitionFeed(
@@ -450,6 +467,9 @@ class TestOPDS(DatabaseTest):
         work3.audience = None
 
         self._db.commit()
+
+        for w in work, work2, work3:
+            w.calculate_opds_entries(verbose=False)
 
         works = self._db.query(Work)
         with_audience = AcquisitionFeed(self._db, "test", "url", works)
@@ -489,6 +509,9 @@ class TestOPDS(DatabaseTest):
 
         work2 = self._work(with_open_access_download=True)
 
+        for w in work, work2:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
@@ -524,6 +547,9 @@ class TestOPDS(DatabaseTest):
         work3.genres = []
         work3.fiction = True
 
+        for w in work, work2, work3:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
@@ -547,6 +573,7 @@ class TestOPDS(DatabaseTest):
             [(x['term'], x['label']) for x in entries[2]['tags']
              if x['scheme'] == scheme]
         )
+
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):
         work = self._work(title="open access", with_open_access_download=True)
         no_license_pool = self._work(title="no license pool", with_license_pool=False)
@@ -571,21 +598,13 @@ class TestOPDS(DatabaseTest):
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.primary_edition.cover_full_url = "http://full/a"
 
-        old_config = Configuration.instance
-        new_config = dict(old_config)
-        # Clear out any default CDN settings
-        Configuration.instance = new_config
-        new_config['integrations'][Configuration.CDN_INTEGRATION] = {}
-        feed = AcquisitionFeed(
-            self._db, "title", "http://the-url/", 
-            [work],
-            TestAnnotator
-        )
-        feed = feedparser.parse(unicode(feed))
-        links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                     'image' in x['rel']])
-        eq_(['http://full/a', 'http://thumbnail/b'], links)
-        Configuration.instance = old_config
+        with temp_config() as config:
+            config['integrations'][Configuration.CDN_INTEGRATION] = {}
+            work.calculate_opds_entries(verbose=False)
+            feed = feedparser.parse(unicode(work.simple_opds_entry))
+            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
+                            'image' in x['rel']])
+            eq_(['http://full/a', 'http://thumbnail/b'], links)
 
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
@@ -629,6 +648,7 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
 
+        facets = Facets.default()
         pagination = Pagination(size=1)
 
         def make_page(pagination):
@@ -648,7 +668,7 @@ class TestOPDS(DatabaseTest):
         eq_(TestAnnotator.groups_url(None), start['href'])
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(pagination.next_page), next_link['href'])
+        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination.next_page), next_link['href'])
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
@@ -657,7 +677,7 @@ class TestOPDS(DatabaseTest):
         cached_works = make_page(pagination.next_page)
         parsed = feedparser.parse(cached_works.content)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(pagination), previous['href'])
+        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
 
@@ -708,10 +728,11 @@ class TestOPDS(DatabaseTest):
             # the top-level groups feed.
             [up_link] = self.links(parsed['feed'], 'up')
             eq_("http://groups/Fiction", up_link['href'])
+            eq_("Fiction", up_link['title'])
 
             [start_link] = self.links(parsed['feed'], 'start')
             eq_("http://groups/", start_link['href'])
-            eq_("Top-level groups", start_link['title'])
+            eq_("Collection Home", start_link['title'])
 
     def test_empty_groups_feed_is_none(self):
 
