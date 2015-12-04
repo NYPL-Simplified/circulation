@@ -322,29 +322,30 @@ class ComplaintController(object):
     def register(self, license_pool, raw_data):
 
         if license_pool is None:
-            return problem(None, "No license pool specified", 400)
+            return problem(None, 400, "No license pool specified")
 
         _db = Session.object_session(license_pool)
         try:
             data = json.loads(raw_data)
         except ValueError, e:
-            return problem(None, "Invalid problem detail document", 400)
+            return problem(None, 400, "Invalid problem detail document")
 
         type = data.get('type')
         source = data.get('source')
         detail = data.get('detail')
         if not type:
-            return problem(None, "No problem type specified.", 400)
+            return problem(None, 400, "No problem type specified.")
         if type not in Complaint.VALID_TYPES:
-            return problem(None, "Unrecognized problem type: %s" % type,
-                           400)
+            return problem(None, 400, "Unrecognized problem type: %s" % type)
 
         complaint = None
         try:
             complaint = Complaint.register(license_pool, type, source, detail)
             _db.commit()
         except ValueError, e:
-            return problem(None, "Error registering complaint: %s" % str(e), 400)
+            return problem(
+                None, 400, "Error registering complaint: %s" % str(e)
+            )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
         

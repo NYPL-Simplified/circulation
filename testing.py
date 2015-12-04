@@ -127,6 +127,7 @@ class DatabaseTest(object):
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5,
               primary_edition=None):
+        pool = None
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
@@ -151,10 +152,10 @@ class DatabaseTest(object):
                 with_open_access_download=with_open_access_download,
                 data_source_name=data_source_name
             )
+            if with_license_pool:
+                primary_edition, pool = primary_edition
         else:
             pool = primary_edition.license_pool
-        if with_license_pool:
-            primary_edition, pool = primary_edition
         if with_open_access_download:
             pool.open_access = True
             primary_edition.set_open_access_link()
