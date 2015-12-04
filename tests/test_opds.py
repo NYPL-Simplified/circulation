@@ -29,18 +29,22 @@ from ..core.opds import (
 )
 class TestOPDS(DatabaseTest):
 
-    def test_id_is_permalink(self):
+    def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
         self._db.commit()
 
         works = self._db.query(Work)
         annotator = CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+        pool = annotator.active_licensepool_for(w1)
+
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
-        pool = annotator.active_licensepool_for(w1)
+        eq_(entry['id'], pool.identifier.urn)
+
+        [alternate] = [x['href'] for x in entry['links'] if x['rel'] == 'alternate']
         permalink = annotator.permalink_for(w1, pool, pool.identifier)
-        eq_(entry['id'], permalink)
+        eq_(alternate, permalink)
 
     def test_acquisition_feed_includes_problem_reporting_link(self):
         w1 = self._work(with_open_access_download=True)

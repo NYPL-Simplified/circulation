@@ -61,7 +61,7 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lane_for_small_collection(self):
         lane = lane_for_small_collection(self._db, ['eng', 'spa', 'chi'])
-        eq_("English, Spanish, & Chinese", lane.name)
+        eq_("English, Spanish, & Chinese", lane.display_name)
         sublanes = lane.sublanes.lanes
         eq_(
             ['Adult Fiction', 'Adult Nonfiction', 'Children & Young Adult'],
@@ -103,7 +103,10 @@ class TestLaneCreation(DatabaseTest):
             # We have a set of top-level lanes for the large collections,
             # a top-level lane for each small collection, and a lane
             # for everything left over.
-            eq_(['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', 'Spanish', 'Chinese', 'Other Languages'],
+            eq_(['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', None, None, 'Other Languages'],
                 [x.name for x in lane_list.lanes]
             )
 
+            eq_(['Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', 'Spanish', 'Chinese', 'Other Languages'],
+                [x.display_name for x in lane_list.lanes]
+            )

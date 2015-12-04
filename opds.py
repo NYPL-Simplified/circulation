@@ -13,6 +13,7 @@ from core.opds import (
     opds_ns,
 )
 from core.model import (
+    Identifier,
     LicensePoolDeliveryMechanism,
     Session,
     BaseMaterializedWork,
@@ -87,8 +88,10 @@ class CirculationManagerAnnotator(Annotator):
             self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
     def permalink_for(self, work, license_pool, identifier):
+        if isinstance(identifier, Identifier):
+            identifier = identifier.identifier
         return self.url_for('work', data_source=license_pool.data_source.name,
-                       identifier=identifier.identifier, _external=True)
+                       identifier=identifier, _external=True)
 
     def groups_url(self, lane):
         lane_name, languages = self._lane_name_and_languages
@@ -175,20 +178,19 @@ class CirculationManagerAnnotator(Annotator):
             identifier_identifier = work.identifier
             data_source_name = work.name
         else:
-            identifier_identifier = active_license_pool.identifier.identifier
+            identifier_identifier = identifier.identifier
             data_source_name = active_license_pool.data_source.name
 
         # First, add a permalink.
         feed.add_link_to_entry(
             entry, 
             rel='alternate',
-            href=self.url_for(
-                'permalink', data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
+            href=self.permalink_for(
+                work, active_license_pool, identifier_identifier
+            )
         )
 
         # Add a link for reporting problems.
-        # First, add a permalink.
         feed.add_link_to_entry(
             entry, 
             rel='issues',
