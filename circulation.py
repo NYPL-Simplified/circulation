@@ -7,6 +7,7 @@ import logging
 
 from core.model import (
     get_one,
+    Identifier,
     DataSource,
     LicensePool,
     Loan,
@@ -509,6 +510,12 @@ class DummyCirculationAPI(CirculationAPI):
         self.responses = defaultdict(list)
         self.active_loans = []
         self.active_holds = []
+        self.identifier_type_to_data_source = {
+            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
+            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
+            Identifier.THREEM_ID: DataSource.THREEM,
+            Identifier.AXIS_360_ID: DataSource.AXIS_360,
+        }
 
     def queue_checkout(self, response):
         self._queue('checkout', response)
@@ -527,6 +534,15 @@ class DummyCirculationAPI(CirculationAPI):
 
     def _queue(self, k, v):
         self.responses[k].append(v)
+
+    def set_patron_activity(self, loans, holds):
+        self.active_loans = loans
+        self.active_holds = holds
+
+    def patron_activity(self, patron, pin):
+        # Should be a 2-tuple containing a list of LoanInfo and a
+        # list of HoldInfo.
+        return self.active_loans, self.active_holds
 
     def _return_or_raise(self, k):
         logging.debug(k)
@@ -565,11 +581,6 @@ class DummyCirculationAPI(CirculationAPI):
         def release_hold(self, patron, pin, licensepool):
             # Return value is not checked.
             return self.dummy._return_or_raise('release_hold')
-
-        def patron_activity(self, patron, pin):
-            # Should be a 2-tuple containing a list of LoanInfo and a
-            # list of HoldInfo.
-            return self.dummy.active_loans, self.dummy.active_holds
 
         def internal_format(self, delivery_mechanism):
             return delivery_mechanism

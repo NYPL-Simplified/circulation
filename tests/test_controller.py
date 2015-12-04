@@ -10,6 +10,7 @@ from ..config import (
     Configuration,
     temp_config,
 )
+from collections import Counter
 from ..controller import (
     CirculationManager,
     CirculationManagerController,
@@ -410,7 +411,79 @@ class TestLoanController(ControllerTest):
              eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
              eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
-             
+    def test_active_loans(self):
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+            assert not "<entry>" in response.data
+            assert response.headers['Cache-Control'].startswith('private,')
+
+        overdrive_edition, overdrive_pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID,
+            with_license_pool=True,
+        )
+        overdrive_book = self._work(
+            primary_edition=overdrive_edition,
+        )
+        overdrive_pool.open_access = False
+
+        threem_edition, threem_pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            primary_edition=threem_edition,
+        )
+        threem_pool.licenses_available = 0
+        threem_pool.open_access = False
+        
+        loan = LoanInfo(
+            overdrive_pool.identifier.type,
+            overdrive_pool.identifier.identifier,
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+        )
+        hold = HoldInfo(
+            threem_pool.identifier.type,
+            threem_pool.identifier.identifier,
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+            0,
+        )
+        self.manager.circulation.set_patron_activity([loan], [hold])
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            overdrive_entry = [entry for entry in entries if entry['title'] == overdrive_book.title][0]
+            threem_entry = [entry for entry in entries if entry['title'] == threem_book.title][0]
+
+            eq_(overdrive_entry['opds_availability']['status'], 'available')
+            eq_(threem_entry['opds_availability']['status'], 'ready')
+            
+            overdrive_links = overdrive_entry['links']
+            fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
+            revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
+            threem_links = threem_entry['links']
+            borrow_link = [x for x in threem_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
+            threem_revoke_links = [x for x in threem_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
+
+            assert "%s/%s/fulfill" % (overdrive_pool.data_source.name, overdrive_pool.identifier.identifier) in fulfill_link
+            assert "%s/%s/revoke" % (overdrive_pool.data_source.name, overdrive_pool.identifier.identifier) in revoke_link
+            assert "%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.identifier) in borrow_link
+            eq_(0, len(threem_revoke_links))
+
+
 class TestWorkController(ControllerTest):
 
     def test_permalink(self):
@@ -463,6 +536,32 @@ class TestFeedController(ControllerTest):
             assert self.english_2.title not in response.data
             assert self.french_1.title not in response.data
 
+    def test_multipage_feed(self):
+        self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?size=1"):
+            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            
+            eq_(1, len(entries))
+
+            links = feed['feed']['links']
+            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
+            facet_links = [x for x in links if x['rel'] == 'http://opds-spec.org/facet']
+            search_link = [x for x in links if x['rel'] == 'search'][0]['href']
+            shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
+            assert 'after=1' in next_link
+            assert 'size=1' in next_link
+
+            assert any('order=title' in x['href'] for x in facet_links)
+            assert any('order=author' in x['href'] for x in facet_links)
+
+            assert search_link.endswith('/search/eng/Adult%20Fiction')
+            assert shelf_link.endswith('/loans/')
+
+
     def test_groups(self):
         with temp_config() as config:
             config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = 10
@@ -475,12 +574,19 @@ class TestFeedController(ControllerTest):
         
             SessionManager.refresh_materialized_views(self._db)
             with self.app.test_request_context("/"):
-                #AcquisitionFeed.groups(self._db, "All Books", "", self.manager, CirculationManagerAnnotator(self.manager.circulation, self.manager), force_refresh=True)
                 response = self.manager.opds_feeds.groups(None, None)
 
-                set_trace()
-                pass
+                feed = feedparser.parse(response.data)
+                entries = feed['entries']
+                
+                counter = Counter()
+                for entry in entries:
+                    links = [x for x in entry.links if x['rel'] == 'collection']
+                    for link in links:
+                        counter[link['title']] += 1
+
+                eq_(2, counter['Nonfiction'])
+                eq_(2, counter['Fiction'])
+                eq_(1, counter['Other Languages'])
         
-        
-        
-        
+

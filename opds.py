@@ -32,17 +32,18 @@ class CirculationManagerAnnotator(Annotator):
     @property
     def _lane_name_and_languages(self):
         if isinstance(self.lane, Lane):
-            lane_name = self.lane.name
-            languages = self.lane.languages
+            lane_name = self.lane.url_name
+            languages = self.lane.language_key
         else:
             lane_name = None
             languages = None
         return (lane_name, languages)
 
-    def facet_url(self, order):
+    def facet_url(self, facets):
         lane_name, languages = self._lane_name_and_languages
+        kwargs = dict(facets.items())
         return cdn_url_for(
-            self.facet_view, lane_name=lane_name, languages=languages, order=order, _external=True)
+            self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
     def permalink_for(self, work, license_pool, identifier):
         return url_for('work', data_source=license_pool.data_source.name,
@@ -87,6 +88,7 @@ class CirculationManagerAnnotator(Annotator):
             return None, ""
 
         lanes = self.lanes_by_work[work]
+
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
@@ -98,26 +100,29 @@ class CirculationManagerAnnotator(Annotator):
         self.lanes_by_work[work] = lanes[1:]
         lane_name = None
         show_feed = False
-        if isinstance(lane, tuple):
-            lane, lane_name = lane
-        elif isinstance(lane, dict):
+        if isinstance(lane, dict):
             show_feed = lane.get('link_to_list_feed', show_feed)
-            lane_name = lane.get('label', lane_name)
+            title = lane.get('label', lane_name)
             lane = lane['lane']
-        lane_name = lane_name or lane.display_name
-
         if isinstance(lane, basestring):
             return lane, lane_name
+
+        lane_name = lane_name or lane.url_name
+        if isinstance(lane, Lane):
+            languages = lane.language_key
+            title = lane.display_name
+        else:
+            languages = None
 
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
-        # books in the lane by author.
+        # books in the lane by author.        
         if lane.sublanes and not show_feed:
-            url = cdn_url_for('acquisition_groups', languages=lane.languages, lane_name=lane.url_name, _external=True)
+            url = cdn_url_for('acquisition_groups', languages=languages, lane_name=lane_name, _external=True)
         else:
-            url = cdn_url_for('feed', languages=lane.languages, lane_name=lane.url_name, order='author', _external=True)
-        return url, lane_name
+            url = cdn_url_for('feed', languages=languages, lane_name=lane_name, order='author', _external=True)
+        return url, title
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
@@ -159,11 +164,51 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
+    def annotate_feed(self, feed, lane):
+        # Add a 'search' link.
+        if isinstance(lane, Lane):
+            lane_name = lane.url_name
+            languages = lane.language_key
+        else:
+            lane_name = 'All Books'
+            languages = None
+
+        search_link = dict(
+            rel="search",
+            type="application/opensearchdescription+xml",
+            href=url_for('lane_search', languages=languages, lane_name=lane_name, _external=True))
+        feed.add_link(**search_link)
+
+        shelf_link = dict(
+            rel="http://opds-spec.org/shelf",
+            type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            href=url_for('active_loans', _external=True))
+        feed.add_link(**shelf_link)
+
+        self.add_configuration_links(feed)
+
+    @classmethod
+    def add_configuration_links(cls, feed):
+        for rel, value in (
+                ("terms-of-service", Configuration.terms_of_service_url()),
+                ("privacy-policy", Configuration.privacy_policy_url()),
+                ("copyright", Configuration.acknowledgements_url()),
+        ):
+            if value:
+                d = dict(href=value, type="text/html", rel=rel)
+                if isinstance(feed, OPDSFeed):
+                    feed.add_link(**d)
+                else:
+                    # This is an ElementTree object.
+                    link = E.link(**d)
+                    feed.append(link)
+
+
     def acquisition_links(self, active_license_pool, active_loan, active_hold,
                           feed, data_source_name, identifier_identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
 
-        links = []
+        revoke_links = []
 
         can_borrow = False
         can_fulfill = False
@@ -201,7 +246,7 @@ class CirculationManagerAnnotator(Annotator):
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
             revoke_link_tag = E._makeelement("link", **kw)
-            links.append(revoke_link_tag)
+            revoke_links.append(revoke_link_tag)
 
         # Add next-step information for every useful delivery
         # mechanism.
@@ -285,7 +330,7 @@ class CirculationManagerAnnotator(Annotator):
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
 
-        return [x for x in borrow_links + fulfill_links + open_access_links
+        return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
                 if x is not None]
 
     def borrow_link(self, data_source_name, identifier_identifier,

@@ -408,23 +408,6 @@ class CirculationManagerController(object):
             )        
         return None
 
-    @classmethod
-    def add_configuration_links(cls, feed):
-        for rel, value in (
-                ("terms-of-service", Configuration.terms_of_service_url()),
-                ("privacy-policy", Configuration.privacy_policy_url()),
-                ("copyright", Configuration.acknowledgements_url()),
-        ):
-            if value:
-                d = dict(href=value, type="text/html", rel=rel)
-                if isinstance(feed, OPDSFeed):
-                    feed.add_link(**d)
-                else:
-                    # This is an ElementTree object.
-                    link = E.link(**d)
-                    feed.append(link)
-
-
 class IndexController(CirculationManagerController):
     """Redirect the patron to the appropriate feed."""
 
@@ -895,18 +878,3 @@ class ServiceStatusController(CirculationManagerController):
 
         doc = template % dict(statuses="\n".join(statuses))
         return make_response(doc, 200, {"Content-Type": "text/html"})
-
-
-# TODO: the feeds generated for lanes need to have search links, like so.
-# This should probably go into the Annotator.
-    # # Add a 'search' link.
-    # search_link = dict(
-    #     rel="search",
-    #     type="application/opensearchdescription+xml",
-    #     href=self.url_for('lane_search', lane_name=lane.name, _external=True))
-    # opds_feed.add_link(**search_link)
-    # add_configuration_links(opds_feed)
-    # return (200,
-    #         {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}, 
-    #         unicode(opds_feed),
-    #     )
