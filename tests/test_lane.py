@@ -22,6 +22,7 @@ from lane import (
     Pagination,
     Lane,
     LaneList,
+    UndefinedLane,
 )
 
 from config import (
@@ -246,18 +247,18 @@ class TestLanes(DatabaseTest):
 
     def test_nonexistent_list_raises_exception(self):
         assert_raises(
-            ValueError, Lane, self._db, 
-            "This Will Fail", list_identifier="No Such List"
+            UndefinedLane, Lane, self._db, 
+            u"This Will Fail", list_identifier=u"No Such List"
         )
 
     def test_staff_picks_and_best_sellers_sublane(self):
         staff_picks, ignore = self._customlist(
-            foreign_identifier="Staff Picks", name="Staff Picks!", 
+            foreign_identifier=u"Staff Picks", name=u"Staff Picks!", 
             data_source_name=DataSource.LIBRARY_STAFF,
             num_entries=0
         )
         best_sellers, ignore = self._customlist(
-            foreign_identifier="NYT Best Sellers", name="Best Sellers!", 
+            foreign_identifier=u"NYT Best Sellers", name=u"Best Sellers!", 
             data_source_name=DataSource.NYT,
             num_entries=0
         )
@@ -313,7 +314,7 @@ class TestLanes(DatabaseTest):
         # Fantasy and history have conflicting fiction defaults, so
         # although we can make a lane that contains both, we can't
         # have it use the default value.
-        assert_raises(ValueError, Lane.gather_matching_genres,
+        assert_raises(UndefinedLane, Lane.gather_matching_genres,
             [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
         )
 
@@ -371,7 +372,7 @@ class TestLanes(DatabaseTest):
         urban_fantasy_lane = Lane(
             self._db, "Urban Fantasy", genres=urban_fantasy)
 
-        assert_raises(ValueError, Lane,
+        assert_raises(UndefinedLane, Lane,
             self._db, "Fantasy", fantasy, 
             genres=fantasy,
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
@@ -422,7 +423,7 @@ class TestLanesQuery(DatabaseTest):
             # Childrens and YA books need to be attached to a data
             # source other than Gutenberg, or they'll get filtered
             # out.
-            ya_edition = self._edition(
+            ya_edition, lp = self._edition(
                 title="%s YA" % genre.name,                 
                 data_source_name=DataSource.OVERDRIVE,
                 with_license_pool=True
@@ -437,7 +438,7 @@ class TestLanesQuery(DatabaseTest):
             self.ya_works[genre] = ya_work
             ya_work.simple_opds_entry = '<entry>'
 
-            childrens_edition = self._edition(
+            childrens_edition, lp = self._edition(
                 title="%s Childrens" % genre.name,
                 data_source_name=DataSource.OVERDRIVE, with_license_pool=True
             )

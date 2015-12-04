@@ -596,8 +596,8 @@ class TestOPDS(DatabaseTest):
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
             config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
-            feed = AcquisitionFeed(self._db, "", "", [work])
-            feed = feedparser.parse(unicode(feed))
+            work.calculate_opds_entries(verbose=False)
+            feed = feedparser.parse(work.simple_opds_entry)
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
             eq_(['http://foo/a', 'http://foo/b'], links)

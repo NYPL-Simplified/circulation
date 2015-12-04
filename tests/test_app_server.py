@@ -114,7 +114,6 @@ class TestComplaintController(DatabaseTest):
     def test_no_license_pool(self):
         with self.app.test_request_context("/"):
             response = self.controller.register(None, "{}")
-        set_trace()
         assert response.status.startswith('400')
         body = json.loads(response.data)
         eq_("No license pool specified", body['title'])

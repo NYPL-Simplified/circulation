@@ -8,7 +8,7 @@ from . import (
 )
 
 def problem_raw(type, status, title, detail=None, instance=None, headers={}):
-    data = problem_detail.json(type, status, title detail, instance)
+    data = problem_detail.json(type, status, title, detail, instance)
     final_headers = { "Content-Type" : problem_detail.JSON_MEDIA_TYPE }
     final_headers.update(headers)
     return status, final_headers, data
