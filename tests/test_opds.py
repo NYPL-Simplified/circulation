@@ -172,7 +172,6 @@ class TestAnnotators(DatabaseTest):
         c.wikipedia_name = "Givenname Familyname (Author)"
         c.viaf = "100"
         c.lc = "n100"
-        work.calculate_opds_entries(verbose=True)
 
         author_tag = VerboseAnnotator.detailed_author(c)
 
