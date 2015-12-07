@@ -4632,7 +4632,7 @@ class CachedFeed(Base):
         feed, is_new = get_one_or_create(
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
-            type=CachedFeed.GROUPS_TYPE,
+            type=type,
             languages=languages_key,
             facets=facets_key,
             pagination=pagination_key,

@@ -144,6 +144,19 @@ class Facets(object):
             yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
     @property
+    def depth(self):
+        """How deep is this lane in this site's hierarchy?
+
+        i.e. how many times do we have to follow .parent before we get None?
+        """
+        depth = 0
+        tmp = self
+        while tmp.parent:
+            depth += 1
+            tmp = tmp.parent
+        return depth
+
+    @property
     def query_string(self):
         return "&".join("=".join(x) for x in self.items())
 
