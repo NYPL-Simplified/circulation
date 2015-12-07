@@ -3684,6 +3684,14 @@ class Work(Base):
         #         classification_desc.append(
         #             dict(scheme=Work.APPEALS_URI, term=term,
         #                  weight=weight))
+
+        if self.target_age:
+            doc['target_age'] = {}
+            if self.target_age.lower:
+                doc['target_age']['lower'] = self.target_age.lower
+            if self.target_age.upper:
+                doc['target_age']['upper'] = self.target_age.upper
+
         return doc
 
     @classmethod

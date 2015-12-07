@@ -1055,7 +1055,7 @@ class Lane(object):
             try:
                 docs = search_client.query_works(
                     query, self.media, self.languages, self.exclude_languages,
-                    fiction, list(self.audiences),
+                    fiction, list(self.audiences), self.age_range,
                     self.genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
@@ -1093,6 +1093,7 @@ class Lane(object):
                     )
 
         if not results:
+            logging.debug("No elasticsearch results, falling back to database query")
             results = self._search_database(query).limit(limit)
         return results
 

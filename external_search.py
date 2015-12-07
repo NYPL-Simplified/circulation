@@ -25,7 +25,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.indices.create(self.works_index)
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
-                    in_any_of_these_genres=[], fields=None, limit=30):
+                    age_range, in_any_of_these_genres=[], fields=None, limit=30):
         if not self.works_index:
             return []
         q = dict(
@@ -33,7 +33,7 @@ class ExternalSearchIndex(Elasticsearch):
                 query=self.make_query(query_string),
                 filter=self.make_filter(
                     media, languages, exclude_languages, fiction, audience,
-                    in_any_of_these_genres),
+                    age_range, in_any_of_these_genres),
             ),
         )
         body = dict(query=q)
@@ -66,7 +66,7 @@ class ExternalSearchIndex(Elasticsearch):
                               should=[should_multi_match]),
         )
 
-    def make_filter(self, media, languages, exclude_languages, fiction, audience, genres):
+    def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
                 return s
@@ -90,6 +90,17 @@ class ExternalSearchIndex(Elasticsearch):
             if isinstance(audience, list):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
+        if age_range:
+            lower = age_range[0]
+            upper = age_range[-1]
+
+            age_clause = {
+                "and": [
+                    {"range": {"target_age.upper": {"gte": lower}}},
+                    {"range": {"target_age.lower": {"lte": upper}}},
+                ]
+            }
+            clauses.append(age_clause)
         if len(clauses) > 0:
             return {'and': clauses}
         else:
