@@ -27,11 +27,16 @@ class ProblemDetail(object):
         self.detail = detail
         self.instance = instance
 
+    @property
     def response(self):
-        """Create a Flask response."""
-        return json(
-            self.uri, self.status_code, self.title, self.detail, 
-            instance
+        """Create a Flask-style response."""
+        return (
+            json(
+                self.uri, self.status_code, self.title, self.detail, 
+                self.instance
+            ),
+            self.status_code,
+            { "Content-Type": "application/api-problem+json"}
         )
 
     def detailed(self, detail, status_code=None, title=None, instance=None):
