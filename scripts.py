@@ -244,21 +244,6 @@ class ContentOPDSImporter(BaseOPDSImporter):
             _db, feed, overwrite_rels=self.OVERWRITE_RELS)
 
 
-class StandaloneApplicationConf(object):
-    """A fake application config object.
-
-    This lets us pretend to be a running application and generate
-    the URLs the application would generate.
-    """
-
-    def __init__(self, _db):
-        self.db = _db
-        self.parent = None
-        self.sublanes = make_lanes(self.db)
-        self.name = None
-        self.display_name = None
-        self.url_name = None
-
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
@@ -271,19 +256,6 @@ class LaneSweeperScript(Script):
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
         )
-        #old_testing = os.environ.get('TESTING')
-        # TODO: An awful hack to prevent the database from being
-        # initialized twice.
-        #os.environ['TESTING'] = 'True'
-        #import app
-        #app.Conf.db = self._db
-        #if old_testing:
-        #    os.environ['TESTING'] = old_testing
-        #else:
-        #    del os.environ['TESTING']
-        #app.Conf.testing = False
-        #app.Conf.initialize()
-        #self.app = app
 
     def run(self):
         begin = time.time()
@@ -316,6 +288,22 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     name = "Cache one representation per lane"
 
+    def __init__(self, max_depth=None):
+        self.max_depth = max_depth
+        super(CacheRepresentationPerLane, self).__init__()
+
+    def should_process_lane(self, lane):
+        if lane.name is None:
+            return False
+            
+        if lane.parent is None and not isinstance(lane, Lane):
+            return False
+
+        if self.max_depth and lane.depth > self.max_depth:
+            return False
+
+        return True
+
     def cache_url(self, annotator, lane, languages):
         raise NotImplementedError()
 
@@ -331,34 +319,29 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     def process_lane(self, lane):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
-        self.log.debug("Generating %s.", cache_url)       
-        feed_rep = do_generate(max_age)
+        lane_key = "%s/%s" % (lane.language_key, lane.name)
+        self.log.debug(
+            "Generating feed(s) for %s", lane_key
+        )
+        cached_feeds = self.do_generate(lane)
         b = time.time()
-        if feed_rep.content:
-            content_bytes = len(feed_rep)
-        else:
-            content_bytes = 0
-        self.log.info("Generated %s. Took %.2fsec to make %d bytes.",
-            cache_url, (b-a), content_bytes)
+        if not isinstance(cached_feeds, list):
+            cached_feeds = [cached_feeds]
+        total_size = sum(len(x.content) for x in cached_feeds)
+        self.log.debug(
+            "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
+            len(cached_feeds), lane_key, (b-a), total_size
+        )
 
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
 
     name = "Cache first two pages of every facet list for each lane"
 
-    def should_process_lane(self, lane):
-        if lane.name is None:
-            return False
-            
-        if lane.parent is None and not isinstance(lane, Lane):
-            return False
-        return True
-
-    def process_lane(self, lane):
+    def do_generate(self, lane):
+        feeds = []
         annotator = self.app.manager.annotator(lane)
-        set_trace()
         for sort_order in ('title', 'author'):
-            self.last_work_seen = None
             pagination = Pagination.default()
             facets = Facets(
                 collection=None, availability=None, order=sort_order,
@@ -369,57 +352,39 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                 "feed", languages=lane.language_key, lane_name=lane.name
             )
             for pagenum in (0, 2):
-                AcquisitionFeed.page(
-                    self._db, title, url, lane, annotator, 
-                    facets=facets, pagination=pagination,
+                feeds.append(
+                    AcquisitionFeed.page(
+                        self._db, title, url, lane, annotator, 
+                        facets=facets, pagination=pagination,
                     force_refresh=True
+                    )
                 )
                 pagination = pagination.next_page
+        return feeds
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
-    name = "Cache opds group feed for each lane"
+    name = "Cache OPDS group feed for each lane"
 
     def should_process_lane(self, lane):
         # OPDS group feeds are only generated for lanes that have sublanes.
-        return lane.sublanes
+        if not lane.sublanes:
+            return False
+        if self.max_depth and lane.depth > self.max_depth:
+            return False
+        return True
 
-    def cache_url(self, annotator, lane, languages):
-        return self.app.acquisition_groups_cache_url(annotator, lane, languages)
-
-    def make_get_method(self, annotator, lane, languages):
-        def get_method(*args, **kwargs):
-            return self.app.make_acquisition_groups(annotator, lane, languages)
-        return get_method
-
-
-class CacheTopLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
-    """Refresh the cache of top-level OPDS groups.
-
-    These are frequently accessed, so should be updated more often.
-    """
-
-    name = "Cache top-level OPDS group feeds"
-
-    def should_process_lane(self, lane):
-        # Only handle the top-level lanes
-        return (super(
-            CacheTopLevelOPDSGroupFeeds, self).should_process_lane(lane) 
-                and not lane.parent)
-
-
-class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
-    """Refresh the cache of lower-level OPDS groups.
-
-    These are less frequently accessed, so can be updated less often.
-    """
-    name = "Cache low-level OPDS group feeds"
-
-    def should_process_lane(self, lane):
-        # Only handle the lower-level lanes
-        return (super(
-            CacheLowLevelOPDSGroupFeeds, self).should_process_lane(lane) 
-                and lane.parent)
+    def do_generate(self, lane):
+        feeds = []
+        annotator = self.app.manager.annotator(lane)
+        title = lane.display_name
+        url = self.app.manager.cdn_url_for(
+            "groups", languages=lane.language_key, lane_name=lane.name 
+        )
+        return AcquisitionFeed.groups(
+            self._db, title, url, lane, annotator,
+            force_refresh=True
+        )
 
 
 class UpdateMetadata(Script):

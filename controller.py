@@ -100,6 +100,7 @@ class CirculationManager(object):
     include_all_feed = False
     url_name = None
     parent = None
+    language_key = ""
 
     def __init__(self, _db=None, lanes=None, testing=False):
 
