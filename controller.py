@@ -113,7 +113,7 @@ class CirculationManager(object):
             self.log.error("Could not load configuration file: %s" % e)
             sys.exit()
 
-        if _db is None and not self.testing:
+        if _db is None and not testing:
             _db = production_session()
         self._db = _db
 
