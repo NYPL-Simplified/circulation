@@ -24,7 +24,7 @@ class ExternalSearchIndex(Elasticsearch):
             self.log.info("Creating index %s", self.works_index)
             self.indices.create(self.works_index)
 
-    def query_works(self, query_string, medium, languages, fiction, audience,
+    def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     in_any_of_these_genres=[], fields=None, limit=30):
         if not self.works_index:
             return []
@@ -32,20 +32,20 @@ class ExternalSearchIndex(Elasticsearch):
             filtered=dict(
                 query=self.make_query(query_string),
                 filter=self.make_filter(
-                    medium, languages, fiction, audience,
+                    media, languages, exclude_languages, fiction, audience,
                     in_any_of_these_genres),
             ),
         )
         body = dict(query=q)
-        args = dict(
+        search_args = dict(
             index=self.works_index,
             body=dict(query=q),
             size=limit,
         )
         if fields is not None:
-            args['fields'] = fields
+            search_args['fields'] = fields
         #print "Args looks like: %r" % args
-        results = self.search(**args)
+        results = self.search(**search_args)
         #print "Results: %r" % results
         return results
 
@@ -66,7 +66,7 @@ class ExternalSearchIndex(Elasticsearch):
                               should=[should_multi_match]),
         )
 
-    def make_filter(self, medium, languages, fiction, audience, genres):
+    def make_filter(self, media, languages, exclude_languages, fiction, audience, genres):
         def _f(s):
             if not s:
                 return s
@@ -75,19 +75,25 @@ class ExternalSearchIndex(Elasticsearch):
         clauses = []
         if languages:
             clauses.append(dict(terms=dict(language=languages)))
+        if exclude_languages:
+            clauses.append({'not': dict(terms=dict(language=exclude_languages))})
         if genres:
             genre_ids = [genre.id for genre in genres]
-            clauses.append(dict(terms={"classifications.term" : genre_ids}))
-        if medium:
-            clauses.append(dict(term=dict(medium=_f(medium))))
+            clauses.append(dict(terms={"classifications.term": genre_ids}))
+        if media:
+            media = [_f(medium) for medium in media]
+            clauses.append(dict(terms=dict(medium=media)))
         if fiction is not None:
             value = "fiction" if fiction == True else "nonfiction"
             clauses.append(dict(term=dict(fiction=value)))
         if audience:
             if isinstance(audience, list):
                 audience = [_f(aud) for aud in audience]
-            clauses.append(dict(term=dict(audience=audience)))
-        return {"and" :clauses}
+                clauses.append(dict(terms=dict(audience=audience)))
+        if len(clauses) > 0:
+            return {'and': clauses}
+        else:
+            return {}
 
 
 class DummyExternalSearchIndex(object):

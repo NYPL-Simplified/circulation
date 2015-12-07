@@ -38,6 +38,8 @@ from model import (
     WorkGenre,
 )
 
+import elasticsearch
+
 class Facets(object):
 
     # Subset the collection, roughly, by quality.
@@ -1053,8 +1055,8 @@ class Lane(object):
             try:
                 docs = search_client.query_works(
                     query, self.media, self.languages, self.exclude_languages,
-                    fiction, self.audiences,
-                    self.all_matching_genres,
+                    fiction, list(self.audiences),
+                    self.genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
                 )

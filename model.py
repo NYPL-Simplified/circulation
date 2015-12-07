@@ -209,6 +209,12 @@ class SessionManager(object):
                 primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
+            def __repr__(self):
+                return (u'%s "%s" (%s) %s' % (
+                    self.works_id, self.sort_title, self.sort_author, self.language,
+                    )).encode("utf8")
+
+
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
