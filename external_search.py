@@ -90,7 +90,7 @@ class ExternalSearchIndex(Elasticsearch):
         if audience:
             if isinstance(audience, list):
                 audience = [_f(aud) for aud in audience]
-            clauses.append(dict(term=dict(audience=audience)))
+                clauses.append({'or': [dict(term=dict(audience=aud)) for aud in audience]})
         if len(clauses) > 0:
             return {'and': clauses}
         else:
