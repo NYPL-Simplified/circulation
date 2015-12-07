@@ -260,10 +260,12 @@ def lane_for_small_collection(_db, languages):
     )
 
     name = LanguageCodes.name_for_languageset(languages)
-    return Lane(
+    lane = Lane(
         _db, full_name=None, display_name=name, languages=languages, 
         sublanes=[adult_fiction, adult_nonfiction, ya_children]
     )
+    lane.default_for_language = True
+    return lane
 
 def lane_for_other_languages(_db, exclude_languages):
     """Make a lane for all books not in one of the given languages."""
@@ -300,9 +302,11 @@ def lane_for_other_languages(_db, exclude_languages):
         **common_args
     )
 
-    return Lane(
+    lane = Lane(
         _db, 
         full_name="Other Languages", 
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
         **common_args
     )
+    lane.default_for_language = True
+    return lane

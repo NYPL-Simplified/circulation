@@ -329,6 +329,12 @@ class CirculationManagerController(object):
 
         lanes = self.manager.sublanes.by_languages[language_key]
 
+        if not name:
+            defaults = [x for x in lanes.values() if x.default_for_language]
+            if len(defaults) == 1:
+                # This language has one, and only one, default lane.
+                return defaults[0]
+
         if name not in lanes:
             return NO_SUCH_LANE.detailed(
                 "No such lane: %s" % name
