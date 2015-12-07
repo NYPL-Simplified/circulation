@@ -219,6 +219,12 @@ class CirculationManager(object):
             self.adobe_vendor_id = None
 
 
+    def annotator(self, lane, *args, **kwargs):
+        """Create an appropriate OPDS annotator for the given lane."""
+        return CirculationManagerAnnotator(
+            self.circulation, lane, *args, **kwargs
+        )
+
     def create_authentication_document(self):
         """Create the OPDS authentication document to be used when
         there's a 401 error.
@@ -472,7 +478,7 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = CirculationManagerAnnotator(self.circulation, lane)
+        annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
         return feed_response(feed.content)
 
@@ -487,7 +493,7 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = CirculationManagerAnnotator(self.circulation, lane)
+        annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
             facets=self.load_facets_from_request(),
@@ -506,7 +512,7 @@ class OPDSFeedController(CirculationManagerController):
         # Run a search.    
         results = lane.search(languages, query, self.manager.search, 30)
         info = OpenSearchDocument.search_info(lane)
-        annotator = CirculationManagerAnnotator(self.circulation, lane)
+        annotator = self.manager.annotator(lane)
         opds_feed = AcquisitionFeed(
             self._db, info['name'], 
             this_url + "?q=" + urllib.quote(query.encode("utf8")),
@@ -731,7 +737,7 @@ class LoanController(CirculationManagerController):
                 return CANNOT_RELEASE_HOLD.detailed(title, 500)
 
         work = pool.work
-        annotator = CirculationManagerAnnotator(self.circulation, None)
+        annotator = self.manager.annotator(None)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
@@ -780,7 +786,7 @@ class WorkController(CirculationManagerController):
         """
         pool = self.load_licensepool(data_source, identifier)
         work = pool.work
-        annotator = CirculationManagerAnnotator(self.circulation, None)
+        annotator = self.manager.annotator(None)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )

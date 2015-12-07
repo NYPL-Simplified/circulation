@@ -16,7 +16,9 @@ from sqlalchemy.orm import (
 from psycopg2.extras import NumericRange
 
 from lanes import make_lanes
+from controller import CirculationManager
 from core import log
+from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
     Contribution,
@@ -25,13 +27,16 @@ from core.model import (
     Edition,
     Hyperlink,
     Identifier,
-    Lane,
     LicensePool,
     Representation,
     Subject,
     Work,
 )
 from core.scripts import Script as CoreScript
+from core.lane import (
+    Pagination,
+    Facets,
+)
 from config import Configuration
 from core.opds_import import (
     SimplifiedOPDSLookup,
@@ -257,31 +262,35 @@ class StandaloneApplicationConf(object):
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
-    def __init__(self, languages=None):
-        self.conf = StandaloneApplicationConf(self._db)
+    def __init__(self):
+        os.environ['AUTOINITIALIZE'] = "False"
+        from app import app
+        del os.environ['AUTOINITIALIZE']
+        app.manager = CirculationManager(self._db)
+        self.app = app
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
         )
-        old_testing = os.environ.get('TESTING')
+        #old_testing = os.environ.get('TESTING')
         # TODO: An awful hack to prevent the database from being
         # initialized twice.
-        os.environ['TESTING'] = 'True'
-        import app
-        app.Conf.db = self._db
-        if old_testing:
-            os.environ['TESTING'] = old_testing
-        else:
-            del os.environ['TESTING']
-        app.Conf.testing = False
-        app.Conf.initialize()
-        self.app = app
+        #os.environ['TESTING'] = 'True'
+        #import app
+        #app.Conf.db = self._db
+        #if old_testing:
+        #    os.environ['TESTING'] = old_testing
+        #else:
+        #    del os.environ['TESTING']
+        #app.Conf.testing = False
+        #app.Conf.initialize()
+        #self.app = app
 
     def run(self):
         begin = time.time()
-        client = self.app.app.test_client()
-        ctx = self.app.app.test_request_context(base_url=self.base_url)
+        client = self.app.test_client()
+        ctx = self.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = [self.conf]
+        queue = [self.app.manager]
         while queue:
             new_queue = []
             self.log.debug("Beginning of loop: %d lanes to process", len(queue))
@@ -320,7 +329,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     cache_url_method = None
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane)
+        annotator = self.app.manager.annotator(lane)
         a = time.time()
         self.log.debug("Generating %s.", cache_url)       
         feed_rep = do_generate(max_age)
@@ -346,20 +355,26 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         return True
 
     def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane)
-        size = 50
-        for languages in self.languages:
-            for facet in ('title', 'author'):
-                self.last_work_seen = None
-                for offset in (0, size):
-                    url = self.app.feed_cache_url(
-                        lane, languages, facet, offset, size)
-                    def get_method(*args, **kwargs):
-                        return self.app.make_feed(
-                            self._db, annotator, lane, languages, facet,
-                            offset, size)
-                    self.generate_feed(url, get_method, 10*60)
-
+        annotator = self.app.manager.annotator(lane)
+        set_trace()
+        for sort_order in ('title', 'author'):
+            self.last_work_seen = None
+            pagination = Pagination.default()
+            facets = Facets(
+                collection=None, availability=None, order=sort_order,
+                 order_ascending=True
+            )
+            title = lane.display_name
+            url = self.app.manager.cdn_url_for(
+                "feed", languages=lane.language_key, lane_name=lane.name
+            )
+            for pagenum in (0, 2):
+                AcquisitionFeed.page(
+                    self._db, title, url, lane, annotator, 
+                    facets=facets, pagination=pagination,
+                    force_refresh=True
+                )
+                pagination = pagination.next_page
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
@@ -405,89 +420,6 @@ class CacheLowLevelOPDSGroupFeeds(CacheOPDSGroupFeedPerLane):
         return (super(
             CacheLowLevelOPDSGroupFeeds, self).should_process_lane(lane) 
                 and lane.parent)
-
-
-class CacheBestSellerFeeds(CacheRepresentationPerLane):
-    """Cache the complete feed of best-sellers for each top-level lane."""
-
-    name = "Cache best-seller feeds"
-
-    def cache_url(self, annotator, lane, languages):
-        return self.app.popular_feed_cache_url(annotator, lane, languages)
-
-    def make_get_method(self, annotator, lane, languages):
-        def get_method(*args, **kwargs):
-            return self.app.make_popular_feed(self._db, annotator, lane, languages)
-        return get_method
-
-    def should_process_lane(self, lane):
-        # Only process the top-level lanes.
-        return not lane.parent
-
-    def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(
-            None, lane, facet_view='popular_feed'
-        )
-        max_size = 200
-        page_size = 50
-        if lane:
-            lane_name = lane.name
-        else:
-            lane_name = None
-        for language_set in self.languages:
-            if isinstance(language_set, basestring):
-                language_set = [language_set]
-            match = any(l in AcquisitionFeed.BEST_SELLER_LANGUAGES 
-                        for l in language_set
-            )
-            if not match:
-                continue
-
-            for facet in ('title', 'author'):
-                for offset in range(0, max_size, page_size):
-                    url = self.app.popular_feed_cache_url(
-                        annotator, lane_name, language_set, facet, offset, 
-                        page_size
-                    )
-                    def get_method(*args, **kwargs):
-                        return self.app.make_popular_feed(
-                            self._db, annotator, lane, language_set, facet,
-                            offset, page_size)
-                    self.generate_feed(url, get_method, 10*60)
-
-
-class CacheStaffPicksFeeds(CacheRepresentationPerLane):
-    """Cache the complete feed of staff picks for each top-level lane."""
-
-    name = "Cache staff picks feeds"
-
-    PRIMARY_COLLECTIONS = [[x] for x in AcquisitionFeed.STAFF_PICKS_LANGUAGES]
-    OTHER_COLLECTIONS = []
-
-    def process_lane(self, lane):
-        annotator = CirculationManagerAnnotator(None, lane, facet_view='staff_picks_feed')
-        max_size = 200
-        page_size = 50
-        if lane:
-            lane_name = lane.name
-        else:
-            lane_name = None
-        for languages in self.languages:
-            for facet in ('title', 'author'):
-                for offset in range(0, max_size, page_size):
-                    url = self.app.staff_picks_feed_cache_url(
-                        annotator, lane_name, languages, facet, offset, 
-                        page_size
-                    )
-                    def get_method(*args, **kwargs):
-                        return self.app.make_staff_picks_feed(
-                            self._db, annotator, lane, languages, facet,
-                            offset, page_size)
-                    self.generate_feed(url, get_method, 10*60)
-
-    def should_process_lane(self, lane):
-        # Only process the top-level lanes.
-        return not lane.parent
 
 
 class UpdateMetadata(Script):

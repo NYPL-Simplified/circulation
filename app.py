@@ -28,9 +28,10 @@ logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
 
-if os.environ.get('TESTING') == "True":
+if os.environ.get('AUTOINITIALIZE') == "False":
     pass
-    # It's the test's responsibility to set the manager object
+    # It's the responsibility of the importing code to set app.manager
+    # appropriately.
 else:
     app.manager.testing = False
     Conf.initialize()

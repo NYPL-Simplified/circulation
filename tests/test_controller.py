@@ -67,9 +67,9 @@ class ControllerTest(DatabaseTest):
     def setup(self):
         super(ControllerTest, self).setup()
 
-        os.environ['TESTING'] = "True"
+        os.environ['AUTOINITIALIZE'] = "False"
         from ..app import app
-        del os.environ['TESTING']
+        del os.environ['AUTOINITIALIZE']
         self.app = app
 
         # Create two English books and a French book.

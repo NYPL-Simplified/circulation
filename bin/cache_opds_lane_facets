@@ -8,4 +8,4 @@ sys.path.append(os.path.abspath(package_dir))
 from scripts import (
      CacheFacetListsPerLane
 )
-CacheFacetListsPerLane(CacheFacetListsPerLane.OTHER_COLLECTIONS).run()
+CacheFacetListsPerLane().run()
