@@ -143,6 +143,9 @@ class SessionManager(object):
         MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
     }
 
+
+    engine_for_url = {}
+
     @classmethod
     def engine(cls, url=None):
         url = url or Configuration.database_url()
@@ -150,6 +153,10 @@ class SessionManager(object):
 
     @classmethod
     def initialize(cls, url):
+        if url in cls.engine_for_url:
+            engine = cls.engine_for_url[url]
+            return engine, engine.connect()
+
         engine = cls.engine(url)
         Base.metadata.create_all(engine)
 
@@ -204,6 +211,7 @@ class SessionManager(object):
 
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
+        cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
     @classmethod
