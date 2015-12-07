@@ -1,6 +1,8 @@
+from functools import wraps
 from nose.tools import set_trace
 import logging
 import os
+import urlparse
 
 import flask
 from flask import (
@@ -12,15 +14,14 @@ from config import Configuration
 from core.app_server import (
     ErrorHandler,
 )
-
-import urllib
 from core.util.flask_util import (
     problem,
 )
+
+from controller import CirculationManager
 from opds import (
     CirculationManagerAnnotator,
 )
-from functools import wraps
 
 app = Flask(__name__)
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
@@ -33,8 +34,8 @@ if os.environ.get('AUTOINITIALIZE') == "False":
     # It's the responsibility of the importing code to set app.manager
     # appropriately.
 else:
-    app.manager.testing = False
-    Conf.initialize()
+    if getattr(app, 'manager', None) is None:
+        app.manager = CirculationManager()
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
