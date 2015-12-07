@@ -181,6 +181,5 @@ if __name__ == '__main__':
     else:
         host = netloc
         port = 80
-    app.manager = CirculationManager()
     app.manager.log.info("Starting app on %s:%s", host, port)
     app.run(debug=debug, host=host, port=port)
