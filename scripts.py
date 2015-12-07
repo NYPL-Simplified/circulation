@@ -327,7 +327,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         b = time.time()
         if not isinstance(cached_feeds, list):
             cached_feeds = [cached_feeds]
-        total_size = sum(len(x.content) for x in cached_feeds)
+        total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.debug(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
             len(cached_feeds), lane_key, (b-a), total_size
@@ -341,6 +341,17 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
+        if isinstance(lane, Lane):
+            languages = lane.language_key
+            lane_name = None
+        else:
+            languages = None
+            lane_name = None
+
+        url = self.app.manager.cdn_url_for(
+            "feed", languages=lane.languages, lane_name=lane_name
+        )
+
         for sort_order in ('title', 'author'):
             pagination = Pagination.default()
             facets = Facets(
@@ -348,9 +359,6 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                  order_ascending=True
             )
             title = lane.display_name
-            url = self.app.manager.cdn_url_for(
-                "feed", languages=lane.language_key, lane_name=lane.name
-            )
             for pagenum in (0, 2):
                 feeds.append(
                     AcquisitionFeed.page(
@@ -378,8 +386,14 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
         title = lane.display_name
+        if isinstance(lane, Lane):
+            languages = lane.language_key
+            lane_name = None
+        else:
+            languages = None
+            lane_name = None
         url = self.app.manager.cdn_url_for(
-            "groups", languages=lane.language_key, lane_name=lane.name 
+            "acquisition_groups", languages=languages, lane_name=lane_name
         )
         return AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
