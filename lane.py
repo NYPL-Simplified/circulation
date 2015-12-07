@@ -498,6 +498,7 @@ class Lane(object):
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
+        self.default_for_language = False
 
         self.log = logging.getLogger("Lane %s" % self.name)
 
