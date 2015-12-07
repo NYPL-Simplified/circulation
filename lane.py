@@ -1043,7 +1043,7 @@ class Lane(object):
                 docs = search_client.query_works(
                     query, self.media, self.languages, self.exclude_languages,
                     fiction, list(self.audiences),
-                    self.all_matching_genres(self.genres),
+                    self.genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
                 )
