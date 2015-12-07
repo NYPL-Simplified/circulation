@@ -20,6 +20,7 @@ from core.app_server import (
     entry_response,
     feed_response,
     cdn_url_for,
+    url_for,
     load_lending_policy,
     ComplaintController,
     HeartbeatController,
@@ -511,7 +512,7 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
         # Run a search.    
-        results = lane.search(languages, query, self.manager.search, 30)
+        results = lane.search(query, self.manager.search, 30)
         info = OpenSearchDocument.search_info(lane)
         annotator = self.manager.annotator(lane)
         opds_feed = AcquisitionFeed(
