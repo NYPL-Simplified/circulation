@@ -486,7 +486,7 @@ class AcquisitionFeed(OPDSFeed):
             force_refresh=force_refresh
         )
         if usable:
-            return cached.content
+            return cached
 
         feed_size = Configuration.featured_lane_size()
        
@@ -529,8 +529,8 @@ class AcquisitionFeed(OPDSFeed):
                 # the group URI will point to a linear feed, not a
                 # groups feed.
                 v = dict(
-                    lane=sublane,
-                    label=all_group_label,
+                    lane=lane,
+                    label='All ' + lane.display_name,
                     link_to_list_feed=True,
                 )
             else:
