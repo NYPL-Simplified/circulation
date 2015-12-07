@@ -621,6 +621,21 @@ class AcquisitionFeed(OPDSFeed):
         return cached
 
     @classmethod
+    def search(cls, _db, title, url, lane, search_engine, query, limit=30,
+               annotator=None
+    ):
+        if not isinstance(lane, Lane):
+            search_lane = Lane(
+                _db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        else:
+            search_lane = lane
+
+        results = search_lane.search(query, search_engine, limit)
+        opds_feed = AcquisitionFeed(_db, title, url, results)
+        annotator.annotate_feed(opds_feed, lane)
+        return unicode(opds_feed)
+
+    @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):
         """Create a single-entry feed for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)
