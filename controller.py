@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import time
+import urllib
 import urlparse
 import uuid
 
@@ -126,7 +127,7 @@ class CirculationManager(object):
 
         self.auth = Authenticator.initialize(self._db, test=testing)
         self.setup_circulation()
-        self.search = self.setup_search()
+        self.external_search = self.setup_search()
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -503,22 +504,24 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed.content)
 
-    def search(self, languages, lane_name, query):
+    def search(self, languages, lane_name):
         lane = self.load_lane(languages, lane_name)
+        query = flask.request.args.get('q')
         this_url = self.url_for(
             'lane_search', languages=languages, lane_name=lane_name,
         )
         if not query:
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
+
         # Run a search.    
-        results = lane.search(query, self.manager.search, 30)
-        info = OpenSearchDocument.search_info(lane)
+        this_url += "?q=" + urllib.quote(query.encode("utf8"))
         annotator = self.manager.annotator(lane)
-        opds_feed = AcquisitionFeed(
-            self._db, info['name'], 
-            this_url + "?q=" + urllib.quote(query.encode("utf8")),
-            results, opds_feed
+        info = OpenSearchDocument.search_info(lane)
+        opds_feed = AcquisitionFeed.search(
+            _db=self._db, title=info['name'], 
+            url=this_url, lane=lane, search_engine=self.manager.external_search,
+            query=query, annotator=annotator
         )
         return feed_response(opds_feed)
 
