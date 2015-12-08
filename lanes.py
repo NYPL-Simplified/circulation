@@ -31,8 +31,9 @@ def make_lanes(_db, definitions=None):
 def make_lanes_default(_db):
     """Create the default layout of lanes for the server configuration."""
 
-    # The top-level LaneList includes a number of sublanes for each
-    # large-collection language: 'Adult Fiction', 'Adult Nonfiction',
+    # The top-level LaneList includes a hidden lane for each
+    # large-collection language with a number of displayed 
+    # sublanes: 'Adult Fiction', 'Adult Nonfiction',
     # 'Young Adult Fiction', 'Young Adult Nonfiction', and 'Children'
     # sublanes. These sublanes contain additional sublanes.
     #
@@ -229,7 +230,17 @@ def lanes_for_large_collection(_db, languages):
         ],
     )
 
-    return [adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children]
+    name = LanguageCodes.name_for_languageset(languages)
+    lane = Lane(
+        _db, full_name=name, display_name=name,
+        genres=None,
+        sublanes=[adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children],
+        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+        invisible=True,
+        **common_args
+    )
+
+    return [lane]
 
 def lane_for_small_collection(_db, languages):
 
