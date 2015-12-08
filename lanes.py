@@ -47,13 +47,18 @@ def make_lanes_default(_db):
 
     top_level_lanes = []
 
+    def language_list(x):
+        if isinstance(language_set, basestring):
+            return x.split(',')
+        return x
+
     for language_set in Configuration.large_collection_languages():
-        languages = language_set.split(',')
+        languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.extend(lanes_for_large_collection(_db, language_set))
 
     for language_set in Configuration.small_collection_languages():
-        languages = language_set.split(',')
+        languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
