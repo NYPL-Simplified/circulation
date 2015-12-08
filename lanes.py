@@ -48,11 +48,13 @@ def make_lanes_default(_db):
     top_level_lanes = []
 
     for language_set in Configuration.large_collection_languages():
-        seen_languages = seen_languages.union(set(language_set))
+        languages = language_set.split(',')
+        seen_languages = seen_languages.union(set(languages))
         top_level_lanes.extend(lanes_for_large_collection(_db, language_set))
 
     for language_set in Configuration.small_collection_languages():
-        seen_languages = seen_languages.union(set(language_set))
+        languages = language_set.split(',')
+        seen_languages = seen_languages.union(set(languages))
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
     top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
@@ -231,7 +233,7 @@ def lane_for_small_collection(_db, languages):
 
     common_args = dict(
         include_best_sellers=False,
-        include_staff_picks=True,
+        include_staff_picks=False,
         languages=languages,
         genres=None,
     )
@@ -261,7 +263,7 @@ def lane_for_small_collection(_db, languages):
 
     name = LanguageCodes.name_for_languageset(languages)
     lane = Lane(
-        _db, full_name=None, display_name=name, languages=languages, 
+        _db, full_name=name, display_name=name, languages=languages, 
         sublanes=[adult_fiction, adult_nonfiction, ya_children]
     )
     lane.default_for_language = True
