@@ -388,7 +388,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         title = lane.display_name
         if isinstance(lane, Lane):
             languages = lane.language_key
-            lane_name = None
+            lane_name = lane.name
         else:
             languages = None
             lane_name = None
