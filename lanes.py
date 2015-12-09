@@ -110,7 +110,10 @@ def lanes_for_large_collection(_db, languages):
     adult_fiction = Lane(
         _db, full_name="Adult Fiction", display_name="Fiction",
         genres=None,
-        sublanes=lanes_from_genres(_db, fiction_genres, languages=languages),
+        sublanes=lanes_from_genres(
+            _db, fiction_genres, languages=languages,
+            audiences=Classifier.AUDIENCES_ADULT,
+        ),
         fiction=True, 
         audiences=Classifier.AUDIENCES_ADULT,
         **common_args
@@ -118,7 +121,10 @@ def lanes_for_large_collection(_db, languages):
     adult_nonfiction = Lane(
         _db, full_name="Adult Nonfiction", display_name="Nonfiction",
         genres=None,
-        sublanes=lanes_from_genres(_db, nonfiction_genres, languages=languages),
+        sublanes=lanes_from_genres(
+            _db, nonfiction_genres, languages=languages,
+            audiences=Classifier.AUDIENCES_ADULT,
+        ),
         fiction=False, 
         audiences=Classifier.AUDIENCES_ADULT,
         **common_args
@@ -131,6 +137,8 @@ def lanes_for_large_collection(_db, languages):
 
     ya_fiction = Lane(
         _db, full_name="Young Adult Fiction", genres=None, fiction=True,
+        include_best_sellers=True,
+        include_staff_picks=True,        
         sublanes=[
             Lane(_db, full_name="YA Dystopian",
                  display_name="Dystopian", genres=[genres.Dystopian_SF],
