@@ -62,9 +62,9 @@ from ..opds import (
 class CirculationTest(DatabaseTest):
 
     def setup(self):
-        os.environ['TESTING'] = "True"
+        os.environ['AUTOINITIALIZE'] = "False"
         from .. import app as circulation
-        del os.environ['TESTING']
+        del os.environ['AUTOINITIALIZE']
 
         super(CirculationTest, self).setup()
         self.lanes = LaneList.from_description(
