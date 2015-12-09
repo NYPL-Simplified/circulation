@@ -353,7 +353,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             _external=True
         )
 
-        for sort_order in ('title', 'author'):
+        for sort_order in Facets.ORDER_FACETS:
             pagination = Pagination.default()
             facets = Facets(
                 collection=None, availability=None, order=sort_order,
