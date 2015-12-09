@@ -597,10 +597,10 @@ class AcquisitionFeed(OPDSFeed):
             return cached
 
         if use_materialized_works:
-            works = lane.materialized_works(facets, pagination)
+            works_q = lane.materialized_works(facets, pagination)
         else:
-            works = lane.works(facets, pagination)
-        works = works.all()
+            works_q = lane.works(facets, pagination)
+        works = works_q.all()
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
