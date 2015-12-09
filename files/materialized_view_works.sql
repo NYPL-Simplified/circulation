@@ -1,6 +1,8 @@
 create materialized view mv_works_editions_datasources_identifiers
 as
- SELECT editions.id AS editions_id,
+ SELECT 
+    distinct works.id AS works_id,
+    editions.id AS editions_id,
     editions.data_source_id,
     editions.primary_identifier_id,
     editions.sort_title,
@@ -14,7 +16,6 @@ as
     datasources.name,
     identifiers.type,
     identifiers.identifier,
-    works.id AS works_id,
     works.audience,
     works.target_age,
     works.fiction,
@@ -30,9 +31,7 @@ as
      JOIN licensepools ON editions.data_source_id = licensepools.data_source_id AND editions.primary_identifier_id = licensepools.identifier_id
      JOIN datasources ON editions.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
-     JOIN licensepooldeliveries on licensepools.id=licensepooldeliveries.license_pool_id
-     JOIN deliverymechanisms on deliverymechanisms.id=licensepooldeliveries.delivery_mechanism_id
-  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND works.simple_opds_entry IS NOT NULL AND deliverymechanisms.default_client_can_fulfill=true
+  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND works.simple_opds_entry IS NOT NULL
   ORDER BY editions.sort_title, editions.sort_author;
 
 create index mv_works_editions_adult_fiction_author_ds_id on mv_works_editions_datasources_identifiers (sort_author, sort_title, license_pool_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
