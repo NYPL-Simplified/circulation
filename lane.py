@@ -494,7 +494,7 @@ class Lane(object):
                  list_identifier=None,
                  list_seen_in_previous_days=None,
 
-                 searchable=True,
+                 searchable=False,
                  invisible=False,
                  ):
         self.name = full_name
@@ -560,6 +560,9 @@ class Lane(object):
 
         set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
+
+        if self.searchable and (self.list_data_source or self.lists):
+            raise UndefinedLane("Lane with list data source cannot be searchable")
 
         # However the genres came in, turn them into database Genre
         # objects and the corresponding GenreData objects.
