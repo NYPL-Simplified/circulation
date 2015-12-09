@@ -108,125 +108,151 @@ def lanes_for_large_collection(_db, languages):
         **common_args
     )
 
+    ya_common_args = dict(
+        audiences=YA,
+        languages=languages,
+    )
+
     ya_fiction = Lane(
         _db, full_name="Young Adult Fiction", genres=None, fiction=True,
-        audiences=YA,
         sublanes=[
             Lane(_db, full_name="YA Dystopian",
                  display_name="Dystopian", genres=[genres.Dystopian_SF],
-                 audiences=YA),
+                 **ya_common_args),
             Lane(_db, full_name="YA Fantasy", display_name="Fantasy",
                  genres=[genres.Fantasy], 
-                 subgenre_behavior=Lane.IN_SAME_LANE, audiences=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
             Lane(_db, full_name="YA Graphic Novels",
                  display_name="Comics & Graphic Novels",
-                 genres=[genres.Comics_Graphic_Novels], audiences=YA),
+                 genres=[genres.Comics_Graphic_Novels], **ya_common_args),
             Lane(_db, full_name="YA Literary Fiction",
                  display_name="Contemporary Fiction",
-                 genres=[genres.Literary_Fiction], audiences=YA),
-            Lane(_db, "LGBTQ Fiction", genres=[genres.LGBTQ_Fiction],
-                 audiences=YA),
+                 genres=[genres.Literary_Fiction], **ya_common_args),
+            Lane(_db, full_name="YA LGBTQ Fiction", 
+                 display_name="LGBTQ Fiction",
+                 genres=[genres.LGBTQ_Fiction],
+                 **ya_common_args),
             Lane(_db, full_name="Mystery & Thriller",
                  genres=[genres.Suspense_Thriller, genres.Mystery],
-                 subgenre_behavior=Lane.IN_SAME_LANE, audiences=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
             Lane(_db, full_name="YA Romance", display_name="Romance",
                  genres=[genres.Romance],
-                 subgenre_behavior=Lane.IN_SAME_LANE, audiences=YA),
+                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
             Lane(_db, full_name="YA Science Fiction",
                  display_name="Science Fiction",
                  genres=[genres.Science_Fiction],
                  subgenre_behavior=Lane.IN_SAME_LANE,
                  exclude_genres=[genres.Dystopian_SF, genres.Steampunk],
-                 audiences=YA),
+                 **ya_common_args),
             Lane(_db, full_name="YA Steampunk", genres=[genres.Steampunk],
                  subgenre_behavior=Lane.IN_SAME_LANE,
-                 display_name="Steampunk", audiences=YA),
+                 display_name="Steampunk", **ya_common_args),
             # TODO:
             # Paranormal -- what is it exactly?
         ],
-        **common_args
+        **ya_common_args
     )
 
     ya_nonfiction = Lane(
         _db, full_name="Young Adult Nonfiction", genres=None, fiction=False,
-        languages=languages,
-        audiences=YA,
         include_best_sellers=True,
         include_staff_picks=True,
         sublanes=[
             Lane(_db, full_name="YA Biography", 
                  genres=genres.Biography_Memoir,
                  display_name="Biography",
+                 **ya_common_args
                  ),
             Lane(_db, full_name="YA History",
                  genres=[genres.History, genres.Social_Sciences],
                  display_name="History & Sociology", 
                  subgenre_behavior=Lane.IN_SAME_LANE,
+                 **ya_common_args
              ),
-            Lane(_db, full_name="Life Strategies",
-                 genres=[genres.Life_Strategies], audiences=YA,
+            Lane(_db, full_name="YA Life Strategies",
+                 display_name="Life Strategies",
+                 genres=[genres.Life_Strategies], 
+                 **ya_common_args
                  ),
             Lane(_db, full_name="YA Religion & Spirituality", 
                  display_name="Religion & Spirituality",
                  genres=genres.Religion_Spirituality,
                  subgenre_behavior=Lane.IN_SAME_LANE,
+                 **ya_common_args
                  )
         ],
+        **ya_common_args
+    )
+
+    children_common_args = dict(
+        audiences=genres.Classifier.AUDIENCE_CHILDREN,
+        languages=languages,
     )
 
     children = Lane(
         _db, full_name="Children and Middle Grade", genres=None,
-        languages=languages,
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-        audiences=genres.Classifier.AUDIENCE_CHILDREN,
         include_best_sellers=True,
         include_staff_picks=True,
         sublanes=[
             Lane(_db, full_name="Picture Books", age_range=[0,1,2,3,4],
                  genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+                 **children_common_args
              ),
             Lane(_db, full_name="Easy readers", age_range=[5,6,7,8],
                  genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+                 **children_common_args
              ),
             Lane(_db, full_name="Chapter books", age_range=[9,10,11,12],
                  genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+                 **children_common_args
              ),
             Lane(_db, full_name="Children's Poetry", 
                  display_name="Poetry books", genres=[genres.Poetry],
+                 **children_common_args
              ),
             Lane(_db, full_name="Children's Folklore", display_name="Folklore",
                  genres=[genres.Folklore],
-                 subgenre_behavior=Lane.IN_SAME_LANE
+                 subgenre_behavior=Lane.IN_SAME_LANE,
+                 **children_common_args
              ),
             Lane(_db, full_name="Children's Fantasy", display_name="Fantasy",
                  fiction=True,
                  genres=[genres.Fantasy], 
-                 subgenre_behavior=Lane.IN_SAME_LANE
+                 subgenre_behavior=Lane.IN_SAME_LANE,
+                 **children_common_args
              ),
             Lane(_db, full_name="Children's SF", display_name="Science Fiction",
                  fiction=True, genres=[genres.Science_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE
+                 subgenre_behavior=Lane.IN_SAME_LANE,
+                 **children_common_args
              ),
             Lane(_db, full_name="Realistic fiction", 
                  fiction=True, genres=[genres.Literary_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE
+                 subgenre_behavior=Lane.IN_SAME_LANE,
+                 **children_common_args
              ),
             Lane(_db, full_name="Children's Graphic Novels",
                  display_name="Comics & Graphic Novels",
-                 genres=[genres.Comics_Graphic_Novels]
+                 genres=[genres.Comics_Graphic_Novels],
+                 **children_common_args
              ),
             Lane(_db, full_name="Biography", 
                  genres=[genres.Biography_Memoir],
-                 subgenre_behavior=Lane.IN_SAME_LANE
+                 subgenre_behavior=Lane.IN_SAME_LANE,
+                 **children_common_args
              ),
             Lane(_db, full_name="Historical fiction", 
                  genres=[genres.Historical_Fiction],
                  subgenre_behavior=Lane.IN_SAME_LANE, 
+                 **children_common_args
              ),
             Lane(_db, full_name="Informational books", genres=None,
                  fiction=False, exclude_genres=[genres.Biography_Memoir],
+                 **children_common_args
              )
         ],
+        **children_common_args
     )
 
     return [adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children]
