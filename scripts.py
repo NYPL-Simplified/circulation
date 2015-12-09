@@ -349,8 +349,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             lane_name = None
 
         url = self.app.manager.cdn_url_for(
-            "feed", languages=lane.languages, lane_name=lane_name,
-            _external=True
+            "feed", languages=lane.languages, lane_name=lane_name
         )
 
         for sort_order in Facets.ORDER_FACETS:
@@ -394,8 +393,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
             languages = None
             lane_name = None
         url = self.app.manager.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name,
-            _external=True
+            "acquisition_groups", languages=languages, lane_name=lane_name
         )
         return AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,

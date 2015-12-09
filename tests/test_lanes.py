@@ -28,25 +28,34 @@ class TestLaneCreation(DatabaseTest):
     def test_lanes_for_large_collection(self):
         languages = ['eng', 'spa']
         lanes = lanes_for_large_collection(self._db, languages)
+        [lane] = lanes
 
-        # We have five lanes.
+        # We have one top-level lane for English & Spanish
+        eq_('English & Spanish', lane.name)
+        assert lane.invisible
+
+        # The top-level lane has five sublanes.
         eq_(
-            ['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
+            ['English & Spanish - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
              'Young Adult Nonfiction', 'Children and Middle Grade'],
-            [x.name for x in lanes]
+            [x.name for x in lane.sublanes]
         )
 
         # They all are restricted to English and Spanish.
-        assert all(x.languages==languages for x in lanes)
+        assert all(x.languages==languages for x in lane.sublanes)
 
         # The Adult Fiction and Adult Nonfiction lanes reproduce the
         # genre structure found in the genre definitions.
-        fiction, nonfiction = lanes[0:2]
+        fiction, nonfiction = lane.sublanes.lanes[1:3]
         [sf] = [x for x in fiction.sublanes.lanes if x.name=='Science Fiction']
+        [periodicals] = [x for x in nonfiction.sublanes.lanes if x.name=='Periodicals']
+        [humor] = [x for x in nonfiction.sublanes.lanes if x.name=='Humorous Nonfiction']
         eq_(True, sf.fiction)
         eq_("Science Fiction", sf.name)
+        eq_("Humor", humor.display_name)
         assert 'Science Fiction' in [x.name for x in sf.genres]
         assert 'Cyberpunk' in [x.name for x in sf.genres]
+        assert periodicals.invisible
 
         [space_opera] = [x for x in sf.sublanes.lanes if x.name=='Space Opera']
         eq_(True, sf.fiction)
@@ -100,13 +109,18 @@ class TestLaneCreation(DatabaseTest):
             assert isinstance(lane_list, LaneList)
             lanes = lane_list.lanes
 
-            # We have a set of top-level lanes for the large collections,
+            # We have a top-level lane for the large collections,
             # a top-level lane for each small collection, and a lane
             # for everything left over.
-            eq_(['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', None, None, 'Other Languages'],
+            eq_(['English', 'Spanish', 'Chinese', 'Other Languages'],
                 [x.name for x in lane_list.lanes]
             )
 
-            eq_(['Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade', 'Spanish', 'Chinese', 'Other Languages'],
-                [x.display_name for x in lane_list.lanes]
+            english_lane = lanes[0]
+            eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+                [x.name for x in english_lane.sublanes.lanes]
             )
+            eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+                [x.display_name for x in english_lane.sublanes.lanes]
+            )
+
