@@ -249,7 +249,8 @@ class TestOPDS(DatabaseTest):
                   fiction=True,
                   audiences=Classifier.AUDIENCE_ADULT,
                   genres=[],
-                  sublanes=[Fantasy]),
+                  sublanes=[Fantasy],
+              ),
              History,
              dict(
                  full_name="Young Adult",
@@ -353,8 +354,12 @@ class TestOPDS(DatabaseTest):
 
         [self_link] = self.links(by_title, 'self')
         eq_("http://the-url.com/", self_link['href'])
-        [by_author, by_title] = self.links(by_title, AcquisitionFeed.FACET_REL)
-
+        [by_author, recently_added, by_title] = sorted(
+            self.links(
+                by_title, AcquisitionFeed.FACET_REL
+            ),
+            key = lambda x: x['title']
+        )
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,
@@ -378,6 +383,13 @@ class TestOPDS(DatabaseTest):
         assert not 'opds:activefacet' in by_title
         expect.order = Facets.ORDER_TITLE
         eq_(TestAnnotator.facet_url(expect), by_title['href'])
+
+        eq_('Sort by', recently_added['opds:facetgroup'])
+        eq_('http://opds-spec.org/facet', recently_added['rel'])
+        eq_('Recently Added', recently_added['title'])
+        assert not 'opds:activefacet' in recently_added
+        expect.order = Facets.ORDER_ADDED_TO_COLLECTION
+        eq_(TestAnnotator.facet_url(expect), recently_added['href'])
 
     def test_acquisition_feed_includes_available_and_issued_tag(self):
         today = datetime.date.today()
@@ -715,12 +727,14 @@ class TestOPDS(DatabaseTest):
             # Each entry has one and only one link.
             [l1], [l2] = e1['links'], e2['links']
 
-            # That link is a 'collection' link that groups the works together
-            # under Fantasy (not Epic Fantasy or Urban Fantasy).
+            # Those links are 'collection' links that classify the
+            # works under their subgenres.
             assert all([l['rel'] == 'collection' for l in (l1, l2)])
-            assert all([l['href'] == 'http://group/Fantasy' for l in (l1, l2)])
-            assert all([l['title'] == 'Group Title for Fantasy!'
-                        for l in (l1, l2)])
+
+            eq_(l1['href'], 'http://group/Epic Fantasy')
+            eq_(l1['title'], 'Group Title for Epic Fantasy!')
+            eq_(l2['href'], 'http://group/Urban Fantasy')
+            eq_(l2['title'], 'Group Title for Urban Fantasy!')
 
             # The feed itself has an 'up' link which points to the
             # groups for Fiction, and a 'start' link which points to
