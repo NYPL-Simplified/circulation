@@ -257,7 +257,8 @@ class Facets(object):
 
         return None
 
-    def apply(self, _db, q, work_model=Work, edition_model=Edition):
+    def apply(self, _db, q, work_model=Work, edition_model=Edition,
+              distinct=False):
         """Restrict a query so that it only matches works that fit
         the given facets, and the query is ordered appropriately.
         """
@@ -292,8 +293,12 @@ class Facets(object):
             )
 
         # Set the ORDER BY clause.
-        order_by = self.order_by(work_model, edition_model)
+        order_by, order_distinct = self.order_by(
+            work_model, edition_model
+        )
         q = q.order_by(*order_by)
+        if distinct:
+            q = q.distinct(*order_distinct)
 
         return q
 
@@ -324,10 +329,10 @@ class Facets(object):
 
         # Set each field in the sort order to ascending or descending.
         if self.order_ascending:
-            order_by = [x.asc() for x in order_by]
+            order_by_sorted = [x.asc() for x in order_by]
         else:
-            order_by = [x.desc() for x in order_by]
-        return order_by
+            order_by_sorted = [x.desc() for x in order_by]
+        return order_by_sorted, order_by
 
 
 class Pagination(object):
@@ -1015,7 +1020,12 @@ class Lane(object):
             DeliveryMechanism.default_client_can_fulfill==True)
         )
 
+        distinct = False
         if self.list_data_source or self.lists:
+            # One book can show up on more than one list; we need to
+            # add a DISTINCT clause.
+            distinct = True
+
             q = q.join(LicensePool.custom_list_entries)
             if self.list_data_source:
                 q = q.join(CustomListEntry.customlist).filter(
@@ -1030,10 +1040,10 @@ class Lane(object):
                 )
                 q = q.filter(CustomListEntry.most_recent_appearance
                              >=cutoff)
-            q = q.distinct(LicensePool.id)
 
         if facets:
-            q = facets.apply(self._db, q, work_model, edition_model)
+            q = facets.apply(self._db, q, work_model, edition_model,
+                             distinct=distinct)
         if pagination:
             q = pagination.apply(q)
 

@@ -93,7 +93,7 @@ class TestFacets(object):
                 order=facet,
                 order_ascending=ascending,
             )
-            return f.order_by(work, edition)
+            return f.order_by(work, edition)[0]
 
         def compare(a, b):
             assert(len(a) == len(b))
