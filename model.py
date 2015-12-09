@@ -4660,17 +4660,23 @@ class CachedFeed(Base):
             pagination=pagination_key,
             )
 
+        if force_refresh is True:
+            # No matter what, we've been directed to treat this
+            # cached feed as stale.
+            return feed, False
+
         if max_age is Configuration.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
                 # Cacheable!
                 return feed, True
-            elif not force_refresh:
+            else:
                 # We're supposed to generate this feed, but it's too
                 # expensive.
                 raise WillNotGenerateExpensiveFeed(lane.name)
-        elif not force_refresh:
+        else:
+            # This feed is cheap enough to generate on the fly.
             cutoff = datetime.datetime.utcnow() - max_age
             fresh = False
             if feed.timestamp and feed.content:
