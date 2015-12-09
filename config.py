@@ -14,12 +14,13 @@ class Configuration(CoreConfiguration):
     AUTHENTICATION_POLICY = "authentication"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
-    PRIMARY_LANGUAGE_COLLECTIONS = "primary"
-    OTHER_LANGUAGE_COLLECTIONS = "other"
+    LARGE_COLLECTION_LANGUAGES = "large_collections"
+    SMALL_COLLECTION_LANGUAGES = "small_collections"
 
     LANES_POLICY = "lanes"
 
     ROOT_LANE_POLICY = "root_lane"
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
 
     ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
     ADOBE_VENDOR_ID = "vendor_id"
@@ -54,6 +55,24 @@ class Configuration(CoreConfiguration):
     @classmethod
     def language_policy(cls):
         return cls.policy(cls.LANGUAGE_POLICY, required=True)
+
+    @classmethod
+    def large_collection_languages(cls):
+        value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
+        if not value:
+            return []
+        if isinstance(value, list):
+            return value
+        return [[x] for x in value.split(',')]
+
+    @classmethod
+    def small_collection_languages(cls):
+        value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
+        if not value:
+            return []
+        if isinstance(value, list):
+            return value
+        return [[x] for x in value.split(',')]
 
     @classmethod
     def force_language(cls, language):

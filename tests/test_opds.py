@@ -7,13 +7,12 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
-from ..core.model import (
-    Work,
-)
-
 from ..core.lane import (
     LaneList,
     Lane,
+)
+from ..core.model import (
+    Work,
 )
 
 from ..core.classifier import (
@@ -33,60 +32,29 @@ from ..core.opds import (
 )
 class TestOPDS(DatabaseTest):
 
-    def setup(self):
-
-        os.environ['TESTING'] = "True"
-        from .. import app
-        del os.environ['TESTING']
-
-
-        super(TestOPDS, self).setup()
-        self.circulation = CirculationAPI(self._db)
-        self.app = app.app.test_client()
-        self.ctx = app.app.test_request_context()
-        self.ctx.push()
-
-        self.lanes = LaneList.from_description(
-            self._db,
-            None,
-            [dict(full_name="Fiction",
-                  fiction=True,
-                  audience=Classifier.AUDIENCE_ADULT,
-                  genres=[]),
-             Fantasy,
-             dict(
-                 full_name="Young Adult",
-                 fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 audience=Classifier.AUDIENCE_YOUNG_ADULT,
-                 genres=[]),
-             dict(full_name="Romance", fiction=True, genres=[],
-                  sublanes=[
-                      dict(full_name="Contemporary Romance")
-                  ]
-              ),
-         ]
-        )
-        app.Conf.initialize(self._db, self.lanes)
-
-    def test_id_is_permalink(self):
+    def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
         self._db.commit()
 
         works = self._db.query(Work)
-        annotator = CirculationManagerAnnotator(self.circulation, Fantasy)
+        annotator = CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+        pool = annotator.active_licensepool_for(w1)
+
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
-        pool = annotator.active_licensepool_for(w1)
+        eq_(entry['id'], pool.identifier.urn)
+
+        [alternate] = [x['href'] for x in entry['links'] if x['rel'] == 'alternate']
         permalink = annotator.permalink_for(w1, pool, pool.identifier)
-        eq_(entry['id'], permalink)
+        eq_(alternate, permalink)
 
     def test_acquisition_feed_includes_problem_reporting_link(self):
         w1 = self._work(with_open_access_download=True)
         self._db.commit()
         feed = AcquisitionFeed(
             self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                self.circulation, Fantasy))
+                None, Fantasy, test_mode=True))
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [issues_link] = [x for x in entry['links'] if x['rel'] == 'issues']
@@ -102,7 +70,7 @@ class TestOPDS(DatabaseTest):
         works = self._db.query(Work)
         feed = AcquisitionFeed(
             self._db, "test", "url", works, CirculationManagerAnnotator(
-                self.circulation, Fantasy))
+                None, Fantasy, test_mode=True))
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
@@ -116,7 +84,7 @@ class TestOPDS(DatabaseTest):
     def test_active_loan_feed(self):
         patron = self.default_patron
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            self.circulation, patron)
+            None, patron, test_mode=True)
         # Nothing in the feed.
         feed = feedparser.parse(unicode(feed))
         eq_(0, len(feed['entries']))
@@ -127,8 +95,7 @@ class TestOPDS(DatabaseTest):
 
         # Get the feed.
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            self.circulation, patron
-        )
+            None, patron, test_mode=True)
         feed = feedparser.parse(unicode(feed))
 
         # The only entry in the feed is the work currently out on loan
@@ -151,8 +118,10 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
 
         works = self._db.query(Work)
-        feed = AcquisitionFeed(self._db, "test", "url", works,
-                               CirculationManagerAnnotator(self.circulation, Fantasy))
+        feed = AcquisitionFeed(
+            self._db, "test", "url", works,
+            CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+        )
         u = unicode(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
         assert holds_re.search(u) is not None

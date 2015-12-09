@@ -1,3 +1,4 @@
+import urllib
 from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
@@ -12,48 +13,105 @@ from core.opds import (
     opds_ns,
 )
 from core.model import (
+    Identifier,
+    LicensePoolDeliveryMechanism,
     Session,
     BaseMaterializedWork,
 )
+from core.lane import Lane
+from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
 
-    def __init__(self, circulation, lane, active_loans_by_work={}, active_holds_by_work={}, facet_view='feed'):
+    def __init__(self, circulation, lane, 
+                 active_loans_by_work={}, active_holds_by_work={}, 
+                 facet_view='feed',
+                 test_mode=False
+    ):
         self.circulation = circulation
         self.lane = lane
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
         self.facet_view=facet_view
+        self.test_mode=test_mode
 
-    def facet_url(self, order):
-        if self.lane:
-            lane_name = self.lane.name
+    def url_for(self, *args, **kwargs):
+        if self.test_mode:
+            new_kwargs = {}
+            for k, v in kwargs.items():
+                if not k.startswith('_'):
+                    new_kwargs[k] = v
+            return self.test_url_for(False, *args, **new_kwargs)
+        else:
+            return url_for(*args, **kwargs)
+
+    def cdn_url_for(self, *args, **kwargs):
+        if self.test_mode:
+            return test_url_for(True, *args, **kwargs)
+        else:
+            return cdn_url_for(*args, **kwargs)
+
+    def test_url_for(self, cdn=False, *args, **kwargs):
+        # Generate a plausible-looking URL that doesn't depend on Flask
+        # being set up.
+        if cdn:
+            host = 'cdn'
+        else:
+            host = 'host'
+        url = ("http://%s/" % host) + "/".join(args)
+        connector = '?'
+        for k, v in sorted(kwargs.items()):
+            if v is None:
+                v = ''
+            v = urllib.quote(str(v))
+            k = urllib.quote(str(k))
+            url += connector + "%s=%s" % (k, v)
+            connector = '&'
+        return url
+
+    @property
+    def _lane_name_and_languages(self):
+        if isinstance(self.lane, Lane):
+            lane_name = self.lane.url_name
+            languages = self.lane.language_key
         else:
             lane_name = None
-        return cdn_url_for(
-            self.facet_view, lane_name=lane_name, order=order, _external=True)
+            languages = None
+        return (lane_name, languages)
+
+    def facet_url(self, facets):
+        lane_name, languages = self._lane_name_and_languages
+        kwargs = dict(facets.items())
+        return self.cdn_url_for(
+            self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
     def permalink_for(self, work, license_pool, identifier):
-        return url_for('work', data_source=license_pool.data_source.name,
-                       identifier=identifier.identifier, _external=True)
+        if isinstance(identifier, Identifier):
+            identifier = identifier.identifier
+        return self.url_for('work', data_source=license_pool.data_source.name,
+                       identifier=identifier, _external=True)
+
+    def groups_url(self, lane):
+        lane_name, languages = self._lane_name_and_languages
+        return self.cdn_url_for(
+            "acquisition_groups", lane_name=lane_name, languages=languages, _external=True)
+
+    def feed_url(self, lane, facets, pagination):
+        lane_name, languages = self._lane_name_and_languages
+        kwargs = dict(facets.items())
+        kwargs.update(dict(pagination.items()))
+        return self.cdn_url_for(
+            "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
     @classmethod
     def featured_feed_url(cls, lane, order=None, cdn=True):
         if cdn:
-            m = cdn_url_for
+            m = self.cdn_url_for
         else:
-            m = url_for
-        return m('feed', lane_name=lane.name, order=order, _external=True)
-
-    @classmethod
-    def navigation_feed_url(self, lane):
-        if not lane:
-            lane_name = None
-        else:
-            lane_name = lane.name
-        return cdn_url_for('navigation_feed', lane_name=lane_name, _external=True)
+            m = self.url_for
+        return m('feed', languages=lane.languages, lane_name=lane.name, order=order, _external=True)
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -77,34 +135,40 @@ class CirculationManagerAnnotator(Annotator):
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
-            url = cdn_url_for('acquisition_groups', lane_name=None, _external=True)
+            url = self.cdn_url_for('acquisition_groups', languages=None, lane_name=None, _external=True)
             title = "All Books"
             return url, title
 
         lane = lanes[0]
         self.lanes_by_work[work] = lanes[1:]
-        lane_name = None
+        lane_name = ''
         show_feed = False
-        if isinstance(lane, tuple):
-            lane, lane_name = lane
-        elif isinstance(lane, dict):
+        if isinstance(lane, dict):
             show_feed = lane.get('link_to_list_feed', show_feed)
-            lane_name = lane.get('label', lane_name)
+            title = lane.get('label', lane_name)
             lane = lane['lane']
-        lane_name = lane_name or lane.display_name
 
         if isinstance(lane, basestring):
             return lane, lane_name
 
+        lane_name = lane_name or lane.url_name
+        if hasattr(lane, 'display_name') and not title:
+            title = lane.display_name
+
+        if hasattr(lane, 'language_key'):
+            languages = lane.language_key
+        else:
+            languages = None
+
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
-        # books in the lane by author.
+        # books in the lane by author.        
         if lane.sublanes and not show_feed:
-            url = cdn_url_for('acquisition_groups', lane_name=lane.url_name, _external=True)
+            url = self.cdn_url_for('acquisition_groups', languages=languages, lane_name=lane_name, _external=True)
         else:
-            url = cdn_url_for('feed', lane_name=lane.url_name, order='author', _external=True)
-        return url, lane_name
+            url = self.cdn_url_for('feed', languages=languages, lane_name=lane_name, order='author', _external=True)
+        return url, title
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
@@ -114,24 +178,23 @@ class CirculationManagerAnnotator(Annotator):
             identifier_identifier = work.identifier
             data_source_name = work.name
         else:
-            identifier_identifier = active_license_pool.identifier.identifier
+            identifier_identifier = identifier.identifier
             data_source_name = active_license_pool.data_source.name
 
         # First, add a permalink.
         feed.add_link_to_entry(
             entry, 
             rel='alternate',
-            href=url_for(
-                'permalink', data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
+            href=self.permalink_for(
+                work, active_license_pool, identifier_identifier
+            )
         )
 
         # Add a link for reporting problems.
-        # First, add a permalink.
         feed.add_link_to_entry(
             entry, 
             rel='issues',
-            href=url_for(
+            href=self.url_for(
                 'report', data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
         )
@@ -145,6 +208,51 @@ class CirculationManagerAnnotator(Annotator):
         )
         for tag in link_tags:
             entry.append(tag)
+
+    def annotate_feed(self, feed, lane):
+        # Add a 'search' link.
+        if isinstance(lane, Lane):
+            lane_name = lane.url_name
+            languages = lane.language_key
+        else:
+            lane_name = None
+            languages = None
+
+        search_url = self.url_for(
+            'lane_search', languages=languages, lane_name=lane_name,
+            _external=True
+        )
+        search_link = dict(
+            rel="search",
+            type="application/opensearchdescription+xml",
+            href=search_url
+        )
+        feed.add_link(**search_link)
+
+        shelf_link = dict(
+            rel="http://opds-spec.org/shelf",
+            type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            href=self.url_for('active_loans', _external=True))
+        feed.add_link(**shelf_link)
+
+        self.add_configuration_links(feed)
+
+    @classmethod
+    def add_configuration_links(cls, feed):
+        for rel, value in (
+                ("terms-of-service", Configuration.terms_of_service_url()),
+                ("privacy-policy", Configuration.privacy_policy_url()),
+                ("copyright", Configuration.acknowledgements_url()),
+        ):
+            if value:
+                d = dict(href=value, type="text/html", rel=rel)
+                if isinstance(feed, OPDSFeed):
+                    feed.add_link(**d)
+                else:
+                    # This is an ElementTree object.
+                    link = E.link(**d)
+                    feed.append(link)
+
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold,
                           feed, data_source_name, identifier_identifier):
@@ -181,7 +289,7 @@ class CirculationManagerAnnotator(Annotator):
         # add a link to revoke it.
         revoke_links = []
         if can_revoke:
-            url = url_for(
+            url = self.url_for(
                 'revoke_loan_or_hold', data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
 
@@ -192,10 +300,12 @@ class CirculationManagerAnnotator(Annotator):
         # Add next-step information for every useful delivery
         # mechanism.
         borrow_links = []
-        api = self.circulation.api_for_license_pool(active_license_pool)
+        api = None
+        if self.circulation:
+            api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
-                api.SET_DELIVERY_MECHANISM_AT == api.BORROW_STEP)
+                api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
         else:
             # This is most likely an open-access book. Just put one
             # borrow link and figure out the rest later.
@@ -246,7 +356,8 @@ class CirculationManagerAnnotator(Annotator):
                 fulfill_links.append(
                     self.fulfill_link(
                         data_source_name, 
-                        identifier_identifier, active_loan.fulfillment
+                        identifier_identifier, 
+                        active_loan.fulfillment.delivery_mechanism
                     )
                 )
             else:
@@ -257,7 +368,7 @@ class CirculationManagerAnnotator(Annotator):
                     fulfill_links.append(
                         self.fulfill_link(
                             data_source_name, 
-                            identifier_identifier, lpdm
+                            identifier_identifier, lpdm.delivery_mechanism
                         )
                     )
                                                
@@ -269,8 +380,7 @@ class CirculationManagerAnnotator(Annotator):
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
 
-        return [x for x in borrow_links + fulfill_links + 
-                revoke_links + open_access_links
+        return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
                 if x is not None]
 
     def borrow_link(self, data_source_name, identifier_identifier,
@@ -283,7 +393,7 @@ class CirculationManagerAnnotator(Annotator):
             # Following this link will borrow the book but not set 
             # its delivery mechanism.
             mechanism_id = None
-        borrow_url = url_for(
+        borrow_url = self.url_for(
             "borrow", data_source=data_source_name,
             identifier=identifier_identifier, 
             mechanism_id=mechanism_id, _external=True)
@@ -312,16 +422,20 @@ class CirculationManagerAnnotator(Annotator):
                 borrow_link.append(indirect_acquisition)
         return borrow_link
 
-    def fulfill_link(self, data_source_name, identifier_identifier, lpdm):
+    def fulfill_link(self, data_source_name, identifier_identifier, 
+                     delivery_mechanism):
         """Create a new fulfillment link."""
-        format_types = AcquisitionFeed.format_types(lpdm.delivery_mechanism)
+        if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
+            logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
+            delivery_mechanism = delivery_mechanism.delivery_mechanism
+        format_types = AcquisitionFeed.format_types(delivery_mechanism)
         if not format_types:
             return None
             
-        fulfill_url = url_for(
+        fulfill_url = self.url_for(
             "fulfill", data_source=data_source_name,
             identifier=identifier_identifier, 
-            mechanism_id=lpdm.delivery_mechanism.id,
+            mechanism_id=delivery_mechanism.id,
             _external=True
         )
         rel=OPDSFeed.ACQUISITION_REL
@@ -375,14 +489,13 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
 
     # def permalink_for(self, work, license_pool, identifier):
     #     ds = license_pool.data_source.name
-    #     return url_for(
+    #     return self.url_for(
     #         'loan_or_hold_detail', data_source=ds,
     #         identifier=identifier.identifier, _external=True)
 
     @classmethod
-    def active_loans_for(cls, circulation, patron):
+    def active_loans_for(cls, circulation, patron, test_mode=False):
         db = Session.object_session(patron)
-        url = url_for('active_loans', _external=True)
         active_loans_by_work = {}
         for loan in patron.loans:
             if loan.license_pool.work:
@@ -391,31 +504,34 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         for hold in patron.holds:
             if hold.license_pool.work:
                 active_holds_by_work[hold.license_pool.work] = hold
-        annotator = cls(circulation, None, active_loans_by_work, active_holds_by_work)
+        annotator = cls(
+            circulation, None, active_loans_by_work, active_holds_by_work, 
+            test_mode=test_mode
+        )
+        url = annotator.url_for('active_loans', _external=True)
         works = patron.works_on_loan_or_on_hold()
         return AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
 
     @classmethod
-    def single_loan_feed(cls, circulation, loan):
+    def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work
-        url = url_for(
+        active_loans_by_work = { work : loan }
+        annotator = cls(circulation, None, active_loans_by_work, {}, 
+                        test_mode=test_mode)
+        url = annotator.url_for(
             'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
             identifier=loan.license_pool.identifier.identifier, _external=True)
-        active_loans_by_work = { work : loan }
-        annotator = cls(circulation, None, active_loans_by_work, {})
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
         return AcquisitionFeed.single_entry(db, work, annotator)
 
     @classmethod
-    def single_hold_feed(cls, circulation, hold):
+    def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
         work = hold.license_pool.work
-        url = url_for(
-            'loan_or_hold_detail', data_source=hold.license_pool.data_source,
-            identifier=hold.license_pool.identifier, _external=True)
         active_holds_by_work = { work : hold }
-        annotator = cls(circulation, None, {}, active_holds_by_work)
+        annotator = cls(circulation, None, {}, active_holds_by_work, 
+                        test_mode=test_mode)
         return AcquisitionFeed.single_entry(db, work, annotator)
