@@ -734,7 +734,7 @@ class LoanController(CirculationManagerController):
                 self.circulation.revoke_loan(patron, pin, pool)
             except RemoteRefusedReturn, e:
                 title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
-                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=500)
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
             except CannotReturn, e:
                 title = "Loan deleted locally but remote failed: %s" % str(e)
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503)

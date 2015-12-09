@@ -116,7 +116,7 @@ class TestBaseController(ControllerTest):
     def test_load_lane(self):
         eq_(self.manager, self.controller.load_lane(None, None))
         chinese = self.controller.load_lane('chi', None)
-        eq_(None, chinese.name)
+        eq_("Chinese", chinese.name)
         eq_("Chinese", chinese.display_name)
         eq_(["chi"], chinese.languages)
 
