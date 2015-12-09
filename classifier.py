@@ -758,15 +758,17 @@ class GenreData(object):
         every book in the genre.
         """
         from lane import Lane
-        return Lane(
-            _db, 
-            full_name=self.name, 
-            fiction=self.is_fiction,
-            audiences = self.audience_restriction,
-            genres=self,
-            subgenre_behavior=Lane.IN_SUBLANES,
-            **args
-        )
+        if self.name and not 'full_name' in args:
+            args['full_name'] = self.name
+        if self.is_fiction:
+            args['fiction'] = self.is_fiction
+        if self.audience_restriction:
+            args['audiences'] = self.audience_restriction
+        if not 'subgenre_behavior' in args:
+            args['subgenre_behavior'] = Lane.IN_SUBLANES
+        args['genres'] = self
+
+        return Lane(_db, **args)
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
