@@ -178,7 +178,7 @@ class Facets(object):
         # First, the order facets.
         yield dy(self.ORDER_TITLE)
         yield dy(self.ORDER_AUTHOR)
-        #yield dy(self.ORDER_ADDED_TO_COLLECTION)
+        yield dy(self.ORDER_ADDED_TO_COLLECTION)
 
         # Next, the availability facets.
         def dy(group, new_value):
