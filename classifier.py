@@ -490,25 +490,25 @@ fiction_genres = [
     u"Classics",
     u"Comics & Graphic Novels",
     u"Drama",
-    (u"Erotica", [], Classifier.AUDIENCE_ADULTS_ONLY),
-    (u"Fantasy", [
+    dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
         u"Historical Fantasy",
         u"Urban Fantasy", 
     ]),
     u"Folklore",
     u"Historical Fiction",
-    (u"Horror", [
+    dict(name=u"Horror", subgenres=[
         u"Gothic Horror",
         u"Ghost Stories",
         u"Vampires",
         u"Werewolves",
         u"Occult Horror",
     ]),
-    dict(full_name=u"Humorous Fiction", genres=[u"Humorous Fiction"]),
+    u"Humorous Fiction",
     u"Literary Fiction",
-    (u"LGBTQ Fiction", [], Classifier.AUDIENCE_YOUNG_ADULT),
-    (u"Mystery", [
+    dict(name=u"LGBTQ Fiction", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    dict(name=u"Mystery", subgenres=[
         u"Crime & Detective Stories",
         u"Hard-Boiled Mystery",
         u"Police Procedural",
@@ -519,7 +519,7 @@ fiction_genres = [
     ]),
     u"Poetry",
     u"Religious Fiction",
-    (u"Romance", [
+    dict(name=u"Romance", subgenres=[
         u"Contemporary Romance",
         u"Gothic Romance",
         u"Historical Romance",
@@ -527,7 +527,7 @@ fiction_genres = [
         u"Western Romance",
         u"Romantic Suspense",
     ]),
-    (u"Science Fiction", [
+    dict(name=u"Science Fiction", subgenres=[
         u"Dystopian SF",
         u"Space Opera",
         u"Cyberpunk",
@@ -535,12 +535,10 @@ fiction_genres = [
         u"Alternative History",
         u"Steampunk",
         u"Romantic SF",
-        dict(full_name=u"Media Tie-in SF", display_name=u"Movie and TV Novelizations", genres=[u"Media Tie-in SF"])
+        u"Media Tie-in SF",
     ]),
     u"Short Stories",
-    dict(
-        full_name="Suspense/Thriller",
-        display_name="Thriller",
+    dict(name=u"Suspense/Thriller",
         subgenres=[
             u"Historical Thriller",
             u"Espionage",
@@ -552,7 +550,6 @@ fiction_genres = [
             u"Legal Thriller",
             u"Military Thriller",
         ],
-        genres=['Suspense/Thriller']
     ),
     u"Urban Fiction",
     u"Westerns",
@@ -560,7 +557,7 @@ fiction_genres = [
 ]
 
 nonfiction_genres = [
-    (u"Art & Design", [
+    dict(name=u"Art & Design", subgenres=[
         u"Architecture",
         u"Art",
         u"Art Criticism & Theory",
@@ -571,24 +568,24 @@ nonfiction_genres = [
     ]),
     u"Biography & Memoir",
     u"Education",
-    (u"Personal Finance & Business", [
+    dict(name=u"Personal Finance & Business", subgenres=[
         u"Business",
         u"Economics",
         u"Management & Leadership",
         u"Personal Finance & Investing",
         u"Real Estate",
     ]),
-    (u"Parenting & Family", [
+    dict(name=u"Parenting & Family", subgenres=[
         u"Family & Relationships",
         u"Parenting",
     ]),
-    (u"Food & Health", [
+    dict(name=u"Food & Health", subgenres=[
         u"Bartending & Cocktails",
         u"Cooking",
         u"Health & Diet",
         u"Vegetarian & Vegan",
     ]),
-    (u"History", [
+    dict(name=u"History", subgenres=[
         u"African History",
         u"Ancient History",
         u"Asian History",
@@ -603,7 +600,7 @@ nonfiction_genres = [
         u"United States History",
         u"World History",
     ]),
-    (u"Hobbies & Home", [
+    dict(name=u"Hobbies & Home", subgenres=[
         u"Antiques & Collectibles",
         u"Crafts & Hobbies",
         u"Gardening",
@@ -611,26 +608,24 @@ nonfiction_genres = [
         u"House & Home",
         u"Pets",
     ]),
-    dict(full_name=u"Humorous Nonfiction", display_name=u"Humor",
-         genres=[u"Humorous Nonfiction"]),
-    (u"Entertainment", [
+    u"Humorous Nonfiction",
+    dict(name=u"Entertainment", subgenres=[
         u"Film & TV",
         u"Music",
         u"Performing Arts",
     ]),
-    (u"Life Strategies", [], Classifier.AUDIENCE_YOUNG_ADULT),
+    "Life Strategies",
     u"Literary Criticism",
-    # Classify periodicals as such, but don't present a lane for them.
-    dict(full_name=u"Periodicals", suppress_lane=True),
+    u"Periodicals",
     u"Philosophy",
-    (u"Politics & Current Events", [u"Political Science"]),
-    (u"Reference & Study Aids", [
+    u"Political Science",
+    dict(name=u"Reference & Study Aids", subgenres=[
         u"Dictionaries",
         u"Foreign Language Study",
         u"Law",
         u"Study Aids",
     ]),
-    (u"Religion & Spirituality", [
+    dict(name=u"Religion & Spirituality", subgenres=[
         u"Body, Mind & Spirit",
         u"Buddhism",
         u"Christianity",
@@ -638,7 +633,7 @@ nonfiction_genres = [
         u"Islam",
         u"Judaism",
     ]),
-    (u"Science & Technology", [
+    dict(name=u"Science & Technology", subgenres=[
         u"Computers",
         u"Mathematics",
         u"Medical",
@@ -711,13 +706,8 @@ class GenreData(object):
                 subgenres = []
                 audience_restriction = None
                 name = item
-                if isinstance(item, tuple):
-                    if len(item) == 2:
-                        name, subgenres = item
-                    elif len(item) == 3:
-                        name, subgenres, audience_restriction = item
-                elif isinstance(item, dict):
-                    name = item['full_name']
+                if isinstance(item, dict):
+                    name = item['name']
                     subgenres = item.get('subgenres', [])
                     audience_restriction = item.get('audience_restriction')
 
@@ -740,7 +730,7 @@ class GenreData(object):
         if isinstance(name, dict):
             data = name
             subgenres = data.get('subgenres', [])
-            name = data['full_name']
+            name = data['name']
             fiction = data.get('fiction', default_fiction)
             audience_restriction = data.get('audience', default_audience)
         if name in genres:
@@ -915,7 +905,7 @@ class ThreeMClassifier(Classifier):
         Philosophy : "PHILOSOPHY/",
         Photography : "PHOTOGRAPHY/",
         Poetry : "POETRY/",
-        Politics_Current_Events: "POLITICAL SCIENCE/",
+        Political_Science: "POLITICAL SCIENCE/",
         Psychology : "PSYCHOLOGY & PSYCHIATRY/",
         Reference_Study_Aids: "REFERENCE/",
         Religion_Spirituality : [
@@ -1076,7 +1066,7 @@ class ThreeMClassifier(Classifier):
             "BUSINESS & ECONOMICS/Personal Success",
         ],
         Police_Procedural : "Mystery & Detective/Police Procedural",
-        Politics_Current_Events : "POLITICAL SCIENCE/History & Theory/",
+        Political_Science : "POLITICAL SCIENCE/History & Theory/",
         Real_Estate : "BUSINESS & ECONOMICS/Real Estate/",
         Religious_Fiction : [
             "JUVENILE FICTION/Religious/",
@@ -1248,7 +1238,7 @@ class OverdriveClassifier(Classifier):
         Philosophy : ["Philosophy", "Ethics"],
         Photography : "Photography",
         Poetry : "Poetry",
-        Politics_Current_Events : ["Politics", "Current Events"],
+        Political_Science : ["Politics", "Current Events"],
         Psychology : ["Psychology", "Psychiatry", "Psychiatry & Psychology"],
         Reference_Study_Aids : ["Reference", "Grammar & Language Usage"],
         Religious_Fiction : ["Christian Fiction"],
@@ -1374,7 +1364,7 @@ class DeweyDecimalClassifier(Classifier):
         Philosophy : range(160, 200),
         Photography : [771, 772, 773, 775, 778, 779],
         Poetry : [811, 821, 831, 841, 851, 861, 871, 874, 881, 884],
-        Politics_Current_Events : range(320, 330) + range(351, 355),
+        Political_Science : range(320, 330) + range(351, 355),
         Psychology : range(150, 160),
         Foreign_Language_Study : range(430,500),
         Reference_Study_Aids : range(10, 20) + range(30, 40) + [103, 203, 303, 403, 503, 603, 703, 803, 903] + range(410, 430),
@@ -1526,7 +1516,7 @@ class LCCClassifier(Classifier):
         Periodicals : ["AP", "AN"],
         Philosophy : ["BC", "BD", "BJ"],
         Photography: ["TR"],
-        Politics_Current_Events : ["J", "HX"],
+        Political_Science : ["J", "HX"],
         Psychology : ["BF"],
         Reference_Study_Aids : ["AE", "AG", "AI"],
         Religion_Spirituality : ["BL", "BQ"],
@@ -2361,7 +2351,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "sonnets",
                ),
                
-               Politics_Current_Events : match_kw(
+               Political_Science : match_kw(
                    "american government",
                    "anarchism",
                    "censorship",
@@ -2383,7 +2373,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "public policy",
                ),
                
-               Politics_Current_Events: match_kw(
+               Political_Science: match_kw(
                    "politics",
                    "current events",
                ),
@@ -2696,7 +2686,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         Pets : match_kw(
             "human-animal relationships",
         ),
-        Politics_Current_Events : match_kw(
+        Political_Science : match_kw(
             "health care reform",
         ),
 
@@ -2984,7 +2974,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Poetry, A Magazine of Verse",
             "Children's Verse",
         ],
-        Politics_Current_Events : [
+        Political_Science : [
             "Anarchism",
             "Politics",
         ],
