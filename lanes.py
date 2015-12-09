@@ -232,10 +232,11 @@ def lanes_for_large_collection(_db, languages):
 
     name = LanguageCodes.name_for_languageset(languages)
     lane = Lane(
-        _db, full_name=name, display_name=name,
+        _db, full_name=name,
         genres=None,
         sublanes=[adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children],
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+        searchable=True,
         invisible=True,
         **common_args
     )
@@ -279,8 +280,9 @@ def lane_for_small_collection(_db, languages):
 
     name = LanguageCodes.name_for_languageset(languages)
     lane = Lane(
-        _db, full_name=name, display_name=name, languages=languages, 
-        sublanes=[adult_fiction, adult_nonfiction, ya_children]
+        _db, full_name=name, languages=languages, 
+        sublanes=[adult_fiction, adult_nonfiction, ya_children],
+        searchable=True
     )
     lane.default_for_language = True
     return lane
@@ -324,6 +326,7 @@ def lane_for_other_languages(_db, exclude_languages):
         _db, 
         full_name="Other Languages", 
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
+        searchable=True,
         **common_args
     )
     lane.default_for_language = True
