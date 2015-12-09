@@ -1030,7 +1030,7 @@ class Lane(object):
                 )
                 q = q.filter(CustomListEntry.most_recent_appearance
                              >=cutoff)
-            q = q.distinct()
+            q = q.distinct(LicensePool.id)
 
         if facets:
             q = facets.apply(self._db, q, work_model, edition_model)
