@@ -1,3 +1,4 @@
+from collections import defaultdict
 import feedparser
 import datetime
 from lxml import etree
@@ -20,55 +21,86 @@ from model import (
     Contributor,
     DataSource,
     Genre,
-    Lane,
-    LaneList,
     Measurement,
     Patron,
     Subject,
+    WillNotGenerateExpensiveFeed,
     Work,
     get_one_or_create,
+)
+
+from lane import (
+    Facets,
+    Pagination,
+    Lane,
+    LaneList,
 )
 
 from opds import (    
      AtomFeed,
      OPDSFeed,
      AcquisitionFeed,
-     NavigationFeed,
      Annotator,
      VerboseAnnotator,
 )
 
 from classifier import (
     Classifier,
+    Epic_Fantasy,
     Fantasy,
+    Urban_Fantasy,
+    History,
 )
 
 class TestAnnotator(Annotator):
 
     @classmethod
-    def navigation_feed_url(cls, lane):
-        url = "http://navigation-feed/"
-        if lane and lane.name:
-            url += lane.name
-        return url
+    def feed_url(cls, lane, facets, pagination):
+        base = "http://%s/" % lane.url_name
+        sep = '?'
+        if facets:
+            base += sep + facets.query_string
+            sep = '&'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
 
     @classmethod
-    def featured_feed_url(cls, lane, order=None):
-        url = "http://featured-feed/" + lane.name
-        if order:
-            url += "?order=%s" % order
-        return url
+    def groups_url(cls, lane):
+        if lane:
+            name = lane.name
+        else:
+            name = ""
+        return "http://groups/%s" % name
 
     @classmethod
-    def facet_url(cls, facet):
-        return "http://facet/" + facet
+    def facet_url(cls, facets):
+        return "http://facet/" + "&".join(
+            ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
+        )
 
 
 class TestAnnotatorWithGroup(TestAnnotator):
 
-    @classmethod
-    def group_uri(cls, work, license_pool, identifier):
-        return "http://group/" + str(work.id), "Group Title!"
+    def __init__(self):
+        self.lanes_by_work = defaultdict(list)
+
+    def group_uri(self, work, license_pool, identifier):
+        lanes = self.lanes_by_work.get(work, None)
+        if lanes:
+            lane_name = lanes[0]['lane'].display_name
+        else:
+            lane_name = str(work.id)
+        return ("http://group/%s" % lane_name,
+                "Group Title for %s!" % lane_name)
+
+    def group_uri_for_lane(self, lane):
+        if lane:
+            return ("http://groups/%s" % lane.display_name, 
+                    "Groups of %s" % lane.display_name)
+        else:
+            return "http://groups/", "Top-level groups"
+
 
 
 class TestAnnotators(DatabaseTest):
@@ -117,6 +149,7 @@ class TestAnnotators(DatabaseTest):
         work.appeal_character = 0.2
         work.appeal_story = 0.3
         work.appeal_setting = 0.4
+        work.calculate_opds_entries(verbose=True)
 
         category_tags = VerboseAnnotator.categories(work)
         appeal_tags = category_tags[Work.APPEALS_URI]
@@ -175,10 +208,13 @@ class TestAnnotators(DatabaseTest):
         work.quality = 1.0/3
         work.popularity = 0.25
         work.rating = 0.6
-        annotator = VerboseAnnotator
-        feed = AcquisitionFeed(self._db, self._str, self._url, [work], annotator)
+        work.calculate_opds_entries(verbose=True)
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [work], VerboseAnnotator
+        )
         url = self._url
         tag = feed.create_entry(work, url, None)
+
         nsmap = dict(schema='http://schema.org/')
         ratings = [(rating.get('{http://schema.org/}ratingValue'),
                     rating.get('{http://schema.org/}additionalType'))
@@ -192,6 +228,17 @@ class TestAnnotators(DatabaseTest):
 
 class TestOPDS(DatabaseTest):
 
+    def links(self, entry, rel=None):
+        if 'feed' in entry:
+            entry = entry['feed']
+        links = sorted(entry['links'], key=lambda x: (x['rel'], x.get('title')))
+        r = []
+        for l in links:
+            if (not rel or l['rel'] == rel or
+                (isinstance(rel, list) and l['rel'] in rel)):
+                r.append(l)
+        return r
+
     def setup(self):
         super(TestOPDS, self).setup()
 
@@ -200,13 +247,15 @@ class TestOPDS(DatabaseTest):
             None,
             [dict(full_name="Fiction",
                   fiction=True,
-                  audience=Classifier.AUDIENCE_ADULT,
-                  genres=[]),
-             Fantasy,
+                  audiences=Classifier.AUDIENCE_ADULT,
+                  genres=[],
+                  sublanes=[Fantasy],
+              ),
+             History,
              dict(
                  full_name="Young Adult",
                  fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 audience=Classifier.AUDIENCE_YOUNG_ADULT,
+                 audiences=Classifier.AUDIENCE_YOUNG_ADULT,
                  genres=[]),
              dict(full_name="Romance", fiction=True, genres=[],
                   sublanes=[
@@ -238,94 +287,17 @@ class TestOPDS(DatabaseTest):
         b = m(rel, href, ["application/epub"])    
         eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
-
-    def test_navigation_feed(self):
-        original_feed = NavigationFeed.main_feed(self.conf, TestAnnotator)
-        parsed = feedparser.parse(unicode(original_feed))
-        feed = parsed['feed']
-
-        # There's a self link.
-        self_link, start_link = sorted(feed.links)
-        eq_("http://navigation-feed/", self_link['href'])
-
-        # There's a link to the top level, which is the same as the
-        # self link.
-        eq_("http://navigation-feed/", start_link['href'])
-        eq_("start", start_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, start_link['type'])
-
-        # Every lane has an entry.
-        eq_(4, len(parsed['entries']))
-        tags = [x['title'] for x in parsed['entries']]
-        eq_(['Fantasy', 'Fiction', 'Romance', 'Young Adult'], sorted(tags))
-
-        # Let's look at one entry, Fiction, which has no sublanes.
-        toplevel = [x for x in parsed['entries'] if x.title == 'Fiction'][0]
-        eq_("http://featured-feed/Fiction", toplevel.id)
-
-        # There are two links to acquisition feeds.
-        featured, by_author = sorted(toplevel['links'])
-        eq_('http://featured-feed/Fiction', featured['href'])
-        eq_("Featured", featured['title'])
-        eq_(NavigationFeed.FEATURED_REL, featured['rel'])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, featured['type'])
-
-        eq_('http://featured-feed/Fiction?order=author', by_author['href'])
-        eq_("All Fiction", by_author['title'])
-        # eq_(None, by_author.get('rel'))
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, by_author['type'])
-
-        # Now let's look at one entry, Romance, which has a sublane.
-        toplevel = [x for x in parsed['entries'] if x.title == 'Romance'][0]
-        eq_("http://featured-feed/Romance", toplevel.id)
-
-        # Instead of an acquisition feed (by author), we have a navigation feed
-        # (the sublanes of Romance).
-        featured, sublanes = sorted(toplevel['links'])
-        eq_('http://navigation-feed/Romance', sublanes['href'])
-        eq_("Look inside Romance", sublanes['title'])
-        eq_("subsection", sublanes['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, sublanes['type'])
-
-    def test_navigation_feed_for_sublane(self):
-        original_feed = NavigationFeed.main_feed(
-            self.conf.sublanes.by_name['Romance'], TestAnnotator)
-        parsed = feedparser.parse(unicode(original_feed))
-        feed = parsed['feed']
-
-        start_link, up_link, self_link, alternate_link = sorted(feed.links)
-
-        # There's a self link.
-        eq_("http://navigation-feed/Romance", self_link['href'])
-        eq_("self", self_link['rel'])
-
-        # There's a link to the top level.
-        eq_("http://navigation-feed/", start_link['href'])
-        eq_("start", start_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, start_link['type'])
-
-        # There's a link to one level up.
-        eq_("http://navigation-feed/", up_link['href'])
-        eq_("up", up_link['rel'])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, up_link['type'])
-
-        # There's an alternate view of this feed.
-        #
-        # TODO: I don't really like this one.
-        eq_("http://featured-feed/Romance?order=author", alternate_link['href'])
-        eq_("alternate", alternate_link['rel'])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, alternate_link['type'])
-
-    def test_group(self):
+    def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
         [lp] = work.license_pools
 
+        annotator = TestAnnotatorWithGroup()
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               [work], TestAnnotatorWithGroup)
+                               [work], annotator)
         u = unicode(feed)
         parsed = feedparser.parse(u)
         [group_link] = parsed.entries[0]['links']
-        expect_uri, expect_title = TestAnnotatorWithGroup.group_uri(
+        expect_uri, expect_title = annotator.group_uri(
             work, lp, lp.identifier)
         eq_(OPDSFeed.GROUP_REL, group_link['rel'])
         eq_(expect_uri, group_link['href'])
@@ -367,21 +339,27 @@ class TestOPDS(DatabaseTest):
         eq_(work.primary_edition.permanent_work_id, 
             entry['simplified_pwid'])
 
-    def test_acquisition_feed_contains_facet_links(self):
+    def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
+        lane = Lane(self._db, "lane")
+        facets = Facets.default()
 
-        works = self._db.query(Work)
-        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               works, TestAnnotator, "author")
-        u = unicode(feed)
+        cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
+                                    lane, TestAnnotator, facets=facets)
+        
+        u = unicode(cached_feed.content)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
-        by_author, by_title, self_link = sorted(
-            by_title['links'], key=lambda x: (x['rel'], x.get('title')))
-
+        [self_link] = self.links(by_title, 'self')
         eq_("http://the-url.com/", self_link['href'])
+        [by_author, recently_added, by_title] = sorted(
+            self.links(
+                by_title, AcquisitionFeed.FACET_REL
+            ),
+            key = lambda x: x['title']
+        )
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,
@@ -395,13 +373,23 @@ class TestOPDS(DatabaseTest):
         eq_('http://opds-spec.org/facet', by_author['rel'])
         eq_('true', by_author['opds:activefacet'])
         eq_('Author', by_author['title'])
-        eq_(TestAnnotator.facet_url("author"), by_author['href'])
+        expect = Facets.default()
+        expect.order = Facets.ORDER_AUTHOR
+        eq_(TestAnnotator.facet_url(expect), by_author['href'])
 
         eq_('Sort by', by_title['opds:facetgroup'])
         eq_('http://opds-spec.org/facet', by_title['rel'])
         eq_('Title', by_title['title'])
         assert not 'opds:activefacet' in by_title
-        eq_(TestAnnotator.facet_url("title"), by_title['href'])
+        expect.order = Facets.ORDER_TITLE
+        eq_(TestAnnotator.facet_url(expect), by_title['href'])
+
+        eq_('Sort by', recently_added['opds:facetgroup'])
+        eq_('http://opds-spec.org/facet', recently_added['rel'])
+        eq_('Recently Added', recently_added['title'])
+        assert not 'opds:activefacet' in recently_added
+        expect.order = Facets.ORDER_ADDED_TO_COLLECTION
+        eq_(TestAnnotator.facet_url(expect), recently_added['href'])
 
     def test_acquisition_feed_includes_available_and_issued_tag(self):
         today = datetime.date.today()
@@ -438,6 +426,9 @@ class TestOPDS(DatabaseTest):
         work4.primary_edition.published = the_future
         work4.license_pools[0].availability_time = None
 
+        for w in work1, work2, work3, work4:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         with_times = AcquisitionFeed(
@@ -466,6 +457,8 @@ class TestOPDS(DatabaseTest):
         work2.primary_edition.publisher = None
 
         self._db.commit()
+        for w in work, work2:
+            w.calculate_opds_entries(verbose=False)
 
         works = self._db.query(Work)
         with_publisher = AcquisitionFeed(
@@ -485,6 +478,9 @@ class TestOPDS(DatabaseTest):
         work3.audience = None
 
         self._db.commit()
+
+        for w in work, work2, work3:
+            w.calculate_opds_entries(verbose=False)
 
         works = self._db.query(Work)
         with_audience = AcquisitionFeed(self._db, "test", "url", works)
@@ -524,6 +520,9 @@ class TestOPDS(DatabaseTest):
 
         work2 = self._work(with_open_access_download=True)
 
+        for w in work, work2:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
@@ -559,6 +558,9 @@ class TestOPDS(DatabaseTest):
         work3.genres = []
         work3.fiction = True
 
+        for w in work, work2, work3:
+            w.calculate_opds_entries(verbose=False)
+
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
@@ -582,6 +584,7 @@ class TestOPDS(DatabaseTest):
             [(x['term'], x['label']) for x in entries[2]['tags']
              if x['scheme'] == scheme]
         )
+
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):
         work = self._work(title="open access", with_open_access_download=True)
         no_license_pool = self._work(title="no license pool", with_license_pool=False)
@@ -599,43 +602,22 @@ class TestOPDS(DatabaseTest):
         eq_(["not open access", "open access"], sorted(
             [x['title'] for x in by_title['entries']]))
 
-    def test_featured_feed_ignores_low_quality_works(self):
-        lane=self.lanes.by_name['Fantasy']
-        good = self._work(genre=Fantasy, language="eng",
-                          with_open_access_download=True)
-        good.quality = 1
-        bad = self._work(genre=Fantasy, language="eng",
-                         with_open_access_download=True)
-        bad.quality = 0
-
-        # We get the good one and omit the bad one.
-        feed = AcquisitionFeed.featured(
-            "eng", lane, TestAnnotator, availability=Work.ALL, 
-            random_sample=False)
-        feed = feedparser.parse(unicode(feed))
-        eq_([good.title], [x['title'] for x in feed['entries']])
-
     def test_acquisition_feed_includes_image_links(self):
-        lane=self.lanes.by_name['Fantasy']
+        lane=self.lanes.by_languages['']['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.primary_edition.cover_full_url = "http://full/a"
 
-        old_config = Configuration.instance
-        new_config = dict(old_config)
-        # Clear out any default CDN settings
-        Configuration.instance = new_config
-        new_config['integrations'][Configuration.CDN_INTEGRATION] = {}
-        feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
-        feed = feedparser.parse(unicode(feed))
-        links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                     'image' in x['rel']])
-        eq_(['http://full/a', 'http://thumbnail/b'], links)
-        Configuration.instance = old_config
+        with temp_config() as config:
+            config['integrations'][Configuration.CDN_INTEGRATION] = {}
+            work.calculate_opds_entries(verbose=False)
+            feed = feedparser.parse(unicode(work.simple_opds_entry))
+            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
+                            'image' in x['rel']])
+            eq_(['http://full/a', 'http://thumbnail/b'], links)
 
     def test_acquisition_feed_image_links_respect_cdn(self):
-        lane=self.lanes.by_name['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
         work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
@@ -644,8 +626,8 @@ class TestOPDS(DatabaseTest):
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
             config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
-            feed = AcquisitionFeed.featured("eng", lane, TestAnnotator)
-            feed = feedparser.parse(unicode(feed))
+            work.calculate_opds_entries(verbose=False)
+            feed = feedparser.parse(work.simple_opds_entry)
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
             eq_(['http://foo/a', 'http://foo/b'], links)
@@ -667,3 +649,159 @@ class TestOPDS(DatabaseTest):
         eq_("urn:bar", bar['id'])
         eq_("msg2", bar['simplified_message'])
         eq_("500", bar['simplified_status_code'])
+
+
+    def test_page_feed(self):
+        """Test the ability to create a paginated feed of works for a given
+        lane.
+        """       
+        fantasy_lane = self.lanes.by_languages['']['Epic Fantasy']        
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+
+        facets = Facets.default()
+        pagination = Pagination(size=1)
+
+        def make_page(pagination):
+            return AcquisitionFeed.page(
+                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
+                pagination=pagination, use_materialized_works=False
+            )
+        cached_works = make_page(pagination)
+        parsed = feedparser.parse(unicode(cached_works.content))
+        eq_(work1.title, parsed['entries'][0]['title'])
+
+        # Make sure the links are in place.
+        [up] = self.links(parsed, 'up')
+        eq_(TestAnnotator.groups_url(Fantasy), up['href'])
+
+        [start] = self.links(parsed, 'start')
+        eq_(TestAnnotator.groups_url(None), start['href'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        cached_works = make_page(pagination.next_page)
+        parsed = feedparser.parse(cached_works.content)
+        [previous] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination), previous['href'])
+        eq_(work2.title, parsed['entries'][0]['title'])
+
+
+    def test_groups_feed(self):
+        """Test the ability to create a grouped feed of recommended works for
+        a given lane.
+        """
+        fantasy_lane = self.lanes.by_languages['']['Fantasy']
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1.quality = 0.75
+        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
+        work2.quality = 0.75
+
+        with temp_config() as config:
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
+            annotator = TestAnnotatorWithGroup()
+
+            # By policy, group feeds are cached forever, which means
+            # an attempt to generate them will fail.
+            assert_raises(
+                WillNotGenerateExpensiveFeed, AcquisitionFeed.groups,
+                self._db, "test", self._url, fantasy_lane, annotator, 
+                False, False
+            )
+
+            cached_groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, annotator, 
+                True, False
+            )
+            parsed = feedparser.parse(cached_groups.content)
+            
+            # There are two entries, one for each work.
+            e1, e2 = parsed['entries']
+
+            # Each entry has one and only one link.
+            [l1], [l2] = e1['links'], e2['links']
+
+            # Those links are 'collection' links that classify the
+            # works under their subgenres.
+            assert all([l['rel'] == 'collection' for l in (l1, l2)])
+
+            eq_(l1['href'], 'http://group/Epic Fantasy')
+            eq_(l1['title'], 'Group Title for Epic Fantasy!')
+            eq_(l2['href'], 'http://group/Urban Fantasy')
+            eq_(l2['title'], 'Group Title for Urban Fantasy!')
+
+            # The feed itself has an 'up' link which points to the
+            # groups for Fiction, and a 'start' link which points to
+            # the top-level groups feed.
+            [up_link] = self.links(parsed['feed'], 'up')
+            eq_("http://groups/Fiction", up_link['href'])
+            eq_("Fiction", up_link['title'])
+
+            [start_link] = self.links(parsed['feed'], 'start')
+            eq_("http://groups/", start_link['href'])
+            eq_("Collection Home", start_link['title'])
+
+    def test_empty_groups_feed_is_none(self):
+
+        fantasy_lane = self.lanes.by_languages['']['Fantasy']
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1.quality = 0.75
+        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
+        work2.quality = 0.75
+
+        annotator = TestAnnotatorWithGroup()
+
+        # If we require more books to fill up a featured lane than are
+        # available, then the groups() method returns None.
+        with temp_config() as config:
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 10
+            groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, annotator, 
+                True, False
+            )
+            eq_(groups, None)
+
+    def test_cache(self):
+        work1 = self._work(title="The Original Title",
+                           genre=Epic_Fantasy, with_open_access_download=True)
+        fantasy_lane = self.lanes.by_languages['']['Fantasy']
+
+        def make_page():
+            return AcquisitionFeed.page(
+                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
+                pagination=Pagination.default(), use_materialized_works=False
+            )
+
+        with temp_config() as config:
+            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 10
+
+            cached1 = make_page()
+            assert work1.title in cached1.content
+            old_timestamp = cached1.timestamp
+
+            work2 = self._work(
+                title="A Brand New Title", 
+                genre=Epic_Fantasy, with_open_access_download=True
+            )
+
+            # The new work does not show up in the feed because 
+            # we get the old cached version.
+            cached2 = make_page()
+            assert work2.title not in cached2.content
+            assert cached2.timestamp == old_timestamp
+            
+            # Change the policy to disable caching, and we get
+            # a brand new page with the new work.
+            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 0
+
+            cached3 = make_page()
+            assert cached3.timestamp > old_timestamp
+            assert work2.title in cached3.content
+
+

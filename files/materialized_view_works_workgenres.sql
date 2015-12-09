@@ -1,11 +1,14 @@
 create materialized view mv_works_editions_workgenres_datasources_identifiers
 as
- SELECT editions.id AS editions_id,
+ SELECT 
+    works.id AS works_id,
+    editions.id AS editions_id,
     editions.data_source_id,
     editions.primary_identifier_id,
     editions.sort_title,
     editions.permanent_work_id,
     editions.sort_author,
+    editions.medium,
     editions.language,
     editions.cover_full_url,
     editions.cover_thumbnail_url,
@@ -16,7 +19,6 @@ as
     workgenres.id AS workgenres_id,
     workgenres.genre_id,
     workgenres.affinity,
-    works.id AS works_id,
     works.audience,
     works.target_age,
     works.fiction,
@@ -33,10 +35,8 @@ as
      JOIN datasources ON editions.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
      JOIN workgenres ON works.id = workgenres.work_id
-     JOIN licensepooldeliveries on licensepools.id=licensepooldeliveries.license_pool_id
-     JOIN deliverymechanisms on deliverymechanisms.id=licensepooldeliveries.delivery_mechanism_id
-  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND editions.medium = 'Book'::medium AND works.simple_opds_entry IS NOT NULL AND deliverymechanisms.default_client_can_fulfill=true
-  ORDER BY editions.sort_title, editions.sort_author;
+  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND works.simple_opds_entry IS NOT NULL
+  ORDER BY (editions.sort_title, editions.sort_author);
 
 create index mv_works_editions_adult_fiction_author_other_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_author, sort_title, works_id, language) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language <> 'eng';
 create index mv_works_editions_adult_fiction_author_wg_iden on mv_works_editions_workgenres_datasources_identifiers (sort_author, sort_title, works_id, license_pool_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language='eng';

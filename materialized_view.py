@@ -1,8 +1,9 @@
 from model import (
     MaterializedWork,
     MaterializedWorkWithGenre,
-    WorkFeed,
 )
+
+from feed import WorkFeed
 
 class MaterializedWorkLaneFeed(WorkFeed):
 

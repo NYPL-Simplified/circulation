@@ -30,19 +30,24 @@ from config import Configuration
 from classifier import Classifier
 from model import (
     BaseMaterializedWork,
+    CachedFeed,
     CustomList,
     CustomListEntry,
-    CustomListFeed,
     DataSource,
     Hyperlink,
-    Lane,
     Resource,
     Identifier,
     Edition,
     Measurement,
     Subject,
+    WillNotGenerateExpensiveFeed,
     Work,
     )
+from lane import (
+    Facets,
+    Lane,
+    Pagination,
+)
 from util.cdn import cdnify
 
 ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
@@ -92,6 +97,13 @@ class Annotator(object):
                             entry):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
+        """
+        pass
+
+    @classmethod
+    def annotate_feed(cls, feed, lane):
+        """Make any custom modifications necessary to integrate this
+        OPDS feed into the application's workflow.
         """
         pass
 
@@ -238,7 +250,11 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
-    def navigation_feed_url(cls, lane, order=None):
+    def feed_url(cls, lane, facets, pagination):
+        raise NotImplementedError()
+
+    @classmethod
+    def groups_url(cls, lane):
         raise NotImplementedError()
 
     @classmethod
@@ -246,7 +262,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def facet_url(cls, order):
+    def facet_url(cls, facets):
         return None
 
     @classmethod
@@ -450,198 +466,196 @@ class OPDSFeed(AtomFeed):
 
 class AcquisitionFeed(OPDSFeed):
 
-    # The languages in which we have best-seller and staff picks information
-    BEST_SELLER_LANGUAGES = ['eng']
-    STAFF_PICKS_LANGUAGES = ['eng']
+    FACET_REL = "http://opds-spec.org/facet"
 
     @classmethod
-    def featured(cls, languages, lane, annotator, quality_cutoff=0.3,
-                 availability=Work.CURRENTLY_AVAILABLE, random_sample=True):
-        """The acquisition feed for 'featured' items from a given lane.
-        """
-        url = annotator.featured_feed_url(lane)
-        feed_size = Configuration.featured_lane_size()
-        quality = Configuration.minimum_featured_quality()
-        works = lane.quality_sample(languages, quality_cutoff, 
-                                    min(0.1, quality_cutoff), feed_size,
-                                    availability, random_sample)
-        return AcquisitionFeed(
-            lane._db, "%s: featured" % lane.display_name, url, works, annotator, 
-            sublanes=lane.sublanes)
-
-    @classmethod
-    def featured_groups(
-            cls, url, best_sellers_url, staff_picks_url, languages, lane,
-            annotator, quality_cutoff=0.0):
+    def groups(cls, _db, title, url, lane, annotator, 
+               force_refresh=False,
+               use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
+        # Find or create a CachedFeed.
+        cached, usable = CachedFeed.fetch(
+            _db,
+            lane=lane, 
+            type=CachedFeed.GROUPS_TYPE, 
+            facets=None,
+            pagination=None,
+            annotator=annotator,
+            force_refresh=force_refresh
+        )
+        if usable:
+            return cached
+
         feed_size = Configuration.featured_lane_size()
+       
+        # This is a list rather than a dict because we want to 
+        # preserve the ordering of the lanes.
+        works_and_lanes = []
+
+        def get_visible_sublanes(lane):
+            visible_sublanes = []
+            for sublane in lane.sublanes:
+                if not sublane.invisible:
+                    visible_sublanes.append(sublane)
+                else:
+                    visible_sublanes += get_visible_sublanes(sublane)
+            return visible_sublanes
+
+        for sublane in get_visible_sublanes(lane):
+            # .featured_works will try more and more desperately
+            # to find works to fill the 'featured' group.
+            works = sublane.featured_works(
+                feed_size, use_materialized_works=use_materialized_works)
+            if not works or len(works) < (feed_size-5):
+                # This is pathetic. Every single book in this
+                # lane won't fill up the 'featured' group. Don't
+                # show the lane at all.
+                pass
+            else:
+                for work in works:
+                    works_and_lanes.append((work, sublane))
+
+        if not works_and_lanes:
+            # We did not find any works whatsoever. The groups feed is
+            # useless. Instead we need to display a flat feed--the
+            # contents of what would have been the 'all' feed.
+            return None
+
+        if lane.include_all_feed:
+            # Create an 'all' group so that patrons can browse every
+            # book in this lane.
+            works = lane.featured_works(feed_size)
+            for work in works:
+                works_and_lanes.append((work, None))
 
         all_works = []
-        if isinstance(languages, basestring):
-            languages = [languages]
+        for work, sublane in works_and_lanes:
+            if sublane is None:
+                # This work is in the (e.g.) 'All Science Fiction'
+                # group. Whether or not this lane has sublanes,
+                # the group URI will point to a linear feed, not a
+                # groups feed.
+                v = dict(
+                    lane=lane,
+                    label='All ' + lane.display_name,
+                    link_to_list_feed=True,
+                )
+            else:
+                v = dict(
+                    lane=sublane
+                )
+            annotator.lanes_by_work[work].append(v)
+            all_works.append(work)
 
-        # Configure special groups
-        best_seller_cutoff = (
-            datetime.datetime.utcnow() - CustomListFeed.best_seller_cutoff)
-        special_group_config = [
-            (best_sellers_url, "Best Sellers", 
-             DataSource.NYT, best_seller_cutoff,
-             cls.BEST_SELLER_LANGUAGES), 
-        ]
-
-        if isinstance(lane, Lane) or Configuration.show_staff_picks_on_top_level():
-            special_group_config.append(
-                (staff_picks_url, "Staff Picks", 
-                 DataSource.LIBRARY_STAFF, None,
-                 cls.STAFF_PICKS_LANGUAGES)
-            )
-
-
-        sublanes = list(lane.sublanes)
-        _db = None
-        for l in sublanes:
-            if l._db:
-                _db = l._db
-                break
-
-        # First generate the special lists (bestsellers and staff
-        # picks).
-        if isinstance(lane, Lane):
-            special_lists_lane = lane
-        else:
-            special_lists_lane = Lane.everything(_db)
-        all_works.extend(cls.generate_special_lists(
-            _db, languages, special_lists_lane, annotator, special_group_config)
+        feed = AcquisitionFeed(
+            _db, title, url, all_works, annotator,
         )
 
-        if lane and lane.sublanes and lane.display_name:
-            # Every lane that has sublanes also gets an 'all' group,
-            # except the very top level.
-            logging.info(
-                "I intend to create an 'all' group for %s" % lane.name,
-            )
-            sublanes.append(lane)
-            all_group_label = 'All ' + lane.display_name
-        else:
-            all_group_label = None
+        # Render a 'start' link and an 'up' link.
+        top_level_title = "Collection Home"
+        start_uri = annotator.groups_url(None)
+        feed.add_link(href=start_uri, rel="start", title=top_level_title)
 
-        for l in sublanes:
-            if l == lane and not all_works:
-                # We've gotten to the (e.g.) 'All Science Fiction'
-                # group, but we have not found any works whatsoever.
-                # 
-                # Instead of delivering a feed with a single group,
-                # deliver nothing and require the caller to 
-                # create a flat feed instead.
-                return None
+        if lane.parent:
+            parent = lane.parent
+            if isinstance(parent, Lane):
+                title = lane.parent.display_name
+            else:
+                title = top_level_title
+            up_uri = annotator.groups_url(lane.parent)
+            feed.add_link(href=up_uri, rel="up", title=title)
 
-            quality_min = Configuration.minimum_featured_quality()
+        annotator.annotate_feed(feed, lane)
 
-            works = l.quality_sample(
-                languages, quality_min, quality_cutoff, feed_size,
-                Work.CURRENTLY_AVAILABLE)
-
-            if quality_cutoff == 0 and len(works) < (feed_size-5):
-                # There are so few works in this group that it doesn't
-                # even make sense to show it as a group.
-
-                # Try again, but don't restrict to currently available
-                # books.
-                works = l.quality_sample(
-                    languages, quality_min, quality_cutoff, feed_size,
-                    Work.ALL)
-
-            if quality_cutoff == 0 and len(works) < (feed_size-5):
-                # Okay, forget it.
-                continue
-
-            for work in works:
-                if l == lane:
-                    # This work is in the (e.g.) 'All Science Fiction'
-                    # group. Whether or not this lane has sublanes,
-                    # the group URI will point to a linear feed, not a
-                    # groups feed.
-                    v = dict(
-                        lane=lane,
-                        label=all_group_label,
-                        link_to_list_feed=True,
-                    )
-                else:
-                    v = l                   
-                annotator.lanes_by_work[work].append(v)
-                all_works.append(work)
-
-        feed = AcquisitionFeed(_db, "Featured", url, all_works, annotator,
-                               facet_groups=[])
-        return feed
-
-    DEFAULT_FACET_GROUPS = [
-        ('Title', 'title', 'Sort by'),
-        ('Author', 'author', 'Sort by')
-    ]
+        content = unicode(feed)
+        cached.update(content)
+        return cached
 
     @classmethod
-    def generate_special_lists(cls, _db, languages, lane, annotator, 
-                               configuration):
-        """Generate lists of entries for best-sellers and staff picks."""
-        all_works = []
-        if lane.parent is not None:
-            return all_works
-        feed_size = Configuration.featured_lane_size()
-        # If lane.parent is None, this is the very top level or a
-        # top-level lane (e.g. "Young Adult Fiction").
-        #
-        # These are the only lanes that get Staff Picks and
-        # Best-Sellers.
-        for group_uri, title, data_source_name, cutoff_point, available_languages in configuration:
-            available = False
-            if not any([lang in available_languages for lang in languages]):
-                continue
-            data_source = DataSource.lookup(_db, data_source_name)
-            q = lane.works(languages, availability=Work.ALL)
-            q = Work.restrict_to_custom_lists_from_data_source(
-                _db, q, data_source, cutoff_point)
-            a = time.time()
-            page = q.all()
-            b = time.time()
-            print "Got %s %s for %s in %.2f" % (
-                len(page), title, lane.name, (b-a))
-            if len(page) > feed_size:
-                sample = random.sample(page, feed_size)
-            else:
-                sample = page
-            for work in sample:
-                annotator.lanes_by_work[work].append(
-                    (group_uri, title)
-                )
-                all_works.append(work)
-        return all_works
+    def page(cls, _db, title, url, lane, annotator=None,
+             facets=None, pagination=None, 
+             force_refresh=False,
+             use_materialized_works=True
+    ):
+        """Create a feed representing one page of works from a given lane."""
+        facets = facets or Facets.default()
+        pagination = pagination or Pagination.default()
 
-    def __init__(self, _db, title, url, works, annotator=None,
-                 active_facet=None, sublanes=[], messages_by_urn={},
-                 facet_groups=DEFAULT_FACET_GROUPS, precomposed_entries=[]):
-        super(AcquisitionFeed, self).__init__(title, url, annotator)
-        lane_link = dict(rel="collection", href=url)
-        first_time = time.time()
-        totals = []
-        if isinstance(works, Query):
-            a = time.time()
-            works = works.all()
-            b = time.time()
-            # print "Query executed in %.2f" % (b-a)
-        if annotator:
-            annotator.cached_record = []
-            annotator.uncached_record = []
-        for work in works:
-            a = time.time()
-            self.add_entry(work, lane_link)
-            totals.append(time.time()-a)
-        for entry in precomposed_entries:
-            self.feed.append(entry)
+        # Find or create a CachedFeed.
+        cached, usable = CachedFeed.fetch(
+            _db,
+            lane=lane, 
+            type=CachedFeed.PAGE_TYPE, 
+            facets=facets, 
+            pagination=pagination, 
+            annotator=annotator,
+            force_refresh=force_refresh
+        )
+        if usable:
+            return cached
 
-        # Add minimal entries for the messages.
+        if use_materialized_works:
+            works_q = lane.materialized_works(facets, pagination)
+        else:
+            works_q = lane.works(facets, pagination)
+        works = works_q.all()
+        feed = cls(_db, title, url, works, annotator)
+
+        # Add URLs to change faceted views of the collection.
+        for args in cls.facet_links(annotator, facets):
+            feed.add_link(**args)
+
+        if len(works) > 0:
+            # There are works in this list. Add a 'next' link.
+            feed.add_link(rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
+
+        if pagination.offset > 0:
+            feed.add_link(rel="first", href=annotator.feed_url(lane, facets, pagination.first_page))
+
+        previous_page = pagination.previous_page
+        if previous_page:
+            feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
+
+        if lane.parent:
+            feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
+        feed.add_link(rel='start', href=annotator.groups_url(None))
+
+        annotator.annotate_feed(feed, lane)
+
+        content = unicode(feed)
+        cached.update(content)
+
+        return cached
+
+    @classmethod
+    def search(cls, _db, title, url, lane, search_engine, query, limit=30,
+               annotator=None
+    ):
+        if not isinstance(lane, Lane):
+            search_lane = Lane(
+                _db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        else:
+            search_lane = lane
+
+        results = search_lane.search(query, search_engine, limit)
+        opds_feed = AcquisitionFeed(_db, title, url, results)
+        annotator.annotate_feed(opds_feed, lane)
+        return unicode(opds_feed)
+
+    @classmethod
+    def single_entry(cls, _db, work, annotator, force_create=False):
+        """Create a single-entry feed for one specific work."""
+        feed = cls(_db, '', '', [], annotator=annotator)
+        if not isinstance(work, Edition) and not work.primary_edition:
+            return None
+        return feed.create_entry(work, None, even_if_no_license_pool=True,
+                                 force_create=force_create)
+
+    @classmethod
+    def render_messages(cls, messages_by_urn):
+        """Create minimal OPDS entries for custom messages."""
         for urn, (status, message) in messages_by_urn.items():
             entry = E.entry(
                 E.id(urn)
@@ -653,43 +667,50 @@ class AcquisitionFeed(OPDSFeed):
             message_tag = E._makeelement("{%s}message" % simplified_ns)
             message_tag.text = message
             entry.append(message_tag)
-            self.feed.append(entry)
+            yield entry
 
-        total_entries = len(totals) + len(precomposed_entries)
-        #if total_entries:
-        #    print "Feed contains %d entries, build times: %r" % (
-        #        len(totals), totals)
-        #else:
-        #    print "Feed is empty."
-        if total_entries > 0:
-            logging.debug(
-                "Built feed of %d entries in %.2f sec" % (
-                    total_entries, time.time()-first_time))
-
-        for title, order, facet_group, in facet_groups:
-            url = self.annotator.facet_url(order)
+    @classmethod
+    def facet_links(self, annotator, facets):
+        for group, value, new_facets, selected, in facets.facet_groups:
+            url = annotator.facet_url(new_facets)
             if not url:
                 continue
-            link = dict(href=url, title=title)
-            link['rel'] = "http://opds-spec.org/facet"
-            link['{%s}facetGroup' % opds_ns] = facet_group
-            if order==active_facet:
+            group_title = Facets.GROUP_DISPLAY_TITLES[group]
+            facet_title = Facets.FACET_DISPLAY_TITLES[value]
+            link = dict(href=url, title=facet_title)
+            link['rel'] = self.FACET_REL
+            link['{%s}facetGroup' % opds_ns] = group_title
+            if selected:
                 link['{%s}activeFacet' % opds_ns] = "true"
-            self.add_link(**link)
+            yield link
+
+    def __init__(self, _db, title, url, works, annotator=None,
+                 messages_by_urn={}, precomposed_entries=[]):
+        """Turn a list of works, messages, and precomposed <opds> entries
+        into a feed.
+        """
+        super(AcquisitionFeed, self).__init__(title, url, annotator)
+
+        # Add minimal entries for the messages.
+        for entry in self.render_messages(messages_by_urn):
+            self.feed.append(entry)
+
+        lane_link = dict(rel="collection", href=url)
+        for work in works:
+            self.add_entry(work, lane_link)
+
+        # Add the precomposed entries.
+        for entry in precomposed_entries:
+            self.feed.append(entry)
 
     def add_entry(self, work, lane_link):
+        """Attempt to create an OPDS <entry>. If successful, append it to
+        the feed.
+        """
         entry = self.create_entry(work, lane_link)
         if entry is not None:
             self.feed.append(entry)
         return entry
-
-    @classmethod
-    def single_entry(cls, _db, work, annotator, force_create=False):
-        feed = cls(_db, '', '', [], annotator=annotator)
-        if not isinstance(work, Edition) and not work.primary_edition:
-            return None
-        return feed.create_entry(work, None, even_if_no_license_pool=True,
-                                 force_create=force_create)
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
                      force_create=False):
@@ -768,13 +789,6 @@ class AcquisitionFeed(OPDSFeed):
             title = (edition.title or "") + " "
         else:
             title = ""
-        if self.annotator:
-            if cache_hit:
-                record = self.annotator.cached_record
-            else:
-                record = self.annotator.uncached_record
-            record.append((title, after-before))
-
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
@@ -881,12 +895,15 @@ class AcquisitionFeed(OPDSFeed):
         # available to people using this application.
         now = datetime.datetime.utcnow()
         today = datetime.date.today()
-        if (license_pool and license_pool.availability_time and
-            license_pool.availability_time <= now):
-            availability_tag = E._makeelement("published")
-            # TODO: convert to local timezone.
-            availability_tag.text = _strftime(license_pool.availability_time)
-            entry.extend([availability_tag])
+        if license_pool and license_pool.availability_time:
+            avail = license_pool.availability_time
+            if isinstance(avail, datetime.datetime):
+                avail = avail.date()
+            if avail <= today:
+                availability_tag = E._makeelement("published")
+                # TODO: convert to local timezone.
+                availability_tag.text = _strftime(license_pool.availability_time)
+                entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
         # from Entry.published (which may refer to the print edition
@@ -1099,91 +1116,3 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
             identifier, lane_link)
-
-class NavigationFeed(OPDSFeed):
-
-    @classmethod
-    def main_feed(self, lane, annotator):
-        """The main navigation feed for the given lane."""
-        if lane.display_name:
-            name = lane.display_name
-        else:
-            name = "Navigation feed"
-        feed = NavigationFeed(
-            name, annotator.navigation_feed_url(lane), annotator)
-
-        top_level_feed = feed.add_link(
-            rel="start",
-            type=self.NAVIGATION_FEED_TYPE,
-            href=annotator.navigation_feed_url(None),
-        )
-
-        # If this is not a top-level lane, link to the navigation feed
-        # for the parent lane.
-        if lane.display_name:
-            if lane.parent:
-                parent = lane.parent
-            else:
-                parent = None
-            parent_url = annotator.navigation_feed_url(parent)
-            feed.add_link(
-                rel="up",
-                href=parent_url,
-                type=self.NAVIGATION_FEED_TYPE,
-            )
-
-        if lane.display_name:
-            # Link to an acquisition feed that contains _all_ books in
-            # this lane.
-            feed.add_link(
-                type=self.ACQUISITION_FEED_TYPE,
-                href=annotator.featured_feed_url(lane, 'author'),
-                title="All %s" % lane.display_name,
-            )
-
-        # Create an entry for each sublane of this lane.
-        for sublane in lane.sublanes:
-            links = []
-            # The entry will link to an acquisition feed of featured
-            # books in that lane.
-            for title, order, rel in [
-                    ('Featured', None, self.FEATURED_REL)
-            ]:
-                link = E.link(
-                    type=self.ACQUISITION_FEED_TYPE,
-                    href=annotator.featured_feed_url(sublane, order),
-                    rel=rel,
-                    title=title,
-                )
-                links.append(link)
-
-            if sublane.sublanes.lanes:
-                # The sublane itself has sublanes. Link to the
-                # equivalent of this feed for that sublane.
-                sublane_link = E.link(
-                    type=self.NAVIGATION_FEED_TYPE,
-                    href=annotator.navigation_feed_url(sublane),
-                    rel="subsection",
-                    title="Look inside %s" % sublane.display_name,
-                )
-            else:
-                # This sublane has no sublanes. Link to an acquisition
-                # feed that contains all books in the lane.
-                sublane_link = E.link(
-                    type=self.ACQUISITION_FEED_TYPE,
-                    href=annotator.featured_feed_url(sublane, 'author'),
-                    title="All %s" % sublane.display_name,
-                )
-            links.append(sublane_link)
-
-            feed.feed.append(
-                E.entry(
-                    E.id(annotator.lane_id(sublane)),
-                    E.title(sublane.display_name),
-                    # E.link(href=annotator.featured_feed_url(lane), rel="self"),
-                    E.updated(_strftime(datetime.datetime.utcnow())),
-                    *links
-                )
-            )
-
-        return feed

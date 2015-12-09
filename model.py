@@ -26,7 +26,6 @@ import warnings
 from PIL import (
     Image,
 )
-import elasticsearch
 
 from psycopg2.extras import NumericRange
 from sqlalchemy.engine.url import URL
@@ -144,6 +143,9 @@ class SessionManager(object):
         MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
     }
 
+
+    engine_for_url = {}
+
     @classmethod
     def engine(cls, url=None):
         url = url or Configuration.database_url()
@@ -151,6 +153,10 @@ class SessionManager(object):
 
     @classmethod
     def initialize(cls, url):
+        if url in cls.engine_for_url:
+            engine = cls.engine_for_url[url]
+            return engine, engine.connect()
+
         engine = cls.engine(url)
         Base.metadata.create_all(engine)
 
@@ -203,8 +209,15 @@ class SessionManager(object):
                 primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
+            def __repr__(self):
+                return (u'%s "%s" (%s) %s' % (
+                    self.works_id, self.sort_title, self.sort_author, self.language,
+                    )).encode("utf8")
+
+
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
+        cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
     @classmethod
@@ -281,10 +294,10 @@ def get_one_or_create(db, model, create_method='',
             obj = create(db, model, create_method, create_method_kwargs, **kwargs)
             __transaction.commit()
             return obj
-        except IntegrityError:
+        except IntegrityError, e:
             logging.error(
-                "INTEGRITY ERROR on %r %r, %r", model, create_method_kwargs, 
-                kwargs)
+                "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs, 
+                kwargs, e)
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
@@ -2001,6 +2014,9 @@ class Edition(Base):
     MUSIC_MEDIUM = u"Music"
     VIDEO_MEDIUM = u"Video"
 
+    ELECTRONIC_FORMAT = u"Electronic"
+    CODEX_FORMAT = u"Codex"
+
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/Book",
         AUDIO_MEDIUM : u"http://schema.org/AudioObject",
@@ -2593,6 +2609,9 @@ class Work(Base):
     NOT_APPLICABLE_APPEAL = "Not Applicable"
     NO_APPEAL = "None"
 
+    CURRENTLY_AVAILABLE = "currently_available"
+    ALL = "all"
+
     # If no quality data is available for a work, it will be assigned
     # a default quality based on where we got it.
     #
@@ -2800,9 +2819,6 @@ class Work(Base):
         # TODO: clean up the content
         if resource:
             self.summary_text = resource.representation.content
-
-    CURRENTLY_AVAILABLE = "currently_available"
-    ALL = "all"
 
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
@@ -3668,6 +3684,14 @@ class Work(Base):
         #         classification_desc.append(
         #             dict(scheme=Work.APPEALS_URI, term=term,
         #                  weight=weight))
+
+        if self.target_age:
+            doc['target_age'] = {}
+            if self.target_age.lower:
+                doc['target_age']['lower'] = self.target_age.lower
+            if self.target_age.upper:
+                doc['target_age']['upper'] = self.target_age.upper
+
         return doc
 
     @classmethod
@@ -3923,6 +3947,9 @@ class LicensePoolDeliveryMechanism(Base):
 
     # One LicensePoolDeliveryMechanism may fulfill many Loans.
     fulfills = relationship("Loan", backref="fulfillment")
+
+    def __repr__(self):
+        return "%r %r" % (self.license_pool, self.delivery_mechanism)
 
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
@@ -4223,10 +4250,20 @@ class Genre(Base):
             return result, False
 
     @property
+    def genredata(self):
+        return classifier.genres[self.name]
+
+    @property
+    def subgenres(self):
+        for genre in self.self_and_subgenres:
+            if genre != self:
+                yield genre
+
+    @property
     def self_and_subgenres(self):
         _db = Session.object_session(self)
         genres = []
-        for genre_data in classifier.genres[self.name].self_and_subgenres:
+        for genre_data in self.genredata.self_and_subgenres:
             genres.append(self.lookup(_db, genre_data.name)[0])
         return genres
 
@@ -4544,896 +4581,132 @@ class Classification(Base):
             return q[subject_type]
         return 0.1
 
-# Non-database objects.
+class WillNotGenerateExpensiveFeed(Exception):
+    """This exception is raised when a feed is not cached, but it's too
+    expensive to generate.
+    """
+    pass
 
-class LaneList(object):
-    """A list of lanes such as you might see in an OPDS feed."""
+class CachedFeed(Base):
 
-    log = logging.getLogger("Lane list")
+    __tablename__ = 'cachedfeeds'
+    id = Column(Integer, primary_key=True)
 
-    def __repr__(self):
-        parent = ""
-        if self.parent:
-            parent = "parent=%s, " % self.parent.name
+    # Every feed is associated with a lane. If null, this is a feed
+    # for the top level.
+    lane_name = Column(Unicode, nullable=True)
 
-        return "<LaneList: %slanes=[%s]>" % (
-            parent,
-            ", ".join([repr(x) for x in self.lanes])
-        )       
+    # Every feed includes book from a subset of available languages
+    languages = Column(Unicode)
 
-    @classmethod
-    def from_description(cls, _db, parent_lane, description):
-        lanes = LaneList(parent_lane)
-        if parent_lane:
-            default_fiction = parent_lane.fiction
-            default_audience = parent_lane.audience
-        else:
-            default_fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-            default_audience = Classifier.AUDIENCES_ADULT
+    # Every feed has a timestamp reflecting when it was created.
+    timestamp = Column(DateTime, nullable=True)
 
-        description = description or []
-        for lane_description in description:
-            display_name=None
-            if isinstance(lane_description, basestring):
-                lane_description = classifier.genres[lane_description]
-            elif isinstance(lane_description, tuple):
-                if len(lane_description) == 2:
-                    name, subdescriptions = lane_description
-                elif len(lane_description) == 3:
-                    name, subdescriptions, audience_restriction = lane_description
-                    if (parent_lane and audience_restriction and 
-                        parent_lane.audience and
-                        parent_lane.audience != audience_restriction
-                        and not audience_restriction in parent_lane.audience):
-                        continue
-                lane_description = classifier.genres[name]
-            if isinstance(lane_description, dict):
-                lane = Lane.from_dict(_db, lane_description, parent_lane)
-            elif isinstance(lane_description, Genre):
-                lane = Lane(_db, lane_description.name, [lane_description],
-                            Lane.IN_SAME_LANE, default_fiction,
-                            default_audience, parent_lane,
-                            sublanes=genre.subgenres)
-            elif isinstance(lane_description, GenreData):
-                # This very simple lane is the default view for a genre.
-                genre = lane_description
-                lane = Lane(_db, genre.name, [genre], Lane.IN_SUBLANES,
-                            default_fiction,
-                            default_audience, parent_lane)
-            elif isinstance(lane_description, Lane):
-                # The Lane object has already been created.
-                lane = lane_description
-                lane.parent = parent_lane
+    # A feed is of a certain type--currently either 'page' or 'groups'.
+    type = Column(Unicode, nullable=False)
 
-            def _add_recursively(l):
-                lanes.add(l)
-                sublanes = l.sublanes.lanes
-                for sl in sublanes:
-                    _add_recursively(sl)
-            if lane:
-                _add_recursively(lane)
+    # A 'page' feed is associated with a set of values for the facet
+    # groups.
+    facets = Column(Unicode, nullable=True)
 
-        return lanes
+    # A 'page' feed is associated with a set of values for pagination.
+    pagination = Column(Unicode, nullable=False)
 
-    def __init__(self, parent=None):
-        self.parent = parent
-        self.lanes = []
-        self.by_name = dict()
+    # The content of the feed.
+    content = Column(Unicode, nullable=True)
 
-    def __len__(self):
-        return len(self.lanes)
-
-    def __iter__(self):
-        return self.lanes.__iter__()
-
-    def add(self, lane):
-        if lane.parent == self.parent:
-            self.lanes.append(lane)
-        if lane.name in self.by_name and self.by_name[lane.name] is not lane:
-            raise ValueError("Duplicate lane: %s" % lane.name)
-        self.by_name[lane.name] = lane
-
-
-class Lane(object):
-
-    """A set of books that would go together in a display."""
-
-    UNCLASSIFIED = u"unclassified"
-    BOTH_FICTION_AND_NONFICTION = u"both fiction and nonfiction"
-    FICTION_DEFAULT_FOR_GENRE = u"fiction default for genre"
-
-    # Books classified in a subgenre of this lane's genre(s) will
-    # be shown in separate lanes.
-    IN_SUBLANES = u"separate"
-
-    # Books classified in a subgenre of this lane's genre(s) will be
-    # shown in this lane.
-    IN_SAME_LANE = u"collapse"
-
-    def __repr__(self):
-        if self.sublanes.lanes:
-            sublanes = " (sublanes=%d)" % len(self.sublanes.lanes)
-        else:
-            sublanes = ""
-        return "<Lane %s%s>" % (self.name, sublanes)
+    GROUPS_TYPE = 'groups'
+    PAGE_TYPE = 'page'
 
     @classmethod
-    def from_dict(cls, _db, d, parent_lane):
-        """Turn a descriptive dictionary into a Lane object."""
-        if isinstance(d, Lane):
-            return d
+    def fetch(cls, _db, lane, type, facets, pagination, annotator,
+              force_refresh=False, max_age=None):
+        if max_age is None:
+            if type == cls.GROUPS_TYPE:
+                max_age = Configuration.groups_max_age()
+            elif type == cls.PAGE_TYPE:
+                max_age = Configuration.page_max_age()
+        if isinstance(max_age, int):
+            max_age = datetime.timedelta(seconds=max_age)
 
-        if d.get('suppress_lane'):
-            return None
-
-        name = d.get('name') or d.get('full_name')
-        display_name = d.get('display_name')
-        genres = []
-        for x in d.get('genres', []):
-            genre, new = Genre.lookup(_db, x)
-            if genre:
-                genres.append(genre)
-        exclude_genres = []
-        for x in d.get('exclude_genres', []):
-            genre, new = Genre.lookup(_db, x)
-            if genre:
-                exclude_genres.append(genre)
-        default_audience = None
-        default_age_range = None
-        if parent_lane:
-            default_audience = parent_lane.audience
-            default_age_range = parent_lane.age_range
-        audience = d.get('audience', default_audience)        
-        age_range = None
-        if 'age_range' in d:
-            age_range = d['age_range']
-            if not (
-                    isinstance(age_range, tuple) 
-                    or isinstance(age_range, list)
-            ):
-                cls.log.warn("Invalid age range for %s: %r", name, age_range)
-                age_range = None
-        age_range = age_range or default_age_range
-        appeal = d.get('appeal')
-        subgenre_behavior = d.get('subgenre_behavior', Lane.IN_SUBLANES)
-        fiction = d.get('fiction', Lane.FICTION_DEFAULT_FOR_GENRE)
-        if fiction == 'default':
-            fiction = Lane.FICTION_DEFAULT_FOR_GENRE
-        if fiction == 'both':
-            fiction = Lane.BOTH_FICTION_AND_NONFICTION        
-
-        lane = Lane(
-            _db, full_name=name, display_name=display_name,
-            genres=genres, subgenre_behavior=subgenre_behavior,
-            fiction=fiction, audience=audience, parent=parent_lane, 
-            sublanes=[], appeal=appeal, age_range=age_range,
-            exclude_genres=exclude_genres
-        )
-
-        # Now create sublanes, recursively.
-        sublane_descs = d.get('sublanes', [])
-        lane.sublanes = LaneList.from_description(_db, lane, sublane_descs)
-            
-        return lane
-
-    @classmethod
-    def everything(cls, _db, fiction=None,
-                   audience=None):
-        """Return a synthetic Lane that matches everything."""
-        if fiction == True:
-            what = 'fiction'
-        elif fiction == False:
-            what = 'nonfiction'
+        if lane:
+            lane_name = lane.name
         else:
-            what = 'books'
-        if audience == Classifier.AUDIENCE_ADULT:
-            what = 'adult ' + what
-        elif audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            what = 'young adult ' + what
-        elif audience == Classifier.AUDIENCE_CHILDREN:
-            what = "childrens' " + what
-            
-        full_name = "All " + what
-        return Lane(
-            _db, full_name, genres=[], subgenre_behavior=Lane.IN_SAME_LANE,
-            fiction=fiction,
-            audience=audience)
+            lane_name = None
 
-    def __init__(self, 
-                 _db, 
-                 full_name,
-                 genres,
-                 subgenre_behavior=IN_SUBLANES,
-                 fiction=True,
-                 audience=Classifier.AUDIENCE_ADULT,
-                 parent=None,
-                 sublanes=[],
-                 appeal=None,
-                 display_name=None,
-                 age_range=None,
-                 exclude_genres=None,
-                 ):
-        self.name = full_name
-        self.display_name = display_name or self.name
-        self.parent = parent
-        self._db = _db
-        self.appeal = appeal
-        self.age_range = age_range
-        self.fiction = fiction
-        self.audience = audience
+        if not lane.languages:
+            languages_key = None
+        else:
+            languages_key = ",".join(lane.languages)
 
-        self.exclude_genres = set()
-        if exclude_genres:
-            for genre in exclude_genres:
-                for l in genre.self_and_subgenres:
-                    self.exclude_genres.add(l)
-        self.subgenre_behavior=subgenre_behavior
-        self.sublanes = LaneList.from_description(_db, self, sublanes)
+        if facets:
+            facets_key = facets.query_string
+        else:
+            facets_key = ""
 
-        ch = Classifier.AUDIENCE_CHILDREN
-        ya = Classifier.AUDIENCE_YOUNG_ADULT
-        if (
-                self.age_range 
-                and self.audience not in (ch, ya)
-                and (not isinstance(self.audience, list)
-                     or (ch not in self.audience and ya not in self.audience))
-        ):
-            raise ValueError(
-                "Lane %s specifies age range but does not contain children's or young adult books." % self.name
+        if pagination:
+            pagination_key = pagination.query_string
+        else:
+            pagination_key = ""
+
+        # Get a CachedFeed object. We will either return its .content,
+        # or update its .content.
+        feed, is_new = get_one_or_create(
+            _db, CachedFeed, on_multiple='interchangeable',
+            lane_name=lane_name,
+            type=type,
+            languages=languages_key,
+            facets=facets_key,
+            pagination=pagination_key,
             )
 
-        if genres in (None, self.UNCLASSIFIED):
-            # We will only be considering works that are not
-            # classified under a genre.
-            self.genres = None
-            self.subgenre_behavior
+        if force_refresh is True:
+            # No matter what, we've been directed to treat this
+            # cached feed as stale.
+            return feed, False
+
+        if max_age is Configuration.CACHE_FOREVER:
+            # This feed is so expensive to generate that it must be cached
+            # forever (unless force_refresh is True).
+            if not is_new and feed.content:
+                # Cacheable!
+                return feed, True
+            else:
+                # We're supposed to generate this feed, but it's too
+                # expensive.
+                raise WillNotGenerateExpensiveFeed(lane.name)
         else:
-            if not isinstance(genres, list):
-                genres = [genres]
+            # This feed is cheap enough to generate on the fly.
+            cutoff = datetime.datetime.utcnow() - max_age
+            fresh = False
+            if feed.timestamp and feed.content:
+                if feed.timestamp >= cutoff:
+                    fresh = True
+            return feed, fresh
 
-            # Turn names or GenreData objects into Genre objects. 
-            self.genres = []
-            for genre in genres:
-                if isinstance(genre, tuple):
-                    if len(genre) == 2:
-                        genre, subgenres = genre
-                    else:
-                        genre, subgenres, audience_restriction = genre
-                if isinstance(genre, GenreData):
-                    genredata = genre
-                else:
-                    if isinstance(genre, Genre):
-                        genre_name = genre.name
-                    else:
-                        genre_name = genre
-                    genredata = classifier.genres.get(genre_name)
-                if not isinstance(genre, Genre):
-                    genre, ignore = Genre.lookup(_db, genre)
+        # Either there is no cached feed or it's time to update it.
+        return feed, False
 
-                if exclude_genres and genredata in exclude_genres:
-                    continue
-                self.genres.append(genre)
-                if subgenre_behavior:
-                    if not genredata:
-                        raise ValueError("Couldn't turn %r into GenreData object to find subgenres." % genre)
+    def update(self, content):
+        self.content = content
+        self.timestamp = datetime.datetime.utcnow()
 
-                    if subgenre_behavior == self.IN_SAME_LANE:
-                        for subgenre_data in genredata.all_subgenres:
-                            subgenre, ignore = Genre.lookup(_db, subgenre_data)
-                            # Incorporate this genre's subgenres,
-                            # recursively, in this lane.
-                            if not exclude_genres or subgenre_data not in exclude_genres:
-                                self.genres.append(subgenre)
-                    elif subgenre_behavior == self.IN_SUBLANES:
-                        if self.sublanes.lanes:
-                            raise ValueError(
-                                "Explicit list of sublanes was provided, but I'm also asked to turn subgenres into sublanes!")
-                        self.sublanes = LaneList.from_description(
-                                _db, self, genredata.subgenres)
-
-
-    @property
-    def url_name(self):
-        """Return the name of this lane to be used in URLs.
-
-        Basically, forward slash is changed to "__". This is necessary
-        because Flask tries to route "feed/Suspense%2FThriller" to
-        feed/Suspense/Thriller.
-        """
-        return self.name.replace("/", "__")
-
-    def search(self, languages, query, search_client, limit=30):
-        """Find works in this lane that match a search query.
-        """        
-        if isinstance(languages, basestring):
-            languages = [languages]
-
-        if self.fiction in (True, False):
-            fiction = self.fiction
+    def __repr__(self):
+        if self.content:
+            length = len(self.content)
         else:
-            fiction = None
-
-        results = None
-        if search_client:
-            docs = None
-            a = time.time()
-            try:
-                docs = search_client.query_works(
-                    query, Edition.BOOK_MEDIUM, languages, fiction,
-                    self.audience,
-                    self.all_matching_genres,
-                    fields=["_id", "title", "author", "license_pool_id"],
-                    limit=limit
-                )
-            except elasticsearch.exceptions.ConnectionError, e:
-                logging.error(
-                    "Could not connect to Elasticsearch; falling back to database search."
-                )
-            b = time.time()
-            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-
-            results = []
-            if docs:
-                doc_ids = [
-                    int(x['_id']) for x in docs['hits']['hits']
-                ]
-                if doc_ids:
-                    from model import MaterializedWork as mw
-                    q = self._db.query(mw).filter(mw.works_id.in_(doc_ids))
-                    q = q.options(
-                        lazyload(mw.license_pool, LicensePool.data_source),
-                        lazyload(mw.license_pool, LicensePool.identifier),
-                        lazyload(mw.license_pool, LicensePool.edition),
-                    )
-                    work_by_id = dict()
-                    a = time.time()
-                    works = q.all()
-                    for mw in works:
-                        work_by_id[mw.works_id] = mw
-                    results = [work_by_id[x] for x in doc_ids if x in work_by_id]
-                    b = time.time()
-                    logging.debug(
-                        "Obtained %d MaterializedWork objects in %.2fsec",
-                        len(results), b-a
-                    )
-
-        if not results:
-            results = self._search_database(languages, fiction, query).limit(limit)
-        return results
-
-    def _search_database(self, languages, fiction, query):
-        """Do a really awful database search for a book using ILIKE.
-
-        This is useful if an app server has no external search
-        interface defined, or if the search interface isn't working
-        for some reason.
-        """
-        k = "%" + query + "%"
-        q = self.works(languages=languages, fiction=fiction).filter(
-            or_(Edition.title.ilike(k),
-                Edition.author.ilike(k)))
-        q = q.order_by(Work.quality.desc())
-        return q
-
-    def quality_sample(
-            self, languages, quality_min_start,
-            quality_min_rock_bottom, target_size, availability,
-            random_sample=True):
-        """Randomly select Works from this Lane that meet minimum quality
-        criteria.
-
-        Bring the quality criteria as low as necessary to fill a feed
-        of the given size, but not below `quality_min_rock_bottom`.
-        """
-        if isinstance(languages, basestring):
-            languages = [languages]
-
-        quality_min = quality_min_start
-        previous_quality_min = None
-        results = []
-        while (quality_min >= quality_min_rock_bottom
-               and len(results) < target_size):
-            remaining = target_size - len(results)
-            query = self.works(languages=languages, availability=availability)
-            total_size = query.count()
-            if quality_min < 0.05:
-                quality_min = 0
-
-            query = query.filter(
-                Work.quality >= quality_min,
-            )
-            if previous_quality_min is not None:
-                query = query.filter(
-                    Work.quality < previous_quality_min)
-
-            query_without_random_sample = query
-
-            if random_sample:
-                offset = random.random()
-                # logging.debug("Random offset=%.2f", offset)
-                if offset < 0.5:
-                    query = query.filter(Work.random >= offset)
-                else:
-                    query = query.filter(Work.random <= offset)
-
-            start = time.time()
-            # logging.debug(dump_query(query))
-            max_results = int(remaining*1.3)
-            query = query.limit(max_results)
-            r = query.all()
-
-            if random_sample and len(r) < (remaining-5):
-                # Disable the random sample--there are not enough works for
-                # it to operate properly.
-                query = query_without_random_sample.limit(max_results)
-                r = query.all()
-
-
-            #for i in r[:remaining]:
-            #    logging.debug("%s (random=%.2f quality=%.2f)", i.title, i.random, i.quality)
-            results.extend(r[:remaining])
-
-            if quality_min == quality_min_rock_bottom or quality_min == 0:
-                # We can't lower the bar any more.
-                break
-
-            # Lower the bar, in case we didn't get enough results.
-            previous_quality_min = quality_min
-
-            if results or quality_min_rock_bottom < 0.1:
-                quality_min *= 0.5
-            else:
-                # We got absolutely no results. Lower the bar all the
-                # way immediately.
-                quality_min = quality_min_rock_bottom
-
-            if quality_min < quality_min_rock_bottom:
-                quality_min = quality_min_rock_bottom
-
-        logging.debug(
-            "%s: %s Quality %.2f got us to %d results in %.2fsec",
-            self.name, availability, quality_min, len(results), 
-            time.time()-start
+            length = "No content"
+        return "<CachedFeed #%s %s %s %s %s %s %s %s >" % (
+            self.id, self.languages, self.lane_name, self.type, 
+            self.facets, self.pagination,
+            self.timestamp, length
         )
-        return results
-
-    @property
-    def all_matching_genres(self):
-        genres = set()
-        if self.genres:
-            for genre in self.genres:
-                #if self.subgenre_behavior == self.IN_SAME_LANE:
-                genres = genres.union(genre.self_and_subgenres)
-                #else:
-                #    genres.add(genre)
-        return genres
-
-    def audience_list_for_age_range(self, audience, age_range):
-        """Normalize a value for Work.audience based on .age_range
-
-        If you set audience to Young Adult but age_range to 16-18,
-        you're saying that books for 18-year-olds (i.e. adults) are
-        okay.
-
-        If you set age_range to Young Adult but age_range to 12-15, you're
-        saying that books for 12-year-olds (i.e. children) are
-        okay.
-        """
-        if not audience:
-            audience = []
-        if not isinstance(audience, list):
-            audience = [audience]
-        audiences = set(audience)
-        if not age_range:
-            return audiences
-
-        if not isinstance(age_range, list):
-            age_range = [age_range]
-
-        if age_range[-1] >= 18:
-            audiences.add(Classifier.AUDIENCE_ADULT)
-        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_CHILDREN)
-        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
-        return audiences
-
-    def materialized_works(self, languages=None, fiction=None, 
-                           availability=Work.ALL):
-        """Find MaterializedWorks that will go together in this Lane."""
-        audience = self.audience
-
-        if fiction is None:
-            if self.fiction is not None:
-                fiction = self.fiction
-            else:
-                fiction = self.FICTION_DEFAULT_FOR_GENRE
-        genres = []
-        if self.genres is not None:
-            genres, fiction = self.gather_matching_genres(fiction)
-
-        if genres:
-            mw =MaterializedWorkWithGenre
-            q = self._db.query(mw)
-            q = q.filter(mw.genre_id.in_([g.id for g in genres]))            
-        else:
-            mw = MaterializedWork
-            q = self._db.query(mw)
-        
-        q = q.with_labels()
-
-        if languages:
-            q = q.filter(mw.language.in_(languages))
-
-        # Avoid eager loading of objects that are contained in the 
-        # materialized view.
-        q = q.options(
-            lazyload(mw.license_pool, LicensePool.data_source),
-            lazyload(mw.license_pool, LicensePool.identifier),
-            lazyload(mw.license_pool, LicensePool.edition),
-        )
-        if self.audience != None:
-            audiences = self.audience_list_for_age_range(
-                self.audience, self.age_range)
-            if audiences:
-                q = q.filter(mw.audience.in_(audiences))
-                if (Classifier.AUDIENCE_CHILDREN in audiences 
-                    or Classifier.AUDIENCE_YOUNG_ADULT in audiences):
-                    gutenberg = DataSource.lookup(
-                        self._db, DataSource.GUTENBERG)
-                    # TODO: A huge hack to exclude Project Gutenberg
-                    # books (which were deemed appropriate for
-                    # pre-1923 children but are not necessarily so for
-                    # 21st-century children.)
-                    #
-                    # This hack should be removed in favor of a
-                    # whitelist system and some way of allowing adults
-                    # to see books aimed at pre-1923 children.
-                    q = q.filter(mw.data_source_id != gutenberg.id)
-
-        if self.age_range != None:
-            if (Classifier.AUDIENCE_ADULT in audiences
-                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
-                # Books for adults don't have target ages. If we're including
-                # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = mw.target_age == None
-            else:
-                audience_has_no_target_age = False
-
-            age_range = self.age_range
-            if isinstance(age_range, int):
-                age_range = [age_range]
-            age_range = sorted(self.age_range)
-            if len(age_range) == 1:
-                # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0], '[]')
-                q = q.filter(
-                    or_(
-                        mw.target_age.contains(r), 
-                        audience_has_no_target_age
-                    )
-                )
-            else:
-                # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1], '[]')
-                q = q.filter(
-                    or_(
-                        mw.target_age.overlaps(r),
-                        audience_has_no_target_age
-                    )
-                )
-
-        if fiction == self.UNCLASSIFIED:
-            q = q.filter(mw.fiction==None)
-        elif fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(mw.fiction==fiction)
-        q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
-        q = q.options(contains_eager(mw.license_pool))
-        return q
-
-
-    def gather_matching_genres(self, fiction):
-        """Find all subgenres managed by this lane which match the
-        given fiction status.
-        
-        This may also turn into an additional restriction (or
-        liberation) on the fiction status
-        """
-        fiction_default_by_genre = (fiction == self.FICTION_DEFAULT_FOR_GENRE)
-        if fiction_default_by_genre:
-            # Unset `fiction`. We'll set it again when we find out
-            # whether we've got fiction or nonfiction genres.
-            fiction = None
-        genres = self.all_matching_genres
-        for genre in self.genres:
-            if fiction_default_by_genre:
-                if fiction is None:
-                    fiction = genre.default_fiction
-                elif fiction != genre.default_fiction:
-                    raise ValueError(
-                        "I was told to use the default fiction restriction, but the genres %r include contradictory fiction restrictions.")
-        if fiction is None:
-            # This is an impossible situation. Rather than eliminate all books
-            # from consideration, allow both fiction and nonfiction.
-            fiction = self.BOTH_FICTION_AND_NONFICTION
-        return genres, fiction
-
-    def works(self, languages, fiction=None, availability=Work.ALL):
-        """Find Works that will go together in this Lane.
-
-        Works will:
-
-        * Be in one of the languages listed in `languages`.
-
-        * Be filed under of the genres listed in `self.genres` (or, if
-          `self.include_subgenres` is True, any of those genres'
-          subgenres).
-
-        * Have the same appeal as `self.appeal`, if `self.appeal` is present.
-
-        * Are intended for the audience in `self.audience`.
-
-        * Are fiction (if `self.fiction` is True), or nonfiction (if fiction
-          is false), or of the default fiction status for the genre
-          (if fiction==FICTION_DEFAULT_FOR_GENRE and all genres have
-          the same default fiction status). If fiction==None, no fiction
-          restriction is applied.
-
-        * Have a delivery mechanism that can be rendered by the
-          default client.
-
-        :param fiction: Override the fiction setting found in `self.fiction`.
-
-        """
-        hold_policy = Configuration.hold_policy()
-        if (availability == Work.ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
-            # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
-            # available.
-            availability = Work.CURRENTLY_AVAILABLE
-
-        q = Work.feed_query(self._db, languages, availability)
-        audience = self.audience
-        if fiction is None:
-            if self.fiction is not None:
-                fiction = self.fiction
-            else:
-                fiction = self.FICTION_DEFAULT_FOR_GENRE
-
-        #if self.genres is None and fiction in (True, False, self.UNCLASSIFIED):
-        #    # No genre plus a boolean value for `fiction` means
-        #    # fiction or nonfiction not associated with any genre.
-        #    q = Work.with_no_genres(q)
-        if self.genres is not None:
-            genres, fiction = self.gather_matching_genres(fiction)
-            # logging.debug("Genres: %s" % ", ".join([x.name for x in genres]))
-            if genres:
-                q = q.join(Work.work_genres)
-                q = q.options(contains_eager(Work.work_genres))
-                q = q.filter(WorkGenre.genre_id.in_([g.id for g in genres]))
-
-        if self.audience != None:
-            audiences = self.audience_list_for_age_range(
-                self.audience, self.age_range)
-            q = q.filter(Work.audience.in_(audiences))
-            if (Classifier.AUDIENCE_CHILDREN in self.audience
-                or Classifier.AUDIENCE_YOUNG_ADULT in self.audience):
-                    gutenberg = DataSource.lookup(
-                        self._db, DataSource.GUTENBERG)
-                    # TODO: A huge hack to exclude Project Gutenberg
-                    # books (which were deemed appropriate for
-                    # pre-1923 children but are not necessarily so for
-                    # 21st-century children.)
-                    #
-                    # This hack should be removed in favor of a
-                    # whitelist system and some way of allowing adults
-                    # to see books aimed at pre-1923 children.
-                    q = q.filter(Edition.data_source_id != gutenberg.id)
-
-        if self.appeal != None:
-            q = q.filter(Work.primary_appeal==self.appeal)
-
-        if self.age_range != None:
-            if (Classifier.AUDIENCE_ADULT in audiences
-                or Classifier.AUDIENCE_ADULTS_ONLY in audiences):
-                # Books for adults don't have target ages. If we're including
-                # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = Work.target_age == None
-            else:
-                audience_has_no_target_age = False
-
-            age_range = sorted(self.age_range)
-            if len(age_range) == 1:
-                # The target age must include this number.
-                r = NumericRange(age_range[0], age_range[0], '[]')
-                q = q.filter(
-                    or_(
-                        Work.target_age.contains(r),
-                        audience_has_no_target_age
-                    )
-                )
-            else:
-                # The target age range must overlap this age range
-                r = NumericRange(age_range[0], age_range[-1], '[]')
-                q = q.filter(
-                    or_(
-                        Work.target_age.overlaps(r),
-                        audience_has_no_target_age
-                    )
-                )
-
-        if fiction == self.UNCLASSIFIED:
-            q = q.filter(Work.fiction==None)
-        elif fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(Work.fiction==fiction)
-
-        q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
-        )
-        return q
-
-
-class WorkFeed(object):
     
-    """Identify a certain page in a certain feed."""
 
-    order_facet_to_database_field = {
-        'title' : Edition.sort_title,
-        'author' : Edition.sort_author,
-        'last_update' : Work.last_update_time,
-        'work_id' : Work.id
-    }
-
-    active_facet_for_field = {
-        Edition.title : "title",
-        Edition.sort_title : "title",
-        Edition.sort_author : "author",
-        Edition.author : "author"
-    }
-
-    default_sort_order = [Edition.sort_title, Edition.sort_author, Work.id]
-
-    CURRENTLY_AVAILABLE = u"available"
-    ALL = u"all"
-
-    def __init__(self, languages, order_facet=None,
-                 sort_ascending=True,
-                 availability=CURRENTLY_AVAILABLE):
-        if isinstance(languages, basestring):
-            languages = [languages]
-        elif not isinstance(languages, list):
-            raise ValueError("Invalid value for languages: %r" % languages)
-        self.languages = languages
-        if not order_facet:
-            order_facet = []
-        elif not isinstance(order_facet, list):
-            order_facet = [order_facet]
-        self.order_by = [self.order_facet_to_database_field[x] for x in order_facet]
-        self.sort_ascending = sort_ascending
-        if sort_ascending:
-            self.sort_operator = operator.__gt__
-        else:
-            self.sort_operator = operator.__lt__
-        for i in self.default_sort_order:
-            if not i in self.order_by:
-                self.order_by.append(i)
-
-        self.availability = availability
-
-    @property
-    def active_facet(self):
-        """The active sort facet for this feed."""
-        if not self.order_by:
-            return None
-        return self.active_facet_for_field.get(self.order_by[0], None)
-
-    def base_query(self, _db):
-        """A query that will return every work that should go in this feed.
-
-        Subject to language and availability settings.
-
-        This may be filtered down further.
-        """
-        # By default, return every Work in the entire database.
-        return Work.feed_query(_db, self.languages, self.availability)
-
-    def page_query(self, _db, offset, page_size, extra_filter=None):
-        """Turn the base query into a query that retrieves a particular page 
-        of works.
-        """
-
-        query = self.base_query(_db)
-        primary_order_field = self.order_by[0]
-
-        if extra_filter is not None:
-            query = query.filter(extra_filter)
-        if self.sort_ascending:
-            m = lambda x: x.asc()
-        else:
-            m = lambda x: x.desc()
-
-        order_by = [m(x) for x in self.order_by]
-        query = query.order_by(*order_by)
-
-        if order_by:
-            query = query.distinct(*self.order_by)
-        else:
-            logging.warn("Doing page query for feed with no order-by clause!")
-            # query = query.distinct(MaterializedWork.works_id)
-
-        #query = query.options(contains_eager(Work.license_pools),
-        #                      contains_eager(Work.primary_edition))
-
-        if offset:
-            query = query.offset(offset)
-        if page_size:
-            query = query.limit(page_size)
-
-        return query
-
-
-class LaneFeed(WorkFeed):
-
-    """A WorkFeed where all the works come from a predefined lane."""
-
-    def __init__(self, lane, *args, **kwargs):
-        self.lane = lane
-        super(LaneFeed, self).__init__(*args, **kwargs)
-
-    def base_query(self, _db):
-        return self.lane.works(self.languages, availability=self.availability)
-
-
-class CustomListFeed(WorkFeed):
-
-    """A WorkFeed where all the works come from a given data source's
-    custom lists.
-    """
-
-    # Treat a work as a best-seller if it was last on the best-seller
-    # list two years ago.
-    best_seller_cutoff = datetime.timedelta(days=730)
-
-    def __init__(self, lane, custom_list_data_source, languages,
-                 on_list_as_of=None, 
-                 **kwargs):
-        self.lane = lane
-        self.custom_list_data_source = custom_list_data_source
-        self.on_list_as_of = on_list_as_of
-        if not 'order_facet' in kwargs:
-            kwargs['order_facet'] = ['title']
-        super(CustomListFeed, self).__init__(languages, **kwargs)
-
-    def base_query(self, _db):
-        if self.lane:
-            q = self.lane.works(
-                self.languages, availability=self.availability)
-        else:
-            q = Work.feed_query(_db, self.languages, self.availability)
-        return self.restrict(_db, q)
-
-    def restrict(self, _db, q):
-        return Work.restrict_to_custom_lists_from_data_source(
-            _db, q, self.custom_list_data_source, self.on_list_as_of)
-
-
-class EnumeratedCustomListFeed(CustomListFeed):
-
-    """A WorkFeed where all the works come from an enumerated set of
-    custom lists.
-    """
-    def __init__(self, lane, custom_lists, languages,
-                 on_list_as_of=None, 
-                 **kwargs):
-        super(EnumeratedCustomListFeed, self).__init__(
-            lane, None, languages, on_list_as_of, **kwargs)
-        self.custom_lists = custom_lists
-
-    def restrict(self, _db, q):
-        return Work.restrict_to_custom_lists(
-            _db, q, self.custom_lists, self.on_list_as_of)
-
+Index(
+    "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
+    CachedFeed.facets, CachedFeed.pagination
+)
 
 class LicensePool(Base):
 
@@ -5503,6 +4776,12 @@ class LicensePool(Base):
     __table_args__ = (
         UniqueConstraint('identifier_id'),
     )
+
+    def __repr__(self):
+        return "<LicensePool #%s owned=%d available=%d reserved=%d holds=%d>" % (
+            self.id, self.licenses_owned, self.licenses_available, 
+            self.licenses_reserved, self.patrons_in_hold_queue
+        )
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):

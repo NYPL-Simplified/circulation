@@ -1,8 +1,10 @@
 import contextlib
+import datetime
 from nose.tools import set_trace
 import os
 import json
 import logging
+import copy
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -12,7 +14,7 @@ def temp_config(new_config=None, replacement_classes=None):
     old_config = Configuration.instance
     replacement_classes = replacement_classes or [Configuration]
     if new_config is None:
-        new_config = dict(old_config)
+        new_config = copy.deepcopy(old_config)
     try:
         for c in replacement_classes:
             c.instance = new_config
@@ -61,6 +63,15 @@ class Configuration(object):
     HOLD_POLICY = "holds"
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
+
+    # Lane policies
+    CACHE_FOREVER = 'forever'
+
+    PAGE_MAX_AGE_POLICY = "default_page_max_age" 
+    DEFAULT_PAGE_MAX_AGE = 1200
+
+    GROUPS_MAX_AGE_POLICY = "default_groups_max_age" 
+    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
 
     # Loan policies
     DEFAULT_LOAN_PERIOD = "default_loan_period"
@@ -204,6 +215,24 @@ class Configuration(object):
     @classmethod
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
+
+    @classmethod
+    def page_max_age(cls):
+        value = cls.policy(
+            cls.PAGE_MAX_AGE_POLICY, cls.DEFAULT_PAGE_MAX_AGE
+        )
+        if value == cls.CACHE_FOREVER:
+            return value
+        return datetime.timedelta(seconds=int(value))
+
+    @classmethod
+    def groups_max_age(cls):
+        value = cls.policy(
+            cls.GROUPS_MAX_AGE_POLICY, cls.DEFAULT_GROUPS_MAX_AGE
+        )
+        if value == cls.CACHE_FOREVER:
+            return value
+        return datetime.timedelta(seconds=int(value))
 
     @classmethod
     def base_opds_authentication_document(cls):

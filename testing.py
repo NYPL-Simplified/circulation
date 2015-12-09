@@ -127,6 +127,7 @@ class DatabaseTest(object):
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5,
               primary_edition=None):
+        pool = None
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
@@ -151,9 +152,10 @@ class DatabaseTest(object):
                 with_open_access_download=with_open_access_download,
                 data_source_name=data_source_name
             )
-
-        if with_license_pool:
-            primary_edition, pool = primary_edition
+            if with_license_pool:
+                primary_edition, pool = primary_edition
+        else:
+            pool = primary_edition.license_pool
         if with_open_access_download:
             pool.open_access = True
             primary_edition.set_open_access_link()
@@ -168,15 +170,15 @@ class DatabaseTest(object):
             genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
         work.genres = [genre]
         work.random = 0.5
-        if with_license_pool:
+        work.editions = [primary_edition]
+        primary_edition.is_primary_for_work = True
+        work.primary_edition = primary_edition
+        if pool != None:
             work.license_pools.append(pool)
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
-        work.editions = [primary_edition]
-        primary_edition.is_primary_for_work = True
-        work.primary_edition = primary_edition
         return work
 
     def _coverage_record(self, edition, coverage_source):
