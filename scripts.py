@@ -349,7 +349,8 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             lane_name = None
 
         url = self.app.manager.cdn_url_for(
-            "feed", languages=lane.languages, lane_name=lane_name
+            "feed", languages=lane.languages, lane_name=lane_name,
+            _external=True
         )
 
         for sort_order in ('title', 'author'):
@@ -394,6 +395,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
             lane_name = None
         url = self.app.manager.cdn_url_for(
             "acquisition_groups", languages=languages, lane_name=lane_name
+            _external=True
         )
         return AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
