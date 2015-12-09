@@ -493,12 +493,17 @@ class Lane(object):
                  list_data_source=None,
                  list_identifier=None,
                  list_seen_in_previous_days=None,
+
+                 searchable=False,
+                 invisible=False,
                  ):
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
         self.default_for_language = False
+        self.searchable = searchable
+        self.invisible = invisible
 
         self.log = logging.getLogger("Lane %s" % self.name)
 
@@ -555,6 +560,9 @@ class Lane(object):
 
         set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
+
+        if self.searchable and (self.list_data_source or self.lists):
+            raise UndefinedLane("Lane with list data source cannot be searchable")
 
         # However the genres came in, turn them into database Genre
         # objects and the corresponding GenreData objects.
@@ -624,6 +632,7 @@ class Lane(object):
                 staff_picks_lane = Lane(
                     full_name=full_name, display_name="Staff Picks",
                     list_identifier="Staff Picks",
+                    searchable=False,
                     **base_args
                 )
             except UndefinedLane, e:
@@ -639,6 +648,7 @@ class Lane(object):
                     full_name=full_name, display_name="Best Sellers", 
                     list_data_source=DataSource.NYT,
                     list_seen_in_previous_days=365*2,
+                    searchable=False,
                     **base_args
                 )
             except UndefinedLane, e:
@@ -1028,24 +1038,20 @@ class Lane(object):
 
         return q
 
-    @property
-    def searchable(self):
-        """Can we use the search client to works in this lane?
-
-        If not, we have to fall back to a database search.
-        """
-        if self.list_data_source or self.lists:
-            return False
-        if self.age_range:
-            return False
-        return True
-
     def search(self, query, search_client, limit=30):
         """Find works in this lane that match a search query.
         """        
 
-        if self.fiction in (True, False):
-            fiction = self.fiction
+        def get_searchable_lane(lane):
+            if lane.searchable:
+                return lane
+            logging.debug("Lane %s is not searchable; using parent %s" % (lane.name, lane.parent.name))
+            return get_searchable_lane(lane.parent)
+            
+        search_lane = get_searchable_lane(self)
+
+        if search_lane.fiction in (True, False):
+            fiction = search_lane.fiction
         else:
             fiction = None
 
@@ -1055,9 +1061,9 @@ class Lane(object):
             a = time.time()
             try:
                 docs = search_client.query_works(
-                    query, self.media, self.languages, self.exclude_languages,
-                    fiction, list(self.audiences), self.age_range,
-                    self.genres,
+                    query, search_lane.media, search_lane.languages, search_lane.exclude_languages,
+                    fiction, list(search_lane.audiences), search_lane.age_range,
+                    search_lane.genres,
                     fields=["_id", "title", "author", "license_pool_id"],
                     limit=limit
                 )

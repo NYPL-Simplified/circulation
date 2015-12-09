@@ -494,7 +494,16 @@ class AcquisitionFeed(OPDSFeed):
         # preserve the ordering of the lanes.
         works_and_lanes = []
 
-        for sublane in lane.sublanes:
+        def get_visible_sublanes(lane):
+            visible_sublanes = []
+            for sublane in lane.sublanes:
+                if not sublane.invisible:
+                    visible_sublanes.append(sublane)
+                else:
+                    visible_sublanes += get_visible_sublanes(sublane)
+            return visible_sublanes
+
+        for sublane in get_visible_sublanes(lane):
             # .featured_works will try more and more desperately
             # to find works to fill the 'featured' group.
             works = sublane.featured_works(
