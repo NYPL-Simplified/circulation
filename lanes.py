@@ -69,16 +69,31 @@ def make_lanes_default(_db):
 
 def lanes_from_genres(_db, genres, **extra_args):
     """Turn genre info into a list of Lane objects."""
+
+    genre_lane_instructions = {
+        "Humorous Fiction" : dict(display_name="Humor"),
+        "Media Tie-in SF" : dict(display_name="Movie and TV Novelizations"),
+        "Suspense/Thriller" : dict(display_name="Thriller"),
+        "Humorous Nonfiction" : dict(display_name="Humor"),
+        "Political Science" : dict(display_name="Politics & Current Events"),
+        "Periodicals" : dict(invisible=True)
+    }
+
     lanes = []
     for descriptor in genres:
-        if isinstance(descriptor, tuple):
-            name = descriptor[0]
-        elif isinstance(descriptor, dict):
-            name = descriptor['full_name']
+        if isinstance(descriptor, dict):
+            name = descriptor['name']
         else:
             name = descriptor
         genredata = classifier.genres[name]
-        lanes.append(genredata.to_lane(_db, **extra_args))
+        lane_args = dict(extra_args)
+        if name in genre_lane_instructions.keys():
+            instructions = genre_lane_instructions[name]
+            if "display_name" in instructions:
+                lane_args['display_name']=instructions.get('display_name')
+            if "invisible" in instructions:
+                lane_args['invisible']=instructions.get("invisible")
+        lanes.append(genredata.to_lane(_db, **lane_args))
     return lanes
 
 def lanes_for_large_collection(_db, languages):
