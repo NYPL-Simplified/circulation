@@ -243,9 +243,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         loan = self.get_loan(patron, pin, overdrive_id)
         if not loan:
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
-        if not 'formats' in loan:
-            raise CannotFulfill("Loan for %s has no formats" % overdrive_id)
-
         download_link = None
         if not loan['isFormatLockedIn']:
             # The format is not locked in. Lock it in.
