@@ -47,12 +47,17 @@ class Facets(object):
     COLLECTION_FULL = "full"
     COLLECTION_MAIN = "main"
     COLLECTION_FEATURED = "featured"
+    DEFAULT_COLLECTION_FACET = COLLECTION_MAIN
+    COLLECTION_FACETS = [COLLECTION_FULL, COLLECTION_MAIN, COLLECTION_FEATURED]
 
     # Subset the collection by availability.
-    AVAILABILITY_FACET_GROUP_NAME = 'availability'
-    AVAILABLE_NOW = "currently_available"
+    AVAILABILITY_FACET_GROUP_NAME = 'available'
+    AVAILABLE_NOW = "now"
     AVAILABLE_ALL = "all"
-    AVAILABLE_OPEN_ACCESS = "open_access"
+    AVAILABLE_OPEN_ACCESS = "always"
+
+    AVAILABILITY_FACETS = [AVAILABLE_ALL, AVAILABLE_NOW, AVAILABLE_OPEN_ACCESS]
+    DEFAULT_AVAILABILITY_FACET = AVAILABLE_ALL
 
     # The names of the order facets.
     ORDER_FACET_GROUP_NAME = 'order'
@@ -181,14 +186,14 @@ class Facets(object):
         yield dy(self.ORDER_ADDED_TO_COLLECTION)
 
         # Next, the availability facets.
-        def dy(group, new_value):
+        def dy(new_value):
             group = self.AVAILABILITY_FACET_GROUP_NAME
             current_value = self.availability
             facets = self.navigate(availability=new_value)
             return (group, new_value, facets, new_value==current_value)
-        #yield dy(self.AVAILABLE_ALL)
-        #yield dy(self.AVAILABLE_NOW)
-        #yield dy(self.AVAILABLE_OPEN_ACCESS)
+        yield dy(self.AVAILABLE_ALL)
+        yield dy(self.AVAILABLE_NOW)
+        yield dy(self.AVAILABLE_OPEN_ACCESS)
 
         # Next, the collection facets.
         def dy(new_value):
@@ -196,9 +201,9 @@ class Facets(object):
             current_value = self.collection
             facets = self.navigate(collection=new_value)
             return (group, new_value, facets, new_value==current_value)
-        #yield dy(self.AVAILABLE_ALL)
-        #yield dy(self.AVAILABLE_NOW)
-        #yield dy(self.AVAILABLE_OPEN_ACCESS)
+        yield dy(self.COLLECTION_FULL)
+        yield dy(self.COLLECTION_MAIN)
+        yield dy(self.COLLECTION_FEATURED)
 
     @classmethod
     def order_facet_to_database_field(
