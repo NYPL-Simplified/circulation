@@ -351,6 +351,9 @@ class Patron(Base):
     # books expires.
     authorization_expires = Column(Date, index=True)
 
+    # Outstanding fines the user has, if any.
+    fines = Column(Unicode)
+
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
