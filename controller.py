@@ -344,15 +344,15 @@ class CirculationManagerController(object):
     def load_facets_from_request(self):
         """Figure out which Facets object this request is asking for."""
         arg = flask.request.args.get
-        order = arg(Facets.ORDER_FACET_GROUP_NAME, Facets.DEFAULT_ORDER_FACET)
-        availability = arg(
-            Facets.AVAILABILITY_FACET_GROUP_NAME, 
-            Facets.DEFAULT_AVAILABILITY_FACET
-        )
-        collection = arg(
-            Facets.COLLECTION_FACET_GROUP_NAME,
-            Facets.DEFAULT_COLLECTION_FACET
-        )
+
+        g = Facets.ORDER_FACET_GROUP_NAME
+        order = arg(g, Configuration.default_facet(g))
+
+        g = Facets.AVAILABILITY_FACET_GROUP_NAME
+        availability = arg(g, Configuration.default_facet(g))
+
+        g = Facets.COLLECTION_FACET_GROUP_NAME,
+        collection = arg(g, Configuration.default_facet(g))
         return self.load_facets(order, availability, collection)
 
     def load_pagination_from_request(self):
@@ -365,17 +365,27 @@ class CirculationManagerController(object):
     @classmethod
     def load_facets(self, order, availability, collection):
         """Turn user input into a Facets object."""
-        if order and not order in Facets.ORDER_FACETS:
+        order_facets = Configuration.enabled_facets(
+            Facets.ORDER_FACET_GROUP_NAME
+        )
+        if order and not order in order_facets:
             return INVALID_INPUT.detailed(
                 "I don't know how to order a feed by '%s'" % order,
                 400
             )
-        if availability and not availability in Facets.AVAILABILITY_FACETS:
+        availability_facets = Configuration.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        if availability and not availability in availability_facets:
             return INVALID_INPUT.detailed(
                 "I don't understand the availability term '%s'" % availability,
                 400
             )
-        if collection and not collection in Facets.COLLECTION_FACETS:
+
+        collection_facets = Configuration.enabled_facets(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        if collection and not collection in collection_facets:
             return INVALID_INPUT.detailed(
                 "I don't understand which collection '%s' refers to." % collection,
                 400
