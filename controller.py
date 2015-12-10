@@ -344,8 +344,16 @@ class CirculationManagerController(object):
     def load_facets_from_request(self):
         """Figure out which Facets object this request is asking for."""
         arg = flask.request.args.get
-        order = arg('order', Facets.DEFAULT_ORDER_FACET)
-        return self.load_facets(order)
+        order = arg(Facets.ORDER_FACET_GROUP_NAME, Facets.DEFAULT_ORDER_FACET)
+        availability = arg(
+            Facets.AVAILABILITY_FACET_GROUP_NAME, 
+            Facets.DEFAULT_AVAILABILITY_FACET
+        )
+        collection = arg(
+            Facets.COLLECTION_FACET_GROUP_NAME,
+            Facets.DEFAULT_COLLECTION_FACET
+        )
+        return self.load_facets(order, availability, collection)
 
     def load_pagination_from_request(self):
         """Figure out which Facets object this request is asking for."""
@@ -355,14 +363,26 @@ class CirculationManagerController(object):
         return self.load_pagination(size, offset)
 
     @classmethod
-    def load_facets(self, order):
+    def load_facets(self, order, availability, collection):
         """Turn user input into a Facets object."""
-        if not order in Facets.ORDER_FACETS:
+        if order and not order in Facets.ORDER_FACETS:
             return INVALID_INPUT.detailed(
                 "I don't know how to order a feed by '%s'" % order,
                 400
             )
-        return Facets(collection=None, availability=None, order=order)
+        if availability and not availability in Facets.AVAILABILITY_FACETS:
+            return INVALID_INPUT.detailed(
+                "I don't understand the availability term '%s'" % availability,
+                400
+            )
+        if collection and not collection in Facets.COLLECTION_FACETS:
+            return INVALID_INPUT.detailed(
+                "I don't understand which collection '%s' refers to." % collection,
+                400
+            )
+        return Facets(
+            collection=collection, availability=availability, order=order
+        )
 
     @classmethod
     def load_pagination(self, size, offset):
