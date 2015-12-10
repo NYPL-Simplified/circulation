@@ -47,6 +47,11 @@ class DeliveryMechanismConflict(DeliveryMechanismError):
 class CannotLoan(CirculationException):
     status_code = 500
 
+class OutstandingFines(CannotLoan):
+    """The patron has outstanding fines above the limit in the library's 
+    policy."""
+    status_code = 403
+
 class PatronLoanLimitReached(CannotLoan):
     status_code = 403
 

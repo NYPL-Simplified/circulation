@@ -24,6 +24,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
     EXPIRATION_FIELD = 'EXP DATE[p43]'
     BARCODE_FIELD = 'P BARCODE[pb]'
     USERNAME_FIELD = 'ALT ID[pu]'
+    FINES_FIELD = 'MONEY OWED[p96]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
 
     MULTIVALUE_FIELDS = set(['NOTE[px]'])
@@ -101,6 +102,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
         patron.username = dump.get(self.USERNAME_FIELD, None)
+        patron.fines = dump.get(self.FINES_FIELD, None)
         patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
         expires = datetime.datetime.strptime(
@@ -211,6 +213,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
     user2 = { 'PATRN NAME[pn]' : "HEINLEIN, BOB",
               'RECORD #[p81]' : "67890",
               'P BARCODE[pb]' : "5",
+              'MONEY OWED[p96]' : "$1.00",
               'EXP DATE[p43]' : the_future.strftime("%m-%d-%y")
     }
 

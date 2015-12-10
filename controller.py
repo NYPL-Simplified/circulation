@@ -629,6 +629,8 @@ class LoanController(CirculationManagerController):
             return BAD_DELIVERY_MECHANISM.detailed(
                 str(e), status_code=e.status_code
             )
+        except OutstandingFines, e:
+            problem_doc = OUTSTANDING_FINES
         except CannotLoan, e:
             problem_doc = CHECKOUT_FAILED.detailed(str(e))
         except CannotHold, e:

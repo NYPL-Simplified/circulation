@@ -22,6 +22,8 @@ class Configuration(CoreConfiguration):
     ROOT_LANE_POLICY = "root_lane"
     EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
 
+    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+
     ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
     ADOBE_VENDOR_ID = "vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = "node_value"

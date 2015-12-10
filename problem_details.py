@@ -63,6 +63,13 @@ LOAN_LIMIT_REACHED_PROBLEM = pd(
       "You have reached your loan limit. You cannot borrow anything further until you return something.",
 )
 
+OUTSTANDING_FINES = pd(
+      "http://librarysimplified.org/terms/problem/outstanding-fines",
+      403,
+      "Outstanding fines.",
+      "You must pay your outstanding fines before you can borrow more books.",    
+    )
+
 CHECKOUT_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-issue-loan",
       500,
