@@ -23,6 +23,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
     PATRON_TYPE_FIELD = 'P TYPE[p47]'
     EXPIRATION_FIELD = 'EXP DATE[p43]'
     BARCODE_FIELD = 'P BARCODE[pb]'
+    USERNAME_FIELD = 'ALT ID[pu]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
 
     MULTIVALUE_FIELDS = set(['NOTE[px]'])
@@ -80,7 +81,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         return d
 
     def is_test_identifier(self, barcode):
-        return barcode is not None and len(barcode) < 7
+        return barcode is not None and len(barcode) < 3
 
     def pintest(self, barcode, pin):
         if self.is_test_identifier(barcode):
@@ -108,6 +109,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         if not dump:
             dump = self.dump(identifier)
         patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
+        patron.username = dump.get(self.USERNAME_FIELD, None)
         patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
         expires = datetime.datetime.strptime(
@@ -135,6 +137,12 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         # Let's start with a simple lookup based on identifier.
         kwargs = {Patron.authorization_identifier.name: identifier}
         patron = get_one(db, Patron, **kwargs)
+
+        if not patron:
+            # The patron might have used a username instead of a barcode.
+            kwargs = {Patron.username.name: identifier}
+            patron = get_one(db, Patron, *kwargs)
+
         __transaction = db.begin_nested()
         if patron:
             # We found them!
@@ -203,6 +211,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
     user1 = { 'PATRN NAME[pn]' : "SHELDON, ALICE",
               'RECORD #[p81]' : "12345",
               'P BARCODE[pb]' : "0",
+              'ALT ID[pu]' : "alice",
               'EXP DATE[p43]' : "04-01-05"
     }
     
@@ -239,6 +248,8 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
         # We have a couple custom barcodes.
         for u in self.users:
             if u['P BARCODE[pb]'] == barcode:
+                return u
+            if 'ALT ID[pu]' in u and u['ALT ID[pu]'] == barcode:
                 return u
                 
         # A barcode that starts with '404' does not exist.
