@@ -635,7 +635,7 @@ class AcquisitionFeed(OPDSFeed):
     ):
         if not isinstance(lane, Lane):
             search_lane = Lane(
-                _db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+                _db, "Everything", searchable=True, fiction=Lane.BOTH_FICTION_AND_NONFICTION)
         else:
             search_lane = lane
 

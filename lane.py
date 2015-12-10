@@ -350,7 +350,7 @@ class Lane(object):
     """A set of books that would go together in a display."""
 
     UNCLASSIFIED = u"unclassified"
-    BOTH_FICTION_AND_NONFICTION = u"both fiction and nonfiction"
+    BOTH_FICTION_AND_NONFICTION = u"both"
     FICTION_DEFAULT_FOR_GENRE = u"fiction default for genre"
 
     # A book is considered a 'best seller' if it's been seen on
