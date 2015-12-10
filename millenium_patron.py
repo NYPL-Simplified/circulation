@@ -80,16 +80,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
                 d[k] = v
         return d
 
-    def is_test_identifier(self, barcode):
-        return barcode is not None and len(barcode) < 3
-
     def pintest(self, barcode, pin):
-        if self.is_test_identifier(barcode):
-            # TODO: This is dummy code to allow people to test random
-            # barcodes. You will not be able to check out licensed
-            # books but you will be able to get public domain books.
-            return barcode and pin == (barcode[0] * 4)
-
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
         url = self.root + path
         print url
