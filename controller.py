@@ -351,7 +351,7 @@ class CirculationManagerController(object):
         g = Facets.AVAILABILITY_FACET_GROUP_NAME
         availability = arg(g, Configuration.default_facet(g))
 
-        g = Facets.COLLECTION_FACET_GROUP_NAME,
+        g = Facets.COLLECTION_FACET_GROUP_NAME
         collection = arg(g, Configuration.default_facet(g))
         return self.load_facets(order, availability, collection)
 
