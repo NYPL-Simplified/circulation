@@ -338,9 +338,10 @@ class Patron(Base):
     # to borrow books. This identifier may change over time.
     authorization_identifier = Column(Unicode, unique=True, index=True)
 
-    # TODO: An identifier used by the patron that authenticates them,
+    # An identifier used by the patron that authenticates them,
     # but does not give them the authority to borrow books. i.e. their
     # website username.
+    username = Column(Unicode, unique=True, index=True)
 
     # The last time this record was synced up with an external library
     # system.
