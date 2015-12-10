@@ -417,6 +417,7 @@ class TestLoanController(ControllerTest):
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "outstanding fines" in response.detail
+                assert "$1.00" in response.detail
 
         with temp_config() as config:
             config['policies'][Configuration.MAX_OUTSTANDING_FINES] = "$20.00"
