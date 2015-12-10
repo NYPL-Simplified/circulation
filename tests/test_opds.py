@@ -354,12 +354,30 @@ class TestOPDS(DatabaseTest):
 
         [self_link] = self.links(by_title, 'self')
         eq_("http://the-url.com/", self_link['href'])
-        [by_author, recently_added, by_title] = sorted(
-            self.links(
-                by_title, AcquisitionFeed.FACET_REL
-            ),
-            key = lambda x: x['title']
+        facet_links = self.links(by_title, AcquisitionFeed.FACET_REL)
+        
+        order_facets = Configuration.enabled_facets(
+            Facets.ORDER_FACET_GROUP_NAME
         )
+        availability_facets = Configuration.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        collection_facets = Configuration.enabled_facets(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )        
+
+        def link_for_facets(facets):
+            return [x for x in facet_links if facets.query_string in x['href']]
+
+        # There should be a link for every enabled combination of facets.
+        for sort_order in order_facets:
+            for availability in availability_facets:
+                for collection in collection_facets:
+                    facets = Facets(
+                        collection=collection, availability=availability,
+                        order=sort_order, order_ascending=True
+                    )
+                    [expect] = link_for_facets(facets)
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,
@@ -368,28 +386,6 @@ class TestOPDS(DatabaseTest):
         assert 'opds:facetGroup' in u
         assert 'opds:activefacet' not in u
         assert 'opds:activeFacet' in u
-
-        eq_('Sort by', by_author['opds:facetgroup'])
-        eq_('http://opds-spec.org/facet', by_author['rel'])
-        eq_('true', by_author['opds:activefacet'])
-        eq_('Author', by_author['title'])
-        expect = Facets.default()
-        expect.order = Facets.ORDER_AUTHOR
-        eq_(TestAnnotator.facet_url(expect), by_author['href'])
-
-        eq_('Sort by', by_title['opds:facetgroup'])
-        eq_('http://opds-spec.org/facet', by_title['rel'])
-        eq_('Title', by_title['title'])
-        assert not 'opds:activefacet' in by_title
-        expect.order = Facets.ORDER_TITLE
-        eq_(TestAnnotator.facet_url(expect), by_title['href'])
-
-        eq_('Sort by', recently_added['opds:facetgroup'])
-        eq_('http://opds-spec.org/facet', recently_added['rel'])
-        eq_('Recently Added', recently_added['title'])
-        assert not 'opds:activefacet' in recently_added
-        expect.order = Facets.ORDER_ADDED_TO_COLLECTION
-        eq_(TestAnnotator.facet_url(expect), recently_added['href'])
 
     def test_acquisition_feed_includes_available_and_issued_tag(self):
         today = datetime.date.today()

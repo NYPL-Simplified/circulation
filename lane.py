@@ -37,57 +37,11 @@ from model import (
     Work,
     WorkGenre,
 )
+from facets import FacetConstants
 
 import elasticsearch
 
-class Facets(object):
-
-    # Subset the collection, roughly, by quality.
-    COLLECTION_FACET_GROUP_NAME = 'collection'
-    COLLECTION_FULL = "full"
-    COLLECTION_MAIN = "main"
-    COLLECTION_FEATURED = "featured"
-
-    # Subset the collection by availability.
-    AVAILABILITY_FACET_GROUP_NAME = 'available'
-    AVAILABLE_NOW = "now"
-    AVAILABLE_ALL = "all"
-    AVAILABLE_OPEN_ACCESS = "always"
-
-    # The names of the order facets.
-    ORDER_FACET_GROUP_NAME = 'order'
-    ORDER_TITLE = 'title'
-    ORDER_AUTHOR = 'author'
-    ORDER_LAST_UPDATE = 'last_update'
-    ORDER_ADDED_TO_COLLECTION = 'added'
-    ORDER_WORK_ID = 'work_id'
-    ORDER_RANDOM = 'random'
-
-    ORDER_ASCENDING = "asc"
-    ORDER_DESCENDING = "desc"
-
-    GROUP_DISPLAY_TITLES = {
-        ORDER_FACET_GROUP_NAME : "Sort by",
-        AVAILABILITY_FACET_GROUP_NAME : "Availability",
-        COLLECTION_FACET_GROUP_NAME : 'Collection',
-    }
-
-    FACET_DISPLAY_TITLES = {
-        ORDER_TITLE : 'Title',
-        ORDER_AUTHOR : 'Author',
-        ORDER_LAST_UPDATE : 'Last Update',
-        ORDER_ADDED_TO_COLLECTION : 'Recently Added',
-        ORDER_WORK_ID : 'Work ID',
-        ORDER_RANDOM : 'Random',
-
-        AVAILABLE_NOW : "Available now",
-        AVAILABLE_ALL : "All",
-        AVAILABLE_OPEN_ACCESS : "Yours to keep",
-
-        COLLECTION_FULL : "Everything",
-        COLLECTION_MAIN : "Main Collection",
-        COLLECTION_FEATURED : "Popular Books",
-    }
+class Facets(FacetConstants):
 
     @classmethod
     def default(cls):
@@ -157,7 +111,7 @@ class Facets(object):
 
     @property
     def query_string(self):
-        return "&".join("=".join(x) for x in self.items())
+        return "&".join("=".join(x) for x in sorted(self.items()))
 
     @property
     def facet_groups(self):
@@ -173,9 +127,11 @@ class Facets(object):
             return (group, new_value, facets, current_value==new_value)
 
         # First, the order facets.
-        yield dy(self.ORDER_TITLE)
-        yield dy(self.ORDER_AUTHOR)
-        yield dy(self.ORDER_ADDED_TO_COLLECTION)
+        order_facets = Configuration.enabled_facets(
+            Facets.ORDER_FACET_GROUP_NAME
+        )
+        for facet in order_facets:
+            yield dy(facet)
 
         # Next, the availability facets.
         def dy(new_value):
@@ -183,19 +139,23 @@ class Facets(object):
             current_value = self.availability
             facets = self.navigate(availability=new_value)
             return (group, new_value, facets, new_value==current_value)
-        yield dy(self.AVAILABLE_ALL)
-        yield dy(self.AVAILABLE_NOW)
-        yield dy(self.AVAILABLE_OPEN_ACCESS)
+        availability_facets = Configuration.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        for facet in availability_facets:
+            yield dy(facet)
 
         # Next, the collection facets.
+        collection_facets = Configuration.enabled_facets(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )        
         def dy(new_value):
             group = self.COLLECTION_FACET_GROUP_NAME
             current_value = self.collection
             facets = self.navigate(collection=new_value)
             return (group, new_value, facets, new_value==current_value)
-        yield dy(self.COLLECTION_FULL)
-        yield dy(self.COLLECTION_MAIN)
-        yield dy(self.COLLECTION_FEATURED)
+        for facet in collection_facets:
+            yield dy(facet)
 
     @classmethod
     def order_facet_to_database_field(

@@ -5,7 +5,7 @@ import os
 import json
 import logging
 import copy
-from lane import Facets
+from facets import FacetConstants as Facets
 
 class CannotLoadConfiguration(Exception):
     pass

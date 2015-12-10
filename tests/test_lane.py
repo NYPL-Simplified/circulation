@@ -44,6 +44,50 @@ from model import (
 
 class TestFacets(object):
 
+    def test_facet_groups(self):
+
+        facets = Facets(
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
+        )
+        all_groups = list(facets.facet_groups)
+
+        # By default, there are a 9 facet transitions: three groups of three.
+        eq_(9, len(all_groups))
+
+        # available=all, collection=main, and order=title are the selected
+        # facets.
+        selected = sorted([x[:2] for x in all_groups if x[-1] == True])
+        eq_(
+            [('available', 'all'), ('collection', 'main'), ('order', 'title')],
+            selected
+        )
+
+        test_facet_policy = {
+            "enabled" : {
+                Facets.ORDER_FACET_GROUP_NAME : [
+                    Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
+                ],
+                Facets.COLLECTION_FACET_GROUP_NAME : [],
+                Facets.AVAILABILITY_FACET_GROUP_NAME : [],
+            },
+            "default" : {
+                Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE
+            }
+        }
+        with temp_config() as config:
+            config['policies'][Configuration.FACET_POLICY] = test_facet_policy
+            facets = Facets(None, None, Facets.ORDER_TITLE)
+            all_groups = list(facets.facet_groups)
+
+            # We have disabled almost all the facets, so the list of
+            # facet transitions includes only two items.
+            #
+            # 'Sort by title' was selected, and it shows up as the selected
+            # item in this facet group.
+            expect = [['order', 'title', True], ['order', 'work_id', False]]
+            eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
+
     def test_order_facet_to_database_field(self):
         from model import (
             MaterializedWork as mw,
