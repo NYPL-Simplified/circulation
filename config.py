@@ -5,6 +5,7 @@ import os
 import json
 import logging
 import copy
+from lane import Facets
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -63,6 +64,29 @@ class Configuration(object):
     HOLD_POLICY = "holds"
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
+
+    # Facet policies
+    FACET_POLICY = 'facets'
+    ENABLED_FACETS_KEY = 'enabled'
+    DEFAULT_FACET_KEY = 'default'
+
+    DEFAULT_ENABLED_FACETS = {
+        Facets.ORDER_FACET_GROUP_NAME : [
+            Facets.ORDER_AUTHOR, Facets.ORDER_TITLE, Facets.ORDER_ADDED_TO_COLLECTION
+        ],
+        Facets.AVAILABILITY_FACET_GROUP_NAME : [
+            Facets.AVAILABLE_ALL, Facets.AVAILABLE_NOW, Facets.AVAILABLE_OPEN_ACCESS
+        ],
+        Facets.COLLECTION_FACET_GROUP_NAME : [
+            Facets.COLLECTION_FULL, Facets.COLLECTION_MAIN, Facets.COLLECTION_FEATURED
+        ]
+    }
+
+    DEFAULT_FACET = {
+        Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_AUTHOR,
+        Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
+        Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_MAIN,
+    }
 
     # Lane policies
     CACHE_FOREVER = 'forever'
@@ -216,6 +240,22 @@ class Configuration(object):
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
 
+    @classmethod
+    def enabled_facets(cls, group_name):
+        """Look up the enabled facets for a given facet group."""
+        policy = cls.policy(cls.FACET_POLICY)
+        if not policy or not cls.ENABLED_FACETS_KEY in policy:
+            return cls.DEFAULT_ENABLED_FACETS[group_name]
+        return policy[cls.ENABLED_FACETS_KEY][group_name]
+
+    @classmethod
+    def default_facet(cls, group_name):
+        """Look up the default facet for a given facet group."""
+        policy = cls.policy(cls.FACET_POLICY)
+        if not policy or not cls.DEFAULT_FACET_KEY in policy:
+            return cls.DEFAULT_FACET[group_name]
+        return policy[cls.DEFAULT_FACET_LEY][group_name]
+   
     @classmethod
     def page_max_age(cls):
         value = cls.policy(
