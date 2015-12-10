@@ -4,6 +4,7 @@ import datetime
 from collections import defaultdict
 from threading import Thread
 import logging
+import re
 
 from core.model import (
     get_one,
@@ -13,6 +14,7 @@ from core.model import (
     Loan,
     Hold,
 )
+from config import Configuration
 
 class CirculationInfo(object):
     def fd(self, d):
@@ -183,6 +185,16 @@ class CirculationAPI(object):
         content_link = content_expires = None
 
         internal_format = api.internal_format(delivery_mechanism)
+
+        if patron.fines:
+            def parse_fines(fines):
+                dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
+                return (dollars * 100) + cents
+
+            max_fines = Configuration.policy('max_outstanding_fines')
+            if max_fines:
+                if parse_fines(patron.fines) >= parse_fines(max_fines):
+                    raise OutstandingFines()
 
         # First, try to check out the book.
         loan_info = None

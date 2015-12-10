@@ -390,6 +390,53 @@ class TestLoanController(ControllerTest):
 
              eq_(200, response.status_code)
 
+    def test_borrow_fails_with_outstanding_fines(self):
+        threem_edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            primary_edition=threem_edition,
+        )
+        pool.open_access = False
+
+        # Patron with $1.00 fine
+        auth = 'Basic ' + base64.b64encode('5:5555')
+        
+        with temp_config() as config:
+            config['policies'][Configuration.MAX_OUTSTANDING_FINES] = "$0.50"
+            
+            with self.app.test_request_context(
+                    "/", headers=dict(Authorization=auth)):
+                self.manager.loans.authenticated_patron_from_request()
+                response = self.manager.loans.borrow(
+                    DataSource.THREEM, pool.identifier.identifier)
+                
+                eq_(403, response.status_code)
+                eq_(OUTSTANDING_FINES.uri, response.uri)
+                assert "outstanding fines" in response.detail
+                assert "$1.00" in response.detail
+
+        with temp_config() as config:
+            config['policies'][Configuration.MAX_OUTSTANDING_FINES] = "$20.00"
+
+            with self.app.test_request_context(
+                    "/", headers=dict(Authorization=auth)):
+                self.manager.loans.authenticated_patron_from_request()
+                self.manager.circulation.queue_checkout(LoanInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                ))
+                response = self.manager.loans.borrow(
+                    DataSource.THREEM, pool.identifier.identifier)
+                
+                eq_(201, response.status_code)
+                
+
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
              with_open_access_download=False,
