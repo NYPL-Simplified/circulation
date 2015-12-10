@@ -369,15 +369,17 @@ class TestOPDS(DatabaseTest):
         def link_for_facets(facets):
             return [x for x in facet_links if facets.query_string in x['href']]
 
-        # There should be a link for every enabled combination of facets.
-        for sort_order in order_facets:
-            for availability in availability_facets:
-                for collection in collection_facets:
-                    facets = Facets(
-                        collection=collection, availability=availability,
-                        order=sort_order, order_ascending=True
-                    )
-                    [expect] = link_for_facets(facets)
+        facets = Facets(None, None, None)
+        for i1, i2, new_facets, selected in facets.facet_groups:            
+            links = link_for_facets(new_facets)
+            if selected:
+                # This facet set is already selected, so it should
+                # show up three times--once for every facet group.
+                eq_(3, len(links))
+            else:
+                # This facet set is not selected, so it should have one
+                # transition link.
+                eq_(1, len(links))
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,

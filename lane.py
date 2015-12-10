@@ -61,9 +61,15 @@ class Facets(FacetConstants):
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or self.COLLECTION_FULL
-        availability = availability or self.AVAILABLE_ALL
-        order = order or self.ORDER_AUTHOR
+        collection = collection or Configuration.default_facet(
+            self.COLLECTION_FACET_GROUP_NAME
+        )
+        availability = availability or Configuration.default_facet(
+            self.AVAILABILITY_FACET_GROUP_NAME
+        )
+        order = order or Configuration.default_facet(
+            self.ORDER_FACET_GROUP_NAME
+        )
 
         hold_policy = Configuration.hold_policy()
         if (availability == self.AVAILABLE_ALL and 
