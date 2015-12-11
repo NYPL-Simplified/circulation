@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from config import Configuration
+from classifier import KeywordBasedClassifier
 import os
 import logging
 
@@ -50,20 +51,64 @@ class ExternalSearchIndex(Elasticsearch):
         return results
 
     def make_query(self, query_string):
-        must_multi_match = dict(
-            multi_match=dict(
-            query=query_string,
-            fields=["title^4", "author^4", "subtitle^3"],
-            type="best_fields"
-        ))
-        should_multi_match = dict(
-            multi_match = dict(
-            query=query_string,
-            fields=["summary^2", "publisher", "imprint"],
-            type="best_fields"
-        ))
-        return dict(bool=dict(must=[must_multi_match],
-                              should=[should_multi_match]),
+
+        def make_match_query(query_string, fields):
+            return {
+                'multi_match': {
+                    'query': query_string,
+                    'fields': fields,
+                    'type': 'best_fields'
+                }
+            }
+
+        main_fields = ['title^4', 'author^4', 'subtitle^3']
+
+        match_full_query = make_match_query(query_string, main_fields)
+        must_match_options = [match_full_query]
+        
+        genre = KeywordBasedClassifier.genre(None, query_string)
+        if genre:
+            # Find the genre words in the query
+
+            keyword_lists = [KeywordBasedClassifier.LEVEL_3_KEYWORDS, KeywordBasedClassifier.LEVEL_2_KEYWORDS, KeywordBasedClassifier.CATCHALL_KEYWORDS]
+
+            for kwlist in keyword_lists:
+                if genre in kwlist.keys():
+                    genre_keywords = kwlist[genre]
+
+                    match = genre_keywords.search(query_string)
+                    if match:
+                        genre_words = match.group()
+                        remaining_string = query_string.replace(genre_words, "")
+                        break
+
+            match_genre = make_match_query(genre.name, ['classifications.name'])
+            match_rest_of_query = make_match_query(remaining_string, main_fields)
+            
+            match_genre_and_rest_of_query = {
+                'bool': {
+                    'must': [
+                        match_genre,
+                        match_rest_of_query
+                    ],
+                    'boost': 20.0
+                }
+            }
+
+            must_match_options.append(match_genre_and_rest_of_query)
+
+        must_match = {
+            'bool': {
+                'should': must_match_options,
+                'minimum_should_match': 1
+            }
+        }
+        
+        secondary_fields = ["summary^2", "publisher", "imprint"]
+        match_secondary_fields = make_match_query(query_string, secondary_fields)
+        
+        return dict(bool=dict(must=[must_match],
+                              should=[match_secondary_fields]),
         )
 
     def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
