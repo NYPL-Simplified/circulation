@@ -191,7 +191,7 @@ class CirculationAPI(object):
                 dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
                 return (dollars * 100) + cents
 
-            max_fines = Configuration.policy('max_outstanding_fines')
+            max_fines = Configuration.policy(Configuration.MAX_OUTSTANDING_FINES)
             if max_fines:
                 if parse_fines(patron.fines) >= parse_fines(max_fines):
                     raise OutstandingFines()
