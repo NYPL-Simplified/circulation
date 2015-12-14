@@ -146,12 +146,12 @@ def work():
 @app.route('/works/<data_source>/<identifier>')
 @returns_problem_detail
 def permalink(data_source, identifier):
-    return app.manager.works_controller.permalink(data_source, identifier)
+    return app.manager.work_controller.permalink(data_source, identifier)
     
 @app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
 @returns_problem_detail
 def report(data_source, identifier):
-    return app.manager.works_controller.report(data_source, identifier)
+    return app.manager.work_controller.report(data_source, identifier)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
