@@ -2789,6 +2789,21 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                 break
         return most_specific_genre
 
+    @classmethod
+    def genre_match(cls, query):
+        genre = None
+        genre_words = None
+        genre = cls.genre(None, query)
+        if genre:
+            for kwlist in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
+                if genre in kwlist.keys():
+                    genre_keywords = kwlist[genre]
+                    match = genre_keywords.search(query)
+                    if match:
+                        genre_words = match.group()
+                        break
+        return (genre, genre_words)
+        
 
 class LCSHClassifier(KeywordBasedClassifier):
     pass

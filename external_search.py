@@ -73,36 +73,23 @@ class ExternalSearchIndex(Elasticsearch):
         elif "fiction" in query_string:
             fiction = "Fiction"
         
-        genre = KeywordBasedClassifier.genre(None, query_string)
+        genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
 
         if fiction or genre:
             genre_and_fiction_queries = []
             remaining_string = query_string
 
             if genre:
-                # Find the genre words in the query
-                
-                keyword_lists = [KeywordBasedClassifier.LEVEL_3_KEYWORDS, KeywordBasedClassifier.LEVEL_2_KEYWORDS, KeywordBasedClassifier.CATCHALL_KEYWORDS]
-
-                for kwlist in keyword_lists:
-                    if genre in kwlist.keys():
-                        genre_keywords = kwlist[genre]
-
-                        match = genre_keywords.search(query_string)
-                        if match:
-                            genre_words = match.group()
-                            remaining_string = re.compile(genre_words, re.IGNORECASE).sub("", remaining_string)
-                            break
-
                 match_genre = make_match_query(genre.name, ['classifications.name'])
                 genre_and_fiction_queries.append(match_genre)
+                remaining_string = re.compile(genre_match, re.IGNORECASE).sub("", remaining_string)
 
             if fiction:
                 match_fiction = make_match_query(fiction, ['fiction'])
                 genre_and_fiction_queries.append(match_fiction)
                 remaining_string = re.compile(fiction, re.IGNORECASE).sub("", remaining_string)
 
-            match_rest_of_query = make_match_query(remaining_string, main_fields)
+            match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
             genre_and_fiction_queries.append(match_rest_of_query)
             
             match_genre_and_rest_of_query = {
