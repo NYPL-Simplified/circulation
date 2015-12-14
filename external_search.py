@@ -4,6 +4,7 @@ from config import Configuration
 from classifier import KeywordBasedClassifier
 import os
 import logging
+import re
 
 class ExternalSearchIndex(Elasticsearch):
     
@@ -65,32 +66,48 @@ class ExternalSearchIndex(Elasticsearch):
 
         match_full_query = make_match_query(query_string, main_fields)
         must_match_options = [match_full_query]
+
+        fiction = None
+        if "nonfiction" in query_string:
+            fiction = "Nonfiction"
+        elif "fiction" in query_string:
+            fiction = "Fiction"
         
         genre = KeywordBasedClassifier.genre(None, query_string)
-        if genre:
-            # Find the genre words in the query
 
-            keyword_lists = [KeywordBasedClassifier.LEVEL_3_KEYWORDS, KeywordBasedClassifier.LEVEL_2_KEYWORDS, KeywordBasedClassifier.CATCHALL_KEYWORDS]
+        if fiction or genre:
+            genre_and_fiction_queries = []
+            remaining_string = query_string
 
-            for kwlist in keyword_lists:
-                if genre in kwlist.keys():
-                    genre_keywords = kwlist[genre]
+            if genre:
+                # Find the genre words in the query
+                
+                keyword_lists = [KeywordBasedClassifier.LEVEL_3_KEYWORDS, KeywordBasedClassifier.LEVEL_2_KEYWORDS, KeywordBasedClassifier.CATCHALL_KEYWORDS]
 
-                    match = genre_keywords.search(query_string)
-                    if match:
-                        genre_words = match.group()
-                        remaining_string = query_string.replace(genre_words, "")
-                        break
+                for kwlist in keyword_lists:
+                    if genre in kwlist.keys():
+                        genre_keywords = kwlist[genre]
 
-            match_genre = make_match_query(genre.name, ['classifications.name'])
+                        match = genre_keywords.search(query_string)
+                        if match:
+                            genre_words = match.group()
+                            remaining_string = re.compile(genre_words, re.IGNORECASE).sub("", remaining_string)
+                            break
+
+                match_genre = make_match_query(genre.name, ['classifications.name'])
+                genre_and_fiction_queries.append(match_genre)
+
+            if fiction:
+                match_fiction = make_match_query(fiction, ['fiction'])
+                genre_and_fiction_queries.append(match_fiction)
+                remaining_string = re.compile(fiction, re.IGNORECASE).sub("", remaining_string)
+
             match_rest_of_query = make_match_query(remaining_string, main_fields)
+            genre_and_fiction_queries.append(match_rest_of_query)
             
             match_genre_and_rest_of_query = {
                 'bool': {
-                    'must': [
-                        match_genre,
-                        match_rest_of_query
-                    ],
+                    'must': genre_and_fiction_queries,
                     'boost': 20.0
                 }
             }
