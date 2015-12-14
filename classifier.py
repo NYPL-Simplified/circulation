@@ -195,6 +195,12 @@ class Classifier(object):
         return None
 
     @classmethod
+    def genre_match(cls, query):
+        """Does this query string match a particular Genre, and which part
+        of the query matches?"""
+        return None, None
+
+    @classmethod
     def is_fiction(cls, identifier, name):
         """Is this identifier+name particularly indicative of fiction?
         How about nonfiction?

@@ -64,15 +64,23 @@ class ExternalSearchIndex(Elasticsearch):
 
         main_fields = ['title^4', 'author^4', 'subtitle^3']
 
+        # Find results that match the full query string in one of the main
+        # fields.
         match_full_query = make_match_query(query_string, main_fields)
         must_match_options = [match_full_query]
 
+
+        # If fiction or genre is in the query, results can match the fiction or 
+        # genre value and the remaining words in the query string, instead of the
+        # full query.
+
         fiction = None
-        if "nonfiction" in query_string:
+        if re.compile(r"\bnonfiction\b", re.IGNORECASE).search(query_string):
             fiction = "Nonfiction"
-        elif "fiction" in query_string:
+        elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
             fiction = "Fiction"
         
+        # Get the genre and the words in the query that matched it, if any
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
 
         if fiction or genre:
@@ -89,9 +97,15 @@ class ExternalSearchIndex(Elasticsearch):
                 genre_and_fiction_queries.append(match_fiction)
                 remaining_string = re.compile(fiction, re.IGNORECASE).sub("", remaining_string)
 
+            # Someone who searches by genre is probably not looking for a specific book,
+            # so title isn't included, but they might be looking for an author (eg, 
+            # "science fiction iain banks").
             match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
             genre_and_fiction_queries.append(match_rest_of_query)
             
+            # If genre, fiction, and the remaining string all match, the result will
+            # have a higher score than results that match the full query in one of the 
+            # main fields.
             match_genre_and_rest_of_query = {
                 'bool': {
                     'must': genre_and_fiction_queries,
@@ -101,6 +115,7 @@ class ExternalSearchIndex(Elasticsearch):
 
             must_match_options.append(match_genre_and_rest_of_query)
 
+        # Results must match either the full query or the genre/fiction query.
         must_match = {
             'bool': {
                 'should': must_match_options,
@@ -108,6 +123,8 @@ class ExternalSearchIndex(Elasticsearch):
             }
         }
         
+        # Results don't have to match any of the secondary fields, but if they do,
+        # they'll have a higher score.
         secondary_fields = ["summary^2", "publisher", "imprint"]
         match_secondary_fields = make_match_query(query_string, secondary_fields)
         
