@@ -4,6 +4,7 @@ from psycopg2 import DatabaseError
 import flask
 import json
 import os
+import sys
 from lxml import etree
 from flask import url_for, make_response
 from util.flask_util import problem
@@ -103,7 +104,11 @@ class ErrorHandler(object):
             # the simplest thing to do is to kill the entire process
             # and let uwsgi restart it.
             logging.error("Database error! Treating as fatal to avoid holding on to a tainted session.")
-            flask.request.environ.get('werkzeug.server.shutdown')()
+            shutdown = flask.request.environ.get('werkzeug.server.shutdown')
+            if shutdown:
+                shutdown()
+            else:
+                sys.exit()
         return make_response(body, 500, {"Content-Type": "text/plain"})
 
 class HeartbeatController(object):
