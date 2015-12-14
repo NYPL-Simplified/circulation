@@ -961,8 +961,8 @@ class Lane(object):
         elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
             q = q.filter(work_model.fiction==self.fiction)
 
-        if self.media:
-            q = q.filter(edition_model.medium.in_(self.media))
+        #if self.media:
+        #    q = q.filter(edition_model.medium.in_(self.media))
 
         # TODO: Also filter on formats.
 
@@ -1010,6 +1010,9 @@ class Lane(object):
         if pagination:
             q = pagination.apply(q)
 
+        from model import dump_query
+        print dump_query(q)
+        set_trace()
         return q
 
     def search(self, query, search_client, limit=30):

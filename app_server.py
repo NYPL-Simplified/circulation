@@ -1,5 +1,6 @@
 """Implement logic common to more than one of the Simplified applications."""
 from nose.tools import set_trace
+from psycopg2 import DatabaseError
 import flask
 import json
 import os
@@ -97,6 +98,12 @@ class ErrorHandler(object):
             body = tb
         else:
             body = "An internal error occured."
+        if isinstance(exception, DatabaseError):
+            # The database session may have become tainted. For now
+            # the simplest thing to do is to kill the entire process
+            # and let uwsgi restart it.
+            logging.error("Database error! Treating as fatal to avoid holding on to a tainted session.")
+            flask.request.environ.get('werkzeug.server.shutdown')()
         return make_response(body, 500, {"Content-Type": "text/plain"})
 
 class HeartbeatController(object):
