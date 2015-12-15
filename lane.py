@@ -1010,9 +1010,6 @@ class Lane(object):
         if pagination:
             q = pagination.apply(q)
 
-        from model import dump_query
-        print dump_query(q)
-        set_trace()
         return q
 
     def search(self, query, search_client, limit=30):
