@@ -67,11 +67,13 @@ class TestFacets(object):
                 Facets.ORDER_FACET_GROUP_NAME : [
                     Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
                 ],
-                Facets.COLLECTION_FACET_GROUP_NAME : [],
-                Facets.AVAILABILITY_FACET_GROUP_NAME : [],
+                Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
+                Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
             },
             "default" : {
-                Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE
+                Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
+                Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+                Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
             }
         }
         with temp_config() as config:
@@ -555,9 +557,13 @@ class TestLanesQuery(DatabaseTest):
             assert all([mw_predicate(x) for x in mw])
             return w, mw
 
-        # The 'everything' lane contains 18 works -- everything except
-        # the music.
+        # The 'everything' lane contains 19 works.
         lane = Lane(self._db, "Everything", media=None)
+        w, mw = test_expectations(lane, 19, lambda x: True)
+
+        # The 'books' lane contains 18 works -- everything except
+        # the music.
+        lane = Lane(self._db, "Books", media=[Edition.BOOK_MEDIUM])
         w, mw = test_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.

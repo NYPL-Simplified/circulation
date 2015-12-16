@@ -254,7 +254,7 @@ class Configuration(object):
         policy = cls.policy(cls.FACET_POLICY)
         if not policy or not cls.DEFAULT_FACET_KEY in policy:
             return cls.DEFAULT_FACET[group_name]
-        return policy[cls.DEFAULT_FACET_LEY][group_name]
+        return policy[cls.DEFAULT_FACET_KEY][group_name]
    
     @classmethod
     def page_max_age(cls):

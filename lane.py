@@ -136,8 +136,9 @@ class Facets(FacetConstants):
         order_facets = Configuration.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        for facet in order_facets:
-            yield dy(facet)
+        if len(order_facets) > 1:
+            for facet in order_facets:
+                yield dy(facet)
 
         # Next, the availability facets.
         def dy(new_value):
@@ -148,8 +149,9 @@ class Facets(FacetConstants):
         availability_facets = Configuration.enabled_facets(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        for facet in availability_facets:
-            yield dy(facet)
+        if len(availability_facets) > 1:
+            for facet in availability_facets:
+                yield dy(facet)
 
         # Next, the collection facets.
         collection_facets = Configuration.enabled_facets(
@@ -160,8 +162,9 @@ class Facets(FacetConstants):
             current_value = self.collection
             facets = self.navigate(collection=new_value)
             return (group, new_value, facets, new_value==current_value)
-        for facet in collection_facets:
-            yield dy(facet)
+        if len(collection_facets) > 1:
+            for facet in collection_facets:
+                yield dy(facet)
 
     @classmethod
     def order_facet_to_database_field(
