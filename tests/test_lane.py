@@ -557,13 +557,9 @@ class TestLanesQuery(DatabaseTest):
             assert all([mw_predicate(x) for x in mw])
             return w, mw
 
-        # The 'everything' lane contains 19 works.
-        lane = Lane(self._db, "Everything", media=None)
-        w, mw = test_expectations(lane, 19, lambda x: True)
-
-        # The 'books' lane contains 18 works -- everything except
+        # The 'everything' lane contains 18 works -- everything except
         # the music.
-        lane = Lane(self._db, "Books", media=[Edition.BOOK_MEDIUM])
+        lane = Lane(self._db, "Everything")
         w, mw = test_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
