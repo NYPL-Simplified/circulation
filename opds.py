@@ -258,6 +258,10 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
+    def default_lane_url(cls):
+        return cls.groups_url(None)
+
+    @classmethod
     def featured_feed_url(cls, lane, order=None):
         raise NotImplementedError()
 
@@ -620,7 +624,7 @@ class AcquisitionFeed(OPDSFeed):
 
         if lane.parent:
             feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
-        feed.add_link(rel='start', href=annotator.groups_url(None))
+        feed.add_link(rel='start', href=annotator.default_lane_url())
 
         annotator.annotate_feed(feed, lane)
 

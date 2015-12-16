@@ -28,6 +28,7 @@ from model import (
     Identifier,
     LicensePool,
     Subject,
+    Hyperlink,
 )
 
 class SubjectData(object):
@@ -674,6 +675,8 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
+                if pool != None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    pool.open_access = True
             else:
                 resource = None
             if pool:
