@@ -361,31 +361,29 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         order_facets = Configuration.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        availability_facets = Configuration.enabled_facets(
+        availability = Configuration.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection_facets = Configuration.enabled_facets(
+        collection = Configuration.default_facet(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
         for sort_order in order_facets:
-            for availability in availability_facets:
-                for collection in collection_facets:
-                    pagination = Pagination.default()
-                    facets = Facets(
-                        collection=collection, availability=availability,
-                        order=sort_order, order_ascending=True
+            pagination = Pagination.default()
+            facets = Facets(
+                collection=collection, availability=availability,
+                order=sort_order, order_ascending=True
+            )
+            title = lane.display_name
+            for pagenum in (0, 2):
+                feeds.append(
+                    AcquisitionFeed.page(
+                        self._db, title, url, lane, annotator, 
+                        facets=facets, pagination=pagination,
+                        force_refresh=True
                     )
-                    title = lane.display_name
-                    for pagenum in (0, 2):
-                        feeds.append(
-                            AcquisitionFeed.page(
-                                self._db, title, url, lane, annotator, 
-                                facets=facets, pagination=pagination,
-                                force_refresh=True
-                            )
-                        )
-                    pagination = pagination.next_page
+                )
+                pagination = pagination.next_page
         return feeds
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
