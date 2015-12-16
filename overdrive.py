@@ -504,6 +504,13 @@ class OverdriveRepresentationExtractor(object):
             )
             subjects.append(subject)
 
+        for sub in book.get('keywords', []):
+            subject = SubjectData(
+                type=Subject.TAG, identifier=sub['value'],
+                weight=1
+            )
+            subjects.append(subject)
+
         extra = dict()
         if 'grade_levels' in book:
             for i in book['grade_levels']:
@@ -612,17 +619,21 @@ class OverdriveRepresentationExtractor(object):
                         )
 
         # Cover and descriptions become links.
-        if 'images' in book and 'cover' in book['images']:
-            link = book['images']['cover']
-            href = OverdriveAPI.make_link_safe(link['href'])
-            media_type = link['type']
-            links.append(
-                LinkData(
-                    rel=Hyperlink.IMAGE,
-                    href=href,
-                    media_type=media_type
+        if 'images' in book:
+            for name, rel in (('cover', Hyperlink.IMAGE),
+                              ('thumbnail', Hyperlink.THUMBNAIL_IMAGE)):
+                if not name in book['images']:
+                    continue
+                link = book['images'][name]
+                href = OverdriveAPI.make_link_safe(link['href'])
+                media_type = link['type']
+                links.append(
+                    LinkData(
+                        rel=rel,
+                        href=href,
+                        media_type=media_type
+                    )
                 )
-            )
 
         short = book.get('shortDescription')
         full = book.get('fullDescription')
