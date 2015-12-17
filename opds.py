@@ -257,9 +257,8 @@ class Annotator(object):
     def groups_url(cls, lane):
         raise NotImplementedError()
 
-    @classmethod
-    def default_lane_url(cls):
-        return cls.groups_url(None)
+    def default_lane_url(self):
+        return self.groups_url(None)
 
     @classmethod
     def featured_feed_url(cls, lane, order=None):
