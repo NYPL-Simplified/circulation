@@ -101,6 +101,9 @@ class CirculationManagerAnnotator(Annotator):
         return self.cdn_url_for(
             "acquisition_groups", lane_name=lane_name, languages=languages, _external=True)
 
+    def default_lane_url(self):
+        return self.groups_url(None)
+
     def feed_url(self, lane, facets, pagination):
         lane_name, languages = self._lane_name_and_languages
         kwargs = dict(facets.items())

@@ -1,4 +1,5 @@
 from core.util.problem_detail import ProblemDetail as pd
+from core.problem_details import *
 
 REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
@@ -117,13 +118,6 @@ COULD_NOT_MIRROR_TO_REMOTE = pd(
       500,
       "Cannot mirror local state to remote.",
       "Could not convince a third party to accept the change you made. It's likely to show up again soon.",
-)
-
-INVALID_INPUT = pd(
-      "http://librarysimplified.org/terms/problem/invalid-input",
-      400,
-      "Invalid input.",
-      "You provided invalid or unrecognized input.",
 )
 
 NO_SUCH_LANE = pd(

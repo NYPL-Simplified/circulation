@@ -139,40 +139,6 @@ class TestBaseController(ControllerTest):
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
 
-    def test_load_facets_from_request(self):
-        with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
-            facets = self.controller.load_facets_from_request()
-            eq_(Facets.ORDER_TITLE, facets.order)
-
-        with self.app.test_request_context('/?order=bad_facet'):
-            problemdetail = self.controller.load_facets_from_request()
-            eq_(INVALID_INPUT.uri, problemdetail.uri)
-
-    def test_load_pagination_from_request(self):
-        with self.app.test_request_context('/?size=50&after=10'):
-            pagination = self.controller.load_pagination_from_request()
-            eq_(50, pagination.size)
-            eq_(10, pagination.offset)
-
-        with self.app.test_request_context('/'):
-            pagination = self.controller.load_pagination_from_request()
-            eq_(Pagination.DEFAULT_SIZE, pagination.size)
-            eq_(0, pagination.offset)
-
-        with self.app.test_request_context('/?size=string'):
-            pagination = self.controller.load_pagination_from_request()
-            eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid size: string", pagination.detail)
-
-        with self.app.test_request_context('/?after=string'):
-            pagination = self.controller.load_pagination_from_request()
-            eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid offset: string", pagination.detail)
-
-        with self.app.test_request_context('/?size=5000'):
-            pagination = self.controller.load_pagination_from_request()
-            eq_(100, pagination.size)
-
     def test_load_licensepool(self):
         licensepool = self._licensepool(edition=None)
         loaded_licensepool = self.controller.load_licensepool(
