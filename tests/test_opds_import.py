@@ -14,12 +14,13 @@ from . import (
 )
 
 from opds_import import (
-    DetailedOPDSImporter,
+    OPDSImporter,
 )
 from model import (
     Contributor,
     DataSource,
     DeliveryMechanism,
+    Hyperlink,
     Edition,
     Measurement,
     Representation,
@@ -65,10 +66,11 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.25, ratings[Measurement.POPULARITY])
         eq_(0.3333, ratings[Measurement.QUALITY])
 
-    def test_detail_by_id(self):
+    def test_extract_metadata_from_elementtree(self):
 
-        parsed = etree.parse(StringIO(self.content_server_feed))
-        data = DetailedOPDSImporter.detail_by_id(parsed)
+        data = OPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_feed
+        )
 
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
@@ -101,6 +103,11 @@ class TestDetailedOPDSImporter(DatabaseTest):
         )
 
         eq_([], book['ratings'])
+
+        [link] = book['links']
+        eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
+        eq_("http://www.gutenberg.org/ebooks/1022.epub.noimages", link.href)
+        eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
 
         # And now, the periodical.
         periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'

@@ -21,6 +21,7 @@ from metadata_layer import (
     Metadata,
     IdentifierData,
     ContributorData,
+    LinkData,
     MeasurementData,
     SubjectData,
 )
@@ -93,7 +94,7 @@ class OPDSXMLParser(XMLParser):
                    "atom" : "http://www.w3.org/2005/Atom",
     }
 
-class BaseOPDSImporter(object):
+class OPDSImporter(object):
 
     """Capable of importing editions from an OPDS feed.
 
@@ -367,7 +368,191 @@ class BaseOPDSImporter(object):
                 thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
         return download_links, image_link, thumbnail_link
 
-class DetailedOPDSImporter(BaseOPDSImporter):
+    @classmethod
+    def metadata_for_feed(self, data_source, feed):
+        """Turn an OPDS feed into a list of Metadata objects and a list of
+        messages.
+        """
+        raw_feed = unicode(feed)       
+        data1 = self.extract_metadata_from_feedparser(feed)
+        data2 = self.extract_metadata_from_elementtree(feed)
+
+        for id, args in data1.items():
+            args = dict(args).update(data2.get(args, {}))
+            yield Metadata(
+                data_source=data_source,
+                **args
+            )
+
+    @classmethod
+    def extract_metadata_from_feedparser(cls, feed):
+        feedparser_parsed = feedparser.parse(self.raw_feed)
+        
+
+    @classmethod
+    def extract_metadata_from_elementtree(cls, feed):
+        """Parse the OPDS as XML and extract all author and subject
+        information, as well as ratings and medium.
+
+        All the stuff that Feedparser can't handle so we have to use lxml.
+
+        :return: a dictionary mapping IDs to dictionaries. The inner
+        dictionary can be used as keyword arguments to the Metadata
+        constructor.
+        """
+        values = {}
+        parser = OPDSXMLParser()
+        root = etree.parse(StringIO(feed))
+        for entry in parser._xpath(root, '/atom:feed/atom:entry'):
+            identifier, detail = cls.detail_for_entry(parser, entry)
+            if identifier:
+                values[identifier] = detail
+        return values
+
+    @classmethod
+    def detail_for_entry(cls, parser, entry_tag):
+        """Turn an <atom:entry> tag into a dictionary of metadata that can be
+        used as keyword arguments to the Metadata contructor.
+
+        :return: A 2-tuple (identifier, kwargs)
+        """
+
+        identifier = parser._xpath1(entry_tag, 'atom:id')
+        if identifier is None or not identifier.text:
+            # This <entry> tag doesn't identify a book so we 
+            # can't derive any information from it.
+            return None, None
+        identifier = identifier.text
+
+        # We will fill this dictionary with all the information
+        # we can find.
+        data = dict()
+           
+        data['medium'] = cls.extract_medium(entry_tag)
+        
+        data['contributors'] = [
+            cls.extract_contributor(parser, author_tag)
+            for author_tag in parser._xpath(entry_tag, 'atom:author')
+        ]
+
+        data['subjects'] = [
+            cls.extract_subject(parser, category_tag)
+            for category_tag in parser._xpath(entry_tag, 'atom:category')
+        ]
+
+        ratings = []
+        for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
+            v = cls.extract_measurement(rating_tag)
+            if v:
+                ratings.append(v)
+        data['ratings'] = ratings
+
+        data['links'] = [
+            cls.extract_link(link_tag)
+            for link_tag in parser._xpath(entry_tag, 'atom:link')
+        ]
+
+        return identifier, data
+
+    @classmethod
+    def extract_medium(cls, entry_tag):
+        """Derive a value for Edition.medium from <atom:entry
+        schema:additionalType>.
+        """
+
+        # If no additionalType is given, assume we're talking about an
+        # ebook.
+        default_additional_type = Edition.medium_to_additional_type[
+            Edition.BOOK_MEDIUM
+        ]
+        additional_type = entry_tag.get('{http://schema.org/}additionalType', 
+                                        default_additional_type)
+        return Edition.additional_type_to_medium.get(additional_type)
+
+    @classmethod
+    def extract_contributor(cls, parser, author_tag):
+        """Turn an <atom:author> tag into a ContributorData object."""
+        subtag = parser.text_of_optional_subtag
+        sort_name = subtag(author_tag, 'simplified:sort_name')
+        display_name = subtag(author_tag, 'atom:name')
+        family_name = subtag(author_tag, "simplified:family_name")
+        wikipedia_name = subtag(author_tag, "simplified:wikipedia_name")
+
+        # TODO: we need a way of conveying roles. I believe Bibframe
+        # has the answer.
+
+        # TODO: Also collect VIAF and LC numbers if present.  This
+        # requires parsing the URIs. Only the metadata wrangler will
+        # provide this information.
+
+        return ContributorData(
+            sort_name=sort_name, display_name=display_name,
+            family_name=family_name,
+            wikipedia_name=wikipedia_name,
+            roles=None
+        )
+
+    @classmethod
+    def extract_subject(cls, parser, category_tag):
+        """Turn an <atom:category> tag into a SubjectData object."""
+        attr = category_tag.attrib
+
+        # Retrieve the type of this subject - FAST, Dewey Decimal,
+        # etc.
+        scheme = attr.get('scheme')
+        subject_type = Subject.by_uri.get(scheme)
+        if not subject_type:
+            # We can't represent this subject because we don't
+            # know its scheme. Just treat it as a tag.
+            subject_type = Subject.TAG
+
+        # Retrieve the term (e.g. "827") and human-readable name
+        # (e.g. "English Satire & Humor") for this subject.
+        term = attr.get('term')
+        name = attr.get('label')
+        default_weight = 1
+        if subject_type in (
+                Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE
+        ):
+            default_weight = 100
+
+        weight = attr.get('{http://schema.org/}ratingValue', default_weight)
+        try:
+            weight = int(weight)
+        except ValueError, e:
+            weight = 1
+
+        return SubjectData(
+            type=subject_type, 
+            identifier=term,
+            name=name, 
+            weight=weight
+        )
+
+    @classmethod
+    def extract_link(cls, link_tag):
+        attr = link_tag.attrib
+        rel = attr.get('rel')
+        media_type = attr.get('type')
+        href = attr.get('href')
+        return LinkData(rel=rel, href=href, media_type=media_type)
+
+    @classmethod
+    def extract_measurement(cls, rating_tag):
+        type = rating_tag.get('{http://schema.org/}additionalType')
+        value = rating_tag.get('{http://schema.org/}ratingValue')
+        try:
+            value = float(value)
+            return MeasurementData(
+                quantity_measured=type, 
+                value=value,
+            )
+        except ValueError:
+            return None
+        
+
+
+class DetailedOPDSImporter(OPDSImporter):
 
     """An OPDS importer that imports authors as contributors and
     tags as subjects.
@@ -544,153 +729,6 @@ class DetailedOPDSImporter(BaseOPDSImporter):
                     pass
 
         return medium_by_id, authors_by_id, subject_names_by_id, subject_weights_by_id, ratings_by_id
-
-    @classmethod
-    def detail_by_id(cls, root):
-        """Parse the OPDS as XML and extract all author and subject
-        information, as well as ratings and medium.
-
-        All the stuff that Feedparser can't handle so we have to use lxml.
-
-        :return: a dictionary mapping IDs to dictionaries. The inner
-        dictionary can be used as keyword arguments to the Metadata
-        constructor.
-        """
-        parser = OPDSXMLParser()
-        values = {}
-        for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail = cls.detail_for_entry(parser, entry)
-            if identifier:
-                values[identifier] = detail
-        return values
-
-    @classmethod
-    def detail_for_entry(cls, parser, entry_tag):
-        """Turn an <atom:entry> tag into a dictionary of metadata that can be
-        used as keyword arguments to the Metadata contructor.
-
-        :return: A 2-tuple (identifier, kwargs)
-        """
-
-        identifier = parser._xpath1(entry_tag, 'atom:id')
-        if identifier is None or not identifier.text:
-            # This <entry> tag doesn't identify a book so we 
-            # can't derive any information from it.
-            return None, None
-
-        identifier = identifier.text
-        # We will fill this dictionary with all the information
-        # we can find.
-        data = dict()
-           
-        data['medium'] = cls.extract_medium(entry_tag)
-        
-        data['contributors'] = [
-            cls.extract_contributor(parser, author_tag)
-            for author_tag in parser._xpath(entry_tag, 'atom:author')
-        ]
-
-        data['subjects'] = [
-            cls.extract_subject(parser, category_tag)
-            for category_tag in parser._xpath(entry_tag, 'atom:category')
-        ]
-
-        ratings = []
-        for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
-            v = cls.extract_measurement(rating_tag)
-            if v:
-                ratings.append(v)
-        data['ratings'] = ratings
-
-        return identifier, data
-
-    @classmethod
-    def extract_medium(cls, entry_tag):
-        """Derive a value for Edition.medium from <atom:entry
-        schema:additionalType>.
-        """
-
-        # If no additionalType is given, assume we're talking about an
-        # ebook.
-        default_additional_type = Edition.medium_to_additional_type[
-            Edition.BOOK_MEDIUM
-        ]
-        additional_type = entry_tag.get('{http://schema.org/}additionalType', 
-                                        default_additional_type)
-        return Edition.additional_type_to_medium.get(additional_type)
-
-    @classmethod
-    def extract_contributor(cls, parser, author_tag):
-        """Turn an <atom:author> tag into a ContributorData object."""
-        subtag = parser.text_of_optional_subtag
-        sort_name = subtag(author_tag, 'simplified:sort_name')
-        display_name = subtag(author_tag, 'atom:name')
-        family_name = subtag(author_tag, "simplified:family_name")
-        wikipedia_name = subtag(author_tag, "simplified:wikipedia_name")
-
-        # TODO: we need a way of conveying roles. I believe Bibframe
-        # has the answer.
-
-        # TODO: Also collect VIAF and LC numbers if present.  This
-        # requires parsing the URIs. Only the metadata wrangler will
-        # provide this information.
-
-        return ContributorData(
-            sort_name=sort_name, display_name=display_name,
-            family_name=family_name,
-            wikipedia_name=wikipedia_name,
-            roles=None
-        )
-
-    @classmethod
-    def extract_subject(cls, parser, category_tag):
-        """Turn an <atom:category> tag into a SubjectData object."""
-        attr = category_tag.attrib
-
-        # Retrieve the type of this subject - FAST, Dewey Decimal,
-        # etc.
-        scheme = attr.get('scheme')
-        subject_type = Subject.by_uri.get(scheme)
-        if not subject_type:
-            # We can't represent this subject because we don't
-            # know its scheme. Just treat it as a tag.
-            subject_type = Subject.TAG
-
-        # Retrieve the term (e.g. "827") and human-readable name
-        # (e.g. "English Satire & Humor") for this subject.
-        term = attr.get('term')
-        name = attr.get('label')
-        default_weight = 1
-        if subject_type in (
-                Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE
-        ):
-            default_weight = 100
-
-        weight = attr.get('{http://schema.org/}ratingValue', default_weight)
-        try:
-            weight = int(weight)
-        except ValueError, e:
-            weight = 1
-
-        return SubjectData(
-            type=subject_type, 
-            identifier=term,
-            name=name, 
-            weight=weight
-        )
-
-    @classmethod
-    def extract_measurement(cls, rating_tag):
-        type = rating_tag.get('{http://schema.org/}additionalType')
-        value = rating_tag.get('{http://schema.org/}ratingValue')
-        try:
-            value = float(value)
-            return MeasurementData(
-                quantity_measured=type, 
-                value=value,
-            )
-        except ValueError:
-            return None
 
 
 class OPDSImportMonitor(Monitor):
