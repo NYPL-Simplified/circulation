@@ -17,6 +17,7 @@ from opds_import import (
     DetailedOPDSImporter,
 )
 from model import (
+    Contributor,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -63,6 +64,70 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.6, ratings[None])
         eq_(0.25, ratings[Measurement.POPULARITY])
         eq_(0.3333, ratings[Measurement.QUALITY])
+
+    def test_detail_by_id(self):
+
+        parsed = etree.parse(StringIO(self.content_server_feed))
+        data = DetailedOPDSImporter.detail_by_id(parsed)
+
+        # There are 76 entries in the feed, and we got metadata for
+        # every one of them.
+        eq_(76, len(data))
+
+        # We're going to do spot checks on a book and a periodical.
+
+        # First, the book.
+        book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
+        book = data[book_id]
+        eq_(Edition.BOOK_MEDIUM, book['medium'])
+
+        [contributor] = book['contributors']
+        eq_("Thoreau, Henry David", contributor.sort_name)
+        eq_([Contributor.AUTHOR_ROLE], contributor.roles)
+
+        subjects = book['subjects']
+        eq_(['LCSH', 'LCSH', 'LCSH', 'LCC'], [x.type for x in subjects])
+        eq_(
+            ['Essays', 'Nature', 'Walking', 'PS'],
+            [x.identifier for x in subjects]
+        )
+        eq_(
+            [None, None, None, 'American Literature'],
+            [x.name for x in book['subjects']]
+        )
+        eq_(
+            [1, 1, 1, 10],
+            [x.weight for x in book['subjects']]
+        )
+
+        eq_([], book['ratings'])
+
+        # And now, the periodical.
+        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
+        periodical = data[periodical_id]
+        eq_(Edition.PERIODICAL_MEDIUM, periodical['medium'])
+
+        subjects = periodical['subjects']
+        eq_(
+            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'], 
+            [x.type for x in subjects]
+        )
+        eq_(
+            ['Courtship -- Fiction', 'New York (N.Y.) -- Fiction', 'Fantasy fiction', 'Magic -- Fiction', 'PZ', 'Children', '7'],
+            [x.identifier for x in subjects]
+        )
+        eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
+        
+        r1, r2 = periodical['ratings']
+
+        eq_(Measurement.QUALITY, r1.quantity_measured)
+        eq_(0.3333, r1.value)
+        eq_(1, r1.weight)
+
+        eq_(Measurement.POPULARITY, r2.quantity_measured)
+        eq_(0.25, r2.value)
+        eq_(1, r2.weight)
+
 
     def test_ratings_become_measurements(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")

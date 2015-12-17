@@ -37,11 +37,20 @@ class SubjectData(object):
         self.name = name
         self.weight=weight
 
+    def __repr__(self):
+        return '<SubjectData type="%s" identifier="%s" name="%s" weight=%d>' % (
+            self.type, self.identifier, self.name, self.weight
+        )
+
+
 class ContributorData(object):
-    def __init__(self, sort_name=None, display_name=None, roles=None,
+    def __init__(self, sort_name=None, display_name=None, 
+                 family_name=None, wikipedia_name=None, roles=None,
                  lc=None, viaf=None, biography=None):
         self.sort_name = sort_name
         self.display_name = display_name
+        self.family_name = family_name
+        self.wikipedia_name = wikipedia_name
         roles = roles or Contributor.AUTHOR_ROLE
         if not isinstance(roles, list):
             roles = [roles]
@@ -49,6 +58,9 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
         self.biography = biography
+
+    def __repr__(self):
+        return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
 
     def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
@@ -179,6 +191,10 @@ class MeasurementData(object):
         self.weight = weight
         self.taken_at = taken_at or datetime.datetime.utcnow()
 
+    def __repr__(self):
+        return '<MeasurementData quantity="%s" value=%f weight=%d taken=%s>' % (
+            self.quantity_measured, self.value, self.weight, self.taken_at
+        )
 
 class FormatData(object):
     def __init__(self, content_type, drm_scheme, link=None):
