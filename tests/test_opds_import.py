@@ -27,14 +27,16 @@ from model import (
     Subject,
 )
 
-class TestDetailedOPDSImporter(DatabaseTest):
+class TestOPDSImporter(DatabaseTest):
 
     def setup(self):
-        super(TestDetailedOPDSImporter, self).setup()
+        super(TestOPDSImporter, self).setup()
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "opds")
         self.content_server_feed = open(
             os.path.join(self.resource_path, "content_server.opds")).read()
+        self.content_server_mini_feed = open(
+            os.path.join(self.resource_path, "content_server_mini.opds")).read()
 
     def test_authors_by_id(self):
 
@@ -65,6 +67,43 @@ class TestDetailedOPDSImporter(DatabaseTest):
         eq_(0.6, ratings[None])
         eq_(0.25, ratings[Measurement.POPULARITY])
         eq_(0.3333, ratings[Measurement.QUALITY])
+
+    def test_extract_metadata(self):
+
+        data, status_messages = OPDSImporter.extract_metadata(
+            DataSource.NYT, self.content_server_mini_feed
+        )
+        m1, m2 = sorted(data, key=lambda x:x.title)
+        eq_("The Green Mouse", m2.title)
+        eq_("A Tale of Mousy Terror", m2.subtitle)
+
+        # This entry specified a data source, which was passed along.
+        eq_(DataSource.GUTENBERG, m2._data_source)
+
+        # This entry didn't specify a data source, so the default was used.
+        eq_(DataSource.NYT, m1._data_source)
+
+        [message] = status_messages.values()
+        eq_(202, message.status_code)
+        eq_(u"I'm working to locate a source for this identifier.", message.message)
+
+
+    def test_extract_metadata_from_feedparser(self):
+
+        data, status_messages = OPDSImporter.extract_metadata_from_feedparser(
+            self.content_server_mini_feed
+        )        
+
+        metadata = data['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        eq_("The Green Mouse", metadata['title'])
+        eq_("A Tale of Mousy Terror", metadata['subtitle'])
+        eq_('en', metadata['language'])
+        eq_('Project Gutenberg', metadata['publisher'])
+        eq_(DataSource.GUTENBERG, metadata['data_source'])
+
+        message = status_messages['http://www.gutenberg.org/ebooks/1984']
+        eq_(202, message.status_code)
+        eq_(u"I'm working to locate a source for this identifier.", message.message)
 
     def test_extract_metadata_from_elementtree(self):
 
@@ -102,7 +141,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
             [x.weight for x in book['subjects']]
         )
 
-        eq_([], book['ratings'])
+        eq_([], book['measurements'])
 
         [link] = book['links']
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
@@ -125,7 +164,7 @@ class TestDetailedOPDSImporter(DatabaseTest):
         )
         eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
         
-        r1, r2 = periodical['ratings']
+        r1, r2 = periodical['measurements']
 
         eq_(Measurement.QUALITY, r1.quantity_measured)
         eq_(0.3333, r1.value)

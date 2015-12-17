@@ -627,12 +627,18 @@ class DataSource(Base):
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
     @classmethod
-    def from_uri(cls, _db, uri):
+    def name_from_uri(cls, uri):
+        """Turn a data source URI into a name suitable for passing
+        into lookup().
+        """
         if not uri.startswith(cls.URI_PREFIX):
             return None
         name = uri[len(cls.URI_PREFIX):]
-        name = urllib.unquote(name)
-        return cls.lookup(_db, name)
+        return urllib.unquote(name)
+
+    @classmethod
+    def from_uri(cls, _db, uri):
+        return cls.lookup(_db, cls.name_from_uri(uri))
 
     @property
     def uri(self):

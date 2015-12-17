@@ -6,13 +6,14 @@
   <link href="http://localhost:5000/" rel="self"/>
   <entry schema:additionalType="http://schema.org/PublicationIssue">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441</id>
-    <bibframe:partOf>http://librarysimplified.org/terms/sources/Gutenberg</bibframe:partOf>
+    <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
     <title>The Green Mouse</title>
+    <alternativeHeadline>A Tale of Mousy Terror</alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Chambers, Robert W. (Robert William)</simplified:sort_name>
     </author>
-    <summary></summary>
+    <summary>This is a summary!</summary>
     <updated>2015-01-02T16:56:40Z</updated>
     <simplified:pwid>6db4cf90-0129-0eaf-410a-502b20a45e67</simplified:pwid>
     <schema:Rating schema:ratingValue="0.3333" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
@@ -33,7 +34,6 @@
   </entry>
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557</id>
-    <bibframe:partOf>http://librarysimplified.org/terms/sources/Gutenberg</bibframe:partOf>
     <title>Johnny Crow's Party</title>
     <author>
       <name></name>
@@ -49,5 +49,12 @@
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
     <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
+
+  <entry>
+   <id>http://www.gutenberg.org/ebooks/1984</id>
+   <simplified:status_code>202</simplified:status_code>
+   <simplified:message>I'm working to locate a source for this identifier.</simplified:message>
+  </entry>
+
   <link href="http://localhost:5000/?after=327&amp;size=100" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="next"/>
 </feed>
