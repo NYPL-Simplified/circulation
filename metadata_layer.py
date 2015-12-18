@@ -125,6 +125,30 @@ class ContributorData(object):
             return contributors[0].name
         return None
 
+    def _display_name_to_sort_name(
+            self, _db, metadata_client, identifier_obj
+    ):
+        response = metadata_client.canonicalize_author_name(
+            identifier_obj, self.display_name)
+        sort_name = None
+        log = logging.getLogger("Abstract metadata layer")
+        if (response.status_code == 200 
+            and response.headers['Content-Type'].startswith('text/plain')):
+            sort_name = response.content.decode("utf8")
+            log.info(
+                "Canonicalizer found sort name for %r: %s => %s",
+                identifier_obj, 
+                self.display_name,
+                sort_name
+            )
+        else:
+            log.warn(
+                "Canonicalizer could not find sort name for %r/%s",
+                identifier_obj,
+                self.display_name
+            )
+        return sort_name
+
     def display_name_to_sort_name_through_canonicalizer(
             self, _db, identifiers, metadata_client):
         sort_name = None
@@ -132,25 +156,16 @@ class ContributorData(object):
             if identifier.type != Identifier.ISBN:
                 continue
             identifier_obj, ignore = identifier.load(_db)
-            response = metadata_client.canonicalize_author_name(
-                identifier_obj, self.display_name)
-            sort_name = None
-            log = logging.getLogger("Abstract metadata layer")
-            if (response.status_code == 200 
-                and response.headers['Content-Type'].startswith('text/plain')):
-                sort_name = response.content.decode("utf8")
-                log.info(
-                    "Canonicalizer found sort name for %r: %s => %s",
-                    identifier, 
-                    self.display_name,
-                    sort_name
-                )
-            else:
-                log.warn(
-                    "Canonicalizer could not find sort name for %r/%s",
-                    identifier,
-                    self.display_name
-                )
+            sort_name = self._display_name_to_sort_name(
+                _db, metadata_client, identifier_obj
+            )
+            if sort_name:
+                break
+
+        if not sort_name:
+            sort_name = self._display_name_to_sort_name(
+                _db, metadata_client, None
+            )
         return sort_name        
 
 
@@ -622,7 +637,7 @@ class Metadata(object):
         if self.last_update_time and not force:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if (coverage_record 
-                and coverage_record.date >= self.last_update_time):
+                and coverage_record.date >= self.last_update_time.date()):
                 # The metadata has not changed since last time. Do nothing.
                 return
 
@@ -655,6 +670,7 @@ class Metadata(object):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
+
         self.update_contributions(_db, edition, metadata_client, 
                                   replace_contributions)
 

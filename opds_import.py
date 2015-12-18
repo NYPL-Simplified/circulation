@@ -127,6 +127,7 @@ class OPDSImporter(object):
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
+        self.metadata_client = SimplifiedOPDSLookup.from_config()
 
     def import_from_feed(self, feed):
         metadata_objs, messages = self.extract_metadata(feed)
@@ -134,7 +135,7 @@ class OPDSImporter(object):
         imported = []
         for metadata in metadata_objs:
             edition, ignore = metadata.edition(self._db)
-            metadata.apply(edition)
+            metadata.apply(edition, self.metadata_client)
             
             # Locate or create a LicensePool for this book.
             license_pool, ignore = metadata.license_pool(self._db)
@@ -361,10 +362,11 @@ class OPDSImporter(object):
            
         data['medium'] = cls.extract_medium(entry_tag)
         
-        data['contributors'] = [
-            cls.extract_contributor(parser, author_tag)
-            for author_tag in parser._xpath(entry_tag, 'atom:author')
-        ]
+        data['contributors'] = []
+        for author_tag in parser._xpath(entry_tag, 'atom:author'):
+            contributor = cls.extract_contributor(parser, author_tag)
+            if contributor is not None:
+                data['contributors'].append(contributor)
 
         data['subjects'] = [
             cls.extract_subject(parser, category_tag)
@@ -418,12 +420,18 @@ class OPDSImporter(object):
         # requires parsing the URIs. Only the metadata wrangler will
         # provide this information.
 
-        return ContributorData(
-            sort_name=sort_name, display_name=display_name,
-            family_name=family_name,
-            wikipedia_name=wikipedia_name,
-            roles=None
-        )
+        viaf = None
+        if sort_name or display_name or viaf:
+            return ContributorData(
+                sort_name=sort_name, display_name=display_name,
+                family_name=family_name,
+                wikipedia_name=wikipedia_name,
+                roles=None
+            )
+
+        logging.info("Refusing to create ContributorData for contributor with no sort name, display name, or VIAF.")
+        return None
+
 
     @classmethod
     def extract_subject(cls, parser, category_tag):
