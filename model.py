@@ -798,6 +798,7 @@ class CoverageRecord(Base):
 
     @classmethod
     def add_for(self, edition, data_source):
+        _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
         elif isinstance(edition, Edition):
@@ -807,7 +808,7 @@ class CoverageRecord(Base):
                 "Cannot create a coverage record for %r." % edition) 
         now = datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
-            self._db, CoverageRecord,
+            _db, CoverageRecord,
             identifier=identifier,
             data_source=data_source,
             on_multiple='interchangeable'

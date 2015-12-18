@@ -23,6 +23,7 @@ from model import (
     get_one_or_create,
     CirculationEvent,
     Contributor,
+    CoverageRecord,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -705,6 +706,15 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
+            thumbnail = link.thumbnail
+            if thumbnail:
+                thumbnail_obj, ignore = identifier.add_link(
+                    rel=thumbnail.rel, href=thumbnail.href, 
+                    data_source=data_source, 
+                    license_pool=pool, media_type=thumbnail.media_type,
+                    content=thumbnail.content
+                )
+                thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
         if replace_formats:
             for lpdm in pool.delivery_mechanisms:

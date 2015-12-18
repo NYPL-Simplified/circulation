@@ -98,6 +98,25 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Hyperlink.DESCRIPTION, description.rel)
         eq_("foo", description.resource.representation.content)
 
+    def test_image_and_thumbnail(self):
+        edition = self._edition()
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/"
+        )
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2
+        )
+        metadata = Metadata(links=[l1, l2], 
+                            data_source=edition.data_source)
+        metadata.apply(edition)
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_([thumbnail.resource.representation],
+            image.resource.representation.thumbnails
+        )
+
     def test_measurements(self):
         edition = self._edition()
         measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
