@@ -24,7 +24,9 @@ from model import (
     CirculationEvent,
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
     Subject,
@@ -337,6 +339,18 @@ class Metadata(object):
         self.links = links or []
         self.measurements = measurements or []
         self.formats = formats or []
+
+        # An open-access link implies a FormatData object.
+        for link in self.links:
+            if (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+                and link.href):
+                self.formats.append(
+                    FormatData(
+                        content_type=link.media_type,
+                        drm_scheme=DeliveryMechanism.NO_DRM,
+                        link=link
+                    )
+            )
 
     @classmethod
     def from_edition(self, edition):
@@ -659,7 +673,7 @@ class Metadata(object):
                 identifier.links = surviving_hyperlinks
 
         for link in self.links:
-            identifier.add_link(
+            link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=data_source, 
                 license_pool=pool, media_type=link.media_type,
                 content=link.content

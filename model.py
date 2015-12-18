@@ -1254,6 +1254,9 @@ class Identifier(Base):
 
         if content or content_path:
             resource.set_fetched_content(media_type, content, content_path)
+        else:
+            resource.set_mirrored_elsewhere(media_type)
+
         return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
@@ -2415,7 +2418,8 @@ class Edition(Base):
             _db, [self.primary_identifier.id], open_access)
         for resource in q:
             if not any(
-                    [resource.representation.media_type.startswith(x) 
+                    [resource.representation and
+                     resource.representation.media_type.startswith(x) 
                      for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
                 # This representation is not in a media type we 
                 # support. We can't serve it, so we won't consider it.

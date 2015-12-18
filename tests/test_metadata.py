@@ -109,7 +109,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
 
-    def test_formats(self):
+    def test_explicit_formatdata(self):
         # Creating an edition with an open-access download will
         # automatically create a delivery mechanism.
         edition, pool = self._edition(with_open_access_download=True)
@@ -136,4 +136,41 @@ class TestMetadataImporter(DatabaseTest):
         metadata.apply(edition, replace_formats=True)
         [pdf] = pool.delivery_mechanisms
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+
+    def test_implicit_format_for_open_access_link(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        # This is the delivery mechanism created by default when you
+        # create a book with _edition().
+        [epub] = pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, epub.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.delivery_mechanism.drm_scheme)
+
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.PDF_MEDIA_TYPE,
+            href=self._url
+        )
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG, 
+            links=[link]
+        )
+        metadata.apply(edition, replace_formats=True)
+
+        # We destroyed the default delivery format and added a new,
+        # open access delivery format.
+        [pdf] = pool.delivery_mechanisms
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
+
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG, 
+            links=[]
+        )
+        metadata.apply(edition, replace_links=True, replace_formats=True)
+
+        # Now we have no formats at all.
+        eq_([], pool.delivery_mechanisms)
+
 
