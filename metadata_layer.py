@@ -308,6 +308,7 @@ class Metadata(object):
             measurements=None,
             links=None,
             formats=None,
+            last_update_time=None,
     ):
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
@@ -340,6 +341,8 @@ class Metadata(object):
         self.measurements = measurements or []
         self.formats = formats or []
 
+        self.last_update_time = last_update_time
+
         # An open-access link implies a FormatData object.
         for link in self.links:
             if (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
@@ -351,6 +354,14 @@ class Metadata(object):
                         link=link
                     )
             )
+
+    @property
+    def has_open_access_link:
+        """Does this Metadata object have an associated open-access link?"""
+        return any(
+            [x for x in self.links 
+             if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href]
+        )
 
     @classmethod
     def from_edition(self, edition):
@@ -470,18 +481,6 @@ class Metadata(object):
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
         return self.data_source_obj
 
-    def edition_data_source(self, _db):
-        """The original data source for this book.
-
-        This may be different from the source of the data being
-        imposed on the book right now.
-        """
-        i, ignore = self.primary_identifier.load(_db)
-        try:
-            return DataSource.license_source_for(_db, i)
-        except NoResultFound, e:
-            return None
-
     def edition(self, _db, create_if_not_exists=True):
         if not self.primary_identifier:
             raise ValueError(
@@ -503,10 +502,29 @@ class Metadata(object):
             raise ValueError(
                 "Cannot find license pool: metadata has no primary identifier."
             )
-        return LicensePool.for_foreign_id(
-            _db, self.edition_data_source(_db), self.primary_identifier.type, 
-            self.primary_identifier.identifier
+
+        edition_data_source = self.edition_data_source(_db)
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+        license_data_sources = DataSource.license_sources_for(
+            _db, identifier_obj
         )
+
+        for license_data_source in license_data_sources:
+            license_pool = get_one(
+                self._db, LicensePool, data_source=license_data_source,
+                identifier=identifier_obj
+            )
+            if license_pool:
+                break
+
+        if not license_pool and self.has_open_access_link:
+            license_pool, is_new = LicensePool.for_foreign_id(
+                _db, self.data_source(_db),
+                self.primary_identifier.type, 
+                self.primary_identifier.identifier
+            )
+            license_pool.open_access = True
+        return license_pool
 
     def consolidate_identifiers(self):
         """"""
@@ -577,23 +595,33 @@ class Metadata(object):
             replace_contributions=False,
             replace_links=False,
             replace_formats=False,
+            force=False,
     ):
         """Apply this metadata to the given edition."""
+        _db = Session.object_session(edition)
 
         # We were given an Edition, so either this metadata's
         # primary_identifier must be missing or it must match the
         # Edition's primary identifier.
-        _db = Session.object_session(edition)
         if self.primary_identifier:
             if (self.primary_identifier.type != edition.primary_identifier.type
                 or self.primary_identifier.identifier != edition.primary_identifier.identifier):
-                raise ValueError(
+    raise ValueError(
                     "Metadata's primary identifier (%s/%s) does not match edition's primary identifier (%r)" % (
                         self.primary_identifier.type,
                         self.primary_identifier.identifier,
                         edition.primary_identifier,
                     )
                 )
+
+        # Check whether we should do any work at all.
+        data_source = self.data_source(_db)
+        if self.last_update_time and not force:
+            coverage_record = CoverageRecord.lookup(edition, data_source)
+            if (coverage_record 
+                and coverage_record.date >= self.last_update_time):
+                # The metadata has not changed since last time. Do nothing.
+                return
 
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
@@ -624,8 +652,6 @@ class Metadata(object):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-        data_source = self.data_source(_db)
-
         self.update_contributions(_db, edition, metadata_client, 
                                   replace_contributions)
 
@@ -728,6 +754,10 @@ class Metadata(object):
                 )
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
+
+        # Finally, update the coverage record for this edition
+        # and data source.
+        CoverageRecord.add_for(edition, data_source)
         return edition
 
     def update_contributions(self, _db, edition, metadata_client=None, 

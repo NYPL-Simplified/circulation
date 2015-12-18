@@ -780,6 +780,41 @@ class CoverageRecord(Base):
     date = Column(Date, index=True)
     exception = Column(Unicode, index=True)
 
+    @classmethod
+    def lookup(self, edition_or_identifier, data_source):
+        if isinstance(edition_or_identifier, Identifier):
+            identifier = edition_or_identifier
+        elif isinstance(edition, Edition):
+            identifier = edition_or_identifier.primary_identifier
+        else:
+            raise ValueError(
+                "Cannot look up a coverage record for %r." % edition) 
+        return get_one(
+                self._db, CoverageRecord,
+                identifier=identifier,
+                data_source=data_source,
+                on_multiple='interchangeable',
+            )
+
+    @classmethod
+    def add_for(self, edition, data_source):
+        if isinstance(edition, Identifier):
+            identifier = edition
+        elif isinstance(edition, Edition):
+            identifier = edition.primary_identifier
+        else:
+            raise ValueError(
+                "Cannot create a coverage record for %r." % edition) 
+        now = datetime.datetime.utcnow()
+        coverage_record, is_new = get_one_or_create(
+            self._db, CoverageRecord,
+            identifier=identifier,
+            data_source=data_source,
+            on_multiple='interchangeable'
+        )
+        coverage_record.date = now
+        return coverage_record, is_new
+
 
 class Equivalency(Base):
     """An assertion that two Identifiers identify the same work.

@@ -120,154 +120,41 @@ class OPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
+    def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
                  overwrite_rels=None, identifier_mapping=None, force=True):
         self._db = _db
         self.force = True
         self.log = logging.getLogger("OPDS Importer")
-        self.raw_feed = unicode(feed)
-        self.feedparser_parsed = feedparser.parse(self.raw_feed)
-        self.data_source = DataSource.lookup(self._db, data_source_name)
+        self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        if overwrite_rels is None:
-            overwrite_rels = [
-                Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-                Hyperlink.DESCRIPTION
-            ]
-        self.overwrite_rels = overwrite_rels
 
-    def import_from_feed(self):
+    def import_from_feed(self, feed):
+        metadata_objs, messages = self.extract_metadata(feed)
+
         imported = []
-        messages_by_id = dict()
-        for entry in self.feedparser_parsed['entries']:
-            internal_id, opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
-                entry)
-            if not edition and status_code == 200:
-                self.log.info("EDITION NOT CREATED: %s. Raw data: %r",
-                              message, entry)
+        for metadata in metadata_objs:
+            edition = metadata.edition(_db)
+            metadata.apply(edition)
+            
+            # Locate or create a LicensePool for this book.
+            license_pool = metadata.license_pool(_db)
+
+            if license_pool is None:
+                # Without a LicensePool, we can't create a Work.
+                self.log.warn(
+                    "No LicensePool present for Edition %r, not attempting to create Work.",
+                    edition
+                )
+                continue
+
+            work, is_new = license_pool.calculate_work(
+                known_edition=edition
+            )
+            if work:
+                work.calculate_presentation()
             if edition:
                 imported.append(edition)
-
-                # This may or may not make the work
-                # presentation-ready--it depends on whether we've
-                # talked to the metadata wrangler.
-                edition.calculate_presentation()
-                if edition.sort_author:
-                    work, is_new = edition.license_pool.calculate_work(
-                        known_edition=edition)
-                    pool = edition.license_pool
-                    # TODO: If the edition was just created, it's
-                    # likely that edition.license_pool works but
-                    # edition.license_pool.edition is None. Passing in
-                    # known_edition is a bit of a hack but so is the
-                    # only other solution I could find, doing a
-                    # database commit. I'm sure there's a better
-                    # solution though.
-                    work, is_new = pool.calculate_work(
-                        known_edition=edition, even_if_no_author=True
-                    )
-                    if work:
-                        work.calculate_presentation()
-            elif status_code:
-                messages_by_id[opds_id] = (status_code, message)
-        return imported, messages_by_id
-
-    def import_from_feedparser_entry(self, entry):
-        external_identifier, ignore = Identifier.parse_urn(
-            self._db, entry.get('id'))
-        if self.identifier_mapping:
-             internal_identifier = self.identifier_mapping.get(
-                 external_identifier, external_identifier)
-        else:
-            internal_identifier = external_identifier
-        status_code = entry.get('simplified_status_code', 200)
-        message = entry.get('simplified_message', None)
-        try:
-            status_code = int(status_code)
-            success = (status_code == 200)
-        except ValueError, e:
-            # The status code isn't a number. Leave it alone.
-            success = False
-
-        if not success:
-            # There was an error or the data is not complete. Don't go
-            # through with the import, even if there is data in the
-            # entry.
-            return internal_identifier, external_identifier, None, False, status_code, message
-
-        # Get an existing LicensePool for this book.
-        pool = None
-        license_data_source = None
-        for license_data_source in license_data_sources:
-            pool = get_one(
-                self._db, LicensePool, data_source=license_data_source,
-                identifier=internal_identifier)
-            if pool:
-                break
-
-        links_by_rel = self.links_by_rel(entry)
-        if pool:
-            pool_was_new = False
-        else:
-            # There is no existing license pool for this book. Can we
-            # just create one?
-            if links_by_rel[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
-                # Yes. This is an open-access book and we know where
-                # you can download it.
-                pool, pool_was_new = LicensePool.for_foreign_id(
-                    self._db, license_data_source, internal_identifier.type,
-                    internal_identifier.identifier)
-            else:
-                # No, we can't. This most likely indicates a problem.
-                message = message or self.COULD_NOT_CREATE_LICENSE_POOL
-                return (internal_identifier, external_identifier, None,
-                        False, status_code, message)
-
-        if pool_was_new:
-            pool.open_access = True
-
-        # Create or retrieve an Edition for this book.
-        #
-        # TODO: It would be better if we could use self.data_source
-        # here, not license_data_source. This is the metadata
-        # wrangler's view of the book, not the license provider's. But
-        # we can't currently associate an Edition from one data source
-        # with a LicensePool from another data source.
-        edition, edition_was_new = Edition.for_foreign_id(
-            self._db, license_data_source, internal_identifier.type,
-            internal_identifier.identifier)
-
-        source_last_updated = entry.get('updated_parsed')
-        # TODO: I'm not really happy with this but it will work as long
-        # as the times are in UTC, possibly as long as the times are in
-        # the same timezone.
-        if source_last_updated:
-            source_last_updated = datetime.datetime(*source_last_updated[:6])
-            if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated and not self.force:
-                # The metadata has not changed since last time
-                return (internal_identifier, external_identifier, edition, 
-                        False, status_code, message)
-
-        self.destroy_resources(internal_identifier, self.overwrite_rels)
-
-        # Again, the links come from the OPDS feed, not from the entity
-        # providing the original license.
-        download_links, image_link, thumbnail_link = self.set_resources(
-            self.data_source, internal_identifier, pool, links_by_rel)
-
-        # Assign the LicensePool to a Work.
-        work = pool.calculate_work(known_edition=edition)
-        return (internal_identifier, external_identifier, edition, 
-                edition_was_new, status_code, message)
-
-    def destroy_resources(self, identifier, rels):
-        # Remove all existing downloads and images, and descriptions
-        # so as to avoid keeping old stuff around.
-        for resource in Identifier.resources_for_identifier_ids(
-                self._db, [identifier.id], rels):
-            for l in resource.links:
-                self._db.delete(l)
-            self._db.delete(resource)
+        return imported, messages
 
     def set_resources(self, data_source, identifier, pool, links):
         # Associate covers and downloads with the identifier.
@@ -279,34 +166,6 @@ class OPDSImporter(object):
         thumbnail_link = None
 
         _db = Session.object_session(data_source)
-        
-        for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
-            type = link.get('type', None)
-            if type == 'text/html':
-                # Feedparser fills this in and it's just wrong.
-                type = None
-            url = link['href']
-            hyperlink, was_new = pool.add_link(
-                Hyperlink.OPEN_ACCESS_DOWNLOAD, url, data_source, type)
-            hyperlink.resource.set_mirrored_elsewhere(type)
-            pool.set_delivery_mechanism(
-                type, DeliveryMechanism.NO_DRM, hyperlink.resource)
-            download_links.append(hyperlink)
-
-        for rel in (Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE):
-            for link in links[rel]:
-                type = link.get('type', None)
-                if type == 'text/html':
-                    # Feedparser fills this in and it's just wrong.
-                    type = None
-                url = link['href']
-                hyperlink, was_new = pool.add_link(
-                    rel, url, data_source, type)
-                hyperlink.resource.set_mirrored_elsewhere(type)
-                if rel == Hyperlink.IMAGE:
-                    image_link = hyperlink
-                else:
-                    thumbnail_link = hyperlink
 
         if image_link and thumbnail_link and image_link.resource:
             if image_link.resource == thumbnail_link.resource:
@@ -319,8 +178,7 @@ class OPDSImporter(object):
                 thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
         return download_links, image_link, thumbnail_link
 
-    @classmethod
-    def extract_metadata(self, metadata_data_source, feed):
+    def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
         messages.
 
@@ -329,7 +187,7 @@ class OPDSImporter(object):
         classifications, etc., in the absence of any indicator as to
         where the books themselves come from.
         """
-        raw_feed = unicode(feed)       
+        feed = unicode(feed)
         data1, status_messages = self.extract_metadata_from_feedparser(feed)
         data2 = self.extract_metadata_from_elementtree(feed)
 
@@ -338,7 +196,19 @@ class OPDSImporter(object):
             other_args = data2.get(id, {})
             combined = self.combine(args, other_args)
             if combined.get('data_source') is None:
-                combined['data_source'] = metadata_data_source
+                combined['data_source'] = self.metadata_data_source
+
+            external_identifier, ignore = Identifier.parse_urn(self._db, id)
+            if self.identifier_mapping:
+                internal_identifier = self.identifier_mapping.get(
+                    external_identifier, external_identifier)
+            else:
+                internal_identifier = external_identifier
+            combined['primary_identifier'] = IdentifierData(
+                type=internal_identifier.type,
+                identifier=internal_identifier.identifier
+            )
+
             metadata.append(Metadata(**combined))
         return metadata, status_messages
 
@@ -428,8 +298,8 @@ class OPDSImporter(object):
             title = None
         subtitle = entry.get('alternativeheadline', None)
 
-        # TODO: updated needs to find its way to Work.last_update_time
-        updated = entry.get('updated_parsed', None)
+        last_update_time = entry.get('updated_parsed', None)
+        last_update_time = datetime.datetime(*last_update_time[:6])
 
         publisher = entry.get('dcterms_publisher', None)
         language = entry.get('dcterms_language', None)
@@ -466,7 +336,8 @@ class OPDSImporter(object):
             subtitle=subtitle,
             language=language,
             publisher=publisher,
-            links=links
+            links=links,
+            last_update_time=last_update_time,
         )
         return identifier, kwargs, status_message
 
