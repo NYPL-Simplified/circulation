@@ -16,6 +16,9 @@ from . import (
 from opds_import import (
     OPDSImporter,
 )
+from metadata_layer import (
+    LinkData
+)
 from model import (
     Contributor,
     DataSource,
@@ -250,3 +253,19 @@ class TestOPDSImporter(DatabaseTest):
         [[status_code, message]] = messages.values()
         eq_(404, status_code)
         eq_("I've never heard of this work.", message)
+
+    def test_consolidate_links(self):
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,
+                             Hyperlink.IMAGE,
+                             Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.OPEN_ACCESS_DOWNLOAD]
+        ]
+        old_link = links[2]
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.OPEN_ACCESS_DOWNLOAD,
+             Hyperlink.IMAGE,
+             Hyperlink.OPEN_ACCESS_DOWNLOAD], [x.rel for x in links])
+        link = links[1]
+        eq_(old_link, link.thumbnail)

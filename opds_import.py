@@ -380,11 +380,13 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
 
-        data['links'] = [
+        
+
+        data['links'] = cls.consolidate_links([
             cls.extract_link(link_tag)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
-        ]
-
+        ])
+        
         return identifier, data
 
     @classmethod
@@ -469,6 +471,23 @@ class OPDSImporter(object):
         media_type = attr.get('type')
         href = attr.get('href')
         return LinkData(rel=rel, href=href, media_type=media_type)
+
+    @classmethod
+    def consolidate_links(cls, links):
+        """Try to match up links with their thumbnails.
+
+        If link n is an image and link n+1 is a thumbnail, then the
+        thumbnail is assumed to be the thumbnail of the image.
+        """
+        new_links = list(links)
+        for i, l in enumerate(links):
+            if l.rel == Hyperlink.IMAGE:
+                # Is the next link a thumbnail?
+                if (i < len(links)-1
+                    and links[i+1].rel == Hyperlink.THUMBNAIL_IMAGE):
+                    l.thumbnail = links[i+1]
+                    new_links.remove(links[i+1])
+        return new_links
 
     @classmethod
     def extract_measurement(cls, rating_tag):

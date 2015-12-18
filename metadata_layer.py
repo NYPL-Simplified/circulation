@@ -164,7 +164,8 @@ class IdentifierData(object):
         )
 
 class LinkData(object):
-    def __init__(self, rel, href=None, media_type=None, content=None):
+    def __init__(self, rel, href=None, media_type=None, content=None,
+                 thumbnail=None):
         if not rel:
             raise ValueError("rel is required")
 
@@ -174,7 +175,7 @@ class LinkData(object):
         self.href = href
         self.media_type = media_type
         self.content = content
-
+        self.thumbnail = thumbnail
 
 class MeasurementData(object):
     def __init__(self, 
@@ -356,7 +357,7 @@ class Metadata(object):
             )
 
     @property
-    def has_open_access_link:
+    def has_open_access_link():
         """Does this Metadata object have an associated open-access link?"""
         return any(
             [x for x in self.links 
@@ -606,7 +607,7 @@ class Metadata(object):
         if self.primary_identifier:
             if (self.primary_identifier.type != edition.primary_identifier.type
                 or self.primary_identifier.identifier != edition.primary_identifier.identifier):
-    raise ValueError(
+                raise ValueError(
                     "Metadata's primary identifier (%s/%s) does not match edition's primary identifier (%r)" % (
                         self.primary_identifier.type,
                         self.primary_identifier.identifier,
