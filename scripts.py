@@ -47,6 +47,7 @@ class Script(object):
 
     def run(self):
         self.load_configuration()
+        DataSource.well_known_sources(self._db)
         try:
             self.do_run()
         except Exception, e:
@@ -234,15 +235,17 @@ class WorkPresentationScript(WorkProcessingScript):
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
-    def __init__(self, feed_url, importer_class, keep_timestamp=True):
+    def __init__(self, feed_url, default_data_source, importer_class, 
+                 keep_timestamp=True):
         self.feed_url = feed_url
+        self.default_data_source = default_data_source
         self.importer_class = importer_class
         self.keep_timestamp = keep_timestamp
 
     def do_run(self):
         monitor = OPDSImportMonitor(
-            self._db, self.feed_url, self.importer_class,
-            keep_timestamp=self.keep_timestamp)
+            self._db, self.feed_url, self.default_data_source, 
+            self.importer_class, keep_timestamp=self.keep_timestamp)
         monitor.run()
         
 

@@ -20,6 +20,7 @@ import datetime
 import logging
 from util import LanguageCodes
 from model import (
+    get_one,
     get_one_or_create,
     CirculationEvent,
     Contributor,
@@ -358,11 +359,11 @@ class Metadata(object):
             )
 
     @property
-    def has_open_access_link():
+    def has_open_access_link(self):
         """Does this Metadata object have an associated open-access link?"""
         return any(
             [x for x in self.links 
-             if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href]
+             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
         )
 
     @classmethod
@@ -479,8 +480,10 @@ class Metadata(object):
     def data_source(self, _db):
         if not self.data_source_obj:
             if not self._data_source:
-                return None
+                raise ValueError("No data source specified!")
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
+        if not self.data_source_obj:
+            raise ValueError("Data source %s not found!" % self._data_source)
         return self.data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
@@ -489,10 +492,7 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        data_source = self.edition_data_source(_db)
-        if not data_source:
-            data_source = self.data_source(_db)
-
+        data_source = self.data_source(_db)
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
@@ -505,15 +505,16 @@ class Metadata(object):
                 "Cannot find license pool: metadata has no primary identifier."
             )
 
-        edition_data_source = self.edition_data_source(_db)
+        data_source = self.data_source(_db)
         identifier_obj, ignore = self.primary_identifier.load(_db)
         license_data_sources = DataSource.license_sources_for(
             _db, identifier_obj
         )
 
+        is_new = False
         for license_data_source in license_data_sources:
             license_pool = get_one(
-                self._db, LicensePool, data_source=license_data_source,
+                _db, LicensePool, data_source=license_data_source,
                 identifier=identifier_obj
             )
             if license_pool:
@@ -521,12 +522,12 @@ class Metadata(object):
 
         if not license_pool and self.has_open_access_link:
             license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.data_source(_db),
+                _db, data_source,
                 self.primary_identifier.type, 
                 self.primary_identifier.identifier
             )
             license_pool.open_access = True
-        return license_pool
+        return license_pool, is_new
 
     def consolidate_identifiers(self):
         """"""

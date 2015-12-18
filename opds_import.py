@@ -133,11 +133,11 @@ class OPDSImporter(object):
 
         imported = []
         for metadata in metadata_objs:
-            edition = metadata.edition(_db)
+            edition, ignore = metadata.edition(self._db)
             metadata.apply(edition)
             
             # Locate or create a LicensePool for this book.
-            license_pool = metadata.license_pool(_db)
+            license_pool, ignore = metadata.license_pool(self._db)
 
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
@@ -154,6 +154,9 @@ class OPDSImporter(object):
                 work.calculate_presentation()
             if edition:
                 imported.append(edition)
+        # TODO: maybe return the value of the 'next' feed link, if
+        # present, so that the caller can decide whether or not to
+        # go to the next page.
         return imported, messages
 
     def set_resources(self, data_source, identifier, pool, links):
@@ -181,11 +184,6 @@ class OPDSImporter(object):
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
         messages.
-
-        :param metadata_data_source: Where does the metadata come
-        from?  This data source will be used as the source for links,
-        classifications, etc., in the absence of any indicator as to
-        where the books themselves come from.
         """
         feed = unicode(feed)
         data1, status_messages = self.extract_metadata_from_feedparser(feed)
@@ -196,7 +194,7 @@ class OPDSImporter(object):
             other_args = data2.get(id, {})
             combined = self.combine(args, other_args)
             if combined.get('data_source') is None:
-                combined['data_source'] = self.metadata_data_source
+                combined['data_source'] = self.data_source_name
 
             external_identifier, ignore = Identifier.parse_urn(self._db, id)
             if self.identifier_mapping:
@@ -509,10 +507,10 @@ class OPDSImportMonitor(Monitor):
     it mentions.
     """
     
-    def __init__(self, _db, feed_url, import_class, interval_seconds=3600,
-                 keep_timestamp=True):
+    def __init__(self, _db, feed_url, default_data_source, import_class, 
+                 interval_seconds=3600, keep_timestamp=True):
         self.feed_url = feed_url
-        self.import_class = import_class
+        self.importer = import_class(_db, default_data_source)
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
@@ -522,7 +520,7 @@ class OPDSImportMonitor(Monitor):
         seen_links = set([next_link])
         while next_link:
             self.log.info("Following next link: %s", next_link)
-            importer, imported = self.process_one_page(next_link)
+            imported = self.process_one_page(next_link)
             self._db.commit()
             if len(imported) == 0:
                 # We did not see a single book on this page we haven't
@@ -530,7 +528,7 @@ class OPDSImportMonitor(Monitor):
                 self.log.info(
                     "Saw a full page with no new books. Stopping.")
                 break
-            next_links = importer.links_by_rel()['next']
+            next_links = self.importer.links_by_rel()['next']
             if not next_links:
                 # We're at the end of the list. There are no more books
                 # to import.
@@ -543,7 +541,6 @@ class OPDSImportMonitor(Monitor):
 
     def process_one_page(self, url):
         response = requests.get(url)
-        importer = self.import_class(self._db, response.content)
-        return importer, importer.import_from_feed()
+        return self.importer.import_from_feed(response.content)
 
 
