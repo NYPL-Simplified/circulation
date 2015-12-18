@@ -4098,6 +4098,7 @@ class Resource(Base):
         DataSource.GUTENBERG,
         DataSource.GUTENBERG_EPUB_GENERATOR,
         DataSource.PROJECT_GITENBERG,
+        DataSource.PLYMPTON,
         DataSource.STANDARD_EBOOKS,
     ]
 
