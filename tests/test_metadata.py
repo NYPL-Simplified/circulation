@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import datetime
 import pkgutil
 import csv
 
@@ -17,6 +18,7 @@ from metadata_layer import (
 
 import os
 from model import (
+    CoverageRecord,
     DataSource,
     Identifier,
     Measurement,
@@ -192,4 +194,36 @@ class TestMetadataImporter(DatabaseTest):
         # Now we have no formats at all.
         eq_([], pool.delivery_mechanisms)
 
+    def test_coverage_record(self):
+        edition, pool = self._edition(with_license_pool=True)
+        data_source = edition.data_source
 
+        # No preexisting coverage record
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(coverage, None)
+        
+        last_update = datetime.date(2015, 1, 1)
+
+        m = Metadata(data_source=data_source,
+                     title=u"New title", last_update_time=last_update)
+        m.apply(edition)
+        
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(last_update, coverage.date)
+        eq_(u"New title", edition.title)
+
+        older_last_update = datetime.date(2014, 1, 1)
+        m = Metadata(data_source=data_source,
+                     title=u"Another new title", 
+                     last_update_time=older_last_update
+        )
+        m.apply(edition)
+        eq_(u"New title", edition.title)
+
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(last_update, coverage.date)
+
+        m.apply(edition, force=True)
+        eq_(u"Another new title", edition.title)
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(older_last_update, coverage.date)

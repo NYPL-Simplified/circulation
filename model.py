@@ -782,22 +782,23 @@ class CoverageRecord(Base):
 
     @classmethod
     def lookup(self, edition_or_identifier, data_source):
+        _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
-        elif isinstance(edition, Edition):
+        elif isinstance(edition_or_identifier, Edition):
             identifier = edition_or_identifier.primary_identifier
         else:
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition) 
         return get_one(
-                self._db, CoverageRecord,
+                _db, CoverageRecord,
                 identifier=identifier,
                 data_source=data_source,
                 on_multiple='interchangeable',
             )
 
     @classmethod
-    def add_for(self, edition, data_source):
+    def add_for(self, edition, data_source, date=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -806,14 +807,14 @@ class CoverageRecord(Base):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition) 
-        now = datetime.datetime.utcnow()
+        date = date or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
             data_source=data_source,
             on_multiple='interchangeable'
         )
-        coverage_record.date = now
+        coverage_record.date = date
         return coverage_record, is_new
 
 
