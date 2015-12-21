@@ -2767,6 +2767,19 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         return use
 
     @classmethod
+    def audience_match(cls, query):
+        audience = None
+        audience_words = None
+        audience = cls.audience(None, query)
+        if audience:
+            for audience_keywords in [cls.JUVENILE_INDICATORS, cls.YOUNG_ADULT_INDICATORS]:
+                match = audience_keywords.search(query)
+                if match:
+                    audience_words = match.group()
+                    break
+        return (audience, audience_words)
+
+    @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         matches = Counter()
         match_against = [name]
