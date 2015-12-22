@@ -223,6 +223,12 @@ class Classifier(object):
         return None
 
     @classmethod
+    def audience_match(cls, query):
+        """Does this query string match a particular Audience, and which
+        part of the query matches?"""
+        return (None, None)
+
+    @classmethod
     def target_age(cls, identifier, name):
         """For children's books, what does this identifier+name say
         about the target age for this book?
