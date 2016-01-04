@@ -83,32 +83,66 @@ class ExternalSearchIndex(Elasticsearch):
         # Get the genre and the words in the query that matched it, if any
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
 
-        if fiction or genre:
-            genre_and_fiction_queries = []
+        # Get the audience and the words in the query that matched it, if any
+        audience, audience_match = KeywordBasedClassifier.audience_match(query_string)
+
+        if fiction or genre or audience:
+            genre_audience_and_fiction_queries = []
             remaining_string = query_string
 
-            if genre:
+            # If the match was "children" and the query string was "children's",
+            # we want to remove the "'s" as well as the match. We want to remove
+            # everything up to the next word boundary that's not an apostrophe
+            # or a dash.
+            word_boundary_pattern = r"\b%s[\w'\-]*\b"
+
+            # For children's, it could be the parenting genre or the children audience,
+            # so only one of genre and audience must match.
+            if genre and audience and (audience_match in genre_match or genre_match in audience_match):
                 match_genre = make_match_query(genre.name, ['classifications.name'])
-                genre_and_fiction_queries.append(match_genre)
-                remaining_string = re.compile(genre_match, re.IGNORECASE).sub("", remaining_string)
+                match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
+                genre_or_audience_query = {
+                    'bool': {
+                        'should' : [
+                            match_genre,
+                            match_audience,
+                        ],
+                        'minimum_should_match': 1
+                    }
+                }
+                genre_audience_and_fiction_queries.append(genre_or_audience_query)
+                remaining_string = re.compile(word_boundary_pattern % genre_match, re.IGNORECASE).sub("", remaining_string)
+                remaining_string = re.compile(word_boundary_pattern % audience_match, re.IGNORECASE).sub("", remaining_string)
+
+            else:
+                if genre:
+                    match_genre = make_match_query(genre.name, ['classifications.name'])
+                    genre_audience_and_fiction_queries.append(match_genre)
+                    remaining_string = re.compile(word_boundary_pattern % genre_match, re.IGNORECASE).sub("", remaining_string)
+
+                if audience:
+                    match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
+                    genre_audience_and_fiction_queries.append(match_audience)
+                    remaining_string = re.compile(word_boundary_pattern % audience_match, re.IGNORECASE).sub("", remaining_string)
 
             if fiction:
                 match_fiction = make_match_query(fiction, ['fiction'])
-                genre_and_fiction_queries.append(match_fiction)
-                remaining_string = re.compile(fiction, re.IGNORECASE).sub("", remaining_string)
+                genre_audience_and_fiction_queries.append(match_fiction)
+                remaining_string = re.compile(word_boundary_pattern % fiction, re.IGNORECASE).sub("", remaining_string)
 
-            # Someone who searches by genre is probably not looking for a specific book,
-            # so title isn't included, but they might be looking for an author (eg, 
-            # "science fiction iain banks").
-            match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
-            genre_and_fiction_queries.append(match_rest_of_query)
+            if len(remaining_string.strip()) > 0:
+                # Someone who searches by genre is probably not looking for a specific book,
+                # so title isn't included, but they might be looking for an author (eg, 
+                # "science fiction iain banks").
+                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
+                genre_audience_and_fiction_queries.append(match_rest_of_query)
             
-            # If genre, fiction, and the remaining string all match, the result will
+            # If genre, audience, fiction, and the remaining string all match, the result will
             # have a higher score than results that match the full query in one of the 
             # main fields.
             match_genre_and_rest_of_query = {
                 'bool': {
-                    'must': genre_and_fiction_queries,
+                    'must': genre_audience_and_fiction_queries,
                     'boost': 20.0
                 }
             }

@@ -223,6 +223,12 @@ class Classifier(object):
         return None
 
     @classmethod
+    def audience_match(cls, query):
+        """Does this query string match a particular Audience, and which
+        part of the query matches?"""
+        return (None, None)
+
+    @classmethod
     def target_age(cls, identifier, name):
         """For children's books, what does this identifier+name say
         about the target age for this book?
@@ -2765,6 +2771,19 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             if i in name:
                 return None
         return use
+
+    @classmethod
+    def audience_match(cls, query):
+        audience = None
+        audience_words = None
+        audience = cls.audience(None, query)
+        if audience:
+            for audience_keywords in [cls.JUVENILE_INDICATORS, cls.YOUNG_ADULT_INDICATORS]:
+                match = audience_keywords.search(query)
+                if match:
+                    audience_words = match.group()
+                    break
+        return (audience, audience_words)
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
