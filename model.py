@@ -5352,6 +5352,7 @@ class Representation(Base):
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    TEXT_PLAIN = u"text/plain"
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
