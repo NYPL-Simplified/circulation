@@ -28,6 +28,7 @@ from model import (
     Identifier,
     LicensePool,
     Subject,
+    Hyperlink,
 )
 
 class SubjectData(object):
@@ -39,7 +40,7 @@ class SubjectData(object):
 
 class ContributorData(object):
     def __init__(self, sort_name=None, display_name=None, roles=None,
-                 lc=None, viaf=None, biography=None):
+                 lc=None, viaf=None, biography=None, aliases=None):
         self.sort_name = sort_name
         self.display_name = display_name
         roles = roles or Contributor.AUTHOR_ROLE
@@ -49,6 +50,7 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
         self.biography = biography
+        self.aliases = aliases
 
     def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
@@ -273,6 +275,7 @@ class Metadata(object):
     def __init__(
             self, 
             data_source,
+            book_data_source=None,
             title=None,
             subtitle=None,
             sort_title=None,
@@ -297,6 +300,7 @@ class Metadata(object):
         else:
             self.data_source_obj = None
 
+        self.book_data_source = book_data_source
         self.title = title
         self.sort_title = sort_title
         self.subtitle = subtitle
@@ -446,6 +450,8 @@ class Metadata(object):
         This may be different from the source of the data being
         imposed on the book right now.
         """
+        if self.book_data_source:
+            return self.book_data_source
         i, ignore = self.primary_identifier.load(_db)
         try:
             return DataSource.license_source_for(_db, i)
@@ -462,11 +468,14 @@ class Metadata(object):
         if not data_source:
             data_source = self.data_source(_db)
 
-        return Edition.for_foreign_id(
+        edition, new = Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
-        )        
+        )    
+        if new:
+            self.apply(edition)
+        return edition, new
 
     def license_pool(self, _db):
         if not self.primary_identifier:
@@ -575,6 +584,8 @@ class Metadata(object):
         )
         if self.title:
             edition.title = self.title
+        if self.subtitle:
+            edition.subtitle = self.subtitle
         if self.language:
             edition.language = self.language
         if self.medium:
@@ -664,6 +675,8 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
+                if pool != None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    pool.open_access = True
             else:
                 resource = None
             if pool:
@@ -729,7 +742,8 @@ class Metadata(object):
                     contributor.display_name = contributor_data.display_name
                 if contributor_data.biography:
                     contributor.biography = contributor_data.biography
-
+                if contributor_data.aliases:
+                    contributor.aliases = contributor_data.aliases
             else:
                 self.log.info(
                     "Not registering %s because no sort name, LC, or VIAF",

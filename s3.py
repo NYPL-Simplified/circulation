@@ -51,7 +51,11 @@ class S3Uploader(MirrorUploader):
             path = "/scaled/%d/" % scaled_size
         else:
             path = "/"
-        data_source_name = urllib.quote(data_source.name)
+        if isinstance(data_source, str):
+            data_source_name = data_source
+        else:
+            data_source_name = data_source.name
+        data_source_name = urllib.quote(data_source_name)
         path += data_source_name + "/"
         url = cls.url(bucket, path)
         if not url.endswith('/'):
