@@ -259,7 +259,7 @@ class Annotator(object):
 
     @classmethod
     def default_lane_url(cls):
-        return cls.groups_url(None)
+        raise NotImplementedError()
 
     @classmethod
     def featured_feed_url(cls, lane, order=None):

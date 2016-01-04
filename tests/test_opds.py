@@ -74,6 +74,10 @@ class TestAnnotator(Annotator):
         return "http://groups/%s" % name
 
     @classmethod
+    def default_lane_url(cls):
+        return cls.groups_url(None)
+
+    @classmethod
     def facet_url(cls, facets):
         return "http://facet/" + "&".join(
             ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
