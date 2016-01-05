@@ -147,6 +147,7 @@ class OPDSImporter(object):
                     edition
                 )
             else:
+                license_pool.edition = edition
                 work, is_new = license_pool.calculate_work(
                     known_edition=edition
                 )
@@ -261,13 +262,13 @@ class OPDSImporter(object):
         # metadata, and possibly a link to the actual book.
 
         # If this is present, it means that the entry also includes
-        # information about an active distributor of this book.  Any
-        # Edition created from this metadata should use the
+        # information about an active distributor of this book. Any
+        # LicensePool created from this metadata should use the
         # distributor of the book as its data source.
-        data_source = None
         distribution_tag = entry.get('bibframe_distribution', None)
+        license_data_source = None
         if distribution_tag:
-            data_source = distribution_tag.get('bibframe:providername')
+            license_data_source = distribution_tag.get('bibframe:providername')
 
         title = entry.get('title', None)
         if title == OPDSFeed.NO_TITLE:
@@ -307,7 +308,7 @@ class OPDSImporter(object):
                 links.append(link)
 
         kwargs = dict(
-            data_source=data_source,
+            license_data_source=license_data_source,
             title=title,
             subtitle=subtitle,
             language=language,

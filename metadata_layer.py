@@ -544,7 +544,7 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        data_source = self.data_source(_db)
+        data_source = self.license_data_source(_db) or self.data_source(_db)
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
@@ -562,6 +562,7 @@ class Metadata(object):
 
         identifier_obj, ignore = self.primary_identifier.load(_db)
 
+        metadata_data_source = self.data_source(_db) 
         license_data_source = self.license_data_source(_db)
         if license_data_source:
             can_create_new_pool = True
@@ -575,6 +576,11 @@ class Metadata(object):
                 # we can create a new license pool if necessary.
                 can_create_new_pool = True
                 self.license_data_source_obj = check_for_licenses_from[0]
+            elif metadata_data_source in check_for_licenses_from:
+                # We can assume that the license comes from the same
+                # source as the metadata.
+                self.license_data_source_obj = metadata_data_source
+                can_create_new_pool = True
             else:
                 # We might be able to find an existing license pool
                 # for this book, but we won't be able to create a new

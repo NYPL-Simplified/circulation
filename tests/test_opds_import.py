@@ -160,22 +160,22 @@ class TestOPDSImporter(DatabaseTest):
         eq_(Edition.BOOK_MEDIUM, crow.medium)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
-        set_trace()
-
-        popularity, quality = sorted(
+        editions, popularity, quality = sorted(
             [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
             key=lambda x: x.quantity_measured)
-        eq_(DataSource.GUTENBERG, popularity.data_source.name)
+
+        eq_(DataSource.OCLC_LINKED_DATA, editions.data_source.name)
+        eq_(Measurement.PUBLISHED_EDITIONS, editions.quantity_measured)
+        eq_(1, editions.value)
+
+        eq_(DataSource.METADATA_WRANGLER, popularity.data_source.name)
         eq_(Measurement.POPULARITY, popularity.quantity_measured)
         eq_(0.25, popularity.value)
 
-        eq_(DataSource.GUTENBERG, quality.data_source.name)
+        eq_(DataSource.METADATA_WRANGLER, quality.data_source.name)
         eq_(Measurement.QUALITY, quality.quantity_measured)
         eq_(0.3333, quality.value)
-
-        # Not every imported edition has measurements.
-        eq_([], crow.primary_identifier.measurements)
 
         seven, children, courtship, fantasy, pz, magic, new_york = sorted(
             mouse.primary_identifier.classifications,
@@ -195,9 +195,10 @@ class TestOPDSImporter(DatabaseTest):
         from classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
-        work = crow.work
+
+        work = mouse.work
         work.calculate_presentation()
-        eq_(0.41415, work.quality)
+        eq_(0.2916, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 
