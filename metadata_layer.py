@@ -706,7 +706,7 @@ class Metadata(object):
                     check_date = check_date.date()
                 last_date = self.last_update_time
                 if isinstance(last_date, datetime.datetime):
-                    last_date = last.date()
+                    last_date = last_date.date()
                 if check_date >= last_date:
                     # The metadata has not changed since last time. Do nothing.
                     return

@@ -44,7 +44,7 @@ class TestOPDSImporter(DatabaseTest):
     def test_extract_metadata(self):
 
         importer = OPDSImporter(self._db, DataSource.NYT)
-        data, status_messages = importer.extract_metadata(
+        data, status_messages, next_link = importer.extract_metadata(
             self.content_server_mini_feed
         )
         m1, m2 = sorted(data, key=lambda x:x.title)
@@ -57,6 +57,8 @@ class TestOPDSImporter(DatabaseTest):
         [message] = status_messages.values()
         eq_(202, message.status_code)
         eq_(u"I'm working to locate a source for this identifier.", message.message)
+
+        eq_("http://localhost:5000/?after=327&size=100", next_link[0])
 
 
     def test_extract_metadata_from_feedparser(self):

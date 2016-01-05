@@ -131,7 +131,7 @@ class OPDSImporter(object):
         self.metadata_client = SimplifiedOPDSLookup.from_config()
 
     def import_from_feed(self, feed):
-        metadata_objs, messages = self.extract_metadata(feed)
+        metadata_objs, messages, next_links = self.extract_metadata(feed)
 
         imported = []
         for metadata in metadata_objs:
@@ -160,13 +160,13 @@ class OPDSImporter(object):
         # TODO: maybe return the value of the 'next' feed link, if
         # present, so that the caller can decide whether or not to
         # go to the next page.
-        return imported, messages
+        return imported, messages, next_links
 
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
         messages.
         """
-        data1, status_messages = self.extract_metadata_from_feedparser(feed)
+        data1, status_messages, next_links = self.extract_metadata_from_feedparser(feed)
         data2 = self.extract_metadata_from_elementtree(feed)
 
         metadata = []
@@ -188,7 +188,7 @@ class OPDSImporter(object):
             )
 
             metadata.append(Metadata(**combined))
-        return metadata, status_messages
+        return metadata, status_messages, next_links
 
     @classmethod
     def combine(self, d1, d2):
@@ -216,7 +216,8 @@ class OPDSImporter(object):
                     values[identifier] = detail
                 if status_message:
                     status_messages[identifier] = status_message
-        return values, status_messages
+        next_links = [link['href'] for link in feedparser_parsed['feed']['links'] if link['rel'] == 'next']
+        return values, status_messages, next_links
 
     @classmethod
     def extract_metadata_from_elementtree(cls, feed):
@@ -507,32 +508,38 @@ class OPDSImportMonitor(Monitor):
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
 
-    def run_once(self, start, cutoff):
-        next_link = self.feed_url
-        seen_links = set([next_link])
-        while next_link:
-            self.log.info("Following next link: %s", next_link)
-            imported = self.process_one_page(next_link)
-            self._db.commit()
-            if len(imported) == 0:
-                # We did not see a single book on this page we haven't
-                # already seen. There's no need to keep going.
-                self.log.info(
-                    "Saw a full page with no new books. Stopping.")
-                break
-            next_links = self.importer.links_by_rel()['next']
-            if not next_links:
-                # We're at the end of the list. There are no more books
-                # to import.
-                break
-            next_link = next_links[0]['href']
-            if next_link in seen_links:
-                # Loop.
-                break
+    def follow_one_link(self, link):
+        response = requests.get(link)
+        imported, messages, next_links = self.importer.import_from_feed(response.content)
+        self.log.info("Following next link: %s", link)
         self._db.commit()
+        
+        if len(imported) == 0:
+            # We did not see a single book on this page we haven't
+            # already seen. There's no need to keep going.
+            self.log.info(
+                "Saw a full page with no new books. Stopping.")
+            return []
+        else:
+            return next_links
 
-    def process_one_page(self, url):
-        response = requests.get(url)
-        return self.importer.import_from_feed(response.content)
+        
+
+    def run_once(self, start, cutoff):
+        queue = [self.feed_url]
+        seen_links = set([])
+        
+        while queue:
+            new_queue = []
+
+            for link in queue:
+                if link in seen_links:
+                    continue
+                new_queue.extend(self.follow_one_link(link))
+                seen_links.add(link)
+                self._db.commit()
+
+            queue = new_queue
+
 
 
