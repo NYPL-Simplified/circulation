@@ -2559,13 +2559,6 @@ class Edition(Base):
     def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
-        # Calling calculate_presentation() on NYT data will actually
-        # destroy the presentation, so don't do anything.
-        if self.data_source.name == DataSource.NYT:
-            return
-            
-        if not self.sort_title:
-            self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []
         display_names = []
         self.last_update_time = datetime.datetime.utcnow()
@@ -2584,6 +2577,9 @@ class Edition(Base):
             self.sort_author = " ; ".join(sorted(sort_names))
         else:
             self.sort_author = self.UNKNOWN_AUTHOR
+           
+        if not self.sort_title:
+            self.sort_title = TitleProcessor.sort_title_for(self.title)
         self.calculate_permanent_work_id()
 
         self.set_open_access_link()

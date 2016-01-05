@@ -700,10 +700,16 @@ class Metadata(object):
         data_source = self.data_source(_db)
         if self.last_update_time and not force:
             coverage_record = CoverageRecord.lookup(edition, data_source)
-            if (coverage_record 
-                and coverage_record.date >= self.last_update_time.date()):
-                # The metadata has not changed since last time. Do nothing.
-                return
+            if coverage_record:
+                check_date = coverage_record.date
+                if not isinstance(check_date, datetime.date):
+                    check_date = check_date.date()
+                last_date = self.last_update_time
+                if not isinstance(last_date, datetime.date):
+                    last_date = last.date()
+                if check_date >= last_date:
+                    # The metadata has not changed since last time. Do nothing.
+                    return
 
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
