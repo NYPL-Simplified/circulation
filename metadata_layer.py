@@ -803,10 +803,11 @@ class Metadata(object):
                     )
                     thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
-        if replace_formats:
+        if pool and replace_formats:
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
+        
         for format in self.formats:
             if format.link:
                 link = format.link

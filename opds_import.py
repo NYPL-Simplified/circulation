@@ -134,12 +134,13 @@ class OPDSImporter(object):
 
         imported = []
         for metadata in metadata_objs:
-            edition, ignore = metadata.edition(self._db)
-            metadata.apply(edition, self.metadata_client)
-            
             # Locate or create a LicensePool for this book.
             license_pool, ignore = metadata.license_pool(self._db)
 
+            # Locate or create an Edition for this book.
+            edition, ignore = metadata.edition(self._db)
+            metadata.apply(edition, self.metadata_client)
+            
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
                 self.log.warn(
