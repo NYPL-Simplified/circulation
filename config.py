@@ -89,6 +89,7 @@ class Configuration(object):
     }
 
     # Lane policies
+    DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
     CACHE_FOREVER = 'forever'
 
     PAGE_MAX_AGE_POLICY = "default_page_max_age" 
@@ -255,7 +256,7 @@ class Configuration(object):
         if not policy or not cls.DEFAULT_FACET_KEY in policy:
             return cls.DEFAULT_FACET[group_name]
         return policy[cls.DEFAULT_FACET_KEY][group_name]
-   
+
     @classmethod
     def page_max_age(cls):
         value = cls.policy(

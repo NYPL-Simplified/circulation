@@ -859,10 +859,10 @@ class Lane(object):
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.verbose_opds_entry),
             defer(Work.primary_edition, Edition.extra),
             defer(Work.license_pools, LicensePool.edition, Edition.extra),
         )
+        q = self._defer_unused_opds_entry(q)
 
         if self.genres:
             q = q.join(Work.work_genres)
@@ -894,6 +894,7 @@ class Lane(object):
             lazyload(mw.license_pool, LicensePool.identifier),
             lazyload(mw.license_pool, LicensePool.edition),
         )
+        q = self._defer_unused_opds_entry(q, work_model=mw)
 
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
@@ -1064,6 +1065,7 @@ class Lane(object):
                         lazyload(mw.license_pool, LicensePool.identifier),
                         lazyload(mw.license_pool, LicensePool.edition),
                     )
+                    q = self._defer_unused_opds_entry(q, work_model=mw)
                     work_by_id = dict()
                     a = time.time()
                     works = q.all()
@@ -1094,6 +1096,14 @@ class Lane(object):
                 Edition.author.ilike(k)))
         #q = q.order_by(Work.quality.desc())
         return q
+
+    def _defer_unused_opds_entry(self, query, work_model=Work):
+        """Defer the appropriate opds entry
+        """
+        if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
+            return query.options(defer(work_model.verbose_opds_entry))
+        else:
+            return query.options(defer(work_model.simple_opds_entry))
 
     def featured_works(self, size, use_materialized_works=True):
         """Find a random sample of `size` featured books.
