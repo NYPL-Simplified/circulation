@@ -51,11 +51,8 @@ class TestOPDSImporter(DatabaseTest):
         eq_("The Green Mouse", m2.title)
         eq_("A Tale of Mousy Terror", m2.subtitle)
 
-        # This entry specified a data source, which was passed along.
-        eq_(DataSource.GUTENBERG, m2._data_source)
-
-        # This entry didn't specify a data source, so the default was used.
-        eq_(DataSource.NYT, m1._data_source)
+        eq_(None, m1._license_data_source)
+        eq_(DataSource.GUTENBERG, m2._license_data_source)
 
         [message] = status_messages.values()
         eq_(202, message.status_code)
@@ -73,7 +70,7 @@ class TestOPDSImporter(DatabaseTest):
         eq_("A Tale of Mousy Terror", metadata['subtitle'])
         eq_('en', metadata['language'])
         eq_('Project Gutenberg', metadata['publisher'])
-        eq_(DataSource.GUTENBERG, metadata['data_source'])
+        eq_(DataSource.GUTENBERG, metadata['license_data_source'])
 
         message = status_messages['http://www.gutenberg.org/ebooks/1984']
         eq_(202, message.status_code)
@@ -156,7 +153,7 @@ class TestOPDSImporter(DatabaseTest):
 
         [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
-        eq_(DataSource.GUTENBERG, crow.data_source.name)
+        eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
         eq_(Edition.BOOK_MEDIUM, crow.medium)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
@@ -201,6 +198,12 @@ class TestOPDSImporter(DatabaseTest):
         eq_(0.2916, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
+
+        # The other book has no license pool and no work because we
+        # could not figure out whether the license source was Project
+        # Gutenberg or Project GITenberg.
+        eq_(None, crow.work)
+        eq_(None, crow.license_pool)
 
         # Bonus: make sure that delivery mechanisms are set appropriately.
         [mech] = mouse.license_pool.delivery_mechanisms
