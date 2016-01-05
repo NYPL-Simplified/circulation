@@ -3594,9 +3594,13 @@ class Work(Base):
                 target_min = c.subject.target_age.lower
                 target_max = c.subject.target_age.upper
                 if target_min:
+                    if not c.subject.target_age.lower_inc:
+                        target_min += 1
                     for i in range(0,c.weight):
                         target_age_mins.append(target_min)
                 if target_max:
+                    if not c.subject.target_age.upper_inc:
+                        target_max -= 1
                     for i in range(0,c.weight):
                         target_age_maxes.append(target_max)
 
@@ -4445,11 +4449,15 @@ class Subject(Base):
     @property
     def target_age_string(self):
         lower = self.target_age.lower
-        upper = self.target_age.upper
+        upper = self.target_age.upper           
         if lower and not upper:
             return str(lower)
         if upper and not lower:
             return str(upper)
+        if not self.target_age.upper_inc:
+            upper -= 1
+        if not self.target_age.lower_inc:
+            lower += 1
         return "%s-%s" % (lower,upper)
 
     @classmethod
