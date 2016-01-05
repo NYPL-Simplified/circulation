@@ -34,6 +34,7 @@
   </entry>
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557</id>
+    <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
     <title>Johnny Crow's Party</title>
     <author>
       <name></name>

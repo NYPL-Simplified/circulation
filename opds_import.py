@@ -146,41 +146,18 @@ class OPDSImporter(object):
                     "No LicensePool present for Edition %r, not attempting to create Work.",
                     edition
                 )
-                continue
-
-            work, is_new = license_pool.calculate_work(
-                known_edition=edition
-            )
-            if work:
-                work.calculate_presentation()
+            else:
+                work, is_new = license_pool.calculate_work(
+                    known_edition=edition
+                )
+                if work:
+                    work.calculate_presentation()
             if edition:
                 imported.append(edition)
         # TODO: maybe return the value of the 'next' feed link, if
         # present, so that the caller can decide whether or not to
         # go to the next page.
         return imported, messages
-
-    def set_resources(self, data_source, identifier, pool, links):
-        # Associate covers and downloads with the identifier.
-        #
-        # If there is both a full image and a thumbnail, we need
-        # to make sure they're put into the same representation.
-        download_links = []
-        image_link = None
-        thumbnail_link = None
-
-        _db = Session.object_session(data_source)
-
-        if image_link and thumbnail_link and image_link.resource:
-            if image_link.resource == thumbnail_link.resource:
-                # TODO: This is hacky. We can't represent an image as a thumbnail
-                # of itself, so we make sure the height is set so that
-                # we'll know that it doesn't need a thumbnail.
-                image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
-            else:
-                # Represent the thumbnail as a thumbnail of the image.
-                thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
-        return download_links, image_link, thumbnail_link
 
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
@@ -489,8 +466,9 @@ class OPDSImporter(object):
                 # Is the next link a thumbnail?
                 if (i < len(links)-1
                     and links[i+1].rel == Hyperlink.THUMBNAIL_IMAGE):
-                    l.thumbnail = links[i+1]
-                    new_links.remove(links[i+1])
+                    thumbnail = links[i+1]
+                    l.thumbnail = thumbnail
+                    new_links.remove(thumbnail)
         return new_links
 
     @classmethod

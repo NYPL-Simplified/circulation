@@ -154,38 +154,31 @@ class TestOPDSImporter(DatabaseTest):
         feed = open(path).read()
         imported, messages = OPDSImporter(self._db).import_from_feed(feed)
 
-        eq_(DataSource.GUTENBERG, imported[0].data_source.name)
-        eq_(Edition.PERIODICAL_MEDIUM, imported[0].medium)
-        eq_(Edition.BOOK_MEDIUM, imported[1].medium)
+        [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
-        [has_rating, no_rating] = imported
-        num_editions, pop, qual, rating = sorted(
-            [x for x in has_rating.primary_identifier.measurements
+        eq_(DataSource.GUTENBERG, crow.data_source.name)
+        eq_(Edition.BOOK_MEDIUM, crow.medium)
+        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+
+        set_trace()
+
+        popularity, quality = sorted(
+            [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
             key=lambda x: x.quantity_measured)
-        eq_(DataSource.OCLC_LINKED_DATA, num_editions.data_source.name)
-        eq_(Measurement.PUBLISHED_EDITIONS, num_editions.quantity_measured)
-        eq_(1, num_editions.value)
+        eq_(DataSource.GUTENBERG, popularity.data_source.name)
+        eq_(Measurement.POPULARITY, popularity.quantity_measured)
+        eq_(0.25, popularity.value)
 
-        eq_(DataSource.METADATA_WRANGLER, pop.data_source.name)
-        eq_(Measurement.POPULARITY, pop.quantity_measured)
-        eq_(0.25, pop.value)
-
-        eq_(DataSource.METADATA_WRANGLER, qual.data_source.name)
-        eq_(Measurement.QUALITY, qual.quantity_measured)
-        eq_(0.3333, qual.value)
-
-        eq_(DataSource.METADATA_WRANGLER, rating.data_source.name)
-        eq_(Measurement.RATING, rating.quantity_measured)
-        eq_(0.6, rating.value)
+        eq_(DataSource.GUTENBERG, quality.data_source.name)
+        eq_(Measurement.QUALITY, quality.quantity_measured)
+        eq_(0.3333, quality.value)
 
         # Not every imported edition has measurements.
-        #no_measurements = [
-        #    x for x in imported if not x.primary_identifier.measurements][0]
-        #eq_([], x.primary_identifier.measurements)
+        eq_([], crow.primary_identifier.measurements)
 
         seven, children, courtship, fantasy, pz, magic, new_york = sorted(
-            has_rating.primary_identifier.classifications,
+            mouse.primary_identifier.classifications,
             key=lambda x: x.subject.name)
 
         pz_s = pz.subject
@@ -202,14 +195,14 @@ class TestOPDSImporter(DatabaseTest):
         from classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
-        work = has_rating.work
+        work = crow.work
         work.calculate_presentation()
         eq_(0.41415, work.quality)
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 
         # Bonus: make sure that delivery mechanisms are set appropriately.
-        [mech] = imported[0].license_pool.delivery_mechanisms
+        [mech] = mouse.license_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 

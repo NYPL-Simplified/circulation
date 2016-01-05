@@ -194,6 +194,20 @@ class LinkData(object):
         self.content = content
         self.thumbnail = thumbnail
 
+    def __repr__(self):
+        if self.content:
+            content = ", %d bytes content" % len(self.content)
+        else:
+            content = ''
+        if self.thumbnail:
+            thumbnail = ', has thumbnail'
+        else:
+            thumbnail = ''
+        return '<LinkData: rel="%s" href="%s" media_type=%r%s%s>' % (
+            self.rel, self.href, self.media_type, thumbnail,
+            content
+        )
+
 class MeasurementData(object):
     def __init__(self, 
                  quantity_measured,
@@ -553,20 +567,30 @@ class Metadata(object):
             can_create_new_pool = True
             check_for_licenses_from = [license_data_source]
         else:
-            # We might be able to find an existing license pool for
-            # this book, but we won't be able to create a new one.
-            can_create_new_pool = False
             check_for_licenses_from = DataSource.license_sources_for(
                 _db, identifier_obj
-            )
+            ).all()
+            if len(check_for_licenses_from) == 1:
+                # Since there is only one source for this kind of book,
+                # we can create a new license pool if necessary.
+                can_create_new_pool = True
+                self.license_data_source_obj = check_for_licenses_from[0]
+            else:
+                # We might be able to find an existing license pool
+                # for this book, but we won't be able to create a new
+                # one, because we don't know who's responsible for the
+                # book.
+                can_create_new_pool = False
 
-        for license_data_source in check_for_licenses_from:
-            license_pool = get_one(
-                _db, LicensePool, data_source=license_data_source,
-                identifier=identifier_obj
-            )
-            if license_pool:
-                break
+        license_data_source = self.license_data_source(_db)
+        if not license_data_source:
+            for potential_data_source in check_for_licenses_from:
+                license_pool = get_one(
+                    _db, LicensePool, data_source=potential_data_source,
+                    identifier=identifier_obj
+                )
+                if license_pool:
+                    break
 
         if not license_pool and can_create_new_pool:
             license_pool, is_new = LicensePool.for_foreign_id(
@@ -751,7 +775,6 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
-        set_trace()
         for link in self.links:
             link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=data_source, 
@@ -760,13 +783,19 @@ class Metadata(object):
             )
             thumbnail = link.thumbnail
             if thumbnail:
-                thumbnail_obj, ignore = identifier.add_link(
-                    rel=thumbnail.rel, href=thumbnail.href, 
-                    data_source=data_source, 
-                    license_pool=pool, media_type=thumbnail.media_type,
-                    content=thumbnail.content
-                )
-                thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+                if thumbnail.href == link.href:
+                    # The image serves as its own thumbnail. This is a
+                    # hacky way to represent this in the database.
+                    link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+                else:
+                    # The thumbnail and image are different.
+                    thumbnail_obj, ignore = identifier.add_link(
+                        rel=thumbnail.rel, href=thumbnail.href, 
+                        data_source=data_source, 
+                        license_pool=pool, media_type=thumbnail.media_type,
+                        content=thumbnail.content
+                    )
+                    thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
         if replace_formats:
             for lpdm in pool.delivery_mechanisms:
