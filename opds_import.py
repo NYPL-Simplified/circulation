@@ -139,7 +139,7 @@ class OPDSImporter(object):
             license_pool, ignore = metadata.license_pool(self._db)
 
             # Locate or create an Edition for this book.
-            edition, ignore = metadata.edition(self._db)
+            edition, is_new_edition = metadata.edition(self._db)
             metadata.apply(edition, self.metadata_client)
             
             if license_pool is None:
@@ -150,16 +150,13 @@ class OPDSImporter(object):
                 )
             else:
                 license_pool.edition = edition
-                work, is_new = license_pool.calculate_work(
+                work, is_new_work = license_pool.calculate_work(
                     known_edition=edition
                 )
                 if work:
                     work.calculate_presentation()
-            if edition:
+            if edition and is_new_edition:
                 imported.append(edition)
-        # TODO: maybe return the value of the 'next' feed link, if
-        # present, so that the caller can decide whether or not to
-        # go to the next page.
         return imported, messages, next_links
 
     def extract_metadata(self, feed):
