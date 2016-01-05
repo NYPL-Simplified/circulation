@@ -50,8 +50,10 @@ class TestLanguageCodes(object):
         m = LanguageCodes.string_to_alpha_3
         eq_("eng", m("en"))
         eq_("eng", m("eng"))
+        eq_("eng", m("en-GB"))
         eq_("eng", m("English"))
         eq_("eng", m("ENGLISH"))
+        eq_("ssa", m("Nilo-Saharan languages"))
         eq_(None, m("NO SUCH LANGUAGE"))
         eq_(None, None)
 

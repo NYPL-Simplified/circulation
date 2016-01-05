@@ -524,8 +524,8 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             three_to_two[alpha_3] = alpha_2
             english_names[alpha_2] = names
             two_to_three[alpha_2] = alpha_3
-            for name in names:
-                english_names_to_three[name.lower()] = alpha_3
+        for name in names:
+            english_names_to_three[name.lower()] = alpha_3
         english_names[alpha_3] = names
 
 
@@ -549,15 +549,20 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
         if not s:
             return None
         s = s.lower()
+        if s in cls.english_names_to_three:
+            # It's the English name of a language.
+            return cls.english_names_to_three[s]
+
+        if "-" in s:
+            s = s.split("-")[0]
+
         if s in cls.three_to_two:
             # It's already an alpha-3.
             return s
         elif s in cls.two_to_three:
             # It's an alpha-2.
             return cls.two_to_three[s]
-        elif s in cls.english_names_to_three:
-            # It's the English name of a language.
-            return cls.english_names_to_three[s]
+
         return None
 
     @classmethod

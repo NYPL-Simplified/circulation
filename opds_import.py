@@ -89,6 +89,7 @@ class OPDSXMLParser(XMLParser):
     NAMESPACES = { "simplified": "http://librarysimplified.org/terms/",
                    "app" : "http://www.w3.org/2007/app",
                    "dcterms" : "http://purl.org/dc/terms/",
+                   "dc" : "http://purl.org/dc/elements/1.1/",
                    "opds": "http://opds-spec.org/2010/catalog",
                    "schema" : "http://schema.org/",
                    "atom" : "http://www.w3.org/2005/Atom",
@@ -165,7 +166,6 @@ class OPDSImporter(object):
         """Turn an OPDS feed into a list of Metadata objects and a list of
         messages.
         """
-        feed = unicode(feed)
         data1, status_messages = self.extract_metadata_from_feedparser(feed)
         data2 = self.extract_metadata_from_elementtree(feed)
 
@@ -279,8 +279,14 @@ class OPDSImporter(object):
         last_update_time = entry.get('updated_parsed', None)
         last_update_time = datetime.datetime(*last_update_time[:6])
 
-        publisher = entry.get('dcterms_publisher', None)
-        language = entry.get('dcterms_language', None)
+        publisher = entry.get('publisher', None)
+        if not publisher:
+            publisher = entry.get('dcterms_publisher', None)
+
+        language = entry.get('language', None)
+        if not language:
+            language = entry.get('dcterms_language', None)
+
 
         links = []
 
