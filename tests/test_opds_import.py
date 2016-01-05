@@ -235,3 +235,28 @@ class TestOPDSImporter(DatabaseTest):
              Hyperlink.OPEN_ACCESS_DOWNLOAD], [x.rel for x in links])
         link = links[1]
         eq_(old_link, link.thumbnail)
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE,
+                             Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE]
+        ]
+        t1, i1, t2, i2 = links
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.IMAGE,
+             Hyperlink.IMAGE], [x.rel for x in links])
+        eq_(t1, i1.thumbnail)
+        eq_(t2, i2.thumbnail)
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE,
+                             Hyperlink.IMAGE]
+        ]
+        t1, i1, i2 = links
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.IMAGE,
+             Hyperlink.IMAGE], [x.rel for x in links])
+        eq_(t1, i1.thumbnail)
+        eq_(None, i2.thumbnail)

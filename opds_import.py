@@ -461,16 +461,50 @@ class OPDSImporter(object):
 
         If link n is an image and link n+1 is a thumbnail, then the
         thumbnail is assumed to be the thumbnail of the image.
+
+        Similarly if link n is a thumbnail and link n+1 is an image.
         """
         new_links = list(links)
-        for i, l in enumerate(links):
-            if l.rel == Hyperlink.IMAGE:
-                # Is the next link a thumbnail?
-                if (i < len(links)-1
-                    and links[i+1].rel == Hyperlink.THUMBNAIL_IMAGE):
-                    thumbnail = links[i+1]
-                    l.thumbnail = thumbnail
-                    new_links.remove(thumbnail)
+        next_link_already_handled = False
+        for i, link in enumerate(links):
+
+            if link.rel not in (Hyperlink.THUMBNAIL_IMAGE, Hyperlink.IMAGE):
+                # This is not any kind of image. Ignore it.
+                continue
+
+            if next_link_already_handled:
+                # This link and the previous link were part of an
+                # image-thumbnail pair.
+                next_link_already_handled = False
+                continue
+                
+            if i == len(links)-1:
+                # This is the last link. Since there is no next link
+                # there's nothing to do here.
+                continue
+
+            # Peek at the next link.
+            next_link = links[i+1]
+
+
+            if (link.rel == Hyperlink.THUMBNAIL_IMAGE
+                and next_link.rel == Hyperlink.IMAGE):
+                # This link is a thumbnail and the next link is
+                # (presumably) the corresponding image.
+                thumbnail_link = link
+                image_link = next_link
+            elif (link.rel == Hyperlink.IMAGE
+                  and next_link.rel == Hyperlink.THUMBNAIL_IMAGE):
+                thumbnail_link = next_link
+                image_link = link
+            else:
+                # This link and the next link do not form an
+                # image-thumbnail pair. Do nothing.
+                continue
+
+            image_link.thumbnail = thumbnail_link
+            new_links.remove(thumbnail_link)
+            next_link_already_handled = True
         return new_links
 
     @classmethod
