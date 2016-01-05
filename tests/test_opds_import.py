@@ -41,40 +41,11 @@ class TestOPDSImporter(DatabaseTest):
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
 
-    def test_authors_by_id(self):
-
-        parsed = etree.parse(StringIO(self.content_server_feed))
-        medium_by_id, contributors_by_id, subject_names, subject_weights, ratings_by_id = DetailedOPDSImporter.authors_and_subjects_by_id(self._db, parsed)
-
-        book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'  
-        eq_(76, len(medium_by_id))
-        eq_(Edition.BOOK_MEDIUM, medium_by_id[book_id])
-        eq_(Edition.PERIODICAL_MEDIUM, medium_by_id[periodical_id])
-
-        spot_check_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        eq_(70, len(contributors_by_id))
-        [contributor] = contributors_by_id[spot_check_id]
-        eq_("Thoreau, Henry David", contributor.name)
-        eq_(None, contributor.display_name)
-
-        names = subject_names[spot_check_id]
-        eq_("American Literature", names[('LCC', 'PS')])
-        weights = subject_weights[spot_check_id]
-        eq_(10, weights[('LCC', 'PS')])
-
-        has_ratings_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
-        has_no_ratings_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        eq_({}, ratings_by_id[has_no_ratings_id])
-        ratings = ratings_by_id[has_ratings_id]
-        eq_(0.6, ratings[None])
-        eq_(0.25, ratings[Measurement.POPULARITY])
-        eq_(0.3333, ratings[Measurement.QUALITY])
-
     def test_extract_metadata(self):
 
-        data, status_messages = OPDSImporter.extract_metadata(
-            DataSource.NYT, self.content_server_mini_feed
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        data, status_messages = importer.extract_metadata(
+            self.content_server_mini_feed
         )
         m1, m2 = sorted(data, key=lambda x:x.title)
         eq_("The Green Mouse", m2.title)
@@ -178,11 +149,10 @@ class TestOPDSImporter(DatabaseTest):
         eq_(1, r2.weight)
 
 
-    def test_ratings_become_measurements(self):
+    def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        imported, messages = DetailedOPDSImporter(
-            self._db, feed).import_from_feed()
+        imported, messages = OPDSImporter(self._db).import_from_feed(feed)
 
         eq_(DataSource.GUTENBERG, imported[0].data_source.name)
         eq_(Edition.PERIODICAL_MEDIUM, imported[0].medium)
@@ -248,11 +218,10 @@ class TestOPDSImporter(DatabaseTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported, messages = DetailedOPDSImporter(
-            self._db, feed).import_from_feed()
-        [[status_code, message]] = messages.values()
-        eq_(404, status_code)
-        eq_("I've never heard of this work.", message)
+        imported, messages = OPDSImporter(self._db).import_from_feed(feed)
+        [message] = messages.values()
+        eq_(404, message.status_code)
+        eq_("I've never heard of this work.", message.message)
 
     def test_consolidate_links(self):
 

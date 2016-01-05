@@ -309,6 +309,7 @@ class Metadata(object):
     def __init__(
             self, 
             data_source,
+            license_data_source=None,
             title=None,
             subtitle=None,
             sort_title=None,
@@ -328,11 +329,20 @@ class Metadata(object):
             formats=None,
             last_update_time=None,
     ):
+        # data_source is where the data comes from.
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
         else:
             self.data_source_obj = None
+
+        # license_data_source is where our ability to actually access the
+        # book comes from.
+        self._license_data_source = license_data_source
+        if isinstance(self._license_data_source, DataSource):
+            self.license_data_source_obj = self._license_data_source
+        else:
+            self.license_data_source_obj = None
 
         self.title = title
         self.sort_title = sort_title
@@ -501,6 +511,19 @@ class Metadata(object):
             raise ValueError("Data source %s not found!" % self._data_source)
         return self.data_source_obj
 
+    def license_data_source(self, _db):
+        if not self.license_data_source_obj:
+            if self._license_data_source:
+                obj = DataSource.lookup(_db, self._license_data_source)
+                if not obj:
+                    raise ValueError("Data source %s not found!" % self._license_data_source)
+                if not obj.offers_licenses:
+                    raise ValueError("Data source %s does not offer licenses and cannot be used as a license data source." % self._license_data_Source)
+            else:
+                obj = None
+            self.license_data_source_obj = obj
+        return self.license_data_source_obj
+
     def edition(self, _db, create_if_not_exists=True):
         if not self.primary_identifier:
             raise ValueError(
@@ -520,14 +543,24 @@ class Metadata(object):
                 "Cannot find license pool: metadata has no primary identifier."
             )
 
-        data_source = self.data_source(_db)
-        identifier_obj, ignore = self.primary_identifier.load(_db)
-        license_data_sources = DataSource.license_sources_for(
-            _db, identifier_obj
-        )
-
+        license_pool = None
         is_new = False
-        for license_data_source in license_data_sources:
+
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+
+        license_data_source = self.license_data_source(_db)
+        if license_data_source:
+            can_create_new_pool = True
+            check_for_licenses_from = [license_data_source]
+        else:
+            # We might be able to find an existing license pool for
+            # this book, but we won't be able to create a new one.
+            can_create_new_pool = False
+            check_for_licenses_from = DataSource.license_sources_for(
+                _db, identifier_obj
+            )
+
+        for license_data_source in check_for_licenses_from:
             license_pool = get_one(
                 _db, LicensePool, data_source=license_data_source,
                 identifier=identifier_obj
@@ -535,13 +568,14 @@ class Metadata(object):
             if license_pool:
                 break
 
-        if not license_pool and self.has_open_access_link:
+        if not license_pool and can_create_new_pool:
             license_pool, is_new = LicensePool.for_foreign_id(
-                _db, data_source,
+                _db, self.license_data_source_obj,
                 self.primary_identifier.type, 
                 self.primary_identifier.identifier
             )
-            license_pool.open_access = True
+            if self.has_open_access_link:
+                license_pool.open_access = True
         return license_pool, is_new
 
     def consolidate_identifiers(self):
@@ -717,6 +751,7 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
+        set_trace()
         for link in self.links:
             link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=data_source, 

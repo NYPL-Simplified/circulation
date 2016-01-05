@@ -121,7 +121,7 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None, identifier_mapping=None, force=True):
+                 identifier_mapping=None, force=True):
         self._db = _db
         self.force = True
         self.log = logging.getLogger("OPDS Importer")
@@ -379,8 +379,6 @@ class OPDSImporter(object):
             if v:
                 ratings.append(v)
         data['measurements'] = ratings
-
-        
 
         data['links'] = cls.consolidate_links([
             cls.extract_link(link_tag)
