@@ -743,6 +743,7 @@ class DataSource(Base):
                 (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
+                (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
         ):
 
