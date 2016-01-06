@@ -2682,6 +2682,8 @@ class Work(Base):
         DataSource.OVERDRIVE: 0.4,
         DataSource.THREEM : 0.65,
         DataSource.AXIS_360: 0.65,
+        DataSource.STANDARD_EBOOKS: 0.75,
+        DataSource.UNGLUE_IT: 0.4,
     }
 
     __tablename__ = 'works'
