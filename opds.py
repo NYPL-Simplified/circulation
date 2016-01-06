@@ -1021,7 +1021,8 @@ class AcquisitionFeed(OPDSFeed):
                 top_level_parent = indirect_link
         return top_level_parent
 
-    def license_tags(self, license_pool, loan, hold):
+    @classmethod
+    def license_tags(cls, license_pool, loan, hold):
         # Generate a list of licensing tags. These should be inserted
         # into a <link> tag.
         tags = []
@@ -1030,10 +1031,13 @@ class AcquisitionFeed(OPDSFeed):
         status = None
         since = None
         until = None
-        default_loan_period = license_pool.data_source.default_loan_period
-        default_reservation_period = (
-            license_pool.data_source.default_reservation_period
-        )
+
+        if license_pool.open_access:
+            default_loan_period = default_reservation_period = None
+        else:
+            ds = license_pool.data_source
+            default_loan_period = ds.default_loan_period
+            default_reservation_period = ds.default_reservation_period
         if loan:
             status = 'available'
             since = loan.start
