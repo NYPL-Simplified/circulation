@@ -63,7 +63,7 @@ class TestOPDSImporter(DatabaseTest):
 
     def test_extract_metadata_from_feedparser(self):
 
-        data, status_messages = OPDSImporter.extract_metadata_from_feedparser(
+        data, status_messages, next_link = OPDSImporter.extract_metadata_from_feedparser(
             self.content_server_mini_feed
         )        
 
@@ -217,7 +217,7 @@ class TestOPDSImporter(DatabaseTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported, messages = OPDSImporter(self._db).import_from_feed(feed)
+        imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
         [message] = messages.values()
         eq_(404, message.status_code)
         eq_("I've never heard of this work.", message.message)
