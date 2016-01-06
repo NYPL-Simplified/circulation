@@ -577,6 +577,7 @@ class DataSource(Base):
     NYPL_SHADOWCAT = "NYPL Shadowcat"
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
+    PLYMPTON = "Plympton"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -745,6 +746,7 @@ class DataSource(Base):
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
+                (cls.PLYMPTON, True, False, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -1293,7 +1295,7 @@ class Identifier(Base):
 
         if content or content_path:
             resource.set_fetched_content(media_type, content, content_path)
-        else:
+        elif media_type:
             resource.set_mirrored_elsewhere(media_type)
 
         return link, new_link
@@ -4143,6 +4145,7 @@ class Resource(Base):
         DataSource.GUTENBERG,
         DataSource.GUTENBERG_EPUB_GENERATOR,
         DataSource.PROJECT_GITENBERG,
+        DataSource.PLYMPTON,
         DataSource.STANDARD_EBOOKS,
     ]
 
@@ -5401,6 +5404,7 @@ class Representation(Base):
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    TEXT_PLAIN = u"text/plain"
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE

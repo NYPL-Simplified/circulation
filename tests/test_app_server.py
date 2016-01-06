@@ -16,10 +16,19 @@ from model import (
     UnresolvedIdentifier,
 )
 
+from lane import (
+    Facets,
+    Pagination,
+)
+
 from app_server import (
     URNLookupController,
     ComplaintController,
+    load_facets_from_request,
+    load_pagination_from_request,
 )
+
+from problem_details import INVALID_INPUT
 
 class TestURNLookupController(DatabaseTest):
 
@@ -149,3 +158,44 @@ class TestComplaintController(DatabaseTest):
         [complaint] = self.pool.complaints
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
+
+class TestLoadMethods(object):
+
+    def setup(self):
+        self.app = Flask(__name__)
+
+
+    def test_load_facets_from_request(self):
+        with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
+            facets = load_facets_from_request()
+            eq_(Facets.ORDER_TITLE, facets.order)
+
+        with self.app.test_request_context('/?order=bad_facet'):
+            problemdetail = load_facets_from_request()
+            eq_(INVALID_INPUT.uri, problemdetail.uri)
+
+    def test_load_pagination_from_request(self):
+        with self.app.test_request_context('/?size=50&after=10'):
+            pagination = load_pagination_from_request()
+            eq_(50, pagination.size)
+            eq_(10, pagination.offset)
+
+        with self.app.test_request_context('/'):
+            pagination = load_pagination_from_request()
+            eq_(Pagination.DEFAULT_SIZE, pagination.size)
+            eq_(0, pagination.offset)
+
+        with self.app.test_request_context('/?size=string'):
+            pagination = load_pagination_from_request()
+            eq_(INVALID_INPUT.uri, pagination.uri)
+            eq_("Invalid size: string", pagination.detail)
+
+        with self.app.test_request_context('/?after=string'):
+            pagination = load_pagination_from_request()
+            eq_(INVALID_INPUT.uri, pagination.uri)
+            eq_("Invalid offset: string", pagination.detail)
+
+        with self.app.test_request_context('/?size=5000'):
+            pagination = load_pagination_from_request()
+            eq_(100, pagination.size)
+

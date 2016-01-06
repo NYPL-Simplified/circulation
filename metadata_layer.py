@@ -32,6 +32,7 @@ from model import (
     Identifier,
     LicensePool,
     Subject,
+    Hyperlink,
 )
 
 class SubjectData(object):
@@ -50,7 +51,7 @@ class SubjectData(object):
 class ContributorData(object):
     def __init__(self, sort_name=None, display_name=None, 
                  family_name=None, wikipedia_name=None, roles=None,
-                 lc=None, viaf=None, biography=None):
+                 lc=None, viaf=None, biography=None, aliases=None):
         self.sort_name = sort_name
         self.display_name = display_name
         self.family_name = family_name
@@ -62,6 +63,7 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
         self.biography = biography
+        self.aliases = aliases
 
     def __repr__(self):
         return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
@@ -549,7 +551,10 @@ class Metadata(object):
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
-        )        
+        )    
+        if new:
+            self.apply(edition)
+        return edition, new
 
     def license_pool(self, _db):
         if not self.primary_identifier:
@@ -721,6 +726,8 @@ class Metadata(object):
         )
         if self.title:
             edition.title = self.title
+        if self.subtitle:
+            edition.subtitle = self.subtitle
         if self.language:
             edition.language = self.language
         if self.medium:
@@ -825,6 +832,8 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
+                if pool != None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    pool.open_access = True
             else:
                 resource = None
             if pool:
@@ -894,7 +903,8 @@ class Metadata(object):
                     contributor.display_name = contributor_data.display_name
                 if contributor_data.biography:
                     contributor.biography = contributor_data.biography
-
+                if contributor_data.aliases:
+                    contributor.aliases = contributor_data.aliases
             else:
                 self.log.info(
                     "Not registering %s because no sort name, LC, or VIAF",

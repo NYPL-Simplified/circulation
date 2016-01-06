@@ -195,6 +195,12 @@ class Classifier(object):
         return None
 
     @classmethod
+    def genre_match(cls, query):
+        """Does this query string match a particular Genre, and which part
+        of the query matches?"""
+        return None, None
+
+    @classmethod
     def is_fiction(cls, identifier, name):
         """Is this identifier+name particularly indicative of fiction?
         How about nonfiction?
@@ -215,6 +221,12 @@ class Classifier(object):
         elif 'young adult' in name or "YA" in name.original:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
+
+    @classmethod
+    def audience_match(cls, query):
+        """Does this query string match a particular Audience, and which
+        part of the query matches?"""
+        return (None, None)
 
     @classmethod
     def target_age(cls, identifier, name):
@@ -2761,6 +2773,19 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         return use
 
     @classmethod
+    def audience_match(cls, query):
+        audience = None
+        audience_words = None
+        audience = cls.audience(None, query)
+        if audience:
+            for audience_keywords in [cls.JUVENILE_INDICATORS, cls.YOUNG_ADULT_INDICATORS]:
+                match = audience_keywords.search(query)
+                if match:
+                    audience_words = match.group()
+                    break
+        return (audience, audience_words)
+
+    @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         matches = Counter()
         match_against = [name]
@@ -2789,6 +2814,21 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                 break
         return most_specific_genre
 
+    @classmethod
+    def genre_match(cls, query):
+        genre = None
+        genre_words = None
+        genre = cls.genre(None, query)
+        if genre:
+            for kwlist in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
+                if genre in kwlist.keys():
+                    genre_keywords = kwlist[genre]
+                    match = genre_keywords.search(query)
+                    if match:
+                        genre_words = match.group()
+                        break
+        return (genre, genre_words)
+        
 
 class LCSHClassifier(KeywordBasedClassifier):
     pass
