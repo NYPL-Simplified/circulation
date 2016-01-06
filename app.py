@@ -56,7 +56,7 @@ def requires_auth(f):
     def decorated(*args, **kwargs):
         patron = app.manager.index_controller.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
-            return patron
+            return patron.response
         elif isinstance(patron, Response):
             return patron
         else:

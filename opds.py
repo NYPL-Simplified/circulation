@@ -357,6 +357,8 @@ class CirculationManagerAnnotator(Annotator):
                     self.fulfill_link(
                         data_source_name, 
                         identifier_identifier, 
+                        active_license_pool,
+                        active_loan,
                         active_loan.fulfillment.delivery_mechanism
                     )
                 )
@@ -368,7 +370,10 @@ class CirculationManagerAnnotator(Annotator):
                     fulfill_links.append(
                         self.fulfill_link(
                             data_source_name, 
-                            identifier_identifier, lpdm.delivery_mechanism
+                            identifier_identifier, 
+                            active_license_pool,
+                            active_loan,
+                            lpdm.delivery_mechanism
                         )
                     )
                                                
@@ -423,7 +428,7 @@ class CirculationManagerAnnotator(Annotator):
         return borrow_link
 
     def fulfill_link(self, data_source_name, identifier_identifier, 
-                     delivery_mechanism):
+                     license_pool, active_loan, delivery_mechanism):
         """Create a new fulfillment link."""
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
@@ -443,11 +448,9 @@ class CirculationManagerAnnotator(Annotator):
             rel=rel, href=fulfill_url,
             types=format_types
         )
-        always_available = E._makeelement(
-            "{%s}availability" % opds_ns, status="available"
-        )
-        link_tag.append(always_available)
-        print etree.tostring(link_tag)
+
+        children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
+        link_tag.extend(children)
         return link_tag
 
     def open_access_link(self, lpdm):
