@@ -442,6 +442,9 @@ class Loan(Base):
         """Give or estimate the time at which the loan will end."""
         if self.end:
             return self.end
+        if default_loan_period is None:
+            # This loan will last forever.
+            return None
         start = self.start or datetime.datetime.utcnow()
         return start + default_loan_period
 
@@ -516,6 +519,10 @@ class Hold(Base):
         if self.end:
             # Whew, the server provided its own estimate.
             return self.end
+
+        if default_reservation_period is None:
+            # This hold has no definite end date.
+            return None
 
         start = datetime.datetime.utcnow()
         licenses_available = self.license_pool.licenses_owned
