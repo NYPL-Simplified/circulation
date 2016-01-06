@@ -2,7 +2,6 @@ import datetime
 import os
 import re
 from lxml import etree
-from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
@@ -138,7 +137,7 @@ class TestOPDS(DatabaseTest):
         tomorrow_s = _strftime(tomorrow)
         ac1 = parser._xpath1(acq1, "opds:availability")
         eq_(now_s, ac1.attrib['since'])
-        assert not 'until' in ac1.attrib
+        assert 'until' not in ac1.attrib
 
         ac2 = parser._xpath1(acq2, "opds:availability")
         eq_(now_s, ac2.attrib['since'])
