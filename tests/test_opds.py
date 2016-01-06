@@ -1,5 +1,7 @@
+import datetime
 import os
 import re
+from lxml import etree
 from nose.tools import (
     set_trace,
     eq_,
@@ -18,6 +20,14 @@ from ..core.model import (
 from ..core.classifier import (
     Classifier,
     Fantasy,
+)
+
+from ..core.opds import (
+    _strftime
+)
+
+from ..core.opds_import import (
+    OPDSXMLParser
 )
 
 from ..circulation import CirculationAPI
@@ -83,27 +93,55 @@ class TestOPDS(DatabaseTest):
 
     def test_active_loan_feed(self):
         patron = self.default_patron
-        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
         # Nothing in the feed.
-        feed = feedparser.parse(unicode(feed))
+        raw = unicode(raw)
+        feed = feedparser.parse(raw)
         eq_(0, len(feed['entries']))
 
-        work = self._work(language="eng", with_open_access_download=True)
-        work.license_pools[0].loan_to(patron)
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
+
+        # A loan of an open-access book is open-ended.
+        work1 = self._work(language="eng", with_open_access_download=True)
+        loan1 = work1.license_pools[0].loan_to(patron, start=now)
+
+        # A loan of some other kind of book
+        work2 = self._work(language="eng", with_license_pool=True)
+        loan2 = work2.license_pools[0].loan_to(patron, start=now, end=tomorrow)
         unused = self._work(language="eng", with_open_access_download=True)
 
         # Get the feed.
-        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        feed = feedparser.parse(unicode(feed))
+        raw = unicode(feed_obj)
+        feed = feedparser.parse(raw)
 
-        # The only entry in the feed is the work currently out on loan
+        # The only entries in the feed is the work currently out on loan
         # to this patron.
-        eq_(1, len(feed['entries']))
-        eq_(work.title, feed['entries'][0]['title'])
+        eq_(2, len(feed['entries']))
+        e1, e2 = sorted(feed['entries'], key=lambda x: x['title'])
+        eq_(work1.title, e1['title'])
+        eq_(work2.title, e2['title'])
 
+        # Make sure that the start and end dates from the loan are present
+        # in an <opds:availability> child of the acquisition link.
+        tree = etree.fromstring(raw)
+        parser = OPDSXMLParser()
+        [acq1, acq2] = parser._xpath(
+            tree, "//atom:entry/atom:link[@rel='http://opds-spec.org/acquisition']"
+        )
 
+        now_s = _strftime(now)
+        tomorrow_s = _strftime(tomorrow)
+        ac1 = parser._xpath1(acq1, "opds:availability")
+        eq_(now_s, ac1.attrib['since'])
+        assert 'until' not in ac1.attrib
+
+        ac2 = parser._xpath1(acq2, "opds:availability")
+        eq_(now_s, ac2.attrib['since'])
+        eq_(tomorrow_s, ac2.attrib['until'])
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
@@ -131,3 +169,4 @@ class TestOPDS(DatabaseTest):
 
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
+
