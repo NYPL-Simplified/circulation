@@ -1,5 +1,7 @@
 import os
 import re
+from lxml import etree
+from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
@@ -18,6 +20,10 @@ from ..core.model import (
 from ..core.classifier import (
     Classifier,
     Fantasy,
+)
+
+from ..core.opds_import import (
+    OPDSXMLParser
 )
 
 from ..circulation import CirculationAPI
@@ -83,27 +89,39 @@ class TestOPDS(DatabaseTest):
 
     def test_active_loan_feed(self):
         patron = self.default_patron
-        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
         # Nothing in the feed.
-        feed = feedparser.parse(unicode(feed))
+        raw = unicode(raw)
+        feed = feedparser.parse(raw)
         eq_(0, len(feed['entries']))
 
         work = self._work(language="eng", with_open_access_download=True)
-        work.license_pools[0].loan_to(patron)
+        loan = work.license_pools[0].loan_to(patron)
         unused = self._work(language="eng", with_open_access_download=True)
 
         # Get the feed.
-        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        feed = feedparser.parse(unicode(feed))
+        raw = unicode(feed_obj)
+        feed = feedparser.parse(raw)
 
         # The only entry in the feed is the work currently out on loan
         # to this patron.
         eq_(1, len(feed['entries']))
         eq_(work.title, feed['entries'][0]['title'])
 
-
+        # Make sure that the start and end dates from the loan are present
+        # in an <opds:availability> child of the acquisition link.
+        tree = etree.fromstring(raw)
+        parser = OPDSXMLParser()
+        acquisition = parser._xpath1(
+            tree, "//atom:entry/atom:link[@rel='http://opds-spec.org/acquisition']"
+        )
+        availability = parser._xpath1(
+            acquisition, "opds:availability"
+        )
+        pass
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
@@ -131,3 +149,4 @@ class TestOPDS(DatabaseTest):
 
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
+
