@@ -81,6 +81,9 @@ class CirculationManagerAnnotator(Annotator):
             languages = None
         return (lane_name, languages)
 
+    def default_lane_url(self):
+        return self.cdn_url_for('index')
+
     def facet_url(self, facets):
         lane_name, languages = self._lane_name_and_languages
         kwargs = dict(facets.items())
