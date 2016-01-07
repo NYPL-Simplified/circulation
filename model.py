@@ -4984,6 +4984,10 @@ class LicensePool(Base):
             _db, RightsStatus, uri=uri,
             create_method_kwargs=dict(name=name))
         self.rights_status = status
+        if status.uri in RightsStatus.OPEN_ACCESS:
+            self.open_access = True
+        else:
+            self.open_access = False
         return status
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
@@ -5192,9 +5196,37 @@ class RightsStatus(Base):
     # Public domain in some unknown territory
     PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
+    # Creative Commons Attribution (CC BY)
+    CC_BY = u"http://librarysimplified.org/terms/rights-status/cc-by"
+    
+    # Creative Commons Attribution-ShareAlike (CC BY-SA)
+    CC_BY_SA = u"http://librarysimplified.org/terms/rights-status/cc-by-sa"
+
+    # Creative Commons Attribution-NoDerivs (CC BY-ND)
+    CC_BY_ND = u"http://librarysimplified.org/terms/rights-status/cc-by-nd"
+
+    # Creative Commons Attribution-NonCommercial (CC BY-NC)
+    CC_BY_NC = u"http://librarysimplified.org/terms/rights-status/cc-by-nc"
+
+    # Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)
+    CC_BY_NC_SA = u"http://librarysimplified.org/terms/rights-status/cc-by-nc-sa"
+
+    # Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)
+    CC_BY_NC_ND = u"http://librarysimplified.org/terms/rights-status/cc-by-nc-nd"
+
     # Unknown copyright status.
     UNKNOWN = u"http://librarysimplified.org/terms/rights-status/unknown"
 
+    OPEN_ACCESS = [
+        PUBLIC_DOMAIN_USA,
+        CC_BY,
+        CC_BY_SA,
+        CC_BY_ND,
+        CC_BY_NC,
+        CC_BY_NC_SA,
+        CC_BY_NC_ND,
+    ]
+    
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
 
@@ -5208,6 +5240,32 @@ class RightsStatus(Base):
     # One RightsStatus may apply to many LicensePools.
     licensepools = relationship("LicensePool", backref="rights_status")
 
+    @classmethod
+    def rights_uri_from_string(cls, rights):
+        if rights == 'Public domain in the USA.':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights == 'Public domain in the United States.':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights.startswith('Public domain'):
+            return RightsStatus.PUBLIC_DOMAIN_UNKNOWN
+        elif rights.startswith('Copyrighted.'):
+            return RightsStatus.IN_COPYRIGHT
+        elif rights == 'CC BY':
+            return RightsStatus.CC_BY
+        elif rights == 'CC BY-SA':
+            return RightsStatus.CC_BY_SA
+        elif rights == 'CC BY-ND':
+            return RightsStatus.CC_BY_ND
+        elif rights == 'CC BY-NC':
+            return RightsStatus.CC_BY_NC
+        elif rights == 'CC BY-NC-SA':
+            return RightsStatus.CC_BY_NC_SA
+        elif rights == 'CC BY-NC-ND':
+            return RightsStatus.CC_BY_NC_ND
+        else:
+            return RightsStatus.UNKNOWN
+
+    
 class CirculationEvent(Base):
 
     """Changes to a license pool's circulation status.

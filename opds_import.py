@@ -40,6 +40,7 @@ from model import (
     Representation,
     Resource,
     Subject,
+    RightsStatus,
 )
 from opds import OPDSFeed
 
@@ -197,7 +198,7 @@ class OPDSImporter(object):
         for k, v in d2.items():
             if k in new_dict and isinstance(v, list):
                 new_dict[k].extend(v)
-            else:
+            elif k not in new_dict or v != None:
                 new_dict[k] = v
         return new_dict
 
@@ -323,6 +324,9 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
+        rights = entry.get('rights', "")
+        rights_uri = RightsStatus.rights_uri_from_string(rights)
+
         kwargs = dict(
             license_data_source=license_data_source,
             title=title,
@@ -330,6 +334,7 @@ class OPDSImporter(object):
             language=language,
             publisher=publisher,
             links=links,
+            rights_uri=rights_uri,
             last_update_time=last_update_time,
         )
         return identifier, kwargs, status_message
@@ -374,7 +379,7 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
 
-        data['links'] = cls.consolidate_links([
+        data['links'], data['rights_uri'] = cls.consolidate_links([
             cls.extract_link(link_tag, feed_url)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
@@ -468,10 +473,15 @@ class OPDSImporter(object):
         rel = attr.get('rel')
         media_type = attr.get('type')
         href = attr.get('href')
+        rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
+        if rights:
+            rights_uri = RightsStatus.rights_uri_from_string(rights)
+        else:
+            rights_uri = None
         if feed_url and not urlparse(href).netloc:
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
-        return LinkData(rel=rel, href=href, media_type=media_type)
+        return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
 
     @classmethod
     def consolidate_links(cls, links):
@@ -481,10 +491,17 @@ class OPDSImporter(object):
         thumbnail is assumed to be the thumbnail of the image.
 
         Similarly if link n is a thumbnail and link n+1 is an image.
+
+        Also, extract rights from each link if present and determine overall
+        rights for the entry.
         """
+        rights = set()
         new_links = list(links)
         next_link_already_handled = False
         for i, link in enumerate(links):
+
+            if link.rights_uri:
+                rights.add(link.rights_uri)
 
             if link.rel not in (Hyperlink.THUMBNAIL_IMAGE, Hyperlink.IMAGE):
                 # This is not any kind of image. Ignore it.
@@ -523,7 +540,20 @@ class OPDSImporter(object):
             image_link.thumbnail = thumbnail_link
             new_links.remove(thumbnail_link)
             next_link_already_handled = True
-        return new_links
+
+        if len(rights) == 1:
+            # All links with rights have the same rights status, so make that
+            # the rights status for the edition.
+            edition_rights = rights.pop()
+        elif len(rights) > 0:
+            # Some of the links have conflicting rights, so we can't determine
+            # the rights for the edition.
+            edition_rights = RightsStatus.UNKNOWN
+        else:
+            # None of the links have rights status, but there might be rights 
+            # information elsewhere in the entry.
+            edition_rights = None
+        return new_links, edition_rights
 
     @classmethod
     def extract_measurement(cls, rating_tag):
@@ -554,9 +584,9 @@ class OPDSImportMonitor(Monitor):
             keep_timestamp=keep_timestamp)
 
     def follow_one_link(self, link):
+        self.log.info("Following next link: %s", link)
         response = requests.get(link)
         imported, messages, next_links = self.importer.import_from_feed(response.content)
-        self.log.info("Following next link: %s", link)
         self._db.commit()
         
         if len(imported) == 0:

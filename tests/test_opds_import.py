@@ -28,6 +28,7 @@ from model import (
     Measurement,
     Representation,
     Subject,
+    RightsStatus,
 )
 
 class TestOPDSImporter(DatabaseTest):
@@ -231,7 +232,7 @@ class TestOPDSImporter(DatabaseTest):
                              Hyperlink.OPEN_ACCESS_DOWNLOAD]
         ]
         old_link = links[2]
-        links = OPDSImporter.consolidate_links(links)
+        links, rights = OPDSImporter.consolidate_links(links)
         eq_([Hyperlink.OPEN_ACCESS_DOWNLOAD,
              Hyperlink.IMAGE,
              Hyperlink.OPEN_ACCESS_DOWNLOAD], [x.rel for x in links])
@@ -245,7 +246,7 @@ class TestOPDSImporter(DatabaseTest):
                              Hyperlink.IMAGE]
         ]
         t1, i1, t2, i2 = links
-        links = OPDSImporter.consolidate_links(links)
+        links, rights = OPDSImporter.consolidate_links(links)
         eq_([Hyperlink.IMAGE,
              Hyperlink.IMAGE], [x.rel for x in links])
         eq_(t1, i1.thumbnail)
@@ -257,8 +258,38 @@ class TestOPDSImporter(DatabaseTest):
                              Hyperlink.IMAGE]
         ]
         t1, i1, i2 = links
-        links = OPDSImporter.consolidate_links(links)
+        links, rights = OPDSImporter.consolidate_links(links)
         eq_([Hyperlink.IMAGE,
              Hyperlink.IMAGE], [x.rel for x in links])
         eq_(t1, i1.thumbnail)
         eq_(None, i2.thumbnail)
+
+    def test_consolidate_links_rights(self):
+
+        links = [LinkData(href=self._url, 
+                          rel=Hyperlink.CANONICAL, 
+                          rights_uri=RightsStatus.PUBLIC_DOMAIN_USA, 
+                          media_type=Representation.EPUB_MEDIA_TYPE)]
+
+        links, rights = OPDSImporter.consolidate_links(links)
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, rights)
+
+        links = [LinkData(href=self._url, 
+                          rel=Hyperlink.CANONICAL, 
+                          rights_uri=RightsStatus.PUBLIC_DOMAIN_USA, 
+                          media_type=Representation.EPUB_MEDIA_TYPE),
+                 LinkData(href=self._url,
+                          rel=Hyperlink.CANONICAL, 
+                          rights_uri=RightsStatus.PUBLIC_DOMAIN_UNKNOWN, 
+                          media_type=Representation.EPUB_MEDIA_TYPE)]
+
+        links, rights = OPDSImporter.consolidate_links(links)
+        eq_(RightsStatus.UNKNOWN, rights)
+
+        links = [LinkData(href=self._url, 
+                          rel=Hyperlink.CANONICAL, 
+                          media_type=Representation.EPUB_MEDIA_TYPE)]
+
+        links, rights = OPDSImporter.consolidate_links(links)
+        eq_(None, rights)
+
