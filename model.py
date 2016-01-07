@@ -2684,6 +2684,7 @@ class Work(Base):
         DataSource.AXIS_360: 0.65,
         DataSource.STANDARD_EBOOKS: 0.75,
         DataSource.UNGLUE_IT: 0.4,
+        DataSource.PLYMPTON: 0.6,
     }
 
     __tablename__ = 'works'
