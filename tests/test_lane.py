@@ -425,6 +425,33 @@ class TestLanes(DatabaseTest):
             subgenre_behavior=Lane.IN_SUBLANES,
             sublanes=[urban_fantasy_lane]
         )
+    def test_lane_query_with_configured_opds(self):
+        """The appropriate opds entry is deferred during querying.
+        """
+        original_setting = Configuration.DEFAULT_OPDS_FORMAT
+        lane = Lane(self._db, "Everything")
+
+        # Verbose config doesn't query simple OPDS entries.
+        Configuration.DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
+        works_query_str = str(lane.works())
+        mw_query_str = str(lane.materialized_works())
+        
+        assert "verbose_opds_entry" in works_query_str
+        assert "verbose_opds_entry" in mw_query_str
+        assert "works.simple_opds_entry" not in works_query_str
+        assert "simple_opds_entry" not in mw_query_str
+
+        # Simple config doesn't query verbose OPDS entries.
+        Configuration.DEFAULT_OPDS_FORMAT = "simple_opds_entry"
+        works_query_str = str(lane.works())
+        mw_query_str = str(lane.materialized_works())
+
+        assert "works.simple_opds_entry" in works_query_str
+        assert "simple_opds_entry" in mw_query_str
+        assert "verbose_opds_entry" not in works_query_str
+        assert "verbose_opds_entry" not in mw_query_str
+
+        Configuration.DEFAULT_OPDS_FORMAT = original_setting
 
 
 class TestLanesQuery(DatabaseTest):
