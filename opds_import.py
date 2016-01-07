@@ -235,7 +235,7 @@ class OPDSImporter(object):
         # Some OPDS feeds (eg Standard Ebooks) contain relative urls, so we need the
         # feed's self URL to extract links.
         links = [child.attrib for child in root.getroot() if 'link' in child.tag]
-        self_links = [link['href'] for link in links if link['rel'] == 'self']
+        self_links = [link['href'] for link in links if link.get('rel') == 'self']
         if self_links:
             feed_url = self_links[0]
         else:
