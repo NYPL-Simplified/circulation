@@ -150,22 +150,17 @@ class TestOPDS(DatabaseTest):
         eq_(tomorrow_s, has_until.attrib['until'])
 
     def test_loan_feed_includes_patron(self):
-        patron = self.default_patron
-        patron.username = "bellhooks"
-
-        work1 = self._work(language="eng", with_open_access_download=True)
-        now = datetime.datetime.utcnow()
-        loan1 = work1.license_pools[0].loan_to(patron, start=now)
+        patron = self._patron()
+        patron.username = u'bellhooks'
+        patron.authorization_identifier = u'987654321'
 
         feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw_feed = unicode(feed_obj)
-        feed = feedparser.parse(raw_feed)
+        raw = unicode(feed_obj)
+        feed_details = feedparser.parse(raw)['feed']
 
-        assert 'simplified:patron' in raw_feed
-        assert feed['feed']['simplified_authorization_identifier'] is not None
-        eq_(u'bellhooks', feed['feed']['simplified_username'])
-        eq_(u'200', feed['feed']['simplified_authorization_identifier'])
+        eq_(patron.username, feed_details['simplified_patron']['username'])
+        eq_(u'987654321', feed_details['simplified_patron']['authorization_identifier'])
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)

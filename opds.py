@@ -477,18 +477,13 @@ class CirculationManagerAnnotator(Annotator):
         return link_tag
 
     def add_patron(self, feed_obj):
-        patron_tag = E._makeelement("{%s}patron" % simplified_ns)
+        patron_details = {}
+        if self.patron.username:
+            patron_details['username'] = self.patron.username
+        if self.patron.authorization_identifier:
+            patron_details['authorization_identifier'] = self.patron.authorization_identifier
 
-        username_tag = E._makeelement("{%s}username" % simplified_ns)
-        username_tag.text = self.patron.username
-        patron_tag.append(username_tag)
-
-        auth_id_tag = E._makeelement(
-            "{%s}authorization_identifier" % simplified_ns
-        )
-        auth_id_tag.text = self.patron.authorization_identifier
-        patron_tag.append(auth_id_tag)
-
+        patron_tag = E._makeelement("{%s}patron" % simplified_ns, patron_details)
         feed_obj.feed.append(patron_tag)
 
 
