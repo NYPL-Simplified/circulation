@@ -5225,6 +5225,9 @@ class RightsStatus(Base):
     # Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)
     CC_BY_NC_ND = u"http://librarysimplified.org/terms/rights-status/cc-by-nc-nd"
 
+    # Open access download but no explicit license
+    GENERIC_OPEN_ACCESS = u"http://librarysimplified.org/terms/rights-status/generic-open-access"
+
     # Unknown copyright status.
     UNKNOWN = u"http://librarysimplified.org/terms/rights-status/unknown"
 
@@ -5236,7 +5239,13 @@ class RightsStatus(Base):
         CC_BY_NC,
         CC_BY_NC_SA,
         CC_BY_NC_ND,
+        GENERIC_OPEN_ACCESS,
     ]
+
+    DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
+        DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
+        DataSource.PLYMPTON: CC_BY_NC,
+    }
     
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)

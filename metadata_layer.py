@@ -839,6 +839,13 @@ class Metadata(object):
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
 
+        if self.rights_uri == RightsStatus.UNKNOWN and data_source:
+            # We haven't been able to determine rights from the metadata, so use the default rights
+            # for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            if default:
+                self.rights_uri = default
+
         for format in self.formats:
             if format.link:
                 link = format.link
@@ -850,8 +857,10 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
-                if pool != None and pool.rights_status == RightsStatus.UNKNOWN and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    pool.set_rights_status(RightsStatus.PUBLIC_DOMAIN_USA)
+                if self.rights_uri == RightsStatus.UNKNOWN and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
             else:
                 resource = None
             if pool:
