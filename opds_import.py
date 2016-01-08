@@ -379,7 +379,7 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
 
-        data['links'], data['rights_uri'] = cls.consolidate_links([
+        data['links'] = cls.consolidate_links([
             cls.extract_link(link_tag, feed_url)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
@@ -491,17 +491,10 @@ class OPDSImporter(object):
         thumbnail is assumed to be the thumbnail of the image.
 
         Similarly if link n is a thumbnail and link n+1 is an image.
-
-        Also, extract rights from each link if present and determine overall
-        rights for the entry.
         """
-        rights = set()
         new_links = list(links)
         next_link_already_handled = False
         for i, link in enumerate(links):
-
-            if link.rights_uri:
-                rights.add(link.rights_uri)
 
             if link.rel not in (Hyperlink.THUMBNAIL_IMAGE, Hyperlink.IMAGE):
                 # This is not any kind of image. Ignore it.
@@ -541,19 +534,7 @@ class OPDSImporter(object):
             new_links.remove(thumbnail_link)
             next_link_already_handled = True
 
-        if len(rights) == 1:
-            # All links with rights have the same rights status, so make that
-            # the rights status for the edition.
-            edition_rights = rights.pop()
-        elif len(rights) > 0:
-            # Some of the links have conflicting rights, so we can't determine
-            # the rights for the edition.
-            edition_rights = RightsStatus.UNKNOWN
-        else:
-            # None of the links have rights status, but there might be rights 
-            # information elsewhere in the entry.
-            edition_rights = None
-        return new_links, edition_rights
+        return new_links
 
     @classmethod
     def extract_measurement(cls, rating_tag):
