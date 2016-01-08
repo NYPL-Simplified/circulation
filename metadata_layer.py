@@ -393,16 +393,20 @@ class Metadata(object):
         self.rights_uri = rights_uri or RightsStatus.UNKNOWN
 
         self.last_update_time = last_update_time
-
-        # An open-access link or open-access rights implies a FormatData object.
         for link in self.links:
+            # If a link has a rights_uri, make that the overall rights_uri. 
+            # If there are multiple links with a rights_uri, they should be
+            # split into separate metadata objects.
+            if link.rights_uri:
+                self.rights_uri = link.rights_uri
+
+            # An open-access link or open-access rights implies a FormatData object.
             open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
                                 and link.href)
             open_access_rights_link = (link.media_type in Representation.SUPPORTED_BOOK_MEDIA_TYPES 
                                        and link.href
                                        and self.rights_uri in RightsStatus.OPEN_ACCESS)
             
- 
             if open_access_link or open_access_rights_link:
                 self.formats.append(
                     FormatData(
@@ -614,10 +618,12 @@ class Metadata(object):
                     break
 
         if not license_pool and can_create_new_pool:
+            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, self.license_data_source_obj,
                 self.primary_identifier.type, 
-                self.primary_identifier.identifier
+                self.primary_identifier.identifier,
+                rights_status=rights_status,
             )
             if self.has_open_access_link:
                 license_pool.open_access = True
@@ -832,7 +838,7 @@ class Metadata(object):
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
-        
+
         for format in self.formats:
             if format.link:
                 link = format.link

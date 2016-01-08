@@ -138,8 +138,7 @@ class OPDSImporter(object):
         imported = []
         for metadata in metadata_objs:
             # Locate or create a LicensePool for this book.
-            license_pool, ignore = metadata.license_pool(self._db)
-
+            license_pool, is_new_license_pool = metadata.license_pool(self._db)
             # Locate or create an Edition for this book.
             edition, is_new_edition = metadata.edition(self._db)
             metadata.apply(edition, self.metadata_client)
@@ -160,6 +159,7 @@ class OPDSImporter(object):
             if edition and is_new_edition:
                 imported.append(edition)
         return imported, messages, next_links
+
 
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of

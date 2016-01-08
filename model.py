@@ -4847,7 +4847,7 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):
+    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id, rights_status=None):
         """Create a LicensePool for the given foreign ID."""
 
         # Get the DataSource.
@@ -4875,10 +4875,14 @@ class LicensePool(Base):
             _db, foreign_id_type, foreign_id
             )
 
+        kw = dict(data_source=data_source, identifier=identifier)
+        if rights_status:
+            kw['rights_status'] = rights_status
+
         # Get the LicensePool that corresponds to the DataSource and
         # the Identifier.
         license_pool, was_new = get_one_or_create(
-            _db, LicensePool, data_source=data_source, identifier=identifier)
+            _db, LicensePool, **kw)
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
@@ -5249,6 +5253,8 @@ class RightsStatus(Base):
         if rights == 'public domain in the usa.':
             return RightsStatus.PUBLIC_DOMAIN_USA
         elif rights == 'public domain in the united states.':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights == 'pd-us':
             return RightsStatus.PUBLIC_DOMAIN_USA
         elif rights.startswith('public domain'):
             return RightsStatus.PUBLIC_DOMAIN_UNKNOWN
