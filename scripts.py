@@ -281,14 +281,13 @@ class LaneSweeperScript(Script):
             queue = new_queue
         ctx.pop()
         end = time.time()
-        self.log.debug("Entire process took %.2fsec", (end-begin))
+        self.log.info("Entire process took %.2fsec", (end-begin))
 
     def should_process_lane(self, lane):
         return True
 
     def process_lane(self, lane):
         pass
-
 
 class CacheRepresentationPerLane(LaneSweeperScript):
 
@@ -326,7 +325,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
         lane_key = "%s/%s" % (lane.language_key, lane.name)
-        self.log.debug(
+        self.log.info(
             "Generating feed(s) for %s", lane_key
         )
         cached_feeds = self.do_generate(lane)
@@ -334,7 +333,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         if not isinstance(cached_feeds, list):
             cached_feeds = [cached_feeds]
         total_size = sum(len(x.content) for x in cached_feeds if x)
-        self.log.debug(
+        self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
             len(cached_feeds), lane_key, (b-a), total_size
         )
