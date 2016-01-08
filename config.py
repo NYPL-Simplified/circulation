@@ -69,7 +69,11 @@ class Configuration(CoreConfiguration):
 
     @classmethod
     def small_collection_languages(cls):
+        import logging
+        logging.info("In small_collection_languages.")
         value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
+        logging.info("Language policy: %r" % cls.language_policy())
+        logging.info("Small collections: %r" % value)
         if not value:
             return []
         if isinstance(value, list):

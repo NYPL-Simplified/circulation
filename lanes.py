@@ -61,6 +61,8 @@ def make_lanes_default(_db):
     for language_set in Configuration.small_collection_languages():
         languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
+        import logging
+        logging.info("Creating lane for small collection %r" % language_set)
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
     top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
