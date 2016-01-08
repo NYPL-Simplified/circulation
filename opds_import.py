@@ -185,7 +185,6 @@ class OPDSImporter(object):
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
-
             metadata.append(Metadata(**combined))
         return metadata, status_messages, next_links
 
@@ -358,6 +357,13 @@ class OPDSImporter(object):
         # We will fill this dictionary with all the information
         # we can find.
         data = dict()
+
+        alternate_identifiers = []
+        for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
+            v = cls.extract_identifier(id_tag)
+            if v:
+                alternate_identifiers.append(v)
+        data['identifiers'] = alternate_identifiers
            
         data['medium'] = cls.extract_medium(entry_tag)
         
@@ -385,6 +391,15 @@ class OPDSImporter(object):
         ])
         
         return identifier, data
+
+    @classmethod
+    def extract_identifier(cls, identifier_tag):
+        """Turn a <dcterms:identifier> tag into an IdentifierData object."""
+        try:
+            type, identifier = Identifier.type_and_identifier_for_urn(identifier_tag.text.lower())
+            return IdentifierData(type, identifier)
+        except ValueError:
+            return None
 
     @classmethod
     def extract_medium(cls, entry_tag):

@@ -1029,7 +1029,7 @@ class Identifier(Base):
         pass
 
     @classmethod
-    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+    def type_and_identifier_for_urn(cls, identifier_string):
         if not identifier_string:
             return None
         m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
@@ -1056,8 +1056,12 @@ class Identifier(Base):
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
+        return (type, identifier_string)
 
 
+    @classmethod
+    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+        type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
         if must_support_license_pools:
             try:
                 ls = DataSource.license_source_for(_db, type)
