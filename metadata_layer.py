@@ -33,6 +33,8 @@ from model import (
     LicensePool,
     Subject,
     Hyperlink,
+    RightsStatus,
+    Representation,
 )
 
 class SubjectData(object):
@@ -184,7 +186,7 @@ class IdentifierData(object):
 
 class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, content=None,
-                 thumbnail=None):
+                 thumbnail=None, rights_uri=None):
         if not rel:
             raise ValueError("rel is required")
 
@@ -195,6 +197,9 @@ class LinkData(object):
         self.media_type = media_type
         self.content = content
         self.thumbnail = thumbnail
+        # This handles content sources like unglue.it that have rights for each link
+        # rather than each edition.
+        self.rights_uri = rights_uri
 
     def __repr__(self):
         if self.content:
@@ -343,6 +348,7 @@ class Metadata(object):
             measurements=None,
             links=None,
             formats=None,
+            rights_uri=None,
             last_update_time=None,
     ):
         # data_source is where the data comes from.
@@ -384,13 +390,24 @@ class Metadata(object):
         self.links = links or []
         self.measurements = measurements or []
         self.formats = formats or []
+        self.rights_uri = rights_uri or RightsStatus.UNKNOWN
 
         self.last_update_time = last_update_time
-
-        # An open-access link implies a FormatData object.
         for link in self.links:
-            if (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                and link.href):
+            # If a link has a rights_uri, make that the overall rights_uri. 
+            # If there are multiple links with a rights_uri, they should be
+            # split into separate metadata objects.
+            if link.rights_uri:
+                self.rights_uri = link.rights_uri
+
+            # An open-access link or open-access rights implies a FormatData object.
+            open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+                                and link.href)
+            open_access_rights_link = (link.media_type in Representation.SUPPORTED_BOOK_MEDIA_TYPES 
+                                       and link.href
+                                       and self.rights_uri in RightsStatus.OPEN_ACCESS)
+            
+            if open_access_link or open_access_rights_link:
                 self.formats.append(
                     FormatData(
                         content_type=link.media_type,
@@ -552,9 +569,6 @@ class Metadata(object):
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
         )    
-        if new:
-            self.apply(edition)
-        return edition, new
 
     def license_pool(self, _db):
         if not self.primary_identifier:
@@ -604,17 +618,20 @@ class Metadata(object):
                     break
 
         if not license_pool and can_create_new_pool:
+            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, self.license_data_source_obj,
                 self.primary_identifier.type, 
-                self.primary_identifier.identifier
+                self.primary_identifier.identifier,
+                rights_status=rights_status,
             )
             if self.has_open_access_link:
                 license_pool.open_access = True
+            if self.rights_uri:
+                license_pool.set_rights_status(self.rights_uri)
         return license_pool, is_new
 
     def consolidate_identifiers(self):
-        """"""
         by_weight = defaultdict(list)
         for i in self.identifiers:
             by_weight[(i.type, i.identifier)].append(i.weight)
@@ -682,6 +699,7 @@ class Metadata(object):
             replace_contributions=False,
             replace_links=False,
             replace_formats=False,
+            replace_rights=False,
             force=False,
     ):
         """Apply this metadata to the given edition."""
@@ -820,7 +838,14 @@ class Metadata(object):
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
-        
+
+        if self.rights_uri == RightsStatus.UNKNOWN and data_source:
+            # We haven't been able to determine rights from the metadata, so use the default rights
+            # for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            if default:
+                self.rights_uri = default
+
         for format in self.formats:
             if format.link:
                 link = format.link
@@ -832,14 +857,19 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
-                if pool != None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    pool.open_access = True
+                if self.rights_uri == RightsStatus.UNKNOWN and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
             else:
                 resource = None
             if pool:
                 pool.set_delivery_mechanism(
                     format.content_type, format.drm_scheme, resource
                 )
+
+        if pool and replace_rights:
+            pool.set_rights_status(self.rights_uri)
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:

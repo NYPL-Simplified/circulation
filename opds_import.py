@@ -40,6 +40,7 @@ from model import (
     Representation,
     Resource,
     Subject,
+    RightsStatus,
 )
 from opds import OPDSFeed
 
@@ -137,8 +138,7 @@ class OPDSImporter(object):
         imported = []
         for metadata in metadata_objs:
             # Locate or create a LicensePool for this book.
-            license_pool, ignore = metadata.license_pool(self._db)
-
+            license_pool, is_new_license_pool = metadata.license_pool(self._db)
             # Locate or create an Edition for this book.
             edition, is_new_edition = metadata.edition(self._db)
             metadata.apply(edition, self.metadata_client)
@@ -159,6 +159,7 @@ class OPDSImporter(object):
             if edition and is_new_edition:
                 imported.append(edition)
         return imported, messages, next_links
+
 
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
@@ -184,7 +185,6 @@ class OPDSImporter(object):
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
-
             metadata.append(Metadata(**combined))
         return metadata, status_messages, next_links
 
@@ -197,7 +197,7 @@ class OPDSImporter(object):
         for k, v in d2.items():
             if k in new_dict and isinstance(v, list):
                 new_dict[k].extend(v)
-            else:
+            elif k not in new_dict or v != None:
                 new_dict[k] = v
         return new_dict
 
@@ -323,6 +323,9 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
+        rights = entry.get('rights', "")
+        rights_uri = RightsStatus.rights_uri_from_string(rights)
+
         kwargs = dict(
             license_data_source=license_data_source,
             title=title,
@@ -330,6 +333,7 @@ class OPDSImporter(object):
             language=language,
             publisher=publisher,
             links=links,
+            rights_uri=rights_uri,
             last_update_time=last_update_time,
         )
         return identifier, kwargs, status_message
@@ -353,6 +357,13 @@ class OPDSImporter(object):
         # We will fill this dictionary with all the information
         # we can find.
         data = dict()
+
+        alternate_identifiers = []
+        for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
+            v = cls.extract_identifier(id_tag)
+            if v:
+                alternate_identifiers.append(v)
+        data['identifiers'] = alternate_identifiers
            
         data['medium'] = cls.extract_medium(entry_tag)
         
@@ -380,6 +391,15 @@ class OPDSImporter(object):
         ])
         
         return identifier, data
+
+    @classmethod
+    def extract_identifier(cls, identifier_tag):
+        """Turn a <dcterms:identifier> tag into an IdentifierData object."""
+        try:
+            type, identifier = Identifier.type_and_identifier_for_urn(identifier_tag.text.lower())
+            return IdentifierData(type, identifier)
+        except ValueError:
+            return None
 
     @classmethod
     def extract_medium(cls, entry_tag):
@@ -468,10 +488,15 @@ class OPDSImporter(object):
         rel = attr.get('rel')
         media_type = attr.get('type')
         href = attr.get('href')
+        rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
+        if rights:
+            rights_uri = RightsStatus.rights_uri_from_string(rights)
+        else:
+            rights_uri = None
         if feed_url and not urlparse(href).netloc:
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
-        return LinkData(rel=rel, href=href, media_type=media_type)
+        return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
 
     @classmethod
     def consolidate_links(cls, links):
@@ -523,6 +548,7 @@ class OPDSImporter(object):
             image_link.thumbnail = thumbnail_link
             new_links.remove(thumbnail_link)
             next_link_already_handled = True
+
         return new_links
 
     @classmethod
@@ -554,9 +580,9 @@ class OPDSImportMonitor(Monitor):
             keep_timestamp=keep_timestamp)
 
     def follow_one_link(self, link):
+        self.log.info("Following next link: %s", link)
         response = requests.get(link)
         imported, messages, next_links = self.importer.import_from_feed(response.content)
-        self.log.info("Following next link: %s", link)
         self._db.commit()
         
         if len(imported) == 0:
