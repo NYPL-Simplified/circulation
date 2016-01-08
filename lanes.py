@@ -17,17 +17,11 @@ from core.util import LanguageCodes
 
 def make_lanes(_db, definitions=None):
 
-    import logging
-    logging.info("Lane definitions: %r" % definitions)
-
     definitions = definitions or Configuration.policy(
         Configuration.LANES_POLICY
     )
 
-    logging.info("Lane definitions now: %r" % definitions)
-
     if not definitions:
-        logging.info("Making default lane set.")
         lanes = make_lanes_default(_db)
     else:
         lanes = [Lane(_db=_db, **definition) for definition in definitions]
@@ -67,8 +61,6 @@ def make_lanes_default(_db):
     for language_set in Configuration.small_collection_languages():
         languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
-        import logging
-        logging.info("Creating lane for small collection %r" % language_set)
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
     top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
