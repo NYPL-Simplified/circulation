@@ -5491,6 +5491,12 @@ class Representation(Base):
         EPUB_MEDIA_TYPE
     ]
 
+    FILE_EXTENSIONS = {
+        EPUB_MEDIA_TYPE: "epub",
+        PDF_MEDIA_TYPE: "pdf",
+        MP3_MEDIA_TYPE: "mp3",
+    }
+
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
 
