@@ -129,19 +129,25 @@ class TestOPDS(DatabaseTest):
         # in an <opds:availability> child of the acquisition link.
         tree = etree.fromstring(raw)
         parser = OPDSXMLParser()
-        [acq1, acq2] = parser._xpath(
+        acquisitions = parser._xpath(
             tree, "//atom:entry/atom:link[@rel='http://opds-spec.org/acquisition']"
         )
+        eq_(2, len(acquisitions))
 
         now_s = _strftime(now)
         tomorrow_s = _strftime(tomorrow)
-        ac1 = parser._xpath1(acq1, "opds:availability")
-        eq_(now_s, ac1.attrib['since'])
-        assert 'until' not in ac1.attrib
+        availabilities = [
+            parser._xpath1(x, "opds:availability") for x in acquisitions
+        ]
 
-        ac2 = parser._xpath1(acq2, "opds:availability")
-        eq_(now_s, ac2.attrib['since'])
-        eq_(tomorrow_s, ac2.attrib['until'])
+        # One of these availability tags has 'since' but not 'until'.
+        # The other one has both.
+        [no_until] = [x for x in availabilities if 'until' not in x.attrib] 
+        eq_(now_s, no_until.attrib['since'])
+
+        [has_until] = [x for x in availabilities if 'until' in x.attrib]
+        eq_(now_s, has_until.attrib['since'])
+        eq_(tomorrow_s, has_until.attrib['until'])
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
