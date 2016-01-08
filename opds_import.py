@@ -9,6 +9,7 @@ import feedparser
 import logging
 import requests
 import urllib
+from urlparse import urlparse, urljoin
 from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
@@ -230,8 +231,18 @@ class OPDSImporter(object):
         values = {}
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(feed))
+
+        # Some OPDS feeds (eg Standard Ebooks) contain relative urls, so we need the
+        # feed's self URL to extract links.
+        links = [child.attrib for child in root.getroot() if 'link' in child.tag]
+        self_links = [link['href'] for link in links if link.get('rel') == 'self']
+        if self_links:
+            feed_url = self_links[0]
+        else:
+            feed_url = None
+
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail = cls.detail_for_elementtree_entry(parser, entry)
+            identifier, detail = cls.detail_for_elementtree_entry(parser, entry, feed_url)
             if identifier:
                 values[identifier] = detail
         return values
@@ -324,7 +335,7 @@ class OPDSImporter(object):
         return identifier, kwargs, status_message
 
     @classmethod
-    def detail_for_elementtree_entry(cls, parser, entry_tag):
+    def detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
         used as keyword arguments to the Metadata contructor.
@@ -364,7 +375,7 @@ class OPDSImporter(object):
         data['measurements'] = ratings
 
         data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag)
+            cls.extract_link(link_tag, feed_url)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
         
@@ -452,11 +463,14 @@ class OPDSImporter(object):
         )
 
     @classmethod
-    def extract_link(cls, link_tag):
+    def extract_link(cls, link_tag, feed_url=None):
         attr = link_tag.attrib
         rel = attr.get('rel')
         media_type = attr.get('type')
         href = attr.get('href')
+        if feed_url and not urlparse(href).netloc:
+            # This link is relative, so we need to get the absolute url
+            href = urljoin(feed_url, href)
         return LinkData(rel=rel, href=href, media_type=media_type)
 
     @classmethod
