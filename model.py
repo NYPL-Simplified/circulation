@@ -5245,25 +5245,26 @@ class RightsStatus(Base):
 
     @classmethod
     def rights_uri_from_string(cls, rights):
-        if rights == 'Public domain in the USA.':
+        rights = rights.lower()
+        if rights == 'public domain in the usa.':
             return RightsStatus.PUBLIC_DOMAIN_USA
-        elif rights == 'Public domain in the United States.':
+        elif rights == 'public domain in the united states.':
             return RightsStatus.PUBLIC_DOMAIN_USA
-        elif rights.startswith('Public domain'):
+        elif rights.startswith('public domain'):
             return RightsStatus.PUBLIC_DOMAIN_UNKNOWN
-        elif rights.startswith('Copyrighted.'):
+        elif rights.startswith('copyrighted.'):
             return RightsStatus.IN_COPYRIGHT
-        elif rights == 'CC BY':
+        elif rights == 'cc by':
             return RightsStatus.CC_BY
-        elif rights == 'CC BY-SA':
+        elif rights == 'cc by-sa':
             return RightsStatus.CC_BY_SA
-        elif rights == 'CC BY-ND':
+        elif rights == 'cc by-nd':
             return RightsStatus.CC_BY_ND
-        elif rights == 'CC BY-NC':
+        elif rights == 'cc by-nc':
             return RightsStatus.CC_BY_NC
-        elif rights == 'CC BY-NC-SA':
+        elif rights == 'cc by-nc-sa':
             return RightsStatus.CC_BY_NC_SA
-        elif rights == 'CC BY-NC-ND':
+        elif rights == 'cc by-nc-nd':
             return RightsStatus.CC_BY_NC_ND
         else:
             return RightsStatus.UNKNOWN
