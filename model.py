@@ -5487,9 +5487,21 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
+    BOOK_MEDIA_TYPES = [
+        EPUB_MEDIA_TYPE,
+        PDF_MEDIA_TYPE,
+        MP3_MEDIA_TYPE,
+    ]
+
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
     ]
+
+    FILE_EXTENSIONS = {
+        EPUB_MEDIA_TYPE: "epub",
+        PDF_MEDIA_TYPE: "pdf",
+        MP3_MEDIA_TYPE: "mp3",
+    }
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)

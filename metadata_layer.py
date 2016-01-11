@@ -403,7 +403,7 @@ class Metadata(object):
             # An open-access link or open-access rights implies a FormatData object.
             open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
                                 and link.href)
-            open_access_rights_link = (link.media_type in Representation.SUPPORTED_BOOK_MEDIA_TYPES 
+            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
                                        and link.href
                                        and self.rights_uri in RightsStatus.OPEN_ACCESS)
             
