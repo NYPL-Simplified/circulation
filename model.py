@@ -5487,6 +5487,12 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
+    BOOK_MEDIA_TYPES = [
+        EPUB_MEDIA_TYPE,
+        PDF_MEDIA_TYPE,
+        MP3_MEDIA_TYPE,
+    ]
+
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
     ]
