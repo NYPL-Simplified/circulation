@@ -256,7 +256,6 @@ class CirculationManagerAnnotator(Annotator):
                     link = E.link(**d)
                     feed.append(link)
 
-
     def acquisition_links(self, active_license_pool, active_loan, active_hold,
                           feed, data_source_name, identifier_identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
@@ -469,35 +468,8 @@ class CirculationManagerAnnotator(Annotator):
         link_tag.append(always_available)
         return link_tag
 
-    def summary(self, work):
-        """Return an HTML summary of this work."""
-        if work.summary_text:
-            summary = work.summary_text
-            if work.summary:
-                qualities.append(("Summary quality", work.summary.quality))
-        elif work.summary:
-            work.summary_text = work.summary.content
-            summary = work.summary_text
-        else:
-            summary = ""
-        # summary += "<ul>"
-        # for name, value in qualities:
-        #     if isinstance(value, basestring):
-        #         summary += "<li>%s: %s</li>" % (name, value)
-        #     else:
-        #         summary += "<li>%s: %.1f</li>" % (name, value)
-        # summary += "<li>License Source: %s</li>" % active_license_pool.data_source.name
-        # summary += "</ul>"
-        return summary
-
 
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
-
-    # def permalink_for(self, work, license_pool, identifier):
-    #     ds = license_pool.data_source.name
-    #     return self.url_for(
-    #         'loan_or_hold_detail', data_source=ds,
-    #         identifier=identifier.identifier, _external=True)
 
     @classmethod
     def active_loans_for(cls, circulation, patron, test_mode=False):
