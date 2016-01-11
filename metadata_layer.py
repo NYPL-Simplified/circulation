@@ -823,7 +823,8 @@ class Metadata(object):
                 if thumbnail.href == link.href:
                     # The image serves as its own thumbnail. This is a
                     # hacky way to represent this in the database.
-                    link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+                    if link_obj.resource.representation:
+                        link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
                 else:
                     # The thumbnail and image are different.
                     thumbnail_obj, ignore = identifier.add_link(
@@ -832,7 +833,8 @@ class Metadata(object):
                         license_pool=pool, media_type=thumbnail.media_type,
                         content=thumbnail.content
                     )
-                    thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+                    if thumbnail_obj.resource.representation:
+                        thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
         if pool and replace_formats:
             for lpdm in pool.delivery_mechanisms:

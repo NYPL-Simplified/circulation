@@ -151,7 +151,7 @@ class TestOPDSImporter(DatabaseTest):
     def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        imported, messages = OPDSImporter(self._db).import_from_feed(feed)
+        imported, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
 
         [crow, mouse] = sorted(imported, key=lambda x: x.title)
 

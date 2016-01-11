@@ -103,10 +103,12 @@ class TestMetadataImporter(DatabaseTest):
     def test_image_and_thumbnail(self):
         edition = self._edition()
         l2 = LinkData(
-            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/"
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
         )
         l1 = LinkData(
-            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2,
+            media_type=Representation.JPEG_MEDIA_TYPE,
         )
         metadata = Metadata(links=[l1, l2], 
                             data_source=edition.data_source)
