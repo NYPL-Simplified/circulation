@@ -61,8 +61,8 @@ queries = [
         'category': 'Adult Fiction',
         'params': {
             'order': 'author',
-            'availability': 'now',
-            'collection': None
+            'available': 'now',
+            'collection': 'full'
         }
     },
     {
@@ -70,7 +70,7 @@ queries = [
         'category': 'Adult Fiction',
         'params': {
             'order': 'title',
-            'availability': None,
+            'available': 'all',
             'collection': 'main'
         }
     },
@@ -79,7 +79,7 @@ queries = [
         'category': 'Adult Nonfiction',
         'params': {
             'order': 'author',
-            'availability': 'now',
+            'available': 'now',
             'collection': 'main'
         }
     },
@@ -88,8 +88,179 @@ queries = [
         'category': 'Adult Nonfiction',
         'params': {
             'order': 'title',
-            'availability': None,
-            'collection': 'featured'        
+            'available': 'all',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'English Best Sellers',
+        'params': {
+            'order': 'author',
+            'available': 'all',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Young Adult Fiction',
+        'params': {
+            'order': 'added',
+            'available': 'all',
+            'collection': 'main'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Children and Middle Grade',
+        'params': {
+            'order': 'author',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Adventure',
+        'params': {
+            'order': 'author',
+            'available': 'main',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Classics',
+        'params': {
+            'order': 'title',
+            'available': 'now',
+            'collection': 'full'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Police Procedural',
+        'params': {
+            'order': 'title',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Biography & Memoir',
+        'params': {
+            'order': 'author',
+            'available': 'always',
+            'collection': 'main'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Business',
+        'params': {
+            'order': 'added',
+            'available': 'now',
+            'collection': 'full'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Parenting & Family',
+        'params': {
+            'order': 'author',
+            'available': 'all',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Cooking',
+        'params': {
+            'order': 'title',
+            'available': 'all',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Latin American History',
+        'params': {
+            'order': 'author',
+            'available': 'all',
+            'collection': 'main'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Pets',
+        'params': {
+            'order': 'title',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Photography',
+        'params': {
+            'order': 'author',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Music',
+        'params': {
+            'order': 'added',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Life Strategies',
+        'params': {
+            'order': 'title',
+            'available': 'all',
+            'collection': 'main'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Buddhism',
+        'params': {
+            'order': 'author',
+            'available': 'all',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Computers',
+        'params': {
+            'order': 'added',
+            'available': 'now',
+            'collection': 'featured'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'Self Help',
+        'params': {
+            'order': 'author',
+            'available': 'all',
+            'collection': 'full'
+        }
+    },
+    {
+        'language': 'eng',
+        'category': 'True Crime',
+        'params': {
+            'order': 'title',
+            'available': 'all',
+            'collection': 'full'
         }
     }
 ]
