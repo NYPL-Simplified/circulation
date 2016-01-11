@@ -56,7 +56,7 @@ ALREADY_CHECKED_OUT = pd(
       "You have already checked out this book.",
 )
 
-LOAN_LIMIT_REACHED_PROBLEM = pd(
+LOAN_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/loan-limit-reached",
       403,
       "Loan limit reached.",
