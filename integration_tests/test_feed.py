@@ -4,6 +4,7 @@ from nose.tools import (
 )
 from urllib import urlopen
 import feedparser
+import os
 
 from . import CirculationIntegrationTest
 
@@ -26,7 +27,11 @@ class TestFeed(CirculationIntegrationTest):
         eq_(1, len(borrow_links))
 
     def test_genre_feed(self):
-        feed_url = "%sfeed/eng/Romance" % self.url
+        if 'TEST_FEED_PATH' in os.environ:
+            path = os.environ['TEST_FEED_PATH']
+        else:
+            path = "eng/Romance"
+        feed_url = "%sfeed/%s" % (self.url, path)
         feed = urlopen(feed_url).read()
         feed = feedparser.parse(unicode(feed))
         entries = feed['entries']
