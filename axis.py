@@ -1,6 +1,8 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
 
+from sqlalchemy.orm import contains_eager
+
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
@@ -8,7 +10,14 @@ from core.axis import (
     BibliographicParser,
 )
 
-from core.monitor import Monitor
+from core.metadata_layer import (
+    CirculationData,
+)
+
+from core.monitor import (
+    Monitor,
+    IdentifierSweepMonitor,
+)
 
 from core.opds_import import (
     SimplifiedOPDSLookup,
@@ -133,6 +142,57 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def update_licensepools_for_identifiers(self, identifiers):
+        """Update availability information for a list of books.
+
+        If the book has never been seen before, a new LicensePool
+        will be created for the book.
+
+        The book's LicensePool will be updated with current
+        circulation information.
+        """
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+        response = self.availability(title_ids=identifier_strings)
+        parser = BibliographicParser()
+        remainder = set(identifiers)
+        for bibliographic, availability in parser.process_all(response.content):
+            identifier, is_new = bibliographic.primary_identifier.load(self._db)
+            if identifier in remainder:
+                remainder.remove(identifier)
+            pool, is_new = bibliographic.license_pool(self._db)
+            availability.update(pool, is_new)
+
+        # We asked Axis about n books. It sent us n-k responses. Those
+        # k books are the identifiers in `remainder`. These books have
+        # been removed from the collection without us being notified.
+        for removed_identifier in remainder:
+            pool = removed_identifier.licensed_through
+            if not pool:
+                self.log.warn(
+                    "Was about to reap %r but no local license pool.",
+                    removed_identifier
+                )
+                continue
+            if pool.licenses_owned == 0:
+                # Already reaped.
+                continue
+            self.log.info(
+                "Reaping %r", removed_identifier
+            )
+            availability = CirculationData(
+                licenses_owned=0,
+                licenses_available=0,
+                licenses_reserved=0,
+                patrons_in_hold_queue=0
+            )
+            availability.update(pool, False)
+
 class Axis360CirculationMonitor(Monitor):
 
     """Maintain LicensePools for Axis 360 titles.
@@ -188,6 +248,30 @@ class Axis360CirculationMonitor(Monitor):
             )
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
+
+
+class AxisCollectionReaper(IdentifierSweepMonitor):
+    """Check for books that are in the local collection but have left our
+    Axis 360 collection.
+    """
+
+    def __init__(self, _db, interval_seconds=3600*12):
+        super(AxisCollectionReaper, self).__init__(
+            _db, "Axis Collection Reaper", interval_seconds)
+
+    def run(self):
+        self.api = Axis360API(self._db)
+        super(AxisCollectionReaper, self).run()
+
+    def identifier_query(self):
+        return self._db.query(Identifier).join(
+            Identifier.licensed_through).filter(
+                Identifier.type==Identifier.AXIS_360_ID).options(
+                    contains_eager(Identifier.licensed_through))
+
+    def process_batch(self, identifiers):
+        self.api.update_licensepools_for_identifiers(identifiers)
+
 
 class ResponseParser(Axis360Parser):
 
