@@ -156,6 +156,11 @@ class TestCheckoutResponseParser(TestResponseParser):
         parser = CheckoutResponseParser()
         assert_raises(AlreadyCheckedOut, parser.process_all, data)
 
+    def test_parse_not_found_on_remote(self):
+        data = self.sample_data("not_found_on_remote.xml")
+        parser = CheckoutResponseParser()
+        assert_raises(NotFoundOnRemote, parser.process_all, data)
+
 class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_hold_success(self):

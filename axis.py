@@ -238,6 +238,7 @@ class Axis360CirculationMonitor(Monitor):
     def process_book(self, bibliographic, availability):
         license_pool, new_license_pool = bibliographic.license_pool(self._db)
         edition, new_edition = bibliographic.edition(self._db)
+        license_pool.edition = edition
         if new_license_pool or new_edition:
             bibliographic.apply(
                 edition, 
@@ -297,7 +298,7 @@ class ResponseParser(Axis360Parser):
         3100 : LibraryInvalidInputException, # Missing title ID
         3101 : LibraryInvalidInputException, # Missing patron ID
         3102 : LibraryInvalidInputException, # Missing email address (for hold notification)
-        3103 : LibraryInvalidInputException, # Invalid title ID
+        3103 : NotFoundOnRemote, # Invalid title ID
         3104 : LibraryInvalidInputException, # Invalid Email Address (for hold notification)
         3105 : PatronAuthorizationFailedException, # Invalid Account Credentials
         3106 : InvalidInputException, # Loan Period is out of bounds

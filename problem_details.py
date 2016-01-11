@@ -91,6 +91,13 @@ RENEW_FAILED = pd(
       "Could not renew loan (reason unknown).",
 )
 
+NOT_FOUND_ON_REMOTE = pd(
+      "http://librarysimplified.org/terms/problem/not-found-on-remote",
+      404,
+      "No longer in collection.",
+      "This book was recently removed from the collection.",
+)
+
 NO_ACTIVE_LOAN = pd(
       "http://librarysimplified.org/terms/problem/no-active-loan",
       400,

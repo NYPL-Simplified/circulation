@@ -366,6 +366,28 @@ class TestLoanController(ControllerTest):
              hold = get_one(self._db, Hold, license_pool=pool)
              assert hold != None
 
+    def test_borrow_fails_when_work_not_present_on_remote(self):
+         threem_edition, pool = self._edition(
+             with_open_access_download=False,
+             data_source_name=DataSource.THREEM,
+             identifier_type=Identifier.THREEM_ID,
+             with_license_pool=True,
+         )
+         threem_book = self._work(
+             primary_edition=threem_edition,
+         )
+         pool.licenses_available = 1
+         pool.open_access = False
+
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             self.manager.loans.authenticated_patron_from_request()
+             self.manager.circulation.queue_checkout(NotFoundOnRemote())
+             response = self.manager.loans.borrow(
+                 DataSource.THREEM, pool.identifier.identifier)
+             eq_(404, response.status_code)
+             eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
+
     def test_revoke_loan(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):

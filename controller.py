@@ -647,6 +647,8 @@ class LoanController(CirculationManagerController):
             problem_doc = HOLD_FAILED.detailed(str(e))
         except CannotRenew, e:
             problem_doc = RENEW_FAILED.detailed(str(e))
+        except NotFoundOnRemote, e:
+            problem_doc = NOT_FOUND_ON_REMOTE
         except CirculationException, e:
             # Generic circulation error.
             problem_doc = CHECKOUT_FAILED.detailed(str(e))

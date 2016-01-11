@@ -70,6 +70,10 @@ class CannotReleaseHold(CirculationException):
 class CannotFulfill(CirculationException):
     status_code = 500
 
+class NotFoundOnRemote(CirculationException):
+    """We know about this book but the remote site doesn't seem to."""
+    status_code = 404
+
 class CannotRenew(CirculationException):
     """The patron can't renew their loan on this book.
 
