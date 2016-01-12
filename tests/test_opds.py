@@ -159,8 +159,10 @@ class TestOPDS(DatabaseTest):
         raw = unicode(feed_obj)
         feed_details = feedparser.parse(raw)['feed']
 
-        eq_(patron.username, feed_details['simplified_patron']['username'])
-        eq_(u'987654321', feed_details['simplified_patron']['authorization_identifier'])
+        assert "simplified:authorizationIdentifier" in raw
+        assert "simplified:username" in raw
+        eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
+        eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)

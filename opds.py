@@ -479,9 +479,9 @@ class CirculationManagerAnnotator(Annotator):
     def add_patron(self, feed_obj):
         patron_details = {}
         if self.patron.username:
-            patron_details['username'] = self.patron.username
+            patron_details["{%s}username" % simplified_ns] = self.patron.username
         if self.patron.authorization_identifier:
-            patron_details['authorization_identifier'] = self.patron.authorization_identifier
+            patron_details["{%s}authorizationIdentifier" % simplified_ns] = self.patron.authorization_identifier
 
         patron_tag = E._makeelement("{%s}patron" % simplified_ns, patron_details)
         feed_obj.feed.append(patron_tag)
