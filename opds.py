@@ -644,7 +644,7 @@ class AcquisitionFeed(OPDSFeed):
             search_lane = lane
 
         results = search_lane.search(query, search_engine, limit)
-        opds_feed = AcquisitionFeed(_db, title, url, results)
+        opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
 
