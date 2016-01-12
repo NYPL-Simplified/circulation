@@ -121,22 +121,7 @@ class CoverageProvider(object):
         return coverage_record
 
     def add_coverage_record_for(self, edition):
-        if isinstance(edition, Identifier):
-            identifier = edition
-        elif isinstance(edition, Edition):
-            identifier = edition.primary_identifier
-        else:
-            raise ValueError(
-                "Cannot create a coverage record for %r." % edition) 
-        now = datetime.datetime.utcnow()
-        coverage_record, is_new = get_one_or_create(
-            self._db, CoverageRecord,
-            identifier=identifier,
-            data_source=self.output_source,
-            on_multiple='interchangeable'
-        )
-        coverage_record.date = now
-        return coverage_record, is_new
+        return CoverageRecord.add_for(edition, self.output_source)
 
     def process_edition(self, edition):
         raise NotImplementedError()

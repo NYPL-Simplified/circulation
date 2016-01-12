@@ -9,6 +9,7 @@ import feedparser
 import logging
 import requests
 import urllib
+from urlparse import urlparse, urljoin
 from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
@@ -17,6 +18,14 @@ from monitor import Monitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import Configuration
+from metadata_layer import (
+    Metadata,
+    IdentifierData,
+    ContributorData,
+    LinkData,
+    MeasurementData,
+    SubjectData,
+)
 from model import (
     get_one,
     get_one_or_create,
@@ -31,6 +40,7 @@ from model import (
     Representation,
     Resource,
     Subject,
+    RightsStatus,
 )
 from opds import OPDSFeed
 
@@ -81,12 +91,27 @@ class OPDSXMLParser(XMLParser):
     NAMESPACES = { "simplified": "http://librarysimplified.org/terms/",
                    "app" : "http://www.w3.org/2007/app",
                    "dcterms" : "http://purl.org/dc/terms/",
+                   "dc" : "http://purl.org/dc/elements/1.1/",
                    "opds": "http://opds-spec.org/2010/catalog",
                    "schema" : "http://schema.org/",
                    "atom" : "http://www.w3.org/2005/Atom",
     }
 
-class BaseOPDSImporter(object):
+class StatusMessage(object):
+
+    def __init__(self, status_code, message):
+        try:
+            status_code = int(status_code)
+            success = (status_code == 200)
+        except ValueError, e:
+            # The status code isn't a number. Leave it alone.
+            success = False
+        self.status_code = status_code
+        self.message = message
+        self.success = success
+
+
+class OPDSImporter(object):
 
     """Capable of importing editions from an OPDS feed.
 
@@ -98,487 +123,494 @@ class BaseOPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, feed, data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None, identifier_mapping=None, force=True):
+    def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
+                 identifier_mapping=None, force=True):
         self._db = _db
         self.force = True
         self.log = logging.getLogger("OPDS Importer")
-        self.raw_feed = unicode(feed)
-        self.feedparser_parsed = feedparser.parse(self.raw_feed)
-        self.data_source = DataSource.lookup(self._db, data_source_name)
+        self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        if overwrite_rels is None:
-            overwrite_rels = [
-                Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.IMAGE,
-                Hyperlink.DESCRIPTION
-            ]
-        self.overwrite_rels = overwrite_rels
+        self.metadata_client = SimplifiedOPDSLookup.from_config()
 
-    def import_from_feed(self):
+    def import_from_feed(self, feed):
+        metadata_objs, messages, next_links = self.extract_metadata(feed)
+
         imported = []
-        messages_by_id = dict()
-        for entry in self.feedparser_parsed['entries']:
-            internal_id, opds_id, edition, edition_was_new, status_code, message = self.import_from_feedparser_entry(
-                entry)
-            if not edition and status_code == 200:
-                self.log.info("EDITION NOT CREATED: %s. Raw data: %r",
-                              message, entry)
-            if edition:
+        for metadata in metadata_objs:
+            # Locate or create a LicensePool for this book.
+            license_pool, is_new_license_pool = metadata.license_pool(self._db)
+            # Locate or create an Edition for this book.
+            edition, is_new_edition = metadata.edition(self._db)
+            metadata.apply(edition, self.metadata_client)
+            
+            if license_pool is None:
+                # Without a LicensePool, we can't create a Work.
+                self.log.warn(
+                    "No LicensePool present for Edition %r, not attempting to create Work.",
+                    edition
+                )
+            else:
+                license_pool.edition = edition
+                work, is_new_work = license_pool.calculate_work(
+                    known_edition=edition
+                )
+                if work:
+                    work.calculate_presentation()
+            if edition and is_new_edition:
                 imported.append(edition)
+        return imported, messages, next_links
 
-                # This may or may not make the work
-                # presentation-ready--it depends on whether we've
-                # talked to the metadata wrangler.
-                edition.calculate_presentation()
-                if edition.sort_author:
-                    work, is_new = edition.license_pool.calculate_work(
-                        known_edition=edition)
-                    pool = edition.license_pool
-                    # TODO: If the edition was just created, it's
-                    # likely that edition.license_pool works but
-                    # edition.license_pool.edition is None. Passing in
-                    # known_edition is a bit of a hack but so is the
-                    # only other solution I could find, doing a
-                    # database commit. I'm sure there's a better
-                    # solution though.
-                    work, is_new = pool.calculate_work(
-                        known_edition=edition, even_if_no_author=True
-                    )
-                    if work:
-                        work.calculate_presentation()
-            elif status_code:
-                messages_by_id[opds_id] = (status_code, message)
-        return imported, messages_by_id
 
-    def links_by_rel(self, entry=None):
-        if entry:
-            source = entry
-        else:
-            source = self.feedparser_parsed['feed']
-        links = source.get('links', [])
-        links_by_rel = defaultdict(list)
-        for link in links:
-            if 'rel' not in link or 'href' not in link:
-                continue
-            links_by_rel[link['rel']].append(link)
-        return links_by_rel
+    def extract_metadata(self, feed):
+        """Turn an OPDS feed into a list of Metadata objects and a list of
+        messages.
+        """
+        data1, status_messages, next_links = self.extract_metadata_from_feedparser(feed)
+        data2 = self.extract_metadata_from_elementtree(feed)
 
-    def import_from_feedparser_entry(self, entry):
-        external_identifier, ignore = Identifier.parse_urn(
-            self._db, entry.get('id'))
-        if self.identifier_mapping:
-             internal_identifier = self.identifier_mapping.get(
-                 external_identifier, external_identifier)
-        else:
-            internal_identifier = external_identifier
-        status_code = entry.get('simplified_status_code', 200)
-        message = entry.get('simplified_message', None)
-        try:
-            status_code = int(status_code)
-            success = (status_code == 200)
-        except ValueError, e:
-            # The status code isn't a number. Leave it alone.
-            success = False
+        metadata = []
+        for id, args in data1.items():
+            other_args = data2.get(id, {})
+            combined = self.combine(args, other_args)
+            if combined.get('data_source') is None:
+                combined['data_source'] = self.data_source_name
 
-        if not success:
-            # There was an error or the data is not complete. Don't go
-            # through with the import, even if there is data in the
-            # entry.
-            return internal_identifier, external_identifier, None, False, status_code, message
-
-        license_source_uri = entry.get('bibframe_partof', None)
-        if license_source_uri:
-            license_data_sources = [DataSource.from_uri(
-                self._db, license_source_uri)]
-        else:
-            license_data_sources = DataSource.license_sources_for(
-                self._db, internal_identifier)
-
-        title = entry.get('title', None)
-        if title == OPDSFeed.NO_TITLE:
-            title = None
-        updated = entry.get('updated_parsed', None)
-        publisher = entry.get('dcterms_publisher', None)
-        language = entry.get('dcterms_language', None)
-        t = LanguageCodes.two_to_three
-        if language and len(language) == 2 and language in t:
-            language = t[language]
-        pwid = entry.get('simplified_pwid', None)
-
-        title_detail = entry.get('title_detail', None)
-        summary_detail = entry.get('summary_detail', None)
-
-        # Get an existing LicensePool for this book.
-        pool = None
-        license_data_source = None
-        for license_data_source in license_data_sources:
-            pool = get_one(
-                self._db, LicensePool, data_source=license_data_source,
-                identifier=internal_identifier)
-            if pool:
-                break
-
-        links_by_rel = self.links_by_rel(entry)
-        if pool:
-            pool_was_new = False
-        else:
-            # There is no existing license pool for this book. Can we
-            # just create one?
-            if links_by_rel[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
-                # Yes. This is an open-access book and we know where
-                # you can download it.
-                pool, pool_was_new = LicensePool.for_foreign_id(
-                    self._db, license_data_source, internal_identifier.type,
-                    internal_identifier.identifier)
+            external_identifier, ignore = Identifier.parse_urn(self._db, id)
+            if self.identifier_mapping:
+                internal_identifier = self.identifier_mapping.get(
+                    external_identifier, external_identifier)
             else:
-                # No, we can't. This most likely indicates a problem.
-                message = message or self.COULD_NOT_CREATE_LICENSE_POOL
-                return (internal_identifier, external_identifier, None,
-                        False, status_code, message)
-
-        if pool_was_new:
-            pool.open_access = True
-
-        # Create or retrieve an Edition for this book.
-        #
-        # TODO: It would be better if we could use self.data_source
-        # here, not license_data_source. This is the metadata
-        # wrangler's view of the book, not the license provider's. But
-        # we can't currently associate an Edition from one data source
-        # with a LicensePool from another data source.
-        edition, edition_was_new = Edition.for_foreign_id(
-            self._db, license_data_source, internal_identifier.type,
-            internal_identifier.identifier)
-
-        source_last_updated = entry.get('updated_parsed')
-        # TODO: I'm not really happy with this but it will work as long
-        # as the times are in UTC, possibly as long as the times are in
-        # the same timezone.
-        if source_last_updated:
-            source_last_updated = datetime.datetime(*source_last_updated[:6])
-            if not pool_was_new and not edition_was_new and edition.work and edition.work.last_update_time >= source_last_updated and not self.force:
-                # The metadata has not changed since last time
-                return (internal_identifier, external_identifier, edition, 
-                        False, status_code, message)
-
-        self.destroy_resources(internal_identifier, self.overwrite_rels)
-
-        # Again, the links come from the OPDS feed, not from the entity
-        # providing the original license.
-        download_links, image_link, thumbnail_link = self.set_resources(
-            self.data_source, internal_identifier, pool, links_by_rel)
-
-        # If there's a summary, add it to the identifier.
-        summary = entry.get('summary_detail', {})
-        rel = Hyperlink.DESCRIPTION
-        if 'value' in summary and summary['value']:
-            value = summary['value']
-            uri = Hyperlink.generic_uri(
-                self.data_source, internal_identifier, rel,
-                value)
-            pool.add_link(
-                rel, uri, self.data_source,
-                summary.get('type', 'text/plain'), value)
-        for content in entry.get('content', []):
-            value = content['value']
-            if not value:
-                continue
-            uri = Hyperlink.generic_uri(
-                self.data_source, internal_identifier, rel, value)
-            pool.add_link(
-                rel, uri, self.data_source,
-                summary.get('type', 'text/html'), value)
-            
-        if title:
-            edition.title = title
-        if language:
-            edition.language = language
-        if publisher:
-            edition.publisher = publisher
-
-        # Assign the LicensePool to a Work.
-        work = pool.calculate_work(known_edition=edition)
-        return (internal_identifier, external_identifier, edition, 
-                edition_was_new, status_code, message)
-
-    def destroy_resources(self, identifier, rels):
-        # Remove all existing downloads and images, and descriptions
-        # so as to avoid keeping old stuff around.
-        for resource in Identifier.resources_for_identifier_ids(
-                self._db, [identifier.id], rels):
-            for l in resource.links:
-                self._db.delete(l)
-            self._db.delete(resource)
-
-    def set_resources(self, data_source, identifier, pool, links):
-        # Associate covers and downloads with the identifier.
-        #
-        # If there is both a full image and a thumbnail, we need
-        # to make sure they're put into the same representation.
-        download_links = []
-        image_link = None
-        thumbnail_link = None
-
-        _db = Session.object_session(data_source)
-        
-        for link in links[Hyperlink.OPEN_ACCESS_DOWNLOAD]:
-            type = link.get('type', None)
-            if type == 'text/html':
-                # Feedparser fills this in and it's just wrong.
-                type = None
-            url = link['href']
-            hyperlink, was_new = pool.add_link(
-                Hyperlink.OPEN_ACCESS_DOWNLOAD, url, data_source, type)
-            hyperlink.resource.set_mirrored_elsewhere(type)
-            pool.set_delivery_mechanism(
-                type, DeliveryMechanism.NO_DRM, hyperlink.resource)
-            download_links.append(hyperlink)
-
-        for rel in (Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE):
-            for link in links[rel]:
-                type = link.get('type', None)
-                if type == 'text/html':
-                    # Feedparser fills this in and it's just wrong.
-                    type = None
-                url = link['href']
-                hyperlink, was_new = pool.add_link(
-                    rel, url, data_source, type)
-                hyperlink.resource.set_mirrored_elsewhere(type)
-                if rel == Hyperlink.IMAGE:
-                    image_link = hyperlink
-                else:
-                    thumbnail_link = hyperlink
-
-        if image_link and thumbnail_link and image_link.resource:
-            if image_link.resource == thumbnail_link.resource:
-                # TODO: This is hacky. We can't represent an image as a thumbnail
-                # of itself, so we make sure the height is set so that
-                # we'll know that it doesn't need a thumbnail.
-                image_link.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
-            else:
-                # Represent the thumbnail as a thumbnail of the image.
-                thumbnail_link.resource.representation.thumbnail_of = image_link.resource.representation
-        return download_links, image_link, thumbnail_link
-
-class DetailedOPDSImporter(BaseOPDSImporter):
-
-    """An OPDS importer that imports authors as contributors and
-    tags as subjects.
-
-    It also imports any provided quality score, popularity score, or
-    rating.
-
-    This should be used by circulation managers when talking to the
-    metadata wrangler, and by the metadata wrangler when talking to
-    content servers.
-
-    """
-
-    def __init__(self, _db, feed,
-                 data_source_name=DataSource.METADATA_WRANGLER,
-                 overwrite_rels=None, identifier_mapping=None):
-        super(DetailedOPDSImporter, self).__init__(
-            _db, feed, data_source_name, overwrite_rels, identifier_mapping)
-        self.lxml_parsed = etree.fromstring(self.raw_feed)
-        self.medium_by_id, self.authors_by_id, self.subject_names_by_id, self.subject_weights_by_id, self.ratings_by_id = self.authors_and_subjects_by_id(
-            _db, self.lxml_parsed)
-
-    def import_from_feedparser_entry(self, entry):
-        identifier, opds_identifier, edition, edition_was_new, status_code, message = super(
-            DetailedOPDSImporter, self).import_from_feedparser_entry(
-                entry)
-        if not edition and opds_identifier.type != Identifier.ISBN:
-            # No edition was created. Nothing to do.
-            return identifier, opds_identifier, edition, edition_was_new, status_code, message
-            
-        if edition:
-            edition.medium = self.medium_by_id.get(entry.id)
-
-            # Remove any old contributors and subjects.
-            removed_contributions = 0
-            contributions = edition.contributions
-            if self.authors_by_id.get(entry.id):
-                # The metadata wrangler is telling us about contributions.
-                # Delete any local data.
-                for contribution in list(contributions):
-                    self._db.delete(contribution)
-                    removed_contributions += 1
-                edition.contributions = []
-
-        removed_classifications = 0
-        new_set = []
-        for classification in identifier.classifications:
-            if classification.data_source == self.data_source:
-                self._db.delete(classification)
-                removed_classifications += 1
-            else:
-                new_set.append(classification)
-        identifier.classifications = new_set
-
-        if edition:
-            for contributor in self.authors_by_id.get(entry.id, []):
-                edition.add_contributor(contributor, Contributor.AUTHOR_ROLE)
-            self.log.debug("%r: added back %d contributors",
-                           edition, len(edition.contributors))
-
-        weights = self.subject_weights_by_id.get(entry.id, {})
-        classifications_added = 0
-        for key, weight in weights.items():
-            type, term = key
-            name = self.subject_names_by_id.get(entry.id).get(key, None)
-            identifier.classify(
-                self.data_source, type, term, name, weight=weight)
-            classifications_added += 1
-
-        if classifications_added:
-            self.log.debug(
-                "%r: added %d classifications.",
-                identifier, classifications_added
+                internal_identifier = external_identifier
+            combined['primary_identifier'] = IdentifierData(
+                type=internal_identifier.type,
+                identifier=internal_identifier.identifier
             )
-
-        ratings = self.ratings_by_id.get(entry.id, {})
-        measurements_added = 0
-        for rel, value in ratings.items():
-            if not rel:
-                rel = Measurement.RATING
-            identifier.add_measurement(self.data_source, rel, value)
-            measurements_added += 1
-
-        if measurements_added:
-            self.log.debug(
-                "%r: set %d measurements.",
-                identifier, measurements_added
-            )
-        return identifier, opds_identifier, edition, edition_was_new, status_code, message
+            metadata.append(Metadata(**combined))
+        return metadata, status_messages, next_links
 
     @classmethod
-    def authors_and_subjects_by_id(cls, _db, root):
+    def combine(self, d1, d2):
+        """Combine two dictionaries that can be used as keyword arguments to
+        the Metadata constructor.
+        """
+        new_dict = dict(d1)
+        for k, v in d2.items():
+            if k in new_dict and isinstance(v, list):
+                new_dict[k].extend(v)
+            elif k not in new_dict or v != None:
+                new_dict[k] = v
+        return new_dict
+
+
+    @classmethod
+    def extract_metadata_from_feedparser(cls, feed):
+        feedparser_parsed = feedparser.parse(feed)
+        values = {}
+        status_messages = {}
+        for entry in feedparser_parsed['entries']:
+            identifier, detail, status_message = cls.detail_for_feedparser_entry(entry)
+            if identifier:
+                if detail:
+                    values[identifier] = detail
+                if status_message:
+                    status_messages[identifier] = status_message
+        next_links = [link['href'] for link in feedparser_parsed['feed']['links'] if link['rel'] == 'next']
+        return values, status_messages, next_links
+
+    @classmethod
+    def extract_metadata_from_elementtree(cls, feed):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
         All the stuff that Feedparser can't handle so we have to use lxml.
+
+        :return: a dictionary mapping IDs to dictionaries. The inner
+        dictionary can be used as keyword arguments to the Metadata
+        constructor.
         """
+        values = {}
         parser = OPDSXMLParser()
-        default_additional_type = Edition.medium_to_additional_type[Edition.BOOK_MEDIUM]
-        medium_by_id = {}
-        authors_by_id = defaultdict(list)
-        subject_names_by_id = defaultdict(dict)
-        subject_weights_by_id = defaultdict(Counter)
-        ratings_by_id = defaultdict(dict)
+        root = etree.parse(StringIO(feed))
+
+        # Some OPDS feeds (eg Standard Ebooks) contain relative urls, so we need the
+        # feed's self URL to extract links.
+        links = [child.attrib for child in root.getroot() if 'link' in child.tag]
+        self_links = [link['href'] for link in links if link.get('rel') == 'self']
+        if self_links:
+            feed_url = self_links[0]
+        else:
+            feed_url = None
+
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier = parser._xpath1(entry, 'atom:id')
-            if identifier is None or not identifier.text:
-                continue
-            identifier = identifier.text
-            additional_type = entry.get('{http://schema.org/}additionalType', 
+            identifier, detail = cls.detail_for_elementtree_entry(parser, entry, feed_url)
+            if identifier:
+                values[identifier] = detail
+        return values
+
+    @classmethod
+    def detail_for_feedparser_entry(cls, entry):
+        """Turn an entry dictionary created by feedparser into a dictionary of
+        metadata that can be used as keyword arguments to the Metadata
+        contructor.
+
+        :return: A 3-tuple (identifier, kwargs, status message)
+        """
+        identifier = entry['id']
+        if not identifier:
+            return None, None, None
+
+        status_message = None
+        status_code = entry.get('simplified_status_code', None)
+        message = entry.get('simplified_message', None)
+        if status_code is not None:
+            status_message = StatusMessage(status_code, message)
+
+        if status_message and not status_message.success:
+            return identifier, None, status_message
+
+        # At this point we can assume that we successfully got some
+        # metadata, and possibly a link to the actual book.
+
+        # If this is present, it means that the entry also includes
+        # information about an active distributor of this book. Any
+        # LicensePool created from this metadata should use the
+        # distributor of the book as its data source.
+        distribution_tag = entry.get('bibframe_distribution', None)
+        license_data_source = None
+        if distribution_tag:
+            license_data_source = distribution_tag.get('bibframe:providername')
+
+        title = entry.get('title', None)
+        if title == OPDSFeed.NO_TITLE:
+            title = None
+        subtitle = entry.get('alternativeheadline', None)
+
+        last_update_time = entry.get('updated_parsed', None)
+        last_update_time = datetime.datetime(*last_update_time[:6])
+
+        publisher = entry.get('publisher', None)
+        if not publisher:
+            publisher = entry.get('dcterms_publisher', None)
+
+        language = entry.get('language', None)
+        if not language:
+            language = entry.get('dcterms_language', None)
+
+
+        links = []
+
+        def summary_to_linkdata(detail):
+            if not detail:
+                return None
+            if not 'value' in detail or not detail['value']:
+                return None
+
+            content = detail['value']
+            media_type = detail.get('type', 'text/plain')
+            return LinkData(
+                rel=Hyperlink.DESCRIPTION,
+                media_type=media_type,
+                content=content
+            )
+            
+        summary_detail = entry.get('summary_detail', None)
+        link = summary_to_linkdata(summary_detail)
+        if link:
+            links.append(link)
+
+        for content_detail in entry.get('content', []):
+            link = summary_to_linkdata(content_detail)
+            if link:
+                links.append(link)
+
+        rights = entry.get('rights', "")
+        rights_uri = RightsStatus.rights_uri_from_string(rights)
+
+        kwargs = dict(
+            license_data_source=license_data_source,
+            title=title,
+            subtitle=subtitle,
+            language=language,
+            publisher=publisher,
+            links=links,
+            rights_uri=rights_uri,
+            last_update_time=last_update_time,
+        )
+        return identifier, kwargs, status_message
+
+    @classmethod
+    def detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+
+        """Turn an <atom:entry> tag into a dictionary of metadata that can be
+        used as keyword arguments to the Metadata contructor.
+
+        :return: A 2-tuple (identifier, kwargs)
+        """
+
+        identifier = parser._xpath1(entry_tag, 'atom:id')
+        if identifier is None or not identifier.text:
+            # This <entry> tag doesn't identify a book so we 
+            # can't derive any information from it.
+            return None, None
+        identifier = identifier.text
+
+        # We will fill this dictionary with all the information
+        # we can find.
+        data = dict()
+
+        alternate_identifiers = []
+        for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
+            v = cls.extract_identifier(id_tag)
+            if v:
+                alternate_identifiers.append(v)
+        data['identifiers'] = alternate_identifiers
+           
+        data['medium'] = cls.extract_medium(entry_tag)
+        
+        data['contributors'] = []
+        for author_tag in parser._xpath(entry_tag, 'atom:author'):
+            contributor = cls.extract_contributor(parser, author_tag)
+            if contributor is not None:
+                data['contributors'].append(contributor)
+
+        data['subjects'] = [
+            cls.extract_subject(parser, category_tag)
+            for category_tag in parser._xpath(entry_tag, 'atom:category')
+        ]
+
+        ratings = []
+        for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
+            v = cls.extract_measurement(rating_tag)
+            if v:
+                ratings.append(v)
+        data['measurements'] = ratings
+
+        data['links'] = cls.consolidate_links([
+            cls.extract_link(link_tag, feed_url)
+            for link_tag in parser._xpath(entry_tag, 'atom:link')
+        ])
+        
+        return identifier, data
+
+    @classmethod
+    def extract_identifier(cls, identifier_tag):
+        """Turn a <dcterms:identifier> tag into an IdentifierData object."""
+        try:
+            type, identifier = Identifier.type_and_identifier_for_urn(identifier_tag.text.lower())
+            return IdentifierData(type, identifier)
+        except ValueError:
+            return None
+
+    @classmethod
+    def extract_medium(cls, entry_tag):
+        """Derive a value for Edition.medium from <atom:entry
+        schema:additionalType>.
+        """
+
+        # If no additionalType is given, assume we're talking about an
+        # ebook.
+        default_additional_type = Edition.medium_to_additional_type[
+            Edition.BOOK_MEDIUM
+        ]
+        additional_type = entry_tag.get('{http://schema.org/}additionalType', 
                                         default_additional_type)
-            medium = Edition.additional_type_to_medium.get(additional_type)
-            medium_by_id[identifier] = medium
+        return Edition.additional_type_to_medium.get(additional_type)
 
-            for author_tag in parser._xpath(entry, 'atom:author'):
-                subtag = parser.text_of_optional_subtag
-                sort_name = subtag(author_tag, 'simplified:sort_name')
+    @classmethod
+    def extract_contributor(cls, parser, author_tag):
+        """Turn an <atom:author> tag into a ContributorData object."""
+        subtag = parser.text_of_optional_subtag
+        sort_name = subtag(author_tag, 'simplified:sort_name')
+        display_name = subtag(author_tag, 'atom:name')
+        family_name = subtag(author_tag, "simplified:family_name")
+        wikipedia_name = subtag(author_tag, "simplified:wikipedia_name")
 
-                # TODO: Also collect VIAF and LC numbers if present.
-                # Only the metadata wrangler will provide this
-                # information.
+        # TODO: we need a way of conveying roles. I believe Bibframe
+        # has the answer.
 
-                # Look up or create a Contributor for this person.
-                contributor, is_new = Contributor.lookup(_db, sort_name)
-                contributor = contributor[0]
+        # TODO: Also collect VIAF and LC numbers if present.  This
+        # requires parsing the URIs. Only the metadata wrangler will
+        # provide this information.
 
-                # Set additional information for this person, if present
-                # and not already set.
-                if not contributor.display_name:
-                    contributor.display_name = subtag(author_tag, 'atom:name')
-                if not contributor.family_name:
-                    contributor.family_name = subtag(
-                        author_tag, "simplified:family_name")
-                if not contributor.family_name:
-                    contributor.wiki_name = subtag(
-                        author_tag, "simplified:wikipedia_name")
+        viaf = None
+        if sort_name or display_name or viaf:
+            return ContributorData(
+                sort_name=sort_name, display_name=display_name,
+                family_name=family_name,
+                wikipedia_name=wikipedia_name,
+                roles=None
+            )
 
-                # Record that the given Contributor is an author of this
-                # entry.
-                authors_by_id[identifier].append(contributor)
+        logging.info("Refusing to create ContributorData for contributor with no sort name, display name, or VIAF.")
+        return None
 
-            for subject_tag in parser._xpath(entry, 'atom:category'):
-                a = subject_tag.attrib
-                scheme = a.get('scheme')
-                subject_type = Subject.by_uri.get(scheme)
-                if not subject_type:
-                    # We can't represent this subject because we don't
-                    # know its scheme. Just treat it as a tag.
-                    subject_type = Subject.TAG
 
-                term = a.get('term')
-                name = a.get('label')
-                default_weight = 1
-                if subject_type in (
-                    Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE):
-                    default_weight = 100
+    @classmethod
+    def extract_subject(cls, parser, category_tag):
+        """Turn an <atom:category> tag into a SubjectData object."""
+        attr = category_tag.attrib
 
-                weight = a.get('{http://schema.org/}ratingValue', default_weight)
-                try:
-                    weight = int(weight)
-                except ValueError, e:
-                    weight = 1
-                key = (subject_type, term)
-                subject_names_by_id[identifier][key] = name
-                subject_weights_by_id[identifier][key] += weight
+        # Retrieve the type of this subject - FAST, Dewey Decimal,
+        # etc.
+        scheme = attr.get('scheme')
+        subject_type = Subject.by_uri.get(scheme)
+        if not subject_type:
+            # We can't represent this subject because we don't
+            # know its scheme. Just treat it as a tag.
+            subject_type = Subject.TAG
 
-            for rating_tag in parser._xpath(entry, 'schema:Rating'):
-                type = rating_tag.get('{http://schema.org/}additionalType')
-                value = rating_tag.get('{http://schema.org/}ratingValue')
-                try:
-                    value = float(value)
-                    ratings_by_id[identifier][type] = value
-                except ValueError:
-                    pass
+        # Retrieve the term (e.g. "827") and human-readable name
+        # (e.g. "English Satire & Humor") for this subject.
+        term = attr.get('term')
+        name = attr.get('label')
+        default_weight = 1
+        if subject_type in (
+                Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE
+        ):
+            default_weight = 100
 
-        return medium_by_id, authors_by_id, subject_names_by_id, subject_weights_by_id, ratings_by_id
+        weight = attr.get('{http://schema.org/}ratingValue', default_weight)
+        try:
+            weight = int(weight)
+        except ValueError, e:
+            weight = 1
+
+        return SubjectData(
+            type=subject_type, 
+            identifier=term,
+            name=name, 
+            weight=weight
+        )
+
+    @classmethod
+    def extract_link(cls, link_tag, feed_url=None):
+        attr = link_tag.attrib
+        rel = attr.get('rel')
+        media_type = attr.get('type')
+        href = attr.get('href')
+        rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
+        if rights:
+            rights_uri = RightsStatus.rights_uri_from_string(rights)
+        else:
+            rights_uri = None
+        if feed_url and not urlparse(href).netloc:
+            # This link is relative, so we need to get the absolute url
+            href = urljoin(feed_url, href)
+        return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
+
+    @classmethod
+    def consolidate_links(cls, links):
+        """Try to match up links with their thumbnails.
+
+        If link n is an image and link n+1 is a thumbnail, then the
+        thumbnail is assumed to be the thumbnail of the image.
+
+        Similarly if link n is a thumbnail and link n+1 is an image.
+        """
+        new_links = list(links)
+        next_link_already_handled = False
+        for i, link in enumerate(links):
+
+            if link.rel not in (Hyperlink.THUMBNAIL_IMAGE, Hyperlink.IMAGE):
+                # This is not any kind of image. Ignore it.
+                continue
+
+            if next_link_already_handled:
+                # This link and the previous link were part of an
+                # image-thumbnail pair.
+                next_link_already_handled = False
+                continue
+                
+            if i == len(links)-1:
+                # This is the last link. Since there is no next link
+                # there's nothing to do here.
+                continue
+
+            # Peek at the next link.
+            next_link = links[i+1]
+
+
+            if (link.rel == Hyperlink.THUMBNAIL_IMAGE
+                and next_link.rel == Hyperlink.IMAGE):
+                # This link is a thumbnail and the next link is
+                # (presumably) the corresponding image.
+                thumbnail_link = link
+                image_link = next_link
+            elif (link.rel == Hyperlink.IMAGE
+                  and next_link.rel == Hyperlink.THUMBNAIL_IMAGE):
+                thumbnail_link = next_link
+                image_link = link
+            else:
+                # This link and the next link do not form an
+                # image-thumbnail pair. Do nothing.
+                continue
+
+            image_link.thumbnail = thumbnail_link
+            new_links.remove(thumbnail_link)
+            next_link_already_handled = True
+
+        return new_links
+
+    @classmethod
+    def extract_measurement(cls, rating_tag):
+        type = rating_tag.get('{http://schema.org/}additionalType')
+        value = rating_tag.get('{http://schema.org/}ratingValue')
+        try:
+            value = float(value)
+            return MeasurementData(
+                quantity_measured=type, 
+                value=value,
+            )
+        except ValueError:
+            return None
 
 
 class OPDSImportMonitor(Monitor):
+
     """Periodically monitor an OPDS archive feed and import every edition
     it mentions.
     """
     
-    def __init__(self, _db, feed_url, import_class, interval_seconds=3600,
-                 keep_timestamp=True):
+    def __init__(self, _db, feed_url, default_data_source, import_class, 
+                 interval_seconds=3600, keep_timestamp=True):
         self.feed_url = feed_url
-        self.import_class = import_class
+        self.importer = import_class(_db, default_data_source)
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
 
-    def run_once(self, start, cutoff):
-        next_link = self.feed_url
-        seen_links = set([next_link])
-        while next_link:
-            self.log.info("Following next link: %s", next_link)
-            importer, imported = self.process_one_page(next_link)
-            self._db.commit()
-            if len(imported) == 0:
-                # We did not see a single book on this page we haven't
-                # already seen. There's no need to keep going.
-                self.log.info(
-                    "Saw a full page with no new books. Stopping.")
-                break
-            next_links = importer.links_by_rel()['next']
-            if not next_links:
-                # We're at the end of the list. There are no more books
-                # to import.
-                break
-            next_link = next_links[0]['href']
-            if next_link in seen_links:
-                # Loop.
-                break
+    def follow_one_link(self, link):
+        self.log.info("Following next link: %s", link)
+        response = requests.get(link)
+        imported, messages, next_links = self.importer.import_from_feed(response.content)
         self._db.commit()
+        
+        if len(imported) == 0:
+            # We did not see a single book on this page we haven't
+            # already seen. There's no need to keep going.
+            self.log.info(
+                "Saw a full page with no new books. Stopping.")
+            return []
+        else:
+            return next_links
 
-    def process_one_page(self, url):
-        response = requests.get(url)
-        importer = self.import_class(self._db, response.content)
-        return importer, importer.import_from_feed()
+        
+
+    def run_once(self, start, cutoff):
+        queue = [self.feed_url]
+        seen_links = set([])
+        
+        while queue:
+            new_queue = []
+
+            for link in queue:
+                if link in seen_links:
+                    continue
+                new_queue.extend(self.follow_one_link(link))
+                seen_links.add(link)
+                self._db.commit()
+
+            queue = new_queue
+
 
 

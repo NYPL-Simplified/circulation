@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import datetime
 import pkgutil
 import csv
 
@@ -17,6 +18,7 @@ from metadata_layer import (
 
 import os
 from model import (
+    CoverageRecord,
     DataSource,
     Identifier,
     Measurement,
@@ -98,6 +100,27 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Hyperlink.DESCRIPTION, description.rel)
         eq_("foo", description.resource.representation.content)
 
+    def test_image_and_thumbnail(self):
+        edition = self._edition()
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        metadata = Metadata(links=[l1, l2], 
+                            data_source=edition.data_source)
+        metadata.apply(edition)
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_([thumbnail.resource.representation],
+            image.resource.representation.thumbnails
+        )
+
     def test_measurements(self):
         edition = self._edition()
         measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
@@ -109,7 +132,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
 
-    def test_formats(self):
+    def test_explicit_formatdata(self):
         # Creating an edition with an open-access download will
         # automatically create a delivery mechanism.
         edition, pool = self._edition(with_open_access_download=True)
@@ -137,3 +160,72 @@ class TestMetadataImporter(DatabaseTest):
         [pdf] = pool.delivery_mechanisms
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 
+    def test_implicit_format_for_open_access_link(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        # This is the delivery mechanism created by default when you
+        # create a book with _edition().
+        [epub] = pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, epub.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.delivery_mechanism.drm_scheme)
+
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.PDF_MEDIA_TYPE,
+            href=self._url
+        )
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG, 
+            links=[link]
+        )
+        metadata.apply(edition, replace_formats=True)
+
+        # We destroyed the default delivery format and added a new,
+        # open access delivery format.
+        [pdf] = pool.delivery_mechanisms
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
+
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG, 
+            links=[]
+        )
+        metadata.apply(edition, replace_links=True, replace_formats=True)
+
+        # Now we have no formats at all.
+        eq_([], pool.delivery_mechanisms)
+
+    def test_coverage_record(self):
+        edition, pool = self._edition(with_license_pool=True)
+        data_source = edition.data_source
+
+        # No preexisting coverage record
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(coverage, None)
+        
+        last_update = datetime.date(2015, 1, 1)
+
+        m = Metadata(data_source=data_source,
+                     title=u"New title", last_update_time=last_update)
+        m.apply(edition)
+        
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(last_update, coverage.date)
+        eq_(u"New title", edition.title)
+
+        older_last_update = datetime.date(2014, 1, 1)
+        m = Metadata(data_source=data_source,
+                     title=u"Another new title", 
+                     last_update_time=older_last_update
+        )
+        m.apply(edition)
+        eq_(u"New title", edition.title)
+
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(last_update, coverage.date)
+
+        m.apply(edition, force=True)
+        eq_(u"Another new title", edition.title)
+        coverage = CoverageRecord.lookup(edition, data_source)
+        eq_(older_last_update, coverage.date)

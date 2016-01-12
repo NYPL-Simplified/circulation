@@ -14,94 +14,170 @@ from . import (
 )
 
 from opds_import import (
-    DetailedOPDSImporter,
+    OPDSImporter,
+)
+from metadata_layer import (
+    LinkData
 )
 from model import (
+    Contributor,
     DataSource,
     DeliveryMechanism,
+    Hyperlink,
     Edition,
     Measurement,
     Representation,
     Subject,
 )
 
-class TestDetailedOPDSImporter(DatabaseTest):
+class TestOPDSImporter(DatabaseTest):
 
     def setup(self):
-        super(TestDetailedOPDSImporter, self).setup()
+        super(TestOPDSImporter, self).setup()
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "opds")
         self.content_server_feed = open(
             os.path.join(self.resource_path, "content_server.opds")).read()
+        self.content_server_mini_feed = open(
+            os.path.join(self.resource_path, "content_server_mini.opds")).read()
 
-    def test_authors_by_id(self):
+    def test_extract_metadata(self):
 
-        parsed = etree.parse(StringIO(self.content_server_feed))
-        medium_by_id, contributors_by_id, subject_names, subject_weights, ratings_by_id = DetailedOPDSImporter.authors_and_subjects_by_id(self._db, parsed)
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        data, status_messages, next_link = importer.extract_metadata(
+            self.content_server_mini_feed
+        )
+        m1, m2 = sorted(data, key=lambda x:x.title)
+        eq_("The Green Mouse", m2.title)
+        eq_("A Tale of Mousy Terror", m2.subtitle)
 
+        eq_(None, m1._license_data_source)
+        eq_(DataSource.GUTENBERG, m2._license_data_source)
+
+        [message] = status_messages.values()
+        eq_(202, message.status_code)
+        eq_(u"I'm working to locate a source for this identifier.", message.message)
+
+        eq_("http://localhost:5000/?after=327&size=100", next_link[0])
+
+
+    def test_extract_metadata_from_feedparser(self):
+
+        data, status_messages, next_link = OPDSImporter.extract_metadata_from_feedparser(
+            self.content_server_mini_feed
+        )        
+
+        metadata = data['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        eq_("The Green Mouse", metadata['title'])
+        eq_("A Tale of Mousy Terror", metadata['subtitle'])
+        eq_('en', metadata['language'])
+        eq_('Project Gutenberg', metadata['publisher'])
+        eq_(DataSource.GUTENBERG, metadata['license_data_source'])
+
+        message = status_messages['http://www.gutenberg.org/ebooks/1984']
+        eq_(202, message.status_code)
+        eq_(u"I'm working to locate a source for this identifier.", message.message)
+
+    def test_extract_metadata_from_elementtree(self):
+
+        data = OPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_feed
+        )
+
+        # There are 76 entries in the feed, and we got metadata for
+        # every one of them.
+        eq_(76, len(data))
+
+        # We're going to do spot checks on a book and a periodical.
+
+        # First, the book.
         book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'  
-        eq_(76, len(medium_by_id))
-        eq_(Edition.BOOK_MEDIUM, medium_by_id[book_id])
-        eq_(Edition.PERIODICAL_MEDIUM, medium_by_id[periodical_id])
+        book = data[book_id]
+        eq_(Edition.BOOK_MEDIUM, book['medium'])
 
-        spot_check_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        eq_(70, len(contributors_by_id))
-        [contributor] = contributors_by_id[spot_check_id]
-        eq_("Thoreau, Henry David", contributor.name)
-        eq_(None, contributor.display_name)
+        [contributor] = book['contributors']
+        eq_("Thoreau, Henry David", contributor.sort_name)
+        eq_([Contributor.AUTHOR_ROLE], contributor.roles)
 
-        names = subject_names[spot_check_id]
-        eq_("American Literature", names[('LCC', 'PS')])
-        weights = subject_weights[spot_check_id]
-        eq_(10, weights[('LCC', 'PS')])
+        subjects = book['subjects']
+        eq_(['LCSH', 'LCSH', 'LCSH', 'LCC'], [x.type for x in subjects])
+        eq_(
+            ['Essays', 'Nature', 'Walking', 'PS'],
+            [x.identifier for x in subjects]
+        )
+        eq_(
+            [None, None, None, 'American Literature'],
+            [x.name for x in book['subjects']]
+        )
+        eq_(
+            [1, 1, 1, 10],
+            [x.weight for x in book['subjects']]
+        )
 
-        has_ratings_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
-        has_no_ratings_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
-        eq_({}, ratings_by_id[has_no_ratings_id])
-        ratings = ratings_by_id[has_ratings_id]
-        eq_(0.6, ratings[None])
-        eq_(0.25, ratings[Measurement.POPULARITY])
-        eq_(0.3333, ratings[Measurement.QUALITY])
+        eq_([], book['measurements'])
 
-    def test_ratings_become_measurements(self):
+        [link] = book['links']
+        eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
+        eq_("http://www.gutenberg.org/ebooks/1022.epub.noimages", link.href)
+        eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
+
+        # And now, the periodical.
+        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
+        periodical = data[periodical_id]
+        eq_(Edition.PERIODICAL_MEDIUM, periodical['medium'])
+
+        subjects = periodical['subjects']
+        eq_(
+            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'], 
+            [x.type for x in subjects]
+        )
+        eq_(
+            ['Courtship -- Fiction', 'New York (N.Y.) -- Fiction', 'Fantasy fiction', 'Magic -- Fiction', 'PZ', 'Children', '7'],
+            [x.identifier for x in subjects]
+        )
+        eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
+        
+        r1, r2 = periodical['measurements']
+
+        eq_(Measurement.QUALITY, r1.quantity_measured)
+        eq_(0.3333, r1.value)
+        eq_(1, r1.weight)
+
+        eq_(Measurement.POPULARITY, r2.quantity_measured)
+        eq_(0.25, r2.value)
+        eq_(1, r2.weight)
+
+
+    def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        imported, messages = DetailedOPDSImporter(
-            self._db, feed).import_from_feed()
+        imported, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
 
-        eq_(DataSource.GUTENBERG, imported[0].data_source.name)
-        eq_(Edition.PERIODICAL_MEDIUM, imported[0].medium)
-        eq_(Edition.BOOK_MEDIUM, imported[1].medium)
+        [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
-        [has_rating, no_rating] = imported
-        num_editions, pop, qual, rating = sorted(
-            [x for x in has_rating.primary_identifier.measurements
+        eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
+        eq_(Edition.BOOK_MEDIUM, crow.medium)
+        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+
+        editions, popularity, quality = sorted(
+            [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
             key=lambda x: x.quantity_measured)
-        eq_(DataSource.OCLC_LINKED_DATA, num_editions.data_source.name)
-        eq_(Measurement.PUBLISHED_EDITIONS, num_editions.quantity_measured)
-        eq_(1, num_editions.value)
 
-        eq_(DataSource.METADATA_WRANGLER, pop.data_source.name)
-        eq_(Measurement.POPULARITY, pop.quantity_measured)
-        eq_(0.25, pop.value)
+        eq_(DataSource.OCLC_LINKED_DATA, editions.data_source.name)
+        eq_(Measurement.PUBLISHED_EDITIONS, editions.quantity_measured)
+        eq_(1, editions.value)
 
-        eq_(DataSource.METADATA_WRANGLER, qual.data_source.name)
-        eq_(Measurement.QUALITY, qual.quantity_measured)
-        eq_(0.3333, qual.value)
+        eq_(DataSource.METADATA_WRANGLER, popularity.data_source.name)
+        eq_(Measurement.POPULARITY, popularity.quantity_measured)
+        eq_(0.25, popularity.value)
 
-        eq_(DataSource.METADATA_WRANGLER, rating.data_source.name)
-        eq_(Measurement.RATING, rating.quantity_measured)
-        eq_(0.6, rating.value)
-
-        # Not every imported edition has measurements.
-        #no_measurements = [
-        #    x for x in imported if not x.primary_identifier.measurements][0]
-        #eq_([], x.primary_identifier.measurements)
+        eq_(DataSource.METADATA_WRANGLER, quality.data_source.name)
+        eq_(Measurement.QUALITY, quality.quantity_measured)
+        eq_(0.3333, quality.value)
 
         seven, children, courtship, fantasy, pz, magic, new_york = sorted(
-            has_rating.primary_identifier.classifications,
+            mouse.primary_identifier.classifications,
             key=lambda x: x.subject.name)
 
         pz_s = pz.subject
@@ -118,14 +194,21 @@ class TestDetailedOPDSImporter(DatabaseTest):
         from classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
-        work = has_rating.work
+
+        work = mouse.work
         work.calculate_presentation()
-        eq_(0.41415, work.quality)
+        eq_(0.2916, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 
+        # The other book has no license pool and no work because we
+        # could not figure out whether the license source was Project
+        # Gutenberg or Project GITenberg.
+        eq_(None, crow.work)
+        eq_(None, crow.license_pool)
+
         # Bonus: make sure that delivery mechanisms are set appropriately.
-        [mech] = imported[0].license_pool.delivery_mechanisms
+        [mech] = mouse.license_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
@@ -134,8 +217,48 @@ class TestDetailedOPDSImporter(DatabaseTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported, messages = DetailedOPDSImporter(
-            self._db, feed).import_from_feed()
-        [[status_code, message]] = messages.values()
-        eq_(404, status_code)
-        eq_("I've never heard of this work.", message)
+        imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
+        [message] = messages.values()
+        eq_(404, message.status_code)
+        eq_("I've never heard of this work.", message.message)
+
+    def test_consolidate_links(self):
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,
+                             Hyperlink.IMAGE,
+                             Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.OPEN_ACCESS_DOWNLOAD]
+        ]
+        old_link = links[2]
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.OPEN_ACCESS_DOWNLOAD,
+             Hyperlink.IMAGE,
+             Hyperlink.OPEN_ACCESS_DOWNLOAD], [x.rel for x in links])
+        link = links[1]
+        eq_(old_link, link.thumbnail)
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE,
+                             Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE]
+        ]
+        t1, i1, t2, i2 = links
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.IMAGE,
+             Hyperlink.IMAGE], [x.rel for x in links])
+        eq_(t1, i1.thumbnail)
+        eq_(t2, i2.thumbnail)
+
+        links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
+                 for rel in [Hyperlink.THUMBNAIL_IMAGE,
+                             Hyperlink.IMAGE,
+                             Hyperlink.IMAGE]
+        ]
+        t1, i1, i2 = links
+        links = OPDSImporter.consolidate_links(links)
+        eq_([Hyperlink.IMAGE,
+             Hyperlink.IMAGE], [x.rel for x in links])
+        eq_(t1, i1.thumbnail)
+        eq_(None, i2.thumbnail)

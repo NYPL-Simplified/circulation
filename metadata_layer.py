@@ -20,15 +20,21 @@ import datetime
 import logging
 from util import LanguageCodes
 from model import (
+    get_one,
     get_one_or_create,
     CirculationEvent,
     Contributor,
+    CoverageRecord,
     DataSource,
+    DeliveryMechanism,
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
     Subject,
     Hyperlink,
+    RightsStatus,
+    Representation,
 )
 
 class SubjectData(object):
@@ -38,11 +44,20 @@ class SubjectData(object):
         self.name = name
         self.weight=weight
 
+    def __repr__(self):
+        return '<SubjectData type="%s" identifier="%s" name="%s" weight=%d>' % (
+            self.type, self.identifier, self.name, self.weight
+        )
+
+
 class ContributorData(object):
-    def __init__(self, sort_name=None, display_name=None, roles=None,
+    def __init__(self, sort_name=None, display_name=None, 
+                 family_name=None, wikipedia_name=None, roles=None,
                  lc=None, viaf=None, biography=None, aliases=None):
         self.sort_name = sort_name
         self.display_name = display_name
+        self.family_name = family_name
+        self.wikipedia_name = wikipedia_name
         roles = roles or Contributor.AUTHOR_ROLE
         if not isinstance(roles, list):
             roles = [roles]
@@ -51,6 +66,9 @@ class ContributorData(object):
         self.viaf = viaf
         self.biography = biography
         self.aliases = aliases
+
+    def __repr__(self):
+        return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
 
     def find_sort_name(self, _db, identifiers, metadata_client):
         """Try as hard as possible to find this person's sort name.
@@ -111,6 +129,30 @@ class ContributorData(object):
             return contributors[0].name
         return None
 
+    def _display_name_to_sort_name(
+            self, _db, metadata_client, identifier_obj
+    ):
+        response = metadata_client.canonicalize_author_name(
+            identifier_obj, self.display_name)
+        sort_name = None
+        log = logging.getLogger("Abstract metadata layer")
+        if (response.status_code == 200 
+            and response.headers['Content-Type'].startswith('text/plain')):
+            sort_name = response.content.decode("utf8")
+            log.info(
+                "Canonicalizer found sort name for %r: %s => %s",
+                identifier_obj, 
+                self.display_name,
+                sort_name
+            )
+        else:
+            log.warn(
+                "Canonicalizer could not find sort name for %r/%s",
+                identifier_obj,
+                self.display_name
+            )
+        return sort_name
+
     def display_name_to_sort_name_through_canonicalizer(
             self, _db, identifiers, metadata_client):
         sort_name = None
@@ -118,25 +160,16 @@ class ContributorData(object):
             if identifier.type != Identifier.ISBN:
                 continue
             identifier_obj, ignore = identifier.load(_db)
-            response = metadata_client.canonicalize_author_name(
-                identifier_obj, self.display_name)
-            sort_name = None
-            log = logging.getLogger("Abstract metadata layer")
-            if (response.status_code == 200 
-                and response.headers['Content-Type'].startswith('text/plain')):
-                sort_name = response.content.decode("utf8")
-                log.info(
-                    "Canonicalizer found sort name for %r: %s => %s",
-                    identifier, 
-                    self.display_name,
-                    sort_name
-                )
-            else:
-                log.warn(
-                    "Canonicalizer could not find sort name for %r/%s",
-                    identifier,
-                    self.display_name
-                )
+            sort_name = self._display_name_to_sort_name(
+                _db, metadata_client, identifier_obj
+            )
+            if sort_name:
+                break
+
+        if not sort_name:
+            sort_name = self._display_name_to_sort_name(
+                _db, metadata_client, None
+            )
         return sort_name        
 
 
@@ -152,7 +185,8 @@ class IdentifierData(object):
         )
 
 class LinkData(object):
-    def __init__(self, rel, href=None, media_type=None, content=None):
+    def __init__(self, rel, href=None, media_type=None, content=None,
+                 thumbnail=None, rights_uri=None):
         if not rel:
             raise ValueError("rel is required")
 
@@ -162,7 +196,24 @@ class LinkData(object):
         self.href = href
         self.media_type = media_type
         self.content = content
+        self.thumbnail = thumbnail
+        # This handles content sources like unglue.it that have rights for each link
+        # rather than each edition.
+        self.rights_uri = rights_uri
 
+    def __repr__(self):
+        if self.content:
+            content = ", %d bytes content" % len(self.content)
+        else:
+            content = ''
+        if self.thumbnail:
+            thumbnail = ', has thumbnail'
+        else:
+            thumbnail = ''
+        return '<LinkData: rel="%s" href="%s" media_type=%r%s%s>' % (
+            self.rel, self.href, self.media_type, thumbnail,
+            content
+        )
 
 class MeasurementData(object):
     def __init__(self, 
@@ -181,6 +232,10 @@ class MeasurementData(object):
         self.weight = weight
         self.taken_at = taken_at or datetime.datetime.utcnow()
 
+    def __repr__(self):
+        return '<MeasurementData quantity="%s" value=%f weight=%d taken=%s>' % (
+            self.quantity_measured, self.value, self.weight, self.taken_at
+        )
 
 class FormatData(object):
     def __init__(self, content_type, drm_scheme, link=None):
@@ -275,7 +330,7 @@ class Metadata(object):
     def __init__(
             self, 
             data_source,
-            book_data_source=None,
+            license_data_source=None,
             title=None,
             subtitle=None,
             sort_title=None,
@@ -293,14 +348,24 @@ class Metadata(object):
             measurements=None,
             links=None,
             formats=None,
+            rights_uri=None,
+            last_update_time=None,
     ):
+        # data_source is where the data comes from.
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
         else:
             self.data_source_obj = None
 
-        self.book_data_source = book_data_source
+        # license_data_source is where our ability to actually access the
+        # book comes from.
+        self._license_data_source = license_data_source
+        if isinstance(self._license_data_source, DataSource):
+            self.license_data_source_obj = self._license_data_source
+        else:
+            self.license_data_source_obj = None
+
         self.title = title
         self.sort_title = sort_title
         self.subtitle = subtitle
@@ -325,6 +390,39 @@ class Metadata(object):
         self.links = links or []
         self.measurements = measurements or []
         self.formats = formats or []
+        self.rights_uri = rights_uri or RightsStatus.UNKNOWN
+
+        self.last_update_time = last_update_time
+        for link in self.links:
+            # If a link has a rights_uri, make that the overall rights_uri. 
+            # If there are multiple links with a rights_uri, they should be
+            # split into separate metadata objects.
+            if link.rights_uri:
+                self.rights_uri = link.rights_uri
+
+            # An open-access link or open-access rights implies a FormatData object.
+            open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+                                and link.href)
+            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
+                                       and link.href
+                                       and self.rights_uri in RightsStatus.OPEN_ACCESS)
+            
+            if open_access_link or open_access_rights_link:
+                self.formats.append(
+                    FormatData(
+                        content_type=link.media_type,
+                        drm_scheme=DeliveryMechanism.NO_DRM,
+                        link=link
+                    )
+            )
+
+    @property
+    def has_open_access_link(self):
+        """Does this Metadata object have an associated open-access link?"""
+        return any(
+            [x for x in self.links 
+             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
+        )
 
     @classmethod
     def from_edition(self, edition):
@@ -440,23 +538,24 @@ class Metadata(object):
     def data_source(self, _db):
         if not self.data_source_obj:
             if not self._data_source:
-                return None
+                raise ValueError("No data source specified!")
             self.data_source_obj = DataSource.lookup(_db, self._data_source)
+        if not self.data_source_obj:
+            raise ValueError("Data source %s not found!" % self._data_source)
         return self.data_source_obj
 
-    def edition_data_source(self, _db):
-        """The original data source for this book.
-
-        This may be different from the source of the data being
-        imposed on the book right now.
-        """
-        if self.book_data_source:
-            return self.book_data_source
-        i, ignore = self.primary_identifier.load(_db)
-        try:
-            return DataSource.license_source_for(_db, i)
-        except NoResultFound, e:
-            return None
+    def license_data_source(self, _db):
+        if not self.license_data_source_obj:
+            if self._license_data_source:
+                obj = DataSource.lookup(_db, self._license_data_source)
+                if not obj:
+                    raise ValueError("Data source %s not found!" % self._license_data_source)
+                if not obj.offers_licenses:
+                    raise ValueError("Data source %s does not offer licenses and cannot be used as a license data source." % self._license_data_Source)
+            else:
+                obj = None
+            self.license_data_source_obj = obj
+        return self.license_data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
         if not self.primary_identifier:
@@ -464,31 +563,75 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        data_source = self.edition_data_source(_db)
-        if not data_source:
-            data_source = self.data_source(_db)
-
-        edition, new = Edition.for_foreign_id(
+        data_source = self.license_data_source(_db) or self.data_source(_db)
+        return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
         )    
-        if new:
-            self.apply(edition)
-        return edition, new
 
     def license_pool(self, _db):
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find license pool: metadata has no primary identifier."
             )
-        return LicensePool.for_foreign_id(
-            _db, self.edition_data_source(_db), self.primary_identifier.type, 
-            self.primary_identifier.identifier
-        )
+
+        license_pool = None
+        is_new = False
+
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+
+        metadata_data_source = self.data_source(_db) 
+        license_data_source = self.license_data_source(_db)
+        if license_data_source:
+            can_create_new_pool = True
+            check_for_licenses_from = [license_data_source]
+        else:
+            check_for_licenses_from = DataSource.license_sources_for(
+                _db, identifier_obj
+            ).all()
+            if len(check_for_licenses_from) == 1:
+                # Since there is only one source for this kind of book,
+                # we can create a new license pool if necessary.
+                can_create_new_pool = True
+                self.license_data_source_obj = check_for_licenses_from[0]
+            elif metadata_data_source in check_for_licenses_from:
+                # We can assume that the license comes from the same
+                # source as the metadata.
+                self.license_data_source_obj = metadata_data_source
+                can_create_new_pool = True
+            else:
+                # We might be able to find an existing license pool
+                # for this book, but we won't be able to create a new
+                # one, because we don't know who's responsible for the
+                # book.
+                can_create_new_pool = False
+
+        license_data_source = self.license_data_source(_db)
+        if not license_data_source:
+            for potential_data_source in check_for_licenses_from:
+                license_pool = get_one(
+                    _db, LicensePool, data_source=potential_data_source,
+                    identifier=identifier_obj
+                )
+                if license_pool:
+                    break
+
+        if not license_pool and can_create_new_pool:
+            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
+            license_pool, is_new = LicensePool.for_foreign_id(
+                _db, self.license_data_source_obj,
+                self.primary_identifier.type, 
+                self.primary_identifier.identifier,
+                rights_status=rights_status,
+            )
+            if self.has_open_access_link:
+                license_pool.open_access = True
+            if self.rights_uri:
+                license_pool.set_rights_status(self.rights_uri)
+        return license_pool, is_new
 
     def consolidate_identifiers(self):
-        """"""
         by_weight = defaultdict(list)
         for i in self.identifiers:
             by_weight[(i.type, i.identifier)].append(i.weight)
@@ -556,13 +699,15 @@ class Metadata(object):
             replace_contributions=False,
             replace_links=False,
             replace_formats=False,
+            replace_rights=False,
+            force=False,
     ):
         """Apply this metadata to the given edition."""
+        _db = Session.object_session(edition)
 
         # We were given an Edition, so either this metadata's
         # primary_identifier must be missing or it must match the
         # Edition's primary identifier.
-        _db = Session.object_session(edition)
         if self.primary_identifier:
             if (self.primary_identifier.type != edition.primary_identifier.type
                 or self.primary_identifier.identifier != edition.primary_identifier.identifier):
@@ -573,6 +718,21 @@ class Metadata(object):
                         edition.primary_identifier,
                     )
                 )
+
+        # Check whether we should do any work at all.
+        data_source = self.data_source(_db)
+        if self.last_update_time and not force:
+            coverage_record = CoverageRecord.lookup(edition, data_source)
+            if coverage_record:
+                check_date = coverage_record.date
+                if not isinstance(check_date, datetime.date):
+                    check_date = check_date.date()
+                last_date = self.last_update_time
+                if isinstance(last_date, datetime.datetime):
+                    last_date = last_date.date()
+                if check_date >= last_date:
+                    # The metadata has not changed since last time. Do nothing.
+                    return
 
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
@@ -605,7 +765,6 @@ class Metadata(object):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-        data_source = self.data_source(_db)
 
         self.update_contributions(_db, edition, metadata_client, 
                                   replace_contributions)
@@ -654,16 +813,41 @@ class Metadata(object):
                 identifier.links = surviving_hyperlinks
 
         for link in self.links:
-            identifier.add_link(
+            link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=data_source, 
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
+            thumbnail = link.thumbnail
+            if thumbnail:
+                if thumbnail.href == link.href:
+                    # The image serves as its own thumbnail. This is a
+                    # hacky way to represent this in the database.
+                    if link_obj.resource.representation:
+                        link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+                else:
+                    # The thumbnail and image are different.
+                    thumbnail_obj, ignore = identifier.add_link(
+                        rel=thumbnail.rel, href=thumbnail.href, 
+                        data_source=data_source, 
+                        license_pool=pool, media_type=thumbnail.media_type,
+                        content=thumbnail.content
+                    )
+                    if thumbnail_obj.resource.representation:
+                        thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
-        if replace_formats:
+        if pool and replace_formats:
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
+
+        if self.rights_uri == RightsStatus.UNKNOWN and data_source:
+            # We haven't been able to determine rights from the metadata, so use the default rights
+            # for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            if default:
+                self.rights_uri = default
+
         for format in self.formats:
             if format.link:
                 link = format.link
@@ -675,14 +859,19 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
-                if pool != None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    pool.open_access = True
+                if self.rights_uri == RightsStatus.UNKNOWN and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
             else:
                 resource = None
             if pool:
                 pool.set_delivery_mechanism(
                     format.content_type, format.drm_scheme, resource
                 )
+
+        if pool and replace_rights:
+            pool.set_rights_status(self.rights_uri)
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -711,6 +900,10 @@ class Metadata(object):
                 )
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
+
+        # Finally, update the coverage record for this edition
+        # and data source.
+        CoverageRecord.add_for(edition, data_source, self.last_update_time)
         return edition
 
     def update_contributions(self, _db, edition, metadata_client=None, 

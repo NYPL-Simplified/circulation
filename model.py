@@ -635,12 +635,18 @@ class DataSource(Base):
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
     @classmethod
-    def from_uri(cls, _db, uri):
+    def name_from_uri(cls, uri):
+        """Turn a data source URI into a name suitable for passing
+        into lookup().
+        """
         if not uri.startswith(cls.URI_PREFIX):
             return None
         name = uri[len(cls.URI_PREFIX):]
-        name = urllib.unquote(name)
-        return cls.lookup(_db, name)
+        return urllib.unquote(name)
+
+    @classmethod
+    def from_uri(cls, _db, uri):
+        return cls.lookup(_db, cls.name_from_uri(uri))
 
     @property
     def uri(self):
@@ -744,6 +750,8 @@ class DataSource(Base):
                 (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
                 (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
+                (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
+                (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
         ):
@@ -782,6 +790,43 @@ class CoverageRecord(Base):
         Integer, ForeignKey('datasources.id'), index=True)
     date = Column(Date, index=True)
     exception = Column(Unicode, index=True)
+
+    @classmethod
+    def lookup(self, edition_or_identifier, data_source):
+        _db = Session.object_session(edition_or_identifier)
+        if isinstance(edition_or_identifier, Identifier):
+            identifier = edition_or_identifier
+        elif isinstance(edition_or_identifier, Edition):
+            identifier = edition_or_identifier.primary_identifier
+        else:
+            raise ValueError(
+                "Cannot look up a coverage record for %r." % edition) 
+        return get_one(
+                _db, CoverageRecord,
+                identifier=identifier,
+                data_source=data_source,
+                on_multiple='interchangeable',
+            )
+
+    @classmethod
+    def add_for(self, edition, data_source, date=None):
+        _db = Session.object_session(edition)
+        if isinstance(edition, Identifier):
+            identifier = edition
+        elif isinstance(edition, Edition):
+            identifier = edition.primary_identifier
+        else:
+            raise ValueError(
+                "Cannot create a coverage record for %r." % edition) 
+        date = date or datetime.datetime.utcnow()
+        coverage_record, is_new = get_one_or_create(
+            _db, CoverageRecord,
+            identifier=identifier,
+            data_source=data_source,
+            on_multiple='interchangeable'
+        )
+        coverage_record.date = date
+        return coverage_record, is_new
 
 
 class Equivalency(Base):
@@ -991,7 +1036,7 @@ class Identifier(Base):
         pass
 
     @classmethod
-    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+    def type_and_identifier_for_urn(cls, identifier_string):
         if not identifier_string:
             return None
         m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
@@ -1018,8 +1063,12 @@ class Identifier(Base):
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
+        return (type, identifier_string)
 
 
+    @classmethod
+    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+        type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
         if must_support_license_pools:
             try:
                 ls = DataSource.license_source_for(_db, type)
@@ -1259,6 +1308,7 @@ class Identifier(Base):
             resource.set_fetched_content(media_type, content, content_path)
         elif media_type:
             resource.set_mirrored_elsewhere(media_type)
+
         return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
@@ -2420,7 +2470,8 @@ class Edition(Base):
             _db, [self.primary_identifier.id], open_access)
         for resource in q:
             if not any(
-                    [resource.representation.media_type.startswith(x) 
+                    [resource.representation and
+                     resource.representation.media_type.startswith(x) 
                      for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
                 # This representation is not in a media type we 
                 # support. We can't serve it, so we won't consider it.
@@ -2523,13 +2574,6 @@ class Edition(Base):
     def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
-        # Calling calculate_presentation() on NYT data will actually
-        # destroy the presentation, so don't do anything.
-        if self.data_source.name == DataSource.NYT:
-            return
-            
-        if not self.sort_title:
-            self.sort_title = TitleProcessor.sort_title_for(self.title)
         sort_names = []
         display_names = []
         self.last_update_time = datetime.datetime.utcnow()
@@ -2548,6 +2592,9 @@ class Edition(Base):
             self.sort_author = " ; ".join(sorted(sort_names))
         else:
             self.sort_author = self.UNKNOWN_AUTHOR
+           
+        if not self.sort_title:
+            self.sort_title = TitleProcessor.sort_title_for(self.title)
         self.calculate_permanent_work_id()
 
         self.set_open_access_link()
@@ -2646,6 +2693,9 @@ class Work(Base):
         DataSource.OVERDRIVE: 0.4,
         DataSource.THREEM : 0.65,
         DataSource.AXIS_360: 0.65,
+        DataSource.STANDARD_EBOOKS: 0.8,
+        DataSource.UNGLUE_IT: 0.4,
+        DataSource.PLYMPTON: 0.5,
     }
 
     __tablename__ = 'works'
@@ -3558,9 +3608,13 @@ class Work(Base):
                 target_min = c.subject.target_age.lower
                 target_max = c.subject.target_age.upper
                 if target_min:
+                    if not c.subject.target_age.lower_inc:
+                        target_min += 1
                     for i in range(0,c.weight):
                         target_age_mins.append(target_min)
                 if target_max:
+                    if not c.subject.target_age.upper_inc:
+                        target_max -= 1
                     for i in range(0,c.weight):
                         target_age_maxes.append(target_max)
 
@@ -4410,11 +4464,15 @@ class Subject(Base):
     @property
     def target_age_string(self):
         lower = self.target_age.lower
-        upper = self.target_age.upper
+        upper = self.target_age.upper           
         if lower and not upper:
             return str(lower)
         if upper and not lower:
             return str(upper)
+        if not self.target_age.upper_inc:
+            upper -= 1
+        if not self.target_age.lower_inc:
+            lower += 1
         return "%s-%s" % (lower,upper)
 
     @classmethod
@@ -4800,7 +4858,7 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id):
+    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id, rights_status=None):
         """Create a LicensePool for the given foreign ID."""
 
         # Get the DataSource.
@@ -4828,10 +4886,14 @@ class LicensePool(Base):
             _db, foreign_id_type, foreign_id
             )
 
+        kw = dict(data_source=data_source, identifier=identifier)
+        if rights_status:
+            kw['rights_status'] = rights_status
+
         # Get the LicensePool that corresponds to the DataSource and
         # the Identifier.
         license_pool, was_new = get_one_or_create(
-            _db, LicensePool, data_source=data_source, identifier=identifier)
+            _db, LicensePool, **kw)
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
@@ -4940,6 +5002,10 @@ class LicensePool(Base):
             _db, RightsStatus, uri=uri,
             create_method_kwargs=dict(name=name))
         self.rights_status = status
+        if status.uri in RightsStatus.OPEN_ACCESS:
+            self.open_access = True
+        else:
+            self.open_access = False
         return status
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
@@ -5148,9 +5214,46 @@ class RightsStatus(Base):
     # Public domain in some unknown territory
     PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
+    # Creative Commons Attribution (CC BY)
+    CC_BY = u"http://creativecommons.org/licenses/by/4.0/"
+    
+    # Creative Commons Attribution-ShareAlike (CC BY-SA)
+    CC_BY_SA = u"https://creativecommons.org/licenses/by-sa/4.0"
+
+    # Creative Commons Attribution-NoDerivs (CC BY-ND)
+    CC_BY_ND = u"https://creativecommons.org/licenses/by-nd/4.0"
+
+    # Creative Commons Attribution-NonCommercial (CC BY-NC)
+    CC_BY_NC = u"https://creativecommons.org/licenses/by-nc/4.0"
+
+    # Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)
+    CC_BY_NC_SA = u"https://creativecommons.org/licenses/by-nc-sa/4.0"
+
+    # Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)
+    CC_BY_NC_ND = u"https://creativecommons.org/licenses/by-nc-nd/4.0"
+
+    # Open access download but no explicit license
+    GENERIC_OPEN_ACCESS = u"http://librarysimplified.org/terms/rights-status/generic-open-access"
+
     # Unknown copyright status.
     UNKNOWN = u"http://librarysimplified.org/terms/rights-status/unknown"
 
+    OPEN_ACCESS = [
+        PUBLIC_DOMAIN_USA,
+        CC_BY,
+        CC_BY_SA,
+        CC_BY_ND,
+        CC_BY_NC,
+        CC_BY_NC_SA,
+        CC_BY_NC_ND,
+        GENERIC_OPEN_ACCESS,
+    ]
+
+    DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
+        DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
+        DataSource.PLYMPTON: CC_BY_NC,
+    }
+    
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
 
@@ -5164,6 +5267,35 @@ class RightsStatus(Base):
     # One RightsStatus may apply to many LicensePools.
     licensepools = relationship("LicensePool", backref="rights_status")
 
+    @classmethod
+    def rights_uri_from_string(cls, rights):
+        rights = rights.lower()
+        if rights == 'public domain in the usa.':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights == 'public domain in the united states.':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights == 'pd-us':
+            return RightsStatus.PUBLIC_DOMAIN_USA
+        elif rights.startswith('public domain'):
+            return RightsStatus.PUBLIC_DOMAIN_UNKNOWN
+        elif rights.startswith('copyrighted.'):
+            return RightsStatus.IN_COPYRIGHT
+        elif rights == 'cc by':
+            return RightsStatus.CC_BY
+        elif rights == 'cc by-sa':
+            return RightsStatus.CC_BY_SA
+        elif rights == 'cc by-nd':
+            return RightsStatus.CC_BY_ND
+        elif rights == 'cc by-nc':
+            return RightsStatus.CC_BY_NC
+        elif rights == 'cc by-nc-sa':
+            return RightsStatus.CC_BY_NC_SA
+        elif rights == 'cc by-nc-nd':
+            return RightsStatus.CC_BY_NC_ND
+        else:
+            return RightsStatus.UNKNOWN
+
+    
 class CirculationEvent(Base):
 
     """Changes to a license pool's circulation status.
@@ -5362,9 +5494,21 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
+    BOOK_MEDIA_TYPES = [
+        EPUB_MEDIA_TYPE,
+        PDF_MEDIA_TYPE,
+        MP3_MEDIA_TYPE,
+    ]
+
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
     ]
+
+    FILE_EXTENSIONS = {
+        EPUB_MEDIA_TYPE: "epub",
+        PDF_MEDIA_TYPE: "pdf",
+        MP3_MEDIA_TYPE: "mp3",
+    }
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
