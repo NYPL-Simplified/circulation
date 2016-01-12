@@ -149,6 +149,21 @@ class TestOPDS(DatabaseTest):
         eq_(now_s, has_until.attrib['since'])
         eq_(tomorrow_s, has_until.attrib['until'])
 
+    def test_loan_feed_includes_patron(self):
+        patron = self._patron()
+        patron.username = u'bellhooks'
+        patron.authorization_identifier = u'987654321'
+
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+        feed_details = feedparser.parse(raw)['feed']
+
+        assert "simplified:authorizationIdentifier" in raw
+        assert "simplified:username" in raw
+        eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
+        eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
+
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]

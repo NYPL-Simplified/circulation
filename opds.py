@@ -11,6 +11,7 @@ from core.opds import (
     E,
     OPDSFeed,
     opds_ns,
+    simplified_ns
 )
 from core.model import (
     Identifier,
@@ -24,13 +25,14 @@ from core.app_server import cdn_url_for
 
 class CirculationManagerAnnotator(Annotator):
 
-    def __init__(self, circulation, lane, 
+    def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={}, 
                  facet_view='feed',
                  test_mode=False
     ):
         self.circulation = circulation
         self.lane = lane
+        self.patron = patron
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
@@ -216,6 +218,9 @@ class CirculationManagerAnnotator(Annotator):
             entry.append(tag)
 
     def annotate_feed(self, feed, lane):
+        if self.patron:
+            self.add_patron(feed)
+
         # Add a 'search' link.
         if isinstance(lane, Lane):
             lane_name = lane.url_name
@@ -471,6 +476,16 @@ class CirculationManagerAnnotator(Annotator):
         link_tag.append(always_available)
         return link_tag
 
+    def add_patron(self, feed_obj):
+        patron_details = {}
+        if self.patron.username:
+            patron_details["{%s}username" % simplified_ns] = self.patron.username
+        if self.patron.authorization_identifier:
+            patron_details["{%s}authorizationIdentifier" % simplified_ns] = self.patron.authorization_identifier
+
+        patron_tag = E._makeelement("{%s}patron" % simplified_ns, patron_details)
+        feed_obj.feed.append(patron_tag)
+
 
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
 
@@ -485,13 +500,17 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         for hold in patron.holds:
             if hold.license_pool.work:
                 active_holds_by_work[hold.license_pool.work] = hold
+
         annotator = cls(
-            circulation, None, active_loans_by_work, active_holds_by_work, 
+            circulation, None, patron, active_loans_by_work, active_holds_by_work,
             test_mode=test_mode
         )
         url = annotator.url_for('active_loans', _external=True)
         works = patron.works_on_loan_or_on_hold()
-        return AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
+
+        feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
+        annotator.annotate_feed(feed_obj, None)
+        return feed_obj
 
     @classmethod
     def single_loan_feed(cls, circulation, loan, test_mode=False):
