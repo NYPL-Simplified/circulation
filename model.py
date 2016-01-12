@@ -5208,22 +5208,22 @@ class RightsStatus(Base):
     PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
     # Creative Commons Attribution (CC BY)
-    CC_BY = u"http://librarysimplified.org/terms/rights-status/cc-by"
+    CC_BY = u"http://creativecommons.org/licenses/by/4.0/"
     
     # Creative Commons Attribution-ShareAlike (CC BY-SA)
-    CC_BY_SA = u"http://librarysimplified.org/terms/rights-status/cc-by-sa"
+    CC_BY_SA = u"https://creativecommons.org/licenses/by-sa/4.0"
 
     # Creative Commons Attribution-NoDerivs (CC BY-ND)
-    CC_BY_ND = u"http://librarysimplified.org/terms/rights-status/cc-by-nd"
+    CC_BY_ND = u"https://creativecommons.org/licenses/by-nd/4.0"
 
     # Creative Commons Attribution-NonCommercial (CC BY-NC)
-    CC_BY_NC = u"http://librarysimplified.org/terms/rights-status/cc-by-nc"
+    CC_BY_NC = u"https://creativecommons.org/licenses/by-nc/4.0"
 
     # Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)
-    CC_BY_NC_SA = u"http://librarysimplified.org/terms/rights-status/cc-by-nc-sa"
+    CC_BY_NC_SA = u"https://creativecommons.org/licenses/by-nc-sa/4.0"
 
     # Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)
-    CC_BY_NC_ND = u"http://librarysimplified.org/terms/rights-status/cc-by-nc-nd"
+    CC_BY_NC_ND = u"https://creativecommons.org/licenses/by-nc-nd/4.0"
 
     # Open access download but no explicit license
     GENERIC_OPEN_ACCESS = u"http://librarysimplified.org/terms/rights-status/generic-open-access"
