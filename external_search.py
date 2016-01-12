@@ -226,3 +226,8 @@ class DummyExternalSearchIndex(object):
 
     def exists(self, index, doc_type, id):
         return id in self.docs
+
+    def query_works(self, *args, **kwargs):
+        doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        return { "hits" : { "hits" : doc_ids }}
+
