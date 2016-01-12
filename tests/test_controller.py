@@ -625,3 +625,19 @@ class TestFeedController(ControllerTest):
                 eq_(1, counter['Other Languages'])
         
 
+    def test_search(self):
+        with self.app.test_request_context("/?q=sam"):
+            response = self.manager.opds_feeds.search(None, None)
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(1, len(entries))
+            entry = entries[0]
+
+            eq_("Uncle Sam", entry.author)
+
+            assert 'links' in entry
+            assert len(entry.links) > 0
+            
+            borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
+            assert len(borrow_links) > 0
