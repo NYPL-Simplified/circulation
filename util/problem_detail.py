@@ -4,7 +4,7 @@ As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/
 """
 import json as j
 
-JSON_MEDIA_TYPE = "application/problem+json"
+JSON_MEDIA_TYPE = "application/api-problem+json"
 
 
 def json(type, status, title, detail=None, instance=None):
@@ -36,7 +36,7 @@ class ProblemDetail(object):
                 self.instance
             ),
             self.status_code,
-            { "Content-Type": "application/api-problem+json"}
+            { "Content-Type": JSON_MEDIA_TYPE}
         )
 
     def detailed(self, detail, status_code=None, title=None, instance=None):
