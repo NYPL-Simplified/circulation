@@ -596,6 +596,23 @@ class TestFeedController(ControllerTest):
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
 
+    def test_bad_order_gives_problem_detail(self):
+        with self.app.test_request_context("/?order=nosuchorder"):
+            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input", 
+                response.uri
+            )
+
+    def test_bad_pagination_gives_problem_detail(self):
+        with self.app.test_request_context("/?size=abc"):
+            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input", 
+                response.uri
+            )            
 
     def test_groups(self):
         with temp_config() as config:

@@ -470,10 +470,16 @@ class OPDSFeedController(CirculationManagerController):
         title = lane.display_name
 
         annotator = self.manager.annotator(lane)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
-            facets=load_facets_from_request(),
-            pagination=load_pagination_from_request()
+            facets=facets,
+            pagination=pagination,
         )
         return feed_response(feed.content)
 
