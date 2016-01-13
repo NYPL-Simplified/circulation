@@ -585,6 +585,7 @@ class DataSource(Base):
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
+    OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -754,6 +755,7 @@ class DataSource(Base):
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
+                (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
         ):
 
             extra = dict()
