@@ -86,7 +86,6 @@ class ControllerTest(DatabaseTest):
             u"Très Français", "Marianne", language="fre", fiction=False,
             with_open_access_download=True
         )
-
         self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 

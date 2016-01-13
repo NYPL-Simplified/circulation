@@ -516,8 +516,9 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work
-        active_loans_by_work = { work : loan }
-        annotator = cls(circulation, None, active_loans_by_work, {}, 
+        annotator = cls(circulation, None, 
+                        active_loans_by_work={work:loan}, 
+                        active_holds_by_work={}, 
                         test_mode=test_mode)
         url = annotator.url_for(
             'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
@@ -531,7 +532,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
         work = hold.license_pool.work
-        active_holds_by_work = { work : hold }
-        annotator = cls(circulation, None, {}, active_holds_by_work, 
+        annotator = cls(circulation, None, active_loans_by_work={}, 
+                        active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
         return AcquisitionFeed.single_entry(db, work, annotator)
