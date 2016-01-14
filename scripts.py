@@ -40,8 +40,7 @@ from core.lane import (
 from config import Configuration
 from core.opds_import import (
     SimplifiedOPDSLookup,
-    DetailedOPDSImporter,
-    BaseOPDSImporter,
+    OPDSImporter,
 )
 from core.opds import (
     OPDSFeed,
@@ -123,7 +122,7 @@ class CreateWorksForIdentifiersScript(Script):
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise Exception("Wrong media type: %s" % content_type)
 
-        importer = DetailedOPDSImporter(
+        importer = OPDSImporter(
             self._db, response.text,
             overwrite_rels=[Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
         imported, messages_by_id = importer.import_from_feed()
@@ -238,17 +237,6 @@ class UpdateStaffPicksScript(Script):
             raise ValueError("Unexpected media type %s" % 
                              representation.media_type)
         return StringIO(representation.content)
-
-class ContentOPDSImporter(BaseOPDSImporter):
-
-    # The content server is the canonical source for open-access
-    # links, but not for anything else.
-    OVERWRITE_RELS = [Hyperlink.OPEN_ACCESS_DOWNLOAD]
-
-    def __init__(self, _db, feed):
-        super(ContentOPDSImporter, self).__init__(
-            _db, feed, overwrite_rels=self.OVERWRITE_RELS)
-
 
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
