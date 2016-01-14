@@ -53,6 +53,8 @@ class SimplifiedOPDSLookup(object):
     @classmethod
     def from_config(cls, integration='Metadata Wrangler'):
         url = Configuration.integration_url(integration)
+        if not url:
+            return None
         return cls(url)
 
     def __init__(self, base_url):

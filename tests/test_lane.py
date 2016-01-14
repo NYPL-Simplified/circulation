@@ -77,7 +77,9 @@ class TestFacets(object):
             }
         }
         with temp_config() as config:
-            config['policies'][Configuration.FACET_POLICY] = test_facet_policy
+            config['policies'] = {
+                Configuration.FACET_POLICY : test_facet_policy
+            }
             facets = Facets(None, None, Facets.ORDER_TITLE)
             all_groups = list(facets.facet_groups)
 
@@ -229,7 +231,9 @@ class TestFacetsApply(DatabaseTest):
         # When holds are allowed, we can find all works by asking
         # for everything.
         with temp_config() as config:
-            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            config['policies'] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
+            }
 
             everything = facetify()
             eq_(4, everything.count())
@@ -237,13 +241,17 @@ class TestFacetsApply(DatabaseTest):
         # If we disallow holds, we lose one book even when we ask for
         # everything.
         with temp_config() as config:
-            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+            config['policies'] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
+            }
             everything = facetify()
             eq_(3, everything.count())
             assert licensed_high not in everything
 
         with temp_config() as config:
-            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            config['policies'] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
+            }
             # Even when holds are allowed, if we restrict to books
             # currently available we lose the unavailable book.
             available_now = facetify(available=Facets.AVAILABLE_NOW)
