@@ -90,9 +90,18 @@ class ControllerTest(DatabaseTest):
         self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
         with temp_config() as config:
-            languages = Configuration.language_policy()
-            languages[Configuration.LARGE_COLLECTION_LANGUAGES] = 'eng'
-            languages[Configuration.SMALL_COLLECTION_LANGUAGES] = 'spa,chi'
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CIRCULATION_MANAGER_INTEGRATION : {
+                    "url": 'http://test-circulation-manager/'
+                }
+            }
             lanes = make_lanes_default(self._db)
             self.manager = TestCirculationManager(self._db, lanes=lanes, testing=True)
             self.app.manager = self.manager
@@ -165,7 +174,9 @@ class TestBaseController(ControllerTest):
         
         patron = self.controller.authenticated_patron("5", "5555")
         with temp_config() as config:
-            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_HIDE
+            config[Configuration.POLICIES] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
+            }
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.licenses_available = 0
@@ -200,7 +211,9 @@ class TestIndexController(ControllerTest):
     
     def test_simple_redirect(self):
         with temp_config() as config:
-            config['policies'][Configuration.ROOT_LANE_POLICY] = None
+            config[Configuration.POLICIES] = {
+                Configuration.ROOT_LANE_POLICY: None
+            }
             with self.app.test_request_context('/'):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
@@ -208,8 +221,10 @@ class TestIndexController(ControllerTest):
 
     def test_authenticated_patron_root_lane(self):
         with temp_config() as config:
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": ["eng", "Adult Fiction"] }
-            config['policies'][Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION] = "^(.)"
+            config[Configuration.POLICIES] = {
+                Configuration.ROOT_LANE_POLICY : { "2": ["eng", "Adult Fiction"]},
+                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(.)",
+            }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
                 response = self.manager.index_controller()
@@ -393,7 +408,9 @@ class TestLoanController(ControllerTest):
         auth = 'Basic ' + base64.b64encode('5:5555')
         
         with temp_config() as config:
-            config['policies'][Configuration.MAX_OUTSTANDING_FINES] = "$0.50"
+            config[Configuration.POLICIES] = {
+                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
+            }
             
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
@@ -407,7 +424,9 @@ class TestLoanController(ControllerTest):
                 assert "$1.00" in response.detail
 
         with temp_config() as config:
-            config['policies'][Configuration.MAX_OUTSTANDING_FINES] = "$20.00"
+            config[Configuration.POLICIES] = {
+                Configuration.MAX_OUTSTANDING_FINES : "$20.00"
+            }
 
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
@@ -616,9 +635,11 @@ class TestFeedController(ControllerTest):
 
     def test_groups(self):
         with temp_config() as config:
-            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = 10
-            config['policies'][Configuration.MINIMUM_FEATURED_QUALITY] = 0
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+            config[Configuration.POLICIES] = {
+                Configuration.GROUPS_MAX_AGE_POLICY : 10,
+                Configuration.MINIMUM_FEATURED_QUALITY: 0,
+                Configuration.FEATURED_LANE_SIZE: 2,
+            }
 
             for i in range(2):
                 self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)

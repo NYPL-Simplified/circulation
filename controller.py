@@ -112,11 +112,12 @@ class CirculationManager(object):
 
         self.log = logging.getLogger("Circulation manager web app")
 
-        try:
-            self.config = Configuration.load()
-        except CannotLoadConfiguration, e:
-            self.log.error("Could not load configuration file: %s" % e)
-            sys.exit()
+        if not testing:
+            try:
+                self.config = Configuration.load()
+            except CannotLoadConfiguration, e:
+                self.log.error("Could not load configuration file: %s" % e)
+                sys.exit()
 
         if _db is None and not testing:
             _db = production_session()
@@ -222,7 +223,7 @@ class CirculationManager(object):
                 self.auth
             )
         else:
-            cls.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
+            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
             self.adobe_vendor_id = None
 
 
