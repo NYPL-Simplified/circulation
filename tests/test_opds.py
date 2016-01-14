@@ -705,6 +705,7 @@ class TestOPDS(DatabaseTest):
         work2.quality = 0.75
 
         with temp_config() as config:
+            config['policies'] = {}
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
             config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
             annotator = TestAnnotatorWithGroup()
@@ -762,7 +763,9 @@ class TestOPDS(DatabaseTest):
         # If we require more books to fill up a featured lane than are
         # available, then the groups() method returns None.
         with temp_config() as config:
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 10
+            config['policies'] = {
+                Configuration.FEATURED_LANE_SIZE : 10
+            }
             groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
                 True, False
@@ -781,7 +784,9 @@ class TestOPDS(DatabaseTest):
             )
 
         with temp_config() as config:
-            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 10
+            config['policies'] = {
+                Configuration.PAGE_MAX_AGE_POLICY : 10
+            }
 
             cached1 = make_page()
             assert work1.title in cached1.content

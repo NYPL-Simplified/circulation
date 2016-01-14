@@ -1340,7 +1340,9 @@ class TestHold(DatabaseTest):
         pool = self._licensepool(edition)
 
         with temp_config() as config:
-            config['policies'][Configuration.HOLD_POLICY] = Configuration.HOLD_POLICY_ALLOW
+            config['policies'] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
+            }
             hold, is_new = pool.on_hold_to(patron, now, later, 4)
             eq_(True, is_new)
             eq_(now, hold.start)
@@ -1714,6 +1716,8 @@ class TestPatron(DatabaseTest):
         patron.authorization_identifier = "A123"
         key = Patron.EXTERNAL_TYPE_REGULAR_EXPRESSION
         with temp_config() as config:
+
+            config[Configuration.POLICIES] = {}
 
             config[Configuration.POLICIES][key] = None
             eq_(None, patron.external_type)
