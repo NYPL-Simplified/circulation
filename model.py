@@ -578,7 +578,6 @@ class DataSource(Base):
     GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
-    BIBLIOCOMMONS = "BiblioCommons"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
     NYPL_SHADOWCAT = "NYPL Shadowcat"
@@ -745,7 +744,6 @@ class DataSource(Base):
                 (cls.WEB, True, False, Identifier.URI, None),
                 (cls.VIAF, False, False, None, None),
                 (cls.CONTENT_CAFE, True, True, Identifier.ISBN, None),
-                (cls.BIBLIOCOMMONS, False, False, Identifier.BIBLIOCOMMONS_ID, None),
                 (cls.MANUAL, False, False, None, None),
                 (cls.NYT, False, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
