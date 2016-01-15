@@ -86,9 +86,9 @@ class DatabaseTest(object):
         return get_one_or_create(
             self._db, Patron, external_identifier=external_identifier)[0]
 
-    def _contributor(self, name=None):
+    def _contributor(self, name=None, **kw_args):
         name = name or self._str
-        return get_one_or_create(self._db, Contributor, name=unicode(name))
+        return get_one_or_create(self._db, Contributor, name=unicode(name), **kw_args)
 
     def _identifier(self, identifier_type=Identifier.GUTENBERG_ID):
         id = self._str
