@@ -5912,7 +5912,7 @@ class Representation(Base):
             return StringIO(self.content)
         else:
             if not os.path.exists(self.local_path):
-                raise ValueError("%s does not exist." % local_path)
+                raise ValueError("%s does not exist." % self.local_path)
             return open(self.local_path)
             
 
