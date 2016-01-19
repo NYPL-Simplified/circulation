@@ -5,7 +5,7 @@ REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
       500,
       "Third-party service failed.",
-      "The library could no complete your request because a third-party service has failed.",
+      "The library could not complete your request because a third-party service has failed.",
 )
 
 CANNOT_GENERATE_FEED = pd(
