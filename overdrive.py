@@ -72,24 +72,25 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
     
-    def __init__(self, _db):
+    def __init__(self, _db, testing=False):
         self._db = _db
         self.source = DataSource.lookup(_db, DataSource.OVERDRIVE)
 
         # Set some stuff from environment variables
-        values = self.environment_values()
-        if len([x for x in values if not x]):
-            self.log.info(
-                "No Overdrive client configured."
-            )
-            raise CannotLoadConfiguration("No Overdrive client configured.")
+        if not testing:
+            values = self.environment_values()
+            if len([x for x in values if not x]):
+                self.log.info(
+                    "No Overdrive client configured."
+                )
+                raise CannotLoadConfiguration("No Overdrive client configured.")
 
-        (self.client_key, self.client_secret, self.website_id, 
-         self.library_id, self.collection_name) = values
+            (self.client_key, self.client_secret, self.website_id, 
+             self.library_id, self.collection_name) = values
 
-        # Get set up with up-to-date credentials from the API.
-        self.check_creds()
-        self.collection_token = self.get_library()['collectionToken']
+            # Get set up with up-to-date credentials from the API.
+            self.check_creds()
+            self.collection_token = self.get_library()['collectionToken']
 
 
     @classmethod

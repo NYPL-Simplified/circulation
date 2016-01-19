@@ -56,9 +56,15 @@ class ThreeMAPI(object):
 
     def __init__(self, _db, account_id=None, library_id=None, account_key=None,
                  base_url = "https://cloudlibraryapi.3m.com/",
-                 version="2.0"):
+                 version="2.0", testing=False):
         self._db = _db
         self.version = version
+        self.base_url = base_url
+        self.source = DataSource.lookup(self._db, DataSource.THREEM)
+        self.item_list_parser = ItemListParser()
+
+        if testing:
+            return
 
         if not account_id or not library_id or not account_key:
             values = self.environment_values()
@@ -71,9 +77,6 @@ class ThreeMAPI(object):
         self.library_id = library_id or env_library_id
         self.account_id = account_id or env_account_id
         self.account_key = account_key or env_account_key
-        self.base_url = base_url
-        self.source = DataSource.lookup(self._db, DataSource.THREEM)
-        self.item_list_parser = ItemListParser()
 
     @classmethod
     def environment_values(
