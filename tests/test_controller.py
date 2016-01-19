@@ -311,7 +311,7 @@ class TestLoanController(ControllerTest):
                 mech2.delivery_mechanism.id
             )
 
-            eq_(400, response.status_code)
+            eq_(409, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
 
     def test_borrow_creates_hold_when_no_available_copies(self):

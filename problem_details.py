@@ -5,7 +5,7 @@ REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
       500,
       "Third-party service failed.",
-      "The library cannot complete your request because a third-party service has failed.",
+      "The library could no complete your request because a third-party service has failed.",
 )
 
 CANNOT_GENERATE_FEED = pd(
@@ -123,7 +123,7 @@ NO_ACTIVE_LOAN_OR_HOLD = pd(
 COULD_NOT_MIRROR_TO_REMOTE = pd(
       "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
       500,
-      "Cannot mirror local state to remote.",
+      "Could not mirror local state to remote.",
       "Could not convince a third party to accept the change you made. It's likely to show up again soon.",
 )
 
@@ -144,8 +144,15 @@ FORBIDDEN_BY_POLICY = pd(
 CANNOT_FULFILL = pd(
       "http://librarysimplified.org/terms/problem/cannot-fulfill-loan",
       400,
-      "Cannot fulfill loan.",
-      "Cannot fulfill loan.",
+      "Could not fulfill loan.",
+      "Could not fulfill loan.",
+)
+
+DELIVERY_CONFLICT = pd(
+      "http://librarysimplified.org/terms/problem/delivery-mechanism-conflict",
+      409,
+      "Delivery mechanism conflict.",
+      "The delivery mechanism for this book has been locked in and can't be changed.",
 )
 
 BAD_DELIVERY_MECHANISM = pd(
@@ -156,7 +163,8 @@ BAD_DELIVERY_MECHANISM = pd(
 )
 
 CANNOT_RELEASE_HOLD = pd(
-      "http://librarysimplified.org/terms/problem/cannot-release-hold",
-      400,
-      "Cannot release hold.",
+    "http://librarysimplified.org/terms/problem/cannot-release-hold",
+    400,
+    "Could not release hold.",
+    "Could not release hold."
 )
