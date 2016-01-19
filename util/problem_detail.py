@@ -25,7 +25,7 @@ class ProblemDetail(object):
                  instance=None, debug_message=None):
         self.uri = uri
         self.title = title
-        self.status_code=status_code or 400
+        self.status_code=status_code
         self.detail = detail
         self.instance = instance
         self.debug_message = debug_message
@@ -38,7 +38,7 @@ class ProblemDetail(object):
                 self.uri, self.status_code, self.title, self.detail, 
                 self.instance, self.debug_message
             ),
-            self.status_code,
+            self.status_code or 400,
             { "Content-Type": JSON_MEDIA_TYPE}
         )
 
