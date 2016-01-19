@@ -5068,6 +5068,8 @@ class LicensePool(Base):
         
         logging.info("Calculating work for %r", primary_edition)
         if self.work:
+            if known_edition:
+                known_edition.work = self.work
             # The work has already been done.
             logging.info(
                 "Never mind, %r already has a work: %r", 

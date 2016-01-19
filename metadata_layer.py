@@ -390,7 +390,7 @@ class Metadata(object):
         self.links = links or []
         self.measurements = measurements or []
         self.formats = formats or []
-        self.rights_uri = rights_uri or RightsStatus.UNKNOWN
+        self.rights_uri = rights_uri
 
         self.last_update_time = last_update_time
         for link in self.links:
@@ -568,7 +568,28 @@ class Metadata(object):
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
             create_if_not_exists=create_if_not_exists
-        )    
+        )
+
+    def set_default_rights_uri(self, data_source):
+        if self.rights_uri == None and data_source:
+            # We haven't been able to determine rights from the metadata, so use the default rights
+            # for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            if default:
+                self.rights_uri = default
+
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if self.rights_uri == None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
+
+        if self.rights_uri == None:
+            # We still haven't determined rights, so it's unknown.
+            self.rights_uri = RightsStatus.UNKNOWN
+
 
     def license_pool(self, _db):
         if not self.primary_identifier:
@@ -583,6 +604,8 @@ class Metadata(object):
 
         metadata_data_source = self.data_source(_db) 
         license_data_source = self.license_data_source(_db)
+
+        self.set_default_rights_uri(metadata_data_source)
         if license_data_source:
             can_create_new_pool = True
             check_for_licenses_from = [license_data_source]
@@ -841,12 +864,7 @@ class Metadata(object):
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
 
-        if self.rights_uri == RightsStatus.UNKNOWN and data_source:
-            # We haven't been able to determine rights from the metadata, so use the default rights
-            # for the data source if any.
-            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
-            if default:
-                self.rights_uri = default
+        self.set_default_rights_uri(data_source)
 
         for format in self.formats:
             if format.link:
@@ -859,10 +877,6 @@ class Metadata(object):
                     content=link.content
                 )
                 resource = link_obj.resource
-                if self.rights_uri == RightsStatus.UNKNOWN and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights from the metadata or the data source, but there's an
-                    # open access download link, so we'll consider it generic open access.
-                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
             else:
                 resource = None
             if pool:
