@@ -628,7 +628,7 @@ class DummyOverdriveAPI(OverdriveAPI):
     token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
 
     def __init__(self, *args, **kwargs):
-        super(DummyOverdriveAPI, self).__init__(*args, **kwargs)
+        super(DummyOverdriveAPI, self).__init__(*args, testing=True, **kwargs)
         self.responses = []
 
     def queue_response(self, response_code=200, media_type="application/json",

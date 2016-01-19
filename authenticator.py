@@ -7,6 +7,12 @@ class Authenticator(object):
 
     @classmethod
     def initialize(cls, _db, test=False):
+        if test:
+            from millenium_patron import (
+                DummyMilleniumPatronAPI,
+            )
+            return DummyMilleniumPatronAPI()
+
         provider = Configuration.policy("authentication")
         if not provider:
             raise CannotLoadConfiguration(
@@ -14,13 +20,9 @@ class Authenticator(object):
             )
         if provider == 'Millenium':
             from millenium_patron import (
-                DummyMilleniumPatronAPI,
                 MilleniumPatronAPI,
             )
-            if test:
-                api = DummyMilleniumPatronAPI()
-            else:
-                api = MilleniumPatronAPI.from_environment()
+            api = MilleniumPatronAPI.from_environment()
         elif provider == 'First Book':
             from firstbook import FirstBookAuthenticationAPI
             api = FirstBookAuthenticationAPI.from_config()

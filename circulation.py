@@ -285,7 +285,7 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if not loan:
-            raise NoActiveLoan("Cannot find your active loan for this book.")
+            raise NoActiveLoan("Cannot find your active loan for this work.")
         if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism:
             raise DeliveryMechanismConflict(
                 "You already fulfilled this loan as %s, you can't also do it as %s" 

@@ -100,10 +100,13 @@ class TestLaneCreation(DatabaseTest):
 
     def test_make_lanes_default(self):
         with temp_config() as config:
-            languages = Configuration.language_policy()
-            languages[Configuration.LARGE_COLLECTION_LANGUAGES] = 'eng'
-            languages[Configuration.SMALL_COLLECTION_LANGUAGES] = 'spa,chi'
-
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
             lane_list = make_lanes_default(self._db)
 
             assert isinstance(lane_list, LaneList)

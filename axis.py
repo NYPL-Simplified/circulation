@@ -211,7 +211,11 @@ class Axis360CirculationMonitor(Monitor):
         metadata_wrangler_url = Configuration.integration_url(
                 Configuration.METADATA_WRANGLER_INTEGRATION
         )
-        self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
+        if metadata_wrangler_url:
+            self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
+        else:
+            # This should only happen during a test.
+            self.metadata_wrangler = None
 
     def run(self):
         self.api = Axis360API(self._db)
