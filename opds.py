@@ -525,7 +525,10 @@ class AcquisitionFeed(OPDSFeed):
             # We did not find any works whatsoever. The groups feed is
             # useless. Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
-            return None
+            return cls.page(_db, title, url, lane, annotator, 
+                            force_refresh=force_refresh,
+                            use_materialized_works=use_materialized_works
+            )
 
         if lane.include_all_feed:
             # Create an 'all' group so that patrons can browse every

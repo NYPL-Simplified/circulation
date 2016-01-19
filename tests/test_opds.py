@@ -50,6 +50,7 @@ from classifier import (
     Fantasy,
     Urban_Fantasy,
     History,
+    Mystery,
 )
 
 class TestAnnotator(Annotator):
@@ -750,27 +751,36 @@ class TestOPDS(DatabaseTest):
             eq_("http://groups/", start_link['href'])
             eq_("Collection Home", start_link['title'])
 
-    def test_empty_groups_feed_is_none(self):
+    def test_groups_feed_with_empty_sublanes_is_page_feed(self):
+        """Test that a page feed is returned when the requested groups
+        feed has no books in the groups.
+        """
+        
+        test_lane = Lane(self._db, "Test Lane", genres=['Mystery'])
 
-        fantasy_lane = self.lanes.by_languages['']['Fantasy']
-        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
-        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
+        work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
 
-        annotator = TestAnnotatorWithGroup()
-
-        # If we require more books to fill up a featured lane than are
-        # available, then the groups() method returns None.
         with temp_config() as config:
-            config['policies'] = {
-                Configuration.FEATURED_LANE_SIZE : 10
-            }
-            groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
+            config['policies'] = {}
+            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
+            annotator = TestAnnotator()
+
+            feed = AcquisitionFeed.groups(
+                self._db, "test", self._url, test_lane, annotator,
                 True, False
             )
-            eq_(groups, None)
+
+            parsed = feedparser.parse(feed.content)
+
+            # There are two entries, one for each work.
+            e1, e2 = parsed['entries']
+
+            # The entries have no links (no collection links).
+            assert all('links' not in entry for entry in [e1, e2])
 
     def test_cache(self):
         work1 = self._work(title="The Original Title",
