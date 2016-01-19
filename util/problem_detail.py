@@ -64,5 +64,5 @@ class ProblemDetail(object):
         """
         return ProblemDetail(
             self.uri, status_code or self.status_code, title or self.title, 
-            detail or self.detail, instance, debug_message
+            detail or self.detail, instance or self.instance, debug_message
         )
