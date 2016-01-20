@@ -41,7 +41,3 @@ class TestBorrow(CirculationIntegrationTest):
 
         revoke_response = requests.get(revoke_url, auth=HTTPBasicAuth(self.test_username, self.test_password))
         eq_(200, revoke_response.status_code)
-
-
-
-

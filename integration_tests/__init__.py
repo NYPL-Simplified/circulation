@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 
-from ..config import Configuration
+from config import Configuration
 
 class CirculationIntegrationTest(object):
 
