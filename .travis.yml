@@ -1,0 +1,31 @@
+subl addons:
+  postgresql: "9.3"
+
+services:
+  - postgresql
+
+language: python
+
+python:
+  - "2.7"
+
+cache: pip
+
+git:
+  submodules: false
+
+before_install:
+  - echo -e "machine github.com\n  login simplified-bot\n  password $CI_USER_PASSWORD" >> ~/.netrc
+  - git submodule update --init --recursive
+
+install:
+  - pip install -r requirements.txt
+  - cp config.json.sample config.json
+  - export SIMPLIFIED_CONFIGURATION_FILE="$TRAVIS_BUILD_DIR/config.json"
+
+before_script:
+  - psql -c 'create user simplified_test;' -U postgres
+  - psql -c 'create database simplified_circulation_test;' -U postgres
+  - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
+
+script: ./test
