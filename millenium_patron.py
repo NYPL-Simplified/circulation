@@ -109,6 +109,14 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             expires, self.EXPIRATION_DATE_FORMAT).date()
         patron.authorization_expires = expires
 
+    def patron_info(self, identifier):
+        """Get patron information from the ILS."""
+        dump = self.dump(identifier)
+        return dict(
+            barcode = dump.get(self.BARCODE_FIELD),
+            username = dump.get(self.USERNAME_FIELD),
+        )
+        
     def authenticated_patron(self, db, identifier, password):
         # If they fail basic validation, there is no authenticated patron.
         if not self.server_side_validation(identifier, password):

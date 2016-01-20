@@ -221,6 +221,15 @@ class CirculationManagerAnnotator(Annotator):
         if self.patron:
             self.add_patron(feed)
 
+        # Add an account info link
+        account_url = self.url_for('account', _external=True)
+        account_link = dict(
+            rel="http://librarysimplified.org/terms/rel/account",
+            type='application/json',
+            href=account_url,
+        )
+        feed.add_link(**account_link)
+        
         # Add a 'search' link.
         if isinstance(lane, Lane):
             lane_name = lane.url_name

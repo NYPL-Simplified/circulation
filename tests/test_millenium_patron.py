@@ -108,3 +108,11 @@ class TestMilleniumPatronAPI(DatabaseTest):
         alice = self.api.authenticated_patron(self._db, "alice", "4444")
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
+
+    def test_patron_info(self):
+        self.api.enqueue("dump.success.html")
+        patron_info = self.api.patron_info("alice")
+        eq_("44444444444447", patron_info.get('barcode'))
+        eq_("alice", patron_info.get('username'))
+
+        

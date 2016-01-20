@@ -43,6 +43,9 @@ class FirstBookAuthenticationAPI(Authenticator):
     def dump(self, barcode):
         return {}
 
+    def patron_info(self, barcode):
+        return dict(barcode=barcode)
+
     def pintest(self, barcode, pin):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
             urllib.quote, (barcode, pin)

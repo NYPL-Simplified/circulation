@@ -104,6 +104,12 @@ def feed(languages, lane_name):
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
+@app.route('/me', methods=['GET'])
+@requires_auth
+@returns_problem_detail
+def account():
+    return app.manager.accounts.account()
+
 @app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
 @returns_problem_detail
