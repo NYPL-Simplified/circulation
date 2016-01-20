@@ -494,11 +494,13 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         db = Session.object_session(patron)
         active_loans_by_work = {}
         for loan in patron.loans:
-            if loan.license_pool.work:
-                active_loans_by_work[loan.license_pool.work] = loan
+            work = loan.license_pool.work or loan.license_pool.edition.work
+            if work:
+                active_loans_by_work[work] = loan
         active_holds_by_work = {}
         for hold in patron.holds:
-            if hold.license_pool.work:
+            work = hold.license_pool.work or hold.license_pool.edition.work
+            if work:
                 active_holds_by_work[hold.license_pool.work] = hold
 
         annotator = cls(
@@ -515,7 +517,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     @classmethod
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
-        work = loan.license_pool.work
+        work = loan.license_pool.work or loan.license_pool.edition.work
         annotator = cls(circulation, None, 
                         active_loans_by_work={work:loan}, 
                         active_holds_by_work={}, 
@@ -531,7 +533,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     @classmethod
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
-        work = hold.license_pool.work
+        work = hold.license_pool.work or hold.license_pool.edition.work
         annotator = cls(circulation, None, active_loans_by_work={}, 
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
