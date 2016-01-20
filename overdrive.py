@@ -242,10 +242,7 @@ class OverdriveAPI(object):
             "Asking for circulation changes since %s",
             last_update_time
         )
-        last_update = last_update_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-        last_update = last_update_time.isoformat()
-        if not last_update_time.tzinfo:
-            last_update += 'Z'
+        last_update = last_update_time.strftime(self.TIME_FORMAT)
 
         params = dict(lastupdatetime=last_update,
                       sort="popularity:desc",
