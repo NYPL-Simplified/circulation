@@ -366,14 +366,16 @@ class Patron(Base):
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
-        return [loan.license_pool.work for loan in self.loans 
-                if loan.license_pool.work]
+        return [loan.license_pool.work or loan.license_pool.edition.work 
+                for loan in self.loans 
+                if loan.license_pool.work or loan.license_pool.edition.work]
 
     def works_on_loan_or_on_hold(self):
         db = Session.object_session(self)
         results = set()
-        holds = [hold.license_pool.work for hold in self.holds
-                 if hold.license_pool.work]
+        holds = [hold.license_pool.work or hold.license_pool.edition.work 
+                 for hold in self.holds
+                 if hold.license_pool.work or hold.license_pool.edition.work]
         loans = self.works_on_loan()
         return set(holds + loans)
 
