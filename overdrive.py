@@ -47,9 +47,9 @@ class OverdriveAPI(object):
     PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
 
     LIBRARY_ENDPOINT = "http://api.overdrive.com/v1/libraries/%(library_id)s"
-    ALL_PRODUCTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_token)s/products"
+    ALL_PRODUCTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
     METADATA_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
-    EVENTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products?lastupdatetime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
+    EVENTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
     AVAILABILITY_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
 
     CHECKOUTS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts"
@@ -183,28 +183,51 @@ class OverdriveAPI(object):
         return json.loads(representation.content)
 
     def all_ids(self):
-        """Get IDs for every book in the system, with (more or less) the most
-        recent ones at the front.
+        """Get IDs for every book in the system, with the most recently added
+        ones at the front.
         """
-        params = dict(collection_token=self.collection_token)
-        starting_link = self.make_link_safe(
+        params = dict(collection_token=self.collection_token,
+                      sort="dateAdded:desc")
+        next_link = self.make_link_safe(
             self.ALL_PRODUCTS_ENDPOINT % params)
 
-        # Get the first page so we can find the 'last' link.
-        status_code, headers, content = self.get(starting_link, {})
+        while next_link:
+            try:
+                page_inventory, next_link = self._get_book_list_page(
+                    next_link, 'next')
+            except Exception, e:
+                self.log.error("OVERDRIVE ERROR: %r %r %r",
+                               status_code, headers, content)
+                return
+            for i in page_inventory:
+                yield i
+
+    def _get_book_list_page(self, link, rel_to_follow='next'):
+        """Process a page of inventory whose circulation we need to check.
+
+        Returns a list of (title, id, availability_link) 3-tuples,
+        plus a link to the next page of results.
+        """
+        # We don't cache this because it changes constantly.
+        status_code, headers, content = self.get(link, {})
         try:
             data = json.loads(content)
         except Exception, e:
-            self.log.error("OVERDRIVE ERROR: %r %r %r",
-                          status_code, headers, content)
-            return
-        previous_link = OverdriveRepresentationExtractor.link(data, 'last')
+            self.log.error(
+                "Error getting book list page: %r %r %r", 
+                status_code, headers, content,
+                exc_info=e
+            )
+            return [], None
 
-        while previous_link:
-            page_inventory, previous_link = self._get_book_list_page(
-                previous_link, 'prev')
-            for i in page_inventory:
-                yield i
+        # Find the link to the next page of results, if any.
+        next_link = OverdriveRepresentationExtractor.link(data, rel_to_follow)
+
+        # Prepare to get availability information for all the books on
+        # this page.
+        availability_queue = (
+            OverdriveRepresentationExtractor.availability_link_list(data))
+        return availability_queue, next_link
 
 
     def recently_changed_ids(self, start, cutoff):
@@ -215,8 +238,16 @@ class OverdriveAPI(object):
         # we can do is get events between the start time and now.
 
         last_update_time = start-self.EVENT_DELAY
-        self.log.info("Now: %s Asking for: %s", start, last_update_time)
-        params = dict(lastupdatetime=last_update_time,
+        self.log.info(
+            "Asking for circulation changes since %s",
+            last_update_time
+        )
+        last_update = last_update_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_update = last_update_time.isoformat()
+        if not last_update_time.tzinfo:
+            last_update += 'Z'
+
+        params = dict(lastupdatetime=last_update,
                       sort="popularity:desc",
                       limit=self.PAGE_SIZE_LIMIT,
                       collection_name=self.collection_name)
