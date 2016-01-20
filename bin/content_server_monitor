@@ -7,13 +7,16 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 from core.scripts import OPDSImportScript
-from scripts import ContentOPDSImporter
+from core.opds_import import OPDSImporter
+from core.model import DataSource
+from config import Configuration
 if len(sys.argv) > 1 and sys.argv[1].startswith('http'):
     content_server_url = sys.argv[1]
     register_timestamp = False
 else:
-    content_server_url = os.environ['CONTENT_WEB_APP_URL']
     register_timestamp = True
+    Configuration.load()
+    content_server_url = Configuration.integration_url(Configuration.CONTENT_SERVER_INTEGRATION)
 
 print "Importing from %s" % content_server_url
-OPDSImportScript(content_server_url, ContentOPDSImporter, register_timestamp).run()
+OPDSImportScript(content_server_url, DataSource.OA_CONTENT_SERVER, OPDSImporter, register_timestamp).run()

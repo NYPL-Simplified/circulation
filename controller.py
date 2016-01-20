@@ -112,11 +112,12 @@ class CirculationManager(object):
 
         self.log = logging.getLogger("Circulation manager web app")
 
-        try:
-            self.config = Configuration.load()
-        except CannotLoadConfiguration, e:
-            self.log.error("Could not load configuration file: %s" % e)
-            sys.exit()
+        if not testing:
+            try:
+                self.config = Configuration.load()
+            except CannotLoadConfiguration, e:
+                self.log.error("Could not load configuration file: %s" % e)
+                sys.exit()
 
         if _db is None and not testing:
             _db = production_session()
@@ -222,7 +223,7 @@ class CirculationManager(object):
                 self.auth
             )
         else:
-            cls.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
+            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
             self.adobe_vendor_id = None
 
 
@@ -552,7 +553,7 @@ class LoanController(CirculationManagerController):
         if not pool:
             # I've never heard of this book.
             return NO_LICENSES.detailed(
-                "I don't understand which work you're asking about."
+                "I've never heard of this work."
             )
 
         patron = flask.request.patron
@@ -570,30 +571,30 @@ class LoanController(CirculationManagerController):
                 patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
         except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
-                "Sorry, couldn't find an open-access download link.", 
+                "Couldn't find an open-access download link for this book.", 
                 status_code=404
             )
         except PatronAuthorizationFailedException, e:
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
-            problem_doc = LOAN_LIMIT_REACHED.detailed(str(e))
+            problem_doc = LOAN_LIMIT_REACHED.with_debug(str(e))
         except DeliveryMechanismError, e:
-            return BAD_DELIVERY_MECHANISM.detailed(
+            return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code
             )
         except OutstandingFines, e:
             problem_doc = OUTSTANDING_FINES.detailed("You must pay your %s outstanding fines before you can borrow more books." % patron.fines)
         except CannotLoan, e:
-            problem_doc = CHECKOUT_FAILED.detailed(str(e))
+            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
         except CannotHold, e:
-            problem_doc = HOLD_FAILED.detailed(str(e))
+            problem_doc = HOLD_FAILED.with_debug(str(e))
         except CannotRenew, e:
-            problem_doc = RENEW_FAILED.detailed(str(e))
+            problem_doc = RENEW_FAILED.with_debug(str(e))
         except NotFoundOnRemote, e:
             problem_doc = NOT_FOUND_ON_REMOTE
         except CirculationException, e:
             # Generic circulation error.
-            problem_doc = CHECKOUT_FAILED.detailed(str(e))
+            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
 
         if problem_doc:
             return problem_doc
@@ -658,17 +659,19 @@ class LoanController(CirculationManagerController):
     
         try:
             fulfillment = self.circulation.fulfill(patron, pin, pool, mechanism)
+        except DeliveryMechanismConflict, e:
+            return DELIVERY_CONFLICT.detailed(e.message)
         except NoActiveLoan, e:
             return NO_ACTIVE_LOAN.detailed( 
-                    "Can't fulfill request because you have no active loan for this work.",
+                    'Can\'t fulfill loan because you have no active loan for this book.',
                     status_code=e.status_code
             )
         except CannotFulfill, e:
-            return CANNOT_FULFILL.detailed(
+            return CANNOT_FULFILL.with_debug(
                 str(e), status_code=e.status_code
             )
         except DeliveryMechanismError, e:
-            return BAD_DELIVERY_MECHANISM.detailed(
+            return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code
             )
     
@@ -700,7 +703,7 @@ class LoanController(CirculationManagerController):
             else:
                 title = '"%s"' % pool.work.title
             return NO_ACTIVE_LOAN_OR_HOLD.detailed(
-                'You have no active loan or hold for %s.' % title,
+                'Can\'t revoke because you have no active loan or hold for "%s".' % title,
                 status_code=404
             )
 
@@ -712,8 +715,8 @@ class LoanController(CirculationManagerController):
                 title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
             except CannotReturn, e:
-                title = "Loan deleted locally but remote failed: %s" % str(e)
-                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503)
+                title = "Loan deleted locally but remote failed."
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(str(e))
         elif hold:
             if not self.circulation.can_revoke_hold(pool, hold):
                 title = "Cannot release a hold once it enters reserved state."
@@ -721,8 +724,8 @@ class LoanController(CirculationManagerController):
             try:
                 self.circulation.release_hold(patron, pin, pool)
             except CannotReleaseHold, e:
-                title = "Hold released locally but remote failed: %s" % str(e)
-                return CANNOT_RELEASE_HOLD.detailed(title, 503)
+                title = "Hold released locally but remote failed."
+                return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(str(e))
 
         work = pool.work
         annotator = self.manager.annotator(None)

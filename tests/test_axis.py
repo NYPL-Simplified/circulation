@@ -85,7 +85,7 @@ class TestCirculationMonitor(DatabaseTest):
 
     def test_process_book(self):
         monitor = Axis360CirculationMonitor(self._db)
-        monitor.api = Axis360API(self._db)
+        monitor.api = None
         edition, license_pool = monitor.process_book(
             self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
         eq_(u'Faith of My Fathers : A Family Memoir', edition.title)

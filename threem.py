@@ -224,7 +224,7 @@ class DummyThreeMAPIResponse(object):
 class DummyThreeMAPI(ThreeMAPI):
 
     def __init__(self, *args, **kwargs):
-        super(DummyThreeMAPI, self).__init__(*args, **kwargs)
+        super(DummyThreeMAPI, self).__init__(*args, testing=True, **kwargs)
         self.responses = []
 
     def queue_response(self, response_code=200, media_type="application/xml",
