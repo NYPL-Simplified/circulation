@@ -25,3 +25,7 @@ class TestFirstBook(object):
 
     def test_dump(self):
         eq_({}, self.api.dump("abcd"))
+
+    def test_patron_info(self):
+        eq_("1234", self.api.patron_info("1234").get('barcode'))
+    

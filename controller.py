@@ -202,6 +202,7 @@ class CirculationManager(object):
         self.index_controller = IndexController(self)
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
+        self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
 
@@ -504,6 +505,17 @@ class OPDSFeedController(CirculationManagerController):
             query=query, annotator=annotator
         )
         return feed_response(opds_feed)
+
+class AccountController(CirculationManagerController):
+
+    def account(self):
+        header = flask.request.authorization
+    
+        patron_info = self.manager.auth.patron_info(header.username)
+        return json.dumps(dict(
+            username=patron_info.get('username', None),
+            barcode=patron_info.get('barcode'),
+        ))
 
 class LoanController(CirculationManagerController):
 

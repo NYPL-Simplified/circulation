@@ -244,6 +244,24 @@ class TestIndexController(ControllerTest):
                 eq_("http://cdn/groups/", response.headers['location'])
 
 
+class TestAccountController(ControllerTest):
+
+    def test_patron_info_no_username(self):
+        with self.app.test_request_context(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            account_info = json.loads(self.manager.accounts.account())
+            eq_(None, account_info.get('username'))
+            eq_("200", account_info.get('barcode'))
+            
+    def test_patron_info_with_username(self):
+        auth = 'Basic ' + base64.b64encode('0:2222')
+        with self.app.test_request_context(
+            "/", headers=dict(Authorization=auth)):
+            account_info = json.loads(self.manager.accounts.account())
+            eq_("alice", account_info.get('username'))
+            eq_("0", account_info.get('barcode'))
+        
+        
 class TestLoanController(ControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
@@ -536,6 +554,10 @@ class TestLoanController(ControllerTest):
             assert "%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.identifier) in borrow_link
             eq_(0, len(threem_revoke_links))
 
+            links = feed['feed']['links']
+            account_links = [link for link in links if link['rel'] == 'http://librarysimplified.org/terms/rel/account']
+            eq_(1, len(account_links))
+            assert 'me' in account_links[0]['href']
 
 class TestWorkController(ControllerTest):
 
