@@ -490,7 +490,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 "HTTP exception communicating with Overdrive",
                 exc_info=e
             )
-
         if status_code != 200:
             self.log.error(
                 "Could not get availability for %s: status code %s",
@@ -526,33 +525,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             self.log.info("New Overdrive book discovered: %r", edition)
         return license_pool, is_new, circulation_changed
 
-    def _get_book_list_page(self, link, rel_to_follow='next'):
-        """Process a page of inventory whose circulation we need to check.
-
-        Returns a list of (title, id, availability_link) 3-tuples,
-        plus a link to the next page of results.
-        """
-        # We don't cache this because it changes constantly.
-        status_code, headers, content = self.get(link, {})
-        try:
-            data = json.loads(content)
-        except Exception, e:
-            self.log.error(
-                "Error getting book list page: %r %r %r", 
-                status_code, headers, content,
-                exc_info=e
-            )
-            return [], None
-
-        # Find the link to the next page of results, if any.
-        next_link = OverdriveRepresentationExtractor.link(data, rel_to_follow)
-
-        # Prepare to get availability information for all the books on
-        # this page.
-        availability_queue = (
-            OverdriveRepresentationExtractor.availability_link_list(data))
-        return availability_queue, next_link
-
     @classmethod
     def get_download_link(self, checkout_response, format_type, error_url):
         link = None
@@ -583,33 +555,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return download_link.replace("{errorpageurl}", error_url)
         else:
             return None
-
-
-    def recently_changed_ids(self, start, cutoff):
-        """Get IDs of books whose status has changed between the start time
-        and now.
-        """
-        # `cutoff` is not supported by Overdrive, so we ignore it. All
-        # we can do is get events between the start time and now.
-
-        last_update_time = start-self.EVENT_DELAY
-        self.log.info(
-            "Asking for circulation changes since %s",
-            last_update_time
-        )
-        params = dict(lastupdatetime=last_update_time,
-                      sort="popularity:desc",
-                      limit=self.PAGE_SIZE_LIMIT,
-                      collection_name=self.collection_name)
-        next_link = self.make_link_safe(self.EVENTS_ENDPOINT % params)
-        while next_link:
-            page_inventory, next_link = self._get_book_list_page(next_link)
-            # We won't be sending out any events for these books yet,
-            # because we don't know if anything changed, but we will
-            # be putting them on the list of inventory items to
-            # refresh. At that point we will send out events.
-            for i in page_inventory:
-                yield i
 
 
 class DummyOverdriveResponse(object):
@@ -731,6 +676,21 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         """Ignore the dates and return all IDs."""
         return self.api.all_ids()
 
+class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
+    """Monitor every single book in the Overdrive collection.
+
+    This tells us about books added to the Overdrive collection that
+    are not found in our collection.
+    """
+
+    def __init__(self, _db, interval_seconds=3600*4):
+        super(FullOverdriveCollectionMonitor, self).__init__(
+            _db, "Overdrive Collection Overview", interval_seconds)
+
+    def recently_changed_ids(self, start, cutoff):
+        """Ignore the dates and return all IDs."""
+        return self.api.all_ids()
+
 class OverdriveCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
     Overdrive collection.
@@ -754,12 +714,12 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
         for i in identifiers:
             self.api.update_licensepool(i.identifier)
 
-class RecentOverdriveCollectionMonitor(FullOverdriveCollectionMonitor):
+class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor recently changed books in the Overdrive collection."""
 
     def __init__(self, _db, interval_seconds=60,
                  maximum_consecutive_unchanged_books=100):
-        super(FullOverdriveCollectionMonitor, self).__init__(
+        super(RecentOverdriveCollectionMonitor, self).__init__(
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
 
