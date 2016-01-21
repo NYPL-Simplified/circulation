@@ -121,7 +121,7 @@ class TestFacets(object):
             fields(Facets.ORDER_LAST_UPDATE))
 
         # ...by most recently added...
-        eq_([LicensePool.availability_time] * 3,
+        eq_([LicensePool.availability_time, mw.availability_time, mwg.availability_time],
             fields(Facets.ORDER_ADDED_TO_COLLECTION))
 
         # ...or randomly.
@@ -153,7 +153,7 @@ class TestFacets(object):
         actual = order(Facets.ORDER_AUTHOR, Work, Edition, True)  
         compare(expect, actual)
 
-        expect = [Edition.sort_author.desc(), Edition.sort_title.desc(), Work.id.desc()]
+        expect = [Edition.sort_author.desc(), Edition.sort_title.asc(), Work.id.asc()]
         actual = order(Facets.ORDER_AUTHOR, Work, Edition, False)  
         compare(expect, actual)
 
@@ -161,20 +161,16 @@ class TestFacets(object):
         actual = order(Facets.ORDER_TITLE, mw, mw, True)
         compare(expect, actual)
 
-        expect = [mwg.works_id.asc(), mwg.sort_title.asc(), mwg.sort_author.asc()]
-        actual = order(Facets.ORDER_WORK_ID, mwg, mwg, True)
-        compare(expect, actual)
-
-        expect = [Work.last_update_time.asc(), Edition.sort_title.asc(), Edition.sort_author.asc(), Work.id.asc()]
+        expect = [Work.last_update_time.asc(), Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
         actual = order(Facets.ORDER_LAST_UPDATE, Work, Edition, True)
         compare(expect, actual)
 
-        expect = [mw.random.asc(), mw.sort_title.asc(), mw.sort_author.asc(),
+        expect = [mw.random.asc(), mw.sort_author.asc(), mw.sort_title.asc(),
                   mw.works_id.asc()]
         actual = order(Facets.ORDER_RANDOM, mw, mw, True)
         compare(expect, actual)
 
-        expect = [LicensePool.availability_time.desc(), Edition.sort_title.desc(), Edition.sort_author.desc(), Work.id.desc()]
+        expect = [LicensePool.availability_time.desc(), Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, Work, Edition, None)  
         compare(expect, actual)
 
@@ -649,8 +645,8 @@ class TestLanesQuery(DatabaseTest):
         w, mw = test_expectations(
             lane, 7, lambda x: x.audience in audiences
         )
-        assert(2, len([x for x in w if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
-        assert(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
+        eq_(2, len([x for x in w if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
+        eq_(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
 
         # The 'Young Adults' lane contains five books.
         lane = Lane(self._db, "Young Adults", 
