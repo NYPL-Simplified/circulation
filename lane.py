@@ -181,13 +181,20 @@ class Facets(FacetConstants):
                 # different.
                 return work_model.works_id
 
+        if order_facet == cls.ORDER_ADDED_TO_COLLECTION:
+            if work_model is Work:
+                # We must get this data from LicensePool.
+                return LicensePool.availability_time
+            else:
+                # We can get this data from the materialized view.
+                return work_model.availability_time
+
         # In all other cases the field names are the same whether
         # we are using Work/Edition or a materialized view.
         order_facet_to_database_field = {
             cls.ORDER_TITLE : edition_model.sort_title,
             cls.ORDER_AUTHOR : edition_model.sort_author,
             cls.ORDER_LAST_UPDATE : work_model.last_update_time,
-            cls.ORDER_ADDED_TO_COLLECTION : LicensePool.availability_time,
             cls.ORDER_RANDOM : work_model.random,
         }
         return order_facet_to_database_field[order_facet]
@@ -275,7 +282,7 @@ class Facets(FacetConstants):
         else:
             work_id = work_model.works_id
         default_sort_order = [
-            edition_model.sort_title, edition_model.sort_author, work_id
+            edition_model.sort_author, edition_model.sort_title, work_id
         ]
     
         primary_order_by = self.order_facet_to_database_field(
@@ -293,11 +300,12 @@ class Facets(FacetConstants):
             # Use the default sort order
             order_by = default_order_by
 
-        # Set each field in the sort order to ascending or descending.
+        # order_ascending applies only to the first field in the sort order.
+        # For now, everything else is ordered ascending.
         if self.order_ascending:
             order_by_sorted = [x.asc() for x in order_by]
         else:
-            order_by_sorted = [x.desc() for x in order_by]
+            order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
         return order_by_sorted, order_by
 
 
@@ -899,6 +907,7 @@ class Lane(object):
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
         q = self.apply_filters(q, facets, pagination, mw, mw)
+
         return q
 
     def apply_filters(self, q, facets=None, pagination=None, work_model=Work, edition_model=Edition):
