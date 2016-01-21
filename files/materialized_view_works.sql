@@ -51,11 +51,11 @@ create unique index mv_works_editions_work_id on mv_works_editions_datasources_i
 
 -- English adult fiction
 
-create index mv_works_editions_english_adult_fiction_by_author on mv_works_editions_datasources_identifiers (sort_author, sort_title, license_pool_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
+create index mv_works_editions_english_adult_fiction_by_author on mv_works_editions_datasources_identifiers (sort_author, sort_title, works_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
 
-create index mv_works_editions_english_adult_fiction_by_title on mv_works_editions_datasources_identifiers (sort_title, sort_author, license_pool_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
+create index mv_works_editions_english_adult_fiction_by_title on mv_works_editions_datasources_identifiers (sort_title, sort_author, works_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
 
-create index mv_works_editions_english_adult_fiction_by_availability on mv_works_editions_datasources_identifiers (availability_time DESC, sort_author, sort_title, license_pool_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
+create index mv_works_editions_english_adult_fiction_by_availability on mv_works_editions_datasources_identifiers (availability_time DESC, sort_author, sort_title, works_id) WHERE audience in ('Adult', 'Adults Only') AND fiction = true AND language = 'eng';
 
 -- English adult nonfiction
 
