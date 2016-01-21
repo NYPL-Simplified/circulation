@@ -5218,6 +5218,9 @@ class RightsStatus(Base):
     # Public domain in some unknown territory
     PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
+    # Creative Commons Public Domain Dedication (No rights reserved)
+    CC0 = u"https://creativecommons.org/publicdomain/zero/1.0/"
+
     # Creative Commons Attribution (CC BY)
     CC_BY = u"http://creativecommons.org/licenses/by/4.0/"
     
@@ -5244,6 +5247,7 @@ class RightsStatus(Base):
 
     OPEN_ACCESS = [
         PUBLIC_DOMAIN_USA,
+        CC0,
         CC_BY,
         CC_BY_SA,
         CC_BY_ND,
@@ -5284,6 +5288,8 @@ class RightsStatus(Base):
             return RightsStatus.PUBLIC_DOMAIN_UNKNOWN
         elif rights.startswith('copyrighted.'):
             return RightsStatus.IN_COPYRIGHT
+        elif rights == 'cc0':
+            return RightsStatus.CC0
         elif rights == 'cc by':
             return RightsStatus.CC_BY
         elif rights == 'cc by-sa':
