@@ -1,4 +1,6 @@
-addons:
+sudo: false
+
+addons:  
   postgresql: "9.3"
 
 services:
@@ -9,7 +11,10 @@ language: python
 python:
   - "2.7"
 
+cache: pip
+
 install:
+  - pip install -r requirements.txt
   - cp config.json.sample config.json
   - export SIMPLIFIED_CONFIGURATION_FILE="$TRAVIS_BUILD_DIR/config.json"
 

@@ -1,0 +1,17 @@
+# Requirements for core
+feedparser
+pillow
+psycopg2
+requests
+sqlalchemy>=1.0.6
+nose
+lxml
+flask
+isbnlib
+tinys3
+textblob
+rdflib
+elasticsearch
+python-dateutil
+uwsgi
+loggly-python-handler
