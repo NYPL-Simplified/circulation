@@ -137,15 +137,19 @@ class TestOPDSImporter(DatabaseTest):
         )
         eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
         
-        r1, r2 = periodical['measurements']
+        r1, r2, r3 = periodical['measurements']
 
         eq_(Measurement.QUALITY, r1.quantity_measured)
         eq_(0.3333, r1.value)
         eq_(1, r1.weight)
 
-        eq_(Measurement.POPULARITY, r2.quantity_measured)
-        eq_(0.25, r2.value)
+        eq_(Measurement.RATING, r2.quantity_measured)
+        eq_(0.6, r2.value)
         eq_(1, r2.weight)
+
+        eq_(Measurement.POPULARITY, r3.quantity_measured)
+        eq_(0.25, r3.value)
+        eq_(1, r3.weight)
 
 
     def test_import(self):
@@ -159,7 +163,7 @@ class TestOPDSImporter(DatabaseTest):
         eq_(Edition.BOOK_MEDIUM, crow.medium)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
-        editions, popularity, quality = sorted(
+        editions, popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
             key=lambda x: x.quantity_measured)
@@ -175,6 +179,10 @@ class TestOPDSImporter(DatabaseTest):
         eq_(DataSource.METADATA_WRANGLER, quality.data_source.name)
         eq_(Measurement.QUALITY, quality.quantity_measured)
         eq_(0.3333, quality.value)
+
+        eq_(DataSource.METADATA_WRANGLER, rating.data_source.name)
+        eq_(Measurement.RATING, rating.quantity_measured)
+        eq_(0.6, rating.value)
 
         seven, children, courtship, fantasy, pz, magic, new_york = sorted(
             mouse.primary_identifier.classifications,
@@ -197,7 +205,7 @@ class TestOPDSImporter(DatabaseTest):
 
         work = mouse.work
         work.calculate_presentation()
-        eq_(0.2916, round(work.quality, 4))
+        eq_(0.4142, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 

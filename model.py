@@ -3854,6 +3854,7 @@ class Measurement(Base):
     RATING_SCALES = {
         DataSource.OVERDRIVE : [1, 5],
         DataSource.AMAZON : [1, 5],
+        DataSource.UNGLUE_IT: [1, 5],
     }
 
     id = Column(Integer, primary_key=True)
@@ -5067,7 +5068,7 @@ class LicensePool(Base):
         """
 
         primary_edition = known_edition or self.edition
-        
+
         logging.info("Calculating work for %r", primary_edition)
         if self.work:
             if known_edition:
@@ -5079,8 +5080,6 @@ class LicensePool(Base):
                 self.work
             )
             return self.work, False
-
-        primary_edition = known_edition or self.edition
 
         if not primary_edition:
             # We don't have any information about the identifier
