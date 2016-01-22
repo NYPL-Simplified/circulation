@@ -40,7 +40,6 @@ from model import (
     Edition,
     Measurement,
     Subject,
-    WillNotGenerateExpensiveFeed,
     Work,
     )
 from lane import (
@@ -525,10 +524,17 @@ class AcquisitionFeed(OPDSFeed):
             # We did not find any works whatsoever. The groups feed is
             # useless. Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
-            return cls.page(_db, title, url, lane, annotator, 
-                            force_refresh=force_refresh,
-                            use_materialized_works=use_materialized_works
+            cached = cls.page(
+                _db, title, url, lane, annotator, 
+                force_refresh=force_refresh,
+                use_materialized_works=use_materialized_works
             )
+
+            # The feed was generated as a page-type feed. 
+            # File it as a groups-type feed so it will show up when
+            # a client asks for the feed.
+            cached.type = CachedFeed.GROUPS_TYPE
+            return cached
 
         if lane.include_all_feed:
             # Create an 'all' group so that patrons can browse every

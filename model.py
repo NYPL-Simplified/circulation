@@ -4735,7 +4735,6 @@ class CachedFeed(Base):
             facets=facets_key,
             pagination=pagination_key,
             )
-
         if force_refresh is True:
             # No matter what, we've been directed to treat this
             # cached feed as stale.
