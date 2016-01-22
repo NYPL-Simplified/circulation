@@ -10,7 +10,6 @@ isbnlib
 tinys3
 nose
 python-dateutil
-pylru
 uwsgi
 loggly-python-handler
 numpy
