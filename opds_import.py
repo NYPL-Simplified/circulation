@@ -134,7 +134,7 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         self.metadata_client = SimplifiedOPDSLookup.from_config()
 
-    def import_from_feed(self, feed):
+    def import_from_feed(self, feed, even_if_no_author=False):
         metadata_objs, messages, next_links = self.extract_metadata(feed)
 
         imported = []
@@ -144,7 +144,6 @@ class OPDSImporter(object):
             # Locate or create an Edition for this book.
             edition, is_new_edition = metadata.edition(self._db)
             metadata.apply(edition, self.metadata_client)
-            
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
                 self.log.warn(
@@ -154,7 +153,8 @@ class OPDSImporter(object):
             else:
                 license_pool.edition = edition
                 work, is_new_work = license_pool.calculate_work(
-                    known_edition=edition
+                    known_edition=edition,
+                    even_if_no_author=even_if_no_author,
                 )
                 if work:
                     work.calculate_presentation()
@@ -557,6 +557,10 @@ class OPDSImporter(object):
     def extract_measurement(cls, rating_tag):
         type = rating_tag.get('{http://schema.org/}additionalType')
         value = rating_tag.get('{http://schema.org/}ratingValue')
+        if not value:
+            value = rating_tag.attrib.get('{http://schema.org}ratingValue')
+        if not type:
+            type = Measurement.RATING
         try:
             value = float(value)
             return MeasurementData(
