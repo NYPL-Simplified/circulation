@@ -66,14 +66,16 @@ class TestCachedFeed(DatabaseTest):
         pagination = Pagination.default()
         lane = Lane(self._db, "My Lane", languages=['eng', 'chi'])
 
-        args = (self._db, lane, CachedFeed.GROUPS_TYPE, facets, 
-                pagination, None)
-
-        # If we ask for a feed that will be cached forever, and it's
-        # not around, we'll get an exception,.
-        assert_raises(WillNotGenerateExpensiveFeed, CachedFeed.fetch,
-                      *args, max_age=Configuration.CACHE_FOREVER)
+        args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, 
+                     pagination, None)
         
+        # If we ask for a group feed that will be cached forever, and it's
+        # not around, we'll get a page feed instead.
+        feed, fresh = CachedFeed.fetch(
+            *args, max_age=Configuration.CACHE_FOREVER
+        )
+        eq_(CachedFeed.PAGE_TYPE, feed.type)
+      
         # If we ask for the same feed, but we don't say it must be cached
         # forever, it'll be created.
         feed, fresh = CachedFeed.fetch(*args, max_age=0)

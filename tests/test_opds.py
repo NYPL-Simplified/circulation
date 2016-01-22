@@ -18,13 +18,13 @@ from config import (
     temp_config,
 )
 from model import (
+    CachedFeed,
     Contributor,
     DataSource,
     Genre,
     Measurement,
     Patron,
     Subject,
-    WillNotGenerateExpensiveFeed,
     Work,
     get_one_or_create,
 )
@@ -712,12 +712,14 @@ class TestOPDS(DatabaseTest):
             annotator = TestAnnotatorWithGroup()
 
             # By policy, group feeds are cached forever, which means
-            # an attempt to generate them will fail.
-            assert_raises(
-                WillNotGenerateExpensiveFeed, AcquisitionFeed.groups,
+            # an attempt to generate them will fail. You'll get a
+            # page-type feed as a consolation prize.
+
+            feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
                 False, False
             )
+            eq_(CachedFeed.PAGE_TYPE, feed.type)
 
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
@@ -773,6 +775,10 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, test_lane, annotator,
                 True, False
             )
+
+            # The feed is filed as a groups feed, even though in
+            # form it is a page feed.
+            eq_(CachedFeed.GROUPS_TYPE, feed.type)
 
             parsed = feedparser.parse(feed.content)
 
