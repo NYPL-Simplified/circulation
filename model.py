@@ -4694,6 +4694,8 @@ class CachedFeed(Base):
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
 
+    log = logging.getLogger("CachedFeed")
+
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
@@ -4747,9 +4749,20 @@ class CachedFeed(Base):
                 # Cacheable!
                 return feed, True
             else:
-                # We're supposed to generate this feed, but it's too
-                # expensive.
-                raise WillNotGenerateExpensiveFeed(lane.name)
+                # We're supposed to generate this feed, but as a group
+                # feed, it's too expensive.
+                #
+                # Rather than generate an error (which will provide a
+                # terrible user experience), fall back to generating a
+                # default page-type feed, which should be cheap to fetch.
+                cls.log.warn(
+                    "Could not generate a groups feed for %s, falling back to a page feed.",
+                    lane.name
+                )
+                return cls.fetch(
+                    _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
+                    annotator, force_refresh, max_age=None
+                )
         else:
             # This feed is cheap enough to generate on the fly.
             cutoff = datetime.datetime.utcnow() - max_age
