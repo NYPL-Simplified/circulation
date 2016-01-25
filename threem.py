@@ -628,7 +628,7 @@ class ThreeMEventMonitor(Monitor):
         for start, cutoff, full_slice in self.slice_timespan(
                 start, cutoff, one_day):
             most_recent_timestamp = start
-            print "Asking for events between %r and %r" % (start, cutoff)
+            self.log.info("Asking for events between %r and %r", start, cutoff)
             try:
                 events = self.api.get_events_between(start, cutoff, full_slice)
                 for event in events:
@@ -638,13 +638,14 @@ class ThreeMEventMonitor(Monitor):
                         most_recent_timestamp = event_timestamp
                     i += 1
                     if not i % 1000:
-                        print i
                         self._db.commit()
                 self._db.commit()
             except Exception, e:
-                print "Error: %s, will try again next time." % str(e)
+                self.log.error("Fatal error processing 3M event %r.", event,
+                               exc_info=e)
+                raise e
             self.timestamp.timestamp = most_recent_timestamp
-        print "Handled %d events total" % i
+        self.log.info("Handled %d events total", i)
         return most_recent_timestamp
 
     def handle_event(self, threem_id, isbn, foreign_patron_id,
@@ -702,12 +703,8 @@ class ThreeMEventMonitor(Monitor):
                     end=license_pool.last_checked or end_time,
                 )
             )
-        title = edition.title
-        if title:
-            title = title.encode("utf8")
-        else:
-            title = "[no title]"
-        print "%r %s: %s" % (start_time, title, internal_event_type)
+        title = edition.title or "[no title]"
+        self.log.info("%r %s: %s", start_time, title, internal_event_type)
         return start_time
 
 
@@ -756,4 +753,4 @@ class ThreeMCirculationMonitor(Monitor):
             item[LicensePool.licenses_available],
             item[LicensePool.licenses_reserved],
             item[LicensePool.patrons_in_hold_queue])
-        print "%r: %d owned, %d available, %d reserved, %d queued" % (pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
+        self.log.info("%r: %d owned, %d available, %d reserved, %d queued", pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
