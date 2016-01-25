@@ -264,7 +264,7 @@ class MakePresentationReady(object):
                 len(needs_open_access_import)
             )
             response = self.content_lookup.lookup(needs_open_access_import)
-            importer = OPDSImporter(self._db, response.text)
+            importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
             oa_imported, oa_messages_by_id = importer.import_from_feed(
                 response.content
             )
