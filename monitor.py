@@ -22,9 +22,8 @@ from core.model import (
 from core.opds import OPDSFeed
 from core.opds_import import (
     SimplifiedOPDSLookup,
-    DetailedOPDSImporter,
+    OPDSImporter,
 )
-from scripts import ContentOPDSImporter
 from core.external_search import (
     ExternalSearchIndex,
 )
@@ -245,12 +244,10 @@ class MakePresentationReady(object):
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise HTTPIntegrationException("Wrong media type: %s" % content_type)
 
-        
-        importer = DetailedOPDSImporter(
-            self._db, response.text,
-            overwrite_rels=[Hyperlink.IMAGE, Hyperlink.DESCRIPTION],
-            identifier_mapping=id_mapping)
-        imported, messages_by_id = importer.import_from_feed()
+        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
+        imported, messages_by_id = importer.import_from_feed(
+            response.text
+        )
 
         # Look up any open-access works for which there is no
         # open-access link. We'll try to get one from the open-access
@@ -267,8 +264,10 @@ class MakePresentationReady(object):
                 len(needs_open_access_import)
             )
             response = self.content_lookup.lookup(needs_open_access_import)
-            importer = ContentOPDSImporter(self._db, response.text)
-            oa_imported, oa_messages_by_id = importer.import_from_feed()
+            importer = OPDSImporter(self._db, response.text)
+            oa_imported, oa_messages_by_id = importer.import_from_feed(
+                response.content
+            )
             self.log.info(
                 "%d successes, %d failures.",
                 len(oa_imported), len(oa_messages_by_id)
@@ -306,7 +305,11 @@ class MakePresentationReady(object):
                     # LicensePool.
                     #
                     # Not sure what to do in this case.
-                    set_trace()
+                    self.log.error(
+                        "Edition %r, with identifier %r, is associated with license pool %r, with mismatched identifier %r",
+                        edition, edition.primary_identifier, pool,
+                        pool.identifier
+                    )
                 else:
                     # The Edition is associated with the correct
                     # LicensePool, but the LicensePool is associated
@@ -318,7 +321,9 @@ class MakePresentationReady(object):
                     search_index_client=self.search_index
                 )
                 if pool.work != edition.work:
-                    set_trace()
+                    self.log.error(
+                        "Pool %r is associated with work %r, but its primary edition, %r, is associated with work %r", pool, pool.work, edition, edition.work
+                    )
             if dirty:
                 self._db.commit()
             self.log.info("%s READY", edition.work.title)
