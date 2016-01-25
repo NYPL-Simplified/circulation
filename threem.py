@@ -4,6 +4,7 @@ import itertools
 import datetime
 import os
 import re
+import logging
 
 from nose.tools import set_trace
 
@@ -70,7 +71,10 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         try:
             events = EventParser().process_all(response.content)
         except Exception, e:
-            print response.content
+            self.log.error(
+                "Error parsing 3M response content: %s", response.content,
+                exc_info=e
+            )
             raise e
         return events
 
@@ -274,10 +278,9 @@ class CirculationParser(XMLParser):
         try:
             item[LicensePool.licenses_available] = intvalue("AvailableCopies")
         except IndexError:
-            print "WARNING: No information on available copies for %s" % (
-                identifiers[Identifier.THREEM_ID]
-            )
-            pass
+            logging.warn("No information on available copies for %s",
+                         identifiers[Identifier.THREEM_ID]
+                     )
 
         # Counts of patrons who have the book in a certain state.
         for threem_key, simplified_key in [
@@ -290,9 +293,8 @@ class CirculationParser(XMLParser):
                 value = int(t.xpath("count(Patron)"))
                 item[simplified_key] = value
             else:
-                print "WARNING: No circulation information provided for %s %s" % (
-                    identifiers[Identifier.THREEM_ID], threem_key)
-
+                logging.warn("No circulation information provided for %s %s",
+                             identifiers[Identifier.THREEM_ID], threem_key)
         return item
 
 class ThreeMException(Exception):
@@ -549,11 +551,12 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     None, None, start=now)
 
             if pool.edition:
-                m = "Updating %s (%s)" % (
-                    pool.edition.title, pool.edition.author)
-                print m.encode("utf8")
+                self.log.info("Updating %s (%s)", pool.edition.title,
+                              pool.edition.author)
             else:
-                print "Updating unknown work %s" % identifier.identifier
+                self.log.info(
+                    "Updating unknown work %s", identifier.identifier
+                )
             # Update availability and send out notifications.
             pool.update_availability(
                 circ.get(LicensePool.licenses_owned, 0),
@@ -571,12 +574,13 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             if not pool:
                 continue
             if pool.edition:
-                m = "Removing %s (%s) from circulation" % (
-                    pool.edition.title, pool.edition.author)
-                print m.encode("utf8")
+                self.log.warn("Removing %s (%s) from circulation",
+                              pool.edition.title, pool.edition.author)
             else:
-                print "Removing unknown work %s from circulation." % (
-                    identifier.identifier)
+                self.log.warn(
+                    "Removing unknown work %s from circulation.",
+                    identifier.identifier
+                )
             pool.licenses_owned = 0
             pool.licenses_available = 0
             pool.licenses_reserved = 0
