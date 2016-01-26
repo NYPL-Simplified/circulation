@@ -179,6 +179,11 @@ class IdentifierData(object):
         self.identifier = identifier
         self.weight = 1
 
+    def __repr__(self):
+        return '<IdentifierData type="%s" identifier="%s" weight="%s">' % (
+            self.type, self.identifier, self.weight
+        )
+
     def load(self, _db):
         return Identifier.for_foreign_id(
             _db, self.type, self.identifier
@@ -631,14 +636,13 @@ class Metadata(object):
                 can_create_new_pool = False
 
         license_data_source = self.license_data_source(_db)
-        if not license_data_source:
-            for potential_data_source in check_for_licenses_from:
-                license_pool = get_one(
-                    _db, LicensePool, data_source=potential_data_source,
-                    identifier=identifier_obj
-                )
-                if license_pool:
-                    break
+        for potential_data_source in check_for_licenses_from:
+            license_pool = get_one(
+                _db, LicensePool, data_source=potential_data_source,
+                identifier=identifier_obj
+            )
+            if license_pool:
+                break
 
         if not license_pool and can_create_new_pool:
             rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
