@@ -2576,6 +2576,7 @@ class Edition(Base):
     def calculate_presentation(self, calculate_opds_entry=True):
 
         _db = Session.object_session(self)
+
         sort_names = []
         display_names = []
         self.last_update_time = datetime.datetime.utcnow()

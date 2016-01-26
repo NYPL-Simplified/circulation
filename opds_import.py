@@ -112,6 +112,10 @@ class StatusMessage(object):
         self.message = message
         self.success = success
 
+    def __repr__(self):
+        return '<StatusMessage: code=%s message="%s">' % (
+            self.status_code, self.message
+        )
 
 class OPDSImporter(object):
 
@@ -158,8 +162,7 @@ class OPDSImporter(object):
                 )
                 if work:
                     work.calculate_presentation()
-            if edition and is_new_edition:
-                imported.append(edition)
+            imported.append(edition)
         return imported, messages, next_links
 
 
@@ -288,7 +291,8 @@ class OPDSImporter(object):
         subtitle = entry.get('alternativeheadline', None)
 
         last_update_time = entry.get('updated_parsed', None)
-        last_update_time = datetime.datetime(*last_update_time[:6])
+        if last_update_time:
+            last_update_time = datetime.datetime(*last_update_time[:6])
 
         publisher = entry.get('publisher', None)
         if not publisher:

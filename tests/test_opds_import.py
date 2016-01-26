@@ -24,6 +24,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Hyperlink,
+    Identifier,
     Edition,
     Measurement,
     Representation,
@@ -221,6 +222,34 @@ class TestOPDSImporter(DatabaseTest):
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
             mech.resource.url)
+
+        # If we import the same file again, we get the same list of Editions.
+        imported2, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
+        eq_(imported2, imported)
+
+    def test_import_updates_metadata(self):
+
+        path = os.path.join(self.resource_path, "metadata_wrangler_overdrive.opds")
+        feed = open(path).read()
+
+        edition, is_new = self._edition(
+            DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID,
+            with_license_pool=True
+        )
+        edition.license_pool.calculate_work()
+        old_work = edition.work
+
+        old_license_pool = edition.license_pool
+        feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
+        [imported], messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
+        
+        # The edition we created has had its metadata updated.
+        eq_(imported, edition)
+        eq_("The Green Mouse", imported.title)
+
+        # But the work and license pools have not changed.
+        eq_(edition.license_pool, old_license_pool)
+        eq_(edition.work.license_pools, [old_license_pool])
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
