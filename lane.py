@@ -1025,17 +1025,33 @@ class Lane(object):
 
         return q
 
+    @property
+    def search_target(self):
+        """When performing a search in this lane, determine which lane
+        should actually be searched.
+        """
+        if self.searchable:
+            # This lane is searchable.
+            return self
+        if self.parent is None:
+            # We're at the top level and still no searchable
+            # lane. Give up.
+            return None
+        logging.debug(
+            "Lane %s is not searchable; using parent %s" % (
+                self.name, self.parent.name)
+        )
+        return self.parent.search_target
+
     def search(self, query, search_client, limit=30):
         """Find works in this lane that match a search query.
         """        
-
-        def get_searchable_lane(lane):
-            if lane.searchable:
-                return lane
-            logging.debug("Lane %s is not searchable; using parent %s" % (lane.name, lane.parent.name))
-            return get_searchable_lane(lane.parent)
-            
-        search_lane = get_searchable_lane(self)
+           
+        search_lane = self.search_target
+        if not search_lane:
+            # This lane is not searchable, and neither are any of its
+            # parents.
+            return []
 
         if search_lane.fiction in (True, False):
             fiction = search_lane.fiction

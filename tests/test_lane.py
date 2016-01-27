@@ -387,6 +387,33 @@ class TestLanes(DatabaseTest):
         assert all([x.age_range==[15, 16] for x in sublanes])
         assert all([x.audiences==set(['Young Adult']) for x in sublanes])
 
+    def test_get_search_target(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        lane = Lane(
+            self._db, "YA Fantasy", genres=fantasy, 
+            languages='eng',
+            audiences=Lane.AUDIENCE_YOUNG_ADULT,
+            age_range=[15,16],
+            subgenre_behavior=Lane.IN_SUBLANES
+        )
+        sublanes = lane.sublanes.lanes
+        names = sorted([x.name for x in sublanes])
+        eq_(["Epic Fantasy", "Historical Fantasy", "Urban Fantasy"],
+            names)
+
+        # To start with, none of the lanes are searchable.
+        eq_(None, lane.search_target)
+        eq_(None, sublanes[0].search_target)
+
+        # If we make a lane searchable, suddenly there's a search target.
+        lane.searchable = True
+        eq_(lane, lane.search_target)
+
+        # The searchable lane also becomes the search target for its
+        # children.
+        eq_(lane, sublanes[0].search_target)
+
+
     def test_custom_sublanes(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
