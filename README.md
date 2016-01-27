@@ -1,12 +1,13 @@
 # Library Simplified Circulation Manager
+[![Build Status](https://travis-ci.org/NYPL-Simplified/circulation.svg?branch=master)](https://travis-ci.org/NYPL-Simplified/circulation)
 
-This is the Circulation Manager for [Library Simplified](http://www.librarysimplified.org/). The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content-server), pulls in udpated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata-wrangler), and serves up available books in appropriately organized OPDS feeds.
+This is the Circulation Manager for [Library Simplified](http://www.librarysimplified.org/). The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in udpated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
-It depends on the [LS Server Core](https://github.com/NYPL/Simplified-server-core) as a git submodule.
+It depends on the [LS Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
 
 ## Installation
 
-Thorough deployment instructions, including essential libraries for Linux systems, can be found [in the Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified-iOS/wiki/Deployment-Instructions). **_If this is your first time installing a Library Simplified server, please review those instructions._**
+Thorough deployment instructions, including essential libraries for Linux systems, can be found [in the Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions). **_If this is your first time installing a Library Simplified server, please review those instructions._**
 
 Keep in mind that the metadata server requires unique database names and elasticsearch, as detailed below.
 
