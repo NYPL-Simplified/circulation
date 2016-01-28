@@ -2582,6 +2582,91 @@ class Edition(Base):
         return WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
 
+    def better_primary_edition_than(self, champion):
+        # Something is better than nothing.
+        if not champion:
+            return True
+
+        # A edition with no license pool will only be chosen above,
+        # under the 'something is better than nothing' rule.
+        pool = self.license_pool
+        if not pool:
+            return False
+
+        if not champion.license_pool:
+            # An edition with a license pool beats a previous
+            # champion-by-default without one.
+            return True
+
+        if pool.open_access:
+            # Keep track of where the best open-access link for
+            # this license pool comes from. It may affect which
+            # license pool to use.
+            open_access_resource = self.best_open_access_link
+            if not open_access_resource:
+                # An open-access edition with no usable download link will
+                # only be chosen if there is no alternative.
+                return False
+
+            if not champion.license_pool.open_access:
+                # Open access is better than not.
+                return True
+
+            # Both this pool and the champion are open access. But
+            # open-access with a high-quality text beats open
+            # access with a low-quality text.
+            champion_resource = champion.best_open_access_link
+            if not champion.best_open_access_link:
+                champion_book_source_priority = -100
+            else:
+                champion_book_source_priority = champion_resource.open_access_source_priority
+            book_source_priority = open_access_resource.open_access_source_priority
+            if book_source_priority > champion_book_source_priority:
+                if champion_resource:
+                    champion_resource_url = champion_resource.url
+                else:
+                    champion_resource_url = 'None'
+                logging.info(
+                    "%s beats %s",
+                    open_access_resource.url, champion_resource_url
+                )
+                return True
+            elif book_source_priority < champion_book_source_priority:
+                return False
+            elif (self.data_source.name == DataSource.GUTENBERG
+                  and champion.data_source.name == DataSource.GUTENBERG):
+                # Higher Gutenberg numbers beat lower Gutenberg numbers.
+                champion_id = int(
+                    champion.primary_identifier.identifier)
+                competitor_id = int(
+                    self.primary_identifier.identifier)
+
+                if competitor_id > champion_id:
+                    champion = self
+                    champion_book_source_priority = book_source_priority
+                    logging.info(
+                        "Gutenberg %d beats Gutenberg %d",
+                        competitor_id, champion_id
+                    )
+                    return True
+
+        # More licenses is better than fewer.
+        if (self.license_pool.licenses_owned
+            > champion.license_pool.licenses_owned):
+            return True
+
+        # More available licenses is better than fewer.
+        if (self.license_pool.licenses_available
+            > champion.license_pool.licenses_available):
+            return True
+
+        # Fewer patrons in the hold queue is better than more.
+        if (self.license_pool.patrons_in_hold_queue
+            < champion.license_pool.patrons_in_hold_queue):
+            return True
+
+        return False
+
     UNKNOWN_AUTHOR = u"[Unknown]"
 
     def calculate_presentation(self, calculate_opds_entry=True):
@@ -3118,88 +3203,8 @@ class Work(Base):
         best_text_source = None
 
         for edition in self.editions:
-            # Something is better than nothing.
-            if not champion:
+            if edition.better_primary_edition_than(champion):
                 champion = edition
-                continue
-
-            # A edition with no license pool will only be chosen if
-            # there is no other alternatice.
-            pool = edition.license_pool
-            if not pool:
-                continue
-
-            if pool.open_access:
-                # Keep track of where the best open-access link for
-                # this license pool comes from. It may affect which
-                # license pool to use.
-                open_access_resource = edition.best_open_access_link
-                if not open_access_resource:
-                    # An open-access edition with no usable download link will
-                    # only be chosen if there is no alternative.
-                    continue
-
-                if not champion.license_pool.open_access:
-                    # Open access is better than not.
-                    champion = edition
-                    continue
-
-                # Both this pool and the champion are open access. But
-                # open-access with a high-quality text beats open
-                # access with a low-quality text.
-                champion_resource = champion.best_open_access_link
-                if not champion.best_open_access_link:
-                    champion_book_source_priority = -100
-                else:
-                    champion_book_source_priority = champion_resource.open_access_source_priority
-                book_source_priority = open_access_resource.open_access_source_priority
-                if book_source_priority > champion_book_source_priority:
-                    if champion_resource:
-                        champion_resource_url = champion_resource.url
-                    else:
-                        champion_resource_url = 'None'
-                    logging.info(
-                        "%s beats %s",
-                        open_access_resource.url, champion_resource_url
-                    )
-                    champion = edition
-                    continue
-                elif book_source_priority < champion_book_source_priority:
-                    continue
-                elif (edition.data_source.name == DataSource.GUTENBERG
-                      and champion.data_source.name == DataSource.GUTENBERG):
-                    # Higher Gutenberg numbers beat lower Gutenberg numbers.
-                    champion_id = int(
-                        champion.primary_identifier.identifier)
-                    competitor_id = int(
-                        edition.primary_identifier.identifier)
-
-                    if competitor_id > champion_id:
-                        champion = edition
-                        champion_book_source_priority = book_source_priority
-                        logging.info(
-                            "Gutenberg %d beats Gutenberg %d",
-                            competitor_id, champion_id
-                        )
-                        continue
-
-            # More licenses is better than fewer.
-            if (edition.license_pool.licenses_owned
-                > champion.license_pool.licenses_owned):
-                champion = edition
-                continue
-
-            # More available licenses is better than fewer.
-            if (edition.license_pool.licenses_available
-                > champion.license_pool.licenses_available):
-                champion = edition
-                continue
-
-            # Fewer patrons in the hold queue is better than more.
-            if (edition.license_pool.patrons_in_hold_queue
-                < champion.license_pool.patrons_in_hold_queue):
-                champion = edition
-                continue
 
         for edition in self.editions:
             # There can be only one.
