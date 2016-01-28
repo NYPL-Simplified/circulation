@@ -503,14 +503,14 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         db = Session.object_session(patron)
         active_loans_by_work = {}
         for loan in patron.loans:
-            work = loan.license_pool.work or loan.license_pool.edition.work
+            work = loan.work
             if work:
                 active_loans_by_work[work] = loan
         active_holds_by_work = {}
         for hold in patron.holds:
-            work = hold.license_pool.work or hold.license_pool.edition.work
+            work = hold.work
             if work:
-                active_holds_by_work[hold.license_pool.work] = hold
+                active_holds_by_work[work] = hold
 
         annotator = cls(
             circulation, None, patron, active_loans_by_work, active_holds_by_work,
