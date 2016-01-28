@@ -3124,9 +3124,15 @@ class Work(Base):
                 continue
 
             # A edition with no license pool will only be chosen if
-            # there is no other alternatice.
+            # there is no other alternative.
             pool = edition.license_pool
             if not pool:
+                continue
+
+            if not champion_pool:
+                # An edition with a license pool beats a previous
+                # champion-by-default without one.
+                champion = edition
                 continue
 
             if pool.open_access:
