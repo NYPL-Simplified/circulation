@@ -499,31 +499,16 @@ class CirculationManagerAnnotator(Annotator):
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
 
     @classmethod
-    def work_for(cls, loan_or_hold):
-        """Given a loan or hold, try to find the corresponding work."""
-        if not loan_or_hold:
-            return None
-
-        license_pool = loan_or_hold.license_pool
-        if not license_pool:
-            return None
-        if license_pool.work:
-            return license_pool.work
-        if license_pool.edition and license_pool.edition.work:
-            return license_pool.edition.work
-        return None        
-
-    @classmethod
     def active_loans_for(cls, circulation, patron, test_mode=False):
         db = Session.object_session(patron)
         active_loans_by_work = {}
         for loan in patron.loans:
-            work = cls.work_for(loan)
+            work = loan.work
             if work:
                 active_loans_by_work[work] = loan
         active_holds_by_work = {}
         for hold in patron.holds:
-            work = cls.work_for(hold)
+            work = loan.work
             if work:
                 active_holds_by_work[hold.license_pool.work] = hold
 
