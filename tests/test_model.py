@@ -1330,6 +1330,30 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+    def test_work(self):
+        """Test the attribute that finds the Work for a Loan or Hold."""
+        patron = self._patron()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+
+        # The easy cases.
+        loan, is_new = pool.loan_to(patron)
+        eq_(work, loan.work)
+
+        loan.license_pool = None
+        eq_(None, loan.work)
+
+        # If pool.work is None but pool.edition.work is valid, we 
+        # use that.
+        loan.license_pool = pool
+        pool.work = None
+        eq_(pool.edition.work, loan.work)
+
+        # If that's also None, we're helpless.
+        pool.edition.work = None
+        eq_(None, loan.work)
+
+
 class TestHold(DatabaseTest):
 
     def test_on_hold_to(self):
@@ -1357,6 +1381,15 @@ class TestHold(DatabaseTest):
             # The patron has until `hold.end` to actually check out the book.
             eq_(later, hold.end)
             eq_(0, hold.position)
+
+    def test_work(self):
+        # We don't need to test the functionality--that's tested in
+        # Loan--just that Hold also has access to .work.
+        patron = self._patron()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+        hold, is_new = pool.on_hold_to(patron)
+        eq_(work, hold.work)
 
     def test_calculate_until(self):
         start = datetime.datetime(2010, 1, 1)

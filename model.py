@@ -366,16 +366,12 @@ class Patron(Base):
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
-        return [loan.license_pool.work or loan.license_pool.edition.work 
-                for loan in self.loans 
-                if loan.license_pool.work or loan.license_pool.edition.work]
+        return [loan.work for loan in self.loans if loan.work]
 
     def works_on_loan_or_on_hold(self):
         db = Session.object_session(self)
         results = set()
-        holds = [hold.license_pool.work or hold.license_pool.edition.work 
-                 for hold in self.holds
-                 if hold.license_pool.work or hold.license_pool.edition.work]
+        holds = [hold.work for hold in self.holds if hold.work]
         loans = self.works_on_loan()
         return set(holds + loans)
 
@@ -427,7 +423,22 @@ class Patron(Base):
         return True
 
 
-class Loan(Base):
+class LoanAndHoldMixin(object):
+
+    @property
+    def work(self):
+        """Try to find the corresponding work for this Loan/Hold."""
+        license_pool = self.license_pool
+        if not license_pool:
+            return None
+        if license_pool.work:
+            return license_pool.work
+        if license_pool.edition and license_pool.edition.work:
+            return license_pool.edition.work
+        return None        
+
+
+class Loan(Base, LoanAndHoldMixin):
     __tablename__ = 'loans'
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
@@ -450,7 +461,7 @@ class Loan(Base):
         start = self.start or datetime.datetime.utcnow()
         return start + default_loan_period
 
-class Hold(Base):
+class Hold(Base, LoanAndHoldMixin):
     """A patron is in line to check out a book.
     """
     __tablename__ = 'holds'
