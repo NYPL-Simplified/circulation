@@ -30,11 +30,6 @@ from core.model import (
     Session,
 )
 
-from core.metadata_layer import (
-    CirculationData,
-    Metadata,
-)
-
 from core.monitor import (
     Monitor,
     IdentifierSweepMonitor,
@@ -84,9 +79,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         return events
 
     def get_circulation_for(self, identifiers):
-        """Return (Metadata, CirculationData) 2-tuples for the 
-        selected identifiers.
-        """
+        """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
         if response.status_code == 404:
@@ -94,11 +87,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         if response.status_code != 200:
             raise IOError("Server gave status code %s: %s" % (
                 response.status_code, response.content))
-
-        for m, c in CirculationParser().process_all(response.content):
-            if m and c:
-                yield (m, c)
-        
+        for circ in CirculationParser().process_all(response.content):
+            if circ:
+                yield circ
 
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
@@ -266,11 +257,10 @@ class CirculationParser(XMLParser):
             yield i
 
     def process_one(self, tag, namespaces):
-        """Return: a list of 2-tuples (Metadata, CirculationData)"""
         if not tag.xpath("ItemId"):
             # This happens for events associated with books
             # no longer in our collection.
-            return None, None
+            return None
 
         def value(key):
             return self.text_of_subtag(tag, key)
@@ -278,56 +268,34 @@ class CirculationParser(XMLParser):
         def intvalue(key):
             return self.int_of_subtag(tag, key)
 
-        # First create a basic Metadata object so we know which book
-        # we're talking about.
-        threem_identifier = IdentifierData(
-            type=Identifier.THREEM_ID, identifier=value("ItemId")
-        )
+        identifiers = {}
+        item = { Identifier : identifiers }
 
-        isbn_identifier = IdentifierData(
-            type=Identifier.ISBN, identifier=value("ISBN13")
-        )
-
-        metadata = Metadata(
-            data_source=DataSource.THREEM,
-            license_data_source=DataSource.THREEM,
-            primary_identifier=threem_identifier,
-            identifiers=[isbn_identifier]
-        )
-
-        # Then create a CirculationData object.
-        licenses_owned = intvalue("TotalCopies")
-        licenses_available = 0
+        identifiers[Identifier.THREEM_ID] = value("ItemId")
+        identifiers[Identifier.ISBN] = value("ISBN13")
+        
+        item[LicensePool.licenses_owned] = intvalue("TotalCopies")
         try:
-            licenses_available = intvalue("AvailableCopies")
+            item[LicensePool.licenses_available] = intvalue("AvailableCopies")
         except IndexError:
             logging.warn("No information on available copies for %s",
                          identifiers[Identifier.THREEM_ID]
                      )
 
-        def _patron_count(key):
-            "Count patrons who have the book in a certain state."
-            t = tag.xpath(key)
+        # Counts of patrons who have the book in a certain state.
+        for threem_key, simplified_key in [
+                ("Holds", LicensePool.patrons_in_hold_queue),
+                ("Reserves", LicensePool.licenses_reserved)
+        ]:
+            t = tag.xpath(threem_key)
             if t:
                 t = t[0]
                 value = int(t.xpath("count(Patron)"))
-                return value
+                item[simplified_key] = value
             else:
                 logging.warn("No circulation information provided for %s %s",
-                             threem_id, key)
-                return 0
-
-        licenses_reserved = _patron_count("Reserves")
-        patrons_in_hold_queue = _patron_count("Holds")
-
-        circulation = CirculationData(
-            licenses_owned=licenses_owned,
-            licenses_available=licenses_available, 
-            licenses_reserved=licenses_reserved,
-            patrons_in_hold_queue=patrons_in_hold_queue,
-        )
-
-        return metadata, circulation
+                             identifiers[Identifier.THREEM_ID], threem_key)
+        return item
 
 class ThreeMException(Exception):
     pass
@@ -561,22 +529,26 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             identifiers_by_threem_id[identifier.identifier] = identifier
 
         identifiers_not_mentioned_by_threem = set(identifiers)
-
-        for metadata, circ in self.api.get_circulation_for(threem_ids):
+        now = datetime.datetime.utcnow()
+        for circ in self.api.get_circulation_for(threem_ids):
             if not circ:
                 continue
-            threem_id = metadata.primary_identifier.identifier
+            threem_id = circ[Identifier][Identifier.THREEM_ID]
             identifier = identifiers_by_threem_id[threem_id]
             identifiers_not_mentioned_by_threem.remove(identifier)
 
             pool = identifier.licensed_through
-            pool_is_new = False
             if not pool:
                 # We don't have a license pool for this work. That
                 # shouldn't happen--how did we know about the
                 # identifier?--but it shouldn't be a big deal to
                 # create one.
-                pool, pool_is_new = metadata.license_pool(self._db)
+                pool, ignore = LicensePool.for_foreign_id(
+                    self._db, self.data_source, identifier.type,
+                    identifier.identifier)
+                CirculationEvent.log(
+                    self._db, pool, CirculationEvent.TITLE_ADD,
+                    None, None, start=now)
 
             if pool.edition:
                 self.log.info("Updating %s (%s)", pool.edition.title,
@@ -585,7 +557,13 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                 self.log.info(
                     "Updating unknown work %s", identifier.identifier
                 )
-            circulation.update(pool, pool_is_new)
+            # Update availability and send out notifications.
+            pool.update_availability(
+                circ.get(LicensePool.licenses_owned, 0),
+                circ.get(LicensePool.licenses_available, 0),
+                circ.get(LicensePool.licenses_reserved, 0),
+                circ.get(LicensePool.patrons_in_hold_queue, 0))
+
 
         # At this point there may be some license pools left over
         # that 3M doesn't know about.  This is a pretty reliable
@@ -603,20 +581,19 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     "Removing unknown work %s from circulation.",
                     identifier.identifier
                 )
-            circulation = CirculationData(
-                licenses_owned=0,
-                licenses_available=0, 
-                licenses_reserved=0,
-                patrons_in_hold_queue=0,
-            )
-            circulation.update(pool, False)
+            pool.licenses_owned = 0
+            pool.licenses_available = 0
+            pool.licenses_reserved = 0
+            pool.patrons_in_hold_queue = 0
+            pool.last_checked = now
+
 
 class ThreeMEventMonitor(Monitor):
 
     """Register CirculationEvents for 3M titles.
 
     When a new book comes on the scene, we find out about it here and
-    we create a LicensePool. But the bibliographic data isn't
+    we create a LicensePool.  But the bibliographic data isn't
     inserted into those LicensePools until the
     ThreeMBibliographicMonitor runs. And the circulation data isn't
     associated with it until the ThreeMCirculationMonitor runs.
@@ -767,8 +744,17 @@ class ThreeMCirculationMonitor(Monitor):
         for p in pools:
             pool_for_identifier[p.identifier.identifier] = p
             identifiers.append(p.identifier.identifier)
-        for metadata, circulation in self.api.get_circulation_for(identifiers):
-            pool, pool_is_new = metadata.license_pool(_db)
-            circulation.update(pool, pool_is_new)
+        for item in self.api.get_circulation_for(identifiers):
+            identifier = item[Identifier][Identifier.THREEM_ID]
+            pool = pool_for_identifier[identifier]
+            self.process_pool(_db, pool, item)
         _db.commit()
         return most_recent_timestamp
+        
+    def process_pool(self, _db, pool, item):
+        pool.update_availability(
+            item[LicensePool.licenses_owned],
+            item[LicensePool.licenses_available],
+            item[LicensePool.licenses_reserved],
+            item[LicensePool.patrons_in_hold_queue])
+        self.log.info("%r: %d owned, %d available, %d reserved, %d queued", pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
