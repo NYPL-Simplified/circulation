@@ -245,7 +245,7 @@ class MakePresentationReady(object):
             raise HTTPIntegrationException("Wrong media type: %s" % content_type)
 
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
-        imported, messages_by_id = importer.import_from_feed(
+        imported, messages_by_id, next_links = importer.import_from_feed(
             response.text
         )
 
@@ -265,15 +265,15 @@ class MakePresentationReady(object):
             )
             response = self.content_lookup.lookup(needs_open_access_import)
             importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
-            oa_imported, oa_messages_by_id = importer.import_from_feed(
+            oa_imported, oa_messages_by_id, oa_next_links = importer.import_from_feed(
                 response.content
             )
             self.log.info(
                 "%d successes, %d failures.",
                 len(oa_imported), len(oa_messages_by_id)
             )
-            for identifier, (status_code, message) in oa_messages_by_id.items():
-                self.log.info("%r %s %s", identifier, status_code, message)
+            for identifier, status_message in oa_messages_by_id.items():
+                self.log.info("%r: %r", identifier, status_message)
 
         # We need to commit the database to make sure that a newly
         # created Edition will show up as its Work's .primary_edition.
@@ -329,9 +329,9 @@ class MakePresentationReady(object):
             self.log.info("%s READY", edition.work.title)
             edition.work.set_presentation_ready()
         now = datetime.datetime.utcnow()
-        for identifier, (status_code, message) in messages_by_id.items():
-            self.log.info("%r %s %s", identifier, status_code, message)
-            if status_code == 400:
+        for identifier, status_message in messages_by_id.items():
+            self.log.info("%r: %r", identifier, status_message)
+            if status_message.status_code == 400:
                 # The metadata wrangler thinks we made a mistake here,
                 # and will probably never give us information about
                 # this work. We need to record the problem and work
