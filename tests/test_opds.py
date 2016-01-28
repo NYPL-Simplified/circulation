@@ -91,6 +91,34 @@ class TestOPDS(DatabaseTest):
         borrow_rels = [x['rel'] for x in borrow_links]
         assert OPDSFeed.BORROW_REL in borrow_rels
 
+    def test_derive_work(self):
+        """Test the helper method that turns a Loan or Hold into a Work."""
+        patron = self.default_patron
+
+        m = CirculationManagerLoanAndHoldAnnotator.work_for
+
+        # The easy cases.
+        eq_(None, m(None))
+
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+
+        loan, is_new = pool.loan_to(patron)
+        eq_(work, m(loan))
+
+        loan.license_pool = None
+        eq_(None, m(loan))
+
+        # If pool.work is None but pool.edition.work is valid, we 
+        # use that.
+        loan.license_pool = pool
+        pool.work = None
+        eq_(pool.edition.work, m(loan))
+
+        # If that's also None, we're helpless.
+        pool.edition.work = None
+        eq_(None, m(loan))
+
     def test_active_loan_feed(self):
         patron = self.default_patron
         raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
