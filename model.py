@@ -3129,7 +3129,7 @@ class Work(Base):
             if not pool:
                 continue
 
-            if not champion_pool:
+            if not champion.license_pool:
                 # An edition with a license pool beats a previous
                 # champion-by-default without one.
                 champion = edition
