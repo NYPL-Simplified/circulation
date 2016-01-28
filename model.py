@@ -423,7 +423,7 @@ class Patron(Base):
         return True
 
 
-class LoanAndCoreMixin(object):
+class LoanAndHoldMixin(object):
 
     @property
     def work(self):
@@ -438,7 +438,7 @@ class LoanAndCoreMixin(object):
         return None        
 
 
-class Loan(Base, LoanAndCoreMixin):
+class Loan(Base, LoanAndHoldMixin):
     __tablename__ = 'loans'
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
@@ -461,7 +461,7 @@ class Loan(Base, LoanAndCoreMixin):
         start = self.start or datetime.datetime.utcnow()
         return start + default_loan_period
 
-class Hold(Base, LoanAndCoreMixin):
+class Hold(Base, LoanAndHoldMixin):
     """A patron is in line to check out a book.
     """
     __tablename__ = 'holds'
