@@ -636,6 +636,60 @@ class TestEdition(DatabaseTest):
         # faraway cover.
         pass
 
+    def test_better_primary_edition_than(self):
+
+        generic, p1 = self._edition(with_license_pool=True)
+        generic2, p2 = self._edition(with_license_pool=True)
+
+        def better(x,y):
+            return x.better_primary_edition_than(y)
+
+        # Something is better than nothing.
+        eq_(True, better(generic, None))
+
+        # A license pool beats no license pool.
+        no_license_pool = self._edition(with_license_pool=False)
+        eq_(True, better(generic, no_license_pool))
+        eq_(False, better(no_license_pool, generic))
+
+        # An open access pool beats non-open access.
+        open_access, ignore = self._edition(with_open_access_download=True)
+        eq_(True, better(open_access, generic))
+
+        # TODO: An open access book from a high-quality source beats one
+        # from a low-quality source.
+
+        # A high Gutenberg number beats a low Gutenberg number.
+        open_access2, ignore = self._edition(with_open_access_download=True)
+        eq_(True, better(open_access2, open_access))
+
+        # More licenses beats fewer licenses
+        p1.open_access = False
+        p2.open_access = False
+        p1.licenses_owned = 1
+        p2.licenses_owned = 2
+        eq_(True, better(generic2, generic))
+
+        p1.licenses_owned = 3
+        eq_(False, better(generic2, generic))
+
+        # More licenses available beats fewer
+        p1.licenses_owned = p2.licenses_owned = 5
+        p1.licenses_available = 2
+        p2.licenses_available = 1
+        eq_(True, better(generic, generic2))
+        p2.licenses_available = 3
+        eq_(False, better(generic, generic2))
+
+        # Fewer people on hold beats more
+        p1.licenses_available = 0
+        p1.patrons_in_hold_queue = 1
+        p2.licenses_available = 0
+        p2.patrons_in_hold_queue = 2
+        eq_(True, better(generic, generic2))
+        p1.patrons_in_hold_queue = 3
+        eq_(False, better(generic, generic2))
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
