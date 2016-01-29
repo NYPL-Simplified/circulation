@@ -70,7 +70,7 @@ class CoverageProvider(object):
                 func.random())
 
     def run(self):
-        logging.info("%d records need coverage.", (
+        self.log.info("%d records need coverage.", (
             self.editions_that_need_coverage.count())
         )
         offset = 0
@@ -123,7 +123,7 @@ class CoverageProvider(object):
         # Finalize this batch before moving on to the next one.
         self.finalize_batch()
 
-        logging.info(
+        self.log.info(
             "Batch processed with %d successes, %d failures, %d ignored.",
             successes, failures, num_ignored
         )
