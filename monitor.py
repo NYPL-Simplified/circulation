@@ -255,7 +255,7 @@ class MakePresentationReady(object):
         needs_open_access_import = []
         for e in imported:
             pool = e.license_pool
-            if pool.open_access and not e.best_open_access_link:
+            if pool and pool.open_access and not e.best_open_access_link:
                 needs_open_access_import.append(e.primary_identifier)
 
         if needs_open_access_import:

@@ -676,21 +676,6 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         """Ignore the dates and return all IDs."""
         return self.api.all_ids()
 
-class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
-    """Monitor every single book in the Overdrive collection.
-
-    This tells us about books added to the Overdrive collection that
-    are not found in our collection.
-    """
-
-    def __init__(self, _db, interval_seconds=3600*4):
-        super(FullOverdriveCollectionMonitor, self).__init__(
-            _db, "Overdrive Collection Overview", interval_seconds)
-
-    def recently_changed_ids(self, start, cutoff):
-        """Ignore the dates and return all IDs."""
-        return self.api.all_ids()
-
 class OverdriveCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
     Overdrive collection.
