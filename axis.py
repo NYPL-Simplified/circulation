@@ -151,13 +151,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         The book's LicensePool will be updated with current
         circulation information.
         """
-        identifier_strings = []
-        for i in identifiers:
-            if isinstance(i, Identifier):
-                value = i.identifier
-            else:
-                value = i
-            identifier_strings.append(value)
+        identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
         parser = BibliographicParser()
         remainder = set(identifiers)
@@ -192,6 +186,17 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 patrons_in_hold_queue=0
             )
             availability.update(pool, False)
+
+    def create_identifier_strings(identifiers):
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+
+        return identifier_strings
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -509,3 +514,40 @@ class AvailabilityResponseParser(ResponseParser):
                 hold_position=position)
         return info
 
+
+class Axis360BibliographicMonitor(IdentifierBasedCoverageProvider):
+    """Fill in bibliographic metadata for Axis360 records."""
+
+    cls_log = logging.getLogger("Axis360 Bibliographic Monitor")
+
+    def __init__(self, _db):
+        self._db = _db
+        self.api = Axis360API(self._db)
+        self.parser = BibliographicParser()
+        self.input_source = DataSource.lookup(_db, DataSource.AXIS_360)
+        self.output_source = DataSource.lookup(_db, DataSource.AXIS_360)
+        super(Axis360BibliographicMonitor, self).__init__(
+            "Axis360 Bibliographic Monitor",
+            self.input_source, self.output_source)
+
+    # needs to return a list of (a) successful items & (b) coverage failures
+    # for each
+    def process_batch(self, batch):
+        identifier_strings = api.create_identifier_strings(batch)
+        response = api.availability(title_ids=identifier_strings)
+        batch_results = []
+        for bibliographic, availability in self.parser.process_all(response.content):
+            identifier, is_new = bibliographic.primary_identifier.load(self._db)
+            license_pool = identifier.licensed_through
+            work, created = license_pool.calculate_work()
+            if work:
+                edition = pool.edition
+                bibliographic.apply(edition)
+                work.set_presentation_ready()
+                results.append(identifier)
+            else:
+                e = "Work could not be calculated"
+                results.append(CoverageFailure(self, identifier, e,
+                        transient=False))
+
+        return batch_results
