@@ -10,6 +10,7 @@ from . import (
 from testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
+    TransientFailureCoverageProvider,
 )
 from config import (
     Configuration,
@@ -40,19 +41,35 @@ class TestCoverageProvider(DatabaseTest):
         [record] = self._db.query(CoverageRecord).all()
         eq_(self.edition.primary_identifier, record.identifier)
         eq_(self.output_source, self.output_source)
+        eq_(None, record.exception)
         eq_(record, result)
 
-        # Timestamp was not updated.
+        # The coverage provider's timestamp was not updated, because
+        # we're using ensure_coverage.
         eq_([], self._db.query(Timestamp).all())
 
-    def test_ensure_coverage_failure_returns_none(self):
+    def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful", self.input_source, self.output_source)
+        record = provider.ensure_coverage(self.edition)
+
+        assert isinstance(record, CoverageRecord)
+        eq_(self.edition.primary_identifier, record.identifier)
+        eq_("What did you expect?", record.exception)
+
+        # The coverage provider's timestamp was not updated, because
+        # we're using ensure_coverage.
+        eq_([], self._db.query(Timestamp).all())
+
+    def test_ensure_coverage_transient_coverage_failure(self):
+
+        provider = TransientFailureCoverageProvider(
+            "Transient failure", self.input_source, self.output_source)
         result = provider.ensure_coverage(self.edition)
         eq_(None, result)
 
-        # Still no CoverageRecords.
+        # Because the error is transient we have no coverage record.
         eq_([], self._db.query(CoverageRecord).all())
 
         # Timestamp was not updated.
@@ -88,12 +105,32 @@ class TestCoverageProvider(DatabaseTest):
             "Never successful", self.input_source, self.output_source)
         provider.run()
 
-        # There is still no CoverageRecord
-        eq_([], self._db.query(CoverageRecord).all())
+        # We have a CoverageRecord that signifies failure.
+        [record] = self._db.query(CoverageRecord).all()
+        eq_(self.edition.primary_identifier, record.identifier)
+        eq_(self.output_source, self.output_source)
+        eq_("What did you expect?", record.exception)
 
         # But the coverage provider did run, and the timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Never successful", timestamp.service)
+
+    def test_transient_failure(self):
+
+        # We start with no CoverageRecords and no Timestamp.
+        eq_([], self._db.query(CoverageRecord).all())
+        eq_([], self._db.query(Timestamp).all())
+
+        provider = TransientFailureCoverageProvider(
+            "Transient failure", self.input_source, self.output_source)
+        provider.run()
+
+        # We have no CoverageRecord, since the error was transient.
+        eq_([], self._db.query(CoverageRecord).all())
+
+        # But the coverage provider did run, and the timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Transient failure", timestamp.service)
 
 # TODO: This really should be in its own file but there's a problem
 # with the correct syntax for importing DatabaseTest which I can't fix

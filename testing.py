@@ -28,7 +28,10 @@ from model import (
     get_one_or_create
 )
 from classifier import Classifier
-from coverage import CoverageProvider
+from coverage import (
+    CoverageProvider,
+    CoverageFailure,
+)
 
 class DatabaseTest(object):
 
@@ -288,18 +291,24 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
 
-    def process_edition(self, edition):
-        self.attempts.append(edition)
-        return True
+    def run_once(self, offset):
+        super(InstrumentedCoverageProvider, self).run_once(offset)
+        return None
 
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
-    pass
+    def process_edition(self, edition):
+        return edition
+
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_edition(self, edition):
-        super(NeverSuccessfulCoverageProvider, self).process_edition(edition)
-        return False
+        return CoverageFailure(self, edition, "What did you expect?", False)
+
+
+class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
+    def process_edition(self, edition):
+        return CoverageFailure(self, edition, "Oops!", True)
 
 class DummyCanonicalizeLookupResponse(object):
 

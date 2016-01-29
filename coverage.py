@@ -31,7 +31,8 @@ class CoverageFailure(object):
             # gonna happen.
             record, ignore = CoverageRecord.add_for(self.obj, self.output_source)
             record.exception = self.exception
-        
+            return record
+
 
 class CoverageProvider(object):
 
@@ -112,7 +113,7 @@ class CoverageProvider(object):
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Ignore them on this run and try them again later.
-        num_ignored = batch.count() - len(results)
+        num_ignored = max(0, batch.count() - len(results))
         offset += num_ignored
 
         self.log.info(
@@ -133,16 +134,12 @@ class CoverageProvider(object):
         """Do what it takes to give CoverageRecords to a batch of
         editions.
         """
-        successes = []
-        failures = []
+        results = []
         for edition in batch:
-            if self.process_edition(edition):
-                # Success! Now there's coverage!
-                successes.append(edition)
-            else:
-                # No coverage.
-                failures.append(edition)
-        return successes, failures
+            result = self.process_edition(edition)
+            if result:
+                results.append(result)
+        return results
 
     def ensure_coverage(self, edition, force=False):
         """Ensure coverage for one specific Edition.
@@ -163,12 +160,13 @@ class CoverageProvider(object):
             on_multiple='interchangeable',
         )
         if force or coverage_record is None:
-            if self.process_edition(edition):
+            result = self.process_edition(edition)
+            if isinstance(result, CoverageFailure):
+                return result.to_coverage_record()
+            else:
                 coverage_record, ignore = self.add_coverage_record_for(
                     identifier)
-            else:
-                return None
-        return coverage_record
+                return coverage_record
 
     def add_coverage_record_for(self, edition):
         return CoverageRecord.add_for(edition, self.output_source)
