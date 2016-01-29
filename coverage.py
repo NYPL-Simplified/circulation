@@ -176,3 +176,23 @@ class CoverageProvider(object):
         e.g. uploading a bunch of assets to S3.
         """
         pass
+
+
+class IdentifierBasedCoverageProvider(CoverageProvider):
+    """Run Identifiers from one DataSource (the input DataSource) through
+    code associated with another DataSource (the output
+    DataSource). If the code returns success, add a CoverageRecord for
+    the Identifier and the output DataSource, so that the record
+    doesn't get processed next time.
+    """
+
+    @property
+    def editions_that_need_coverage(self):
+        """Find all Identifiers lacking coverage from this CoverageProvider.
+
+        Identifiers are selected randomly to reduce the effect of
+        persistent errors.
+        """
+        return Identifier.missing_coverage_from(
+            self._db, self.input_sources, self.output_source).order_by(
+                func.random())
