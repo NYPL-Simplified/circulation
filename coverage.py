@@ -112,7 +112,7 @@ class CoverageProvider(object):
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Ignore them on this run and try them again later.
-        num_ignored = len(batch) - len(results)
+        num_ignored = batch.count() - len(results)
         offset += num_ignored
 
         self.log.info(
