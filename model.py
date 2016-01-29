@@ -1580,8 +1580,10 @@ class Identifier(Base):
         from `coverage_data_source`.
         """
         q = _db.query(Identifier).outerjoin(
-            CoverageRecord, Identifier.id==CoverageRecord.identifier_id).filter(
-                Identifier.type.in_(identifier_types))
+            CoverageRecord, Identifier.id==CoverageRecord.identifier_id
+        )
+        if identifier_types:
+            q = q.filter(Identifier.type.in_(identifier_types))
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 
@@ -2318,8 +2320,9 @@ class Edition(Base):
                        (CoverageRecord.data_source_id==coverage_data_source.id))
         
         q = _db.query(Edition).outerjoin(
-            CoverageRecord, join_clause).filter(
-                Edition.data_source_id.in_(edition_data_source_ids))
+            CoverageRecord, join_clause)
+        if edition_data_source_ids:
+            q = q.filter(Edition.data_source_id.in_(edition_data_source_ids))
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 

@@ -15,6 +15,24 @@ from model import (
 )
 import log # This sets the appropriate log format.
 
+class CoverageFailure(object):
+    """Object representing the failure to provide coverage."""
+
+    def __init__(self, provider, obj, exception, transient=True):
+        self.obj = obj
+        self.output_source = provider.output_source
+        self.exception = exception
+        self.transient = transient
+
+    def to_coverage_record(self):
+        if not self.transient:
+            # This is a permanent error. Turn it into a CoverageRecord
+            # so we don't keep trying to provide coverage that isn't
+            # gonna happen.
+            record, ignore = CoverageRecord.add_for(obj, self.output_source)
+            record.exception = self.exception
+        
+
 class CoverageProvider(object):
 
     """Run Editions from one DataSource (the input DataSource) through
@@ -51,33 +69,67 @@ class CoverageProvider(object):
             self._db, self.input_sources, self.output_source).order_by(
                 func.random())
 
+    def _identifier(self, o):
+        if isinstance(o, Identifier):
+            return o
+        elif isinstance(o, Edition):
+            return o.primary_identifier
+        else:
+            raise NotImplementedError()
+
     def run(self):
-        remaining = True
-        failures = set([])
         logging.info("%d records need coverage.", (
             self.editions_that_need_coverage.count()))
         offset = 0
-        while remaining:
-            successes = 0
-            offset += len(failures)
-            batch = self.editions_that_need_coverage.limit(
-                self.workset_size).offset(offset)
-            batch = [x for x in batch if x not in failures]
-            successes, new_failures = self.process_batch(batch)
-            if len(successes) == 0 and len(new_failures) == 0:
-                # We did not see any new records.
-                logging.info("No new records seen.")
-                break
-            failures.update(new_failures)
-            for success in successes:
-                self.add_coverage_record_for(success)
-            # Finalize this batch before moving on to the next one.
-            self.finalize_batch()
-            logging.info("Batch processed with %d successes, %d failures.",
-                len(successes), len(new_failures))
-            # Now that we're done, update the timestamp and commit the DB.
+        while offset is not None:
+            offset = self.run_once(offset)
             Timestamp.stamp(self._db, self.service_name)
             self._db.commit()
+
+    def run_once(self, offset):
+        batch = self.editions_that_need_coverage.limit(
+            self.workset_size).offset(offset)
+
+        if not batch:
+            # The batch is empty. We're done.
+            return None
+
+        successes, failures = self.process_batch(batch)
+
+        # Add a CoverageRecord for each success. They won't show
+        # up anymore, on this run or subsequent runs.
+        for success in successes:
+            self.add_coverage_record_for(success)
+
+        for failure in failures:
+            if failure.transient:
+                # Ignore this error for now, but come back to it
+                # on the next run.
+                offset += 1
+            else:
+                # Create a CoverageRecord memorializing this
+                # failure. It won't show up anymore, on this 
+                # run or subsequent runs.
+                failure.to_coverage_record()
+
+        # Perhaps some records were ignored--they neither succeeded nor
+        # failed. Ignore them on this run and try them again later.
+        num_ignored = len(batch) - (len(successes) + len(failures))
+        offset += num_ignored
+
+        self.log.info(
+            "%d successes, %d failures, %d ignored",
+            len(successes), len(failures), len(num_ignored)
+        )
+
+        # Finalize this batch before moving on to the next one.
+        self.finalize_batch()
+
+        logging.info(
+            "Batch processed with %d successes, %d failures, %d ignored.",
+            len(successes), len(new_failures), len(num_ignored)
+        )
+        return offset
 
     def process_batch(self, batch):
         """Do what it takes to give CoverageRecords to a batch of
