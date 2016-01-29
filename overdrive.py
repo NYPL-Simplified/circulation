@@ -39,7 +39,10 @@ from config import (
     CannotLoadConfiguration,
 )
 
-from coverage import IdentifierBasedCoverageProvider
+from coverage import (
+    IdentifierBasedCoverageProvider,
+    CoverageFailure,
+)
 
 class OverdriveAPI(object):
 
@@ -731,23 +734,25 @@ class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
 
     def __init__(self, _db):
         self._db = _db
-        self.overdrive = OverdriveAPI(self._db)
+        self.api = OverdriveAPI(self._db)
         self.input_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
         self.output_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
         super(OverdriveBibliographicMonitor, self).__init__(
             "Overdrive Bibliographic Monitor",
             self.input_source, self.output_source)
 
-    def process_edition(self, identifier):
-        info = self.overdrive.metadata_lookup(identifier)
+    def process_identifier(self, identifier):
+        info = self.api.metadata_lookup(identifier)
         if info.get('errorCode') == 'NotFound':
-            # TODO: We need to represent some kind of permanent failure.
-            raise Exception("ID not recognized by Overdrive")
+            return CoverageFailure(self, identifier,
+                    exception="ID not recognized by Overdrive", transient=False)
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
         if not metadata:
-            raise Exception("Could not extract metadata from Overdrive data: %r" % info)
+            e = "Could not extract metadata from Overdrive data: %r" % info
+            return CoverageFailure(self, identifier, exception=e,
+                    transient=True)
 
         license_pool = identifier.licensed_through
         work, created = license_pool.calculate_work()
@@ -756,3 +761,8 @@ class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
             edition = license_pool.edition
             metadata.apply(edition)
             work.set_presentation_ready()
+
+        return identifier
+
+    def process_batch(self, batch):
+        return [self.process_identifier(identifier) for identifier in batch]
