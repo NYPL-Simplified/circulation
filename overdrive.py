@@ -39,6 +39,8 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from coverage import IdentifierBasedCoverageProvider
+
 class OverdriveAPI(object):
 
     log = logging.getLogger("Overdrive API")
@@ -720,3 +722,37 @@ class OverdriveRepresentationExtractor(object):
             measurements=measurements,
             links=links,
         )
+
+
+class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
+    """Fill in bibliographic metadata for Overdrive records."""
+
+    cls_log = logging.getLogger("Overdrive Bibliographic Monitor")
+
+    def __init__(self, _db):
+        self._db = _db
+        self.overdrive = OverdriveAPI(self._db)
+        self.input_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
+        self.output_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
+        super(OverdriveBibliographicMonitor, self).__init__(
+            "Overdrive Bibliographic Monitor",
+            self.input_source, self.output_source)
+
+    def process_edition(self, identifier):
+        info = self.overdrive.metadata_lookup(identifier)
+        if info.get('errorCode') == 'NotFound':
+            # TODO: We need to represent some kind of permanent failure.
+            raise Exception("ID not recognized by Overdrive")
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
+            info
+        )
+        if not metadata:
+            raise Exception("Could not extract metadata from Overdrive data: %r" % info)
+
+        license_pool = identifier.licensed_through
+        work, created = license_pool.calculate_work()
+
+        if work:
+            edition = license_pool.edition
+            metadata.apply(edition)
+            work.set_presentation_ready()
