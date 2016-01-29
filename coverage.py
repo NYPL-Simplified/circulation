@@ -69,17 +69,10 @@ class CoverageProvider(object):
             self._db, self.input_sources, self.output_source).order_by(
                 func.random())
 
-    def _identifier(self, o):
-        if isinstance(o, Identifier):
-            return o
-        elif isinstance(o, Edition):
-            return o.primary_identifier
-        else:
-            raise NotImplementedError()
-
     def run(self):
         logging.info("%d records need coverage.", (
-            self.editions_that_need_coverage.count()))
+            self.editions_that_need_coverage.count())
+        )
         offset = 0
         while offset is not None:
             offset = self.run_once(offset)
@@ -94,32 +87,37 @@ class CoverageProvider(object):
             # The batch is empty. We're done.
             return None
 
-        successes, failures = self.process_batch(batch)
+        results = self.process_batch(batch)
+        successes = 0
+        failures = 0
 
-        # Add a CoverageRecord for each success. They won't show
-        # up anymore, on this run or subsequent runs.
-        for success in successes:
-            self.add_coverage_record_for(success)
-
-        for failure in failures:
-            if failure.transient:
-                # Ignore this error for now, but come back to it
-                # on the next run.
-                offset += 1
+        for item in results:
+            if isinstance(item, CoverageFailure):
+                failures += 1
+                if item.transient:
+                    # Ignore this error for now, but come back to it
+                    # on the next run.
+                    offset += 1
+                else:
+                    # Create a CoverageRecord memorializing this
+                    # failure. It won't show up anymore, on this 
+                    # run or subsequent runs.
+                    item.to_coverage_record()
             else:
-                # Create a CoverageRecord memorializing this
-                # failure. It won't show up anymore, on this 
-                # run or subsequent runs.
-                failure.to_coverage_record()
+                # Count this as a success and add a CoverageRecord for
+                # it. It won't show up anymore, on this run or
+                # subsequent runs.
+                successes += 1
+                self.add_coverage_record_for(item)
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Ignore them on this run and try them again later.
-        num_ignored = len(batch) - (len(successes) + len(failures))
+        num_ignored = len(batch) - len(results)
         offset += num_ignored
 
         self.log.info(
             "%d successes, %d failures, %d ignored",
-            len(successes), len(failures), len(num_ignored)
+            successes, failures, num_ignored
         )
 
         # Finalize this batch before moving on to the next one.
@@ -127,7 +125,7 @@ class CoverageProvider(object):
 
         logging.info(
             "Batch processed with %d successes, %d failures, %d ignored.",
-            len(successes), len(new_failures), len(num_ignored)
+            successes, failures, num_ignored
         )
         return offset
 
