@@ -329,16 +329,26 @@ class MakePresentationReady(object):
             self.log.info("%s READY", edition.work.title)
             edition.work.set_presentation_ready()
         now = datetime.datetime.utcnow()
+        failures = []
         for identifier, status_message in messages_by_id.items():
             self.log.info("%r: %r", identifier, status_message)
+            work = None
+            edition = identifier.edition
+            if edition:
+                work = edition.work
             if status_message.status_code == 400:
                 # The metadata wrangler thinks we made a mistake here,
                 # and will probably never give us information about
                 # this work. We need to record the problem and work
                 # through it manually.
-                edition.work.presentation_ready_exception = message
-                edition.work.presentation_ready_attempt = now
+                if work:
+                    work.presentation_ready_exception = message
+                    work.presentation_ready_attempt = now
+            if edition and status_message.status_code % 100 != 2:
+                failures.append(edition)
         self._db.commit()
+        set_trace()
+        return imported, failures
 
 class UpdateOpenAccessURL(EditionSweepMonitor):
     """Set Edition.open_access_full_url for all Gutenberg works."""
