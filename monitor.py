@@ -332,10 +332,13 @@ class MakePresentationReady(object):
         failures = []
         for identifier, status_message in messages_by_id.items():
             self.log.info("%r: %r", identifier, status_message)
-            work = None
-            edition = identifier.edition
-            if edition:
+            identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
+            editions = identifier_obj.primarily_identifies            
+            if editions:
+                edition = editions[0]
                 work = edition.work
+            else:
+                edition = work = None
             if status_message.status_code == 400:
                 # The metadata wrangler thinks we made a mistake here,
                 # and will probably never give us information about
@@ -347,7 +350,6 @@ class MakePresentationReady(object):
             if edition and status_message.status_code % 100 != 2:
                 failures.append(edition)
         self._db.commit()
-        set_trace()
         return imported, failures
 
 class UpdateOpenAccessURL(EditionSweepMonitor):
