@@ -116,11 +116,6 @@ class CoverageProvider(object):
         num_ignored = max(0, batch.count() - len(results))
         offset += num_ignored
 
-        self.log.info(
-            "%d successes, %d failures, %d ignored",
-            successes, failures, num_ignored
-        )
-
         # Finalize this batch before moving on to the next one.
         self.finalize_batch()
 
