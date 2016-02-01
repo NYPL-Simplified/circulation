@@ -26,11 +26,6 @@ from core.opds_import import (
     OPDSImporter,
 )
 
-# TODO: We want to ask the metadata wrangler about ISBNs, but only the
-# ISBNs that are the primary identifier of some LicensePool.
-#
-# This probably demands a separate CoverageProvider.
-
 class OPDSImportCoverageProvider(CoverageProvider):
 
     def handle_import_messages(self, messages_by_id):
@@ -44,9 +39,11 @@ class OPDSImportCoverageProvider(CoverageProvider):
             # If the message does not indicate success, create a
             # CoverageRecord with the error so we stop trying this
             # book.
-            exception = status.message
-            transient = message.success
-            yield CoverageFailure(self, identifier, exception, transient)
+            if not message.success:
+                exception = str(message.status_code)
+                transient = message.transient
+                identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
+                yield CoverageFailure(self, identifier_obj, exception, transient)
 
 
 class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
@@ -128,7 +125,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
         for edition in imported:
             self.finalize_import(edition)
-            reults.append(edition)
+            results.append(edition)
 
         for failure in self.handle_import_messages(messages_by_id):
             results.append(failure)
@@ -142,8 +139,15 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         pool = edition.license_pool
         work = edition.work
 
+        if not pool:
+            if work:
+                warning = "Edition %r has a work but no associated license pool."
+            else:
+                warning = "Edition %r has no license pool. Will not create work."
+            self.log.warn(warning, edition)
+            
         # Make sure there's a Work associated with the edition.
-        if not work:
+        if pool and not work:
             work, new_work = pool.calculate_work(
                 even_if_no_author=True,
                 search_index_client=self.search_index
@@ -151,7 +155,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
         # If the Work wasn't presentation ready before, it
         # certainly is now.
-        work.set_presentation_ready()
+        if pool and work:
+            work.set_presentation_ready()
 
 
 class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
