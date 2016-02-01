@@ -1329,7 +1329,7 @@ class Identifier(Base):
         """Associate a new Measurement with this Identifier."""
         _db = Session.object_session(self)
 
-        logging.info(
+        logging.debug(
             "MEASUREMENT: %s on %s/%s: %s == %s (wt=%d)",
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
@@ -1380,7 +1380,7 @@ class Identifier(Base):
         #if is_new:
         #    print repr(subject)
 
-        logging.info(
+        logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s",
             data_source.name, self.type, self.identifier,
             subject.type, subject.identifier, subject.name
@@ -2366,7 +2366,7 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
-        logging.info(
+        logging.debug(
             "Setting cover for %s/%s: full=%s thumb=%s", 
             self.primary_identifier.type, self.primary_identifier.identifier,
             self.cover_full_url, self.cover_thumbnail_url

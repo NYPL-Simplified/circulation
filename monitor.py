@@ -415,7 +415,7 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         for provider in self.coverage_providers:
             if edition.data_source in provider.input_sources:
                 coverage_record = provider.ensure_coverage(edition)
-                if not coverage_record:
+                if not isinstance(coverage_record, CoverageRecord):
                     failures.append(provider)
         return failures
 
