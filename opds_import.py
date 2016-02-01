@@ -105,12 +105,14 @@ class StatusMessage(object):
         try:
             status_code = int(status_code)
             success = (status_code == 200)
+            transient = not success and status_code / 100 in (2, 3, 5)
         except ValueError, e:
             # The status code isn't a number. Leave it alone.
             success = False
         self.status_code = status_code
         self.message = message
         self.success = success
+        self.transient = transient
 
     def __repr__(self):
         return '<StatusMessage: code=%s message="%s">' % (

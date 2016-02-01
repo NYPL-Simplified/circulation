@@ -31,6 +31,27 @@ from model import (
     Subject,
 )
 
+class TestStatusMessage(object):
+
+    def test_constructor(self):
+
+        message = StatusMessage("success", 200)
+        eq_(True, message.success)
+        eq_(False, message.transient)
+
+        message = StatusMessage("try later", 201)
+        eq_(False, message.success)
+        eq_(True, message.transient)
+
+        message = StatusMessage("oops", 500)
+        eq_(False, message.success)
+        eq_(True, message.transient)
+
+        message = StatusMessage("nope", 404)
+        eq_(False, message.success)
+        eq_(False, message.transient)
+
+
 class TestOPDSImporter(DatabaseTest):
 
     def setup(self):
