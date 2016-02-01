@@ -295,19 +295,23 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).run_once(offset)
         return None
 
+    def process_edition(self, edition):
+        self.attempts.append(edition)
+        return edition
+
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
-    def process_edition(self, edition):
-        return edition
 
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_edition(self, edition):
+        self.attempts.append(edition)
         return CoverageFailure(self, edition, "What did you expect?", False)
 
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_edition(self, edition):
+        self.attempts.append(edition)
         return CoverageFailure(self, edition, "Oops!", True)
 
 class DummyCanonicalizeLookupResponse(object):

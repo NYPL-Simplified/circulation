@@ -13,6 +13,7 @@ import log # This sets the appropriate log format and level.
 from config import Configuration
 from model import (
     get_one_or_create,
+    CoverageRecord,
     DataSource,
     Edition,
     CustomListEntry,
@@ -381,7 +382,8 @@ class PresentationReadyMonitor(WorkSweepMonitor):
                 failures = self.prepare(work)
             except Exception, e:
                 self.log.error(
-                    "Exception %s when processing work %r", e, r, exc_info=e)
+                    "Exception processing work %r", work, exc_info=e
+                )
                 failures = e
             if failures and failures not in (None, True):
                 if isinstance(failures, list):
@@ -415,7 +417,8 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         for provider in self.coverage_providers:
             if edition.data_source in provider.input_sources:
                 coverage_record = provider.ensure_coverage(edition)
-                if not isinstance(coverage_record, CoverageRecord):
+                if (not isinstance(coverage_record, CoverageRecord) 
+                    or coverage_record.exception is not None):
                     failures.append(provider)
         return failures
 

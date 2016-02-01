@@ -109,6 +109,7 @@ class StatusMessage(object):
         except ValueError, e:
             # The status code isn't a number. Leave it alone.
             success = False
+            transient = False
         self.status_code = status_code
         self.message = message
         self.success = success

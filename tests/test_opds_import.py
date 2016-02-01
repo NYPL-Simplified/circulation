@@ -15,6 +15,7 @@ from . import (
 
 from opds_import import (
     OPDSImporter,
+    StatusMessage,
 )
 from metadata_layer import (
     LinkData
@@ -35,19 +36,19 @@ class TestStatusMessage(object):
 
     def test_constructor(self):
 
-        message = StatusMessage("success", 200)
+        message = StatusMessage(200, "success")
         eq_(True, message.success)
         eq_(False, message.transient)
 
-        message = StatusMessage("try later", 201)
+        message = StatusMessage(201, "try later")
         eq_(False, message.success)
         eq_(True, message.transient)
 
-        message = StatusMessage("oops", 500)
+        message = StatusMessage(500, "oops")
         eq_(False, message.success)
         eq_(True, message.transient)
 
-        message = StatusMessage("nope", 404)
+        message = StatusMessage(404, "nope")
         eq_(False, message.success)
         eq_(False, message.transient)
 
