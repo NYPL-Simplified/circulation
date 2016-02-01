@@ -744,15 +744,14 @@ class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
     def process_identifier(self, identifier):
         info = self.api.metadata_lookup(identifier)
         if info.get('errorCode') == 'NotFound':
-            return CoverageFailure(self, identifier,
-                    exception="ID not recognized by Overdrive", transient=False)
+            e = "ID not recognized by Overdrive"
+            return CoverageFailure(self, identifier, e, transient=False)
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
-            return CoverageFailure(self, identifier, exception=e,
-                    transient=True)
+            return CoverageFailure(self, identifier, e, transient=True)
 
         license_pool = identifier.licensed_through
         work, created = license_pool.calculate_work()
