@@ -79,7 +79,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             self.service_name,
             identifier_types,
             self.coverage_source,
-            workset_size=2,
+            workset_size=50,
         )
 
     @property
@@ -185,7 +185,7 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
             self.service_name,
             None,
             self.coverage_source,
-            workset_size=2,
+            workset_size=50,
         )
 
     @property
