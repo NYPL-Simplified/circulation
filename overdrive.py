@@ -731,8 +731,6 @@ class OverdriveRepresentationExtractor(object):
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
-    cls_log = logging.getLogger("Overdrive Bibliographic Monitor")
-
     def __init__(self, _db):
         super(OverdriveBibliographicCoverageProvider, self).__init__(_db,
                 OverdriveAPI(_db), DataSource.OVERDRIVE)
