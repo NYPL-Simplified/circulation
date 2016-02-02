@@ -9,6 +9,7 @@ from model import (
     get_one,
     get_one_or_create,
     CoverageRecord,
+    DataSource,
     Edition,
     Identifier,
     Timestamp,
@@ -196,3 +197,46 @@ class IdentifierBasedCoverageProvider(CoverageProvider):
         return Identifier.missing_coverage_from(
             self._db, self.input_sources, self.output_source).order_by(
                 func.random())
+
+
+class BibliographicCoverageProvider(IdentifierBasedCoverageProvider):
+    """Fill in bibliographic metadata for records."""
+
+    def __init__(self, _db, api, datasource):
+        self._db = _db
+        self.api = api
+        self.input_source = DataSource.lookup(_db, datasource)
+        self.output_source = DataSource.lookup(_db, datasource)
+        service_name = "%s Bibliographic Monitor" % datasource
+        super(BibliographicCoverageProvider, self).__init__(service_name,
+                self.input_source, self.output_source)
+
+    def process_batch(self):
+        """Returns a list of successful identifiers and CoverageFailures"""
+        raise NotImplementedError
+
+    def set_presentation_ready(self, identifier, metadata):
+        """Given a metadata object as content, finds an identifier's work
+        and sets it presentation ready.
+
+        Returns either a coverage failure or the processed identifier.
+        """
+        if not metadata:
+            # The API call (handled in the subclasses) didn't return metadata
+            e = "Did not receive metadata from %s" % self.input_source.name
+            return CoverageFailure(self, identifier, e, transient=True)
+        license_pool = identifier.licensed_through
+        if not license_pool:
+            e = "No license pool available"
+            return CoverageFailure(self, identifier, e, transient=True)
+        work, created = license_pool.calculate_work()
+        if not work:
+            e = "Work could not be calculated"
+            return CoverageFailure(self, identifier, e, transient=True)
+
+        try:
+            metadata.apply(license_pool.edition)
+            work.set_presentation_ready_based_on_content()
+        except Exception as e:
+            return CoverageFailure(self, identifier, repr(e), transient=True)
+        return identifier
