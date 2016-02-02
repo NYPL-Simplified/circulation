@@ -520,7 +520,7 @@ class AvailabilityResponseParser(ResponseParser):
 class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Axis360 records."""
 
-    cls_log = logging.getLogger("Axis360 Bibliographic Monitor")
+    cls_log = logging.getLogger("Axis360 Bibliographic Coverage Provider")
 
     def __init__(self, _db):
         self.parser = BibliographicParser()

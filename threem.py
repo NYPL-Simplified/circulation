@@ -760,13 +760,13 @@ class ThreeMCirculationMonitor(Monitor):
             item[LicensePool.patrons_in_hold_queue])
         self.log.info("%r: %d owned, %d available, %d reserved, %d queued", pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
 
-class ThreeMBibliographicMonitor(BibliographicMonitor):
-    """Fill in bibliographic metadata for Axis360 records."""
+class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for 3M records."""
 
-    cls_log = logging.getLogger("3M Bibliographic Monitor")
+    cls_log = logging.getLogger("3M Bibliographic Coverage Provider")
 
     def __init__(self, _db):
-        super(ThreeMBibliographicMonitor, self).__init__(_db, ThreeMAPI(_db),
+        super(ThreeMBibliographicCoverageProvider, self).__init__(_db, ThreeMAPI(_db),
                 DataSource.THREEM)
 
     def process_batch(self, identifiers):
