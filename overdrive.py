@@ -34,15 +34,16 @@ from metadata_layer import (
     SubjectData,
 )
 
+from coverage import (
+    BibliographicCoverageProvider,
+    CoverageFailure,
+)
+
 from config import (
     Configuration,
     CannotLoadConfiguration,
 )
 
-from coverage import (
-    IdentifierBasedCoverageProvider,
-    CoverageFailure,
-)
 
 class OverdriveAPI(object):
 
@@ -727,25 +728,24 @@ class OverdriveRepresentationExtractor(object):
         )
 
 
-class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
+class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
     cls_log = logging.getLogger("Overdrive Bibliographic Monitor")
 
     def __init__(self, _db):
-        self._db = _db
-        self.api = OverdriveAPI(self._db)
-        self.input_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
-        self.output_source = DataSource.lookup(_db, DataSource.OVERDRIVE)
-        super(OverdriveBibliographicMonitor, self).__init__(
-            "Overdrive Bibliographic Monitor",
-            self.input_source, self.output_source)
+        super(OverdriveBibliographicCoverageProvider, self).__init__(_db,
+                OverdriveAPI(_db), DataSource.OVERDRIVE)
+
+    def process_batch(self, identifiers):
+        return [self.process_identifier(identifier) for identifier in identifiers]
+
 
     def process_identifier(self, identifier):
         info = self.api.metadata_lookup(identifier)
         if info.get('errorCode') == 'NotFound':
             e = "ID not recognized by Overdrive"
-            return CoverageFailure(self, identifier, e, transient=False)
+            return CoverageFailure(self, identifier, e, transient=True)
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
@@ -753,15 +753,6 @@ class OverdriveBibliographicMonitor(IdentifierBasedCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        license_pool = identifier.licensed_through
-        work, created = license_pool.calculate_work()
+        return self.set_presentation_ready(identifier, metadata)
 
-        if work:
-            edition = license_pool.edition
-            metadata.apply(edition)
-            work.set_presentation_ready()
 
-        return identifier
-
-    def process_batch(self, batch):
-        return [self.process_identifier(identifier) for identifier in batch]
