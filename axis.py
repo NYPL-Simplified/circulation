@@ -35,6 +35,8 @@ from core.model import (
     Subject,
 )
 
+from core.coverage import BibliographicCoverageProvider
+
 from authenticator import Authenticator
 from config import Configuration
 from circulation import (
@@ -515,39 +517,22 @@ class AvailabilityResponseParser(ResponseParser):
         return info
 
 
-class Axis360BibliographicMonitor(IdentifierBasedCoverageProvider):
+class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Axis360 records."""
 
     cls_log = logging.getLogger("Axis360 Bibliographic Monitor")
 
     def __init__(self, _db):
-        self._db = _db
-        self.api = Axis360API(self._db)
         self.parser = BibliographicParser()
-        self.input_source = DataSource.lookup(_db, DataSource.AXIS_360)
-        self.output_source = DataSource.lookup(_db, DataSource.AXIS_360)
-        super(Axis360BibliographicMonitor, self).__init__(
-            "Axis360 Bibliographic Monitor",
-            self.input_source, self.output_source)
+        super(Axis360BibliographicCoverageProvider, self).__init__(_db,
+                Axis360API(_db), DataSource.AXIS_360)
 
-    # needs to return a list of (a) successful items & (b) coverage failures
-    # for each
-    def process_batch(self, batch):
-        identifier_strings = api.create_identifier_strings(batch)
-        response = api.availability(title_ids=identifier_strings)
+    def process_batch(self, identifiers):
+        identifier_strings = self.api.create_identifier_strings(identifiers)
+        response = self.api.availability(title_ids=identifier_strings)
         batch_results = []
         for bibliographic, availability in self.parser.process_all(response.content):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
-            license_pool = identifier.licensed_through
-            work, created = license_pool.calculate_work()
-            if work:
-                edition = pool.edition
-                bibliographic.apply(edition)
-                work.set_presentation_ready()
-                results.append(identifier)
-            else:
-                e = "Work could not be calculated"
-                results.append(CoverageFailure(self, identifier, e,
-                        transient=False))
-
+            result = self.set_presentation_ready(identifier, bibliographic)
+            batch_results.append(result)
         return batch_results
