@@ -763,8 +763,6 @@ class ThreeMCirculationMonitor(Monitor):
 class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for 3M records."""
 
-    cls_log = logging.getLogger("3M Bibliographic Coverage Provider")
-
     def __init__(self, _db):
         super(ThreeMBibliographicCoverageProvider, self).__init__(_db, ThreeMAPI(_db),
                 DataSource.THREEM)
