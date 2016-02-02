@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 from nose.tools import (
     set_trace,
     eq_,
@@ -17,9 +18,22 @@ from config import (
     temp_config as core_temp_config
 )
 from model import (
+    Identifier,
+    Contributor,
+    Subject,
     CoverageRecord,
     DataSource,
     Timestamp,
+)
+from metadata_layer import (
+    Metadata,
+    IdentifierData,
+    ContributorData,
+    SubjectData,
+)
+from coverage import (
+    BibliographicCoverageProvider,
+    CoverageFailure,
 )
 
 class TestCoverageProvider(DatabaseTest):
@@ -131,6 +145,77 @@ class TestCoverageProvider(DatabaseTest):
         # But the coverage provider did run, and the timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Transient failure", timestamp.service)
+
+
+class TestBibliographicCoverageProvider(DatabaseTest):
+
+    BIBLIOGRAPHIC_DATA = Metadata(
+        DataSource.OVERDRIVE,
+        publisher=u'Perfection Learning',
+        language='eng',
+        title=u'A Girl Named Disaster',
+        published=datetime.datetime(1998, 3, 1, 0, 0),
+        identifiers = [
+            IdentifierData(
+                    type=Identifier.OVERDRIVE_ID,
+                    identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                ),
+            IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
+        ],
+        contributors = [
+            ContributorData(sort_name=u"Nancy Farmer",
+                            roles=[Contributor.PRIMARY_AUTHOR_ROLE])
+        ],
+        subjects = [
+            SubjectData(type=Subject.TOPIC,
+                        identifier=u'Action & Adventure'),
+            SubjectData(type=Subject.FREEFORM_AUDIENCE,
+                        identifier=u'Young Adult'),
+            SubjectData(type=Subject.PLACE, identifier=u'Africa')
+        ],
+    )
+
+    def test_set_presentation_ready(self):
+        provider = BibliographicCoverageProvider(self._db, None,
+                DataSource.OVERDRIVE)
+        identifier = self._identifier()
+        test_metadata = self.BIBLIOGRAPHIC_DATA
+
+        # Returns a CoverageFailure without metadata. (This is important
+        # because the API call happens outside of the method, but isn't
+        # necessarily checked.
+        result = provider.set_presentation_ready(identifier, None)
+        assert isinstance(result, CoverageFailure)
+        eq_("Did not receive metadata from Overdrive", result.exception)
+
+        # Returns a CoverageFailure if the identifier doesn't have a
+        # license pool.
+        result = provider.set_presentation_ready(identifier, test_metadata)
+        assert isinstance(result, CoverageFailure)
+        eq_("No license pool available", result.exception)
+
+        # Returns a CoverageFailure if there's no work available.
+        edition, lp = self._edition(with_license_pool=True)
+        # Remove edition so that the work won't be calculated
+        lp.identifier.primarily_identifies = []
+        result = provider.set_presentation_ready(lp.identifier, test_metadata)
+        assert isinstance(result, CoverageFailure)
+        eq_("Work could not be calculated", result.exception)
+
+        # Returns the identifier itself if all is well.
+        ed, lp = self._edition(with_license_pool=True)
+        result = provider.set_presentation_ready(lp.identifier, test_metadata)
+        eq_(lp.identifier, result)
+
+        # Catches other errors during the process and returns them as (the
+        # ever-superior) CoverageFailures.
+        edition, lp = self._edition(with_license_pool=True)
+        # This call raises a ValueError because the primary identifier &
+        # the edition's primary identifier don't match.
+        test_metadata.primary_identifier = identifier
+        result = provider.set_presentation_ready(lp.identifier, test_metadata)
+        assert isinstance(result, CoverageFailure)
+        assert "ValueError" in result.exception
 
 # TODO: This really should be in its own file but there's a problem
 # with the correct syntax for importing DatabaseTest which I can't fix
