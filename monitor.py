@@ -415,8 +415,8 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         overall_success = True
         failures = []
         for provider in self.coverage_providers:
-            if edition.data_source in provider.input_sources:
-                coverage_record = provider.ensure_coverage(edition)
+            if identifier.type in provider.input_identifier_types:
+                coverage_record = provider.ensure_coverage(identifier)
                 if (not isinstance(coverage_record, CoverageRecord) 
                     or coverage_record.exception is not None):
                     failures.append(provider)

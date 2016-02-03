@@ -10,6 +10,7 @@ from testing import (
 
 from model import (
     DataSource,
+    Identifier,
     Timestamp,
 )
 
@@ -65,12 +66,13 @@ class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
         super(TestPresentationReadyMonitor, self).setup()
-        self.gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        self.gutenberg = Identifier.GUTENBERG_ID
+        # DataSource.lookup(self._db, DataSource.GUTENBERG)
         self.oclc = DataSource.lookup(self._db, DataSource.OCLC)
         self.overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        self.edition, self.edition_license_pool = self._edition(self.gutenberg.name, with_license_pool=True)
+        self.edition, self.edition_license_pool = self._edition(DataSource.GUTENBERG, with_license_pool=True)
         self.work = self._work(
-            self.gutenberg.name, with_license_pool=True)
+            DataSource.GUTENBERG, with_license_pool=True)
         # Don't fake that the work is presentation ready, as we usually do,
         # because presentation readiness is what we're trying to test.
         self.work.presentation_ready = False
@@ -118,8 +120,8 @@ class TestPresentationReadyMonitor(DatabaseTest):
         # There were no failures.
         eq_([], result)
 
-        # The monitor that takes Gutenberg editions as input ran.
-        eq_([self.work.primary_edition], gutenberg_monitor.attempts)
+        # The monitor that takes Gutenberg identifiers as input ran.
+        eq_([self.work.primary_edition.primary_identifier], gutenberg_monitor.attempts)
 
         # The monitor that takes OCLC editions as input did not.
         # (If it had, it would have failed.)
