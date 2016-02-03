@@ -345,11 +345,13 @@ class BibliographicParser(Axis360Parser):
 
         formats = []
         acceptable = False
+        seen_formats = []
         for format_tag in self._xpath(
                 element, 'axis:availability/axis:availableFormats/axis:formatName', 
                 ns
         ):
             informal_name = format_tag.text
+            seen_formats.append(informal_name)
             if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
                 self.log("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
@@ -361,6 +363,11 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+        if not formats:
+            self.log.error(
+                "No supported format for %s (%s)! Saw: %s", identifier,
+                title, ", ".join(seen_formats)
+            )
 
         data = Metadata(
             data_source=DataSource.AXIS_360,
