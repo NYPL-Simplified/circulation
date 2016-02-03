@@ -37,20 +37,20 @@ class CoverageFailure(object):
 
 class CoverageProvider(object):
 
-    """Run Editions from one DataSource (the input DataSource) through
-    code associated with another DataSource (the output
-    DataSource). If the code returns success, add a CoverageRecord for
-    the Edition and the output DataSource, so that the record
-    doesn't get processed next time.
+    """Run Identifiers of certain types (the input_identifier_types)
+    through code associated with a DataSource (the
+    `output_source`). If the code returns success, add a
+    CoverageRecord for the Edition and the output DataSource, so that
+    the record doesn't get processed next time.
     """
 
-    def __init__(self, service_name, input_sources, output_source,
+    def __init__(self, service_name, input_identifier_types, output_source,
                  workset_size=100):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
-        if not isinstance(input_sources, list):
-            input_sources = [input_sources]
-        self.input_sources = input_sources
+        if not isinstance(input_identifier_types, list):
+            input_identifier_types = [input_identifier_types]
+        self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
 
@@ -61,19 +61,24 @@ class CoverageProvider(object):
         return self._log        
 
     @property
-    def editions_that_need_coverage(self):
-        """Find all Editions lacking coverage from this CoverageProvider.
+    def items_that_need_coverage(self):
+        """Find all items lacking coverage from this CoverageProvider.
 
-        Editions are selected randomly to reduce the effect of
+        Items should be Identifiers, though Editions should also work.
+
+        By default, all identifiers of the `input_identifier_types` which
+        don't already have coverage are chosen.
+
+        Items are selected randomly to reduce the effect of
         persistent errors.
         """
-        return Edition.missing_coverage_from(
-            self._db, self.input_sources, self.output_source).order_by(
+        return Identifier.missing_coverage_from(
+            self._db, self.input_identifier_types, self.output_source).order_by(
                 func.random())
 
     def run(self):
-        self.log.info("%d records need coverage.", (
-            self.editions_that_need_coverage.count())
+        self.log.info("%d items need coverage.", (
+            self.items_that_need_coverage.count())
         )
         offset = 0
         while offset is not None:
@@ -82,7 +87,7 @@ class CoverageProvider(object):
             self._db.commit()
 
     def run_once(self, offset):
-        batch = self.editions_that_need_coverage.limit(
+        batch = self.items_that_need_coverage.limit(
             self.workset_size).offset(offset)
 
         if not batch:
@@ -128,27 +133,27 @@ class CoverageProvider(object):
 
     def process_batch(self, batch):
         """Do what it takes to give CoverageRecords to a batch of
-        editions.
+        items.
+
+        :return: A mixed list of Identifiers, Editions, and CoverageFailures.
         """
         results = []
-        for edition in batch:
-            result = self.process_edition(edition)
+        for item in batch:
+            result = self.process_item(item)
             if result:
                 results.append(result)
         return results
 
-    def ensure_coverage(self, edition, force=False):
-        """Ensure coverage for one specific Edition.
+    def ensure_coverage(self, item, force=False):
+        """Ensure coverage for one specific item.
 
         :return: A CoverageRecord if one was created, None if
         the attempt failed.
         """
-        if isinstance(edition, Identifier):
-            identifier = edition
-            # NOTE: This assumes that this particular coverage provider
-            # handles identifiers all the way through rather than editions.
+        if isinstance(item, Identifier):
+            identifier = item
         else:
-            identifier = edition.primary_identifier
+            identifier = item.primary_identifier
         coverage_record = get_one(
             self._db, CoverageRecord,
             identifier=identifier,
@@ -156,18 +161,19 @@ class CoverageProvider(object):
             on_multiple='interchangeable',
         )
         if force or coverage_record is None:
-            result = self.process_edition(edition)
+            result = self.process_identifier(identifier)
             if isinstance(result, CoverageFailure):
                 return result.to_coverage_record()
             else:
                 coverage_record, ignore = self.add_coverage_record_for(
-                    identifier)
+                    identifier
+                )
                 return coverage_record
 
-    def add_coverage_record_for(self, edition):
-        return CoverageRecord.add_for(edition, self.output_source)
+    def add_coverage_record_for(self, identifier):
+        return CoverageRecord.add_for(identifier, self.output_source)
 
-    def process_edition(self, edition):
+    def process_identifier(self, identifier):
         raise NotImplementedError()
 
     def finalize_batch(self):
@@ -179,37 +185,23 @@ class CoverageProvider(object):
         pass
 
 
-class IdentifierBasedCoverageProvider(CoverageProvider):
-    """Run Identifiers from one DataSource (the input DataSource) through
-    code associated with another DataSource (the output
-    DataSource). If the code returns success, add a CoverageRecord for
-    the Identifier and the output DataSource, so that the record
-    doesn't get processed next time.
+class BibliographicCoverageProvider(CoverageProvider):
+    """Fill in bibliographic metadata for records.
+
+    Ensures that a given DataSource provides coverage for all
+    identifiers of the type primarily used to identify books from that
+    DataSource.
+
+    e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
     """
-
-    @property
-    def editions_that_need_coverage(self):
-        """Find all Identifiers lacking coverage from this CoverageProvider.
-
-        Identifiers are selected randomly to reduce the effect of
-        persistent errors.
-        """
-        return Identifier.missing_coverage_from(
-            self._db, self.input_sources, self.output_source).order_by(
-                func.random())
-
-
-class BibliographicCoverageProvider(IdentifierBasedCoverageProvider):
-    """Fill in bibliographic metadata for records."""
-
     def __init__(self, _db, api, datasource):
         self._db = _db
         self.api = api
-        self.input_source = DataSource.lookup(_db, datasource)
-        self.output_source = DataSource.lookup(_db, datasource)
+        output_source = DataSource.lookup(_db, datasource)
+        input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
         super(BibliographicCoverageProvider, self).__init__(service_name,
-                self.input_source, self.output_source)
+                input_identifier_types, output_source)
 
     def process_batch(self):
         """Returns a list of successful identifiers and CoverageFailures"""
