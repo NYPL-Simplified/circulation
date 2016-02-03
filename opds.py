@@ -95,8 +95,10 @@ class CirculationManagerAnnotator(Annotator):
     def permalink_for(self, work, license_pool, identifier):
         if isinstance(identifier, Identifier):
             identifier = identifier.identifier
-        return self.url_for('work', data_source=license_pool.data_source.name,
-                       identifier=identifier, _external=True)
+        return self.url_for(
+            'permalink', data_source=license_pool.data_source.name,
+            identifier=identifier, _external=True
+        )
 
     def groups_url(self, lane):
         lane_name, languages = self._lane_name_and_languages
@@ -193,6 +195,7 @@ class CirculationManagerAnnotator(Annotator):
         feed.add_link_to_entry(
             entry, 
             rel='alternate',
+            type=OPDSFeed.ENTRY_TYPE,
             href=self.permalink_for(
                 work, active_license_pool, identifier_identifier
             )

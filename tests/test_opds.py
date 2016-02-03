@@ -55,9 +55,15 @@ class TestOPDS(DatabaseTest):
         [entry] = feed['entries']
         eq_(entry['id'], pool.identifier.urn)
 
-        [alternate] = [x['href'] for x in entry['links'] if x['rel'] == 'alternate']
+
+        [(alternate, type)] = [(x['href'], x['type']) for x in entry['links'] if x['rel'] == 'alternate']
         permalink = annotator.permalink_for(w1, pool, pool.identifier)
         eq_(alternate, permalink)
+        eq_(OPDSFeed.ENTRY_TYPE, type)
+
+        # Make sure we are using the 'permalink' controller -- we were using
+        # 'work' and that was wrong.
+        assert '/host/permalink' in permalink
 
     def test_acquisition_feed_includes_problem_reporting_link(self):
         w1 = self._work(with_open_access_download=True)
