@@ -161,7 +161,7 @@ class CoverageProvider(object):
             on_multiple='interchangeable',
         )
         if force or coverage_record is None:
-            result = self.process_identifier(identifier)
+            result = self.process_item(identifier)
             if isinstance(result, CoverageFailure):
                 return result.to_coverage_record()
             else:
@@ -173,7 +173,7 @@ class CoverageProvider(object):
     def add_coverage_record_for(self, identifier):
         return CoverageRecord.add_for(identifier, self.output_source)
 
-    def process_identifier(self, identifier):
+    def process_item(self, identifier):
         raise NotImplementedError()
 
     def finalize_batch(self):
@@ -239,7 +239,7 @@ class BibliographicCoverageProvider(CoverageProvider):
         license_pool = identifier.licensed_through
 
         if not metadata:
-            e = "Did not receive metadata from %s" % self.input_source.name
+            e = "Did not receive metadata from input source"
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:

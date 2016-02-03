@@ -284,7 +284,7 @@ class DatabaseTest(object):
         return customlist, editions
 
 class InstrumentedCoverageProvider(CoverageProvider):
-    """A CoverageProvider that keeps track of every edition it tried
+    """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
     def __init__(self, *args, **kwargs):
@@ -295,24 +295,24 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).run_once(offset)
         return None
 
-    def process_edition(self, edition):
-        self.attempts.append(edition)
-        return edition
+    def process_item(self, item):
+        self.attempts.append(item)
+        return item
 
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
-    def process_edition(self, edition):
-        self.attempts.append(edition)
-        return CoverageFailure(self, edition, "What did you expect?", False)
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(self, item, "What did you expect?", False)
 
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
-    def process_edition(self, edition):
-        self.attempts.append(edition)
-        return CoverageFailure(self, edition, "Oops!", True)
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(self, item, "Oops!", True)
 
 class DummyCanonicalizeLookupResponse(object):
 

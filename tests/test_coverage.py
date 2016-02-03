@@ -34,14 +34,17 @@ class TestCoverageProvider(DatabaseTest):
 
     def setup(self):
         super(TestCoverageProvider, self).setup()
-        self.input_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        self.input_identifier_types = gutenberg.primary_identifier_type
         self.output_source = DataSource.lookup(self._db, DataSource.OCLC)
-        self.edition = self._edition(self.input_source.name)
+        self.edition = self._edition(gutenberg.name)
+        self.identifier = self.edition.primary_identifier
 
     def test_ensure_coverage(self):
 
         provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful", self.input_source, self.output_source)
+            "Always successful", self.input_identifier_types, self.output_source
+        )
         result = provider.ensure_coverage(self.edition)
 
         # There is now one CoverageRecord -- the one returned by
@@ -59,7 +62,8 @@ class TestCoverageProvider(DatabaseTest):
     def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(
-            "Never successful", self.input_source, self.output_source)
+            "Never successful", self.input_identifier_types, self.output_source
+        )
         record = provider.ensure_coverage(self.edition)
 
         assert isinstance(record, CoverageRecord)
@@ -73,7 +77,8 @@ class TestCoverageProvider(DatabaseTest):
     def test_ensure_coverage_transient_coverage_failure(self):
 
         provider = TransientFailureCoverageProvider(
-            "Transient failure", self.input_source, self.output_source)
+            "Transient failure", self.input_identifier_types, self.output_source
+        )
         result = provider.ensure_coverage(self.edition)
         eq_(None, result)
 
@@ -90,7 +95,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful", self.input_source, self.output_source)
+            "Always successful", self.input_identifier_types, self.output_source
+        )
         provider.run()
 
         # There is now one CoverageRecord
@@ -110,7 +116,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = NeverSuccessfulCoverageProvider(
-            "Never successful", self.input_source, self.output_source)
+            "Never successful", self.input_identifier_types, self.output_source
+        )
         provider.run()
 
         # We have a CoverageRecord that signifies failure.
@@ -130,7 +137,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = TransientFailureCoverageProvider(
-            "Transient failure", self.input_source, self.output_source)
+            "Transient failure", self.input_identifier_types, self.output_source
+        )
         provider.run()
 
         # We have no CoverageRecord, since the error was transient.
@@ -169,22 +177,15 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         ],
     )
 
-    def test_set_presentation_ready(self):
+    def test_work(self):
         provider = BibliographicCoverageProvider(self._db, None,
                 DataSource.OVERDRIVE)
         identifier = self._identifier()
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
-        # Returns a CoverageFailure without metadata. (This is important
-        # because the API call happens outside of the method, but isn't
-        # necessarily checked.
-        result = provider.set_presentation_ready(identifier, None)
-        assert isinstance(result, CoverageFailure)
-        eq_("Did not receive metadata from Overdrive", result.exception)
-
         # Returns a CoverageFailure if the identifier doesn't have a
         # license pool.
-        result = provider.set_presentation_ready(identifier, test_metadata)
+        result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("No license pool available", result.exception)
 
@@ -192,21 +193,59 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         edition, lp = self._edition(with_license_pool=True)
         # Remove edition so that the work won't be calculated
         lp.identifier.primarily_identifies = []
-        result = provider.set_presentation_ready(lp.identifier, test_metadata)
+        result = provider.work(lp.identifier)
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
 
-        # Returns the identifier itself if all is well.
+        # Returns the work if it can be created or found.
         ed, lp = self._edition(with_license_pool=True)
-        result = provider.set_presentation_ready(lp.identifier, test_metadata)
-        eq_(lp.identifier, result)
+        result = provider.work(lp.identifier)
+        eq_(result, lp.work)
 
-        # Catches other errors during the process and returns them as (the
-        # ever-superior) CoverageFailures.
+    def test_set_metadata(self):
+        provider = BibliographicCoverageProvider(self._db, None,
+                DataSource.OVERDRIVE)
+        identifier = self._identifier()
+        test_metadata = self.BIBLIOGRAPHIC_DATA
+
+        # If the work can't be found, a CoverageRecord results.
+        result = provider.work(identifier)
+        assert isinstance(result, CoverageFailure)
+        eq_("No license pool available", result.exception)
+
         edition, lp = self._edition(with_license_pool=True)
-        # This call raises a ValueError because the primary identifier &
-        # the edition's primary identifier don't match.
-        test_metadata.primary_identifier = identifier
-        result = provider.set_presentation_ready(lp.identifier, test_metadata)
+
+        # If no metadata is passed in, a CoverageRecord results.
+        result = provider.set_metadata(edition.primary_identifier, None)
+        assert isinstance(result, CoverageFailure)
+        eq_("Did not receive metadata from input source", result.exception)
+
+        # Test success
+        result = provider.set_metadata(edition.primary_identifier, test_metadata)
+        eq_(result, edition.primary_identifier)
+
+        # If there's an exception setting the metadata, a
+        # CoverageRecord results. This call raises a ValueError
+        # because the primary identifier & the edition's primary
+        # identifier don't match.
+        test_metadata.primary_identifier = self._identifier()
+        result = provider.set_metadata(lp.identifier, test_metadata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
+
+    def test_set_presentation_ready(self):
+        provider = BibliographicCoverageProvider(self._db, None,
+                DataSource.OVERDRIVE)
+        identifier = self._identifier()
+        test_metadata = self.BIBLIOGRAPHIC_DATA
+
+        # If the work can't be found, it can't be made presentation ready.
+        result = provider.set_presentation_ready(identifier)
+        assert isinstance(result, CoverageFailure)
+        eq_("No license pool available", result.exception)
+
+        # Test success.
+        ed, lp = self._edition(with_license_pool=True)
+        result = provider.set_presentation_ready(ed.primary_identifier)
+        eq_(result, ed.primary_identifier)
+
