@@ -743,7 +743,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         info = self.api.metadata_lookup(identifier)
         if info.get('errorCode') == 'NotFound':
             e = "ID not recognized by Overdrive"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(self, identifier, e, transient=False)
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
