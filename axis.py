@@ -27,6 +27,7 @@ from core.model import (
     CirculationEvent,
     get_one_or_create,
     Contributor,
+    DataSource,
     DeliveryMechanism,
     Edition,
     Identifier,
@@ -35,7 +36,10 @@ from core.model import (
     Subject,
 )
 
-from core.coverage import BibliographicCoverageProvider
+from core.coverage import (
+    BibliographicCoverageProvider,
+    CoverageFailure,
+)
 
 from authenticator import Authenticator
 from config import Configuration
@@ -189,7 +193,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             )
             availability.update(pool, False)
 
-    def create_identifier_strings(identifiers):
+    @classmethod
+    def create_identifier_strings(cls, identifiers):
         identifier_strings = []
         for i in identifiers:
             if isinstance(i, Identifier):
@@ -523,15 +528,18 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     def __init__(self, _db):
         self.parser = BibliographicParser()
         super(Axis360BibliographicCoverageProvider, self).__init__(
-            _db, Axis360API(_db), DataSource.AXIS_360
+            _db, Axis360API(_db), DataSource.AXIS_360,
+            workset_size=25
         )
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
         response = self.api.availability(title_ids=identifier_strings)
         batch_results = []
-        for bibliographic, availability in self.parser.process_all(response.content):
-            identifier, is_new = bibliographic.primary_identifier.load(self._db)
-            result = self.set_presentation_ready(identifier, bibliographic)
+        for metadata, availability in self.parser.process_all(response.content):
+            identifier, is_new = metadata.primary_identifier.load(self._db)
+            result = self.set_metadata(identifier, metadata)
+            if not isinstance(result, CoverageFailure):
+                result = self.set_presentation_ready(identifier)
             batch_results.append(result)
         return batch_results
