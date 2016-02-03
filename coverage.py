@@ -207,16 +207,12 @@ class BibliographicCoverageProvider(CoverageProvider):
         """Returns a list of successful identifiers and CoverageFailures"""
         raise NotImplementedError
 
-    def set_presentation_ready(self, identifier, metadata):
-        """Given a metadata object as content, finds an identifier's work
-        and sets it presentation ready.
-
-        Returns either a coverage failure or the processed identifier.
+    def work(self, identifier):
+        """Finds or creates the Work for a given Identifier.
+        
+        :return: The Work (if it could be found) or an appropriate
+        CoverageFailure (if not).
         """
-        if not metadata:
-            # The API call (handled in the subclasses) didn't return metadata
-            e = "Did not receive metadata from %s" % self.input_source.name
-            return CoverageFailure(self, identifier, e, transient=True)
         license_pool = identifier.licensed_through
         if not license_pool:
             e = "No license pool available"
@@ -225,10 +221,34 @@ class BibliographicCoverageProvider(CoverageProvider):
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)
+        return license_pool, work
+
+    def set_metadata(self, identifier, metadata):
+        """Finds or creates the Work for an Identifier, and updates it
+        with the given metadata.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+        license_pool = identifier.licensed_through
+
+        if not metadata:
+            e = "Did not receive metadata from %s" % self.input_source.name
+            return CoverageFailure(self, identifier, e, transient=True)
 
         try:
             metadata.apply(license_pool.edition)
-            work.set_presentation_ready_based_on_content()
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
+        return identifier
+
+    def set_presentation_ready(self, identifier):
+        """Set a Work presentation-ready."""
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+        work.set_presentation_ready()
         return identifier

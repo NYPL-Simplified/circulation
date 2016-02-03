@@ -14,6 +14,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from coverage import BibliographicCoverageProvider
 from model import (
     Contributor,
     DataSource,
@@ -326,3 +327,18 @@ class ItemListParser(XMLParser):
 
 
 
+class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for 3M records."""
+
+    def __init__(self, _db):
+        super(ThreeMBibliographicCoverageProvider, self).__init__(
+            _db, ThreeMAPI(_db), DataSource.THREEM
+        )
+
+    def process_batch(self, identifiers):
+        batch_results = []
+        for identifier in identifiers:
+            metadata = self.api.bibliographic_lookup(identifier)
+            result = self.set_metadata(identifier, metadata)
+            batch_results.append(result)
+        return batch_results

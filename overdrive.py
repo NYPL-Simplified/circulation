@@ -751,6 +751,6 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        return self.set_presentation_ready(identifier, metadata)
+        return self.set_metadata(identifier, metadata)
 
 
