@@ -194,14 +194,17 @@ class BibliographicCoverageProvider(CoverageProvider):
 
     e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
     """
-    def __init__(self, _db, api, datasource):
+    def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
-        super(BibliographicCoverageProvider, self).__init__(service_name,
-                input_identifier_types, output_source)
+        super(BibliographicCoverageProvider, self).__init__(
+            service_name,
+            input_identifier_types, output_source,
+            workset_size=workset_size
+        )
 
     def process_batch(self):
         """Returns a list of successful identifiers and CoverageFailures"""
@@ -221,7 +224,7 @@ class BibliographicCoverageProvider(CoverageProvider):
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)
-        return license_pool, work
+        return work
 
     def set_metadata(self, identifier, metadata):
         """Finds or creates the Work for an Identifier, and updates it

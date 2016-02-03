@@ -732,8 +732,10 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
     def __init__(self, _db):
-        super(OverdriveBibliographicCoverageProvider, self).__init__(_db,
-                OverdriveAPI(_db), DataSource.OVERDRIVE)
+        super(OverdriveBibliographicCoverageProvider, self).__init__(
+            _db, OverdriveAPI(_db), DataSource.OVERDRIVE,
+            workset_size=10
+        )
 
     def process_batch(self, identifiers):
         return [self.process_identifier(identifier) for identifier in identifiers]

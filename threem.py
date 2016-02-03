@@ -332,7 +332,8 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     def __init__(self, _db):
         super(ThreeMBibliographicCoverageProvider, self).__init__(
-            _db, ThreeMAPI(_db), DataSource.THREEM
+            _db, ThreeMAPI(_db), DataSource.THREEM,
+            workset_size=25
         )
 
     def process_batch(self, identifiers):

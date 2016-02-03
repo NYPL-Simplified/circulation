@@ -5102,18 +5102,13 @@ class LicensePool(Base):
 
         primary_edition = known_edition or self.edition
 
-        logging.info("Calculating work for %r", primary_edition)
         if self.work:
             if known_edition:
                 known_edition.work = self.work
             # The work has already been done.
-            logging.info(
-                "Never mind, %r already has a work: %r", 
-                primary_edition, 
-                self.work
-            )
             return self.work, False
 
+        logging.info("Calculating work for %r", primary_edition)
         if not primary_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
