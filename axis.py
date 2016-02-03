@@ -522,8 +522,9 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
 
     def __init__(self, _db):
         self.parser = BibliographicParser()
-        super(Axis360BibliographicCoverageProvider, self).__init__(_db,
-                Axis360API(_db), DataSource.AXIS_360)
+        super(Axis360BibliographicCoverageProvider, self).__init__(
+            _db, Axis360API(_db), DataSource.AXIS_360
+        )
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
