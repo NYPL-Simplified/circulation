@@ -257,11 +257,13 @@ class BibliographicCoverageProvider(CoverageProvider):
             metadata.apply(edition)
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
-        return identifier
 
         work = self.work(identifier)
         if isinstance(work, CoverageFailure):
             return work
+
+        return identifier
+
 
     def set_presentation_ready(self, identifier):
         """Set a Work presentation-ready."""

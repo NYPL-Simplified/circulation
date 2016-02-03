@@ -244,6 +244,16 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         assert isinstance(result, CoverageFailure)
         eq_("Did not receive metadata from input source", result.exception)
 
+        # If no work can be created (in this case, because there's no title),
+        # a CoverageFailure results.
+        edition.title = None
+        old_title = test_metadata.title
+        test_metadata.title = None
+        result = provider.set_metadata(edition.primary_identifier, test_metadata)
+        assert isinstance(result, CoverageFailure)
+        eq_("Work could not be calculated", result.exception)
+        test_metadata.title = old_title        
+
         # Test success
         result = provider.set_metadata(edition.primary_identifier, test_metadata)
         eq_(result, edition.primary_identifier)
