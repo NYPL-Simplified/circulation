@@ -210,6 +210,18 @@ class BibliographicCoverageProvider(CoverageProvider):
         """Returns a list of successful identifiers and CoverageFailures"""
         raise NotImplementedError
 
+    def edition(self, identifier):
+        """Finds or creates the Edition for a given Identifier."""
+        license_pool = identifier.licensed_through
+        if not license_pool:
+            e = "No license pool available"
+            return CoverageFailure(self, identifier, e, transient=True)
+        edition, ignore = Edition.for_foreign_id(
+            self._db, license_pool.data_source, identifier.type,
+            identifier.identifier
+        )
+        return edition
+
     def work(self, identifier):
         """Finds or creates the Work for a given Identifier.
         
@@ -227,26 +239,29 @@ class BibliographicCoverageProvider(CoverageProvider):
         return work
 
     def set_metadata(self, identifier, metadata):
-        """Finds or creates the Work for an Identifier, and updates it
-        with the given metadata.
+        """Finds or creates the Edition for an Identifier, updates it
+        with the given metadata, then creates a Work for the book.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
-        work = self.work(identifier)
-        if isinstance(work, CoverageFailure):
-            return work
-        license_pool = identifier.licensed_through
+        edition = self.edition(identifier)
+        if isinstance(edition, CoverageFailure):
+            return edition
 
         if not metadata:
             e = "Did not receive metadata from input source"
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(license_pool.edition)
+            metadata.apply(edition)
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
         return identifier
+
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
 
     def set_presentation_ready(self, identifier):
         """Set a Work presentation-ready."""

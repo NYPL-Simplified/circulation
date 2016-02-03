@@ -5114,9 +5114,8 @@ class LicensePool(Base):
             # associated with this LicensePool, so we can't create a work.
             logging.warn("NO EDITION for %s, cowardly refusing to create work.",
                      self.identifier)
-
+            
             return None, False
-
         if primary_edition.license_pool != self:
             raise ValueError(
                 "Primary edition's license pool is not the license pool for which work is being calculated!")

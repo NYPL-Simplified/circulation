@@ -12,6 +12,7 @@ from testing import (
     TransientFailureCoverageProvider,
 )
 from model import (
+    Edition,
     Identifier,
     Contributor,
     Subject,
@@ -176,6 +177,29 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             SubjectData(type=Subject.PLACE, identifier=u'Africa')
         ],
     )
+
+    def test_edition(self):
+        provider = BibliographicCoverageProvider(self._db, None,
+                DataSource.OVERDRIVE)
+        identifier = self._identifier()
+        test_metadata = self.BIBLIOGRAPHIC_DATA
+
+        # Returns a CoverageFailure if the identifier doesn't have a
+        # license pool.
+        result = provider.work(identifier)
+        assert isinstance(result, CoverageFailure)
+        eq_("No license pool available", result.exception)
+
+        # Returns an Edition otherwise, creating it if necessary.
+        edition, lp = self._edition(with_license_pool=True)
+        identifier = edition.primary_identifier
+        eq_(edition, provider.edition(identifier))
+
+        # The Edition will be created if necessary.
+        lp.identifier.primarily_identifies = []
+        e2 = provider.edition(identifier)
+        assert edition != e2
+        assert isinstance(e2, Edition)
 
     def test_work(self):
         provider = BibliographicCoverageProvider(self._db, None,
