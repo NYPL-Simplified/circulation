@@ -34,6 +34,7 @@ from core.monitor import (
     Monitor,
     IdentifierSweepMonitor,
 )
+from core.coverage import BibliographicCoverageProvider
 from core.util.xmlparser import XMLParser
 from core.threem import ThreeMAPI as BaseThreeMAPI
 from circulation_exceptions import *
@@ -758,3 +759,18 @@ class ThreeMCirculationMonitor(Monitor):
             item[LicensePool.licenses_reserved],
             item[LicensePool.patrons_in_hold_queue])
         self.log.info("%r: %d owned, %d available, %d reserved, %d queued", pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
+
+class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for 3M records."""
+
+    def __init__(self, _db):
+        super(ThreeMBibliographicCoverageProvider, self).__init__(_db, ThreeMAPI(_db),
+                DataSource.THREEM)
+
+    def process_batch(self, identifiers):
+        batch_results = []
+        for identifier in identifiers:
+            metadata = self.api.bibliographic_lookup(identifier)
+            result = self.set_presentation_ready(identifier, metadata)
+            batch_results.append(result)
+        return batch_results

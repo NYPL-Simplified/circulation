@@ -35,6 +35,8 @@ from core.model import (
     Subject,
 )
 
+from core.coverage import BibliographicCoverageProvider
+
 from authenticator import Authenticator
 from config import Configuration
 from circulation import (
@@ -151,13 +153,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         The book's LicensePool will be updated with current
         circulation information.
         """
-        identifier_strings = []
-        for i in identifiers:
-            if isinstance(i, Identifier):
-                value = i.identifier
-            else:
-                value = i
-            identifier_strings.append(value)
+        identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
         parser = BibliographicParser()
         remainder = set(identifiers)
@@ -192,6 +188,17 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 patrons_in_hold_queue=0
             )
             availability.update(pool, False)
+
+    def create_identifier_strings(identifiers):
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+
+        return identifier_strings
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -509,3 +516,21 @@ class AvailabilityResponseParser(ResponseParser):
                 hold_position=position)
         return info
 
+
+class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for Axis360 records."""
+
+    def __init__(self, _db):
+        self.parser = BibliographicParser()
+        super(Axis360BibliographicCoverageProvider, self).__init__(_db,
+                Axis360API(_db), DataSource.AXIS_360)
+
+    def process_batch(self, identifiers):
+        identifier_strings = self.api.create_identifier_strings(identifiers)
+        response = self.api.availability(title_ids=identifier_strings)
+        batch_results = []
+        for bibliographic, availability in self.parser.process_all(response.content):
+            identifier, is_new = bibliographic.primary_identifier.load(self._db)
+            result = self.set_presentation_ready(identifier, bibliographic)
+            batch_results.append(result)
+        return batch_results
