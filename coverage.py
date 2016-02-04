@@ -163,7 +163,12 @@ class CoverageProvider(object):
         if force or coverage_record is None:
             result = self.process_item(identifier)
             if isinstance(result, CoverageFailure):
-                return result.to_coverage_record()
+                coverage_record = result.to_coverage_record()
+                if coverage_record:
+                    return coverage_record
+                # Returns a CoverageFailure if the CoverageRecord
+                # can't be created.
+                return result
             else:
                 coverage_record, ignore = self.add_coverage_record_for(
                     identifier
