@@ -82,13 +82,6 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             workset_size=50,
         )
 
-    @property
-    def items_that_need_coverage(self):
-        """Returns identifiers that need coverage."""
-        q = Identifier.missing_coverage_from(
-            self._db, self.input_sources, self.coverage_source)
-        return q
-
     def create_id_mapping(self, batch):
         mapping = dict()
         for identifier in batch:
