@@ -8,6 +8,7 @@ import time
 
 from config import Configuration
 import log # This sets the appropriate log format and level.
+import random
 from model import (
     production_session,
     CustomList,
@@ -72,7 +73,38 @@ class RunMonitorScript(Script):
     def do_run(self):
         self.monitor.run()
 
+class RunCoverageProvidersScript(Script):
+    """Alternate between multiple coverage providers."""
+    def __init__(self, providers):
+        self.providers = []
+        for i in providers:
+            if callable(i):
+                i = i(self._db)
+            self.providers.append(i)
+
+    def do_run(self):
+        offsets = dict()
+        while True:
+            providers = list(self.providers)
+            random.shuffle(providers)
+            for provider in providers:
+                offset = offsets.get(provider, 0)
+                self.log.debug(
+                    "Running %s with offset %s", provider.service_name, offset
+                )
+                offset = provider.run_once_and_update_timestamp(offset)
+                self.log.debug(
+                    "Completed %s, new offset is %s", provider.service_name, offset
+                )
+                if offset is None:
+                    if provider in offsets:
+                        del offsets[provider]
+                else:
+                    offsets[provider] = offset
+
+
 class RunCoverageProviderScript(Script):
+    """Run a single coverage provider."""
 
     def __init__(self, provider):
         if callable(provider):
