@@ -14,6 +14,10 @@ from model import (
     Identifier,
     Timestamp,
 )
+from external_search import (
+    ExternalSearchIndex,
+)
+
 import log # This sets the appropriate log format.
 
 class CoverageFailure(object):
@@ -73,8 +77,8 @@ class CoverageProvider(object):
         persistent errors.
         """
         return Identifier.missing_coverage_from(
-            self._db, self.input_identifier_types, self.output_source).order_by(
-                func.random())
+            self._db, self.input_identifier_types, self.output_source
+        )
 
     def run(self):
         self.log.info("%d items need coverage.", (
@@ -82,9 +86,13 @@ class CoverageProvider(object):
         )
         offset = 0
         while offset is not None:
-            offset = self.run_once(offset)
-            Timestamp.stamp(self._db, self.service_name)
-            self._db.commit()
+            offset = self.run_once_and_update_timestamp(offset)
+
+    def run_once_and_update_timestamp(self, offset):
+        offset = self.run_once(offset)
+        Timestamp.stamp(self._db, self.service_name)
+        self._db.commit()
+        return offset
 
     def run_once(self, offset):
         batch = self.items_that_need_coverage.limit(
@@ -192,7 +200,10 @@ class CoverageProvider(object):
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
-        work, created = license_pool.calculate_work()
+        work, created = license_pool.calculate_work(
+            even_if_no_author=True,
+            search_index_client=self.search_index
+        )
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)
@@ -259,6 +270,7 @@ class BibliographicCoverageProvider(CoverageProvider):
     def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api
+        self.search_index = ExternalSearchIndex()
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
