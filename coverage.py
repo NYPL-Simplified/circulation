@@ -73,8 +73,8 @@ class CoverageProvider(object):
         persistent errors.
         """
         return Identifier.missing_coverage_from(
-            self._db, self.input_identifier_types, self.output_source).order_by(
-                func.random())
+            self._db, self.input_identifier_types, self.output_source
+        )
 
     def run(self):
         self.log.info("%d items need coverage.", (
@@ -201,6 +201,7 @@ class BibliographicCoverageProvider(CoverageProvider):
     def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api
+        self.search_index = ExternalSearchIndex()
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
@@ -236,7 +237,10 @@ class BibliographicCoverageProvider(CoverageProvider):
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
-        work, created = license_pool.calculate_work()
+        work, created = license_pool.calculate_work(
+            even_if_no_author=True,
+            search_index_client=self.search_index
+        )
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)
