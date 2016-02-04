@@ -82,9 +82,13 @@ class CoverageProvider(object):
         )
         offset = 0
         while offset is not None:
-            offset = self.run_once(offset)
-            Timestamp.stamp(self._db, self.service_name)
-            self._db.commit()
+            offset = self.run_once_and_update_timestamp(offset)
+
+    def run_once_and_update_timestamp(self, offset):
+        offset = self.run_once(offset)
+        Timestamp.stamp(self._db, self.service_name)
+        self._db.commit()
+        return offset
 
     def run_once(self, offset):
         batch = self.items_that_need_coverage.limit(

@@ -109,6 +109,26 @@ class TestCoverageProvider(DatabaseTest):
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Always successful", timestamp.service)
 
+    def test_run_once_and_update_timestamp(self):
+
+        # We start with no CoverageRecords and no Timestamp.
+        eq_([], self._db.query(CoverageRecord).all())
+        eq_([], self._db.query(Timestamp).all())
+
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, self.output_source
+        )
+        new_offset = provider.run_once_and_update_timestamp(0)
+        eq_(None, new_offset)
+
+        # There is now one CoverageRecord
+        [record] = self._db.query(CoverageRecord).all()
+        eq_(self.edition.primary_identifier, record.identifier)
+        eq_(self.output_source, self.output_source)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Always successful", timestamp.service)
 
     def test_never_successful(self):
 
