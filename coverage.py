@@ -83,8 +83,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         )
 
     @property
-    def editions_that_need_coverage(self):
-        """Returns identifiers (not editions) that need coverage."""
+    def items_that_need_coverage(self):
+        """Returns identifiers that need coverage."""
         q = Identifier.missing_coverage_from(
             self._db, self.input_sources, self.coverage_source)
         return q
@@ -125,7 +125,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
         for edition in imported:
             self.finalize_import(edition)
-            results.append(edition)
+            results.append(edition.primary_identifier)
 
         for failure in self.handle_import_messages(messages_by_id):
             results.append(failure)
@@ -189,7 +189,7 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
         )
 
     @property
-    def editions_that_need_coverage(self):
+    def items_that_need_coverage(self):
         """Returns Editions associated with an open-access LicensePool but
         with no open-access download URL.
         """
@@ -202,8 +202,8 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
         )
         return q
 
-    def process_batch(self, editions):
-        identifiers = [x.primary_identifier for x in editions]
+    def process_batch(self, items):
+        identifiers = [x.primary_identifier for x in items]
         response = self.content_lookup.lookup(identifiers)
         importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
         imported, messages_by_id, next_links = importer.import_from_feed(
@@ -219,7 +219,7 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
                     "Successfully located open access download ID for %r: %s", 
                     edition, edition.open_access_download_url
                 )
-                results.append(edition)
+                results.append(edition.primary_identifier)
             else:
                 exception = "Open access content server acknowledged book but gave no open-access download URL."
                 failure = CoverageFailure(
