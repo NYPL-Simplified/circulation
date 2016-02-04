@@ -32,7 +32,10 @@ from core.model import (
     Subject,
     Work,
 )
-from core.scripts import Script as CoreScript
+from core.scripts import (
+    Script as CoreScript,
+    RunCoverageProvidersScript,
+)
 from core.lane import (
     Pagination,
     Facets,
@@ -51,9 +54,18 @@ from core.external_search import ExternalSearchIndex
 from opds import CirculationManagerAnnotator
 
 from circulation import CirculationAPI
-from overdrive import OverdriveAPI
-from threem import ThreeMAPI
-from axis import Axis360API
+from overdrive import (
+    OverdriveAPI,
+    OverdriveBibliographicCoverageProvider,
+)
+from threem import (
+    ThreeMAPI,
+    ThreeMBibliographicCoverageProvider,
+)
+from axis import (
+    Axis360API,
+    Axis360BibliographicCoverageProvider,
+)
 
 
 class Script(CoreScript):
@@ -415,3 +427,23 @@ class UpdateMetadata(Script):
         importer = DetailedOPDSImporter(self._db, feed)
         results = importer.import_from_feed()
         self._db.commit()
+
+
+class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
+    """Alternate between running bibliographic coverage providers for
+    all registered book sources.
+    """
+
+    def __init__(self):
+
+        providers = []
+        if Configuration.integration('3M'):
+            providers.append(ThreeMBibliographicCoverageProvider)
+        if Configuration.integration('Overdrive'):
+            providers.append(OverdriveBibliographicCoverageProvider)
+        if Configuration.integration('Axis 360'):
+            providers.append(Axis360BibliographicCoverageProvider)
+
+        if not providers:
+            raise Exception("No licensed book sources configured, nothing to get coverage from!")
+        super(BibliographicCoverageProvidersScript, self).__init__(providers)
