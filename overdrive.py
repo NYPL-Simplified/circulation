@@ -14,6 +14,7 @@ from circulation import (
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
+    OverdriveBibliographicCoverageProvider as BaseOverdriveBibliographicCoverageProvider,
 )
 
 from core.model import (
@@ -707,4 +708,20 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         super(RecentOverdriveCollectionMonitor, self).__init__(
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
+
+
+class OverdriveBibliographicCoverageProvider(BaseOverdriveBibliographicCoverageProvider):
+
+    """Fill in bibliographic metadata for Overdrive records.
+    
+    Then mark the works as presentation-ready.
+    """
+    def process_batch(self, identifiers):
+        results = []
+        for result in super(OverdriveBibliographicCoverageProvider, self).process_batch(identifiers):
+            # Mark every successful result as presentation-ready.
+            if isinstance(result, Identifier):
+                result = self.set_presentation_ready(result)
+            results.append(result)
+        return results
 
