@@ -14,6 +14,10 @@ from model import (
     Identifier,
     Timestamp,
 )
+from external_search import (
+    ExternalSearchIndex,
+)
+
 import log # This sets the appropriate log format.
 
 class CoverageFailure(object):
