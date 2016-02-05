@@ -155,8 +155,7 @@ class CoverageProvider(object):
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
-        :return: A CoverageRecord if one was created, None if
-        the attempt failed.
+        :return: A CoverageRecord if one was created, a CoverageFailure if not.
         """
         if isinstance(item, Identifier):
             identifier = item
