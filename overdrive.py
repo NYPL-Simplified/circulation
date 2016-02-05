@@ -377,9 +377,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             position = hold.get('holdListPosition')
             if position is not None:
                 position = int(position)
-            if position == 1 and 'checkout' in hold.get('actions', {}):
+            if 'checkout' in hold.get('actions', {}):
                 # This patron needs to decide whether to check the
-                # book out. By our reckoning, their position is 0, not 1.
+                # book out. By our reckoning, the patron's position is
+                # 0, not whatever position Overdrive had for them.
                 position = 0
             yield HoldInfo(
                 Identifier.OVERDRIVE_ID,
