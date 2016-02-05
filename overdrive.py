@@ -738,10 +738,10 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         )
 
     def process_batch(self, identifiers):
-        return [self.process_identifier(identifier) for identifier in identifiers]
+        return [self.process_item(identifier) for identifier in identifiers]
 
 
-    def process_identifier(self, identifier):
+    def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
         if info.get('errorCode') == 'NotFound':
             e = "ID not recognized by Overdrive"
