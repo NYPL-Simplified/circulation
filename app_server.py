@@ -89,19 +89,19 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request():
+def load_facets_from_request(config=Configuration):
     """Figure out which Facets object this request is asking for."""
     arg = flask.request.args.get
 
     g = Facets.ORDER_FACET_GROUP_NAME
-    order = arg(g, Configuration.default_facet(g))
+    order = arg(g, config.default_facet(g))
 
     g = Facets.AVAILABILITY_FACET_GROUP_NAME
-    availability = arg(g, Configuration.default_facet(g))
+    availability = arg(g, config.default_facet(g))
 
     g = Facets.COLLECTION_FACET_GROUP_NAME
-    collection = arg(g, Configuration.default_facet(g))
-    return load_facets(order, availability, collection)
+    collection = arg(g, config.default_facet(g))
+    return load_facets(order, availability, collection, config)
 
 def load_pagination_from_request():
     """Figure out which Facets object this request is asking for."""
@@ -110,9 +110,9 @@ def load_pagination_from_request():
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
-def load_facets(order, availability, collection):
+def load_facets(order, availability, collection, config=Configuration):
     """Turn user input into a Facets object."""
-    order_facets = Configuration.enabled_facets(
+    order_facets = config.enabled_facets(
         Facets.ORDER_FACET_GROUP_NAME
     )
     if order and not order in order_facets:
@@ -120,7 +120,7 @@ def load_facets(order, availability, collection):
             "I don't know how to order a feed by '%s'" % order,
             400
         )
-    availability_facets = Configuration.enabled_facets(
+    availability_facets = config.enabled_facets(
         Facets.AVAILABILITY_FACET_GROUP_NAME
     )
     if availability and not availability in availability_facets:
@@ -129,7 +129,7 @@ def load_facets(order, availability, collection):
             400
         )
 
-    collection_facets = Configuration.enabled_facets(
+    collection_facets = config.enabled_facets(
         Facets.COLLECTION_FACET_GROUP_NAME
     )
     if collection and not collection in collection_facets:
