@@ -183,47 +183,6 @@ class CoverageProvider(object):
                 )
                 return coverage_record
 
-    def add_coverage_record_for(self, identifier):
-        return CoverageRecord.add_for(identifier, self.output_source)
-
-    def process_item(self, identifier):
-        raise NotImplementedError()
-
-    def finalize_batch(self):
-        """Do whatever is necessary to complete this batch before moving on to
-        the next one.
-        
-        e.g. uploading a bunch of assets to S3.
-        """
-        pass
-
-
-class BibliographicCoverageProvider(CoverageProvider):
-    """Fill in bibliographic metadata for records.
-
-    Ensures that a given DataSource provides coverage for all
-    identifiers of the type primarily used to identify books from that
-    DataSource.
-
-    e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
-    """
-    def __init__(self, _db, api, datasource, workset_size=10):
-        self._db = _db
-        self.api = api
-        self.search_index = ExternalSearchIndex()
-        output_source = DataSource.lookup(_db, datasource)
-        input_identifier_types = [output_source.primary_identifier_type]
-        service_name = "%s Bibliographic Monitor" % datasource
-        super(BibliographicCoverageProvider, self).__init__(
-            service_name,
-            input_identifier_types, output_source,
-            workset_size=workset_size
-        )
-
-    def process_batch(self):
-        """Returns a list of successful identifiers and CoverageFailures"""
-        raise NotImplementedError
-
     def edition(self, identifier):
         """Finds or creates the Edition for a given Identifier."""
         license_pool = identifier.licensed_through
@@ -281,7 +240,6 @@ class BibliographicCoverageProvider(CoverageProvider):
 
         return identifier
 
-
     def set_presentation_ready(self, identifier):
         """Set a Work presentation-ready."""
         work = self.work(identifier)
@@ -289,3 +247,44 @@ class BibliographicCoverageProvider(CoverageProvider):
             return work
         work.set_presentation_ready()
         return identifier
+
+    def add_coverage_record_for(self, identifier):
+        return CoverageRecord.add_for(identifier, self.output_source)
+
+    def process_item(self, identifier):
+        raise NotImplementedError()
+
+    def finalize_batch(self):
+        """Do whatever is necessary to complete this batch before moving on to
+        the next one.
+        
+        e.g. uploading a bunch of assets to S3.
+        """
+        pass
+
+
+class BibliographicCoverageProvider(CoverageProvider):
+    """Fill in bibliographic metadata for records.
+
+    Ensures that a given DataSource provides coverage for all
+    identifiers of the type primarily used to identify books from that
+    DataSource.
+
+    e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
+    """
+    def __init__(self, _db, api, datasource, workset_size=10):
+        self._db = _db
+        self.api = api
+        self.search_index = ExternalSearchIndex()
+        output_source = DataSource.lookup(_db, datasource)
+        input_identifier_types = [output_source.primary_identifier_type]
+        service_name = "%s Bibliographic Monitor" % datasource
+        super(BibliographicCoverageProvider, self).__init__(
+            service_name,
+            input_identifier_types, output_source,
+            workset_size=workset_size
+        )
+
+    def process_batch(self):
+        """Returns a list of successful identifiers and CoverageFailures"""
+        raise NotImplementedError
