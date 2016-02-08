@@ -84,8 +84,8 @@ class RunCoverageProvidersScript(Script):
 
     def do_run(self):
         offsets = dict()
-        while True:
-            providers = list(self.providers)
+        providers = list(self.providers)
+        while providers:
             random.shuffle(providers)
             for provider in providers:
                 offset = offsets.get(provider, 0)
@@ -97,8 +97,11 @@ class RunCoverageProvidersScript(Script):
                     "Completed %s, new offset is %s", provider.service_name, offset
                 )
                 if offset is None:
+                    # We're done with this provider for now.
                     if provider in offsets:
                         del offsets[provider]
+                    if provider in providers:
+                        providers.remove(provider)
                 else:
                     offsets[provider] = offset
 
