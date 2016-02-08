@@ -142,15 +142,30 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         self.metadata_client = SimplifiedOPDSLookup.from_config()
 
-    def import_from_feed(self, feed, even_if_no_author=False):
+    def import_from_feed(self, feed, even_if_no_author=False, 
+                         cutoff_date=None):
         metadata_objs, messages, next_links = self.extract_metadata(feed)
 
         imported = []
         for metadata in metadata_objs:
             # Locate or create a LicensePool for this book.
             license_pool, is_new_license_pool = metadata.license_pool(self._db)
+
             # Locate or create an Edition for this book.
             edition, is_new_edition = metadata.edition(self._db)
+
+            if (cutoff_date 
+                and not is_new_license_pool 
+                and not is_new_edition
+                and metadata.circulation 
+                and metadata.circulation.first_appearance < cutoff_date
+            ):
+                # We've already imported this book, we've been told
+                # not to bother with books that appeared before a
+                # certain date, and this book did in fact appear
+                # before that date. There's no reason to do anything.
+                continue
+
             metadata.apply(edition, self.metadata_client)
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
