@@ -84,21 +84,25 @@ class RunCoverageProvidersScript(Script):
 
     def do_run(self):
         offsets = dict()
-        while True:
-            providers = list(self.providers)
+        providers = list(self.providers)
+        while providers:
             random.shuffle(providers)
             for provider in providers:
                 offset = offsets.get(provider, 0)
                 self.log.debug(
                     "Running %s with offset %s", provider.service_name, offset
                 )
+                old_offset = offset
                 offset = provider.run_once_and_update_timestamp(offset)
                 self.log.debug(
                     "Completed %s, new offset is %s", provider.service_name, offset
                 )
-                if offset is None:
+                if offset is None or old_offset == offset:
+                    # We're done with this provider for now.
                     if provider in offsets:
                         del offsets[provider]
+                    if provider in providers:
+                        providers.remove(provider)
                 else:
                     offsets[provider] = offset
 
