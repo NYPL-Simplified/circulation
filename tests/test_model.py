@@ -249,6 +249,46 @@ class TestIdentifier(DatabaseTest):
             Identifier.parse_urn, self._db, isbn_urn, 
             must_support_license_pools=True)
 
+    def test_missing_coverage_from(self):
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        web = DataSource.lookup(self._db, DataSource.WEB)
+
+        # Here are two Gutenberg records.
+        g1, ignore = Edition.for_foreign_id(
+            self._db, gutenberg, Identifier.GUTENBERG_ID, "1")
+
+        g2, ignore = Edition.for_foreign_id(
+            self._db, gutenberg, Identifier.GUTENBERG_ID, "2")
+
+        # One of them has coverage from OCLC Classify
+        c1 = self._coverage_record(g1, oclc)
+
+        # Here's a web record, just sitting there.
+        w, ignore = Edition.for_foreign_id(
+            self._db, web, Identifier.URI, "http://www.foo.com/")
+
+        # If we run missing_coverage_from with  picks up the Gutenberg record with no
+        # coverage from OCLC. It doesn't pick up the other
+        # Gutenberg record, and it doesn't pick up the web record.
+        [in_gutenberg_but_not_in_oclc] = Identifier.missing_coverage_from(
+            self._db, [Identifier.GUTENBERG_ID], oclc).all()
+
+        eq_(g2.primary_identifier, in_gutenberg_but_not_in_oclc)
+
+        # We don't put web sites into OCLC, so this will pick up the
+        # web record (but not the Gutenberg record).
+        [in_web_but_not_in_oclc] = Identifier.missing_coverage_from(
+            self._db, [Identifier.URI], oclc).all()
+        eq_(w.primary_identifier, in_web_but_not_in_oclc)
+
+        # We don't use the web as a source of coverage, so this will
+        # return both Gutenberg records (but not the web record).
+        eq_([g1.primary_identifier.id, g2.primary_identifier.id], sorted(
+            [x.id for x in Identifier.missing_coverage_from(
+                self._db, [Identifier.GUTENBERG_ID], web)])
+        )
+
 class TestUnresolvedIdentifier(DatabaseTest):
 
     def test_successful_register(self):

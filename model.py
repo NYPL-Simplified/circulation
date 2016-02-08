@@ -1579,9 +1579,9 @@ class Identifier(Base):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
-        q = _db.query(Identifier).outerjoin(
-            CoverageRecord, Identifier.id==CoverageRecord.identifier_id
-        )
+        clause = and_(Identifier.id==CoverageRecord.identifier_id,
+                      CoverageRecord.data_source==coverage_data_source)
+        q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
         q2 = q.filter(CoverageRecord.id==None)

@@ -97,7 +97,7 @@ class RunCoverageProvidersScript(Script):
                 self.log.debug(
                     "Completed %s, new offset is %s", provider.service_name, offset
                 )
-                if offset is None or old_offset == offset:
+                if offset is None:
                     # We're done with this provider for now.
                     if provider in offsets:
                         del offsets[provider]
