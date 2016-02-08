@@ -19,6 +19,7 @@ from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import Configuration
 from metadata_layer import (
+    CirculationData,
     Metadata,
     IdentifierData,
     ContributorData,
@@ -293,9 +294,22 @@ class OPDSImporter(object):
             title = None
         subtitle = entry.get('alternativeheadline', None)
 
-        last_update_time = entry.get('updated_parsed', None)
-        if last_update_time:
-            last_update_time = datetime.datetime(*last_update_time[:6])
+        def _datetime(key):
+            value = entry.get(key, None)
+            if not value:
+                return value
+            return datetime.datetime(*value[:6])
+
+        last_update_time = _datetime('updated_parsed')
+        added_to_collection_time = _datetime('published_parsed')
+        if added_to_collection_time:
+            circulation = CirculationData(
+                licenses_owned=None, licenses_available=None,
+                licenses_reserved=None, patrons_in_hold_queue=None,
+                first_appearance=added_to_collection_time,
+            )
+        else:
+            circulation = None
 
         publisher = entry.get('publisher', None)
         if not publisher:
@@ -304,7 +318,6 @@ class OPDSImporter(object):
         language = entry.get('language', None)
         if not language:
             language = entry.get('dcterms_language', None)
-
 
         links = []
 
@@ -344,6 +357,7 @@ class OPDSImporter(object):
             links=links,
             rights_uri=rights_uri,
             last_update_time=last_update_time,
+            circulation=circulation,
         )
         return identifier, kwargs, status_message
 

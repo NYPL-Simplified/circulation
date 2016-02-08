@@ -1,4 +1,5 @@
 import os
+import datetime
 from StringIO import StringIO
 from nose.tools import (
     set_trace,
@@ -96,6 +97,9 @@ class TestOPDSImporter(DatabaseTest):
         eq_('en', metadata['language'])
         eq_('Project Gutenberg', metadata['publisher'])
         eq_(DataSource.GUTENBERG, metadata['license_data_source'])
+
+        circulation = metadata['circulation']
+        eq_(datetime.datetime(2014, 1, 2, 16, 56, 40), circulation.first_appearance)
 
         message = status_messages['http://www.gutenberg.org/ebooks/1984']
         eq_(202, message.status_code)

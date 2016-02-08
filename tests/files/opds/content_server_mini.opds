@@ -15,6 +15,7 @@
     </author>
     <summary>This is a summary!</summary>
     <updated>2015-01-02T16:56:40Z</updated>
+    <published>2014-01-02T16:56:40Z</published>
     <simplified:pwid>6db4cf90-0129-0eaf-410a-502b20a45e67</simplified:pwid>
     <schema:Rating schema:ratingValue="0.3333" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
     <schema:Rating schema:ratingValue="0.6000"/>
@@ -41,6 +42,7 @@
     </author>
     <summary></summary>
     <updated>2015-01-02T16:56:40Z</updated>
+    <published>2014-01-02T16:56:40Z</published>
     <simplified:pwid>9acabf17-cea8-c7dd-8440-f12dfa75caa9</simplified:pwid>
     <category term="Animals -- Juvenile poetry" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="Nursery rhymes" scheme="http://purl.org/dc/terms/LCSH"/>
