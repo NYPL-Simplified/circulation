@@ -92,7 +92,6 @@ class RunCoverageProvidersScript(Script):
                 self.log.debug(
                     "Running %s with offset %s", provider.service_name, offset
                 )
-                old_offset = offset
                 offset = provider.run_once_and_update_timestamp(offset)
                 self.log.debug(
                     "Completed %s, new offset is %s", provider.service_name, offset
