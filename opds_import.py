@@ -238,7 +238,13 @@ class OPDSImporter(object):
                     values[identifier] = detail
                 if status_message:
                     status_messages[identifier] = status_message
-        next_links = [link['href'] for link in feedparser_parsed['feed']['links'] if link['rel'] == 'next']
+        feed = feedparser_parsed['feed']
+        next_links = []
+        if feed and 'links' in feed:
+            next_links = [
+                link['href'] for link in feed['links'] 
+                if link['rel'] == 'next'
+            ]
         return values, status_messages, next_links
 
     @classmethod
@@ -621,17 +627,20 @@ class OPDSImportMonitor(Monitor):
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
 
-    def follow_one_link(self, link):
+    def follow_one_link(self, link, start):
         self.log.info("Following next link: %s", link)
         response = requests.get(link)
-        imported, messages, next_links = self.importer.import_from_feed(response.content)
+        imported, messages, next_links = self.importer.import_from_feed(
+            response.content, even_if_no_author=True, cutoff_date=start
+        )
         self._db.commit()
         
         if len(imported) == 0:
-            # We did not see a single book on this page we haven't
-            # already seen. There's no need to keep going.
+            # We did not end up importing a single book on this page.
+            # There's no need to keep going.
             self.log.info(
-                "Saw a full page with no new books. Stopping.")
+                "Saw a full page with no new books. Stopping."
+            )
             return []
         else:
             return next_links
@@ -648,7 +657,7 @@ class OPDSImportMonitor(Monitor):
             for link in queue:
                 if link in seen_links:
                     continue
-                new_queue.extend(self.follow_one_link(link))
+                new_queue.extend(self.follow_one_link(link, start))
                 seen_links.add(link)
                 self._db.commit()
 
