@@ -812,6 +812,32 @@ class TestLicensePool(DatabaseTest):
         eq_(uri2, status3.uri)
         eq_(None, status3.name)
 
+    def test_open_access_links(self):
+        edition, pool = self._edition(with_open_access_download=True)
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        [oa1] = list(pool.open_access_links)
+
+        # We have one open-access download, let's
+        # add another.
+        url = self._url
+        media_type = Representation.EPUB_MEDIA_TYPE
+        link2, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
+            source, pool
+        )
+        oa2 = link2.resource
+
+        # And let's add a link that's not an open-access download.
+        url = self._url
+        image, new = pool.identifier.add_link(
+            Hyperlink.IMAGE, url, source, pool
+        )
+        self._db.commit()
+
+        # Only the two open-access download links show up.
+        eq_(set([oa1, oa2]), set(pool.open_access_links))
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):

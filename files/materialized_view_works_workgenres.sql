@@ -43,6 +43,14 @@ as
 -- Create a work/genre lookup.
 create unique index mv_works_genres_work_id_genre_id on mv_works_editions_workgenres_datasources_identifiers (works_id, genre_id);
 
+-- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
+
+create index mv_works_genres_by_availability on mv_works_editions_workgenres_datasources_identifiers (availability_time DESC, sort_author, sort_title, works_id);
+
+-- Similarly, an index on everything, sorted by descending update time.
+
+create index mv_works_genres_by_modification on mv_works_editions_workgenres_datasources_identifiers (last_update_time DESC, sort_author, sort_title, works_id);
+
 -- We need three versions of each index:
 --- One that orders by sort_author, sort_title, and works_id
 --- One that orders by sort_title, sort_author, and works_id

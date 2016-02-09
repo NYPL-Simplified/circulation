@@ -44,6 +44,14 @@ as
 
 create unique index mv_works_editions_work_id on mv_works_editions_datasources_identifiers (works_id);
 
+-- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
+
+create index mv_works_editions_by_availability on mv_works_editions_datasources_identifiers (availability_time DESC, sort_author, sort_title, works_id);
+
+-- Similarly, an index on everything, sorted by descending update time.
+
+create index mv_works_editions_by_modification on mv_works_editions_datasources_identifiers (last_update_time DESC, sort_author, sort_title, works_id);
+
 -- We need three versions of each index:
 --- One that orders by sort_author, sort_title, and works_id
 --- One that orders by sort_title, sort_author, and works_id
