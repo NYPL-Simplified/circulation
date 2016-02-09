@@ -2474,17 +2474,16 @@ class Edition(Base):
                 similarity = self.similarity_to(candidate)
                 if similarity >= threshold:
                     yield candidate
+
     @property
     def best_open_access_link(self):
-        """Find the best open-access Resource for this LicensePool."""
-        open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
+        """Find the best open-access Resource for this Edition."""
+        pool = self.license_pool
+        if not pool:
+            return None
 
-        _db = Session.object_session(self)
         best = None
-        best_priority = None
-        q = Identifier.resources_for_identifier_ids(
-            _db, [self.primary_identifier.id], open_access)
-        for resource in q:
+        for resource in pool.open_access_links:
             if not any(
                     [resource.representation and
                      resource.representation.media_type.startswith(x) 
@@ -5188,14 +5187,28 @@ class LicensePool(Base):
         return work, created
 
     @property
+    def open_access_links(self):
+        """Yield all open-access Resources for this LicensePool."""
+
+        open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
+        _db = Session.object_session(self)
+        best = None
+        best_priority = None
+        q = Identifier.resources_for_identifier_ids(
+            _db, [self.identifier.id], open_access
+        )
+        for resource in q:
+            yield resource
+
+    @property
     def best_license_link(self):
         """Find the best available licensing link for the work associated
         with this LicensePool.
         """
-        wr = self.edition
-        if not wr:
+        edition = self.edition
+        if not edition:
             return self, None
-        link = wr.best_open_access_link
+        link = edition.best_open_access_link
         if link:
             return self, link
 
@@ -5203,8 +5216,8 @@ class LicensePool(Base):
         # link associated with it.
         work = self.work
         for pool in work.license_pools:
-            wr = pool.edition
-            link = wr.best_open_access_link
+            edition = pool.edition
+            link = edition.best_open_access_link
             if link:
                 return pool, link
         return self, None
