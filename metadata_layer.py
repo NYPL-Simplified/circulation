@@ -258,12 +258,14 @@ class CirculationData(object):
             licenses_available, 
             licenses_reserved,
             patrons_in_hold_queue,
+            first_appearance=None,
             last_checked=None,
     ):
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
+        self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
         self.log = logging.getLogger(
             "Abstract metadata layer - Circulation data"
@@ -355,6 +357,7 @@ class Metadata(object):
             formats=None,
             rights_uri=None,
             last_update_time=None,
+            circulation=None,
     ):
         # data_source is where the data comes from.
         self._data_source = data_source
@@ -396,6 +399,7 @@ class Metadata(object):
         self.measurements = measurements or []
         self.formats = formats or []
         self.rights_uri = rights_uri
+        self.circulation = circulation
 
         self.last_update_time = last_update_time
         for link in self.links:

@@ -1,4 +1,5 @@
 import os
+import datetime
 from StringIO import StringIO
 from nose.tools import (
     set_trace,
@@ -96,6 +97,9 @@ class TestOPDSImporter(DatabaseTest):
         eq_('en', metadata['language'])
         eq_('Project Gutenberg', metadata['publisher'])
         eq_(DataSource.GUTENBERG, metadata['license_data_source'])
+
+        circulation = metadata['circulation']
+        eq_(datetime.datetime(2014, 1, 2, 16, 56, 40), circulation.first_appearance)
 
         message = status_messages['http://www.gutenberg.org/ebooks/1984']
         eq_(202, message.status_code)
@@ -248,6 +252,37 @@ class TestOPDSImporter(DatabaseTest):
         # If we import the same file again, we get the same list of Editions.
         imported2, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
         eq_(imported2, imported)
+
+    def test_import_with_cutoff(self):
+        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
+        feed = open(path).read()
+        importer = OPDSImporter(self._db)
+        imported, messages, next_links = (
+            importer.import_from_feed(feed, cutoff_date=cutoff)
+        )
+
+        # Despite the cutoff, both books were imported, because they
+        # were new.
+        eq_(2, len(imported))
+
+        # But if we try it again...
+        imported, messages, next_links = (
+            importer.import_from_feed(feed, cutoff_date=cutoff)
+        )
+
+        # None of the books were imported because they all appeared in
+        # the feed after the cutoff.
+        eq_(0, len(imported))
+
+        # And if we change the cutoff...
+        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
+        imported, messages, next_links = (
+            importer.import_from_feed(feed, cutoff_date=cutoff)
+        )
+
+        # Both books were imported again.
+        eq_(2, len(imported))
 
     def test_import_updates_metadata(self):
 

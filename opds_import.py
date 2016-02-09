@@ -19,6 +19,7 @@ from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import Configuration
 from metadata_layer import (
+    CirculationData,
     Metadata,
     IdentifierData,
     ContributorData,
@@ -141,15 +142,30 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         self.metadata_client = SimplifiedOPDSLookup.from_config()
 
-    def import_from_feed(self, feed, even_if_no_author=False):
+    def import_from_feed(self, feed, even_if_no_author=False, 
+                         cutoff_date=None):
         metadata_objs, messages, next_links = self.extract_metadata(feed)
 
         imported = []
         for metadata in metadata_objs:
             # Locate or create a LicensePool for this book.
             license_pool, is_new_license_pool = metadata.license_pool(self._db)
+
             # Locate or create an Edition for this book.
             edition, is_new_edition = metadata.edition(self._db)
+
+            if (cutoff_date 
+                and not is_new_license_pool 
+                and not is_new_edition
+                and metadata.circulation 
+                and metadata.circulation.first_appearance < cutoff_date
+            ):
+                # We've already imported this book, we've been told
+                # not to bother with books that appeared before a
+                # certain date, and this book did in fact appear
+                # before that date. There's no reason to do anything.
+                continue
+
             metadata.apply(edition, self.metadata_client)
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
@@ -222,7 +238,13 @@ class OPDSImporter(object):
                     values[identifier] = detail
                 if status_message:
                     status_messages[identifier] = status_message
-        next_links = [link['href'] for link in feedparser_parsed['feed']['links'] if link['rel'] == 'next']
+        feed = feedparser_parsed['feed']
+        next_links = []
+        if feed and 'links' in feed:
+            next_links = [
+                link['href'] for link in feed['links'] 
+                if link['rel'] == 'next'
+            ]
         return values, status_messages, next_links
 
     @classmethod
@@ -293,9 +315,22 @@ class OPDSImporter(object):
             title = None
         subtitle = entry.get('alternativeheadline', None)
 
-        last_update_time = entry.get('updated_parsed', None)
-        if last_update_time:
-            last_update_time = datetime.datetime(*last_update_time[:6])
+        def _datetime(key):
+            value = entry.get(key, None)
+            if not value:
+                return value
+            return datetime.datetime(*value[:6])
+
+        last_update_time = _datetime('updated_parsed')
+        added_to_collection_time = _datetime('published_parsed')
+        if added_to_collection_time:
+            circulation = CirculationData(
+                licenses_owned=None, licenses_available=None,
+                licenses_reserved=None, patrons_in_hold_queue=None,
+                first_appearance=added_to_collection_time,
+            )
+        else:
+            circulation = None
 
         publisher = entry.get('publisher', None)
         if not publisher:
@@ -304,7 +339,6 @@ class OPDSImporter(object):
         language = entry.get('language', None)
         if not language:
             language = entry.get('dcterms_language', None)
-
 
         links = []
 
@@ -344,6 +378,7 @@ class OPDSImporter(object):
             links=links,
             rights_uri=rights_uri,
             last_update_time=last_update_time,
+            circulation=circulation,
         )
         return identifier, kwargs, status_message
 
@@ -592,17 +627,20 @@ class OPDSImportMonitor(Monitor):
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
 
-    def follow_one_link(self, link):
+    def follow_one_link(self, link, start):
         self.log.info("Following next link: %s", link)
         response = requests.get(link)
-        imported, messages, next_links = self.importer.import_from_feed(response.content)
+        imported, messages, next_links = self.importer.import_from_feed(
+            response.content, even_if_no_author=True, cutoff_date=start
+        )
         self._db.commit()
         
         if len(imported) == 0:
-            # We did not see a single book on this page we haven't
-            # already seen. There's no need to keep going.
+            # We did not end up importing a single book on this page.
+            # There's no need to keep going.
             self.log.info(
-                "Saw a full page with no new books. Stopping.")
+                "Saw a full page with no new books. Stopping."
+            )
             return []
         else:
             return next_links
@@ -619,7 +657,7 @@ class OPDSImportMonitor(Monitor):
             for link in queue:
                 if link in seen_links:
                     continue
-                new_queue.extend(self.follow_one_link(link))
+                new_queue.extend(self.follow_one_link(link, start))
                 seen_links.add(link)
                 self._db.commit()
 
