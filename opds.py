@@ -266,6 +266,7 @@ class CirculationManagerAnnotator(Annotator):
                 ("terms-of-service", Configuration.terms_of_service_url()),
                 ("privacy-policy", Configuration.privacy_policy_url()),
                 ("copyright", Configuration.acknowledgements_url()),
+                ("about", Configuration.about_url()),
         ):
             if value:
                 d = dict(href=value, type="text/html", rel=rel)
