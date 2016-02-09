@@ -614,6 +614,7 @@ class AcquisitionFeed(OPDSFeed):
         else:
             works_q = lane.works(facets, pagination)
         works = works_q.all()
+
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
@@ -639,7 +640,6 @@ class AcquisitionFeed(OPDSFeed):
 
         content = unicode(feed)
         cached.update(content)
-
         return cached
 
     @classmethod
