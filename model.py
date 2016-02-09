@@ -5192,8 +5192,6 @@ class LicensePool(Base):
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
-        best = None
-        best_priority = None
         q = Identifier.resources_for_identifier_ids(
             _db, [self.identifier.id], open_access
         )
