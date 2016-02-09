@@ -776,3 +776,7 @@ class ThreeMBibliographicCoverageProvider(BaseThreeMBibliographicCoverageProvide
                 result = self.set_presentation_ready(result)
             results.append(result)
         return results
+
+    def process_item(self, identifier):
+        results = self.process_batch([identifier])
+        return results[0]

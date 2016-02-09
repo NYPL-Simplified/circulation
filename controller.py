@@ -251,6 +251,7 @@ class CirculationManager(object):
                 ("terms-of-service", Configuration.terms_of_service_url()),
                 ("privacy-policy", Configuration.privacy_policy_url()),
                 ("copyright", Configuration.acknowledgements_url()),
+                ("about", Configuration.about_url()),
         ):
             if value:
                 links[rel] = dict(href=value, type="text/html")
