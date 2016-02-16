@@ -52,18 +52,18 @@ class OverdriveAPI(object):
     TOKEN_ENDPOINT = "https://oauth.overdrive.com/token"
     PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
 
-    LIBRARY_ENDPOINT = "http://api.overdrive.com/v1/libraries/%(library_id)s"
-    ALL_PRODUCTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
-    METADATA_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
-    EVENTS_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
-    AVAILABILITY_ENDPOINT = "http://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
+    LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(library_id)s"
+    ALL_PRODUCTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
+    METADATA_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
+    EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_name)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
+    AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
 
-    CHECKOUTS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts"
-    CHECKOUT_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
-    FORMATS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
-    HOLDS_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds"
-    HOLD_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s"
-    ME_ENDPOINT = "http://patron.api.overdrive.com/v1/patrons/me"
+    CHECKOUTS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts"
+    CHECKOUT_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
+    FORMATS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
+    HOLDS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/holds"
+    HOLD_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s"
+    ME_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me"
 
     MAX_CREDENTIAL_AGE = 50 * 60
 
