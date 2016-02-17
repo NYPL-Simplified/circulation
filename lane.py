@@ -1014,6 +1014,9 @@ class Lane(object):
     def only_show_ready_deliverable_works(cls, query, work_model):
         """Restrict a query to show only unmerged presentation-ready
         works which the default client can fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
         """
         # TODO: Only find works with unsuppressed LicensePools.
 
@@ -1031,6 +1034,11 @@ class Lane(object):
         query = query.filter(LicensePool.delivery_mechanisms.any(
             DeliveryMechanism.default_client_can_fulfill==True)
         )
+
+        # If we don't allow holds, hide any books with no available copies.
+        hold_policy = Configuration.hold_policy()
+        if hold_policy == Configuration.HOLD_POLICY_HIDE:
+            query = query.filter(LicensePool.licenses_available > 0)
         return query
 
     @property

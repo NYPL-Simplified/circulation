@@ -863,8 +863,9 @@ class TestLanesQuery(DatabaseTest):
 class TestFilters(DatabaseTest):
 
     def test_only_show_ready_deliverable_works(self):
-        # w1 is fine.
+        # w1 has no available copies.
         w1 = self._work(with_license_pool=True)
+        w1.license_pools[0].licenses_available = 0
 
         # w2 has no delivery mechanisms.
         w2 = self._work(with_license_pool=True, with_open_access_download=False)
@@ -885,3 +886,11 @@ class TestFilters(DatabaseTest):
         q = Lane.only_show_ready_deliverable_works(q, Work)
         eq_([w1], q.all())
 
+        # If we change site policy to hide books that can't be
+        # borrowed, we also miss q1.
+        with temp_config() as config:
+            config['policies'] = {
+                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
+            }
+            q = Lane.only_show_ready_deliverable_works(q, Work)
+            eq_(0, q.count())
