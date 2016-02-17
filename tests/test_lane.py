@@ -810,7 +810,7 @@ class TestLanesQuery(DatabaseTest):
             best_sellers_past_week, 1, 
             lambda x: x.sort_title==self.fiction.sort_title
         )
-   
+  
     def test_from_description(self):
         """Create a LaneList from a simple description."""
         lanes = LaneList.from_description(
@@ -859,3 +859,29 @@ class TestLanesQuery(DatabaseTest):
         eq_(set([Classifier.AUDIENCE_YOUNG_ADULT]), young_adult.audiences)
         eq_([], young_adult.genres)
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
+
+class TestFilters(DatabaseTest):
+
+    def test_only_show_ready_deliverable_works(self):
+        # w1 is fine.
+        w1 = self._work(with_license_pool=True)
+
+        # w2 has no delivery mechanisms.
+        w2 = self._work(with_license_pool=True, with_open_access_download=False)
+        for dm in w2.license_pools[0].delivery_mechanisms:
+            self._db.delete(dm)
+
+        # w3 is not presentation ready.
+        w3 = self._work(with_license_pool=True)
+        w3.presentation_ready = False
+
+        self._db.commit()
+
+        # A normal query finds all works.
+        q = self._db.query(Work).join(Work.license_pools)
+        eq_(3, q.count())
+
+        # only_show_ready_deliverable_works filters out w2 and w3.
+        q = Lane.only_show_ready_deliverable_works(q, Work)
+        eq_([w1], q.all())
+

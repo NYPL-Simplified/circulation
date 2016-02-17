@@ -979,22 +979,7 @@ class Lane(object):
 
         # TODO: Also filter on formats.
 
-        # TODO: Only find works with unsuppressed LicensePools.
-
-        # Only find unmerged presentation-ready works.
-        #
-        # Such works are automatically filtered out of 
-        # the materialized view.
-        if work_model == Work:
-            q = q.filter(
-                work_model.was_merged_into == None,
-                work_model.presentation_ready == True,
-            )
-
-        # Only find books the default client can fulfill.
-        q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
-        )
+        q = self.only_show_ready_deliverable_works(q, work_model)
 
         distinct = False
         if self.list_data_source or self.lists:
@@ -1024,6 +1009,29 @@ class Lane(object):
             q = pagination.apply(q)
 
         return q
+
+    @classmethod
+    def only_show_ready_deliverable_works(cls, query, work_model):
+        """Restrict a query to show only unmerged presentation-ready
+        works which the default client can fulfill.
+        """
+        # TODO: Only find works with unsuppressed LicensePools.
+
+        # Only find unmerged presentation-ready works.
+        #
+        # Such works are automatically filtered out of 
+        # the materialized view.
+        if work_model == Work:
+            query = query.filter(
+                work_model.was_merged_into == None,
+                work_model.presentation_ready == True,
+            )
+
+        # Only find books the default client can fulfill.
+        query = query.filter(LicensePool.delivery_mechanisms.any(
+            DeliveryMechanism.default_client_can_fulfill==True)
+        )
+        return query
 
     @property
     def search_target(self):
@@ -1090,6 +1098,7 @@ class Lane(object):
                         lazyload(mw.license_pool, LicensePool.identifier),
                         lazyload(mw.license_pool, LicensePool.edition),
                     )
+                    q = self.only_show_ready_deliverable_works(q, mw)
                     q = self._defer_unused_opds_entry(q, work_model=mw)
                     work_by_id = dict()
                     a = time.time()
