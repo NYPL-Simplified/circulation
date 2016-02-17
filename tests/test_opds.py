@@ -42,6 +42,29 @@ from ..core.opds import (
 )
 class TestOPDS(DatabaseTest):
 
+    def test_default_lane_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        default_lane_url = annotator.default_lane_url()
+
+        assert "groups" in default_lane_url
+        assert "Fantasy" not in default_lane_url
+
+    def test_groups_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        groups_url_no_lane = annotator.groups_url(None)
+
+        assert "groups" in groups_url_no_lane
+        assert "Fantasy" not in groups_url_no_lane
+
+        groups_url_fantasy = annotator.groups_url(fantasy_lane)
+        assert "groups" in groups_url_fantasy
+        assert "Fantasy" in groups_url_fantasy
+        
+
     def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
         self._db.commit()
