@@ -42,6 +42,45 @@ from ..core.opds import (
 )
 class TestOPDS(DatabaseTest):
 
+    def test_default_lane_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        default_lane_url = annotator.default_lane_url()
+
+        assert "groups" in default_lane_url
+        assert "Fantasy" not in default_lane_url
+
+    def test_groups_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        groups_url_no_lane = annotator.groups_url(None)
+
+        assert "groups" in groups_url_no_lane
+        assert "Fantasy" not in groups_url_no_lane
+
+        groups_url_fantasy = annotator.groups_url(fantasy_lane)
+        assert "groups" in groups_url_fantasy
+        assert "Fantasy" in groups_url_fantasy
+
+    def test_feed_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        feed_url_fantasy = annotator.feed_url(fantasy_lane, dict(), dict())
+        assert "feed" in feed_url_fantasy
+        assert "Fantasy" in feed_url_fantasy
+
+    def test_facet_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        facets = dict(collection="main")
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        facet_url = annotator.facet_url(facets)
+        assert "collection=main" in facet_url
+        assert "Fantasy" in facet_url
+
     def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
         self._db.commit()

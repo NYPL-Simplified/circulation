@@ -51,7 +51,7 @@ class CirculationManagerAnnotator(Annotator):
 
     def cdn_url_for(self, *args, **kwargs):
         if self.test_mode:
-            return test_url_for(True, *args, **kwargs)
+            return self.test_url_for(True, *args, **kwargs)
         else:
             return cdn_url_for(*args, **kwargs)
 
@@ -73,21 +73,17 @@ class CirculationManagerAnnotator(Annotator):
             connector = '&'
         return url
 
-    @property
-    def _lane_name_and_languages(self):
-        if isinstance(self.lane, Lane):
-            lane_name = self.lane.url_name
-            languages = self.lane.language_key
+    def _lane_name_and_languages(self, lane):
+        if isinstance(lane, Lane):
+            lane_name = lane.url_name
+            languages = lane.language_key
         else:
             lane_name = None
             languages = None
         return (lane_name, languages)
 
-    def default_lane_url(self):
-        return self.cdn_url_for('index')
-
     def facet_url(self, facets):
-        lane_name, languages = self._lane_name_and_languages
+        lane_name, languages = self._lane_name_and_languages(self.lane)
         kwargs = dict(facets.items())
         return self.cdn_url_for(
             self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
@@ -101,7 +97,7 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     def groups_url(self, lane):
-        lane_name, languages = self._lane_name_and_languages
+        lane_name, languages = self._lane_name_and_languages(lane)
         return self.cdn_url_for(
             "acquisition_groups", lane_name=lane_name, languages=languages, _external=True)
 
@@ -109,7 +105,7 @@ class CirculationManagerAnnotator(Annotator):
         return self.groups_url(None)
 
     def feed_url(self, lane, facets, pagination):
-        lane_name, languages = self._lane_name_and_languages
+        lane_name, languages = self._lane_name_and_languages(lane)
         kwargs = dict(facets.items())
         kwargs.update(dict(pagination.items()))
         return self.cdn_url_for(
