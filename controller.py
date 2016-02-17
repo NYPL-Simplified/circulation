@@ -488,6 +488,8 @@ class OPDSFeedController(CirculationManagerController):
 
     def search(self, languages, lane_name):
         lane = self.load_lane(languages, lane_name)
+        if isinstance(lane, ProblemDetail):
+            return lane
         query = flask.request.args.get('q')
         this_url = self.url_for(
             'lane_search', languages=languages, lane_name=lane_name,
