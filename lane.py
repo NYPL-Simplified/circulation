@@ -1092,7 +1092,11 @@ class Lane(object):
                 ]
                 if doc_ids:
                     from model import MaterializedWork as mw
-                    q = self._db.query(mw).filter(mw.works_id.in_(doc_ids))
+                    q = self._db.query(mw).join(
+                        LicensePool, mw.license_pool_id==LicensePool.id
+                    ).filter(
+                        mw.works_id.in_(doc_ids)
+                    )
                     q = q.options(
                         lazyload(mw.license_pool, LicensePool.data_source),
                         lazyload(mw.license_pool, LicensePool.identifier),
