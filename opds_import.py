@@ -625,10 +625,11 @@ class OPDSImportMonitor(Monitor):
         self.importer = import_class(_db, default_data_source)
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
-            keep_timestamp=keep_timestamp)
+            keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER
+        )
 
     def follow_one_link(self, link, start):
-        self.log.info("Following next link: %s", link)
+        self.log.info("Following next link: %s, cutoff=%s", link, start)
         response = requests.get(link)
         imported, messages, next_links = self.importer.import_from_feed(
             response.content, cutoff_date=start

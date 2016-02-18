@@ -11,6 +11,7 @@ from sqlalchemy.sql.expression import (
 
 import log # This sets the appropriate log format and level.
 from config import Configuration
+from coverage import CoverageFailure
 from model import (
     get_one_or_create,
     CoverageRecord,
@@ -21,6 +22,7 @@ from model import (
     LicensePool,
     Subject,
     Timestamp,
+    UnresolvedIdentifier,
     Work,
 )
 from external_search import (
@@ -31,6 +33,7 @@ class Monitor(object):
 
     ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
     ONE_YEAR_AGO = datetime.timedelta(seconds=60*60*24*365)
+    NEVER = object()
 
     def __init__(
             self, _db, name, interval_seconds=1*60,
@@ -52,6 +55,8 @@ class Monitor(object):
         if not default_start_time:
              default_start_time = (
                  datetime.datetime.utcnow() - self.ONE_MINUTE_AGO)
+        if default_start_time is self.NEVER:
+            default_start_time = None
         self.default_start_time = default_start_time
 
     @property
@@ -110,12 +115,11 @@ class IdentifierResolutionMonitor(Monitor):
     """
 
     def __init__(
-            self, _db, name, 
-            required_coverage_providers, optional_coverage_providers,
-            interval_seconds=1*60,
-            default_start_time=None, keep_timestamp=True,
+            self, _db, name, interval_seconds=1*60, default_start_time=None, 
+            keep_timestamp=True, required_coverage_providers=[], 
+            optional_coverage_providers=[],
     ):
-        super(IdentifierResolutionMonitor).__init__(
+        super(IdentifierResolutionMonitor, self).__init__(
             _db, name, interval_seconds, default_start_time,
             keep_timestamp
         )

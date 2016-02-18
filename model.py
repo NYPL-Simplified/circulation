@@ -1670,10 +1670,10 @@ class UnresolvedIdentifier(Base):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.
         """
-        time = time or datetime.utcnow()
-        self.most_recent_attempt = now
+        time = time or datetime.datetime.utcnow()
+        self.most_recent_attempt = time
         if not self.first_attempt:
-            self.first_attempt = now
+            self.first_attempt = time
 
 class Contributor(Base):
 
@@ -5542,6 +5542,8 @@ class Representation(Base):
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
+    PNG_MEDIA_TYPE = u"image/png",
+    GIF_MEDIA_TYPE = u"image/gif",
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
@@ -5549,6 +5551,12 @@ class Representation(Base):
         EPUB_MEDIA_TYPE,
         PDF_MEDIA_TYPE,
         MP3_MEDIA_TYPE,
+    ]
+
+    IMAGE_MEDIA_TYPES = [
+        JPEG_MEDIA_TYPE,
+        PNG_MEDIA_TYPE,
+        GIF_MEDIA_TYPE,
     ]
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
@@ -5559,6 +5567,9 @@ class Representation(Base):
         EPUB_MEDIA_TYPE: "epub",
         PDF_MEDIA_TYPE: "pdf",
         MP3_MEDIA_TYPE: "mp3",
+        JPEG_MEDIA_TYPE: "jpg",
+        PNG_MEDIA_TYPE: "png",
+        GIF_MEDIA_TYPE: "gif",
     }
 
     __tablename__ = 'representations'
