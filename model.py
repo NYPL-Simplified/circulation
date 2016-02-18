@@ -1656,13 +1656,8 @@ class UnresolvedIdentifier(Base):
         has_metadata_lookup = DataSource.metadata_sources_for(_db, identifier)
 
         if not has_metadata_lookup:
-            try:
-                datasource = DataSource.license_source_for(_db, identifier)
-            except MultipleResultsFound:
-                # This is fine--we'll just try every source we know of until
-                # we find one.
-                pass
-            except NoResultFound:
+            datasources = DataSource.license_sources_for(_db, identifier)
+            if datasources.count() == 0:
                 # This is not okay--we have no way of resolving this identifier.
                 raise Identifier.UnresolvableIdentifierException()
 
@@ -1670,6 +1665,15 @@ class UnresolvedIdentifier(Base):
             _db, UnresolvedIdentifier, identifier=identifier,
             create_method_kwargs=dict(status=202), on_multiple='interchangeable'
         )
+
+    def set_attempt(self, time=None):
+        """Set most_recent_attempt (and possibly first_attempt) to the given
+        time.
+        """
+        time = time or datetime.utcnow()
+        self.most_recent_attempt = now
+        if not self.first_attempt:
+            self.first_attempt = now
 
 class Contributor(Base):
 

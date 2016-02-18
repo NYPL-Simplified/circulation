@@ -631,7 +631,7 @@ class OPDSImportMonitor(Monitor):
         self.log.info("Following next link: %s", link)
         response = requests.get(link)
         imported, messages, next_links = self.importer.import_from_feed(
-            response.content, even_if_no_author=True, cutoff_date=start
+            response.content, cutoff_date=start
         )
         self._db.commit()
         

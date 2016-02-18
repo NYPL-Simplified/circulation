@@ -98,6 +98,120 @@ class Monitor(object):
     def cleanup(self):
         pass
 
+class ResolutionFailed(Exception):
+    """Indicates a failure in identifier resolution."""
+    def __init__(self, status_code, message):
+        self.status_code = status_code
+        self.message = message
+
+class IdentifierResolutionMonitor(Monitor):
+    """Resolve all the UnresolvedIdentifiers by running them through
+    CoverageProviders.
+    """
+
+    def __init__(
+            self, _db, name, 
+            required_coverage_providers, optional_coverage_providers,
+            interval_seconds=1*60,
+            default_start_time=None, keep_timestamp=True,
+    ):
+        super(IdentifierResolutionMonitor).__init__(
+            _db, name, interval_seconds, default_start_time,
+            keep_timestamp
+        )
+        self.required_coverage_providers = required_coverage_providers
+        self.optional_coverage_providers = optional_coverage_providers
+
+    def run_once(self, start, cutoff):
+        self.pre_fetch_hook()
+        unresolved_identifiers = self.fetch_unresolved_identifiers()
+        self.log.info(
+            "Processing %i unresolved identifiers", len(unresolved_identifiers)
+        )
+
+        for unresolved_identifier in unresolved_identifiers:
+            success = False
+            try:
+                self.resolve(unresolved_identifier)
+                success = True
+            except Exception, e:
+                self.process_failure(unresolved_identifier, e)
+            if success:
+                self._db.delete(unresolved_identifier)
+            self._db.commit()
+
+    def resolve(self, unresolved_identifier):
+        """Resolve one UnresolvedIdentifier."""
+
+        # Evaluate which providers this Identifier needs coverage from.
+        identifier = unresolved_identifier.identifier
+        self.log.info("Ensuring coverage for %r", identifier)
+
+        # Goes through all relevant providers and tries to ensure coverage.
+        # If there's a failure or an exception, raise ResolutionFailed.
+        for provider in self.required_coverage_providers:
+            if not identifier.type in provider.input_identifier_types:
+                continue
+            record = provider.ensure_coverage(identifier, force=True)
+            if isinstance(record, CoverageFailure):
+                raise ResolutionFailed(500, record.exception)
+
+        # Now go through the optional providers. It's the same deal,
+        # but a CoverageFailure doesn't cause the entire identifier
+        # resolution process to fail.
+        for provider in self.optional_coverage_providers:
+            if not identifier.type in provider.input_identifier_types:
+                continue
+            record = provider.ensure_coverage(identifier, force=True)
+
+        # We're not out of the woods yet. If finalize() raises an
+        # exception the process could still fail and need to be
+        # retried.
+        self.finalize(unresolved_identifier)
+
+    def fetch_unresolved_identifiers(self, retry_time=None):
+        """Find all UnresolvedIdentifiers that need processing.
+
+        This is all UnresolvedIdentifiers that have never raised an
+        exception, plus all UnresolvedIdentifiers that were attempted
+        more than `retry_time` ago.
+        """
+        now = datetime.datetime.utcnow()
+        if not retry_time:
+            retry_time = datetime.timedelta(days=1)
+        cutoff = now - retry_time
+        needs_processing = or_(
+            UnresolvedIdentifier.exception==None,
+            UnresolvedIdentifier.most_recent_attempt < cutoff)
+        q = self._db.query(UnresolvedIdentifier).join(
+            UnresolvedIdentifier.identifier).filter(needs_processing)
+        return q.order_by(func.random()).all()
+
+    def process_failure(self, unresolved_identifier, exception):
+        if isinstance(exception, ResolutionFailed):
+            status = exception.status_code
+            exception = exception.message
+        else:
+            status = 500
+            exception = traceback.format_exc()
+        unresolved_identifier.status = status
+        unresolved_identifier.exception = exception
+        unresolved_identifier.set_attempt()
+        self.log.error(
+            "FAILURE on %s: %s",
+            unresolved_identifier.identifier, exception
+        )
+        return unresolved_identifier
+
+    def pre_fetch_hook(self):
+        """Do something before fetching unresolved identifiers."""
+        pass
+
+    def finalize(self, unresolved_identifier):
+        """Do any additional work that needs to be done before an
+        UnresolvedIdentifier can be resolved.
+        """
+        pass
 
 class IdentifierSweepMonitor(Monitor):
 
