@@ -1666,6 +1666,32 @@ class UnresolvedIdentifier(Base):
             create_method_kwargs=dict(status=202), on_multiple='interchangeable'
         )
 
+    DEFAULT_RETRY_TIME = datetime.timedelta(days=1)
+
+    @classmethod
+    def ready_to_process(cls, _db, retry_after=None, randomize=True):
+        """Find all UnresolvedIdentifiers that are ready for processing.
+
+        This is all UnresolvedIdentifiers that have never raised an
+        exception, plus all UnresolvedIdentifiers that were attempted
+        more than `retry_after` ago.
+
+        :param retry_after: a `datetime.timedelta`.
+        """
+        now = datetime.datetime.utcnow()
+        retry_after = retry_after or cls.DEFAULT_RETRY_TIME
+        cutoff = now - retry_after
+        needs_processing = or_(
+            UnresolvedIdentifier.exception==None,
+            UnresolvedIdentifier.most_recent_attempt < cutoff
+        )
+        q = _db.query(UnresolvedIdentifier).join(
+            UnresolvedIdentifier.identifier).filter(needs_processing)
+        if randomize:
+            q = q.order_by(func.random())
+        return q
+
+
     def set_attempt(self, time=None):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.

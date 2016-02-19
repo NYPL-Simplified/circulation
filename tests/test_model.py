@@ -326,6 +326,40 @@ class TestUnresolvedIdentifier(DatabaseTest):
         eq_(first_attempt, i.first_attempt)
         eq_(future, i.most_recent_attempt)
 
+    def test_ready_to_process(self):
+        now = datetime.datetime.utcnow()
+        never_tried, ignore = self._unresolved_identifier()
+
+        just_tried, ignore = self._unresolved_identifier()
+        just_tried.set_attempt(now)
+        just_tried.exception = 'Blah'
+
+        tried_a_while_ago, ignore = self._unresolved_identifier()
+        tried_a_while_ago.set_attempt(now-datetime.timedelta(days=7))
+        tried_a_while_ago.exception = 'Blah'
+
+        tried_a_long_time_ago, ignore = self._unresolved_identifier()
+        tried_a_long_time_ago.set_attempt(now-datetime.timedelta(days=365))
+        tried_a_long_time_ago.exception = 'Blah'
+
+        # By default we get all UnresolvedIdentifiers that have never been
+        # tried, and those tried more than a day ago.
+        ready = UnresolvedIdentifier.ready_to_process(self._db).all()
+        assert len(ready) == 3
+        assert tried_a_while_ago in ready
+        assert never_tried in ready
+        assert tried_a_long_time_ago in ready
+
+        # But we can customize the "a day ago" part by passing in a
+        # custom timedelta.
+        thirty_days = datetime.timedelta(days=30)
+        ready = UnresolvedIdentifier.ready_to_process(
+            self._db, retry_after=thirty_days
+        ).all()
+        assert len(ready) == 2
+        assert never_tried in ready
+        assert tried_a_long_time_ago in ready
+
 class TestContributor(DatabaseTest):
 
     def test_lookup_by_viaf(self):

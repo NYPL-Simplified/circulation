@@ -128,7 +128,7 @@ class IdentifierResolutionMonitor(Monitor):
 
     def run_once(self, start, cutoff):
         self.pre_fetch_hook()
-        unresolved_identifiers = self.fetch_unresolved_identifiers()
+        unresolved_identifiers = UnresolvedIdentifier.ready_to_process(self._db)
         self.log.info(
             "Processing %i unresolved identifiers", len(unresolved_identifiers)
         )
@@ -172,24 +172,6 @@ class IdentifierResolutionMonitor(Monitor):
         # exception the process could still fail and need to be
         # retried.
         self.finalize(unresolved_identifier)
-
-    def fetch_unresolved_identifiers(self, retry_time=None):
-        """Find all UnresolvedIdentifiers that need processing.
-
-        This is all UnresolvedIdentifiers that have never raised an
-        exception, plus all UnresolvedIdentifiers that were attempted
-        more than `retry_time` ago.
-        """
-        now = datetime.datetime.utcnow()
-        if not retry_time:
-            retry_time = datetime.timedelta(days=1)
-        cutoff = now - retry_time
-        needs_processing = or_(
-            UnresolvedIdentifier.exception==None,
-            UnresolvedIdentifier.most_recent_attempt < cutoff)
-        q = self._db.query(UnresolvedIdentifier).join(
-            UnresolvedIdentifier.identifier).filter(needs_processing)
-        return q.order_by(func.random()).all()
 
     def process_failure(self, unresolved_identifier, exception):
         if isinstance(exception, ResolutionFailed):
