@@ -315,6 +315,9 @@ class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
         self.attempts.append(item)
         return CoverageFailure(self, item, "What did you expect?", False)
 
+class BrokenCoverageProvider(InstrumentedCoverageProvider):
+    def process_item(self, item):
+        raise Exception("I'm too broken to even return a CoverageFailure.")
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):

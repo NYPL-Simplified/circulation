@@ -109,6 +109,9 @@ class ResolutionFailed(Exception):
         self.status_code = status_code
         self.message = message
 
+    def __str__(self):
+        return "%s: %s" % (self.status_code, self.message)
+
 class IdentifierResolutionMonitor(Monitor):
     """Resolve all the UnresolvedIdentifiers by running them through
     CoverageProviders.
@@ -126,9 +129,11 @@ class IdentifierResolutionMonitor(Monitor):
         self.required_coverage_providers = required_coverage_providers
         self.optional_coverage_providers = optional_coverage_providers
 
-    def run_once(self, start, cutoff):
+    def run_once(self, start=None, cutoff=None):
         self.pre_fetch_hook()
-        unresolved_identifiers = UnresolvedIdentifier.ready_to_process(self._db)
+        unresolved_identifiers = UnresolvedIdentifier.ready_to_process(
+            self._db
+        ).all()
         self.log.info(
             "Processing %i unresolved identifiers", len(unresolved_identifiers)
         )
@@ -157,8 +162,8 @@ class IdentifierResolutionMonitor(Monitor):
             if not identifier.type in provider.input_identifier_types:
                 continue
             record = provider.ensure_coverage(identifier, force=True)
-            if isinstance(record, CoverageFailure):
-                raise ResolutionFailed(500, record.exception)
+            if record.exception:
+                raise ResolutionFailed(500, record.exception)                
 
         # Now go through the optional providers. It's the same deal,
         # but a CoverageFailure doesn't cause the entire identifier
@@ -172,6 +177,7 @@ class IdentifierResolutionMonitor(Monitor):
         # exception the process could still fail and need to be
         # retried.
         self.finalize(unresolved_identifier)
+        return True
 
     def process_failure(self, unresolved_identifier, exception):
         if isinstance(exception, ResolutionFailed):

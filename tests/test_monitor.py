@@ -1,4 +1,8 @@
-from nose.tools import eq_, set_trace
+from nose.tools import (
+    eq_, 
+    set_trace,
+    assert_raises_regexp,
+)
 import datetime
 
 from . import DatabaseTest
@@ -6,17 +10,23 @@ from . import DatabaseTest
 from testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
+    BrokenCoverageProvider,
 )
 
 from model import (
+    get_one,
+    CoverageRecord,
     DataSource,
     Identifier,
     Timestamp,
+    UnresolvedIdentifier,
 )
 
 from monitor import (
     Monitor,
     PresentationReadyMonitor,
+    IdentifierResolutionMonitor,
+    ResolutionFailed,
 )
 
 class DummyMonitor(Monitor):
@@ -130,3 +140,120 @@ class TestPresentationReadyMonitor(DatabaseTest):
         # The work has not been set to presentation ready--that's
         # handled elsewhere.
         eq_(False, self.work.presentation_ready)
+
+
+class TestIdentifierResolutionMonitor(DatabaseTest):
+
+    def setup(self):
+        super(TestIdentifierResolutionMonitor, self).setup()
+        self.ui, ignore = self._unresolved_identifier()
+        self.identifier = self.ui.identifier
+        idtype = self.identifier.type
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        self.always_successful = AlwaysSuccessfulCoverageProvider(
+            "Always", [idtype], source
+        )
+        self.never_successful = NeverSuccessfulCoverageProvider(
+            "Never", [idtype], source
+        )
+        self.broken = BrokenCoverageProvider("Broken", [idtype], source)
+
+
+    def test_run_once_resolves_and_deletes_unresolvedidentifiers(self):
+        m = IdentifierResolutionMonitor(
+            self._db, "Will succeed",
+            required_coverage_providers=[self.always_successful]
+        )
+
+        m.run_once(None)
+
+        # The coverage provider succeeded and an appropriate coverage
+        # record was created to mark the success.
+        r = get_one(self._db, CoverageRecord, identifier=self.identifier)
+        eq_(None, r.exception)
+
+        # The outstanding UnresolvedIdentifier has been deleted.
+        eq_(None, get_one(self._db, UnresolvedIdentifier))
+
+    def test_resolve_success(self):
+        m = IdentifierResolutionMonitor(
+            self._db, "Will succeed",
+            required_coverage_providers=[self.always_successful]
+        )
+
+        success = m.resolve(self.ui)
+
+        # The coverage provider succeeded and an appropriate coverage
+        # record was created to mark the success.
+        r = get_one(self._db, CoverageRecord, identifier=self.identifier)
+        eq_(None, r.exception)
+
+        # resolve() returned True to indicate success.
+        eq_(True, success)
+
+    def test_resolve_fails_when_required_provider_returns_coveragefailed(self):
+        m = IdentifierResolutionMonitor(
+            self._db, "Will fail",
+            required_coverage_providers=[self.never_successful]
+        )
+
+        assert_raises_regexp(
+            ResolutionFailed, 
+            "500: What did you expect?",
+            m.resolve, self.ui
+        )
+
+        # The coverage provider failed and an appropriate coverage
+        # record was created to mark the failure.
+        r = get_one(self._db, CoverageRecord, identifier=self.identifier)
+        eq_("What did you expect?", r.exception)
+
+    def test_run_once_fails_when_required_provider_raises_exception(self):
+        m = IdentifierResolutionMonitor(
+            self._db, "Will raise exception",
+            required_coverage_providers=[self.broken]
+        )
+
+        m.run_once()
+
+        # The exception was recorded in the UnresolvedIdentifier object.
+        assert "I'm too broken to even return a CoverageFailure." in self.ui.exception
+
+
+    def test_run_once_fails_when_finalize_raises_exception(self):
+        class FinalizeAlwaysFails(IdentifierResolutionMonitor):
+            def finalize(self, unresolved_identifier):
+                raise Exception("Oh no!")
+
+        m = FinalizeAlwaysFails(self._db, "Always fails")
+        ui, ignore = self._unresolved_identifier()
+        m.run_once(ui)
+        eq_(500, ui.status)
+        assert "Oh no!" in ui.exception
+
+    def test_resolve_succeeds_when_optional_provider_fails(self):
+        ui, ignore = self._unresolved_identifier()
+        identifier = self.ui.identifier
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        p = NeverSuccessfulCoverageProvider(
+            "Never", [identifier.type], source
+        )
+        m = IdentifierResolutionMonitor(
+            self._db, "Will fail but it's OK",
+            optional_coverage_providers=[p]
+        )
+
+        success = m.resolve(self.ui)
+
+        # The coverage provider failed and an appropriate coverage record
+        # was created to mark the failure.
+        r = get_one(self._db, CoverageRecord, identifier=self.identifier)
+        eq_("What did you expect?", r.exception)
+
+        # But because it was an optional CoverageProvider that failed,
+        # no exception was raised and resolve() returned True to indicate
+        # success.
+        eq_(success, True)
+
+
