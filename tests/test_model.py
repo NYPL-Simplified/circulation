@@ -309,7 +309,22 @@ class TestUnresolvedIdentifier(DatabaseTest):
         assert_raises(
             Identifier.UnresolvableIdentifierException,
             UnresolvedIdentifier.register, self._db, identifier)
-            
+
+    def test_set_attempt(self):
+        i, ignore = self._unresolved_identifier()
+        eq_(None, i.first_attempt)
+        eq_(None, i.most_recent_attempt)
+        
+        now = datetime.datetime.utcnow()
+        i.set_attempt()
+        eq_(i.first_attempt, i.most_recent_attempt)
+        first_attempt = i.first_attempt
+        assert abs(first_attempt-now).seconds < 2
+
+        future = now + datetime.timedelta(days=1)
+        i.set_attempt(future)
+        eq_(first_attempt, i.first_attempt)
+        eq_(future, i.most_recent_attempt)
 
 class TestContributor(DatabaseTest):
 
