@@ -744,6 +744,17 @@ class TestLanesQuery(DatabaseTest):
         eq_(expect, sorted([x.sort_title for x in w]))
         eq_(sorted([x.id for x in w]), sorted([x.works_id for x in mw]))
 
+        # Try a lane based on license source.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        lane = Lane(self._db, full_name="Overdrive Books",
+                    license_source=overdrive)
+        w, mw = test_expectations(
+            lane, 10, lambda x: True
+        )
+        for i in mw:
+            eq_(i.data_source_id, overdrive.id)
+
+
         # Finally, test lanes based on lists. Create two lists, each
         # with one book.
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)

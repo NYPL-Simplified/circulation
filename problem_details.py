@@ -6,3 +6,10 @@ INVALID_INPUT = pd(
       "Invalid input.",
       "You provided invalid or unrecognized input.",
 )
+
+UNRECOGNIZED_DATA_SOURCE = pd(
+      "http://librarysimplified.org/terms/problem/unrecognized-data-source",
+      400,
+      "Unrecognized data source.",
+      "I don't know anything about that data source.",
+)
