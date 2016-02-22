@@ -5568,8 +5568,8 @@ class Representation(Base):
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
-    PNG_MEDIA_TYPE = u"image/png",
-    GIF_MEDIA_TYPE = u"image/gif",
+    PNG_MEDIA_TYPE = u"image/png"
+    GIF_MEDIA_TYPE = u"image/gif"
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
@@ -6054,7 +6054,6 @@ class Representation(Base):
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
-
         # If the image is already thumbnail-size, don't bother.
         if self.image_height <= max_height and self.image_width <= max_width:
             self.thumbnails = []
