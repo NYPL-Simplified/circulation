@@ -753,6 +753,8 @@ class TestLanesQuery(DatabaseTest):
         )
         for i in mw:
             eq_(i.data_source_id, overdrive.id)
+        for i in w:
+            eq_(i.license_pools[0].data_source, overdrive)
 
 
         # Finally, test lanes based on lists. Create two lists, each

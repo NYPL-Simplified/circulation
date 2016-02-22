@@ -947,7 +947,9 @@ class Lane(object):
         # If a license source is specified, only show books from that
         # source.
         if self.license_source:
-            q = q.filter(LicensePool.data_source==self.license_source)
+            q = q.filter(
+                LicensePool.data_source==self.license_source
+            )
 
         if self.age_range != None:
             if (Classifier.AUDIENCE_ADULT in self.audiences
