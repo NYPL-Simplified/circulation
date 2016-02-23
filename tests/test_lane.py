@@ -899,11 +899,18 @@ class TestFilters(DatabaseTest):
         q = Lane.only_show_ready_deliverable_works(q, Work)
         eq_([w1], q.all())
 
-        # If we change site policy to hide books that can't be
-        # borrowed, we also miss q1.
+        # Change site policy to hide books that can't be borrowed.
         with temp_config() as config:
             config['policies'] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
             }
+
+            # w1 still shows up because it's an open-access work.
+            q = Lane.only_show_ready_deliverable_works(q, Work)
+            eq_(1, q.count())
+
+            # But if we change that...
+            w1.license_pools[0].open_access = False
             q = Lane.only_show_ready_deliverable_works(q, Work)
             eq_(0, q.count())
+            
