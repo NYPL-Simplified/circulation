@@ -590,7 +590,7 @@ class Metadata(object):
         for format in self.formats:
             if format.link:
                 link = format.link
-                if self.rights_uri == None and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                     # We haven't determined rights from the metadata or the data source, but there's an
                     # open access download link, so we'll consider it generic open access.
                     self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS

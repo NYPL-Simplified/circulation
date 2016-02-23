@@ -271,16 +271,19 @@ class WorkPresentationScript(WorkProcessingScript):
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
     def __init__(self, feed_url, default_data_source, importer_class, 
-                 keep_timestamp=True):
+                 keep_timestamp=True, immediately_presentation_ready=False):
         self.feed_url = feed_url
         self.default_data_source = default_data_source
         self.importer_class = importer_class
         self.keep_timestamp = keep_timestamp
+        self.immediately_presentation_ready = immediately_presentation_ready
 
     def do_run(self):
         monitor = OPDSImportMonitor(
             self._db, self.feed_url, self.default_data_source, 
-            self.importer_class, keep_timestamp=self.keep_timestamp)
+            self.importer_class, keep_timestamp=self.keep_timestamp,
+            immediately_presentation_ready = self.immediately_presentation_ready
+        )
         monitor.run()
         
 
