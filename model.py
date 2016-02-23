@@ -3402,7 +3402,9 @@ class Work(Base):
         self.presentation_ready_attempt = as_of
         self.random = random.random()
 
-    def set_presentation_ready_based_on_content(self):
+    def set_presentation_ready_based_on_content(
+            self, require_author=True, require_thumbnail=True
+    ):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3418,11 +3420,15 @@ class Work(Base):
         if (not self.primary_edition
             or not self.license_pools
             or not self.title
-            or not self.primary_edition.author
+            or (require_author and not self.primary_edition.author)
             or not self.language
             or not self.work_genres
-            or (not self.cover_thumbnail_url
-                and not self.primary_edition.no_known_cover)
+            or (
+                require_thumbnail and not (
+                    self.cover_thumbnail_url
+                    or self.primary_edition.no_known_cover
+                )
+            )
         ):
             self.presentation_ready = False
         else:

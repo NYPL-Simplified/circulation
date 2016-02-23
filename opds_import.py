@@ -143,7 +143,8 @@ class OPDSImporter(object):
         self.metadata_client = SimplifiedOPDSLookup.from_config()
 
     def import_from_feed(self, feed, even_if_no_author=False, 
-                         cutoff_date=None):
+                         cutoff_date=None, 
+                         immediately_presentation_ready=False):
         metadata_objs, messages, next_links = self.extract_metadata(feed)
 
         imported = []
@@ -181,6 +182,14 @@ class OPDSImporter(object):
                 )
                 if work:
                     work.calculate_presentation()
+                    if immediately_presentation_ready:
+                        # We want this book to be presentation-ready
+                        # immediately upon import. It's okay if it
+                        # doesn't have an author or thumbnail
+                        # image--we'll fill that in later.
+                        work.set_presentation_ready_based_on_content(
+                            require_author=False, require_thumbnail=False,
+                        )
             imported.append(edition)
         return imported, messages, next_links
 
@@ -191,7 +200,6 @@ class OPDSImporter(object):
         """
         data1, status_messages, next_links = self.extract_metadata_from_feedparser(feed)
         data2 = self.extract_metadata_from_elementtree(feed)
-
         metadata = []
         for id, args in data1.items():
             other_args = data2.get(id, {})
@@ -309,7 +317,6 @@ class OPDSImporter(object):
         license_data_source = None
         if distribution_tag:
             license_data_source = distribution_tag.get('bibframe:providername')
-
         title = entry.get('title', None)
         if title == OPDSFeed.NO_TITLE:
             title = None
@@ -620,9 +627,11 @@ class OPDSImportMonitor(Monitor):
     """
     
     def __init__(self, _db, feed_url, default_data_source, import_class, 
-                 interval_seconds=3600, keep_timestamp=True):
+                 interval_seconds=3600, keep_timestamp=True,
+                 immediately_presentation_ready=False):
         self.feed_url = feed_url
         self.importer = import_class(_db, default_data_source)
+        self.immediately_presentation_ready = immediately_presentation_ready
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp)
@@ -631,7 +640,8 @@ class OPDSImportMonitor(Monitor):
         self.log.info("Following next link: %s", link)
         response = requests.get(link)
         imported, messages, next_links = self.importer.import_from_feed(
-            response.content, even_if_no_author=True, cutoff_date=start
+            response.content, even_if_no_author=True, cutoff_date=start,
+            immediately_presentation_ready = self.immediately_presentation_ready
         )
         self._db.commit()
         

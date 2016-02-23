@@ -30,6 +30,7 @@ from model import (
     Edition,
     Measurement,
     Representation,
+    RightsStatus,
     Subject,
 )
 
@@ -186,9 +187,17 @@ class TestOPDSImporter(DatabaseTest):
 
         [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
+        # By default, this feed is treated as though it came from the
+        # metadata wrangler.
         eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
         eq_(Edition.BOOK_MEDIUM, crow.medium)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+
+        # Because of this, no works have been created for the books,
+        # because there's no expectation that we actually have a copy
+        # of the book.
+        eq_(None, crow.work)
+        eq_(None, mouse.work)
 
         editions, popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
@@ -307,6 +316,71 @@ class TestOPDSImporter(DatabaseTest):
         # But the work and license pools have not changed.
         eq_(edition.license_pool, old_license_pool)
         eq_(edition.work.license_pools, [old_license_pool])
+
+    def test_import_from_license_source(self):
+        # Instead of importing this data as though it came from the
+        # metadata wrangler, let's import it as though it came from the
+        # open-access content server.
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
+        feed = open(path).read()
+        importer = OPDSImporter(
+            self._db, data_source_name=DataSource.OA_CONTENT_SERVER
+        )
+        imported, messages, next_links = importer.import_from_feed(feed)
+
+        [crow, mouse] = sorted(imported, key=lambda x: x.title)
+
+        # Because the content server actually tells you how to get a
+        # copy of the 'mouse' book, a work and licensepool has been
+        # created for it.
+        assert mouse.work != None
+        assert mouse.license_pool != None
+
+        # The OPDS importer knows that the content server aggregates
+        # books from elsewhere, so the data source for the 'mouse'
+        # Edition is the underlying license source -- Project
+        # Gutenberg -- not the content server.
+        eq_(DataSource.GUTENBERG, mouse.data_source.name)
+
+        # Since the 'mouse' book came with an open-access link, the license
+        # pool has been marked as open access.
+        eq_(True, mouse.license_pool.open_access)
+        eq_(RightsStatus.GENERIC_OPEN_ACCESS, 
+            mouse.license_pool.rights_status.uri)
+
+        # The 'mouse' work has not been marked presentation-ready,
+        # because the OPDS importer was not told to make works
+        # presentation-ready as they're imported.
+        eq_(False, mouse.work.presentation_ready)
+
+        # The OPDS feed didn't actually say where the 'crow' book
+        # comes from, so no Work or LicensePool have been created for
+        # it, and its data source is the open access content server,
+        # not Project Gutenberg.
+        eq_(None, crow.work)
+        eq_(None, crow.license_pool)
+        eq_(DataSource.OA_CONTENT_SERVER, crow.data_source.name)
+
+    def test_import_and_make_presentation_ready(self):
+        # Now let's tell the OPDS importer to make works presentation-ready
+        # as soon as they're imported.
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
+        feed = open(path).read()
+        importer = OPDSImporter(
+            self._db, data_source_name=DataSource.OA_CONTENT_SERVER
+        )
+        imported, messages, next_links = importer.import_from_feed(
+            feed, immediately_presentation_ready=True
+        )
+
+        [crow, mouse] = sorted(imported, key=lambda x: x.title)
+
+        # Nothing happens for the 'crow' book.
+        eq_(None, crow.work)
+        
+        # But the 'mouse' book has had a presentation-ready work
+        # created for it.
+        eq_(True, mouse.work.presentation_ready)
 
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")

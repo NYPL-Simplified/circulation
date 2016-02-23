@@ -524,6 +524,11 @@ class AcquisitionFeed(OPDSFeed):
             # We did not find any works whatsoever. The groups feed is
             # useless. Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
+            if not isinstance(lane, Lane):
+                # This is probably a top-level controller or
+                # application object.  Create a dummy lane that
+                # contains everything.
+                lane = Lane(_db, "Everything")
             cached = cls.page(
                 _db, title, url, lane, annotator, 
                 force_refresh=force_refresh,
