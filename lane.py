@@ -1048,7 +1048,9 @@ class Lane(object):
         # If we don't allow holds, hide any books with no available copies.
         hold_policy = Configuration.hold_policy()
         if hold_policy == Configuration.HOLD_POLICY_HIDE:
-            query = query.filter(LicensePool.licenses_available > 0)
+            query = query.filter(
+                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+            )
 
         return query
 
@@ -1103,7 +1105,6 @@ class Lane(object):
                 )
             b = time.time()
             logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-
             results = []
             if docs:
                 doc_ids = [
