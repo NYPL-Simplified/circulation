@@ -469,6 +469,8 @@ class Lane(object):
                  media=Edition.BOOK_MEDIUM,
                  formats=Edition.ELECTRONIC_FORMAT,
 
+                 license_source=None,
+
                  list_data_source=None,
                  list_identifier=None,
                  list_seen_in_previous_days=None,
@@ -483,6 +485,7 @@ class Lane(object):
         self.default_for_language = False
         self.searchable = searchable
         self.invisible = invisible
+        self.license_source = license_source
 
         self.log = logging.getLogger("Lane %s" % self.name)
 
@@ -941,6 +944,13 @@ class Lane(object):
         if self.appeals:
             q = q.filter(work_model.primary_appeal.in_(self.appeals))
 
+        # If a license source is specified, only show books from that
+        # source.
+        if self.license_source:
+            q = q.filter(
+                LicensePool.data_source==self.license_source
+            )
+
         if self.age_range != None:
             if (Classifier.AUDIENCE_ADULT in self.audiences
                 or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
@@ -1039,6 +1049,7 @@ class Lane(object):
         hold_policy = Configuration.hold_policy()
         if hold_policy == Configuration.HOLD_POLICY_HIDE:
             query = query.filter(LicensePool.licenses_available > 0)
+
         return query
 
     @property

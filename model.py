@@ -1656,13 +1656,8 @@ class UnresolvedIdentifier(Base):
         has_metadata_lookup = DataSource.metadata_sources_for(_db, identifier)
 
         if not has_metadata_lookup:
-            try:
-                datasource = DataSource.license_source_for(_db, identifier)
-            except MultipleResultsFound:
-                # This is fine--we'll just try every source we know of until
-                # we find one.
-                pass
-            except NoResultFound:
+            datasources = DataSource.license_sources_for(_db, identifier)
+            if datasources.count() == 0:
                 # This is not okay--we have no way of resolving this identifier.
                 raise Identifier.UnresolvableIdentifierException()
 
@@ -1670,6 +1665,41 @@ class UnresolvedIdentifier(Base):
             _db, UnresolvedIdentifier, identifier=identifier,
             create_method_kwargs=dict(status=202), on_multiple='interchangeable'
         )
+
+    DEFAULT_RETRY_TIME = datetime.timedelta(days=1)
+
+    @classmethod
+    def ready_to_process(cls, _db, retry_after=None, randomize=True):
+        """Find all UnresolvedIdentifiers that are ready for processing.
+
+        This is all UnresolvedIdentifiers that have never raised an
+        exception, plus all UnresolvedIdentifiers that were attempted
+        more than `retry_after` ago.
+
+        :param retry_after: a `datetime.timedelta`.
+        """
+        now = datetime.datetime.utcnow()
+        retry_after = retry_after or cls.DEFAULT_RETRY_TIME
+        cutoff = now - retry_after
+        needs_processing = or_(
+            UnresolvedIdentifier.exception==None,
+            UnresolvedIdentifier.most_recent_attempt < cutoff
+        )
+        q = _db.query(UnresolvedIdentifier).join(
+            UnresolvedIdentifier.identifier).filter(needs_processing)
+        if randomize:
+            q = q.order_by(func.random())
+        return q
+
+
+    def set_attempt(self, time=None):
+        """Set most_recent_attempt (and possibly first_attempt) to the given
+        time.
+        """
+        time = time or datetime.datetime.utcnow()
+        self.most_recent_attempt = time
+        if not self.first_attempt:
+            self.first_attempt = time
 
 class Contributor(Base):
 
@@ -5544,6 +5574,8 @@ class Representation(Base):
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
+    PNG_MEDIA_TYPE = u"image/png"
+    GIF_MEDIA_TYPE = u"image/gif"
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
@@ -5551,6 +5583,12 @@ class Representation(Base):
         EPUB_MEDIA_TYPE,
         PDF_MEDIA_TYPE,
         MP3_MEDIA_TYPE,
+    ]
+
+    IMAGE_MEDIA_TYPES = [
+        JPEG_MEDIA_TYPE,
+        PNG_MEDIA_TYPE,
+        GIF_MEDIA_TYPE,
     ]
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
@@ -5561,6 +5599,9 @@ class Representation(Base):
         EPUB_MEDIA_TYPE: "epub",
         PDF_MEDIA_TYPE: "pdf",
         MP3_MEDIA_TYPE: "mp3",
+        JPEG_MEDIA_TYPE: "jpg",
+        PNG_MEDIA_TYPE: "png",
+        GIF_MEDIA_TYPE: "gif",
     }
 
     __tablename__ = 'representations'
@@ -6019,7 +6060,6 @@ class Representation(Base):
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
-
         # If the image is already thumbnail-size, don't bother.
         if self.image_height <= max_height and self.image_width <= max_width:
             self.thumbnails = []

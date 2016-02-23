@@ -343,3 +343,6 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
             result = self.set_metadata(identifier, metadata)
             batch_results.append(result)
         return batch_results
+
+    def process_item(self, identifier):
+        return self.process_batch([identifier])[0]
