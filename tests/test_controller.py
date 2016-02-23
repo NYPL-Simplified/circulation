@@ -180,6 +180,20 @@ class TestBaseController(ControllerTest):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.licenses_available = 0
+            
+            # This is an open-access work, so there's no problem.
+            eq_(True, pool.open_access)
+
+            # Open-access books still be borrowed even if they have no
+            # 'licenses' available.
+            problem = self.controller.apply_borrowing_policy(
+                patron, pool
+            )
+            eq_(None, problem)
+
+            # But if it weren't an open-access work, there'd be a big
+            # problem.
+            pool.open_access = False
             problem = self.controller.apply_borrowing_policy(
                 patron, pool
             )

@@ -384,6 +384,7 @@ class CirculationManagerController(object):
             )
 
         if (license_pool.licenses_available == 0 and
+            not license_pool.open_access and
             Configuration.hold_policy() !=
             Configuration.HOLD_POLICY_ALLOW
         ):
