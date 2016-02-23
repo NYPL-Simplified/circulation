@@ -3446,13 +3446,16 @@ class Work(Base):
         since many public domain books have no summary.
 
         A work with no cover can be presentation ready 
+
+        A work with no genres can be presentation ready, but we do
+        at least need to know whether it's fiction or nonfiction.
         """
         if (not self.primary_edition
             or not self.license_pools
             or not self.title
             or (require_author and not self.primary_edition.author)
             or not self.language
-            or not self.work_genres
+            or self.fiction is None
             or (
                 require_thumbnail and not (
                     self.cover_thumbnail_url

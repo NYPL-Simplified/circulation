@@ -975,6 +975,16 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
+        # Remove the fiction setting, and the work stops being
+        # presentation ready.
+        work.fiction = None
+        work.set_presentation_ready_based_on_content()
+        eq_(False, work.presentation_ready)        
+
+        work.fiction = False
+        work.set_presentation_ready_based_on_content()
+        eq_(True, work.presentation_ready)        
+
         # Remove the author's presentation string, and the work stops
         # being presentation ready.
         primary.author = None
