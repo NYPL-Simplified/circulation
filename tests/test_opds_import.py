@@ -188,16 +188,17 @@ class TestOPDSImporter(DatabaseTest):
         [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
         # By default, this feed is treated as though it came from the
-        # metadata wrangler.
+        # metadata wrangler. No Work has been created for the 'crow'
+        # book because the metadat wrangler doesn't know who actually
+        # provides copies of this book.
         eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
-        eq_(Edition.BOOK_MEDIUM, crow.medium)
-        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
-
-        # Because of this, no works have been created for the books,
-        # because there's no expectation that we actually have a copy
-        # of the book.
         eq_(None, crow.work)
-        eq_(None, mouse.work)
+        eq_(Edition.BOOK_MEDIUM, crow.medium)
+
+        # But the 'mouse' book is known to come from Project Gutenberg,
+        # so a Work has been created for that book.
+        assert mouse.work is not None
+        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
         editions, popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
