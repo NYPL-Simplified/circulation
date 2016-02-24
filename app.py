@@ -207,11 +207,6 @@ def loadstorm_verify(code):
     else:
         return Response("", 404)
 
-# @app.route('/force_error/<string>')
-# def force_error(string):
-#     raise Exception("Forced error: %s" % string)
-#     # return problem(None, "Forced error: %s" % string, 500)
-
 if __name__ == '__main__':
     debug = True
     url = Configuration.integration_url(
