@@ -80,6 +80,7 @@ from config import (
 from lanes import make_lanes
 
 from adobe_vendor_id import AdobeVendorIDController
+from oauth import GoogleAuthService
 from axis import (
     Axis360API,
 )
@@ -227,6 +228,8 @@ class CirculationManager(object):
             self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
             self.adobe_vendor_id = None
 
+    def google(self):
+        return GoogleAuthService(self._db, self.url_for('google_auth_signin'))
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""

@@ -8,6 +8,7 @@ import flask
 from flask import (
     Flask, 
     Response,
+    redirect,
 )
 
 from config import Configuration
@@ -180,6 +181,12 @@ def adobe_vendor_id_accountinfo():
 @returns_problem_detail
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
+
+@app.route('/GoogleAuth/signin')
+@returns_problem_detail
+def google_auth_signin():
+    return app.manager.google().signin(flask.request.args)
+
 # Controllers used for operations purposes
 @app.route('/heartbeat')
 @returns_problem_detail
