@@ -24,9 +24,6 @@ class DummyGoogleClient(object):
         def to_json(self):
             return json.loads('{"id_token" : %s }' % json.dumps(self.id_token))
 
-        def from_json(self, json):
-            self
-
     def __init__(self, email='example@nypl.org'):
         self.credentials = self.Credentials(email=email)
         self.Oauth2Credentials = self.credentials
