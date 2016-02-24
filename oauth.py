@@ -23,14 +23,15 @@ class GoogleAuthService(object):
     </oauthResponse>
     """
 
-    def __init__(self, _db, redirect_uri):
+    def __init__(self, _db, redirect_uri, test_mode=False):
         self._db = _db
         self.datasource = DataSource.lookup(self._db, DataSource.GOOGLE)
-        self.client = GoogleClient.flow_from_clientsecrets(
-            '../nypl_config/client_secret.json',
-            scope='https://www.googleapis.com/auth/userinfo.email',
-            redirect_uri=redirect_uri
-        )
+        if not test_mode:
+            self.client = GoogleClient.flow_from_clientsecrets(
+                '../nypl_config/client_secret.json',
+                scope='https://www.googleapis.com/auth/userinfo.email',
+                redirect_uri=redirect_uri
+            )
 
     def signin(self, request):
         """Google Oauth sign-in flow"""

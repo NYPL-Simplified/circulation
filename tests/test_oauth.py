@@ -47,7 +47,7 @@ class DummyGoogleClient(object):
 class TestGoogleAuthService(DatabaseTest):
     def setup(self):
         super(TestGoogleAuthService, self).setup()
-        self.google = GoogleAuthService(self._db, "http://example.com/callback")
+        self.google = GoogleAuthService(self._db, "", test_mode=True)
         self.google.client = DummyGoogleClient()
 
     def test_signin(self):
