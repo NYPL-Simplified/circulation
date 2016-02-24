@@ -9,7 +9,6 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
-    DataSource,
 )
 from core.util.problem_detail import ProblemDetail as pd
 from problem_details import INVALID_ADMIN_CREDENTIALS
@@ -25,7 +24,6 @@ class GoogleAuthService(object):
 
     def __init__(self, _db, redirect_uri, test_mode=False):
         self._db = _db
-        self.datasource = DataSource.lookup(self._db, DataSource.GOOGLE)
         if not test_mode:
             self.client = GoogleClient.flow_from_clientsecrets(
                 '../nypl_config/client_secret.json',
@@ -61,7 +59,7 @@ class GoogleAuthService(object):
             credentials = self.client.step2_exchange(auth_code)
             email_domain = credentials.id_token.get('hd')
             if email_domain and email_domain == "nypl.org":
-                admin = self.create_admin_with_credentials(credentials)
+                admin = self.create_admin(credentials)
                 return self.AUTHENTICATION_RESPONSE_TEMPLATE % dict(
                     auth_id = admin.authorization_identifier
                 )
@@ -74,23 +72,23 @@ class GoogleAuthService(object):
         """Check for existing credentials"""
 
         admin = get_one(self._db, Admin, authorization_identifier=email)
-        credentials = admin.credential_for_source(self.datasource)
-        if credentials:
+        if admin and admin.credentials:
             # Use the credentials if they're not expired.
-            credentials = self._build_oauth_credentials(credentials)
-            return credentials.access_token_expired == False
+            oauth_credentials = self._build_oauth_credentials(admin.credentials)
+            return oauth_credentials.access_token_expired == False
         return False
 
     def _build_oauth_credentials(self, credentials):
-        """Builds our saved OauthCredentials into a Oauth2Credentials object"""
+        """Builds our saved credentials into a Oauth2Credentials object"""
         credentials = json.loads(credentials.as_json)
         return self.client.Oauth2Credentials.from_json(credentials)
 
-    def create_admin_with_credentials(self, credentials):
-        admin, is_new = get_one_or_create(
+    def create_admin(self, credentials):
+        credentials_str = json.dumps(credentials.to_json())
+        admin, ignore = get_one_or_create(
             self._db, Admin,
-            authorization_identifier=credentials.id_token.get('email')
+            authorization_identifier=credentials.id_token.get('email'),
+            credential=credentials_str,
         )
-        admin.add_authentication(self._db, self.datasource, credentials.to_json())
         return admin
 

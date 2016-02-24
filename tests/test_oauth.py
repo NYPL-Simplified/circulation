@@ -5,10 +5,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
-from ..core.model import (
-    Admin,
-    OauthCredential,
-)
+from ..core.model import Admin
 from ..core.util.problem_detail import ProblemDetail
 
 from ..oauth import GoogleAuthService
@@ -22,11 +19,7 @@ class DummyGoogleClient(object):
 
         def __init__(self, email):
             domain = email[email.index('@')+1:]
-            self.id_token = {"hd" : domain, "email" : email }
-
-        def access_token_expired(expired=False):
-            self.expired = expired
-            return self.expired
+            self.id_token = {"hd" : domain, "email" : email}
 
         def to_json(self):
             return json.loads('{"id_token" : %s }' % json.dumps(self.id_token))
@@ -53,9 +46,7 @@ class TestGoogleAuthService(DatabaseTest):
     def test_signin(self):
         # There are no admins or credentials in the database.
         admins = self._db.query(Admin)
-        credentials = self._db.query(OauthCredential)
         eq_(0, len(admins.all()))
-        eq_(0, len(credentials.all()))
 
         # Returns a problem detail when an email doesn't have authorization.
         self.google.client = DummyGoogleClient(email='broken@example.com')
@@ -76,8 +67,6 @@ class TestGoogleAuthService(DatabaseTest):
         # Successful case creates and admin with credentials
         success_response = self.google.signin({'code' : 'abc'})
         eq_(1, len(admins.all()))
-        eq_(1, len(credentials.all()))
-        credentials_belong_to_admin = admins.all()[0].credentials == credentials.all()
-        eq_(True, credentials_belong_to_admin)
+        assert "example@nypl.org" in admins.all()[0].credential
         assert "<authorizationIdentifier>" in success_response
         assert "example@nypl.org" in success_response
