@@ -598,6 +598,7 @@ class DataSource(Base):
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
+    GOOGLE = "Google Oauth"
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -636,6 +637,9 @@ class DataSource(Base):
 
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
+
+    # One DataSource can have many associated OauthCredentials.
+    oauth_credentials = relationship("OauthCredential", backref="data_source")
 
     @classmethod
     def lookup(cls, _db, name):
@@ -6473,13 +6477,61 @@ class Complaint(Base):
             complaint, is_new = create(
                 _db,
                 Complaint,
-                license_pool=license_pool, 
-                source=source, 
+                license_pool=license_pool,
+                source=source,
                 type=type,
                 timestamp=now,
                 detail=detail
             )
         return complaint, is_new
+
+
+class Admin(Base):
+
+    __tablename__ = 'admins'
+
+    id = Column(Integer, primary_key=True)
+    authorization_identifier = Column(
+        Unicode, unique=True, nullable=False, index=True
+    )
+    credentials = relationship("OauthCredential", backref="admin")
+
+    def add_authentication(self, _db, data_source, credentials_json):
+        """Deletes existing credential inf for a source and saves new info"""
+
+        existing = get_one(_db, OauthCredential, admin=self, data_source=data_source)
+        if existing:
+            _db.delete(existing)
+        create(
+            _db, OauthCredential, admin=self, data_source=data_source,
+            as_json=json.dumps(credentials_json)
+        )
+
+    def credential_for_source(self, data_source):
+        credentials = [
+            cred for cred in self.credentials if cred.data_source == data_source
+        ]
+        if credentials:
+            return credentials[0]
+        return None
+
+
+
+class OauthCredential(Base):
+
+    __tablename__ = 'oauth_credentials'
+
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(
+        Integer, ForeignKey('admins.id'), nullable=False, index=True
+    )
+    data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
+    as_json = Column(Unicode, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('admin_id', 'data_source_id'),
+    )
+
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
