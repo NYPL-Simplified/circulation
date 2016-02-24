@@ -18,6 +18,7 @@ from sqlalchemy.orm.exc import (
 import csv
 import datetime
 import logging
+import urlparse
 from util import LanguageCodes
 from model import (
     get_one,
@@ -732,8 +733,13 @@ class Metadata(object):
             replace_formats=False,
             replace_rights=False,
             force=False,
+            mirror=None,
     ):
-        """Apply this metadata to the given edition."""
+        """Apply this metadata to the given edition.
+
+        :param mirror: Open-access books and cover images will be mirrored
+        to this MirrorUploader.
+        """
         _db = Session.object_session(edition)
 
         # We were given an Edition, so either this metadata's
@@ -849,23 +855,19 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            thumbnail = link.thumbnail
-            if thumbnail:
-                if thumbnail.href == link.href:
-                    # The image serves as its own thumbnail. This is a
-                    # hacky way to represent this in the database.
-                    if link_obj.resource.representation:
-                        link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
-                else:
-                    # The thumbnail and image are different.
-                    thumbnail_obj, ignore = identifier.add_link(
-                        rel=thumbnail.rel, href=thumbnail.href, 
-                        data_source=data_source, 
-                        license_pool=pool, media_type=thumbnail.media_type,
-                        content=thumbnail.content
-                    )
-                    if thumbnail_obj.resource.representation:
-                        thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+            if mirror:
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(
+                    pool, data_source, link, link_obj, mirror
+                )
+            elif link.thumbnail:
+                # We don't need to mirror this image, but we do need
+                # to make sure that its thumbnail exists locally and
+                # is associated with the original image.
+                self.make_thumbnail(
+                    pool, data_source, link, link_obj
+                )
 
         if pool and replace_formats:
             for lpdm in pool.delivery_mechanisms:
@@ -927,6 +929,82 @@ class Metadata(object):
         # and data source.
         CoverageRecord.add_for(edition, data_source, self.last_update_time)
         return edition
+
+    def mirror_link(self, pool, data_source, link, link_obj, mirror):
+        """Retrieve a copy of the given link and make sure it gets
+        mirrored. If it's a full-size image, create a thumbnail and
+        mirror that too.
+        """
+        if link_obj.rel not in (
+                Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE,
+                Hyperlink.OPEN_ACCESS_DOWNLOAD
+        ):
+            return
+
+        _db = Session.object_session(pool)
+        original_url = link.href
+        identifier = pool.identifier
+
+        # This will fetch a representation of the original and 
+        # store it in the database.
+        representation, is_new = Representation.get(_db, link.href)
+        filename = representation.default_filename(link)
+        mirror_url = mirror.cover_image_url(
+            data_source, pool.identifier, filename
+        )
+        representation.mirror_url = mirror_url
+        mirror.mirror_one(representation)
+
+        if link_obj.rel == Hyperlink.IMAGE:
+            # Create and mirror a thumbnail.
+            set_trace()
+            thumbnail_filename = representation.default_filename(
+                link, Representation.PNG_MEDIA_TYPE
+            )
+            thumbnail_url = mirror.cover_image_url(
+                data_source, pool.identifier, thumbnail_filename,
+                Edition.MAX_THUMBNAIL_HEIGHT
+            )
+            thumbnail, is_new = representation.scale(
+                max_height=Edition.MAX_THUMBNAIL_HEIGHT,
+                max_width=Edition.MAX_THUMBNAIL_WIDTH,
+                destination_url=thumbnail_url,
+                destination_media_type=Representation.PNG_MEDIA_TYPE,
+                force=True
+            )
+            mirror.mirror_one(thumbnail)
+        set_trace()
+        pass
+
+    def make_thumbnail(self, pool, data_source, link, link_obj):
+        """Make sure a Hyperlink representing an image is connected
+        to its thumbnail.
+        """
+
+        thumbnail = link.thumbnail
+        if not thumbnail:
+            return None
+
+        if thumbnail.href == link.href:
+            # The image serves as its own thumbnail. This is a
+            # hacky way to represent this in the database.
+            if link_obj.resource.representation:
+                link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+            return link_obj
+
+        # The thumbnail and image are different. Make sure there's a
+        # separate link to the thumbnail.
+        thumbnail_obj, ignore = identifier.add_link(
+            rel=thumbnail.rel, href=thumbnail.href, 
+            data_source=data_source, 
+            license_pool=pool, media_type=thumbnail.media_type,
+            content=thumbnail.content
+        )
+        # And make sure the thumbnail knows it's a thumbnail of the main
+        # image.
+        if thumbnail_obj.resource.representation:
+            thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+        return thumbnail_obj
 
     def update_contributions(self, _db, edition, metadata_client=None, 
                              replace_contributions=False):

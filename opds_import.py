@@ -129,18 +129,22 @@ class OPDSImporter(object):
     communicates with a content server. It ignores author and subject
     information, under the assumption that it will get better author
     and subject information from the metadata wrangler.
+
+    :param mirror: Use this MirrorUploader object to mirror all
+    incoming open-access books and cover images.
     """
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, force=True):
+                 identifier_mapping=None, mirror=None, force=True):
         self._db = _db
         self.force = True
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
         self.metadata_client = SimplifiedOPDSLookup.from_config()
+        self.mirror = mirror
 
     def import_from_feed(self, feed, even_if_no_author=False, 
                          cutoff_date=None, 
@@ -167,7 +171,7 @@ class OPDSImporter(object):
                 # before that date. There's no reason to do anything.
                 continue
 
-            metadata.apply(edition, self.metadata_client)
+            metadata.apply(edition, self.metadata_client, mirror=self.mirror)
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
                 self.log.warn(

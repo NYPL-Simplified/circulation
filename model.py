@@ -6,6 +6,7 @@ from collections import (
 )
 from lxml import etree
 from nose.tools import set_trace
+import cairosvg
 import bisect
 import datetime
 import isbnlib
@@ -20,6 +21,7 @@ import requests
 import time
 import traceback
 import urllib
+import urlparse
 import uuid
 import warnings
 
@@ -2073,6 +2075,7 @@ class Edition(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
 
     MAX_THUMBNAIL_HEIGHT = 300
+    MAX_THUMBNAIL_WIDTH = 200
 
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
@@ -4148,6 +4151,14 @@ class Hyperlink(Base):
             l.append(m.hexdigest())
         return ":".join(l)
 
+    @property
+    def default_filename(self):
+        if self.rel == self.OPEN_ACCESS_CONTENT:
+            return 'content'
+        elif self.rel == self.IMAGE:
+            return 'cover'
+        elif self.rel == self.THUMBNAIL:
+            return 'cover-thumbnail'
 
 class Resource(Base):
     """An external resource that may be mirrored locally."""
@@ -5579,6 +5590,7 @@ class Representation(Base):
     JPEG_MEDIA_TYPE = u"image/jpeg"
     PNG_MEDIA_TYPE = u"image/png"
     GIF_MEDIA_TYPE = u"image/gif"
+    SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
@@ -5592,6 +5604,7 @@ class Representation(Base):
         JPEG_MEDIA_TYPE,
         PNG_MEDIA_TYPE,
         GIF_MEDIA_TYPE,
+        SVG_MEDIA_TYPE,
     ]
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
@@ -5604,6 +5617,7 @@ class Representation(Base):
         MP3_MEDIA_TYPE: "mp3",
         JPEG_MEDIA_TYPE: "jpg",
         PNG_MEDIA_TYPE: "png",
+        SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
     }
 
@@ -5778,7 +5792,9 @@ class Representation(Base):
 
         # Do we already have a usable representation?
         usable_representation = (
-            representation and not representation.fetch_exception)
+            representation and not representation.fetch_exception
+            and (representation.content or representation.local_path)
+        )
 
         # Assuming we have a usable representation, is it
         # fresh?
@@ -5999,6 +6015,42 @@ class Representation(Base):
         return os.path.join(Configuration.data_directory(),
                             self.local_content_path)
 
+    @property
+    def clean_media_type(self):
+        """The most basic version of this representation's media type."""
+        media_type = self.media_type
+        if ';' in media_type:
+            media_type = media_type[:media_type.index(';')].strip()
+        return media_type
+
+    def extension(self, destination_type=None):
+        """Try to come up with a good file extension for this representation."""
+        destination_type = destination_type or self.clean_media_type
+        value = Representation.FILE_EXTENSIONS.get(destination_type, '')
+        if not value:
+            return value
+        return '.' + value
+
+    def default_filename(self, link=None, destination_type=None):
+        """Try to come up with a good filename for this representation."""
+
+        scheme, netloc, path, query, fragment = urlparse.urlsplit(self.url)
+        path_parts = path.split("/")
+        filename = None
+        if path_parts:
+            filename = path_parts[-1]
+
+        if not filename and link:
+            filename = link.default_filename
+
+        default_extension = self.extension()
+        extension = self.extension(destination_type)
+        if default_extension != extension and filename.endswith(default_extension):
+            filename = filename[:-len(default_extension)] + extension
+        elif extension and not filename.endswith(extension):
+            filename += extension
+        return filename
+
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
 
@@ -6021,7 +6073,13 @@ class Representation(Base):
                 % self.media_type)
         if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
-        return Image.open(self.content_fh())
+
+        fh = self.content_fh()
+        if self.media_type == self.SVG_MEDIA_TYPE:
+            # Transparently convert the SVG to a PNG.
+            png_data = cairosvg.svg2png(fh.read())
+            fh = StringIO(png_data)
+        return Image.open(fh)
 
     pil_format_for_media_type = {
         "image/gif": "gif",
