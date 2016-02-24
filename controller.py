@@ -792,6 +792,8 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
         pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
         work = pool.work
         annotator = self.manager.annotator(None)
         return entry_response(
@@ -803,7 +805,7 @@ class WorkController(CirculationManagerController):
     
         # Turn source + identifier into a LicensePool
         pool = self.load_licensepool(data_source, identifier)
-        if isinstance(pool, Response):
+        if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
     
