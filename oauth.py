@@ -73,13 +73,10 @@ class GoogleAuthService(object):
         """Check for existing credentials"""
 
         admin = get_one(self._db, Admin, authorization_identifier=email)
-        set_trace()
         credentials = admin.credential_for_source(self.datasource)
         if credentials:
             # Use the credentials if they're not expired.
-            # set_trace()
             credentials = self._build_oauth_credentials(credentials)
-            # set_trace()
             return credentials.access_token_expired == False
         return False
 
