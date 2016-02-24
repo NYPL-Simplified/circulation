@@ -38,12 +38,14 @@ class ExternalSearchIndex(Elasticsearch):
                     age_range, in_any_of_these_genres=[], fields=None, limit=30):
         if not self.works_index:
             return []
+        filter = self.make_filter(
+            media, languages, exclude_languages, fiction, audience,
+            age_range, in_any_of_these_genres
+        )
         q = dict(
             filtered=dict(
                 query=self.make_query(query_string),
-                filter=self.make_filter(
-                    media, languages, exclude_languages, fiction, audience,
-                    age_range, in_any_of_these_genres),
+                filter=filter,
             ),
         )
         body = dict(query=q)
@@ -204,8 +206,30 @@ class ExternalSearchIndex(Elasticsearch):
 
             age_clause = {
                 "and": [
-                    {"range": {"target_age.upper": {"gte": lower}}},
-                    {"range": {"target_age.lower": {"lte": upper}}},
+                    { 
+                        "or" : [
+                            {"range": {"target_age.upper": {"gte": lower}}},
+                            {
+                                "bool": {
+                                    "must_not" : {
+                                        "exists": {"field" : "target_age.upper"}
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "or" : [
+                            {"range": {"target_age.lower": {"lte": upper}}},
+                            {
+                                "bool": {
+                                    "must_not" : {
+                                        "exists": {"field" : "target_age.lower"}
+                                    }
+                                }
+                            }
+                        ]
+                    }
                 ]
             }
             clauses.append(age_clause)
