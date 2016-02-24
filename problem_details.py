@@ -13,3 +13,10 @@ UNRECOGNIZED_DATA_SOURCE = pd(
       "Unrecognized data source.",
       "I don't know anything about that data source.",
 )
+
+INVALID_ADMIN_CREDENTIALS = pd(
+    "http://librarysimplified.org/terms/problem/no-admin-authorization",
+    401,
+    "Invalid administrative credentials",
+    "A valid admin email is required.",
+)
