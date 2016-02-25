@@ -6487,10 +6487,14 @@ class Admin(Base):
     __tablename__ = 'admins'
 
     id = Column(Integer, primary_key=True)
-    authorization_identifier = Column(
-        Unicode, unique=True, nullable=False, index=True
-    )
-    credential = Column(Unicode, nullable=False)
+    authorization_identifier = Column(Unicode, unique=True, nullable=False)
+    access_token = Column(Unicode, index=True)
+    credential = Column(Unicode)
+
+    def update_credentials(self, _db, access_token, credential):
+        self.access_token = access_token
+        self.credential = credential
+        _db.commit()
 
 
 from sqlalchemy.sql import compiler
