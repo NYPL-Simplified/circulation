@@ -168,3 +168,10 @@ CANNOT_RELEASE_HOLD = pd(
     "Could not release hold.",
     "Could not release hold."
 )
+
+INVALID_ADMIN_CREDENTIALS = pd(
+      "http://librarysimplified.org/terms/problem/admin-credentials-invalid",
+      401,
+      "Invalid admin credentials",
+      "A valid library staff email is required.",
+)

@@ -27,9 +27,11 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
+    Admin,
     SessionManager,
     CachedFeed,
     get_one,
+    create,
 )
 from ..core.lane import (
     Facets,
@@ -53,6 +55,7 @@ from ..core.opds import (
     AcquisitionFeed,
 )
 from ..opds import CirculationManagerAnnotator
+from ..oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
@@ -256,6 +259,36 @@ class TestIndexController(ControllerTest):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
+
+
+class TestAdminController(ControllerTest):
+
+    def setup(self):
+        super(TestAdminController, self).setup()
+        self.admin, ignore = create(
+            self._db, Admin, authorization_identifier=u'example@nypl.org',
+            access_token=u'abc123', credential=json.dumps({u'abc':123})
+        )
+        self._db.commit()
+
+    def test_authenticated_admin_from_request(self):
+        wrong_domain, ignore = create(
+            self._db, Admin, authorization_identifier=u'example@gmail.com',
+            access_token=u'def456', credential=json.dumps({u'def':456})
+        )
+        with self.app.test_request_context(
+            '/admin', headers=dict(Authorization="Bearer "+wrong_domain.access_token)
+        ):
+            invalid_response = self.manager.admin_controller.admin_info()
+            eq_(True, isinstance(invalid_admin_response, INVALID_CREDENTIALS))
+
+    def test_admin_info(self):
+        with self.app.test_request_context(
+            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
+        ):
+            admin_info = json.loads(self.manager.admin_controller.admin_info())
+            eq_('example@nypl.org', admin_info.get('email'))
+            eq_('abc123', admin_info.get('access_token'))
 
 
 class TestAccountController(ControllerTest):
@@ -473,7 +506,6 @@ class TestLoanController(ControllerTest):
                     DataSource.THREEM, pool.identifier.identifier)
                 
                 eq_(201, response.status_code)
-                
 
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
@@ -716,7 +748,6 @@ class TestFeedController(ControllerTest):
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
                 eq_(1, counter['Other Languages'])
-        
 
     def test_search(self):
         with self.app.test_request_context("/?q=sam"):

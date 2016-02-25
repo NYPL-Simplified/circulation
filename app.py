@@ -72,7 +72,19 @@ def returns_problem_detail(f):
             return v.response
         return v
     return decorated
-        
+
+def requires_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        admin = app.manager.admin_controller.authenticated_admin_from_request()
+        if isinstance(admin, ProblemDetail):
+            return admin.response
+        elif admin.startswith('https://'):
+            return redirect(admin)
+        else:
+            return f(*args, **kwargs)
+    return decorated
+
 @app.route('/')
 @returns_problem_detail
 def index():
@@ -185,7 +197,13 @@ def adobe_vendor_id_status():
 @app.route('/GoogleAuth/signin')
 @returns_problem_detail
 def google_auth_signin():
-    return app.manager.google().signin(flask.request.args)
+    return app.manager.admin_controller.signin(flask.request.args)
+
+@app.route('/admin')
+@requires_admin
+@returns_problem_detail
+def admin():
+    return app.manager.admin_controller.admin_info()
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')
