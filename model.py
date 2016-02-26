@@ -6487,7 +6487,7 @@ class Admin(Base):
     __tablename__ = 'admins'
 
     id = Column(Integer, primary_key=True)
-    authorization_identifier = Column(Unicode, unique=True, nullable=False)
+    email = Column(Unicode, unique=True, nullable=False)
     access_token = Column(Unicode, index=True)
     credential = Column(Unicode)
 
