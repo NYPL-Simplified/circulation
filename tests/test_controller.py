@@ -281,7 +281,8 @@ class TestAdminController(ControllerTest):
         # Redirects to Google Oauth flow if you don't
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_controller.authenticated_admin_from_request()
-            eq_("GOOGLE REDIRECT", response)
+            eq_(302, response.status_code)
+            eq_(u"GOOGLE REDIRECT", response.headers['Location'])
 
     def test_admin_info(self):
         # Will give you admin details if you pass it an admin.

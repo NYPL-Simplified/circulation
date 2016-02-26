@@ -14,7 +14,6 @@ import flask
 from flask import (
     Response,
     redirect,
-
 )
 
 from core.app_server import (
@@ -400,7 +399,7 @@ class AdminController(CirculationManagerController):
     @property
     def google(self):
         return GoogleAuthService(
-            self._db, self.url_for('google_auth_signin'),
+            self._db, self.url_for('google_auth_callback'),
             test_mode=self.manager.testing
         )
 
@@ -410,7 +409,7 @@ class AdminController(CirculationManagerController):
             admin = get_one(self._db, Admin, access_token=authorization[7:])
             if admin and self.google.active_credentials(admin):
                 return admin
-        return self.google.auth_uri
+        return redirect(self.google.auth_uri)
 
     def authenticated_admin(self, credentials):
         """Creates or updates an admin with the given credentials"""
@@ -438,7 +437,6 @@ class AdminController(CirculationManagerController):
         else:
             admin = self.authenticated_admin(credentials)
             return self.admin_info(admin)
-
 
 
 class IndexController(CirculationManagerController):

@@ -10,6 +10,7 @@ from flask import (
     Response,
     redirect,
 )
+from werkzeug.wrappers import Response as RedirectResponse
 
 from config import Configuration
 from core.app_server import (
@@ -79,8 +80,10 @@ def requires_admin(f):
         admin = app.manager.admin_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
             return admin.response
-        elif admin.startswith('https://'):
-            return redirect(admin)
+        elif isinstance(admin, RedirectResponse):
+            # A returned redirect uses the werkzeug.wrappers base class to
+            # create a response here.
+            return admin
         else:
             return f(*args, **kwargs)
     return decorated
@@ -194,9 +197,9 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
-@app.route('/GoogleAuth/signin')
+@app.route('/GoogleAuth/callback')
 @returns_problem_detail
-def google_auth_signin():
+def google_auth_callback():
     return app.manager.admin_controller.signin(flask.request.args)
 
 @app.route('/admin')
