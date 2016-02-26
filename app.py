@@ -8,7 +8,9 @@ import flask
 from flask import (
     Flask, 
     Response,
+    redirect,
 )
+from werkzeug.wrappers import Response as RedirectResponse
 
 from config import Configuration
 from core.app_server import (
@@ -71,7 +73,21 @@ def returns_problem_detail(f):
             return v.response
         return v
     return decorated
-        
+
+def requires_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        admin = app.manager.admin_controller.authenticated_admin_from_request()
+        if isinstance(admin, ProblemDetail):
+            return admin.response
+        elif isinstance(admin, RedirectResponse):
+            # A returned redirect uses the werkzeug.wrappers base class to
+            # create a response here.
+            return admin
+        else:
+            return f(*args, **kwargs)
+    return decorated
+
 @app.route('/')
 @returns_problem_detail
 def index():
@@ -180,6 +196,18 @@ def adobe_vendor_id_accountinfo():
 @returns_problem_detail
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
+
+@app.route('/GoogleAuth/callback')
+@returns_problem_detail
+def google_auth_callback():
+    return app.manager.admin_controller.signin(flask.request.args)
+
+@app.route('/admin')
+@requires_admin
+@returns_problem_detail
+def admin():
+    return app.manager.admin_controller.admin_info()
+
 # Controllers used for operations purposes
 @app.route('/heartbeat')
 @returns_problem_detail
@@ -199,11 +227,6 @@ def loadstorm_verify(code):
         return Response("", 200)
     else:
         return Response("", 404)
-
-# @app.route('/force_error/<string>')
-# def force_error(string):
-#     raise Exception("Forced error: %s" % string)
-#     # return problem(None, "Forced error: %s" % string, 500)
 
 if __name__ == '__main__':
     debug = True

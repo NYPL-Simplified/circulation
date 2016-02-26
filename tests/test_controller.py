@@ -27,9 +27,11 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
+    Admin,
     SessionManager,
     CachedFeed,
     get_one,
+    create,
 )
 from ..core.lane import (
     Facets,
@@ -53,6 +55,7 @@ from ..core.opds import (
     AcquisitionFeed,
 )
 from ..opds import CirculationManagerAnnotator
+from ..oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
@@ -257,6 +260,66 @@ class TestIndexController(ControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
 
+
+class TestAdminController(ControllerTest):
+
+    def setup(self):
+        super(TestAdminController, self).setup()
+        self.admin, ignore = create(
+            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
+            credential=json.dumps({u'abc':123})
+        )
+
+    def test_authenticated_admin_from_request(self):
+        # Sends you an admin if you send their access token in the headers.
+        with self.app.test_request_context(
+            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
+        ):
+            response = self.manager.admin_controller.authenticated_admin_from_request()
+            eq_(self.admin, response)
+
+        # Redirects to Google Oauth flow if you don't
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_controller.authenticated_admin_from_request()
+            eq_(302, response.status_code)
+            eq_(u"GOOGLE REDIRECT", response.headers['Location'])
+
+    def test_authenticated_admin(self):
+        # Creates a new admin with fresh details.
+        new_admin_details = {
+            'email' : u'admin@nypl.org', 'email_domain' : u'nypl.org',
+            'access_token' : u'tubular', 'credentials' : u'gnarly'
+        }
+        admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
+        eq_('admin@nypl.org', admin.email)
+        eq_('tubular', admin.access_token)
+        eq_('gnarly', admin.credential)
+
+        # Or overwrites credentials for an existing admin.
+        existing_admin_details = {
+            'email' : u'example@nypl.org', 'email_domain' : u'nypl.org',
+            'access_token' : u'bananas', 'credentials' : u'b-a-n-a-n-a-s',
+        }
+        admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
+        eq_(self.admin.id, admin.id)
+        eq_('bananas', self.admin.access_token)
+        eq_('b-a-n-a-n-a-s', self.admin.credential)
+
+    def test_admin_info(self):
+        # Will give you admin details if you pass it an admin.
+        # This allows the Google callback flow to return something.
+        passed_admin_info = self.manager.admin_controller.admin_info(admin=self.admin)
+        passed_admin_info = json.loads(passed_admin_info)
+        eq_(self.admin.email, passed_admin_info.get('email'))
+        eq_(self.admin.access_token, passed_admin_info.get('access_token'))
+
+        # Otherwise, it'll do it based on the authorization header
+        with self.app.test_request_context(
+            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
+        ):
+            admin_info = json.loads(self.manager.admin_controller.admin_info())
+            eq_(self.admin.email, admin_info.get('email'))
+            eq_(self.admin.access_token, admin_info.get('access_token'))
 
 class TestAccountController(ControllerTest):
 
@@ -473,7 +536,6 @@ class TestLoanController(ControllerTest):
                     DataSource.THREEM, pool.identifier.identifier)
                 
                 eq_(201, response.status_code)
-                
 
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
@@ -716,7 +778,6 @@ class TestFeedController(ControllerTest):
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
                 eq_(1, counter['Other Languages'])
-        
 
     def test_search(self):
         with self.app.test_request_context("/?q=sam"):

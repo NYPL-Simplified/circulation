@@ -14,7 +14,6 @@ import flask
 from flask import (
     Response,
     redirect,
-
 )
 
 from core.app_server import (
@@ -42,6 +41,7 @@ from core.lane import (
 )
 from core.model import (
     get_one,
+    get_one_or_create,
     Complaint,
     DataSource,
     Hold,
@@ -49,6 +49,7 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
+    Admin,
 )
 from core.opds import (
     E,
@@ -80,6 +81,7 @@ from config import (
 from lanes import make_lanes
 
 from adobe_vendor_id import AdobeVendorIDController
+from oauth import GoogleAuthService
 from axis import (
     Axis360API,
 )
@@ -196,7 +198,6 @@ class CirculationManager(object):
                 axis=self.axis
             )
 
-
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
         self.index_controller = IndexController(self)
@@ -205,6 +206,7 @@ class CirculationManager(object):
         self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
+        self.admin_controller = AdminController(self)
 
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
@@ -226,7 +228,6 @@ class CirculationManager(object):
         else:
             self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
             self.adobe_vendor_id = None
-
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
@@ -278,7 +279,6 @@ class CirculationManagerController(object):
         if not header:
             # No credentials were provided.
             return self.authenticate()
-
         try:
             patron = self.authenticated_patron(header.username, header.password)
         except RemoteInitiatedServerError,e:
@@ -393,6 +393,54 @@ class CirculationManagerController(object):
                 status_code=403
             )        
         return None
+
+
+class AdminController(CirculationManagerController):
+
+    @property
+    def google(self):
+        return GoogleAuthService(
+            self._db, self.url_for('google_auth_callback'),
+            test_mode=self.manager.testing
+        )
+
+    def authenticated_admin_from_request(self):
+        authorization = flask.request.environ.get('HTTP_AUTHORIZATION')
+        if authorization:
+            admin = get_one(self._db, Admin, access_token=authorization[7:])
+            if admin and self.google.active_credentials(admin):
+                return admin
+        return redirect(self.google.auth_uri)
+
+    def authenticated_admin(self, admin_details):
+        """Creates or updates an admin with the given details"""
+        admin, ignore = get_one_or_create(
+            self._db, Admin, email=admin_details['email']
+        )
+        admin.update_credentials(
+            self._db, admin_details['access_token'], admin_details['credentials']
+        )
+        return admin
+
+    def admin_info(self, admin=None):
+        if not admin:
+            admin = self.authenticated_admin_from_request()
+        return json.dumps(dict(
+            email=admin.email,
+            access_token=admin.access_token
+        ))
+
+    def signin(self, request_args):
+        admin_details = self.google.callback(request_args)
+        if isinstance(admin_details, ProblemDetail):
+            return ProblemDetail
+
+        if admin_details['email_domain'] != "nypl.org":
+            return INVALID_ADMIN_CREDENTIALS
+        else:
+            admin = self.authenticated_admin(admin_details)
+            return self.admin_info(admin)
+
 
 class IndexController(CirculationManagerController):
     """Redirect the patron to the appropriate feed."""
@@ -510,16 +558,18 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(opds_feed)
 
+
 class AccountController(CirculationManagerController):
 
     def account(self):
         header = flask.request.authorization
-    
+
         patron_info = self.manager.auth.patron_info(header.username)
         return json.dumps(dict(
             username=patron_info.get('username', None),
             barcode=patron_info.get('barcode'),
         ))
+
 
 class LoanController(CirculationManagerController):
 
@@ -779,6 +829,7 @@ class LoanController(CirculationManagerController):
             feed = unicode(feed)
             return feed_response(feed, None)
 
+
 class WorkController(CirculationManagerController):
 
     def permalink(self, data_source, identifier):
@@ -818,7 +869,6 @@ class WorkController(CirculationManagerController):
         data = flask.request.data
         controller = ComplaintController()
         return controller.register(pool, data)
-    
 
 
 class ServiceStatusController(CirculationManagerController):
