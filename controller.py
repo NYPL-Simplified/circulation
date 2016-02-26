@@ -480,10 +480,22 @@ class OPDSFeedController(CirculationManagerController):
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+        if lane.lists or lane.list_data_source:
+            # Lists contain a very small proportion of the books on
+            # the site. Using the materialized view for a list query
+            # will cause a scan of the entire view looking to pick out
+            # a few books in the correct order. Forgoing the
+            # materialized views will let us join LicensePool against
+            # CustomListEntry, which will instantly eliminate most
+            # books from consideration.
+            use_materialized_works = False
+        else:
+            use_materialized_works = True
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
+            use_materialized_works=use_materialized_works,
         )
         return feed_response(feed.content)
 
