@@ -42,8 +42,8 @@ class GoogleAuthService(object):
         if auth_code:
             credentials = self.client.step2_exchange(auth_code)
             return dict(
-                domain=credentials.id_token.get('email'),
                 email_domain=credentials.id_token.get('hd'),
+                email=credentials.id_token.get('email'),
                 access_token=credentials.get_access_token()[0],
                 credentials=json.dumps(credentials.to_json()),
             )

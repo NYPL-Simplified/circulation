@@ -417,10 +417,7 @@ class AdminController(CirculationManagerController):
 
     def authenticated_admin(self, credentials):
         """Creates or updates an admin with the given credentials"""
-        admin, is_new = get_one_or_create(
-            self._db, Admin,
-            authorization_identifier=credentials['email'],
-        )
+        admin = Admin(email=credentials['email'])
         admin.update_credentials(
             self._db, credentials['access_token'], credentials['credentials']
         )
@@ -429,9 +426,8 @@ class AdminController(CirculationManagerController):
     def admin_info(self, admin=None):
         if not admin:
             admin = self.authenticated_admin_from_request()
-        set_trace()
         return json.dumps(dict(
-            email=admin.authorization_identifier,
+            email=admin.email,
             access_token=admin.access_token
         ))
 
