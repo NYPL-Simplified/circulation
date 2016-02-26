@@ -399,9 +399,8 @@ class AdminController(CirculationManagerController):
 
     @property
     def google(self):
-        return GoogleAuthService(
-            self._db, self.url_for('google_auth_callback'),
-            test_mode=self.manager.testing
+        return GoogleAuthService.from_environment(
+            self.url_for('google_auth_callback'), test_mode=self.manager.testing
         )
 
     def authenticated_admin_from_request(self, access_token=None):
@@ -449,12 +448,19 @@ class AdminController(CirculationManagerController):
         if isinstance(admin_details, ProblemDetail):
             return ProblemDetail
 
-        if admin_details['email_domain'] != "nypl.org":
+        if not self.staff_email(admin_details['email']):
             return INVALID_ADMIN_CREDENTIALS
         else:
             admin = self.authenticated_admin(admin_details)
             admin_url = self.url_for('admin') + '/' + admin.access_token
             return redirect(admin_url, Response=Response)
+
+    def staff_email(self, email):
+        staff_domain = Configuration.policy(
+            Configuration.ADMIN_AUTH_DOMAIN, required=True
+        )
+        domain = email[email.index('@')+1:]
+        return domain == staff_domain
 
 
 class IndexController(CirculationManagerController):

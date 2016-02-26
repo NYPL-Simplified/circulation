@@ -278,17 +278,22 @@ class TestAdminController(ControllerTest):
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
-        # Redirects to Google OAuth flow if you don't.
-        with self.app.test_request_context('/admin'):
-            response = self.manager.admin_controller.authenticated_admin_from_request()
-            eq_(302, response.status_code)
-            eq_(u"GOOGLE REDIRECT", response.headers['Location'])
+        # Redirects to Google OAuth flow if you don't
+        with temp_config() as config:
+            config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
+                Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
+            }
+            with self.app.test_request_context('/admin'):
+                response = self.manager.admin_controller.authenticated_admin_from_request()
+                eq_(302, response.status_code)
+                eq_(u"GOOGLE REDIRECT", response.headers['Location'])
 
     def test_authenticated_admin(self):
         # Creates a new admin with fresh details.
         new_admin_details = {
-            'email' : u'admin@nypl.org', 'email_domain' : u'nypl.org',
-            'access_token' : u'tubular', 'credentials' : u'gnarly'
+            'email' : u'admin@nypl.org',
+            'access_token' : u'tubular',
+            'credentials' : u'gnarly',
         }
         admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
         eq_('admin@nypl.org', admin.email)
@@ -297,8 +302,9 @@ class TestAdminController(ControllerTest):
 
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
-            'email' : u'example@nypl.org', 'email_domain' : u'nypl.org',
-            'access_token' : u'bananas', 'credentials' : u'b-a-n-a-n-a-s',
+            'email' : u'example@nypl.org',
+            'access_token' : u'bananas',
+            'credentials' : u'b-a-n-a-n-a-s',
         }
         admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
         eq_(self.admin.id, admin.id)
@@ -322,6 +328,15 @@ class TestAdminController(ControllerTest):
             admin_info = json.loads(self.manager.admin_controller.admin_info())
             eq_(self.admin.email, admin_info.get('email'))
             eq_(self.admin.access_token, admin_info.get('access_token'))
+
+    def test_staff_email(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
+            with self.app.test_request_context('/admin'):
+                staff_email = self.manager.admin_controller.staff_email("working@alibrary.org")
+                interloper_email = self.manager.admin_controller.staff_email("rando@gmail.com")
+                eq_(True, staff_email)
+                eq_(False, interloper_email)
 
 
 class TestAccountController(ControllerTest):

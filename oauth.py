@@ -2,12 +2,12 @@ import json
 from nose.tools import set_trace
 
 from core.util.problem_detail import ProblemDetail as pd
+from config import Configuration
 from oauth2client import client as GoogleClient
 
 class GoogleAuthService(object):
 
-    def __init__(self, _db, redirect_uri, test_mode=False):
-        self._db = _db
+    def __init__(self, client_json_file, redirect_uri, test_mode=False):
         if test_mode:
             self.client = DummyGoogleClient()
         else:
@@ -21,6 +21,14 @@ class GoogleAuthService(object):
     def auth_uri(self):
         return self.client.step1_get_authorize_url()
 
+    @classmethod
+    def from_environment(cls, redirect_uri, test_mode=False):
+        config = Configuration.integration(
+            Configuration.GOOGLE_OAUTH_INTEGRATION, required=True
+        )
+        client_json_file = config[Configuration.GOOGLE_OAUTH_CLIENT_JSON]
+        return cls(client_json_file, redirect_uri, test_mode)
+
     def callback(self, request={}):
         """Google OAuth sign-in flow"""
 
@@ -33,7 +41,6 @@ class GoogleAuthService(object):
         if auth_code:
             credentials = self.client.step2_exchange(auth_code)
             return dict(
-                email_domain=credentials.id_token.get('hd'),
                 email=credentials.id_token.get('email'),
                 access_token=credentials.get_access_token()[0],
                 credentials=json.dumps(credentials.to_json()),

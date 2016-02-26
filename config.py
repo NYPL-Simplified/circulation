@@ -16,6 +16,7 @@ class Configuration(CoreConfiguration):
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
+    ADMIN_AUTH_DOMAIN = "admin_authentication_domain"
 
     LANES_POLICY = "lanes"
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
@@ -35,6 +36,9 @@ class Configuration(CoreConfiguration):
 
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
+
+    GOOGLE_OAUTH_INTEGRATION = "Google OAuth"
+    GOOGLE_OAUTH_CLIENT_JSON = "client_json_file"
 
     LIST_FIELDS = "fields"
    

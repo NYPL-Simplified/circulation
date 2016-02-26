@@ -27,7 +27,6 @@ class TestGoogleAuthService(DatabaseTest):
 
         # Successful case creates a dict of admin details
         success = self.google.callback({'code' : 'abc'})
-        eq_('nypl.org', success['email_domain'])
         eq_('example@nypl.org', success['email'])
         eq_('opensesame', success['access_token'])
         default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
