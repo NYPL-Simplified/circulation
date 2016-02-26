@@ -406,13 +406,10 @@ class AdminController(CirculationManagerController):
 
     def authenticated_admin_from_request(self):
         authorization = flask.request.environ.get('HTTP_AUTHORIZATION')
-        if not authorization:
-            return self.google.auth_uri
-
-        admin = get_one(self._db, Admin, access_token=authorization[7:])
-        if admin and self.google.active_credentials(admin):
-            return admin
-
+        if authorization:
+            admin = get_one(self._db, Admin, access_token=authorization[7:])
+            if admin and self.google.active_credentials(admin):
+                return admin
         return self.google.auth_uri
 
     def authenticated_admin(self, credentials):

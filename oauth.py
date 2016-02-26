@@ -32,12 +32,12 @@ class GoogleAuthService(object):
 
     def callback(self, request={}):
         """Google Oauth sign-in flow"""
+
         # The Google Oauth client sometimes hits the callback with an error.
         # These will be returned as a problem detail.
         error = request.get('error')
         if error:
-            return google_error_problem_detail(error)
-
+            return self.google_error_problem_detail(error)
         auth_code = request.get('code')
         if auth_code:
             credentials = self.client.step2_exchange(auth_code)
