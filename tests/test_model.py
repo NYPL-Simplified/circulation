@@ -1698,6 +1698,22 @@ class TestRepresentation(DatabaseTest):
         eq_(".jpg", m("image/jpeg"))
         eq_("", m("no/such-media-type"))
 
+    def test_as_image_converts_svg_to_png(self):
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50">
+    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+</svg>"""
+        edition = self._edition()
+        pool = self._licensepool(edition)
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
+            content=svg)
+        image = hyperlink.resource.representation.as_image()
+        eq_("PNG", image.format)
+
 class TestScaleRepresentation(DatabaseTest):
 
     def test_set_cover(self):
