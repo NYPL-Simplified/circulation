@@ -41,6 +41,7 @@ from core.lane import (
 )
 from core.model import (
     get_one,
+    get_one_or_create,
     Complaint,
     DataSource,
     Hold,
@@ -411,11 +412,13 @@ class AdminController(CirculationManagerController):
                 return admin
         return redirect(self.google.auth_uri)
 
-    def authenticated_admin(self, credentials):
-        """Creates or updates an admin with the given credentials"""
-        admin = Admin(email=credentials['email'])
+    def authenticated_admin(self, admin_details):
+        """Creates or updates an admin with the given details"""
+        admin, ignore = get_one_or_create(
+            self._db, Admin, email=admin_details['email']
+        )
         admin.update_credentials(
-            self._db, credentials['access_token'], credentials['credentials']
+            self._db, admin_details['access_token'], admin_details['credentials']
         )
         return admin
 
@@ -428,14 +431,14 @@ class AdminController(CirculationManagerController):
         ))
 
     def signin(self, request_args):
-        credentials = self.google.callback(request_args)
-        if isinstance(credentials, ProblemDetail):
+        admin_details = self.google.callback(request_args)
+        if isinstance(admin_details, ProblemDetail):
             return ProblemDetail
 
-        if credentials['email_domain'] != "nypl.org":
+        if admin_details['email_domain'] != "nypl.org":
             return INVALID_ADMIN_CREDENTIALS
         else:
-            admin = self.authenticated_admin(credentials)
+            admin = self.authenticated_admin(admin_details)
             return self.admin_info(admin)
 
 

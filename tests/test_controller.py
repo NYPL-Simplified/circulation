@@ -284,6 +284,27 @@ class TestAdminController(ControllerTest):
             eq_(302, response.status_code)
             eq_(u"GOOGLE REDIRECT", response.headers['Location'])
 
+    def test_authenticated_admin(self):
+        # Creates a new admin with fresh details.
+        new_admin_details = {
+            'email' : u'admin@nypl.org', 'email_domain' : u'nypl.org',
+            'access_token' : u'tubular', 'credentials' : u'gnarly'
+        }
+        admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
+        eq_('admin@nypl.org', admin.email)
+        eq_('tubular', admin.access_token)
+        eq_('gnarly', admin.credential)
+
+        # Or overwrites credentials for an existing admin.
+        existing_admin_details = {
+            'email' : u'example@nypl.org', 'email_domain' : u'nypl.org',
+            'access_token' : u'bananas', 'credentials' : u'b-a-n-a-n-a-s',
+        }
+        admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
+        eq_(self.admin.id, admin.id)
+        eq_('bananas', self.admin.access_token)
+        eq_('b-a-n-a-n-a-s', self.admin.credential)
+
     def test_admin_info(self):
         # Will give you admin details if you pass it an admin.
         # This allows the Google callback flow to return something.
