@@ -1686,6 +1686,18 @@ class TestRepresentation(DatabaseTest):
         eq_(True, cached)
         eq_(representation, representation2)
 
+    def test_clean_media_type(self):
+        m = Representation._clean_media_type
+        eq_("image/jpeg", m("image/jpeg"))
+        eq_("application/atom+xml",
+            m("application/atom+xml;profile=opds-catalog;kind=acquisition")
+        )
+
+    def test_extension(self):
+        m = Representation._extension
+        eq_(".jpg", m("image/jpeg"))
+        eq_("", m("no/such-media-type"))
+
 class TestScaleRepresentation(DatabaseTest):
 
     def test_set_cover(self):

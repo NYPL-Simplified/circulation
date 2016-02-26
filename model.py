@@ -5791,9 +5791,15 @@ class Representation(Base):
             max_age = max_age.total_seconds()
 
         # Do we already have a usable representation?
+        #
+        # 'Usable' means we tried it and either got some data or
+        # received a status code outside the 2xx series.
         usable_representation = (
             representation and not representation.fetch_exception
-            and (representation.content or representation.local_path)
+            and (
+                representation.content or representation.local_path
+                or representation.status_code / 100 != 2
+            )
         )
 
         # Assuming we have a usable representation, is it
@@ -6017,16 +6023,26 @@ class Representation(Base):
 
     @property
     def clean_media_type(self):
-        """The most basic version of this representation's media type."""
-        media_type = self.media_type
-        if ';' in media_type:
-            media_type = media_type[:media_type.index(';')].strip()
-        return media_type
+        """The most basic version of this representation's media type.
+
+        No profiles or anything.
+        """
+        return self._clean_media_type(self.media_type)
 
     def extension(self, destination_type=None):
         """Try to come up with a good file extension for this representation."""
         destination_type = destination_type or self.clean_media_type
-        value = Representation.FILE_EXTENSIONS.get(destination_type, '')
+        return self._extension(destination_type)
+
+    @classmethod
+    def _clean_media_type(cls, media_type):
+        if ';' in media_type:
+            media_type = media_type[:media_type.index(';')].strip()
+        return media_type
+
+    @classmethod
+    def _extension(cls, media_type):
+        value = cls.FILE_EXTENSIONS.get(media_type, '')
         if not value:
             return value
         return '.' + value
