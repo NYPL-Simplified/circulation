@@ -87,6 +87,9 @@ class DummyGoogleClient(object):
         def from_json(self, credentials):
             return self
 
+        def get_access_token(self):
+            return ["opensesame"]
+
     def __init__(self, email='example@nypl.org'):
         self.credentials = self.Credentials(email=email)
         self.Oauth2Credentials = self.credentials
@@ -96,3 +99,6 @@ class DummyGoogleClient(object):
 
     def step2_exchange(self, auth_code):
         return self.credentials
+
+    def step1_get_authorize_url(self):
+        return "GOOGLE REDIRECT"

@@ -266,30 +266,38 @@ class TestAdminController(ControllerTest):
     def setup(self):
         super(TestAdminController, self).setup()
         self.admin, ignore = create(
-            self._db, Admin, authorization_identifier=u'example@nypl.org',
-            access_token=u'abc123', credential=json.dumps({u'abc':123})
+            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
+            credential=json.dumps({u'abc':123})
         )
-        self._db.commit()
 
     def test_authenticated_admin_from_request(self):
-        wrong_domain, ignore = create(
-            self._db, Admin, authorization_identifier=u'example@gmail.com',
-            access_token=u'def456', credential=json.dumps({u'def':456})
-        )
+        # Sends you an admin if you send their access token in the headers.
         with self.app.test_request_context(
-            '/admin', headers=dict(Authorization="Bearer "+wrong_domain.access_token)
+            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
         ):
-            invalid_response = self.manager.admin_controller.admin_info()
-            eq_(True, isinstance(invalid_admin_response, INVALID_CREDENTIALS))
+            response = self.manager.admin_controller.authenticated_admin_from_request()
+            eq_(self.admin, response)
+
+        # Redirects to Google Oauth flow if you don't
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_controller.authenticated_admin_from_request()
+            eq_("GOOGLE REDIRECT", response)
 
     def test_admin_info(self):
+        # Will give you admin details if you pass it an admin.
+        # This allows the Google callback flow to return something.
+        passed_admin_info = self.manager.admin_controller.admin_info(admin=self.admin)
+        passed_admin_info = json.loads(passed_admin_info)
+        eq_(self.admin.email, passed_admin_info.get('email'))
+        eq_(self.admin.access_token, passed_admin_info.get('access_token'))
+
+        # Otherwise, it'll do it based on the authorization header
         with self.app.test_request_context(
             '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
         ):
             admin_info = json.loads(self.manager.admin_controller.admin_info())
-            eq_('example@nypl.org', admin_info.get('email'))
-            eq_('abc123', admin_info.get('access_token'))
-
+            eq_(self.admin.email, admin_info.get('email'))
+            eq_(self.admin.access_token, admin_info.get('access_token'))
 
 class TestAccountController(ControllerTest):
 
