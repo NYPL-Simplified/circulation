@@ -47,6 +47,27 @@ class Script(object):
     def data_directory(self):
         return Configuration.data_directory()
 
+    @classmethod
+    def parse_identifier_list(self, _db, arguments):
+        """Turn a list of arguments into a list of identifiers.
+
+        This makes it easy to identify specific identifiers on the
+        command line. Examples:
+
+        "Gutenberg ID" 1 2
+        
+        "Overdrive ID" a b c
+
+        Basic but effective.
+        """
+        current_identifier_type = None
+        identifier_type = arguments[0]
+        for arg in arguments[1:]:
+            identifier, ignore = Identifier.for_foreign_id(
+                _db, identifier_type, arg, autocreate=False)
+            if identifier:
+                yield identifier
+
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
