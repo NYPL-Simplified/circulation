@@ -404,10 +404,15 @@ class AdminController(CirculationManagerController):
             test_mode=self.manager.testing
         )
 
-    def authenticated_admin_from_request(self):
-        authorization = flask.request.environ.get('HTTP_AUTHORIZATION')
-        if authorization:
-            admin = get_one(self._db, Admin, access_token=authorization[7:])
+    def authenticated_admin_from_request(self, access_token=None):
+        """Returns an authenticated admin or begins the Google OAuth flow"""
+
+        authorization_header = flask.request.environ.get('HTTP_AUTHORIZATION')
+        if authorization_header and not access_token:
+            access_token = authorization_header[7:]
+
+        if access_token:
+            admin = get_one(self._db, Admin, access_token=access_token)
             if admin and self.google.active_credentials(admin):
                 return admin
         return redirect(self.google.auth_uri, Response=Response)
@@ -423,15 +428,23 @@ class AdminController(CirculationManagerController):
         )
         return admin
 
-    def admin_info(self, admin=None):
-        if not admin:
+    def admin_info(self, access_token=None):
+        """Returns a json object with basic admin information"""
+        if access_token:
+            admin = get_one(self._db, Admin, access_token=access_token)
+        else:
             admin = self.authenticated_admin_from_request()
+
         return json.dumps(dict(
             email=admin.email,
             access_token=admin.access_token
         ))
 
     def signin(self, request_args):
+        """Uses the Google OAuth client to determine admin details upon
+        callback. Barring error, redirects to the main admin url with
+        authentication details."""
+
         admin_details = self.google.callback(request_args)
         if isinstance(admin_details, ProblemDetail):
             return ProblemDetail
@@ -440,7 +453,8 @@ class AdminController(CirculationManagerController):
             return INVALID_ADMIN_CREDENTIALS
         else:
             admin = self.authenticated_admin(admin_details)
-            return self.admin_info(admin)
+            admin_url = self.url_for('admin') + '/' + admin.access_token
+            return redirect(admin_url, Response=Response)
 
 
 class IndexController(CirculationManagerController):

@@ -1,15 +1,6 @@
-import re
 import json
-import datetime
-from flask import url_for, redirect
 from nose.tools import set_trace
 
-# from core.config import Configuration
-from core.model import (
-    get_one,
-    get_one_or_create,
-    Admin,
-)
 from core.util.problem_detail import ProblemDetail as pd
 from oauth2client import client as GoogleClient
 
@@ -61,8 +52,7 @@ class GoogleAuthService(object):
         """Check that existing credentials aren't expired"""
 
         if admin.credential:
-            credentials = json.loads(admin.credential)
-            oauth_credentials = GoogleClient.OAuth2Credentials.from_json(credentials)
+            oauth_credentials = self.client.OAuth2Credentials.from_json(admin.credential)
             return not oauth_credentials.access_token_expired
         return False
 

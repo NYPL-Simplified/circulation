@@ -76,7 +76,7 @@ def returns_problem_detail(f):
 def requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin = app.manager.admin_controller.authenticated_admin_from_request()
+        admin = app.manager.admin_controller.authenticated_admin_from_request(**kwargs)
         if isinstance(admin, ProblemDetail):
             return admin.response
         elif isinstance(admin, Response):
@@ -200,10 +200,11 @@ def google_auth_callback():
     return app.manager.admin_controller.signin(flask.request.args)
 
 @app.route('/admin')
+@app.route('/admin/<access_token>')
 @requires_admin
 @returns_problem_detail
-def admin():
-    return app.manager.admin_controller.admin_info()
+def admin(access_token=None):
+    return app.manager.admin_controller.admin_info(access_token=access_token)
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

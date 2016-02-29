@@ -308,7 +308,9 @@ class TestAdminController(ControllerTest):
     def test_admin_info(self):
         # Will give you admin details if you pass it an admin.
         # This allows the Google callback flow to return something.
-        passed_admin_info = self.manager.admin_controller.admin_info(admin=self.admin)
+        passed_admin_info = self.manager.admin_controller.admin_info(
+            access_token=self.admin.access_token
+        )
         passed_admin_info = json.loads(passed_admin_info)
         eq_(self.admin.email, passed_admin_info.get('email'))
         eq_(self.admin.access_token, passed_admin_info.get('access_token'))
@@ -320,6 +322,7 @@ class TestAdminController(ControllerTest):
             admin_info = json.loads(self.manager.admin_controller.admin_info())
             eq_(self.admin.email, admin_info.get('email'))
             eq_(self.admin.access_token, admin_info.get('access_token'))
+
 
 class TestAccountController(ControllerTest):
 
