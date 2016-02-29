@@ -43,7 +43,7 @@ class GoogleAuthService(object):
             return dict(
                 email=credentials.id_token.get('email'),
                 access_token=credentials.get_access_token()[0],
-                credentials=json.dumps(credentials.to_json()),
+                credentials=credentials.to_json(),
             )
 
     def google_error_problem_detail(self, error):

@@ -456,6 +456,9 @@ class AdminController(CirculationManagerController):
             return redirect(admin_url, Response=Response)
 
     def staff_email(self, email):
+        """Checks the domain of an email address against the admin-authorized
+        domain"""
+
         staff_domain = Configuration.policy(
             Configuration.ADMIN_AUTH_DOMAIN, required=True
         )
