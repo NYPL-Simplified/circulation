@@ -281,16 +281,16 @@ class TestAdminController(ControllerTest):
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
-        # Redirects to Google OAuth flow if you don't pass an access token in
-        # the header or uri.
+        # Returns an error if you aren't authenticated.
         with temp_config() as config:
             config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
                 Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
             }
             with self.app.test_request_context('/admin'):
+                # You get back a problem detail when you're not authenticated.
                 response = self.manager.admin_controller.authenticated_admin_from_request()
-                eq_(302, response.status_code)
-                eq_(u"GOOGLE REDIRECT", response.headers['Location'])
+                eq_(401, response.status_code)
+                eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
 
     def test_authenticated_admin(self):
         # Creates a new admin with fresh details.

@@ -397,6 +397,14 @@ class CirculationManagerController(object):
 
 class AdminController(CirculationManagerController):
 
+    ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
+<html lang="en">
+<head><meta charset="utf8"></head>
+</body>
+<p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
+</body>
+</html>"""
+
     @property
     def google(self):
         return GoogleAuthService.from_environment(
@@ -411,8 +419,7 @@ class AdminController(CirculationManagerController):
             admin = get_one(self._db, Admin, access_token=access_token)
             if admin and self.google.active_credentials(admin):
                 return admin
-        redirect_url = flask.request.args.get("redirect")
-        return redirect(self.google.auth_uri(redirect_url), Response=Response)
+        return INVALID_ADMIN_CREDENTIALS
 
     def authenticated_admin(self, admin_details):
         """Creates or updates an admin with the given details"""
@@ -429,7 +436,10 @@ class AdminController(CirculationManagerController):
         """Redirects admin if they're signed in."""
         admin = self.authenticated_admin_from_request()
 
-        if admin:
+        if isinstance(admin, ProblemDetail):
+            redirect_url = flask.request.args.get("redirect")
+            return redirect(self.google.auth_uri(redirect_url), Response=Response)
+        elif admin:
             return redirect(flask.request.args.get("redirect"), Response=Response)
 
     def redirect_after_signin(self):
@@ -438,10 +448,10 @@ class AdminController(CirculationManagerController):
 
         admin_details, redirect_url = self.google.callback(flask.request.args)
         if isinstance(admin_details, ProblemDetail):
-            return ProblemDetail
+            return self.error_response(admin_details)
 
         if not self.staff_email(admin_details['email']):
-            return INVALID_ADMIN_CREDENTIALS
+            return self.error_response(INVALID_ADMIN_CREDENTIALS)
         else:
             admin = self.authenticated_admin(admin_details)
             flask.session["admin_access_token"] = admin_details.get("access_token")
@@ -456,6 +466,14 @@ class AdminController(CirculationManagerController):
         )
         domain = email[email.index('@')+1:]
         return domain == staff_domain
+
+    def error_response(self, problem_detail):
+        """Returns a problem detail as an HTML response"""
+        html = self.ERROR_RESPONSE_TEMPLATE % dict(
+            status_code=problem_detail.status_code,
+            message=problem_detail.detail
+        )
+        return Response(html, problem_detail.status_code)
 
 
 class IndexController(CirculationManagerController):

@@ -79,13 +79,12 @@ def returns_problem_detail(f):
 def requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin = app.manager.admin_controller.authenticated_admin_from_request(**kwargs)
+        admin = app.manager.admin_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
-            return admin.response
+            return app.manager.admin_controller.error_response(admin)
         elif isinstance(admin, Response):
             return admin
-        else:
-            return f(*args, **kwargs)
+        return f(*args, **kwargs)
     return decorated
 
 @app.route('/')
@@ -203,7 +202,6 @@ def google_auth_callback():
     return app.manager.admin_controller.redirect_after_signin()
 
 @app.route('/admin')
-@requires_admin
 @returns_problem_detail
 def admin():
     return app.manager.admin_controller.signin()
