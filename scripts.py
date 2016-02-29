@@ -137,8 +137,30 @@ class RunCoverageProviderScript(Script):
         self.provider = provider
         self.name = self.provider.service_name
 
+    def parse_identifiers(self):
+        potential_identifiers = sys.argv[1:]
+        identifiers = self.parse_identifier_list(
+            self._db, potential_identifiers
+        )
+        if potential_identifiers and not identifiers:
+            self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
+        return identifiers
+
     def do_run(self):
-        self.provider.run()
+
+        identifiers = self.parse_identifiers()
+        if identifiers:
+            self.process_batch(identifiers)
+        else:
+            self.provider.run()
+
+    def process_batch(self, identifiers):
+        results = []
+        for identifier in identifiers:
+            result = self.provider.ensure_coverage(identifier, force=True)
+            if result:
+                results.append(result)
+        return results
 
 class WorkProcessingScript(Script):
 
