@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 from nose.tools import set_trace
+from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
@@ -321,18 +322,33 @@ class RefreshMaterializedViewsScript(Script):
     
     def do_run(self):
         # Initialize database
-        db = self._db
         from model import (
             MaterializedWork,
             MaterializedWorkWithGenre,
         )
+        db = self._db
         for i in (MaterializedWork, MaterializedWorkWithGenre):
             view_name = i.__table__.name
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
             print "%s refreshed in %.2f sec" % (view_name, b-a)
+        # Close out this session because we're about to create another one.
+        db.commit()
+        db.close()
 
+        # The normal database connection (which we want almost all the
+        # time) wraps everything in a big transaction, but VACUUM
+        # can't be executed within a transaction block. So create a
+        # separate connection that uses autocommit.
+        url = Configuration.database_url()
+        engine = create_engine(url, isolation_level="AUTOCOMMIT")
+        engine.autocommit = True
+        a = time.time()
+        engine.execute("VACUUM (VERBOSE, ANALYZE)")
+        b = time.time()
+        print "Vacuumed in %.2f sec" % (b-a)
+        
 
 class Explain(Script):
     """Explain everything known about a given work."""
