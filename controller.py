@@ -410,10 +410,11 @@ class AdminController(CirculationManagerController):
             admin = get_one(self._db, Admin, access_token=authorization[7:])
             if admin and self.google.active_credentials(admin):
                 return admin
-        return redirect(self.google.auth_uri)
+        return redirect(self.google.auth_uri, Response=Response)
 
     def authenticated_admin(self, admin_details):
         """Creates or updates an admin with the given details"""
+
         admin, ignore = get_one_or_create(
             self._db, Admin, email=admin_details['email']
         )

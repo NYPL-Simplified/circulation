@@ -10,7 +10,6 @@ from flask import (
     Response,
     redirect,
 )
-from werkzeug.wrappers import Response as RedirectResponse
 
 from config import Configuration
 from core.app_server import (
@@ -80,9 +79,7 @@ def requires_admin(f):
         admin = app.manager.admin_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
             return admin.response
-        elif isinstance(admin, RedirectResponse):
-            # A returned redirect uses the werkzeug.wrappers base class to
-            # create a response here.
+        elif isinstance(admin, Response):
             return admin
         else:
             return f(*args, **kwargs)
