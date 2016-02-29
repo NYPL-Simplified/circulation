@@ -26,7 +26,7 @@ class TestGoogleAuthService(DatabaseTest):
         eq_(True, error_response.detail.endswith('access_denied'))
 
         # Successful case creates a dict of admin details
-        success = self.google.callback({'code' : 'abc'})
+        success, redirect = self.google.callback({'code' : 'abc'})
         eq_('example@nypl.org', success['email'])
         eq_('opensesame', success['access_token'])
         default_credentials = {"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}}

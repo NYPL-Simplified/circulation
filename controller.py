@@ -403,18 +403,16 @@ class AdminController(CirculationManagerController):
             self.url_for('google_auth_callback'), test_mode=self.manager.testing
         )
 
-    def authenticated_admin_from_request(self, access_token=None):
+    def authenticated_admin_from_request(self):
         """Returns an authenticated admin or begins the Google OAuth flow"""
 
-        authorization_header = flask.request.environ.get('HTTP_AUTHORIZATION')
-        if authorization_header and not access_token:
-            access_token = authorization_header[7:]
-
+        access_token = flask.session.get("admin_access_token")
         if access_token:
             admin = get_one(self._db, Admin, access_token=access_token)
             if admin and self.google.active_credentials(admin):
                 return admin
-        return redirect(self.google.auth_uri, Response=Response)
+        redirect_url = flask.request.args.get("redirect")
+        return redirect(self.google.auth_uri(redirect_url), Response=Response)
 
     def authenticated_admin(self, admin_details):
         """Creates or updates an admin with the given details"""
@@ -427,24 +425,18 @@ class AdminController(CirculationManagerController):
         )
         return admin
 
-    def admin_info(self, access_token=None):
-        """Returns a json object with basic admin information"""
-        if access_token:
-            admin = get_one(self._db, Admin, access_token=access_token)
-        else:
-            admin = self.authenticated_admin_from_request()
+    def signin(self):
+        """Redirects admin if they're signed in."""
+        admin = self.authenticated_admin_from_request()
 
-        return json.dumps(dict(
-            email=admin.email,
-            access_token=admin.access_token
-        ))
+        if admin:
+            return redirect(flask.request.args.get("redirect"), Response=Response)
 
-    def signin(self, request_args):
+    def redirect_after_signin(self):
         """Uses the Google OAuth client to determine admin details upon
-        callback. Barring error, redirects to the main admin url with
-        authentication details."""
+        callback. Barring error, redirects to the provided redirect url.."""
 
-        admin_details = self.google.callback(request_args)
+        admin_details, redirect_url = self.google.callback(flask.request.args)
         if isinstance(admin_details, ProblemDetail):
             return ProblemDetail
 
@@ -452,8 +444,8 @@ class AdminController(CirculationManagerController):
             return INVALID_ADMIN_CREDENTIALS
         else:
             admin = self.authenticated_admin(admin_details)
-            admin_url = self.url_for('admin') + '/' + admin.access_token
-            return redirect(admin_url, Response=Response)
+            flask.session["admin_access_token"] = admin_details.get("access_token")
+            return redirect(redirect_url, Response=Response)
 
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized

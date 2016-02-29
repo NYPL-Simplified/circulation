@@ -31,6 +31,9 @@ logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
 
+# The secret key is used for signing cookies for admin login
+app.secret_key = os.urandom(24)
+
 if os.environ.get('AUTOINITIALIZE') == "False":
     pass
     # It's the responsibility of the importing code to set app.manager
@@ -197,14 +200,13 @@ def adobe_vendor_id_status():
 @app.route('/GoogleAuth/callback')
 @returns_problem_detail
 def google_auth_callback():
-    return app.manager.admin_controller.signin(flask.request.args)
+    return app.manager.admin_controller.redirect_after_signin()
 
 @app.route('/admin')
-@app.route('/admin/<access_token>')
 @requires_admin
 @returns_problem_detail
-def admin(access_token=None):
-    return app.manager.admin_controller.admin_info(access_token=access_token)
+def admin():
+    return app.manager.admin_controller.signin()
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

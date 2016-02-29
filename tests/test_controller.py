@@ -276,10 +276,8 @@ class TestAdminController(ControllerTest):
         )
 
     def test_authenticated_admin_from_request(self):
-        # Sends you an admin if you send their access token.
-        with self.app.test_request_context(
-            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
-        ):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_access_token'] = self.admin.access_token
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
@@ -317,24 +315,13 @@ class TestAdminController(ControllerTest):
         eq_('bananas', self.admin.access_token)
         eq_('b-a-n-a-n-a-s', self.admin.credential)
 
-    def test_admin_info(self):
-        # Will give you admin details if you pass it an admin.
-        # This allows the Google callback flow to return something.
-        passed_admin_info = self.manager.admin_controller.admin_info(
-            access_token=self.admin.access_token
-        )
-        passed_admin_info = json.loads(passed_admin_info)
-        eq_(self.admin.email, passed_admin_info.get('email'))
-        eq_(self.admin.access_token, passed_admin_info.get('access_token'))
-
-        # Otherwise, it'll do it based on the authorization header
-        with self.app.test_request_context(
-            '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
-        ):
-            admin_info = json.loads(self.manager.admin_controller.admin_info())
-            eq_(self.admin.email, admin_info.get('email'))
-            eq_(self.admin.access_token, admin_info.get('access_token'))
-
+    def test_admin_signin(self):
+        with self.app.test_request_context('/admin?redirect=foo'):
+            flask.session['admin_access_token'] = self.admin.access_token
+            response = self.manager.admin_controller.signin()
+            eq_(302, response.status_code)
+            eq_("foo", response.headers["Location"])
+            
     def test_staff_email(self):
         with temp_config() as config:
             config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"

@@ -17,10 +17,8 @@ class GoogleAuthService(object):
                 redirect_uri=redirect_uri
             )
 
-
-    @property
-    def auth_uri(self):
-        return self.client.step1_get_authorize_url()
+    def auth_uri(self, redirect_url):
+        return self.client.step1_get_authorize_url(state=redirect_url)
 
     @classmethod
     def from_environment(cls, redirect_uri, test_mode=False):
@@ -40,12 +38,13 @@ class GoogleAuthService(object):
             return self.google_error_problem_detail(error)
         auth_code = request.get('code')
         if auth_code:
+            redirect_url = request.get("state")
             credentials = self.client.step2_exchange(auth_code)
             return dict(
                 email=credentials.id_token.get('email'),
                 access_token=credentials.get_access_token()[0],
                 credentials=credentials.to_json(),
-            )
+            ), redirect_url
 
     def google_error_problem_detail(self, error):
         detail = "There was an error connecting with Google OAuth: %s" % error
@@ -98,5 +97,5 @@ class DummyGoogleClient(object):
     def step2_exchange(self, auth_code):
         return self.credentials
 
-    def step1_get_authorize_url(self):
+    def step1_get_authorize_url(self, state):
         return "GOOGLE REDIRECT"
