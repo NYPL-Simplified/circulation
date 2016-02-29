@@ -29,5 +29,5 @@ class TestGoogleAuthService(DatabaseTest):
         success = self.google.callback({'code' : 'abc'})
         eq_('example@nypl.org', success['email'])
         eq_('opensesame', success['access_token'])
-        default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
+        default_credentials = {"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}}
         eq_(default_credentials, success['credentials'])

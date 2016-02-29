@@ -267,18 +267,24 @@ class TestAdminController(ControllerTest):
         super(TestAdminController, self).setup()
         self.admin, ignore = create(
             self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
-            credential=json.dumps({u'abc':123})
+            credential=json.dumps({
+                u'access_token': u'abc123',
+                u'client_id': u'', u'client_secret': u'',
+                u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
+                u'user_agent': u'', u'invalid': u''
+            })
         )
 
     def test_authenticated_admin_from_request(self):
-        # Sends you an admin if you send their access token in the headers.
+        # Sends you an admin if you send their access token.
         with self.app.test_request_context(
             '/admin', headers=dict(Authorization="Bearer "+self.admin.access_token)
         ):
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
-        # Redirects to Google OAuth flow if you don't
+        # Redirects to Google OAuth flow if you don't pass an access token in
+        # the header or uri.
         with temp_config() as config:
             config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
                 Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
@@ -355,8 +361,8 @@ class TestAccountController(ControllerTest):
             account_info = json.loads(self.manager.accounts.account())
             eq_("alice", account_info.get('username'))
             eq_("0", account_info.get('barcode'))
-        
-        
+
+
 class TestLoanController(ControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()

@@ -17,6 +17,7 @@ class GoogleAuthService(object):
                 redirect_uri=redirect_uri
             )
 
+
     @property
     def auth_uri(self):
         return self.client.step1_get_authorize_url()
@@ -24,7 +25,7 @@ class GoogleAuthService(object):
     @classmethod
     def from_environment(cls, redirect_uri, test_mode=False):
         config = Configuration.integration(
-            Configuration.GOOGLE_OAUTH_INTEGRATION, required=True
+            Configuration.GOOGLE_OAUTH_INTEGRATION
         )
         client_json_file = config[Configuration.GOOGLE_OAUTH_CLIENT_JSON]
         return cls(client_json_file, redirect_uri, test_mode)
