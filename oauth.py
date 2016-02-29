@@ -52,7 +52,7 @@ class GoogleAuthService(object):
         """Check that existing credentials aren't expired"""
 
         if admin.credential:
-            oauth_credentials = self.client.OAuth2Credentials.from_json(admin.credential)
+            oauth_credentials = GoogleClient.OAuth2Credentials.from_json(admin.credential)
             return not oauth_credentials.access_token_expired
         return False
 
