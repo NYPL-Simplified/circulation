@@ -31,9 +31,9 @@ class GoogleAuthService(object):
         return self.client.step1_get_authorize_url()
 
     def callback(self, request={}):
-        """Google Oauth sign-in flow"""
+        """Google OAuth sign-in flow"""
 
-        # The Google Oauth client sometimes hits the callback with an error.
+        # The Google OAuth client sometimes hits the callback with an error.
         # These will be returned as a problem detail.
         error = request.get('error')
         if error:
@@ -49,11 +49,11 @@ class GoogleAuthService(object):
             )
 
     def google_error_problem_detail(self, error):
-        detail = "There was an error connecting with Google Oauth: %s" % error
+        detail = "There was an error connecting with Google OAuth: %s" % error
         return pd(
             "http://librarysimplified.org/terms/problem/google-oauth-error",
             400,
-            "Google Oauth Error",
+            "Google OAuth Error",
             detail,
         )
 
@@ -62,18 +62,18 @@ class GoogleAuthService(object):
 
         if admin.credential:
             credentials = json.loads(admin.credential)
-            oauth_credentials = self.client.Oauth2Credentials.from_json(credentials)
+            oauth_credentials = GoogleClient.OAuth2Credentials.from_json(credentials)
             return not oauth_credentials.access_token_expired
         return False
 
 
 class DummyGoogleClient(object):
-    """Mock Google Oauth client for testing"""
+    """Mock Google OAuth client for testing"""
 
     expired = False
 
     class Credentials(object):
-        """Mock Oauth2Credentials object for testing"""
+        """Mock OAuth2Credentials object for testing"""
 
         access_token_expired = False
 
@@ -92,7 +92,7 @@ class DummyGoogleClient(object):
 
     def __init__(self, email='example@nypl.org'):
         self.credentials = self.Credentials(email=email)
-        self.Oauth2Credentials = self.credentials
+        self.OAuth2Credentials = self.credentials
 
     def flow_from_client_secrets(self, config, scope=None, redirect_uri=None):
         return self

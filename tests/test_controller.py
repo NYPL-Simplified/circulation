@@ -278,7 +278,7 @@ class TestAdminController(ControllerTest):
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
-        # Redirects to Google Oauth flow if you don't
+        # Redirects to Google OAuth flow if you don't.
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_controller.authenticated_admin_from_request()
             eq_(302, response.status_code)
