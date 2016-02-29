@@ -12,7 +12,7 @@ class GoogleAuthService(object):
             self.client = DummyGoogleClient()
         else:
             self.client = GoogleClient.flow_from_clientsecrets(
-                '../nypl_config/client_secret.json',
+                client_json_file,
                 scope='https://www.googleapis.com/auth/userinfo.email',
                 redirect_uri=redirect_uri
             )
