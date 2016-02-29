@@ -4906,6 +4906,10 @@ class LicensePool(Base):
         "LicensePoolDeliveryMechanism", backref="license_pool"
     )
 
+    # A LicensePool that seemingly looks fine may be manually suppressed
+    # to be temporarily or permanently removed from the collection.
+    suppressed = Column(Boolean, default=False, index=True)
+
     # Index the combination of DataSource and Identifier to make joins easier.
 
     clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
