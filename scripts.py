@@ -28,6 +28,14 @@ from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from nyt import NYTBestSellerAPI
 
+from overdrive import (
+    OverdriveBibliographicCoverageProvider,
+)
+
+from threem import (
+    ThreeMBibliographicCoverageProvider,
+)
+
 class Script(object):
 
     @property
@@ -128,14 +136,8 @@ class RunCoverageProvidersScript(Script):
                     offsets[provider] = offset
 
 
-class RunCoverageProviderScript(Script):
-    """Run a single coverage provider."""
-
-    def __init__(self, provider):
-        if callable(provider):
-            provider = provider(self._db)
-        self.provider = provider
-        self.name = self.provider.service_name
+class IdentifierInputScript(Script):
+    """A script that takes identifiers as command line inputs."""
 
     def parse_identifiers(self):
         potential_identifiers = sys.argv[1:]
@@ -146,21 +148,49 @@ class RunCoverageProviderScript(Script):
             self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
         return identifiers
 
+
+class RunCoverageProviderScript(IdentifierInputScript):
+    """Run a single coverage provider."""
+
+    def __init__(self, provider):
+        if callable(provider):
+            provider = provider(self._db)
+        self.provider = provider
+        self.name = self.provider.service_name
+
     def do_run(self):
 
         identifiers = self.parse_identifiers()
         if identifiers:
-            self.process_batch(identifiers)
+            self.provider.process_batch(identifiers)
+            self._db.commit()
         else:
             self.provider.run()
 
-    def process_batch(self, identifiers):
-        results = []
+class BibliographicRefreshScript(IdentifierInputScript):
+    """Refresh the core bibliographic data for Editions direct from the
+    license source.
+    """
+    def do_run(self):
+        identifiers = self.parse_identifiers()
+        if not identifiers:
+            raise Exception(
+                "You must specify at least one identifier to refresh."
+            )
         for identifier in identifiers:
-            result = self.provider.ensure_coverage(identifier, force=True)
-            if result:
-                results.append(result)
-        return results
+            self.refresh_metadata(identifier)
+
+    def refresh_metadata(self, identifier):
+        provider = None
+        if identifier.type==Identifier.THREEM_ID:
+            provider = ThreeMBibliographicCoverageProvider
+        elif identifier.type==Identifier.OVERDRIVE_ID:
+            provider = OverdriveBibliographicCoverageProvider
+        else:
+            self.log.warn("Cannot update coverage for %r" % identifier)
+        if provider:
+            provider(self._db).ensure_coverage(identifier, force=True)
+
 
 class WorkProcessingScript(Script):
 

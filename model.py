@@ -3617,7 +3617,6 @@ class Work(Base):
         elif ya_score > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
 
-
         # Remove any genres whose fiction status is inconsistent with the
         # (independently determined) fiction status of the book.
         #
@@ -4515,7 +4514,9 @@ class Subject(Base):
             genre = ' genre="%s"' % self.genre.name
         else:
             genre = ""
-        if self.target_age is not None:
+        if (self.target_age is not None
+            and (self.target_age.lower or self.target_age.upper)
+        ):
             age_range= " " + self.target_age_string
         else:
             age_range = ""

@@ -229,7 +229,10 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(edition)
+            metadata.apply(
+                edition, replace_subjects=True, replace_links=True,
+                replace_contributions=True, force=True
+            )
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
 

@@ -44,6 +44,10 @@ class SubjectData(object):
         self.name = name
         self.weight=weight
 
+    @property
+    def key(self):
+        return self.type, self.identifier, self.name, self.weight
+
     def __repr__(self):
         return '<SubjectData type="%s" identifier="%s" name="%s" weight=%d>' % (
             self.type, self.identifier, self.name, self.weight
@@ -809,26 +813,43 @@ class Metadata(object):
                 identifier.equivalent_to(
                     data_source, new_identifier, identifier_data.weight)
 
-        if replace_subjects and self.subjects is not None:
-            # Remove any old Subjects from this data source -- we're
-            # about to add a new set.
+        new_subjects = {}
+        if self.subjects:
+            new_subjects = dict(
+                (subject.key, subject) 
+                for subject in self.subjects
+            )
+        if replace_subjects:
+            # Remove any old Subjects from this data source, unless they
+            # are also in the list of new subjects.
             surviving_classifications = []
             dirty = False
+
+            def _key(classification):
+                s = classification.subject
+                return s.type, s.identifier, s.name, classification.weight
+
             for classification in identifier.classifications:
                 if classification.data_source == data_source:
-                    _db.delete(classification)
-                    dirty = True
-                else:
-                    surviving_classifications.append(classification)
-            if dirty:
-                identifier.classifications = surviving_classifications
+                    key = _key(classification)
+                    if not key in new_subjects:
+                        # The data source has stopped claiming that
+                        # this classification should exist.
+                        print "Removing %r" % classification.subject
+                        _db.delete(classification)
+                        dirty = True
+                    else:
+                        print "Preserving %r" % classification.subject
+                        # The data source maintains that this
+                        # classification is a good idea. We don't have
+                        # to do anything.
+                        del new_subjects[key]
 
-        # Apply all specified subjects to the identifier.
-        if self.subjects:
-            for subject in self.subjects:
-                identifier.classify(
-                    data_source, subject.type, subject.identifier, 
-                    subject.name, weight=subject.weight)
+        # Apply all new subjects to the identifier.
+        for subject in new_subjects.values():
+            identifier.classify(
+                data_source, subject.type, subject.identifier, 
+                subject.name, weight=subject.weight)
 
         # Associate all links with the primary identifier.
         if replace_links and self.links is not None:
