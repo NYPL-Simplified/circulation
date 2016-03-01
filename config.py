@@ -37,6 +37,7 @@ class Configuration(CoreConfiguration):
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
 
+    SECRET_KEY = "secret_key"
     GOOGLE_OAUTH_INTEGRATION = "Google OAuth"
     GOOGLE_OAUTH_CLIENT_JSON = "client_json_file"
 

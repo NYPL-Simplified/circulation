@@ -32,7 +32,7 @@ app.config['DEBUG'] = debug
 app.debug = debug
 
 # The secret key is used for signing cookies for admin login
-app.secret_key = os.urandom(24)
+app.secret_key = Configuration.get(Configuration.SECRET_KEY)
 
 if os.environ.get('AUTOINITIALIZE') == "False":
     pass
