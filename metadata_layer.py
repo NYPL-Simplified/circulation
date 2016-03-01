@@ -823,7 +823,6 @@ class Metadata(object):
             # Remove any old Subjects from this data source, unless they
             # are also in the list of new subjects.
             surviving_classifications = []
-            dirty = False
 
             def _key(classification):
                 s = classification.subject
@@ -835,11 +834,8 @@ class Metadata(object):
                     if not key in new_subjects:
                         # The data source has stopped claiming that
                         # this classification should exist.
-                        print "Removing %r" % classification.subject
                         _db.delete(classification)
-                        dirty = True
                     else:
-                        print "Preserving %r" % classification.subject
                         # The data source maintains that this
                         # classification is a good idea. We don't have
                         # to do anything.
