@@ -37,6 +37,68 @@ from model import (
     Representation,
 )
 
+class ReplacementPolicy(object):
+    """How serious should we be about overwriting old metadata with
+    this new metadata?
+    """
+    def __init__(
+            identifiers=False,
+            subjects=False, 
+            contributions=False,
+            links=False,
+            formats=False,
+            rights=False,
+            even_if_not_apparently_updated=False
+    ):
+        self.identifiers = identifiers
+        self.subjects = subjects
+        self.contributions = contributions
+        self.links = links
+        self.rights = rights
+        self.even_if_not_apparently_updated = even_if_not_apparently_updated
+        
+    @classmethod
+    def overwrite_everything(self):
+        """Overwrite absolutely every piece of information from the given data
+        source. But if the data appears to be old, don't do anything.
+        """
+        return ReplacementPolicy(
+            identifiers=True, 
+            subjects=True, 
+            contributions=True, 
+            links=True, 
+            rights=True,
+            even_if_not_apparently_updated=False
+        )
+
+    @classmethod
+    def force(self):
+        """Overwrite absolutely every piece of information from the given data
+        source, even if the data appears to be old.
+        """
+        return ReplacementPolicy(
+            identifiers=True, 
+            subjects=True, 
+            contributions=True, 
+            links=True, 
+            rights=True,
+            even_if_not_apparently_updated=False
+        )
+
+
+    @classmethod
+    def append_only(self):
+        """Don't overwrite any information, just append it.
+        """
+        return ReplacementPolicy(
+            identifiers=False, 
+            subjects=False, 
+            contributions=False, 
+            links=False, 
+            rights=False,
+            even_if_not_apparently_updated=False
+        )
+
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
         self.type = type
@@ -726,9 +788,7 @@ class Metadata(object):
                 success = True
         return success
 
-    def apply(
-            self, edition, 
-            metadata_client=None,
+    def apply(self, edition, metadata_client=None, replace=None,
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
@@ -739,6 +799,17 @@ class Metadata(object):
     ):
         """Apply this metadata to the given edition."""
         _db = Session.object_session(edition)
+
+        if replace is None:
+            replace = ReplacementPolicy(
+                identifiers=replace_identifiers,
+                subjects=replace_subjects,
+                contributions=replace_contributions,
+                links=replace_links,
+                formats=replace_formats,
+                rights=replace_rights,
+                even_if_not_apparently_updated=force
+            )
 
         # We were given an Edition, so either this metadata's
         # primary_identifier must be missing or it must match the
@@ -756,7 +827,7 @@ class Metadata(object):
 
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
-        if self.last_update_time and not force:
+        if self.last_update_time and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_date = coverage_record.date
@@ -802,9 +873,9 @@ class Metadata(object):
         # the edition's primary identifier.
 
         self.update_contributions(_db, edition, metadata_client, 
-                                  replace_contributions)
+                                  replace.contributions)
 
-        # TODO: remove equivalencies when replace_identifiers is True.
+        # TODO: remove equivalencies when replace.identifiers is True.
 
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
@@ -819,7 +890,7 @@ class Metadata(object):
                 (subject.key, subject) 
                 for subject in self.subjects
             )
-        if replace_subjects:
+        if replace.subjects:
             # Remove any old Subjects from this data source, unless they
             # are also in the list of new subjects.
             surviving_classifications = []
@@ -848,7 +919,7 @@ class Metadata(object):
                 subject.name, weight=subject.weight)
 
         # Associate all links with the primary identifier.
-        if replace_links and self.links is not None:
+        if replace.links and self.links is not None:
             surviving_hyperlinks = []
             dirty = False
             for hyperlink in identifier.links:
@@ -884,7 +955,7 @@ class Metadata(object):
                     if thumbnail_obj.resource.representation:
                         thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
 
-        if pool and replace_formats:
+        if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
@@ -909,7 +980,7 @@ class Metadata(object):
                     format.content_type, format.drm_scheme, resource
                 )
 
-        if pool and replace_rights:
+        if pool and replace.rights:
             pool.set_rights_status(self.rights_uri)
 
         # Apply all measurements to the primary identifier
@@ -946,8 +1017,10 @@ class Metadata(object):
         return edition
 
     def update_contributions(self, _db, edition, metadata_client=None, 
-                             replace_contributions=False):
-        if replace_contributions and self.contributors is not None:
+                             replace=None):
+        if replace is None:
+            replace = ReplacementPolicy.append_only()
+        if replace.contributions and self.contributors is not None:
             dirty = False
             # Remove any old Contributions from this data source --
             # we're about to add a new set
