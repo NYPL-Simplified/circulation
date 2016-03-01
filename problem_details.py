@@ -175,3 +175,10 @@ INVALID_ADMIN_CREDENTIALS = pd(
       "Invalid admin credentials",
       "A valid library staff email is required.",
 )
+
+GOOGLE_OAUTH_FAILURE = pd(
+      "http://librarysimplified.org/terms/problem/google-oauth-failure",
+      400,
+      "Google OAuth Error",
+      "There was an error connecting with Google OAuth.",
+)

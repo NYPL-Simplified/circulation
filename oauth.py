@@ -1,7 +1,7 @@
 import json
 from nose.tools import set_trace
 
-from core.util.problem_detail import ProblemDetail as pd
+from problem_details import GOOGLE_OAUTH_FAILURE
 from config import Configuration
 from oauth2client import client as GoogleClient
 
@@ -47,13 +47,8 @@ class GoogleAuthService(object):
             ), redirect_url
 
     def google_error_problem_detail(self, error):
-        detail = "There was an error connecting with Google OAuth: %s" % error
-        return pd(
-            "http://librarysimplified.org/terms/problem/google-oauth-error",
-            400,
-            "Google OAuth Error",
-            detail,
-        )
+        error_detail = GOOGLE_OAUTH_FAILURE.detail + " Error: " + error
+        return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 
     def active_credentials(self, admin):
         """Check that existing credentials aren't expired"""
