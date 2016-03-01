@@ -8,6 +8,7 @@ import flask
 from flask import (
     Flask, 
     Response,
+    redirect,
 )
 
 from config import Configuration
@@ -29,6 +30,9 @@ debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
+
+# The secret key is used for signing cookies for admin login
+app.secret_key = Configuration.get(Configuration.SECRET_KEY)
 
 if os.environ.get('AUTOINITIALIZE') == "False":
     pass
@@ -71,7 +75,18 @@ def returns_problem_detail(f):
             return v.response
         return v
     return decorated
-        
+
+def requires_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        admin = app.manager.admin_controller.authenticated_admin_from_request()
+        if isinstance(admin, ProblemDetail):
+            return app.manager.admin_controller.error_response(admin)
+        elif isinstance(admin, Response):
+            return admin
+        return f(*args, **kwargs)
+    return decorated
+
 @app.route('/')
 @returns_problem_detail
 def index():
@@ -180,6 +195,17 @@ def adobe_vendor_id_accountinfo():
 @returns_problem_detail
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
+
+@app.route('/GoogleAuth/callback')
+@returns_problem_detail
+def google_auth_callback():
+    return app.manager.admin_controller.redirect_after_signin()
+
+@app.route('/admin')
+@returns_problem_detail
+def admin():
+    return app.manager.admin_controller.signin()
+
 # Controllers used for operations purposes
 @app.route('/heartbeat')
 @returns_problem_detail
@@ -199,11 +225,6 @@ def loadstorm_verify(code):
         return Response("", 200)
     else:
         return Response("", 404)
-
-# @app.route('/force_error/<string>')
-# def force_error(string):
-#     raise Exception("Forced error: %s" % string)
-#     # return problem(None, "Forced error: %s" % string, 500)
 
 if __name__ == '__main__':
     debug = True
