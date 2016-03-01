@@ -27,6 +27,10 @@ from core.opds_import import (
     OPDSImporter,
 )
 
+class HTTPIntegrationException(Exception):
+    pass
+
+
 class OPDSImportCoverageProvider(CoverageProvider):
 
     def handle_import_messages(self, messages_by_id):
