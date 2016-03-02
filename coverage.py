@@ -14,6 +14,9 @@ from model import (
     Identifier,
     Timestamp,
 )
+from metadata_layer import (
+    ReplacementPolicy
+)
 from external_search import (
     ExternalSearchIndex,
 )
@@ -49,7 +52,7 @@ class CoverageProvider(object):
     """
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100):
+                 workset_size=100, metadata_policy=None):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
         if not isinstance(input_identifier_types, list):
@@ -57,6 +60,11 @@ class CoverageProvider(object):
         self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
+        self.metadata_replacement_policy = (
+            ReplacementPolicy.from_metadata_source(
+                even_if_not_apparently_updated=True
+            )
+        )
 
     @property
     def log(self):
@@ -229,10 +237,7 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(
-                edition, replace_subjects=True, replace_links=True,
-                replace_contributions=True, force=True
-            )
+            metadata.apply(edition, replace=self.replacement_policy)
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
 

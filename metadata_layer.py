@@ -56,13 +56,15 @@ class ReplacementPolicy(object):
         self.contributions = contributions
         self.links = links
         self.rights = rights
+        self.formats = formats
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         
     @classmethod
     def from_license_source(self, even_if_not_apparently_updated=False):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
-        overwrite an old rights status with an updated status.
+        overwrite an old rights status with an updated status and update
+        the list of available formats.
         """
         return ReplacementPolicy(
             identifiers=True, 
@@ -70,15 +72,16 @@ class ReplacementPolicy(object):
             contributions=True, 
             links=True, 
             rights=True,
+            formats=True,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
     @classmethod
     def from_metadata_source(self, even_if_not_apparently_updated=False):
         """When gathering data from a metadata source, overwrite all old data
-        from this source, but do not overwrite the rights
-        status--metadata sources have no authority to specify a rights
-        status.
+        from this source, but do not overwrite the rights status or
+        the available formats. License sources are the authority on rights
+        and formats, and metadata sources have no say in the matter.
         """
         return ReplacementPolicy(
             identifiers=True, 
@@ -86,6 +89,7 @@ class ReplacementPolicy(object):
             contributions=True, 
             links=True, 
             rights=False,
+            formats=False,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
@@ -101,6 +105,7 @@ class ReplacementPolicy(object):
             contributions=False, 
             links=False, 
             rights=False,
+            formats=False,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
