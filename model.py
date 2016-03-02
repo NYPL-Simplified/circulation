@@ -6477,13 +6477,29 @@ class Complaint(Base):
             complaint, is_new = create(
                 _db,
                 Complaint,
-                license_pool=license_pool, 
-                source=source, 
+                license_pool=license_pool,
+                source=source,
                 type=type,
                 timestamp=now,
                 detail=detail
             )
         return complaint, is_new
+
+
+class Admin(Base):
+
+    __tablename__ = 'admins'
+
+    id = Column(Integer, primary_key=True)
+    email = Column(Unicode, unique=True, nullable=False)
+    access_token = Column(Unicode, index=True)
+    credential = Column(Unicode)
+
+    def update_credentials(self, _db, access_token, credential):
+        self.access_token = access_token
+        self.credential = credential
+        _db.commit()
+
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
