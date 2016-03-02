@@ -28,6 +28,7 @@ class CirculationManagerAnnotator(Annotator):
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={}, 
                  facet_view='feed',
+                 admin=False,
                  test_mode=False
     ):
         self.circulation = circulation
@@ -37,6 +38,7 @@ class CirculationManagerAnnotator(Annotator):
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
         self.facet_view=facet_view
+        self.admin=admin
         self.test_mode=test_mode
 
     def url_for(self, *args, **kwargs):
@@ -205,6 +207,26 @@ class CirculationManagerAnnotator(Annotator):
                 'report', data_source=data_source_name,
                 identifier=identifier_identifier, _external=True)
         )
+
+        # For admins, add a link to suppress the work.
+        if self.admin:
+            if active_license_pool.suppressed:
+                feed.add_link_to_entry(
+                    entry, 
+                    rel='http://librarysimplified.org/terms/rel/unsuppress',
+                    href=self.url_for(
+                        'unsuppress', data_source=data_source_name,
+                        identifier=identifier_identifier, _external=True)
+                )
+            else:
+                feed.add_link_to_entry(
+                    entry, 
+                    rel='http://librarysimplified.org/terms/rel/suppress',
+                    href=self.url_for(
+                        'suppress', data_source=data_source_name,
+                        identifier=identifier_identifier, _external=True)
+                )
+
 
         # Now we need to generate a <link> tag for every delivery mechanism
         # that has well-defined media types.

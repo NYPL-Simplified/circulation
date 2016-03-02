@@ -87,6 +87,15 @@ def requires_admin(f):
         return f(*args, **kwargs)
     return decorated
 
+def requires_csrf_token(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = app.manager.admin_controller.check_csrf_token()
+        if isinstance(token, ProblemDetail):
+            return token
+        return f(*args, **kwargs)
+    return decorated
+
 @app.route('/')
 @returns_problem_detail
 def index():
@@ -174,6 +183,20 @@ def permalink(data_source, identifier):
 def report(data_source, identifier):
     return app.manager.work_controller.report(data_source, identifier)
 
+@app.route('/works/<data_source>/<identifier>/suppress', methods=['POST'])
+@requires_admin
+@requires_csrf_token
+@returns_problem_detail
+def suppress(data_source, identifier):
+    return app.manager.work_controller.suppress(data_source, identifier)
+
+@app.route('/works/<data_source>/<identifier>/unsuppress', methods=['POST'])
+@requires_admin
+@requires_csrf_token
+@returns_problem_detail
+def unsuppress(data_source, identifier):
+    return app.manager.work_controller.unsuppress(data_source, identifier)
+
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
 @requires_auth
@@ -209,7 +232,7 @@ def admin():
 # Controllers used for operations purposes
 @app.route('/heartbeat')
 @returns_problem_detail
-def hearbeat():
+def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
 @app.route('/service_status')
@@ -225,6 +248,13 @@ def loadstorm_verify(code):
         return Response("", 200)
     else:
         return Response("", 404)
+
+@app.route('/browse')
+def browse():
+    csrf_token = app.manager.admin_controller.get_csrf_token()
+    if isinstance(csrf_token, ProblemDetail):
+        csrf_token = None
+    return flask.render_template("browse.html", csrf_token=csrf_token)
 
 if __name__ == '__main__':
     debug = True

@@ -45,6 +45,15 @@ Install Elasticsearch.
   $ brew install elasticsearch
   ```
 
+### Front-end application
+
+To use the published version, run `npm install`.
+
+To use a local version, clone circulation-web and link it to this project.
+
+From circulation-web: `npm link`
+From circulation: `npm link simplified-circulation-web`
+
 ## License
 
 ```

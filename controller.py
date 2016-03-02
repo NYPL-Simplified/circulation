@@ -6,6 +6,8 @@ import time
 import urllib
 import urlparse
 import uuid
+import os
+import base64
 
 from lxml import etree
 
@@ -455,7 +457,19 @@ class AdminController(CirculationManagerController):
         else:
             admin = self.authenticated_admin(admin_details)
             flask.session["admin_access_token"] = admin_details.get("access_token")
+            flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
             return redirect(redirect_url, Response=Response)
+
+    def check_csrf_token(self):
+        """Verifies that the provided CSRF token is valid."""
+        token = self.get_csrf_token()
+        if not token or token != flask.request.form.get("csrf_token"):
+            return INVALID_CSRF_TOKEN
+        return token
+
+    def get_csrf_token(self):
+        """Returns the CSRF token for the current session."""
+        return flask.session.get("csrf_token")
 
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
@@ -531,6 +545,8 @@ class OPDSFeedController(CirculationManagerController):
 
     def groups(self, languages, lane_name):
         """Build or retrieve a grouped acquisition feed."""
+        admin = isinstance(self.manager.admin_controller.authenticated_admin_from_request(), Admin)
+        
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -540,12 +556,14 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = self.manager.annotator(lane)
-        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
+        annotator = self.manager.annotator(lane, admin=admin)
+        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator, force_refresh=True)
         return feed_response(feed.content)
 
     def feed(self, languages, lane_name):
         """Build or retrieve a paginated acquisition feed."""
+        admin = isinstance(self.manager.admin_controller.authenticated_admin_from_request(), Admin)
+
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -555,7 +573,7 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = self.manager.annotator(lane)
+        annotator = self.manager.annotator(lane, admin=admin)
         facets = load_facets_from_request()
         if isinstance(facets, ProblemDetail):
             return facets
@@ -565,11 +583,13 @@ class OPDSFeedController(CirculationManagerController):
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
-            pagination=pagination,
+            pagination=pagination, force_refresh=True,
         )
         return feed_response(feed.content)
 
     def search(self, languages, lane_name):
+        admin = isinstance(self.manager.admin_controller.authenticated_admin_from_request(), Admin)
+
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -583,7 +603,7 @@ class OPDSFeedController(CirculationManagerController):
 
         # Run a search.    
         this_url += "?q=" + urllib.quote(query.encode("utf8"))
-        annotator = self.manager.annotator(lane)
+        annotator = self.manager.annotator(lane, admin=admin)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'], 
@@ -876,11 +896,13 @@ class WorkController(CirculationManagerController):
         returns a single entry while the /works lookup protocol returns a
         feed containing any number of entries.
         """
+        admin = isinstance(self.manager.admin_controller.authenticated_admin_from_request(), Admin)
+
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
-        annotator = self.manager.annotator(None)
+        annotator = self.manager.annotator(None, admin=admin)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
@@ -903,6 +925,30 @@ class WorkController(CirculationManagerController):
         data = flask.request.data
         controller = ComplaintController()
         return controller.register(pool, data)
+
+    def suppress(self, data_source, identifier):
+        """Suppress the license pool associated with a book."""
+        
+        # Turn source + identifier into a LicensePool
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            # Something went wrong.
+            return pool
+    
+        pool.suppressed = True
+        return Response("", 200)
+
+    def unsuppress(self, data_source, identifier):
+        """Unsuppress the license pool associated with a book."""
+        
+        # Turn source + identifier into a LicensePool
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            # Something went wrong.
+            return pool
+    
+        pool.suppressed = False
+        return Response("", 200)
 
 
 class ServiceStatusController(CirculationManagerController):

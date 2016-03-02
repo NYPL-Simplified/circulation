@@ -321,7 +321,7 @@ class TestAdminController(ControllerTest):
             response = self.manager.admin_controller.signin()
             eq_(302, response.status_code)
             eq_("foo", response.headers["Location"])
-            
+
     def test_staff_email(self):
         with temp_config() as config:
             config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
@@ -685,6 +685,23 @@ class TestWorkController(ControllerTest):
         eq_(error_type, complaint.type)
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
+
+    def test_suppress(self):
+        [lp] = self.english_1.license_pools
+
+        with self.app.test_request_context("/"):
+            response = self.manager.work_controller.suppress(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            eq_(True, lp.suppressed)
+
+    def test_unsuppress(self):
+        [lp] = self.english_1.license_pools
+        lp.suppressed = True
+
+        with self.app.test_request_context("/"):
+            response = self.manager.work_controller.unsuppress(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            eq_(False, lp.suppressed)
 
 
 class TestFeedController(ControllerTest):
