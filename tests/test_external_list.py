@@ -187,10 +187,9 @@ class TestCustomListFromCSV(DatabaseTest):
 
         eq_(list_entry_1.annotation, list_entry_2.annotation)
 
-        # There are six classifications instead of 12.
+        # There are still six classifications.
         i = list_entry_1.edition.primary_identifier
-        descriptions = i.classifications
-        eq_(6, len(descriptions))
+        eq_(6, len(i.classifications))
 
         # Now import from the third row, but with
         # overwrite_old_data set to False.

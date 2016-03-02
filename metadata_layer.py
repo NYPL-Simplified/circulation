@@ -42,6 +42,7 @@ class ReplacementPolicy(object):
     this new metadata?
     """
     def __init__(
+            self,
             identifiers=False,
             subjects=False, 
             contributions=False,
@@ -58,9 +59,10 @@ class ReplacementPolicy(object):
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         
     @classmethod
-    def overwrite_everything(self):
-        """Overwrite absolutely every piece of information from the given data
-        source. But if the data appears to be old, don't do anything.
+    def from_license_source(self, even_if_not_apparently_updated=False):
+        """When gathering data from the license source, overwrite all old data
+        from this source with new data from the same source. Also
+        overwrite an old rights status with an updated status.
         """
         return ReplacementPolicy(
             identifiers=True, 
@@ -68,27 +70,30 @@ class ReplacementPolicy(object):
             contributions=True, 
             links=True, 
             rights=True,
-            even_if_not_apparently_updated=False
+            even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
     @classmethod
-    def force(self):
-        """Overwrite absolutely every piece of information from the given data
-        source, even if the data appears to be old.
+    def from_metadata_source(self, even_if_not_apparently_updated=False):
+        """When gathering data from a metadata source, overwrite all old data
+        from this source, but do not overwrite the rights
+        status--metadata sources have no authority to specify a rights
+        status.
         """
         return ReplacementPolicy(
             identifiers=True, 
             subjects=True, 
             contributions=True, 
             links=True, 
-            rights=True,
-            even_if_not_apparently_updated=False
+            rights=False,
+            even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
-
     @classmethod
-    def append_only(self):
+    def append_only(self, even_if_not_apparently_updated=False):
         """Don't overwrite any information, just append it.
+
+        This should probably never be used.
         """
         return ReplacementPolicy(
             identifiers=False, 
@@ -96,7 +101,7 @@ class ReplacementPolicy(object):
             contributions=False, 
             links=False, 
             rights=False,
-            even_if_not_apparently_updated=False
+            even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
 class SubjectData(object):
@@ -911,6 +916,8 @@ class Metadata(object):
                         # classification is a good idea. We don't have
                         # to do anything.
                         del new_subjects[key]
+                        surviving_classifications.append(classification)
+                identifier.classifications = surviving_classifications
 
         # Apply all new subjects to the identifier.
         for subject in new_subjects.values():
@@ -1017,10 +1024,8 @@ class Metadata(object):
         return edition
 
     def update_contributions(self, _db, edition, metadata_client=None, 
-                             replace=None):
-        if replace is None:
-            replace = ReplacementPolicy.append_only()
-        if replace.contributions and self.contributors is not None:
+                             replace=True):
+        if replace and self.contributors is not None:
             dirty = False
             # Remove any old Contributions from this data source --
             # we're about to add a new set

@@ -9,7 +9,10 @@ from sqlalchemy.orm.session import Session
 from opds_import import SimplifiedOPDSLookup
 import logging
 from config import Configuration
-from metadata_layer import CSVMetadataImporter
+from metadata_layer import (
+    CSVMetadataImporter,
+    ReplacementPolicy,
+)
 from model import (
     get_one,
     get_one_or_create,
@@ -229,12 +232,18 @@ class TitleFromExternalList(object):
                 "Ignoring %s, no corresponding edition.", self.metadata.title
             )
             return None
+        if overwrite_old_data:
+            policy = ReplacementPolicy.from_metadata_source(
+                even_if_not_apparently_updated=True
+            )
+        else:
+            policy = ReplacementPolicy.append_only(
+                even_if_not_apparently_updated=True
+            )
         self.metadata.apply(
             edition=edition, 
             metadata_client=metadata_client,
-            replace_identifiers=overwrite_old_data,
-            replace_subjects=overwrite_old_data, 
-            replace_contributions=overwrite_old_data
+            replace=policy,
         )
         self.metadata.associate_with_identifiers_based_on_permanent_work_id(_db)
         return edition
