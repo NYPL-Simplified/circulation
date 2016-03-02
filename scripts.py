@@ -405,7 +405,8 @@ class RefreshMaterializedViewsScript(Script):
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
-            print "%s refreshed in %.2f sec" % (view_name, b-a)
+            print "%s refreshed in %.2f sec." % (view_name, b-a)
+
         # Close out this session because we're about to create another one.
         db.commit()
         db.close()
@@ -420,8 +421,8 @@ class RefreshMaterializedViewsScript(Script):
         a = time.time()
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
-        print "Vacuumed in %.2f sec" % (b-a)
-        
+        print "Vacuumed in %.2f sec." % (b-a)
+
 
 class Explain(Script):
     """Explain everything known about a given work."""
