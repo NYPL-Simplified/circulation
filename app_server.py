@@ -272,7 +272,7 @@ class URNLookupController(object):
 
         license_sources = DataSource.license_sources_for(
             self._db, identifier)
-        if license_sources.count():
+        if identifier.type != Identifier.ISBN and license_sources.count():
             return self.register_identifier_as_unresolved(identifier)
         else:
             entry = self.make_opds_entry_from_metadata_lookups(identifier)
