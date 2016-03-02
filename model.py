@@ -3068,6 +3068,22 @@ class Work(Base):
         q = q.filter(WorkGenre.genre==None)
         return q
 
+    @classmethod
+    def with_complaint(cls, _db):
+        """Return query for Works that have at least one Complaint."""
+        subquery = _db.query(
+                Work.id,
+                Complaint.type.label("complaint_type"),
+                func.count(Complaint.type).label("complaint_type_count")
+            ).\
+            select_from(Work).\
+            join(Work.license_pools, LicensePool.complaints).\
+            group_by(Work.id, Complaint.type).\
+            subquery()
+        return _db.query(Work).\
+            join(subquery, Work.id == subquery.c.id).\
+            add_columns(subquery.c.complaint_type, subquery.c.complaint_type_count)
+
     def all_editions(self, recursion_level=5):
         """All Editions identified by a Identifier equivalent to 
         any of the primary identifiers of this Work's Editions.
