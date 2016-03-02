@@ -237,7 +237,7 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(edition, replace=self.replacement_policy)
+            metadata.apply(edition, replace=self.metadata_replacement_policy)
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
