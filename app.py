@@ -206,9 +206,9 @@ def google_auth_callback():
 def admin():
     return app.manager.admin_controller.signin()
 
-@app.route('/admin/complaints')
+@app.route('/complaints')
 @returns_problem_detail
-def admin_complaints():
+def complaints():
     return app.manager.opds_feeds.complaints()
 
 # Controllers used for operations purposes

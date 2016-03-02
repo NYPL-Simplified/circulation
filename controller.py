@@ -593,7 +593,7 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(opds_feed)
 
     def complaints(self):
-        this_url = url_for('admin_complaints')
+        this_url = url_for('complaints')
         annotator = self.manager.annotator(None)
         opds_feed = AcquisitionFeed.complaints(
             _db=self._db, title="Complaints",
