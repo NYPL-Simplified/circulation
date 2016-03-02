@@ -42,6 +42,7 @@ from core.lane import (
 from core.model import (
     get_one,
     get_one_or_create,
+    Admin,
     Complaint,
     DataSource,
     Hold,
@@ -49,7 +50,6 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
-    Admin,
 )
 from core.opds import (
     E,
@@ -92,7 +92,6 @@ from threem import (
     ThreeMAPI,
     DummyThreeMAPI,
 )
-
 from circulation import (
     CirculationAPI,
     DummyCirculationAPI,
@@ -149,8 +148,6 @@ class CirculationManager(object):
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
         self.opds_authentication_document = self.create_authentication_document()
-        #self.log.debug("Lane layout:")
-        #self.log_lanes()
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -288,7 +285,6 @@ class CirculationManagerController(object):
         else:
             flask.request.patron = patron
             return patron
-        
 
     def authenticated_patron(self, barcode, pin):
         """Look up the patron authenticated by the given barcode/pin.
@@ -421,7 +417,6 @@ class IndexController(CirculationManagerController):
         else:
             lang_key, name = lane_info
             return self.load_lane(lang_key, name)
-        
 
     def appropriate_index_for_patron_type(self):
         root_lane = self.authenticated_patron_root_lane()
