@@ -92,6 +92,7 @@ from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
+    COMICS_AND_GRAPHIC_NOVELS,
     GenreData,
 )
 from util import (
@@ -3546,6 +3547,18 @@ class Work(Base):
                      DataSource.GUTENBERG]
             ):
                 classifications_from_distributor.add(classification)
+            else:
+                # Only accept a classification having to do with
+                # format (e.g. 'comic books') if that classification
+                # comes direct from the distributor. Otherwise it's
+                # really easy for a graphic adaptation of a novel to
+                # get mixed up with the original novel, whereupon the
+                # original book is classified as a graphic novel.
+                #
+                # TODO: This is a bit of a hack.
+                set_trace()
+                if classification.subject.describes_format:
+                    continue
 
             if (not subject.checked 
                 or subject.type == Classifier.FREEFORM_AUDIENCE):
@@ -3655,10 +3668,19 @@ class Work(Base):
             wg.affinity = score/total_weight
             workgenres.append(wg)
 
+        audience, target_age = self.calculate_target_age(
+            audience, target_age_relevant_classifications
+        )
+        return workgenres, fiction, audience, target_age
+
+    def calculate_target_age(self, audience, classifications):
+        """Derive audience and target age from a tenative guess and a set
+        of relevant Classifications.
+        """
         target_age_mins = []
         target_age_maxes = []
         most_relevant = None
-        for c in target_age_relevant_classifications:
+        for c in classifications:
             score = c.quality_as_indicator_of_target_age
             if not score:
                 continue
@@ -3691,10 +3713,11 @@ class Work(Base):
                 # Everyone has a different opinion. Pick the largest one.
                 target_age_max = max(target_age_maxes)
 
-            # If we have a well-attested target age, we can make
-            # an audience decision on that basis.
             if target_age_min > target_age_max:
                 target_age_min, target_age_max = target_age_max, target_age_min
+
+            # A well-attested target age may make us change our mind
+            # about the book's audience.
             if (most_relevant > 
                 Classification._quality_as_indicator_of_target_age[Subject.TAG]):
                 if target_age_min < Classifier.YOUNG_ADULT_AGE_CUTOFF:
@@ -3703,7 +3726,14 @@ class Work(Base):
                     audience = Classifier.AUDIENCE_YOUNG_ADULT
                 elif classifier not in Classifier.AUDIENCES_ADULT:
                     audience = Classifier.AUDIENCE_ADULT
-            target_age = (target_age_min, target_age_max, '[]')
+
+            # At this point, if we believe this is a book for adults,
+            # the implication is that any target age data we have is
+            # incorrect and should be ignored.
+            if audience == Classifier.AUDIENCE_ADULT:
+                target_age = None, None
+            else:
+                target_age = (target_age_min, target_age_max, '[]')
         else:
             if audience == Classifier.AUDIENCE_YOUNG_ADULT:
                 target_age = (14, 17)
@@ -3711,7 +3741,7 @@ class Work(Base):
                 target_age = (18, None)
             else:
                 target_age = None, None
-        return workgenres, fiction, audience, target_age
+        return audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4537,6 +4567,21 @@ class Subject(Base):
         if not self.target_age.lower_inc:
             lower += 1
         return "%s-%s" % (lower,upper)
+
+    @property
+    def describes_format(self):
+        """Does this Subject describe a format of book rather than
+        subject matter, audience, etc?
+
+        If so, there are limitations on when we believe this Subject
+        actually applies to a given book--it may describe a very
+        different adaptation of the same underlying work.
+
+        TODO: See note in assign_genres about the hacky way this is used.
+        """
+        if self.genre and self.genre.name==COMICS_AND_GRAPHIC_NOVELS:
+            return True
+        return False
 
     @classmethod
     def lookup(cls, _db, type, identifier, name):

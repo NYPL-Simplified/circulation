@@ -497,10 +497,12 @@ class Axis360AudienceClassifier(Classifier):
 # specific audience (e.g. erotica is adults-only), and the third item
 # in the tuple describes that audience.
 
+COMICS_AND_GRAPHIC_NOVELS = u"Comics & Graphic Novels"
+
 fiction_genres = [
     u"Adventure",
     u"Classics",
-    u"Comics & Graphic Novels",
+    COMICS_AND_GRAPHIC_NOVELS,
     u"Drama",
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
