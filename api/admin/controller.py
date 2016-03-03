@@ -162,7 +162,6 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-
     def suppress(self, data_source, identifier):
         """Suppress the license pool associated with a book."""
         
@@ -186,4 +185,31 @@ class WorkController(CirculationManagerController):
     
         pool.suppressed = False
         return Response("", 200)
-    
+
+    def refresh_metadata(self, data_source, identifier, provider=None):
+        """Refresh the metadata for a book from the content server"""
+        if not provider:
+            provider = MetadataWranglerCoverageProvider(self._db)
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        try:
+            record = provider.ensure_coverage(pool.identifier, force=True)
+        except Exception:
+            # The coverage provider may raise an HTTPIntegrationException.
+            return REMOTE_INTEGRATION_FAILED
+
+        if record.exception:
+            # There was a coverage failure.
+            if isinstance(record.exception, int) and record.exception == 201:
+                # A 201 error means it's never looked up this work before
+                # so it's started the resolution process.
+                return METADATA_REFRESH_PENDING
+            # Otherwise, it just doesn't know anything.
+            return METADATA_REFRESH_FAILURE
+
+        return redirect(
+            url_for('permalink', data_source=data_source, identifier=identifier),
+            Response=Response
+        )

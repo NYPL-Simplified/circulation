@@ -84,6 +84,7 @@ from adobe_vendor_id import AdobeVendorIDController
 from axis import (
     Axis360API,
 )
+from coverage import MetadataWranglerCoverageProvider
 from overdrive import (
     OverdriveAPI,
     DummyOverdriveAPI,
@@ -700,7 +701,6 @@ class LoanController(CirculationManagerController):
         if fulfillment.content_type:
             headers['Content-Type'] = fulfillment.content_type
         return Response(fulfillment.content, status_code, headers)
-    
 
     def revoke(self, data_source, identifier):
         patron = flask.request.patron

@@ -76,6 +76,12 @@ def suppress(data_source, identifier):
 def unsuppress(data_source, identifier):
     return app.manager.admin_work_controller.unsuppress(data_source, identifier)
 
+@app.route('/works/<data_source>/<identifier>/refresh')
+@returns_problem_detail
+@requires_csrf_token
+@requires_admin
+def refresh(data_source, identifier):
+    return app.manager.work_controller.refresh_metadata(data_source, identifier)
 
 @app.route('/admin')
 @app.route('/admin/')

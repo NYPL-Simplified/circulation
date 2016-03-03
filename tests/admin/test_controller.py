@@ -14,6 +14,10 @@ from api.admin.config import (
     temp_config,
 )
 from core.model import Admin, create
+from core.testing import (
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
 
 class AdminControllerTest(ControllerTest):
 
@@ -45,7 +49,6 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(suppress_links))
             assert lp.identifier.identifier in suppress_links[0]
 
-
         lp.suppressed = True
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
@@ -59,8 +62,6 @@ class TestWorkController(AdminControllerTest):
             eq_(0, len(suppress_links))
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
-
-        
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -78,6 +79,37 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
+
+    def test_refresh_metadata(self):
+        [lp] = self.english_1.license_pools
+        datasource = lp.data_source.name
+        identifier = lp.identifier.identifier
+        permalink_route = '/works/' + datasource + '/' + identifier
+
+        success_provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", [Identifier.GUTENBERG_ID],
+            DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        )
+        failure_provider = NeverSuccessfulCoverageProvider(
+            "Never successful", [Identifier.GUTENBERG_ID],
+            DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        )
+
+        with self.app.test_request_context('/'):
+            # A successful response from the metadata wrangler returns user to
+            # the permalink.
+            response = self.manager.work_controller.refresh_metadata(
+                datasource, identifier, provider=success_provider
+            )
+            eq_(302, response.status_code)
+            eq_(permalink_route, response.headers['Location'])
+
+
+            response = self.manager.work_controller.refresh_metadata(
+                datasource, identifier, provider=failure_provider
+            )
+            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
+            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
 
 class TestSigninController(AdminControllerTest):
