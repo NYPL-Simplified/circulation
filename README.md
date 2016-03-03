@@ -6,7 +6,7 @@ The [OA Content Server], [Metadata Wrangler](https://github.com/NYPL-Simplified/
 
 ## Installation & Workflow
 
-Thorough deployment instructions, including essential libraries for Linux systems, can be found [in the Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified-iOS/wiki/Deployment-Instructions). **_If this is your first time installing a Library Simplified repository, please review those instructions._**
+Thorough deployment instructions, including essential libraries for Linux systems, can be found [in the Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions). **_If this is your first time installing a Library Simplified repository, please review those instructions._**
 
 More often than not, this repository is installed and altered as part of another server using the following commands:
 ```sh
