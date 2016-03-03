@@ -3547,18 +3547,16 @@ class Work(Base):
                      DataSource.GUTENBERG]
             ):
                 classifications_from_distributor.add(classification)
-            else:
+            elif classification.subject.describes_format:
+                # TODO: This is a bit of a hack.
+                #
                 # Only accept a classification having to do with
                 # format (e.g. 'comic books') if that classification
                 # comes direct from the distributor. Otherwise it's
                 # really easy for a graphic adaptation of a novel to
                 # get mixed up with the original novel, whereupon the
                 # original book is classified as a graphic novel.
-                #
-                # TODO: This is a bit of a hack.
-                set_trace()
-                if classification.subject.describes_format:
-                    continue
+                continue
 
             if (not subject.checked 
                 or subject.type == Classifier.FREEFORM_AUDIENCE):
@@ -3586,15 +3584,16 @@ class Work(Base):
                     or subject.target_age.upper is not None):
                 target_age_relevant_classifications.append(classification)
 
-        if fiction_s[True] > fiction_s[False]:
-            fiction = True
-        else:
-            # We default to nonfiction.
-            fiction = False
-
         if classifications_from_distributor:
-            if not any(i.subject.audience not in (Classifier.AUDIENCE_ADULT, None)
-                       for i in classifications_from_distributor):
+            adult_evidence = (
+                Classifier.AUDIENCE_ADULT, Classifier.ADULTS_ONLY, None
+            )
+            if any(i.subject.audience not in adult_evidence
+                   for i in classifications_from_distributor):
+                # The distributor has given us some indication that
+                # this is a book for children or young adults. Do
+                # nothing special here.
+            else:
                 # If this was a book for children or young adults, the
                 # distributor would have given some indication of that
                 # fact. In the absense of any such indication, we can
@@ -3606,29 +3605,18 @@ class Work(Base):
                 # classifications.
                 audience_s[Classifier.AUDIENCE_ADULT] += 500
 
-        unmarked = audience_s[None]
-        adult = audience_s[Classifier.AUDIENCE_ADULT]
-        audience = Classifier.AUDIENCE_ADULT
+        audience = Classification.audience(audience_s)
+        target_age = Classification.target_age(
+            target_age_relevant_classifications
+        )
+        if target_age is None:
+            target_age = Classification.default_target_age(audience)
 
-        # To avoid embarassing situations we will classify works by
-        # default as being intended for adults.
-        # 
-        # To be classified as a young adult or childrens' book, there
-        # must be twice as many votes for that status as for the
-        # 'adult' status, or, if there are no 'adult' classifications,
-        # at least min(10, 50% of the total) votes must be for Young Adult or
-        # Children.
-        if adult:
-            threshold = adult * 2
+        if fiction_s[True] > fiction_s[False]:
+            fiction = True
         else:
-            threshold = min(total_weight*0.5, 10)
-
-        ya_score = audience_s[Classifier.AUDIENCE_YOUNG_ADULT]
-        ch_score = audience_s[Classifier.AUDIENCE_CHILDREN]
-        if (ch_score > threshold and ch_score > ya_score):
-            audience = Classifier.AUDIENCE_CHILDREN
-        elif ya_score > threshold:
-            audience = Classifier.AUDIENCE_YOUNG_ADULT
+            # We default to nonfiction.
+            fiction = False
 
         # Remove any genres whose fiction status is inconsistent with the
         # (independently determined) fiction status of the book.
@@ -3668,80 +3656,7 @@ class Work(Base):
             wg.affinity = score/total_weight
             workgenres.append(wg)
 
-        audience, target_age = self.calculate_target_age(
-            audience, target_age_relevant_classifications
-        )
         return workgenres, fiction, audience, target_age
-
-    def calculate_target_age(self, audience, classifications):
-        """Derive audience and target age from a tenative guess and a set
-        of relevant Classifications.
-        """
-        target_age_mins = []
-        target_age_maxes = []
-        most_relevant = None
-        for c in classifications:
-            score = c.quality_as_indicator_of_target_age
-            if not score:
-                continue
-            if not most_relevant or score > most_relevant:
-                most_relevant = score
-            if score >= most_relevant:
-                target_min = c.subject.target_age.lower
-                target_max = c.subject.target_age.upper
-                if target_min:
-                    if not c.subject.target_age.lower_inc:
-                        target_min += 1
-                    for i in range(0,c.weight):
-                        target_age_mins.append(target_min)
-                if target_max:
-                    if not c.subject.target_age.upper_inc:
-                        target_max -= 1
-                    for i in range(0,c.weight):
-                        target_age_maxes.append(target_max)
-
-        if target_age_mins:
-            mins = Counter(target_age_mins)
-            [(target_age_min, count)] = mins.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the smallest one.
-                target_age_min = min(target_age_mins)
-
-            maxes = Counter(target_age_maxes)
-            [(target_age_max, count)] = maxes.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the largest one.
-                target_age_max = max(target_age_maxes)
-
-            if target_age_min > target_age_max:
-                target_age_min, target_age_max = target_age_max, target_age_min
-
-            # A well-attested target age may make us change our mind
-            # about the book's audience.
-            if (most_relevant > 
-                Classification._quality_as_indicator_of_target_age[Subject.TAG]):
-                if target_age_min < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-                    audience = Classifier.AUDIENCE_CHILDREN
-                elif target_age_min < 18:
-                    audience = Classifier.AUDIENCE_YOUNG_ADULT
-                elif classifier not in Classifier.AUDIENCES_ADULT:
-                    audience = Classifier.AUDIENCE_ADULT
-
-            # At this point, if we believe this is a book for adults,
-            # the implication is that any target age data we have is
-            # incorrect and should be ignored.
-            if audience == Classifier.AUDIENCE_ADULT:
-                target_age = None, None
-            else:
-                target_age = (target_age_min, target_age_max, '[]')
-        else:
-            if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-                target_age = (14, 17)
-            elif audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
-                target_age = (18, None)
-            else:
-                target_age = None, None
-        return audience, target_age
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4762,6 +4677,158 @@ class Classification(Base):
         if subject_type in q:
             return q[subject_type]
         return 0.1
+
+    @classmethod
+    def audience(cls, audience_weights):
+        """Derive a value for Work.audience from a dictionary showing the
+        relative weights given to different potential audiences.
+        """
+        unmarked_weight = audience_weights[None]
+
+        children_weight = audience_weights[Classifier.AUDIENCE_CHILDREN]
+        ya_weight = audience_weights[Classifier.AUDIENCE_YOUNG_ADULT]
+        adult_weight = audience_weights[Classifier.AUDIENCE_ADULT]
+        adults_only_weight = audience_weights[Classifier.AUDIENCE_ADULTS_ONLY]
+        total_adult_weight = adult_weight + adults_only_weight
+        total_weight = sum(audience_weights.values())
+        
+        # To avoid embarassing situations we will classify works as
+        # being intended for adults absent convincing evidence to the
+        # contrary.
+        audience = Classifier.AUDIENCE_ADULT
+
+        # There are two cases when a book will be classified as a
+        # young adult or childrens' book:
+        #
+        # 1. The weight of that audience is twice the combined weight of
+        # the 'adult' and 'adults only' audiences.
+        #
+        # 2. The 'adult' and 'adults only' audiences have no weight
+        # whatsoever, and the weight of the proposed audience is at
+        # least 50% of the total, or 10, whichever is lower.
+        if total_adult_weight:
+            threshold = total_adult_weight * 2
+        else:
+            threshold = min(total_weight*0.5, 10)
+
+        # If both the 'children' weight and the 'YA' weight pass the
+        # threshold, we go with 'YA'.
+        if (children_weight > threshold and children_weight > ya_weight):
+            audience = Classifier.AUDIENCE_CHILDREN
+        elif ya_weight > threshold:
+            audience = Classifier.AUDIENCE_YOUNG_ADULT
+
+        # If the 'adults only' weight is more than 1/4 of the total adult
+        # weight, classify as 'adults only' to be safe.
+        #
+        # TODO: This has not been calibrated.
+        if adults_only_weight > total_adult_weight/4:
+            audience = Classifier.AUDIENCE_ADULTS_ONLY
+
+        return audience
+
+    @classmethod
+    def most_reliable_target_age_subset(cls, classifications):
+        """Not all target age data is created equal. This method isolates the
+        most reliable subset of a set of classifications.
+        
+        For example, if we have an Overdrive classification saying
+        that the book is a picture book (target age: 0-3), and we also
+        have a bunch of tags saying that the book is for ages 2-5 and
+        0-2 and 1-3 and 12-13, we will use the (reliable) Overdrive
+        classification and ignore the (unreliable) tags altogether,
+        rather than try to average everything out.
+        
+        But if there is no Overdrive classification, that set of tags
+        will be the most reliable target age subset, and we'll
+        just do the best we can.
+        """
+        highest_quality_score = None
+        reliable_classifications = []
+        for c in classifications:
+            if not c.target_age:
+                continue
+            score = c.quality_as_indicator_of_target_age
+            if not score:
+                continue
+            if (not highest_quality_score or score > highest_quality_score):
+                # If we gather a bunch of data, then discover a more reliable
+                # type of data, we need to start all over.
+                highest_quality_score = score
+                reliable_classifications = []
+            if score >= highest_quality_score:
+                reliable_classifications.append(c)
+        return reliable_classifications
+
+    @classmethod
+    def target_age(cls, audience_weights):
+        """Derive a value for Work.target_age from a set of Classifications.
+        
+        This assumes that the Work has already been determined to be a
+        children's or YA book, and that a target age is appropriate.
+        """
+
+        # Only consider the most reliable classifications.
+        reliable_classifications = self.most_reliable_target_age_subset(
+            classifications
+        )
+
+        # Try to reach consensus on the lower and upper bounds of the
+        # age range.
+        target_age_mins = []
+        target_age_maxes = []
+        for c in reliable_classifications:
+            target_min = c.subject.target_age.lower
+            target_max = c.subject.target_age.upper
+            if target_min:
+                if not c.subject.target_age.lower_inc:
+                    target_min += 1
+                for i in range(0,c.weight):
+                    target_age_mins.append(target_min)
+            if target_max:
+                if not c.subject.target_age.upper_inc:
+                    target_max -= 1
+                for i in range(0,c.weight):
+                    target_age_maxes.append(target_max)
+
+        if target_age_mins:
+            # We have opinions about the proper target age.
+            mins = Counter(target_age_mins)
+            [(target_age_min, count)] = mins.most_common(1)
+            if count == 1:
+                # Everyone has a different opinion. Pick the smallest
+                # minimum age.
+                target_age_min = min(target_age_mins)
+
+            maxes = Counter(target_age_maxes)
+            [(target_age_max, count)] = maxes.most_common(1)
+            if count == 1:
+                # Everyone has a different opinion. Pick the largest
+                # maximum age.
+                target_age_max = max(target_age_maxes)
+
+            if target_age_min > target_age_max:
+                target_age_min, target_age_max = target_age_max, target_age_min
+        else:
+            # We found no opinions about the target age. We'll use the
+            # default target age for the audience.
+            return None, None
+
+    @classmethod
+    def default_target_age(cls, audience):
+        """The default target age for a given audience.
+
+        We don't know what age range a children's book is appropriate
+        for, but we can make a decent guess for a YA book, for an
+        'Adult' book it's pretty clear, and for an 'Adults Only' book
+        it's very clear.
+        """
+        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return (14, 17)
+        if audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
+            return (18, None)
+        return None, None
+
 
 class WillNotGenerateExpensiveFeed(Exception):
     """This exception is raised when a feed is not cached, but it's too

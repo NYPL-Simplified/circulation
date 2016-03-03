@@ -24,6 +24,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Classification,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -2008,3 +2009,46 @@ class TestComplaint(DatabaseTest):
         assert_raises(
             ValueError, Complaint.register, self.pool, type, None, None
         )
+
+
+class TestClassification(DatabaseTest):
+
+    # def test_target_age_errs_towards_wider_span(self):
+    #     i = self._identifier()
+    #     source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+    #     c1 = i.classify(
+    #         source, Subject.AGE_RANGE, u"8-9", weight=1
+    #     )
+    #     c2 = i.classify(
+    #         source, Subject.AGE_RANGE, u"6-7", weight=1
+    #     )
+    #     c1.subject.assign_to_genre()
+    #     c2.subject.assign_to_genre()
+    #     audience, target_age = Classification.target_age(
+    #         Classifier.AUDIENCE_CHILDREN, [c1, c2], 0
+    #     )
+    #     # blah
+
+    def test_book_for_adults_has_no_target_age(self):
+        i = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        for_young_kids = i.classify(
+            source, Subject.AGE_RANGE, u"8-9", weight=1
+        )
+        for_adults = i.classify(
+            source, Subject.FREEFORM_AUDIENCE, u"Adult", weight=10
+        )
+        for_young_kids.subject.assign_to_genre()
+        for_adults.subject.assign_to_genre()
+        set_trace()
+
+        audience, target_age = Classification.target_age(
+            Classifier.AUDIENCE_CHILDREN, [for_young_kids], for_adults.weight
+        )
+        eq_(Classifier.AUDIENCE_CHILDREN, audience)
+        eq_((8,9, '[]'), target_age)
+
+        bar = Classification.target_age(
+            Classifier.AUDIENCE_ADULT, [for_young_kids], for_adults.weight
+        )
+        set_trace()
