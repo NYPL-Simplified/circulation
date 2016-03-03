@@ -557,7 +557,7 @@ class OPDSFeedController(CirculationManagerController):
         title = lane.display_name
 
         annotator = self.manager.annotator(lane, admin=admin)
-        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator, force_refresh=True)
+        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
         return feed_response(feed.content)
 
     def feed(self, languages, lane_name):
@@ -583,7 +583,7 @@ class OPDSFeedController(CirculationManagerController):
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
-            pagination=pagination, force_refresh=True,
+            pagination=pagination,
         )
         return feed_response(feed.content)
 
