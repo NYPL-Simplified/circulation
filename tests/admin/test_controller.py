@@ -81,10 +81,7 @@ class TestWorkController(AdminControllerTest):
             eq_(False, lp.suppressed)
 
     def test_refresh_metadata(self):
-        [lp] = self.english_1.license_pools
-        datasource = lp.data_source.name
-        identifier = lp.identifier.identifier
-        permalink_route = '/works/' + datasource + '/' + identifier
+        permalink_route = '/works/' + self.datasource + '/' + self.identifier
 
         success_provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", [Identifier.GUTENBERG_ID],
@@ -99,18 +96,17 @@ class TestWorkController(AdminControllerTest):
             # A successful response from the metadata wrangler returns user to
             # the permalink.
             response = self.manager.work_controller.refresh_metadata(
-                datasource, identifier, provider=success_provider
+                self.datasource, self.identifier, provider=success_provider
             )
             eq_(302, response.status_code)
             eq_(permalink_route, response.headers['Location'])
 
 
             response = self.manager.work_controller.refresh_metadata(
-                datasource, identifier, provider=failure_provider
+                self.datasource, self.identifier, provider=failure_provider
             )
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
-
 
 class TestSigninController(AdminControllerTest):
 
