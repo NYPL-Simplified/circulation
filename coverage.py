@@ -8,6 +8,7 @@ from core.coverage import (
 from sqlalchemy import (
     and_,
 )
+from monitor import HTTPIntegrationException
 from core.model import (
     CoverageRecord,
     DataSource,

@@ -27,9 +27,11 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
+    Admin,
     SessionManager,
     CachedFeed,
     get_one,
+    create,
 )
 from ..core.lane import (
     Facets,
@@ -53,6 +55,7 @@ from ..core.opds import (
     AcquisitionFeed,
 )
 from ..opds import CirculationManagerAnnotator
+from ..oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
@@ -258,6 +261,77 @@ class TestIndexController(ControllerTest):
                 eq_("http://cdn/groups/", response.headers['location'])
 
 
+class TestAdminController(ControllerTest):
+
+    def setup(self):
+        super(TestAdminController, self).setup()
+        self.admin, ignore = create(
+            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
+            credential=json.dumps({
+                u'access_token': u'abc123',
+                u'client_id': u'', u'client_secret': u'',
+                u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
+                u'user_agent': u'', u'invalid': u''
+            })
+        )
+
+    def test_authenticated_admin_from_request(self):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_access_token'] = self.admin.access_token
+            response = self.manager.admin_controller.authenticated_admin_from_request()
+            eq_(self.admin, response)
+
+        # Returns an error if you aren't authenticated.
+        with temp_config() as config:
+            config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
+                Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
+            }
+            with self.app.test_request_context('/admin'):
+                # You get back a problem detail when you're not authenticated.
+                response = self.manager.admin_controller.authenticated_admin_from_request()
+                eq_(401, response.status_code)
+                eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
+
+    def test_authenticated_admin(self):
+        # Creates a new admin with fresh details.
+        new_admin_details = {
+            'email' : u'admin@nypl.org',
+            'access_token' : u'tubular',
+            'credentials' : u'gnarly',
+        }
+        admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
+        eq_('admin@nypl.org', admin.email)
+        eq_('tubular', admin.access_token)
+        eq_('gnarly', admin.credential)
+
+        # Or overwrites credentials for an existing admin.
+        existing_admin_details = {
+            'email' : u'example@nypl.org',
+            'access_token' : u'bananas',
+            'credentials' : u'b-a-n-a-n-a-s',
+        }
+        admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
+        eq_(self.admin.id, admin.id)
+        eq_('bananas', self.admin.access_token)
+        eq_('b-a-n-a-n-a-s', self.admin.credential)
+
+    def test_admin_signin(self):
+        with self.app.test_request_context('/admin?redirect=foo'):
+            flask.session['admin_access_token'] = self.admin.access_token
+            response = self.manager.admin_controller.signin()
+            eq_(302, response.status_code)
+            eq_("foo", response.headers["Location"])
+            
+    def test_staff_email(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
+            with self.app.test_request_context('/admin'):
+                staff_email = self.manager.admin_controller.staff_email("working@alibrary.org")
+                interloper_email = self.manager.admin_controller.staff_email("rando@gmail.com")
+                eq_(True, staff_email)
+                eq_(False, interloper_email)
+
+
 class TestAccountController(ControllerTest):
 
     def test_patron_info_no_username(self):
@@ -274,8 +348,8 @@ class TestAccountController(ControllerTest):
             account_info = json.loads(self.manager.accounts.account())
             eq_("alice", account_info.get('username'))
             eq_("0", account_info.get('barcode'))
-        
-        
+
+
 class TestLoanController(ControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
@@ -473,7 +547,6 @@ class TestLoanController(ControllerTest):
                     DataSource.THREEM, pool.identifier.identifier)
                 
                 eq_(201, response.status_code)
-                
 
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
@@ -716,7 +789,6 @@ class TestFeedController(ControllerTest):
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
                 eq_(1, counter['Other Languages'])
-        
 
     def test_search(self):
         with self.app.test_request_context("/?q=sam"):
