@@ -202,9 +202,10 @@ class WorkController(CirculationManagerController):
 
         if record.exception:
             # There was a coverage failure.
-            if isinstance(record.exception, int) and record.exception == 201:
-                # A 201 error means it's never looked up this work before
-                # so it's started the resolution process.
+            if (isinstance(record.exception, int)
+                and record.exception in [201, 202]):
+                # A 201/202 error means it's never looked up this work before
+                # so it's started the resolution process or looking for sources.
                 return METADATA_REFRESH_PENDING
             # Otherwise, it just doesn't know anything.
             return METADATA_REFRESH_FAILURE
