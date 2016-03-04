@@ -2040,7 +2040,6 @@ class TestClassification(DatabaseTest):
         )
         for_young_kids.subject.assign_to_genre()
         for_adults.subject.assign_to_genre()
-        set_trace()
 
         audience, target_age = Classification.target_age(
             Classifier.AUDIENCE_CHILDREN, [for_young_kids], for_adults.weight
