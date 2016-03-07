@@ -1,1 +1,0 @@
-../node_modules/simplified-circulation-web/lib/index.js

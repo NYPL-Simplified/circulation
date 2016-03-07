@@ -1,12 +1,12 @@
 from nose.tools import set_trace, eq_
 import datetime
 import pkgutil
-from ..threem import (
+from api.threem import (
     CirculationParser,
     EventParser,
     ErrorParser,
 )
-from ..core.model import (
+from core.model import (
     CirculationEvent,
     Contributor,
     DataSource,
@@ -15,7 +15,7 @@ from ..core.model import (
     Identifier,
     Edition,
 )
-from ..circulation_exceptions import *
+from api.circulation_exceptions import *
 
 class Test3MEventParser(object):
 

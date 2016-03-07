@@ -9,34 +9,34 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
-from ..core.lane import (
+from core.lane import (
     LaneList,
     Lane,
 )
-from ..core.model import (
+from core.model import (
     Work,
 )
 
-from ..core.classifier import (
+from core.classifier import (
     Classifier,
     Fantasy,
 )
 
-from ..core.opds import (
+from core.opds import (
     _strftime
 )
 
-from ..core.opds_import import (
+from core.opds_import import (
     OPDSXMLParser
 )
 
-from ..circulation import CirculationAPI
+from api.circulation import CirculationAPI
 
-from ..opds import (
+from api.opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
 )
-from ..core.opds import (
+from core.opds import (
     AcquisitionFeed,
     OPDSFeed,
 )

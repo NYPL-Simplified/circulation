@@ -6,7 +6,7 @@ from nose.tools import (
     set_trace,
 )
 
-from ..millenium_patron import MilleniumPatronAPI
+from api.millenium_patron import MilleniumPatronAPI
 from . import DatabaseTest
 
 class DummyResponse(object):

@@ -1,7 +1,7 @@
 import json
 from nose.tools import set_trace
 
-from problem_details import GOOGLE_OAUTH_FAILURE
+from api.problem_details import GOOGLE_OAUTH_FAILURE
 from config import Configuration
 from oauth2client import client as GoogleClient
 

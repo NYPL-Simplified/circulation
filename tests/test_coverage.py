@@ -7,20 +7,20 @@ from . import (
     DatabaseTest,
 )
 
-from ..core.model import (
+from core.model import (
     DataSource,
     Identifier,
 )
 
-from ..core.opds_import import(
+from core.opds_import import(
     StatusMessage
 )
 
-from ..core.coverage import(
+from core.coverage import(
     CoverageFailure,
 )
 
-from ..coverage import (
+from api.coverage import (
     OPDSImportCoverageProvider,
 )
 
