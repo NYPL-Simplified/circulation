@@ -477,68 +477,204 @@ class TestOverdriveClassifier(object):
         eq_((5,8), a("Beginning Reader", None))
         eq_((None,None), a("Fiction", None))
 
-# TODO: This needs to be moved into model I guess?
 
-# class TestClassifier(object):
+class TestWorkClassifier(DatabaseTest):
 
+    def setup(self):
+        super(TestWorkClassifier, self).setup()
+        self.work = self._work()
+        self.identifier = self.work.primary_edition.primary_identifier
+        self.classifier = WorkClassifier()
 
-#     def test_misc(self):
-#         adult = Classifier.AUDIENCE_ADULT
-#         child = Classifier.AUDIENCE_CHILDREN
+    def test_weigh_metadata_title(self):
+        self.work.primary_edition.title = u"Star Trek: The Book"
+        self.classifier.weigh_metadata()
+        eq_(100, genre[classifier.Media_Tie_in_SF])
 
-#         data = {"DDC": [{"id": "813.4", "weight": 137}], "LCC": [{"id": "PR9199.2.B356", "weight": 48}], "FAST": [{"weight": 103, "id": "1719440", "value": "Mackenzie, Alexander, 1764-1820"}, {"weight": 25, "id": "969633", "value": "Indians of North America"}, {"weight": 22, "id": "1064447", "value": "Pioneers"}, {"weight": 17, "id": "918556", "value": "Explorers"}, {"weight": 17, "id": "936416", "value": "Fur traders"}, {"weight": 17, "id": "987694", "value": "Kings and rulers"}, {"weight": 7, "id": "797462", "value": "Adventure stories"}, {"weight": 5, "id": "1241420", "value": "Rocky Mountains"}]}
-#         classified = Classifier.classify(data, True)
+    # Similar to the above -- these tests were copied in from test_model and
+    # needs to be modified.
+    def test_weight_metadata_publisher(self):
+        # Genre publisher and imprint
+        harlequin = self._work()
+        harlequin.primary_edition.publisher = u"Harlequin"
+        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
+        eq_(100, genre[classifier.Romance])
 
-#         # This is pretty clearly fiction intended for an adult
-#         # audience.
-#         assert classified['audience'][Classifier.AUDIENCE_ADULT] > 0.6
-#         assert classified['audience'][Classifier.AUDIENCE_CHILDREN] == 0
-#         assert classified['fiction'][True] > 0.6
-#         assert classified['fiction'][False] == 0
+    def test_weight_metadata_imprint(self):
+        harlequin.primary_edition.imprint = u"Harlequin Intrigue"
+        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
+        # Imprint is more specific than publisher, so it takes precedence.
+        assert classifier.Romance not in genre
+        eq_(100, genre[classifier.Romantic_Suspense])
 
-#         # Its LCC classifications are heavy on the literature.
-#         names = classified['names']
-#         eq_(0.5, names['LCC']['LANGUAGE AND LITERATURE'])
-#         eq_(0.5, names['LCC']['English literature'])
+    def test_metadata_implies_audience_and_genre(self):
+        # Genre and audience publisher 
+        harlequin_teen = self._work()
+        harlequin_teen.primary_edition.publisher = u"Harlequin"
+        harlequin_teen.primary_edition.imprint = u"Harlequin Teen"
+        fiction, genre, target_age, audience = harlequin_teen.genre_weights_from_metadata([])
+        eq_(100, genre[classifier.Romance])
+        eq_(100, audience[Classifier.AUDIENCE_YOUNG_ADULT])
 
-#         # Alexander Mackenzie is more closely associated with this work
-#         # than the Rocky Mountains.
-#         assert (names['FAST']['Mackenzie, Alexander, 1764-1820'] > 
-#                 names['FAST']['Rocky Mountains'])
+    def test_metadata_implies_fiction_status(self):
+        harlequin_nonfiction = self._work()
+        harlequin_nonfiction.primary_edition.publisher = u"Harlequin"
+        harlequin_nonfiction.primary_edition.imprint = u"Harlequin Nonfiction"
+        fiction, genre, target_age, audience = harlequin_nonfiction.genre_weights_from_metadata([])
+        eq_(100, fiction[False])
+        assert True not in fiction
 
-#         # But the Rocky Mountains ain't chopped liver.
-#         assert names['FAST']['Rocky Mountains'] > 0
+    def test_publisher_excludes_adult_audience(self):
+        # We don't know if this is a children's book or a young adult
+        # book, but we're confident it's not a book for adults.
+        scholastic = self._work()
+        scholastic.primary_edition.publisher = u"Scholastic Inc."
+        fiction, genre, target_age, audience = scholastic.genre_weights_from_metadata([])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULTS_ONLY])
 
-#     def test_keyword_based_classification(self):
+    def test_imprint_excludes_adult_audience(self):
+        for_young_readers = self._work()
+        for_young_readers.primary_edition.imprint = u"Delacorte Books for Young Readers"
+        fiction, genre, target_age, audience = for_young_readers.genre_weights_from_metadata([])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
+        eq_(-100, audience[Classifier.AUDIENCE_ADULTS_ONLY])
 
-#         adult = Classifier.AUDIENCE_ADULT
-#         child = Classifier.AUDIENCE_CHILDREN
+    def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
+        self.work.primary_edition.title = u"Science Fiction: A Comprehensive History"
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
+        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
+        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
+        ids = [i.id]
+        ([history], fiction, audience, target_age) = work.assign_genres(ids)
 
-#         classifier = Keyword
+        # This work really looks like science fiction, but it looks
+        # *even more* like nonfiction, and science fiction is not a
+        # genre of nonfiction. So this book can't be science
+        # fiction. It must be history.
+        eq_("History", history.genre.name)
+        eq_(False, fiction)
+        eq_(Classifier.AUDIENCE_ADULT, audience)
+        eq_((18,None), target_age)
 
-#         genre, audience, is_fiction = classifier.classify(
-#             "World War, 1914-1918 -- Pictorial works")
+    def test_no_children_or_ya_signal_from_publisher_implies_book_is_for_adults(self):
+        # TODO: Create some classifications that end up in
+        # direct_from_license_source, but don't imply that the book is
+        # from children or
+        # YA. classifier.audience_weights[AUDIENCE_ADULT] will be set
+        # to 500.
 
-#         set_trace()
+        # Then create another work and give it a classification that
+        # ends up in direct_from_license_source and implies the book
+        # is for children. AUDIENCE_ADULT will be left alone.
 
-#         genre, audience, is_fiction = Classifier.classify(
-#             "Illustrated books")
+    def test_fiction(self):
+        # TODO: Create a fiction book, then a nonfiction book, then
+        # verify that the default is nonfiction.
 
-#         # We're not sure it's nonfiction, but we have no indication
-#         # whatsoever that it's fiction.
-#         assert classified['fiction'][True] == 0
-#         assert classified['fiction'][False] > 0.3
+    def test_childrens_book_when_evidence_is_overwhelming(self):
+        # There is some evidence in the 'adult' and 'adults only'
+        # bucket, but there's a lot more evidence that it's a
+        # children's or YA book, so we go with childrens or YA.
+        
+        # TODO: I'm not confident in the exact algorithm in
+        # WorkClassifier.audience.
 
-#         # We're not sure its for adults, but we have no indication
-#         # whatsoever that it's for children.
-#         assert classified['audience'][child] == 0
-#         assert classified['audience'][adult] > 0.3
+        # currently: weight(children) is 2*(weight(adult)+weight(adults only))
+        # OR weight(YA) is 2*(weight(adult)+weight(adults only))
 
-#         # It's more closely associated with "World War, 1914-1918"
-#         # than with any other LCSH classification.
-#         champ = None
-#         for k, v in classified['codes']['LCSH'].items():
-#             if not champ or v > champ[1]:
-#                 champ = (k,v)
-#         eq_(champ, ("World War, 1914-1918", 0.5))
+    def test_ya_book_when_childrens_and_ya_combined_beat_adult(self):
+        # Individually, the 'children' and 'ya' buckets don't beat the
+        # combined 'adult' + 'adults only' bucket by the appropriate
+        # factor (currently x2), but combined they do.  In this case
+        # we should classify the book as YA.
 
+        # TODO: This code has not been written.
+
+    def test_childrens_book_when_no_evidence_for_adult_book(self):
+        # There is no evidence in the 'adult' or 'adults only'
+        # buckets, and the evidence in the 'children' or 'ya' bucket
+        # is sufficient to reach some minimum threshold.
+
+        # Again, the algorithm needs some work.
+
+    def test_default_target_age(self):
+        # TODO: test the different scenarios for
+        # WorkClassifier.default_target_age.
+
+    def test_target_age_is_default_for_adult_books(self):
+        # If there are classifications that imply a certain target
+        # age, but we independently determine that a book is 'Adult'
+        # or 'Adults Only', those classifications are ignored and the
+        # 'target age' of the book is 18+.
+
+    def test_most_reliable_target_age_subset(self):
+        # Create an Overdrive target age classification like 'picture
+        # books', and a bunch of random tags. First verify that
+        # most_reliable_target_age_subset returns only the Overdrive
+        # classification, then verify that WorkClassifier.target_age
+        # returns the value implied by the Overdrive classification.
+
+    def test_target_age_errs_towards_wider_span(self):
+        i = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        c1 = i.classify(
+            source, Subject.AGE_RANGE, u"8-9", weight=1
+        )
+        c2 = i.classify(
+            source, Subject.AGE_RANGE, u"6-7", weight=1
+        )
+        c1.subject.assign_to_genre()
+        c2.subject.assign_to_genre()
+        target_age = Classification.target_age(
+            Classifier.AUDIENCE_CHILDREN, [c1, c2], 0
+        )
+        eq_((6,9), target_age)
+
+    def test_book_for_adults_has_no_target_age(self):
+        # TODO: I copied this in for model; it might be the same as 
+        # test_target_age_is_default_for_adult_book
+        i = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        for_young_kids = i.classify(
+            source, Subject.AGE_RANGE, u"8-9", weight=1
+        )
+        for_adults = i.classify(
+            source, Subject.FREEFORM_AUDIENCE, u"Adult", weight=10
+        )
+        for_young_kids.subject.assign_to_genre()
+        for_adults.subject.assign_to_genre()
+
+        audience, target_age = Classification.target_age(
+            Classifier.AUDIENCE_CHILDREN, [for_young_kids], for_adults.weight
+        )
+        eq_(Classifier.AUDIENCE_CHILDREN, audience)
+        eq_((8,9, '[]'), target_age)
+
+        bar = Classification.target_age(
+            Classifier.AUDIENCE_ADULT, [for_young_kids], for_adults.weight
+        )
+        set_trace()
+
+    def test_fiction_status_restricts_genre(self):
+        # Classify a book to imply that it's 50% science fiction and
+        # 50% history. Then call .genres() twice. With fiction=True,
+        # it's 100% science fiction. With fiction=False, it's 100% history.
+
+    def test_genres_consolidated_before_classification(self):
+        # A book with Romance=100, Historical Romance=5, Romantic
+        # Suspense=4 will be classified by .genres() as 100%
+        # Historical Romance.
+
+    def test_genre_low_pass_filter(self):
+        # A book with Romance=100, Science Fiction=10 will be
+        # classified by .genres() as 100% Romance, because the default
+        # `cutoff` value of 0.15 requires that a genre have a weight
+        # of at least 16.5 (the total weight * 0.15) to qualify.
+
+    def test_classify(self):
+        # At this point we've tested all the components of classify, so just
+        # do a test to verify that classify() returns a 4-tuple
+        # (genres, fiction, audience, target_age)

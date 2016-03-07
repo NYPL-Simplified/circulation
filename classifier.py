@@ -3136,7 +3136,6 @@ class WorkClassifier(object):
 
         # Start things off with information that can be derived from
         # the Work itself, e.g. the publisher.
-        self.weigh_metadata(work)
         self.prepared = False
 
     def add(self, classification):
@@ -3174,22 +3173,22 @@ class WorkClassifier(object):
         ):
             self.target_age_relevant_classifications.add(classification)
 
-    def weigh_metadata(self, work):
+    def weigh_metadata(self):
         """Modify the weights according to the given Work's metadata."""
         """Use work metadata to simulate genre classifications.
 
         This is basic stuff, like: Harlequin tends to publish
         romances.
         """
-        if work.title and ('Star Trek:' in work.title
-            or 'Star Wars:' in work.title
-            or ('Jedi' in work.title 
-                and work.imprint=='Del Rey')
+        if self.work.title and ('Star Trek:' in self.work.title
+            or 'Star Wars:' in self.work.title
+            or ('Jedi' in self.work.title 
+                and self.work.imprint=='Del Rey')
         ):
             self.weight_genre(Media_Tie_in_SF, 100)
 
-        publisher = work.publisher
-        imprint = work.imprint
+        publisher = self.work.publisher
+        imprint = self.work.imprint
         if (imprint in nonfiction_imprints
             or publisher in nonfiction_publishers):
             self.fiction_weights[False] = 100
@@ -3206,14 +3205,15 @@ class WorkClassifier(object):
             self.audience_weights[classifier.audience_imprints[imprint]] += 100
         elif (publisher in classifier.not_adult_publishers
               or imprint in classifier.not_adult_imprints):
-            self.audience_weights[Classifier.AUDIENCE_ADULT] -= 100
+            for audience in [Classifier.AUDIENCE_ADULT, 
+                             Classifier.AUDIENCE_ADULTS_ONLY]: 
+                self.audience_weights[audience] -= 100
 
-
-    def prepare_to_classify(self, work):
+    def prepare_to_classify(self):
         """Called the first time classify() is called. Does miscellaneous
         one-time prep work that requires all data to be in place.
         """
-        self.weigh_metadata(work)
+        self.weigh_metadata(self.work)
 
         children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YA)
         if not any(i.subject.audience in children_and_ya
@@ -3290,6 +3290,10 @@ class WorkClassifier(object):
             audience = Classifier.AUDIENCE_CHILDREN
         elif ya_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
+
+        # TODO: There might be situations where children+YA passes the
+        # threshold but neither children nor YA does on its own. In that
+        # case, go with YA.
 
         # If the 'adults only' weight is more than 1/4 of the total adult
         # weight, classify as 'adults only' to be safe.
