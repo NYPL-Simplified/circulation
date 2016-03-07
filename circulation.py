@@ -269,7 +269,7 @@ class CirculationAPI(object):
         __transaction.commit()
         return None, hold, is_new
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism):
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: An explanation of how the patron
@@ -285,7 +285,16 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if not loan:
-            raise NoActiveLoan("Cannot find your active loan for this work.")
+            if sync_on_failure:
+                # Sync and try again.
+                self.sync_bookshelf(patron, pin)
+                return self.fulfill(
+                    patron, pin, licensepool=licensepool,
+                    delivery_mechanism=delivery_mechanism,
+                    sync_on_failure=False
+                )
+            else:
+                raise NoActiveLoan("Cannot find your active loan for this work.")
         if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism:
             raise DeliveryMechanismConflict(
                 "You already fulfilled this loan as %s, you can't also do it as %s" 
