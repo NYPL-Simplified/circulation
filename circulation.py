@@ -456,9 +456,15 @@ class CirculationAPI(object):
         # Get our internal view of the patron's current state.
         __transaction = self._db.begin_nested()
         local_loans = self._db.query(Loan).join(Loan.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Loan.patron==patron
+        )
         local_holds = self._db.query(Hold).join(Hold.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Hold.patron==patron
+        )
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
