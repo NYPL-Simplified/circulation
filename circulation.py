@@ -265,6 +265,7 @@ class CirculationAPI(object):
             hold_info.hold_position
         )
         if existing_loan:
+            logging.info("In borrow(), deleting loan #%d." % existing_loan.id)
             self._db.delete(existing_loan)
         __transaction.commit()
         return None, hold, is_new
@@ -365,6 +366,7 @@ class CirculationAPI(object):
         )
         if loan:
             __transaction = self._db.begin_nested()
+            logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
             __transaction.commit()
         if not licensepool.open_access:
@@ -514,6 +516,7 @@ class CirculationAPI(object):
         # and we should get rid of it.
         for loan in local_loans_by_identifier.values():
             if loan.license_pool.data_source in self.data_sources_for_sync:
+                logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                 self._db.delete(loan)
 
         # Every hold remaining in holds_by_identifier is a hold that
