@@ -5,6 +5,7 @@ import datetime
 from dateutil.parser import parse
 import csv
 import os
+from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
 from opds_import import SimplifiedOPDSLookup
@@ -305,12 +306,12 @@ class MembershipManager(object):
         raise NotImplementedError()
 
 
-class SubjectBasedMembershipManager(MembershipManager):
+class ClassificationBasedMembershipManager(MembershipManager):
     """Manage a custom list containing all Editions whose primary
     Identifier is classified under one of the given subject fragments.
     """
     def __init__(self, custom_list, subject_fragments):
-        super(SubjectBasedMembershipManager, self).__init__(custom_list)
+        super(ClassificationBasedMembershipManager, self).__init__(custom_list)
         self.subject_fragments = subject_fragments
 
     @property

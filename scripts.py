@@ -2,10 +2,7 @@ import os
 import logging
 import sys
 from nose.tools import set_trace
-from sqlalchemy import (
-    create_engine,
-    or_,
-)
+from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
