@@ -6,7 +6,15 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
-from scripts import Script
+from model import (
+    get_one,
+    CustomList,
+    DataSource,
+)
+from scripts import (
+    Script,
+    CustomListManagementScript,
+)
 
 class TestScript(DatabaseTest):
 

@@ -2,7 +2,10 @@ import os
 import logging
 import sys
 from nose.tools import set_trace
-from sqlalchemy import create_engine
+from sqlalchemy import (
+    create_engine,
+    or_,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
@@ -11,7 +14,9 @@ from config import Configuration
 import log # This sets the appropriate log format and level.
 import random
 from model import (
+    get_one_or_create,
     production_session,
+    Classification,
     CustomList,
     DataSource,
     Edition,
@@ -341,6 +346,33 @@ class WorkPresentationScript(WorkProcessingScript):
             choose_edition=True, classify=True, choose_summary=True,
             calculate_quality=True)
   
+
+class CustomListManagementScript(Script):
+    """Maintain a CustomList whose membership is determined by a
+    MembershipManager.
+    """
+
+    def __init__(self, manager_class,
+                 data_source_name, list_identifier, list_name,
+                 primary_language, description,
+                 **manager_kwargs
+             ):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        self.custom_list, is_new = get_one_or_create(
+            self._db, CustomList,
+            data_source_id=data_source.id,
+            foreign_identifier=list_identifier,
+        )
+        self.custom_list.primary_language = primary_language
+        self.custom_list.description = description
+        self.membership_manager = manager_class(
+            self.custom_list, **manager_kwargs
+        )
+
+    def run(self):
+        self.membership_manager.update()
+        self._db.commit()
+
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
