@@ -13,7 +13,6 @@ import random
 from model import (
     get_one_or_create,
     production_session,
-    Classification,
     CustomList,
     DataSource,
     Edition,
