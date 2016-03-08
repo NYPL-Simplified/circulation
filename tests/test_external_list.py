@@ -14,11 +14,14 @@ from . import (
 
 from model import (
     DataSource,
+    Edition,
     Identifier,
     Subject,
 )
 from external_list import (
     CustomListFromCSV,
+    MembershipManager,
+    ClassificationBasedMembershipManager,
 )
 
 class TestCustomListFromCSV(DatabaseTest):
@@ -202,4 +205,85 @@ class TestCustomListFromCSV(DatabaseTest):
 
         # Now there are 12 classifications.
         eq_(12, len(i.classifications))
+
+
+class BooksInSeries(MembershipManager):
+    """A sample implementation of MembershipManager that makes a CustomList
+    out of all books that are in some series.
+    """
+
+    @property
+    def new_membership(self):
+        """Only books that are part of a series should be in this list."""
+        return self._db.query(Edition).filter(Edition.series != None)
+
+class TestMembershipManager(DatabaseTest):
+
+    def test_update(self):
+        # Create two books that are part of series, and one book that
+        # is not.
+        series1 = self._edition()
+        series1.series = "Series 1"
+
+        series2 = self._edition()
+        series2.series = "Series Two"
+
+        no_series = self._edition()
+        eq_(None, no_series.series)
+
+        update_time = datetime.datetime(2015, 1, 1)
+
+        custom_list, ignore = self._customlist()
+        manager = BooksInSeries(custom_list)
+        manager.update(update_time)
+
+        [entry1] = [x for x in custom_list.entries if x.edition.series == "Series 1"] 
+        [entry2] = [x for x in custom_list.entries if x.edition.series == "Series Two"] 
+        
+        eq_(update_time, entry1.first_appearance)
+        eq_(update_time, entry1.most_recent_appearance)
+
+        # In a shocking twist, one of the entries turns out not to
+        # have a series, while the entry previously thought not to
+        # have a series actually does.
+        series2.series = None
+        no_series.series = "Actually I do have a series."
+        self._db.commit()
+
+        new_update_time = datetime.datetime(2016, 1,1)
+
+        manager.update(new_update_time)
+
+        # Entry #2 has been removed from the list, and a new entry added.
+        [old_entry] = [x for x in custom_list.entries if x.edition.series == "Series 1"] 
+        [new_entry] = [x for x in custom_list.entries if x.edition.series == "Actually I do have a series."] 
+        eq_(update_time, old_entry.first_appearance)
+        eq_(new_update_time, old_entry.most_recent_appearance)
+        eq_(new_update_time, new_entry.first_appearance)
+        eq_(new_update_time, new_entry.most_recent_appearance)
+        
+    def test_classification_based_membership_manager(self):
+        e1 = self._edition()
+        e2 = self._edition()
+        e3 = self._edition()
+        source = e1.data_source
+        e1.primary_identifier.classify(source, Subject.TAG, "GOOD FOOD")
+        e2.primary_identifier.classify(source, Subject.TAG, "barflies")
+        e3.primary_identifier.classify(source, Subject.TAG, "irrelevant")
+
+        custom_list, ignore = self._customlist()
+        fragments = ["foo", "bar"]
+        manager = ClassificationBasedMembershipManager(custom_list, fragments)
+        members = list(manager.new_membership)
+        eq_(2, len(members))
+
+        # e1 is a member of the list because its primary identifier is
+        # classified under a subject that matches %foo%.
+        # 
+        # e2 is a member of the list because its primary identifier is
+        # classified under a subject that matches %bar%.
+        #
+        # e3 is not a member of the list.
+        assert e1 in members
+        assert e2 in members
 
