@@ -57,22 +57,22 @@ def admin_signin():
 
 
 @app.route('/admin/works/<data_source>/<identifier>', methods=['GET'])
-@requires_admin
 @returns_problem_detail
+@requires_admin
 def work_details(data_source, identifier):
     return app.manager.admin_work_controller.details(data_source, identifier)
 
 @app.route('/admin/works/<data_source>/<identifier>/suppress', methods=['POST'])
-@requires_admin
-@requires_csrf_token
 @returns_problem_detail
+@requires_csrf_token
+@requires_admin
 def suppress(data_source, identifier):
     return app.manager.admin_work_controller.suppress(data_source, identifier)
 
 @app.route('/admin/works/<data_source>/<identifier>/unsuppress', methods=['POST'])
-@requires_admin
-@requires_csrf_token
 @returns_problem_detail
+@requires_csrf_token
+@requires_admin
 def unsuppress(data_source, identifier):
     return app.manager.admin_work_controller.unsuppress(data_source, identifier)
 
@@ -80,8 +80,9 @@ def unsuppress(data_source, identifier):
 @app.route('/admin')
 @app.route('/admin/')
 def admin_view():
+    admin = app.manager.admin_signin_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_signin_controller.get_csrf_token()
-    if csrf_token is None or isinstance(csrf_token, ProblemDetail):
+    if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
         redirect_url = flask.request.url
         return redirect(app.manager.url_for('admin_signin', redirect=redirect_url))
     return flask.render_template_string(admin_template,
@@ -89,6 +90,7 @@ def admin_view():
         home_url=app.manager.url_for('acquisition_groups'))
 
 @app.route('/admin/static/circulation-web.js')
+@returns_problem_detail
 @requires_admin
 def admin_js():
     directory = os.path.join(os.path.dirname(__file__), "node_modules", "simplified-circulation-web", "lib")
