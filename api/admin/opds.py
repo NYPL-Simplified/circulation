@@ -27,7 +27,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 rel="http://librarysimplified.org/terms/rel/unsuppress",
                 href=self.url_for(
                     "unsuppress", data_source=data_source_name,
-                    identifier=identifier, _external=True)
+                    identifier=identifier_identifier, _external=True)
             )
         else:
             feed.add_link_to_entry(
@@ -35,6 +35,6 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 rel="http://librarysimplified.org/terms/rel/suppress",
                 href=self.url_for(
                     "suppress", data_source=data_source_name,
-                    identifier=identifier, _external=True)
+                    identifier=identifier_identifier, _external=True)
             )
             
