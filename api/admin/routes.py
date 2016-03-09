@@ -82,9 +82,11 @@ def unsuppress(data_source, identifier):
 def admin_view():
     csrf_token = app.manager.admin_signin_controller.get_csrf_token()
     if csrf_token is None or isinstance(csrf_token, ProblemDetail):
-        redirect_url = app.manager.url_for('admin_view')
+        redirect_url = flask.request.url
         return redirect(app.manager.url_for('admin_signin', redirect=redirect_url))
-    return flask.render_template_string(admin_template, csrf_token=csrf_token)
+    return flask.render_template_string(admin_template,
+        csrf_token=csrf_token,
+        home_url=app.manager.url_for('acquisition_groups'))
 
 @app.route('/admin/static/circulation-web.js')
 @requires_admin
