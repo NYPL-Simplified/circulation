@@ -20,9 +20,9 @@ class TestOPDS(DatabaseTest):
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
-        [suppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+        [suppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         assert lp.identifier.identifier in suppress_link["href"]
-        unsuppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+        unsuppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
         eq_(0, len(unsuppress_links))
 
         lp.suppressed = True
@@ -30,7 +30,7 @@ class TestOPDS(DatabaseTest):
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
-        [unsuppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+        [unsuppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
         assert lp.identifier.identifier in unsuppress_link["href"]
-        suppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+        suppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         eq_(0, len(suppress_links))

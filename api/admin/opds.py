@@ -24,7 +24,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
         if active_license_pool.suppressed:
             feed.add_link_to_entry(
                 entry,
-                rel="http://librarysimplified.org/terms/rel/unsuppress",
+                rel="http://librarysimplified.org/terms/rel/restore",
                 href=self.url_for(
                     "unsuppress", data_source=data_source_name,
                     identifier=identifier_identifier, _external=True)
@@ -32,7 +32,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
         else:
             feed.add_link_to_entry(
                 entry,
-                rel="http://librarysimplified.org/terms/rel/suppress",
+                rel="http://librarysimplified.org/terms/rel/hide",
                 href=self.url_for(
                     "suppress", data_source=data_source_name,
                     identifier=identifier_identifier, _external=True)

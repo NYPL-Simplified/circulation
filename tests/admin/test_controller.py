@@ -38,9 +38,9 @@ class TestWorkController(AdminControllerTest):
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
             suppress_links = [x['href'] for x in entry['links']
-                              if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+                              if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
             unsuppress_links = [x['href'] for x in entry['links']
-                                if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+                                if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
             eq_(0, len(unsuppress_links))
             eq_(1, len(suppress_links))
             assert lp.identifier.identifier in suppress_links[0]
@@ -53,9 +53,9 @@ class TestWorkController(AdminControllerTest):
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
             suppress_links = [x['href'] for x in entry['links']
-                              if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+                              if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
             unsuppress_links = [x['href'] for x in entry['links']
-                                if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+                                if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
             eq_(0, len(suppress_links))
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
