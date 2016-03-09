@@ -134,7 +134,7 @@ class SigninController(AdminController):
             Configuration.ADMIN_AUTH_DOMAIN, required=True
         )
         domain = email[email.index('@')+1:]
-        return domain == staff_domain
+        return domain.lower() == staff_domain.lower()
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
