@@ -15,12 +15,13 @@
 import json
 import os
 import pkgutil
+import re
 from collections import (
     Counter,
     defaultdict,
 )
 from nose.tools import set_trace
-import re
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
 base_dir = os.path.split(__file__)[0]
@@ -170,6 +171,16 @@ class Classifier(object):
         about the target age for this book?
         """
         return None, None
+
+    @classmethod
+    def default_target_age_for_audience(self, audience):
+        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return (14, 17)
+        elif audience in (
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ):
+            return (18, None)
+        return (None, None)
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -3125,8 +3136,10 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work):
+    def __init__(self, work, test_session=None):
         self._db = Session.object_session(work)
+        if test_session:
+            self._db = test_session
         self.work = work
         self.fiction_weights = Counter()
         self.audience_weights = Counter()
@@ -3155,13 +3168,13 @@ class WorkClassifier(object):
                 return
 
         # Make sure the Subject is ready to be used in calculations.
-        if not subject.checked:
-            subject.assign_to_genre()
+        if not classification.subject.checked:
+            classification.subject.assign_to_genre()
 
         # Put the weight of the classification behind various
         # considerations.
         weight = classification.scaled_weight
-        subject = classification.subject.fiction
+        subject = classification.subject
         self.fiction_weights[subject.fiction] += weight
         if subject.genre:
             self.weigh_genre(subject.genre, weight)
@@ -3185,26 +3198,26 @@ class WorkClassifier(object):
             or ('Jedi' in self.work.title 
                 and self.work.imprint=='Del Rey')
         ):
-            self.weight_genre(Media_Tie_in_SF, 100)
+            self.weigh_genre(Media_Tie_in_SF, 100)
 
         publisher = self.work.publisher
         imprint = self.work.imprint
-        if (imprint in nonfiction_imprints
-            or publisher in nonfiction_publishers):
+        if (imprint in self.nonfiction_imprints
+            or publisher in self.nonfiction_publishers):
             self.fiction_weights[False] = 100
-        elif (imprint in fiction_imprints
-              or publisher in fiction_publishers):
+        elif (imprint in self.fiction_imprints
+              or publisher in self.fiction_publishers):
             self.fiction_weights[True] = 100
 
         if imprint in self.genre_imprints:
-            self.weight_genre(self.genre_imprints[imprint], 100)
+            self.weigh_genre(self.genre_imprints[imprint], 100)
         elif publisher in self.genre_publishers:
-            self.weight_genre(self.genre_publishers[publisher], 100)
+            self.weigh_genre(self.genre_publishers[publisher], 100)
 
-        if imprint in classifier.audience_imprints:
-            self.audience_weights[classifier.audience_imprints[imprint]] += 100
-        elif (publisher in classifier.not_adult_publishers
-              or imprint in classifier.not_adult_imprints):
+        if imprint in self.audience_imprints:
+            self.audience_weights[self.audience_imprints[imprint]] += 100
+        elif (publisher in self.not_adult_publishers
+              or imprint in self.not_adult_imprints):
             for audience in [Classifier.AUDIENCE_ADULT, 
                              Classifier.AUDIENCE_ADULTS_ONLY]: 
                 self.audience_weights[audience] -= 100
@@ -3213,11 +3226,12 @@ class WorkClassifier(object):
         """Called the first time classify() is called. Does miscellaneous
         one-time prep work that requires all data to be in place.
         """
-        self.weigh_metadata(self.work)
+        self.weigh_metadata()
 
-        children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YA)
-        if not any(i.subject.audience in children_and_ya
-                   for i in self.direct_from_license_source):
+        children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT)
+        audiences = [classification.subject.audience
+            for classification in self.direct_from_license_source]
+        if not any(audience in children_and_ya for audience in audiences):
             # If this was a book for children or young adults, the
             # distributor would have given some indication of that
             # fact. In the absense of any such indication, we can
@@ -3228,12 +3242,16 @@ class WorkClassifier(object):
             # distinguished by their lack of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+        else:
+            for audience in audiences:
+                self.audience_weights[audience] += 100
+        self.prepared = True
 
     @property
     def classify(self):
         # Do a little prep work.
         if not self.prepared:
-            self.prepare_to_classify(self.work)
+            self.prepare_to_classify()
 
         # Actually figure out the classifications
         fiction = self.fiction
@@ -3247,7 +3265,7 @@ class WorkClassifier(object):
         """Is it more likely this is a fiction or nonfiction book?"""
         # Default to nonfiction.
         is_fiction = False
-        if sef.fiction_weights[True] > self.fiction_weights[False]:
+        if self.fiction_weights[True] > self.fiction_weights[False]:
             is_fiction = True
         return is_fiction
 
@@ -3299,7 +3317,7 @@ class WorkClassifier(object):
         # weight, classify as 'adults only' to be safe.
         #
         # TODO: This has not been calibrated.
-        if (audience==Classifier.ADULT 
+        if (audience==Classifier.AUDIENCE_ADULT
             and adults_only_weight > total_adult_weight/4):
             audience = Classifier.AUDIENCE_ADULTS_ONLY
 
@@ -3316,9 +3334,7 @@ class WorkClassifier(object):
             return self.default_target_age(audience)
 
         # Only consider the most reliable classifications.
-        reliable_classifications = self.most_reliable_target_age_subset(
-            classifications
-        )
+        reliable_classifications = self.most_reliable_target_age_subset
 
         # Try to reach consensus on the lower and upper bounds of the
         # age range.
@@ -3399,11 +3415,12 @@ class WorkClassifier(object):
                 del genres[g]
         return genres
 
-    def weight_genre(genre, weight):
+    def weigh_genre(self, genre_data, weight):
         """A helper method that ensure we always use database Genre
         objects, not GenreData objects, when weighting genres.
         """
-        genre, ignore = Genre.lookup(self._db, genre)
+        from model import Genre
+        genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
 
     @property
@@ -3508,16 +3525,6 @@ class WorkClassifier(object):
         #for genre, weight in consolidated.items():
         #    print "", genre, weight
         return consolidated
-
-    @classmethod
-    def default_target_age_for_audience(self, audience):
-        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 17)
-        elif audience in (
-                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
-        ):
-            return (18, None)
-        return (None, None)
 
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier

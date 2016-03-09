@@ -4513,6 +4513,12 @@ class Classification(Base):
             return q[subject_type]
         return 0.1
 
+    @property
+    def comes_from_license_source(self):
+        if not self.identifier.licensed_through:
+            return False
+        return self.identifier.licensed_through.data_source == self.data_source
+
 
 class WillNotGenerateExpensiveFeed(Exception):
     """This exception is raised when a feed is not cached, but it's too
