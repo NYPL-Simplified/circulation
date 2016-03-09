@@ -1,7 +1,10 @@
 from nose.tools import set_trace
 from functools import wraps
 import flask
-from flask import Response
+from flask import (
+    Response,
+    redirect
+)
 import os
 
 from api.app import app
@@ -72,11 +75,13 @@ def unsuppress(data_source, identifier):
 @app.route('/admin/')
 def admin_view():
     csrf_token = app.manager.admin_signin_controller.get_csrf_token()
-    if isinstance(csrf_token, ProblemDetail):
-        csrf_token = None
+    if csrf_token is None or isinstance(csrf_token, ProblemDetail):
+        redirect_url = app.manager.url_for('admin_view')
+        return redirect(app.manager.url_for('admin_signin', redirect=redirect_url))
     return flask.render_template_string(admin_template, csrf_token=csrf_token)
 
 @app.route('/admin/static/circulation-web.js')
+@requires_admin
 def admin_js():
     directory = os.path.join(os.path.dirname(__file__), "node_modules", "simplified-circulation-web", "lib")
     return flask.send_from_directory(directory, "index.js")
