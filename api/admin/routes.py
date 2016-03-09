@@ -56,6 +56,12 @@ def admin_signin():
     return app.manager.admin_signin_controller.signin()
 
 
+@app.route('/admin/works/<data_source>/<identifier>/details', methods=['GET'])
+@requires_admin
+@returns_problem_detail
+def work_details(data_source, identifier):
+    return app.manager.admin_work_controller.details(data_source, identifier)
+
 @app.route('/admin/works/<data_source>/<identifier>/suppress', methods=['POST'])
 @requires_admin
 @requires_csrf_token

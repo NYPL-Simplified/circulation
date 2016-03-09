@@ -26,6 +26,9 @@ from config import (
 from oauth import GoogleAuthService
 
 from api.controller import CirculationManagerController
+from core.app_server import entry_response
+from core.opds import AcquisitionFeed
+from opds import AdminAnnotator
 
 
 def setup_admin_controllers(manager):
@@ -143,6 +146,22 @@ class SigninController(AdminController):
 
 
 class WorkController(CirculationManagerController):
+
+    def details(self, data_source, identifier):
+        """Return an OPDS entry with detailed information for admins.
+        
+        This includes relevant links for editing the book.
+        """
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        annotator = AdminAnnotator(self.circulation)
+        return entry_response(
+            AcquisitionFeed.single_entry(self._db, work, annotator)
+        )
+
 
     def suppress(self, data_source, identifier):
         """Suppress the license pool associated with a book."""

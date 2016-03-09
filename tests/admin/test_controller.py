@@ -4,6 +4,7 @@ from nose.tools import (
 )
 import flask
 import json
+import feedparser
 
 from ..test_controller import ControllerTest
 from api.admin.controller import setup_admin_controllers
@@ -26,6 +27,40 @@ class AdminControllerTest(ControllerTest):
 
 
 class TestWorkController(AdminControllerTest):
+
+    def test_details(self):
+        [lp] = self.english_1.license_pools
+
+        lp.suppressed = False
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            suppress_links = [x['href'] for x in entry['links']
+                              if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+            unsuppress_links = [x['href'] for x in entry['links']
+                                if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+            eq_(0, len(unsuppress_links))
+            eq_(1, len(suppress_links))
+            assert lp.identifier.identifier in suppress_links[0]
+
+
+        lp.suppressed = True
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            suppress_links = [x['href'] for x in entry['links']
+                              if x['rel'] == "http://librarysimplified.org/terms/rel/suppress"]
+            unsuppress_links = [x['href'] for x in entry['links']
+                                if x['rel'] == "http://librarysimplified.org/terms/rel/unsuppress"]
+            eq_(0, len(suppress_links))
+            eq_(1, len(unsuppress_links))
+            assert lp.identifier.identifier in unsuppress_links[0]
+
+        
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
