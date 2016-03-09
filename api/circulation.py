@@ -265,11 +265,12 @@ class CirculationAPI(object):
             hold_info.hold_position
         )
         if existing_loan:
+            logging.info("In borrow(), deleting loan #%d." % existing_loan.id)
             self._db.delete(existing_loan)
         __transaction.commit()
         return None, hold, is_new
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism):
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: An explanation of how the patron
@@ -285,7 +286,16 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if not loan:
-            raise NoActiveLoan("Cannot find your active loan for this work.")
+            if sync_on_failure:
+                # Sync and try again.
+                self.sync_bookshelf(patron, pin)
+                return self.fulfill(
+                    patron, pin, licensepool=licensepool,
+                    delivery_mechanism=delivery_mechanism,
+                    sync_on_failure=False
+                )
+            else:
+                raise NoActiveLoan("Cannot find your active loan for this work.")
         if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism:
             raise DeliveryMechanismConflict(
                 "You already fulfilled this loan as %s, you can't also do it as %s" 
@@ -356,6 +366,7 @@ class CirculationAPI(object):
         )
         if loan:
             __transaction = self._db.begin_nested()
+            logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
             __transaction.commit()
         if not licensepool.open_access:
@@ -445,9 +456,15 @@ class CirculationAPI(object):
         # Get our internal view of the patron's current state.
         __transaction = self._db.begin_nested()
         local_loans = self._db.query(Loan).join(Loan.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Loan.patron==patron
+        )
         local_holds = self._db.query(Hold).join(Hold.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync))
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Hold.patron==patron
+        )
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
@@ -505,6 +522,7 @@ class CirculationAPI(object):
         # and we should get rid of it.
         for loan in local_loans_by_identifier.values():
             if loan.license_pool.data_source in self.data_sources_for_sync:
+                logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                 self._db.delete(loan)
 
         # Every hold remaining in holds_by_identifier is a hold that
