@@ -56,7 +56,7 @@ def admin_signin():
     return app.manager.admin_signin_controller.signin()
 
 
-@app.route('/admin/works/<data_source>/<identifier>/details', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier>', methods=['GET'])
 @requires_admin
 @returns_problem_detail
 def work_details(data_source, identifier):
