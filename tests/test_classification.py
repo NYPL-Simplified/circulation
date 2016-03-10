@@ -584,9 +584,9 @@ class TestWorkClassifier(DatabaseTest):
         # to 500.
         i = self.identifier
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
-        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
-        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
+        for subject in ('Nonfiction', 'Science Fiction', 'History'):
+            c = i.classify(source, Subject.OVERDRIVE, subject, weight=1000)
+            self.classifier.add(c)
         self.classifier.prepare_to_classify()
         eq_(500, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
 
@@ -595,23 +595,34 @@ class TestWorkClassifier(DatabaseTest):
         # direct_from_license_source. In the absence of such
         # classifications we assume the book is for adults.
         source = DataSource.lookup(self._db, DataSource.OCLC)
-        self.identifier.classify(source, Subject.TAG, u"Children's books", weight=1000)
+
+        # There's a little bit of evidence that it's a children's book,
+        # but not enough to outweight the distributor's silence.
+        c = self.identifier.classify(source, Subject.TAG, u"Children's books", weight=1000)
+        self.classifier.add(c)
         self.classifier.prepare_to_classify()
-        eq_({}, self.classifier.audience_weights)
+        eq_(500, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
 
     def test_children_or_ya_signal_from_distributor_has_no_immediate_implication_for_audience(self):
         # This work has a classification direct from the distributor
         # that implies the book is for children, so no conclusions are
         # drawn in the prepare_to_classify() step.
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        self.identifier.classify(source, Subject.OVERDRIVE, u"Picture Books", weight=1000)
+        c = self.identifier.classify(source, Subject.OVERDRIVE, u"Picture Books", weight=1000)
+        self.classifier.add(c)
         eq_({}, self.classifier.audience_weights)
 
+    def test_default_nonfiction(self):
+        # In the absence of any information we assume a book is nonfiction.
+        self.classifier.classify
+        eq_(False, self.classifier.fiction)
 
-    def test_fiction(self):
-        # TODO: Create a fiction book, then a nonfiction book, then
-        # verify that the default is nonfiction.
-        pass
+        # Put a tiny bit of evidence on the scale, and the balance tips.
+        new_classifier = WorkClassifier(self.work, test_session=self._db) 
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        c = self.identifier.classify(source, Subject.TAG, u"Fiction", weight=1)
+        new_classifier.add(c)
+        eq_(True, new_classifier.fiction)
 
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
