@@ -614,7 +614,6 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_default_nonfiction(self):
         # In the absence of any information we assume a book is nonfiction.
-        self.classifier.classify
         eq_(False, self.classifier.fiction)
 
         # Put a tiny bit of evidence on the scale, and the balance tips.
@@ -627,14 +626,26 @@ class TestWorkClassifier(DatabaseTest):
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
         # bucket, but there's a lot more evidence that it's a
-        # children's or YA book, so we go with childrens or YA.
-        
-        # TODO: I'm not confident in the exact algorithm in
-        # WorkClassifier.audience.
+        # children's book, so we go with childrens or YA.
 
-        # currently: weight(children) is 2*(weight(adult)+weight(adults only))
-        # OR weight(YA) is 2*(weight(adult)+weight(adults only))
-        pass
+        # The evidence that this is a children's book is strong but
+        # not overwhelming.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 10,
+            Classifier.AUDIENCE_ADULTS_ONLY : 1,
+            Classifier.AUDIENCE_CHILDREN : 22,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+        
+        # Now it's overwhelming. (the 'children' weight is more than twice
+        # the combined 'adult' + 'adults only' weight.
+        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 23
+        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
+
+        # Now it's overwhelmingly likely to be a YA book.
+        del self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN]
+        self.classifier.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] = 23
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience)
 
     def test_ya_book_when_childrens_and_ya_combined_beat_adult(self):
         # Individually, the 'children' and 'ya' buckets don't beat the

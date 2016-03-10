@@ -3273,12 +3273,12 @@ class WorkClassifier(object):
     def audience(self):
         """What's the most likely audience for this book?"""
         w = self.audience_weights
-        unmarked_weight = w[None]
+        unmarked_weight = w.get(None, 0)
 
-        children_weight = w[Classifier.AUDIENCE_CHILDREN]
-        ya_weight = w[Classifier.AUDIENCE_YOUNG_ADULT]
-        adult_weight = w[Classifier.AUDIENCE_ADULT]
-        adults_only_weight = w[Classifier.AUDIENCE_ADULTS_ONLY]
+        children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
+        ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
+        adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
+        adults_only_weight = w.get(Classifier.AUDIENCE_ADULTS_ONLY, 0)
 
         total_adult_weight = adult_weight + adults_only_weight
         total_weight = sum(w.values())
