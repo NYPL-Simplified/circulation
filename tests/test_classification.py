@@ -654,7 +654,9 @@ class TestWorkClassifier(DatabaseTest):
         # Individually, the 'children' and 'ya' buckets don't beat the
         # combined 'adult' + 'adults only' bucket by the appropriate
         # factor, but combined they do.  In this case
-        # we should classify the book as YA.
+        # we should classify the book as YA. It might be inaccurate,
+        # but it's more accurate than 'adult' and less likely to be
+        # a costly mistake than 'children'.
         self.classifier.audience_weights = {
             Classifier.AUDIENCE_ADULT : 9,
             Classifier.AUDIENCE_ADULTS_ONLY : 0,
@@ -721,20 +723,72 @@ class TestWorkClassifier(DatabaseTest):
         # Classify a book to imply that it's 50% science fiction and
         # 50% history. Then call .genres() twice. With fiction=True,
         # it's 100% science fiction. With fiction=False, it's 100% history.
-        pass
+
+        # This book is classified as 50% science fiction and 50% history.
+        fiction_genre = self._genre(classifier.Science_Fiction)
+        nonfiction_genre = self._genre(classifier.History)
+        self.classifier.genre_weights[fiction_genre] = 100
+        self.classifier.genre_weights[nonfiction_genre] = 100
+
+        # But any given book is either fiction or nonfiction. If we say this
+        # book is fiction, it's classified as 100% SF.
+        genres = self.classifier.genres(True)
+        eq_([(fiction_genre.genredata, 100)], genres.items())
+
+        # If we say it's nonfiction, it ends up 100% history.
+        genres = self.classifier.genres(False)
+        eq_([(nonfiction_genre.genredata, 100)], genres.items())
 
     def test_genres_consolidated_before_classification(self):
         # A book with Romance=100, Historical Romance=5, Romantic
         # Suspense=4 will be classified by .genres() as 100%
         # Historical Romance.
-        pass
+        historical_romance = self._genre(classifier.Historical_Romance)
+        romance = self._genre(classifier.Romance)
+        romantic_suspense = self._genre(classifier.Romantic_Suspense)
+        nonfiction_genre = self._genre(classifier.History)
+
+        self.classifier.genre_weights[romance] = 100
+
+        # Give Historical Romance enough weight to 'swallow' its
+        # parent genre.  (5% of the weight of its parent.)
+        self.classifier.genre_weights[historical_romance] = 5
+
+        # Romantic Suspense does pretty well but it doesn't have
+        # enough weight to swallow the parent genre, and it's
+        # eliminated by the low-pass filter.
+        self.classifier.genre_weights[romantic_suspense] = 4
+
+        [genre] = self.classifier.genres(True).items()        
+        eq_((historical_romance.genredata, 105), genre)
+
+        # TODO: This behavior is a little random. As in, it's
+        # random which genre comes out on top.
+        #
+        # self.classifier.genre_weights[romantic_suspense] = 5
+        # [genre] = self.classifier.genres(True).items()
+        # eq_((historical_romance.genredata, 105), genre)
 
     def test_genre_low_pass_filter(self):
-        # A book with Romance=100, Science Fiction=10 will be
-        # classified by .genres() as 100% Romance, because the default
-        # `cutoff` value of 0.15 requires that a genre have a weight
-        # of at least 16.5 (the total weight * 0.15) to qualify.
-        pass
+
+        romance = self._genre(classifier.Romance)
+        self.classifier.genre_weights[romance] = 100
+
+        sf = self._genre(classifier.Science_Fiction)
+        self.classifier.genre_weights[sf] = 15
+
+        # The default cutoff value of 0.15 requires that a genre have
+        # a weight of at least the total weight * 0.15 to qualify.  In
+        # this case, the total weight is 115 and the cutoff weight is
+        # 17.25.
+        [[genre, weight]] = self.classifier.genres(True).items()
+        eq_(romance.genredata, genre)
+
+        # Increase SF's weight past the cutoff and we get both genres.
+        self.classifier.genre_weights[sf] = 18
+
+        [[g1, weight], [g2, weight]] = self.classifier.genres(True).items()
+        eq_(set([g1, g2]), set([romance.genredata, sf.genredata]))
 
     def test_classify(self):
         # At this point we've tested all the components of classify, so just
