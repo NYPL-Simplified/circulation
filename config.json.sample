@@ -1,6 +1,7 @@
 {
     "gutenberg_illustrated_binary_path" : "",
     "data_directory" : "",
+    "include_admin_interface": "true",
     "secret_key" : "use this: import os; os.urandom(24).encode('hex')",
     "policies" : {
     },

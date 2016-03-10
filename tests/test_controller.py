@@ -6,19 +6,19 @@ from nose.tools import (
 import os
 import datetime
 from . import DatabaseTest
-from ..config import (
+from api.config import (
     Configuration,
     temp_config,
 )
 from collections import Counter
-from ..controller import (
+from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
-from ..core.app_server import (
+from core.app_server import (
     load_lending_policy
 )
-from ..core.model import (
+from core.model import (
     Patron,
     DeliveryMechanism,
     Representation,
@@ -27,35 +27,34 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
-    Admin,
     SessionManager,
     CachedFeed,
     get_one,
     create,
 )
-from ..core.lane import (
+from core.lane import (
     Facets,
     Pagination,
 )
 import flask
-from ..problem_details import *
-from ..circulation_exceptions import *
-from ..circulation import (
+from api.problem_details import *
+from api.circulation_exceptions import *
+from api.circulation import (
     HoldInfo,
     LoanInfo,
 )
 
-from ..lanes import make_lanes_default
+from api.lanes import make_lanes_default
 from flask import url_for
-from ..core.util.cdn import cdnify
+from core.util.cdn import cdnify
 import base64
 import feedparser
-from ..core.opds import (
+from core.opds import (
     OPDSFeed,
     AcquisitionFeed,
 )
-from ..opds import CirculationManagerAnnotator
-from ..oauth import DummyGoogleClient
+from api.opds import CirculationManagerAnnotator
+from api.admin.oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
@@ -71,7 +70,7 @@ class ControllerTest(DatabaseTest):
         super(ControllerTest, self).setup()
 
         os.environ['AUTOINITIALIZE'] = "False"
-        from ..app import app
+        from api.app import app
         del os.environ['AUTOINITIALIZE']
         self.app = app
 
@@ -259,77 +258,6 @@ class TestIndexController(ControllerTest):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
-
-
-class TestAdminController(ControllerTest):
-
-    def setup(self):
-        super(TestAdminController, self).setup()
-        self.admin, ignore = create(
-            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
-            credential=json.dumps({
-                u'access_token': u'abc123',
-                u'client_id': u'', u'client_secret': u'',
-                u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
-                u'user_agent': u'', u'invalid': u''
-            })
-        )
-
-    def test_authenticated_admin_from_request(self):
-        with self.app.test_request_context('/admin'):
-            flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_controller.authenticated_admin_from_request()
-            eq_(self.admin, response)
-
-        # Returns an error if you aren't authenticated.
-        with temp_config() as config:
-            config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
-                Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
-            }
-            with self.app.test_request_context('/admin'):
-                # You get back a problem detail when you're not authenticated.
-                response = self.manager.admin_controller.authenticated_admin_from_request()
-                eq_(401, response.status_code)
-                eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
-
-    def test_authenticated_admin(self):
-        # Creates a new admin with fresh details.
-        new_admin_details = {
-            'email' : u'admin@nypl.org',
-            'access_token' : u'tubular',
-            'credentials' : u'gnarly',
-        }
-        admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
-        eq_('admin@nypl.org', admin.email)
-        eq_('tubular', admin.access_token)
-        eq_('gnarly', admin.credential)
-
-        # Or overwrites credentials for an existing admin.
-        existing_admin_details = {
-            'email' : u'example@nypl.org',
-            'access_token' : u'bananas',
-            'credentials' : u'b-a-n-a-n-a-s',
-        }
-        admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
-        eq_(self.admin.id, admin.id)
-        eq_('bananas', self.admin.access_token)
-        eq_('b-a-n-a-n-a-s', self.admin.credential)
-
-    def test_admin_signin(self):
-        with self.app.test_request_context('/admin?redirect=foo'):
-            flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_controller.signin()
-            eq_(302, response.status_code)
-            eq_("foo", response.headers["Location"])
-            
-    def test_staff_email(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
-            with self.app.test_request_context('/admin'):
-                staff_email = self.manager.admin_controller.staff_email("working@alibrary.org")
-                interloper_email = self.manager.admin_controller.staff_email("rando@gmail.com")
-                eq_(True, staff_email)
-                eq_(False, interloper_email)
 
 
 class TestAccountController(ControllerTest):

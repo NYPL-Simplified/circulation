@@ -6,7 +6,7 @@ from nose.tools import (
 )
 import os
 
-from ..core.model import (
+from core.model import (
     DataSource,
     Edition,
     Identifier,
@@ -15,7 +15,7 @@ from ..core.model import (
     LicensePool,
 )
 
-from ..core.metadata_layer import (
+from core.metadata_layer import (
     Metadata,
     CirculationData,
     IdentifierData,
@@ -23,7 +23,7 @@ from ..core.metadata_layer import (
     SubjectData,
 )
 
-from ..axis import (
+from api.axis import (
     Axis360CirculationMonitor,
     Axis360API,
     AvailabilityResponseParser,
@@ -36,12 +36,12 @@ from . import (
     DatabaseTest,
 )
 
-from ..circulation import (
+from api.circulation import (
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
 )
-from ..circulation_exceptions import *
+from api.circulation_exceptions import *
 
 class TestCirculationMonitor(DatabaseTest):
 

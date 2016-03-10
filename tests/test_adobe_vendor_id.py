@@ -3,7 +3,7 @@ from nose.tools import set_trace, eq_
 import re
 import datetime
 
-from ..adobe_vendor_id import (
+from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDRequestHandler,
@@ -14,12 +14,12 @@ from . import (
     DatabaseTest,
 )
 
-from ..core.model import (
+from core.model import (
     Credential,
     DataSource,
 )
 
-from ..millenium_patron import DummyMilleniumPatronAPI       
+from api.millenium_patron import DummyMilleniumPatronAPI       
 
 class TestVendorIDModel(DatabaseTest):
 

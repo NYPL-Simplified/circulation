@@ -10,13 +10,13 @@ from core.config import (
 
 class Configuration(CoreConfiguration):
 
+    INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     AUTHENTICATION_POLICY = "authentication"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
-    ADMIN_AUTH_DOMAIN = "admin_authentication_domain"
 
     LANES_POLICY = "lanes"
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
@@ -36,10 +36,6 @@ class Configuration(CoreConfiguration):
 
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
-
-    SECRET_KEY = "secret_key"
-    GOOGLE_OAUTH_INTEGRATION = "Google OAuth"
-    GOOGLE_OAUTH_CLIENT_JSON = "client_json_file"
 
     LIST_FIELDS = "fields"
    
@@ -123,6 +119,9 @@ def empty_config():
         yield i
 
 @contextlib.contextmanager
-def temp_config(new_config=None):
-    with core_temp_config(new_config, [CoreConfiguration, Configuration]) as i:
+def temp_config(new_config=None, replacement_classes=None):
+    all_replacement_classes = [CoreConfiguration, Configuration]
+    if replacement_classes:
+        all_replacement_classes.extend(replacement_classes)
+    with core_temp_config(new_config, all_replacement_classes) as i:
         yield i

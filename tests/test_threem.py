@@ -5,7 +5,7 @@ from nose.tools import (
     assert_raises,
 )
 
-from ..threem import (
+from api.threem import (
     ThreeMAPI,
     DummyThreeMAPI,
     PatronCirculationParser,
@@ -13,7 +13,7 @@ from ..threem import (
     ErrorParser,
 )
 
-from ..circulation import (
+from api.circulation import (
     CirculationAPI,
     HoldInfo,
     LoanInfo,
@@ -23,7 +23,7 @@ from . import (
     DatabaseTest,
 )
 
-from ..core.model import (
+from core.model import (
     Identifier,
     Loan,
     Hold,

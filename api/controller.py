@@ -81,7 +81,6 @@ from config import (
 from lanes import make_lanes
 
 from adobe_vendor_id import AdobeVendorIDController
-from oauth import GoogleAuthService
 from axis import (
     Axis360API,
 )
@@ -98,6 +97,7 @@ from circulation import (
     CirculationAPI,
     DummyCirculationAPI,
 )
+
 
 class CirculationManager(object):
 
@@ -206,7 +206,6 @@ class CirculationManager(object):
         self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
-        self.admin_controller = AdminController(self)
 
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
@@ -395,87 +394,6 @@ class CirculationManagerController(object):
         return None
 
 
-class AdminController(CirculationManagerController):
-
-    ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
-<html lang="en">
-<head><meta charset="utf8"></head>
-</body>
-<p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
-</body>
-</html>"""
-
-    @property
-    def google(self):
-        return GoogleAuthService.from_environment(
-            self.url_for('google_auth_callback'), test_mode=self.manager.testing
-        )
-
-    def authenticated_admin_from_request(self):
-        """Returns an authenticated admin or begins the Google OAuth flow"""
-
-        access_token = flask.session.get("admin_access_token")
-        if access_token:
-            admin = get_one(self._db, Admin, access_token=access_token)
-            if admin and self.google.active_credentials(admin):
-                return admin
-        return INVALID_ADMIN_CREDENTIALS
-
-    def authenticated_admin(self, admin_details):
-        """Creates or updates an admin with the given details"""
-
-        admin, ignore = get_one_or_create(
-            self._db, Admin, email=admin_details['email']
-        )
-        admin.update_credentials(
-            self._db, admin_details['access_token'], admin_details['credentials']
-        )
-        return admin
-
-    def signin(self):
-        """Redirects admin if they're signed in."""
-        admin = self.authenticated_admin_from_request()
-
-        if isinstance(admin, ProblemDetail):
-            redirect_url = flask.request.args.get("redirect")
-            return redirect(self.google.auth_uri(redirect_url), Response=Response)
-        elif admin:
-            return redirect(flask.request.args.get("redirect"), Response=Response)
-
-    def redirect_after_signin(self):
-        """Uses the Google OAuth client to determine admin details upon
-        callback. Barring error, redirects to the provided redirect url.."""
-
-        admin_details, redirect_url = self.google.callback(flask.request.args)
-        if isinstance(admin_details, ProblemDetail):
-            return self.error_response(admin_details)
-
-        if not self.staff_email(admin_details['email']):
-            return self.error_response(INVALID_ADMIN_CREDENTIALS)
-        else:
-            admin = self.authenticated_admin(admin_details)
-            flask.session["admin_access_token"] = admin_details.get("access_token")
-            return redirect(redirect_url, Response=Response)
-
-    def staff_email(self, email):
-        """Checks the domain of an email address against the admin-authorized
-        domain"""
-
-        staff_domain = Configuration.policy(
-            Configuration.ADMIN_AUTH_DOMAIN, required=True
-        )
-        domain = email[email.index('@')+1:]
-        return domain == staff_domain
-
-    def error_response(self, problem_detail):
-        """Returns a problem detail as an HTML response"""
-        html = self.ERROR_RESPONSE_TEMPLATE % dict(
-            status_code=problem_detail.status_code,
-            message=problem_detail.detail
-        )
-        return Response(html, problem_detail.status_code)
-
-
 class IndexController(CirculationManagerController):
     """Redirect the patron to the appropriate feed."""
 
@@ -531,6 +449,7 @@ class OPDSFeedController(CirculationManagerController):
 
     def groups(self, languages, lane_name):
         """Build or retrieve a grouped acquisition feed."""
+
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -546,6 +465,7 @@ class OPDSFeedController(CirculationManagerController):
 
     def feed(self, languages, lane_name):
         """Build or retrieve a paginated acquisition feed."""
+
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -570,6 +490,7 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(feed.content)
 
     def search(self, languages, lane_name):
+
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -876,6 +797,7 @@ class WorkController(CirculationManagerController):
         returns a single entry while the /works lookup protocol returns a
         feed containing any number of entries.
         """
+
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
