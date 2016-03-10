@@ -3295,18 +3295,18 @@ class WorkClassifier(object):
         # the 'adult' and 'adults only' audiences.
         #
         # 2. The 'adult' and 'adults only' audiences have no weight
-        # whatsoever, and the weight of the proposed audience is at
-        # least 50% of the total, or 10, whichever is lower.
+        # whatsoever, and the weight of the proposed audience is
+        # greater than 10.
         if total_adult_weight:
             threshold = total_adult_weight * 2
         else:
-            threshold = min(total_weight*0.5, 10)
+            threshold = 10
 
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with 'YA'.
         if (children_weight > threshold and children_weight > ya_weight):
             audience = Classifier.AUDIENCE_CHILDREN
-        elif ya_weight > threshold:
+        elif ya_weight + children_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
 
         # TODO: There might be situations where children+YA passes the

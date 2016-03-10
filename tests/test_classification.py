@@ -623,6 +623,9 @@ class TestWorkClassifier(DatabaseTest):
         new_classifier.add(c)
         eq_(True, new_classifier.fiction)
 
+    def test_adult_book_by_default(self):
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
         # bucket, but there's a lot more evidence that it's a
@@ -650,19 +653,31 @@ class TestWorkClassifier(DatabaseTest):
     def test_ya_book_when_childrens_and_ya_combined_beat_adult(self):
         # Individually, the 'children' and 'ya' buckets don't beat the
         # combined 'adult' + 'adults only' bucket by the appropriate
-        # factor (currently x2), but combined they do.  In this case
+        # factor, but combined they do.  In this case
         # we should classify the book as YA.
-
-        # TODO: This code has not been written.
-        pass
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 9,
+            Classifier.AUDIENCE_ADULTS_ONLY : 0,
+            Classifier.AUDIENCE_CHILDREN : 10,
+            Classifier.AUDIENCE_YOUNG_ADULT : 9,
+        }
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience)
 
     def test_childrens_book_when_no_evidence_for_adult_book(self):
         # There is no evidence in the 'adult' or 'adults only'
-        # buckets, and the evidence in the 'children' or 'ya' bucket
-        # is sufficient to reach some minimum threshold.
+        # buckets, but not enough evidence in the 'children' bucket to
+        # be confident.
 
-        # Again, the algorithm needs some work.
-        pass
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 0,
+            Classifier.AUDIENCE_ADULTS_ONLY : 0,
+            Classifier.AUDIENCE_CHILDREN : 10,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+
+        # Now we're confident.
+        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 11
+        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
 
     def test_default_target_age(self):
         # TODO: test the different scenarios for
