@@ -576,17 +576,37 @@ class TestWorkClassifier(DatabaseTest):
         eq_(Classifier.AUDIENCE_ADULT, audience)
         eq_((18,None), target_age)
 
-    def test_no_children_or_ya_signal_from_publisher_implies_book_is_for_adults(self):
-        # TODO: Create some classifications that end up in
+    def test_no_children_or_ya_signal_from_distributor_implies_book_is_for_adults(self):
+        # Create some classifications that end up in
         # direct_from_license_source, but don't imply that the book is
         # from children or
         # YA. classifier.audience_weights[AUDIENCE_ADULT] will be set
         # to 500.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
+        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
+        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
+        self.classifier.prepare_to_classify()
+        eq_(500, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
 
-        # Then create another work and give it a classification that
-        # ends up in direct_from_license_source and implies the book
-        # is for children. AUDIENCE_ADULT will be left alone.
-        pass
+    def test_no_signal_from_distributor_implies_book_is_for_adults(self):
+        # This work has no classifications that end up in
+        # direct_from_license_source. In the absence of such
+        # classifications we assume the book is for adults.
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        self.identifier.classify(source, Subject.TAG, u"Children's books", weight=1000)
+        self.classifier.prepare_to_classify()
+        eq_({}, self.classifier.audience_weights)
+
+    def test_children_or_ya_signal_from_distributor_has_no_immediate_implication_for_audience(self):
+        # This work has a classification direct from the distributor
+        # that implies the book is for children, so no conclusions are
+        # drawn in the prepare_to_classify() step.
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        self.identifier.classify(source, Subject.OVERDRIVE, u"Picture Books", weight=1000)
+        eq_({}, self.classifier.audience_weights)
+
 
     def test_fiction(self):
         # TODO: Create a fiction book, then a nonfiction book, then
