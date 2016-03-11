@@ -45,7 +45,7 @@ from core.opds import (
     OPDSFeed,
 )
 
-from ..core.util.cdn import cdnify
+from core.util.cdn import cdnify
 
 class TestCirculationManagerAnnotator(DatabaseTest):
 
@@ -68,7 +68,6 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # replaces the original hostname.
         with temp_config() as config:
             cdn_host = "https://cdn.com/"
-            set_trace()
             config[Configuration.INTEGRATIONS] = {
                 Configuration.CDN_INTEGRATION : {
                     Configuration.CDN_OPEN_ACCESS_CONTENT : cdn_host
