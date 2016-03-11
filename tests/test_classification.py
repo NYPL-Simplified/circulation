@@ -687,11 +687,16 @@ class TestWorkClassifier(DatabaseTest):
         pass
 
     def test_target_age_is_default_for_adult_books(self):
-        # If there are classifications that imply a certain target
-        # age, but we independently determine that a book is 'Adult'
-        # or 'Adults Only', those classifications are ignored and the
-        # 'target age' of the book is 18+.
-        pass
+        # Target age data can't override an independently determined
+        # audience.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        c1 = self.identifier.classify(
+            overdrive, Subject.OVERDRIVE, u"Picture Books", weight=10000
+        )
+        self.classifier.add(c1)
+
+        target_age = self.classifier.target_age(Classifier.AUDIENCE_ADULT)
+        eq_((18, None), target_age)
 
     def test_most_reliable_target_age_subset(self):
         # We have a very weak but reliable signal that this is a book for
