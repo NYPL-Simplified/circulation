@@ -4,16 +4,16 @@ from . import (
     DatabaseTest,
 )
 
-from ..config import (
+from api.config import (
     Configuration,
     temp_config,
 )
 
-from ..core.lane import (
+from core.lane import (
     LaneList,
 )
 
-from ..lanes import (
+from api.lanes import (
     make_lanes,
     make_lanes_default,
     lanes_for_large_collection,
@@ -21,7 +21,7 @@ from ..lanes import (
     lane_for_other_languages,
 )
 
-from ..core.lane import Lane
+from core.lane import Lane
 
 class TestLaneCreation(DatabaseTest):
 

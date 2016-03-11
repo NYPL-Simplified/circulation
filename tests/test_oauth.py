@@ -5,9 +5,9 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
-from ..core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import ProblemDetail
 
-from ..oauth import (
+from api.admin.oauth import (
     GoogleAuthService,
     DummyGoogleClient,
 )

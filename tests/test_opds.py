@@ -9,38 +9,38 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
-from ..config import (
+from config import (
     Configuration, 
     temp_config,
 )
-from ..core.lane import (
+from core.lane import (
     LaneList,
     Lane,
 )
-from ..core.model import (
+from core.model import (
     Work,
 )
 
-from ..core.classifier import (
+from core.classifier import (
     Classifier,
     Fantasy,
 )
 
-from ..core.opds import (
+from core.opds import (
     _strftime
 )
 
-from ..core.opds_import import (
+from core.opds_import import (
     OPDSXMLParser
 )
 
-from ..circulation import CirculationAPI
+from api.circulation import CirculationAPI
 
-from ..opds import (
+from api.opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
 )
-from ..core.opds import (
+from core.opds import (
     AcquisitionFeed,
     OPDSFeed,
 )
@@ -68,6 +68,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # replaces the original hostname.
         with temp_config() as config:
             cdn_host = "https://cdn.com/"
+            set_trace()
             config[Configuration.INTEGRATIONS] = {
                 Configuration.CDN_INTEGRATION : {
                     Configuration.CDN_OPEN_ACCESS_CONTENT : cdn_host

@@ -3,7 +3,7 @@ from nose.tools import (
     set_trace,
 )
 
-from ..firstbook import DummyFirstBookAuthentationAPI
+from api.firstbook import DummyFirstBookAuthentationAPI
 
 class TestFirstBook(object):
     
