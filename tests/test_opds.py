@@ -9,6 +9,10 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
+from ..config import (
+    Configuration, 
+    temp_config,
+)
 from ..core.lane import (
     LaneList,
     Lane,
@@ -40,6 +44,40 @@ from ..core.opds import (
     AcquisitionFeed,
     OPDSFeed,
 )
+
+from ..core.util.cdn import cdnify
+
+class TestCirculationManagerAnnotator(DatabaseTest):
+
+    def setup(self):
+        super(TestCirculationManagerAnnotator, self).setup()
+        self.work = self._work(with_open_access_download=True)
+        self.annotator = CirculationManagerAnnotator(
+            None, Fantasy, test_mode=True
+        )
+
+    def test_open_access_link(self):
+
+        # The resource URL associated with a LicensePoolDeliveryMechanism
+        # becomes the `href` of an open-access `link` tag.
+        [lpdm] = self.work.license_pools[0].delivery_mechanisms
+        link_tag = self.annotator.open_access_link(lpdm)
+        eq_(lpdm.resource.url, link_tag.get('href'))
+
+        # If we have a CDN set up for open-access links, the CDN hostname
+        # replaces the original hostname.
+        with temp_config() as config:
+            cdn_host = "https://cdn.com/"
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CDN_INTEGRATION : {
+                    Configuration.CDN_OPEN_ACCESS_CONTENT : cdn_host
+                }
+            }
+            link_tag = self.annotator.open_access_link(lpdm)
+            link_url = link_tag.get('href')
+            assert link_url.startswith(cdn_host)
+            assert link_url == cdnify(lpdm.resource.url, cdn_host)
+
 class TestOPDS(DatabaseTest):
 
     def test_default_lane_url(self):
