@@ -9,10 +9,6 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
-from config import (
-    Configuration, 
-    temp_config,
-)
 from core.lane import (
     LaneList,
     Lane,
@@ -35,6 +31,10 @@ from core.opds_import import (
 )
 
 from api.circulation import CirculationAPI
+from api.config import (
+    Configuration, 
+    temp_config,
+)
 
 from api.opds import (
     CirculationManagerAnnotator,
