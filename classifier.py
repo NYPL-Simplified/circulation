@@ -3153,6 +3153,10 @@ class WorkClassifier(object):
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
+        # Make sure the Subject is ready to be used in calculations.
+        if not classification.subject.checked:
+            classification.subject.assign_to_genre()
+
         if classification.comes_from_license_source:
             self.direct_from_license_source.add(classification)
         else:
@@ -3166,10 +3170,6 @@ class WorkClassifier(object):
                 # get mixed up with the original novel, whereupon the
                 # original book is classified as a graphic novel.
                 return
-
-        # Make sure the Subject is ready to be used in calculations.
-        if not classification.subject.checked:
-            classification.subject.assign_to_genre()
 
         # Put the weight of the classification behind various
         # considerations.

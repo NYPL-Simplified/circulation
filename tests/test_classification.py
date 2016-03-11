@@ -489,7 +489,7 @@ class TestWorkClassifier(DatabaseTest):
 
     def setup(self):
         super(TestWorkClassifier, self).setup()
-        self.work = self._work()
+        self.work = self._work(with_license_pool=True)
         self.identifier = self.work.primary_edition.primary_identifier
         self.classifier = WorkClassifier(self.work, test_session=self._db)
 
@@ -643,6 +643,26 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_YOUNG_ADULT : 9,
         }
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience)
+
+    def test_format_classification_from_license_source_is_used(self):
+        # This book will be classified as a comic book, because 
+        # the "comic books" classification comes from its license source.
+        source = self.work.license_pools[0].data_source
+        self.identifier.classify(source, Subject.TAG, "Comic Books", weight=100)
+        self.classifier.add(self.identifier.classifications[0])
+        genres = self.classifier.genres(fiction=True)
+        eq_([(classifier.Comics_Graphic_Novels, 100)], genres.items())
+
+    def test_format_classification_not_from_license_source_is_ignored(self):
+        # This book will be not classified as a comic book, because
+        # the "comic books" classification does not come from its
+        # license source.
+        source = self.work.license_pools[0].data_source
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        self.identifier.classify(oclc, Subject.TAG, "Comic Books", weight=100)
+        self.classifier.add(self.identifier.classifications[0])
+        genres = self.classifier.genres(fiction=True)
+        eq_([], genres.items())
 
     def test_childrens_book_when_no_evidence_for_adult_book(self):
         # There is no evidence in the 'adult' or 'adults only'
