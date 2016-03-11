@@ -555,27 +555,6 @@ class TestWorkClassifier(DatabaseTest):
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULTS_ONLY])
 
-    def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
-        self.work.primary_edition.title = u"Science Fiction: A Comprehensive History"
-        i = self.identifier
-        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
-        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
-        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
-
-        for classification in i.classifications:
-            self.classifier.add(classification)
-        genres, fiction, audience, target_age = self.classifier.classify
-
-        # This work really looks like science fiction, but it looks
-        # *even more* like nonfiction, and science fiction is not a
-        # genre of nonfiction. So this book can't be science
-        # fiction. It must be history.
-        eq_(u"History", genres.keys()[0].name)
-        eq_(False, fiction)
-        eq_(Classifier.AUDIENCE_ADULT, audience)
-        eq_((18,None), target_age)
-
     def test_no_children_or_ya_signal_from_distributor_implies_book_is_for_adults(self):
         # Create some classifications that end up in
         # direct_from_license_source, but don't imply that the book is
@@ -829,6 +808,28 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_classify(self):
         # At this point we've tested all the components of classify, so just
-        # do a test to verify that classify() returns a 4-tuple
+        # do an overall test to verify that classify() returns a 4-tuple
         # (genres, fiction, audience, target_age)
-        pass
+
+        self.work.primary_edition.title = u"Science Fiction: A Comprehensive History"
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        c1 = i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
+        c2 = i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
+        c3 = i.classify(source, Subject.OVERDRIVE, u"Young Adult Nonfiction", weight=100)
+        for classification in i.classifications:
+            self.classifier.add(classification)
+        self.classifier.prepare_to_classify()
+
+        self.classifier.audience
+
+        genres, fiction, audience, target_age = self.classifier.classify
+
+        # This work really looks like science fiction (w=100), but it
+        # looks *even more* like nonfiction (w=100+10), and science
+        # fiction is not a genre of nonfiction. So this book can't be
+        # science fiction. It must be history.
+        eq_(u"History", genres.keys()[0].name)
+        eq_(False, fiction)
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
+        eq_((14,17), target_age)

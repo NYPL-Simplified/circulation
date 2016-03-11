@@ -3179,6 +3179,8 @@ class WorkClassifier(object):
         if subject.genre:
             self.weigh_genre(subject.genre, weight)
 
+        self.audience_weights[subject.audience] += weight
+
         # We can't evaluate target age until all the data is in, so
         # save the classification for later if it's relevant
         if subject.target_age and (
@@ -3308,10 +3310,6 @@ class WorkClassifier(object):
             audience = Classifier.AUDIENCE_CHILDREN
         elif ya_weight + children_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
-
-        # TODO: There might be situations where children+YA passes the
-        # threshold but neither children nor YA does on its own. In that
-        # case, go with YA.
 
         # If the 'adults only' weight is more than 1/4 of the total adult
         # weight, classify as 'adults only' to be safe.
