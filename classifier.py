@@ -3343,12 +3343,12 @@ class WorkClassifier(object):
         for c in reliable_classifications:
             target_min = c.subject.target_age.lower
             target_max = c.subject.target_age.upper
-            if target_min:
+            if target_min is not None:
                 if not c.subject.target_age.lower_inc:
                     target_min += 1
                 for i in range(0,c.weight):
                     target_age_mins.append(target_min)
-            if target_max:
+            if target_max is not None:
                 if not c.subject.target_age.upper_inc:
                     target_max -= 1
                 for i in range(0,c.weight):

@@ -694,12 +694,31 @@ class TestWorkClassifier(DatabaseTest):
         pass
 
     def test_most_reliable_target_age_subset(self):
-        # Create an Overdrive target age classification like 'picture
-        # books', and a bunch of random tags. First verify that
-        # most_reliable_target_age_subset returns only the Overdrive
-        # classification, then verify that WorkClassifier.target_age
-        # returns the value implied by the Overdrive classification.
-        pass
+        # We have a very weak but reliable signal that this is a book for
+        # young children.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        c1 = self.identifier.classify(
+            overdrive, Subject.OVERDRIVE, u"Picture Books", weight=1
+        )
+        self.classifier.add(c1)
+
+        # We have a very strong but unreliable signal that this is a
+        # book for slightly older children.
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        c2 = self.identifier.classify(
+            oclc, Subject.TAG, u"Grade 5", weight=10000
+        )
+        self.classifier.add(c2)
+
+        # Only the reliable signal makes it into
+        # most_reliable_target_age_subset.
+        subset = self.classifier.most_reliable_target_age_subset
+        eq_([c1], subset)
+
+        # And only most_reliable_target_age_subset is used to calculate
+        # the target age.
+        set_trace()
+        eq_((0,3),  self.classifier.target_age(Classifier.AUDIENCE_CHILDREN))
 
     def test_target_age_errs_towards_wider_span(self):
         i = self._identifier()
