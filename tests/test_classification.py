@@ -682,9 +682,22 @@ class TestWorkClassifier(DatabaseTest):
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
 
     def test_default_target_age(self):
-        # TODO: test the different scenarios for
-        # WorkClassifier.default_target_age.
-        pass
+        eq_(
+            (None, None), 
+            self.classifier.default_target_age(Classifier.AUDIENCE_CHILDREN)
+        )
+        eq_(
+            (14, 17), 
+            self.classifier.default_target_age(Classifier.AUDIENCE_YOUNG_ADULT)
+        )
+        eq_(
+            (18, None), 
+            self.classifier.default_target_age(Classifier.AUDIENCE_ADULT)
+        )
+        eq_(
+            (18, None), 
+            self.classifier.default_target_age(Classifier.AUDIENCE_ADULTS_ONLY)
+        )
 
     def test_target_age_is_default_for_adult_books(self):
         # Target age data can't override an independently determined
