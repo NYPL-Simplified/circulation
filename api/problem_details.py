@@ -182,3 +182,10 @@ GOOGLE_OAUTH_FAILURE = pd(
       "Google OAuth Error",
       "There was an error connecting with Google OAuth.",
 )
+
+INVALID_CSRF_TOKEN = pd(
+      "http://librarysimplified.org/terms/problem/invalid-csrf-token",
+      400,
+      "Invalid CSRF token",
+      "There was an error saving your changes.",
+)

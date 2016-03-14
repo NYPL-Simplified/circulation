@@ -1,7 +1,7 @@
 import sys, os
 from nose.tools import set_trace
 
-from ..core.testing import (
+from core.testing import (
     DatabaseTest,
     _setup,
     _teardown,

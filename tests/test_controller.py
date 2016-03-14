@@ -6,19 +6,19 @@ from nose.tools import (
 import os
 import datetime
 from . import DatabaseTest
-from ..config import (
+from api.config import (
     Configuration,
     temp_config,
 )
 from collections import Counter
-from ..controller import (
+from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
-from ..core.app_server import (
+from core.app_server import (
     load_lending_policy
 )
-from ..core.model import (
+from core.model import (
     Patron,
     DeliveryMechanism,
     Representation,
@@ -27,35 +27,34 @@ from ..core.model import (
     DataSource,
     Identifier,
     Complaint,
-    Admin,
     SessionManager,
     CachedFeed,
     get_one,
     create,
 )
-from ..core.lane import (
+from core.lane import (
     Facets,
     Pagination,
 )
 import flask
-from ..problem_details import *
-from ..circulation_exceptions import *
-from ..circulation import (
+from api.problem_details import *
+from api.circulation_exceptions import *
+from api.circulation import (
     HoldInfo,
     LoanInfo,
 )
 
-from ..lanes import make_lanes_default
+from api.lanes import make_lanes_default
 from flask import url_for
-from ..core.util.cdn import cdnify
+from core.util.cdn import cdnify
 import base64
 import feedparser
-from ..core.opds import (
+from core.opds import (
     OPDSFeed,
     AcquisitionFeed,
 )
-from ..opds import CirculationManagerAnnotator
-from ..oauth import DummyGoogleClient
+from api.opds import CirculationManagerAnnotator
+from api.admin.oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
@@ -71,7 +70,7 @@ class ControllerTest(DatabaseTest):
         super(ControllerTest, self).setup()
 
         os.environ['AUTOINITIALIZE'] = "False"
-        from ..app import app
+        from api.app import app
         del os.environ['AUTOINITIALIZE']
         self.app = app
 
@@ -159,7 +158,7 @@ class TestBaseController(ControllerTest):
 
         problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.identifier)
         eq_(INVALID_INPUT.uri, problem_detail.uri)
-        
+
         problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier")
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
@@ -174,7 +173,7 @@ class TestBaseController(ControllerTest):
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
-        
+
         patron = self.controller.authenticated_patron("5", "5555")
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -183,7 +182,7 @@ class TestBaseController(ControllerTest):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.licenses_available = 0
-            
+
             # This is an open-access work, so there's no problem.
             eq_(True, pool.open_access)
 
@@ -210,8 +209,8 @@ class TestBaseController(ControllerTest):
 
         self.manager.lending_policy = load_lending_policy(
             {
-                "60": {"audiences": ["Children"]}, 
-                "152": {"audiences": ["Children"]}, 
+                "60": {"audiences": ["Children"]},
+                "152": {"audiences": ["Children"]},
                 "62": {"audiences": ["Children"]}
             }
         )
@@ -225,7 +224,7 @@ class TestBaseController(ControllerTest):
 
 
 class TestIndexController(ControllerTest):
-    
+
     def test_simple_redirect(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -261,77 +260,6 @@ class TestIndexController(ControllerTest):
                 eq_("http://cdn/groups/", response.headers['location'])
 
 
-class TestAdminController(ControllerTest):
-
-    def setup(self):
-        super(TestAdminController, self).setup()
-        self.admin, ignore = create(
-            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
-            credential=json.dumps({
-                u'access_token': u'abc123',
-                u'client_id': u'', u'client_secret': u'',
-                u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
-                u'user_agent': u'', u'invalid': u''
-            })
-        )
-
-    def test_authenticated_admin_from_request(self):
-        with self.app.test_request_context('/admin'):
-            flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_controller.authenticated_admin_from_request()
-            eq_(self.admin, response)
-
-        # Returns an error if you aren't authenticated.
-        with temp_config() as config:
-            config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
-                Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
-            }
-            with self.app.test_request_context('/admin'):
-                # You get back a problem detail when you're not authenticated.
-                response = self.manager.admin_controller.authenticated_admin_from_request()
-                eq_(401, response.status_code)
-                eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
-
-    def test_authenticated_admin(self):
-        # Creates a new admin with fresh details.
-        new_admin_details = {
-            'email' : u'admin@nypl.org',
-            'access_token' : u'tubular',
-            'credentials' : u'gnarly',
-        }
-        admin = self.manager.admin_controller.authenticated_admin(new_admin_details)
-        eq_('admin@nypl.org', admin.email)
-        eq_('tubular', admin.access_token)
-        eq_('gnarly', admin.credential)
-
-        # Or overwrites credentials for an existing admin.
-        existing_admin_details = {
-            'email' : u'example@nypl.org',
-            'access_token' : u'bananas',
-            'credentials' : u'b-a-n-a-n-a-s',
-        }
-        admin = self.manager.admin_controller.authenticated_admin(existing_admin_details)
-        eq_(self.admin.id, admin.id)
-        eq_('bananas', self.admin.access_token)
-        eq_('b-a-n-a-n-a-s', self.admin.credential)
-
-    def test_admin_signin(self):
-        with self.app.test_request_context('/admin?redirect=foo'):
-            flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_controller.signin()
-            eq_(302, response.status_code)
-            eq_("foo", response.headers["Location"])
-            
-    def test_staff_email(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
-            with self.app.test_request_context('/admin'):
-                staff_email = self.manager.admin_controller.staff_email("working@alibrary.org")
-                interloper_email = self.manager.admin_controller.staff_email("rando@gmail.com")
-                eq_(True, staff_email)
-                eq_(False, interloper_email)
-
-
 class TestAccountController(ControllerTest):
 
     def test_patron_info_no_username(self):
@@ -340,7 +268,7 @@ class TestAccountController(ControllerTest):
             account_info = json.loads(self.manager.accounts.account())
             eq_(None, account_info.get('username'))
             eq_("200", account_info.get('barcode'))
-            
+
     def test_patron_info_with_username(self):
         auth = 'Basic ' + base64.b64encode('0:2222')
         with self.app.test_request_context(
@@ -375,7 +303,7 @@ class TestLoanController(ControllerTest):
             # The loan has yet to be fulfilled.
             eq_(None, loan.fulfillment)
 
-            # We've been given an OPDS feed with one entry, which tells us how 
+            # We've been given an OPDS feed with one entry, which tells us how
             # to fulfill the license.
             eq_(201, response.status_code)
             feed = feedparser.parse(response.get_data())
@@ -384,7 +312,7 @@ class TestLoanController(ControllerTest):
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
             [mech1, mech2] = self.pool.delivery_mechanisms
             expects = [url_for('fulfill', data_source=self.data_source.name,
-                              identifier=self.identifier.identifier, 
+                              identifier=self.identifier.identifier,
                               mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -485,7 +413,7 @@ class TestLoanController(ControllerTest):
              response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
 
              eq_(200, response.status_code)
-             
+
     def test_revoke_hold(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
@@ -512,18 +440,18 @@ class TestLoanController(ControllerTest):
 
         # Patron with $1.00 fine
         auth = 'Basic ' + base64.b64encode('5:5555')
-        
+
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
-            
+
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
                 response = self.manager.loans.borrow(
                     DataSource.THREEM, pool.identifier.identifier)
-                
+
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "outstanding fines" in response.detail
@@ -545,7 +473,7 @@ class TestLoanController(ControllerTest):
                 ))
                 response = self.manager.loans.borrow(
                     DataSource.THREEM, pool.identifier.identifier)
-                
+
                 eq_(201, response.status_code)
 
     def test_3m_cant_revoke_hold_if_reserved(self):
@@ -599,7 +527,7 @@ class TestLoanController(ControllerTest):
         )
         threem_pool.licenses_available = 0
         threem_pool.open_access = False
-        
+
         loan = LoanInfo(
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
@@ -628,7 +556,7 @@ class TestLoanController(ControllerTest):
 
             eq_(overdrive_entry['opds_availability']['status'], 'available')
             eq_(threem_entry['opds_availability']['status'], 'ready')
-            
+
             overdrive_links = overdrive_entry['links']
             fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
             revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
@@ -726,7 +654,7 @@ class TestFeedController(ControllerTest):
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
-            
+
             eq_(1, len(entries))
 
             links = feed['feed']['links']
@@ -749,7 +677,7 @@ class TestFeedController(ControllerTest):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input", 
+                "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
             )
 
@@ -758,9 +686,9 @@ class TestFeedController(ControllerTest):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input", 
+                "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
-            )            
+            )
 
     def test_groups(self):
         with temp_config() as config:
@@ -773,14 +701,14 @@ class TestFeedController(ControllerTest):
             for i in range(2):
                 self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
                 self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
-        
+
             SessionManager.refresh_materialized_views(self._db)
             with self.app.test_request_context("/"):
                 response = self.manager.opds_feeds.groups(None, None)
 
                 feed = feedparser.parse(response.data)
                 entries = feed['entries']
-                
+
                 counter = Counter()
                 for entry in entries:
                     links = [x for x in entry.links if x['rel'] == 'collection']
@@ -803,39 +731,6 @@ class TestFeedController(ControllerTest):
 
             assert 'links' in entry
             assert len(entry.links) > 0
-            
+
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
             assert len(borrow_links) > 0
-
-    def test_complaints(self):
-        type = next(iter(Complaint.VALID_TYPES))
-        
-        for i in range(2):
-            work1 = self._work(
-                "fiction work with complaint %i" % i, 
-                language="eng", 
-                fiction=True, 
-                with_open_access_download=True)
-            complaint1 = self._complaint(
-                work1.license_pools[0],
-                type,
-                "complaint source %i" % i,
-                "complaint detail %i" % i)
-            work2 = self._work(
-                "nonfiction work with complaint %i" % i, 
-                language="eng", 
-                fiction=False, 
-                with_open_access_download=True)
-            complaint2 = self._complaint(
-                work2.license_pools[0],
-                type,
-                "complaint source %i" % i,
-                "complaint detail %i" % i)
-
-        SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/"):
-            response = self.manager.opds_feeds.complaints()
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(len(entries), 4)

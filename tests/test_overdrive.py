@@ -6,11 +6,11 @@ from nose.tools import (
 import os
 import pkgutil
 import json
-from ..overdrive import (
+from api.overdrive import (
     DummyOverdriveAPI,
 )
 
-from ..circulation import (
+from api.circulation import (
     CirculationAPI,
 )
 
@@ -18,7 +18,7 @@ from . import (
     DatabaseTest,
 )
 
-from ..core.model import (
+from core.model import (
     DataSource,
     Identifier,
     LicensePool,

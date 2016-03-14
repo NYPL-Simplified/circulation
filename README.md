@@ -45,6 +45,17 @@ Install Elasticsearch.
   $ brew install elasticsearch
   ```
 
+### Front-end admin interface
+
+To include the admin interface, set "include_admin_interface": "true" in the config file, and install the node module for the front-end application.
+
+To use the published version, run `npm install` from api/admin.
+
+To use a local version, clone circulation-web and link it to this project.
+
+From circulation-web: `npm link`
+From circulation's api/admin directory: `npm link simplified-circulation-web`
+
 ## License
 
 ```
