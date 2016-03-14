@@ -568,21 +568,26 @@ class TestWorkClassifier(DatabaseTest):
         for subject in ('Nonfiction', 'Science Fiction', 'History'):
             c = i.classify(source, Subject.OVERDRIVE, subject, weight=1000)
             self.classifier.add(c)
-        self.classifier.prepare_to_classify()
-        eq_(500, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
-
-    def test_no_signal_from_distributor_implies_book_is_for_adults(self):
-        # This work has no classifications that end up in
-        # direct_from_license_source. In the absence of such
-        # classifications we assume the book is for adults.
-        source = DataSource.lookup(self._db, DataSource.OCLC)
 
         # There's a little bit of evidence that it's a children's book,
         # but not enough to outweight the distributor's silence.
-        c = self.identifier.classify(source, Subject.TAG, u"Children's books", weight=1000)
-        self.classifier.add(c)
+        c2 = self.identifier.classify(
+            source, Subject.TAG, u"Children's books", weight=1
+        )
+        self.classifier.add(c2)
         self.classifier.prepare_to_classify()
-        eq_(500, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
+        # Overdrive classifications are regarded as 50 times more reliable
+        # than their actual weight, as per Classification.scaled_weight
+        eq_(50000, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
+
+    def test_no_signal_from_distributor_has_no_implication_for_audience(self):
+        # This work has no classifications that end up in
+        # direct_from_license_source. In the absence of any such
+        # classifications we cannot determine whether the
+        # distributor's silence about the audience is because it's a
+        # book for adults or because there's just no data from the
+        # distributor.
+        eq_({}, self.classifier.audience_weights)
 
     def test_children_or_ya_signal_from_distributor_has_no_immediate_implication_for_audience(self):
         # This work has a classification direct from the distributor
@@ -590,8 +595,11 @@ class TestWorkClassifier(DatabaseTest):
         # drawn in the prepare_to_classify() step.
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c = self.identifier.classify(source, Subject.OVERDRIVE, u"Picture Books", weight=1000)
-        self.classifier.add(c)
+        self.classifier.prepare_to_classify()
         eq_({}, self.classifier.audience_weights)
+
+        self.classifier.add(c)
+        eq_(50000, self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN])
 
     def test_default_nonfiction(self):
         # In the absence of any information we assume a book is nonfiction.
@@ -736,7 +744,6 @@ class TestWorkClassifier(DatabaseTest):
 
         # And only most_reliable_target_age_subset is used to calculate
         # the target age.
-        set_trace()
         eq_((0,3),  self.classifier.target_age(Classifier.AUDIENCE_CHILDREN))
 
     def test_target_age_errs_towards_wider_span(self):

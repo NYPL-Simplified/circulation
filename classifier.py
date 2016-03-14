@@ -3237,7 +3237,9 @@ class WorkClassifier(object):
         children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT)
         audiences = [classification.subject.audience
             for classification in self.direct_from_license_source]
-        if not any(audience in children_and_ya for audience in audiences):
+        if self.direct_from_license_source and not any(
+                audience in children_and_ya for audience in audiences
+        ):
             # If this was a book for children or young adults, the
             # distributor would have given some indication of that
             # fact. In the absense of any such indication, we can
