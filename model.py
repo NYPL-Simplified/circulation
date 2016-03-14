@@ -94,6 +94,7 @@ from classifier import (
     Classifier,
     COMICS_AND_GRAPHIC_NOVELS,
     GenreData,
+    WorkClassifier,
 )
 from util import (
     LanguageCodes,
@@ -3480,10 +3481,21 @@ class Work(Base):
         self.quality = Measurement.overall_quality(
             measurements, default_value=default_quality)
 
+    def assign_genres(self, identifier_ids, cutoff=0.15):
+        classifier = WorkClassifier(self)
+
+        _db = Session.object_session(self)
+        classifications = Identifier.classifications_for_identifier_ids(
+            _db, identifier_ids
+        )
+        for classification in classifications:
+            classifier.add(classification)
+
         genre_weights, fiction, audience, target_age = classifier.classify
 
         # Assign WorkGenre objects to the remainder.
         total_genre_weight = sum(genre_weights.values())
+        workgenres = []
         for g, score in genre_weights.items():
             affinity = score / total_genre_weight
             wg, ignore = get_one_or_create(
@@ -3492,6 +3504,7 @@ class Work(Base):
             workgenres.append(wg)
 
         return workgenres, fiction, audience, target_age
+
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):

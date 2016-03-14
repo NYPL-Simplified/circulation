@@ -3441,12 +3441,13 @@ class WorkClassifier(object):
         # Consolidate parent genres into their heaviest subgenre.
         genres = self.consolidate_genre_weights(genres)
         total_weight = float(sum(genres.values()))
+        working_total_weight = total_weight
 
         # Strip out the stragglers.
         for g, score in list(genres.items()):
             affinity = score / total_weight
             if affinity < cutoff:
-                total_weight -= score
+                working_total_weight -= score
                 del genres[g]
         return genres
 
