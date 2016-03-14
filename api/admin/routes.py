@@ -78,6 +78,7 @@ def unsuppress(data_source, identifier):
 
 @app.route('/admin/complaints')
 @returns_problem_detail
+@requires_admin
 def complaints():
     return app.manager.admin_feed_controller.complaints()
 
