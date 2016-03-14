@@ -174,6 +174,13 @@ class Classifier(object):
 
     @classmethod
     def default_target_age_for_audience(self, audience):
+        """The default target age for a given audience.
+
+        We don't know what age range a children's book is appropriate
+        for, but we can make a decent guess for a YA book, for an
+        'Adult' book it's pretty clear, and for an 'Adults Only' book
+        it's very clear.
+        """
         if audience == Classifier.AUDIENCE_YOUNG_ADULT:
             return (14, 17)
         elif audience in (
@@ -3335,7 +3342,7 @@ class WorkClassifier(object):
         ):
             # This is not a children's or YA book. Assertions about
             # target age are irrelevant and the default value rules.
-            return self.default_target_age(audience)
+            return Classifier.default_target_age_for_audience(audience)
 
         # Only consider the most reliable classifications.
         reliable_classifications = self.most_reliable_target_age_subset
@@ -3380,7 +3387,7 @@ class WorkClassifier(object):
 
         if not target_age_min and not target_age_max:
             # We found no opinions about target age. Use the default.
-            return self.default_target_age(audience)
+            return Classifier.default_target_age_for_audience(audience)
 
         if target_age_min is None:
             target_age_min = target_age_max
@@ -3457,22 +3464,6 @@ class WorkClassifier(object):
             if score >= highest_quality_score:
                 reliable_classifications.append(c)
         return reliable_classifications    
-
-    @classmethod
-    def default_target_age(cls, audience):
-        """The default target age for a given audience.
-
-        We don't know what age range a children's book is appropriate
-        for, but we can make a decent guess for a YA book, for an
-        'Adult' book it's pretty clear, and for an 'Adults Only' book
-        it's very clear.
-        """
-        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 17)
-        if audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
-            return (18, None)
-        return None, None
-
 
     @classmethod
     def consolidate_genre_weights(

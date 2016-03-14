@@ -26,6 +26,27 @@ from classifier import (
     WorkClassifier,
     )
 
+class TestClassifier(object):
+
+    def test_default_target_age_for_audience(self):
+        eq_(
+            (None, None), 
+            Classifier.default_target_age_for_audience(Classifier.AUDIENCE_CHILDREN)
+        )
+        eq_(
+            (14, 17), 
+            Classifier.default_target_age_for_audience(Classifier.AUDIENCE_YOUNG_ADULT)
+        )
+        eq_(
+            (18, None), 
+            Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULT)
+        )
+        eq_(
+            (18, None), 
+            Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULTS_ONLY)
+        )
+
+
 class TestClassifierLookup(object):
 
     def test_lookup(self):
@@ -701,25 +722,6 @@ class TestWorkClassifier(DatabaseTest):
         }
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience)
         
-
-    def test_default_target_age(self):
-        eq_(
-            (None, None), 
-            self.classifier.default_target_age(Classifier.AUDIENCE_CHILDREN)
-        )
-        eq_(
-            (14, 17), 
-            self.classifier.default_target_age(Classifier.AUDIENCE_YOUNG_ADULT)
-        )
-        eq_(
-            (18, None), 
-            self.classifier.default_target_age(Classifier.AUDIENCE_ADULT)
-        )
-        eq_(
-            (18, None), 
-            self.classifier.default_target_age(Classifier.AUDIENCE_ADULTS_ONLY)
-        )
-
     def test_target_age_is_default_for_adult_books(self):
         # Target age data can't override an independently determined
         # audience.
