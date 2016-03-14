@@ -3157,9 +3157,6 @@ class WorkClassifier(object):
         self.target_age_relevant_classifications = set()
         self.genre_weights = Counter()
         self.direct_from_license_source = set()
-
-        # Start things off with information that can be derived from
-        # the Work itself, e.g. the publisher.
         self.prepared = False
 
     def add(self, classification):
@@ -3200,8 +3197,9 @@ class WorkClassifier(object):
             self.target_age_relevant_classifications.add(classification)
 
     def weigh_metadata(self):
-        """Modify the weights according to the given Work's metadata."""
-        """Use work metadata to simulate genre classifications.
+        """Modify the weights according to the given Work's metadata.
+
+        Use work metadata to simulate classifications.
 
         This is basic stuff, like: Harlequin tends to publish
         romances.
@@ -3309,19 +3307,27 @@ class WorkClassifier(object):
         # 1. The weight of that audience is more than twice the
         # combined weight of the 'adult' and 'adults only' audiences.
         #
-        # 2. The 'adult' and 'adults only' audiences have no weight
-        # whatsoever, and the weight of the proposed audience is
-        # greater than 10.
-        if total_adult_weight:
+        # 2. The weight of that audience is greater than 10, and
+        # the 'adult' and 'adults only' audiences have no weight
+        # whatsoever.
+        #
+        # Either way, we have a numeric threshold that must be met.
+        if total_adult_weight > 0:
             threshold = total_adult_weight * 2
         else:
             threshold = 10
 
         # If both the 'children' weight and the 'YA' weight pass the
-        # threshold, we go with 'YA'.
-        if (children_weight > threshold and children_weight > ya_weight):
-            audience = Classifier.AUDIENCE_CHILDREN
-        elif ya_weight + children_weight > threshold:
+        # threshold, we go with the one that weighs more.
+        if children_weight > threshold and ya_weight > threshold:
+            if children_weight > ya_weight:
+                audience = Classifier.AUDIENCE_CHILDREN
+            else:
+                audience = Classifier.AUDIENCE_YOUNG_ADULT
+        elif children_weight + ya_weight > threshold:
+            # Neither weight passes the threshold on its own, but
+            # combined they do pass the threshold. Go with
+            # 'Young Adult' to be safe.
             audience = Classifier.AUDIENCE_YOUNG_ADULT
 
         # If the 'adults only' weight is more than 1/4 of the total adult
@@ -3333,6 +3339,24 @@ class WorkClassifier(object):
             audience = Classifier.AUDIENCE_ADULTS_ONLY
 
         return audience
+
+    @classmethod
+    def top_tier_values(self, counter):
+        """Given a Counter mapping values to their frequency of occurance,
+        return all values that are as common as the most common value.
+        """
+        top_frequency = None
+        top_tier = set()
+        for age, freq in counter.most_common():
+            if not top_frequency:
+                top_frequency = freq
+            if freq != top_frequency:
+                # We've run out of candidates
+                break
+            else:
+                # This candidate occurs with the maximum frequency.
+                top_tier.add(age)
+        return top_tier
 
     def target_age(self, audience):
         """Derive a target age from the gathered data."""
@@ -3368,22 +3392,14 @@ class WorkClassifier(object):
         target_age_min = None
         target_age_max = None
         if target_age_mins:
-            # We have opinions about the proper minimum age.
-            mins = Counter(target_age_mins)
-            [(target_age_min, count)] = mins.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the smallest
-                # minimum age.
-                target_age_min = min(target_age_mins)
+            # Find the youngest age in the top tier of values.
+            candidates = self.top_tier_values(Counter(target_age_mins))
+            target_age_min = min(candidates)
 
         if target_age_maxes:
-            # We have opinions about the proper maximum age.
-            maxes = Counter(target_age_maxes)
-            [(target_age_max, count)] = maxes.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the largest
-                # maximum age.
-                target_age_max = max(target_age_maxes)
+            # Find the oldest age in the top tier of values.
+            candidates = self.top_tier_values(Counter(target_age_maxes))
+            target_age_max = max(candidates)
 
         if not target_age_min and not target_age_max:
             # We found no opinions about target age. Use the default.
@@ -3461,7 +3477,7 @@ class WorkClassifier(object):
                 # type of data, we need to start all over.
                 highest_quality_score = score
                 reliable_classifications = []
-            if score >= highest_quality_score:
+            if score == highest_quality_score:
                 reliable_classifications.append(c)
         return reliable_classifications    
 

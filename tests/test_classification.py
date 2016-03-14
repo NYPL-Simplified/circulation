@@ -2,6 +2,7 @@
 
 from nose.tools import eq_, set_trace
 from . import DatabaseTest
+from collections import Counter
 from model import (
     Genre,
     DataSource,
@@ -447,7 +448,7 @@ class TestConsolidateWeights(object):
         weights[classifier.History] = 10
         weights[classifier.Asian_History] = 4
         weights[classifier.Middle_East_History] = 1
-        w2 = Classifier.consolidate_weights(weights)
+        w2 = WorkClassifier.consolidate_genre_weights(weights)
         eq_(14, w2[classifier.Asian_History])
         eq_(1, w2[classifier.Middle_East_History])
         assert classifier.History not in w2
@@ -457,7 +458,7 @@ class TestConsolidateWeights(object):
         weights = dict()
         weights[classifier.Romance] = 100
         weights[classifier.Paranormal_Romance] = 4
-        w2 = Classifier.consolidate_weights(weights)
+        w2 = WorkClassifier.consolidate_genre_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
         assert classifier.Romance not in w2
 
@@ -468,7 +469,7 @@ class TestConsolidateWeights(object):
         weights = dict()
         weights[classifier.Romance] = 100
         weights[classifier.Paranormal_Romance] = 4
-        w2 = Classifier.consolidate_weights(weights)
+        w2 = WorkClassifier.consolidate_genre_weights(weights)
         eq_(104, w2[classifier.Paranormal_Romance])
         assert classifier.Romance not in w2
 
@@ -481,7 +482,7 @@ class TestConsolidateWeights(object):
         # weights[classifier.Romance_Erotica] = 50
         # weights[classifier.Romance] = 50
         # weights[classifier.Paranormal_Romance] = 4
-        # w2 = Classifier.consolidate_weights(weights)
+        # w2 = Classifier.consolidate_genre_weights(weights)
         # eq_(104, w2[classifier.Paranormal_Romance])
         # assert classifier.Romance not in w2
         pass
@@ -490,7 +491,7 @@ class TestConsolidateWeights(object):
         weights = dict()
         weights[classifier.History] = 100
         weights[classifier.Middle_East_History] = 1
-        w2 = Classifier.consolidate_weights(weights)
+        w2 = WorkClassifier.consolidate_genre_weights(weights)
         eq_(100, w2[classifier.History])
         eq_(1, w2[classifier.Middle_East_History])
 
@@ -876,3 +877,16 @@ class TestWorkClassifier(DatabaseTest):
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
         eq_((14,17), target_age)
+
+    def test_top_tier_values(self):
+        c = Counter()
+        eq_(set(), WorkClassifier.top_tier_values(c))
+
+        c = Counter(["a"])
+        eq_(set(["a"]), WorkClassifier.top_tier_values(c))
+
+        c = Counter([1,1,1,2,2,3,4,4,4])
+        eq_(set([1,4]), WorkClassifier.top_tier_values(c))
+        c = Counter([1,1,1,2])
+        eq_(set([1]), WorkClassifier.top_tier_values(c))
+
