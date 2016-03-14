@@ -2248,7 +2248,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    # "children" isn't here because the vast majority of
                    # "children" tags indicate books _for_ children.
 
-                   # "family" isn't here because the bast majority
+                   # "family" isn't here because the vast majority
                    # of "family" tags deal with specific families, e.g.
                    # the Kennedys.
 
