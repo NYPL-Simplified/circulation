@@ -3306,8 +3306,8 @@ class WorkClassifier(object):
         # There are two cases when a book will be classified as a
         # young adult or childrens' book:
         #
-        # 1. The weight of that audience is twice the combined weight of
-        # the 'adult' and 'adults only' audiences.
+        # 1. The weight of that audience is more than twice the
+        # combined weight of the 'adult' and 'adults only' audiences.
         #
         # 2. The 'adult' and 'adults only' audiences have no weight
         # whatsoever, and the weight of the proposed audience is

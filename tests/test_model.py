@@ -24,7 +24,6 @@ from config import (
 
 from model import (
     CirculationEvent,
-    Classification,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -1942,4 +1941,3 @@ class TestComplaint(DatabaseTest):
         assert_raises(
             ValueError, Complaint.register, self.pool, type, None, None
         )
-
