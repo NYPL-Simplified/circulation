@@ -3319,12 +3319,14 @@ class WorkClassifier(object):
 
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with the one that weighs more.
-        if children_weight > threshold and ya_weight > threshold:
-            if children_weight > ya_weight:
-                audience = Classifier.AUDIENCE_CHILDREN
-            else:
-                audience = Classifier.AUDIENCE_YOUNG_ADULT
-        elif children_weight + ya_weight > threshold:
+        # If the 'children' weight passes the threshold on its own
+        # we do with 'children'.
+        total_juvenile_weight = children_weight + ya_weight
+        if children_weight > threshold and children_weight > ya_weight:
+            audience = Classifier.AUDIENCE_CHILDREN
+        elif ya_weight > threshold:
+            audience = Classifier.AUDIENCE_YOUNG_ADULT
+        elif total_juvenile_weight > threshold:
             # Neither weight passes the threshold on its own, but
             # combined they do pass the threshold. Go with
             # 'Young Adult' to be safe.

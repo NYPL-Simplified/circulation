@@ -482,7 +482,7 @@ class TestConsolidateWeights(object):
         # weights[classifier.Romance_Erotica] = 50
         # weights[classifier.Romance] = 50
         # weights[classifier.Paranormal_Romance] = 4
-        # w2 = Classifier.consolidate_genre_weights(weights)
+        # w2 = WorkClassifier.consolidate_genre_weights(weights)
         # eq_(104, w2[classifier.Paranormal_Romance])
         # assert classifier.Romance not in w2
         pass
