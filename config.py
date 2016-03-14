@@ -138,6 +138,7 @@ class Configuration(object):
     CDN_INTEGRATION = "CDN"
     CDN_BOOK_COVERS = "book_covers"
     CDN_OPDS_FEEDS = "opds"
+    CDN_OPEN_ACCESS_CONTENT = "open_access_books"
 
     METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
     CONTENT_SERVER_INTEGRATION = "Content Server"
