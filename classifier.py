@@ -408,6 +408,8 @@ class AgeClassifier(Classifier):
                     if young > 99:
                         # This is not an age at all.
                         young = None
+                    if young > old:
+                        young, old = old, young
                     return young, old
         return None, None
 
@@ -439,7 +441,10 @@ class Axis360AudienceClassifier(Classifier):
         m = cls.age_re.search(identifier)
         if not m:
             return None, None
-        return tuple(map(int, m.groups()))
+        young, old = map(int, m.groups())
+        if young > old:
+            young, old = old, young
+        return (young, old)
 
 
 # This is the large-scale structure of our classification system.
@@ -3413,7 +3418,8 @@ class WorkClassifier(object):
         if target_age_max is None:
             target_age_max = target_age_min
 
-        # If min and max got mixed up somehow, un-mix them.
+        # If min and max got mixed up somehow, un-mix them. This should
+        # never happen, but we fix it just in case.
         if target_age_min > target_age_max:
             target_age_min, target_age_max = target_age_max, target_age_min
         return target_age_min, target_age_max

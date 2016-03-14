@@ -108,6 +108,7 @@ class TestTargetAge(object):
         eq_((9,9), f("9 years"))
         eq_((9,12), f("9 - 12 years"))
         eq_((12,14), f("12 - 14"))
+        eq_((12,14), f("14 - 12"))
         eq_((0,3), f("0-3"))
         eq_((None,None), f("K-3"))
 
@@ -417,6 +418,7 @@ class TestAxis360Classifier(object):
         eq_((7,8), f("Children's - Grade 2-3, Age 7-8"))
         eq_((9,11), f("Children's - Grade 4-6, Age 9-11"))
         eq_((12,14), f("Teen - Grade 7-9, Age 12-14"))
+        eq_((12,14), f("Teen - Grade 7-9, Age 14-12"))
         eq_((15,18), f("Teen - Grade 10-12, Age 15-18"))
         eq_((None,None), f("General Adult"))
 
