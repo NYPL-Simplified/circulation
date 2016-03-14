@@ -42,7 +42,7 @@ Install Elasticsearch.
   $ brew tap caskroom/cask
   $ brew install brew-cask
   $ brew cask install java
-  $ brew install elasticsearch
+  $ brew install homebrew/versions/elasticsearch17
   ```
 
 ### Front-end admin interface
