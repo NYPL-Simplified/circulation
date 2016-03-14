@@ -690,6 +690,18 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 11
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
 
+    def test_adults_only_threshold(self):
+        # The 'adults only' weight here is not even close to a
+        # majority, but it's high enough that we classify this work as
+        # 'adults only' to be safe.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 4,
+            Classifier.AUDIENCE_ADULTS_ONLY : 2,
+            Classifier.AUDIENCE_CHILDREN : 4,
+        }
+        eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience)
+        
+
     def test_default_target_age(self):
         eq_(
             (None, None), 
