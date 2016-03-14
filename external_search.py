@@ -188,9 +188,11 @@ class ExternalSearchIndex(Elasticsearch):
 
             if len(remaining_string.strip()) > 0:
                 # Someone who searches by genre is probably not looking for a specific book,
-                # so title isn't included, but they might be looking for an author (eg, 
-                # "science fiction iain banks").
-                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
+                # but they might be looking for an author (eg, "science fiction iain banks").
+                # However, it's possible that they're searching for a subject that's not
+                # mentioned in the summary (eg, a person's name in a biography). So title
+                # is a possible match, but is less important than author, subtitle, and summary.
+                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1"])
                 classification_queries.append(match_rest_of_query)
             
             # If classification queries and the remaining string all match, the result will
