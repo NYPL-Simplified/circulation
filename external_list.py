@@ -1,18 +1,24 @@
 # encoding: utf-8
+from collections import defaultdict
 from nose.tools import set_trace
 import datetime
 from dateutil.parser import parse
 import csv
 import os
+from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
 from opds_import import SimplifiedOPDSLookup
 import logging
 from config import Configuration
-from metadata_layer import CSVMetadataImporter
+from metadata_layer import (
+    CSVMetadataImporter,
+    ReplacementPolicy,
+)
 from model import (
     get_one,
     get_one_or_create,
+    Classification,
     CustomList,
     CustomListEntry,
     Contributor,
@@ -229,12 +235,105 @@ class TitleFromExternalList(object):
                 "Ignoring %s, no corresponding edition.", self.metadata.title
             )
             return None
+        if overwrite_old_data:
+            policy = ReplacementPolicy.from_metadata_source(
+                even_if_not_apparently_updated=True
+            )
+        else:
+            policy = ReplacementPolicy.append_only(
+                even_if_not_apparently_updated=True
+            )
         self.metadata.apply(
             edition=edition, 
             metadata_client=metadata_client,
-            replace_identifiers=overwrite_old_data,
-            replace_subjects=overwrite_old_data, 
-            replace_contributions=overwrite_old_data
+            replace=policy,
         )
         self.metadata.associate_with_identifiers_based_on_permanent_work_id(_db)
         return edition
+
+
+class MembershipManager(object):
+    """Manage the membership of a custom list based on some criteria."""
+
+    def __init__(self, custom_list, log=None):
+        self.log = log or logging.getLogger(
+            "Membership manager for %s" % custom_list.name
+        )
+        self._db = Session.object_session(custom_list)
+        self.custom_list = custom_list
+
+    def update(self, update_time=None):
+        update_time = update_time or datetime.datetime.utcnow()
+
+        # Map each Edition currently in this list to the corresponding
+        # CustomListEntry.
+        current_membership = defaultdict(list)
+        for entry in self.custom_list.entries:
+            if not entry.edition:
+                continue
+            current_membership[entry.edition].append(entry)
+
+        # Find the new membership of the list.
+        for new_edition in self.new_membership:
+            if new_edition in current_membership:
+                # This entry was in the list before, and is still in
+                # the list. Update its .most_recent_appearance.
+                self.log.debug("Maintaining %s" % new_edition.title)
+                entry_list = current_membership[new_edition]
+                for entry in entry_list:
+                    entry.most_recent_appearance = update_time
+                del current_membership[new_edition]
+            else:
+                # This is a new list entry.
+                self.log.debug("Adding %s" % new_edition.title)
+                self.custom_list.add_entry(
+                    edition=new_edition, first_appearance=update_time
+                )
+
+        # Anything still left in current_membership used to be in the
+        # list but is no longer. Remove these entries from the list.
+        for entry_list in current_membership.values():
+            for entry in entry_list:
+                self.log.debug("Deleting %s" % entry.edition.title)
+                self._db.delete(entry)
+
+    @property
+    def new_membership(self):
+        """Iterate over the new membership of the list.
+
+        :yield: a sequence of Edition objects
+        """
+        raise NotImplementedError()
+
+
+class ClassificationBasedMembershipManager(MembershipManager):
+    """Manage a custom list containing all Editions whose primary
+    Identifier is classified under one of the given subject fragments.
+    """
+    def __init__(self, custom_list, subject_fragments):
+        super(ClassificationBasedMembershipManager, self).__init__(custom_list)
+        self.subject_fragments = subject_fragments
+
+    @property
+    def new_membership(self):
+        """Iterate over the new membership of the list.
+
+        :yield: a sequence of Edition objects
+        """
+        subject_clause = None
+        for i in self.subject_fragments:
+            c = Subject.identifier.ilike('%' + i + '%')
+            if subject_clause is None:
+                subject_clause = c
+            else:
+                subject_clause = or_(subject_clause, c)
+        qu = self._db.query(Edition).distinct(Edition.id).join(
+            Edition.primary_identifier
+        ).join(
+            Identifier.classifications
+        ).join(
+            Classification.subject
+        )
+        qu = qu.filter(subject_clause)
+        return qu
+

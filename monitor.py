@@ -139,15 +139,19 @@ class IdentifierResolutionMonitor(Monitor):
         )
 
         for unresolved_identifier in unresolved_identifiers:
-            success = False
-            try:
-                self.resolve(unresolved_identifier)
-                success = True
-            except Exception, e:
-                self.process_failure(unresolved_identifier, e)
-            if success:
-                self._db.delete(unresolved_identifier)
-            self._db.commit()
+            self.resolve_and_handle_result(unresolved_identifier)
+
+    def resolve_and_handle_result(self, unresolved_identifier):
+        success = False
+        try:
+            self.resolve(unresolved_identifier)
+            success = True
+        except Exception, e:
+            self.process_failure(unresolved_identifier, e)
+        if success:
+            self._db.delete(unresolved_identifier)
+        self._db.commit()
+        return success
 
     def resolve(self, unresolved_identifier):
         """Resolve one UnresolvedIdentifier."""

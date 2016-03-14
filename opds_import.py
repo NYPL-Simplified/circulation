@@ -167,7 +167,10 @@ class OPDSImporter(object):
                 # before that date. There's no reason to do anything.
                 continue
 
-            metadata.apply(edition, self.metadata_client)
+            metadata.apply(edition, self.metadata_client, 
+                           replace_subjects=True,
+                           replace_links=True, replace_contributions=True,
+                           force=True)
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
                 self.log.warn(

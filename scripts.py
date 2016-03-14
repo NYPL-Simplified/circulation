@@ -11,6 +11,7 @@ from config import Configuration
 import log # This sets the appropriate log format and level.
 import random
 from model import (
+    get_one_or_create,
     production_session,
     CustomList,
     DataSource,
@@ -27,6 +28,14 @@ from external_search import (
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from nyt import NYTBestSellerAPI
+
+from overdrive import (
+    OverdriveBibliographicCoverageProvider,
+)
+
+from threem import (
+    ThreeMBibliographicCoverageProvider,
+)
 
 class Script(object):
 
@@ -46,6 +55,27 @@ class Script(object):
     @property
     def data_directory(self):
         return Configuration.data_directory()
+
+    @classmethod
+    def parse_identifier_list(self, _db, arguments):
+        """Turn a list of arguments into a list of identifiers.
+
+        This makes it easy to identify specific identifiers on the
+        command line. Examples:
+
+        "Gutenberg ID" 1 2
+        
+        "Overdrive ID" a b c
+
+        Basic but effective.
+        """
+        current_identifier_type = None
+        identifier_type = arguments[0]
+        for arg in arguments[1:]:
+            identifier, ignore = Identifier.for_foreign_id(
+                _db, identifier_type, arg, autocreate=False)
+            if identifier:
+                yield identifier
 
     def run(self):
         self.load_configuration()
@@ -107,7 +137,20 @@ class RunCoverageProvidersScript(Script):
                     offsets[provider] = offset
 
 
-class RunCoverageProviderScript(Script):
+class IdentifierInputScript(Script):
+    """A script that takes identifiers as command line inputs."""
+
+    def parse_identifiers(self):
+        potential_identifiers = sys.argv[1:]
+        identifiers = self.parse_identifier_list(
+            self._db, potential_identifiers
+        )
+        if potential_identifiers and not identifiers:
+            self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
+        return identifiers
+
+
+class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
     def __init__(self, provider):
@@ -117,7 +160,38 @@ class RunCoverageProviderScript(Script):
         self.name = self.provider.service_name
 
     def do_run(self):
-        self.provider.run()
+
+        identifiers = self.parse_identifiers()
+        if identifiers:
+            self.provider.process_batch(identifiers)
+            self._db.commit()
+        else:
+            self.provider.run()
+
+class BibliographicRefreshScript(IdentifierInputScript):
+    """Refresh the core bibliographic data for Editions direct from the
+    license source.
+    """
+    def do_run(self):
+        identifiers = self.parse_identifiers()
+        if not identifiers:
+            raise Exception(
+                "You must specify at least one identifier to refresh."
+            )
+        for identifier in identifiers:
+            self.refresh_metadata(identifier)
+
+    def refresh_metadata(self, identifier):
+        provider = None
+        if identifier.type==Identifier.THREEM_ID:
+            provider = ThreeMBibliographicCoverageProvider
+        elif identifier.type==Identifier.OVERDRIVE_ID:
+            provider = OverdriveBibliographicCoverageProvider
+        else:
+            self.log.warn("Cannot update coverage for %r" % identifier)
+        if provider:
+            provider(self._db).ensure_coverage(identifier, force=True)
+
 
 class WorkProcessingScript(Script):
 
@@ -269,6 +343,33 @@ class WorkPresentationScript(WorkProcessingScript):
             calculate_quality=True)
   
 
+class CustomListManagementScript(Script):
+    """Maintain a CustomList whose membership is determined by a
+    MembershipManager.
+    """
+
+    def __init__(self, manager_class,
+                 data_source_name, list_identifier, list_name,
+                 primary_language, description,
+                 **manager_kwargs
+             ):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        self.custom_list, is_new = get_one_or_create(
+            self._db, CustomList,
+            data_source_id=data_source.id,
+            foreign_identifier=list_identifier,
+        )
+        self.custom_list.primary_language = primary_language
+        self.custom_list.description = description
+        self.membership_manager = manager_class(
+            self.custom_list, **manager_kwargs
+        )
+
+    def run(self):
+        self.membership_manager.update()
+        self._db.commit()
+
+
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
     def __init__(self, feed_url, default_data_source, importer_class, 
@@ -333,6 +434,7 @@ class RefreshMaterializedViewsScript(Script):
             db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
             print "%s refreshed in %.2f sec." % (view_name, b-a)
+
         # Close out this session because we're about to create another one.
         db.commit()
         db.close()
@@ -348,7 +450,7 @@ class RefreshMaterializedViewsScript(Script):
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
         print "Vacuumed in %.2f sec." % (b-a)
-        
+
 
 class Explain(Script):
     """Explain everything known about a given work."""
