@@ -2245,9 +2245,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                ),
                
                Parenting : match_kw(
-                   "children",
-                   # "family" doesn't work because of many specific
-                   # families.
+                   # "children" isn't here because the vast majority of
+                   # "children" tags indicate books _for_ children.
+
+                   # "family" isn't here because the bast majority
+                   # of "family" tags deal with specific families, e.g.
+                   # the Kennedys.
+
                    "parenting",
                    "parent",
                    "parents",

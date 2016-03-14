@@ -306,6 +306,8 @@ class TestKeyword(object):
         eq_(classifier.Humorous_Nonfiction, self.genre("Humor (Nonfiction)"))
         eq_(classifier.Humorous_Fiction, self.genre("Humorous stories"))
 
+    def test_children_audience_implies_no_genre(self):
+        eq_(None, self.genre("Children's Books"))
 
 class TestBISAC(object):
 
