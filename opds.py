@@ -664,31 +664,6 @@ class AcquisitionFeed(OPDSFeed):
         return unicode(opds_feed)
 
     @classmethod
-    def complaints(cls, _db, title, url, annotator, pagination=None):
-        facets = Facets.default()
-        pagination = pagination or Pagination.default()
-
-        q = Work.with_complaint(_db)
-        q = pagination.apply(q)
-
-        (works, types, counts) = zip(*q.all())
-        feed = cls(_db, title, url, works, annotator)
-
-        if len(works) > 0:
-            # There are works in this list. Add a 'next' link.
-            feed.add_link(rel="next", href=annotator.feed_url(url, facets, pagination.next_page))
-
-        if pagination.offset > 0:
-            feed.add_link(rel="first", href=annotator.feed_url(url, facets, pagination.first_page))
-
-        previous_page = pagination.previous_page
-        if previous_page:
-            feed.add_link(rel="previous", href=annotator.feed_url(url, facets, previous_page))
-
-        annotator.annotate_feed(feed, None)
-        return unicode(feed)
-
-    @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):
         """Create a single-entry feed for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)

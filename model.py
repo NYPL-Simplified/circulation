@@ -3082,6 +3082,7 @@ class Work(Base):
             subquery()
         return _db.query(Work).\
             join(subquery, Work.id == subquery.c.id).\
+            order_by(subquery.c.complaint_type_count.desc()).\
             add_columns(subquery.c.complaint_type, subquery.c.complaint_type_count)
 
     def all_editions(self, recursion_level=5):

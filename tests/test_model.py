@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import (
 )
 
 from config import (
-    Configuration,
+    Configuration, 
     temp_config,
 )
 
@@ -123,7 +123,7 @@ class TestDataSource(DatabaseTest):
         identifier = self._identifier(DataSource.MANUAL)
         assert_raises(
             NoResultFound, DataSource.license_source_for, self._db, identifier)
-
+            
 
 class TestIdentifier(DatabaseTest):
 
@@ -159,7 +159,7 @@ class TestIdentifier(DatabaseTest):
         isbn10 = '1449358063'
         isbn13 = '9781449358068'
         asin = 'B0088IYM3C'
-        isbn13_with_dashes = '978-144-935-8068'
+        isbn13_with_dashes = '978-144-935-8068'        
 
         i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
         i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
@@ -245,8 +245,8 @@ class TestIdentifier(DatabaseTest):
         # URNs that can have associated license pools, we get an exception.
         isbn_urn = "urn:isbn:1449358063"
         assert_raises(
-            Identifier.UnresolvableIdentifierException,
-            Identifier.parse_urn, self._db, isbn_urn,
+            Identifier.UnresolvableIdentifierException, 
+            Identifier.parse_urn, self._db, isbn_urn, 
             must_support_license_pools=True)
 
     def test_missing_coverage_from(self):
@@ -303,7 +303,7 @@ class TestUnresolvedIdentifier(DatabaseTest):
         assert_raises(
             ValueError, UnresolvedIdentifier.register, self._db,
             pool.identifier)
-
+    
     def test_register_fails_for_unresolvable_identifier(self):
         identifier = self._identifier(Identifier.ASIN)
         assert_raises(
@@ -314,7 +314,7 @@ class TestUnresolvedIdentifier(DatabaseTest):
         i, ignore = self._unresolved_identifier()
         eq_(None, i.first_attempt)
         eq_(None, i.most_recent_attempt)
-
+        
         now = datetime.datetime.utcnow()
         i.set_attempt()
         eq_(i.first_attempt, i.most_recent_attempt)
@@ -406,7 +406,7 @@ class TestContributor(DatabaseTest):
 
         # Here's Robert.
         [robert], ignore = Contributor.lookup(self._db, name=u"Robert")
-
+        
         # Here's Bob.
         [bob], ignore = Contributor.lookup(self._db, name=u"Bob")
         bob.extra[u'foo'] = u'bar'
@@ -449,7 +449,7 @@ class TestContributor(DatabaseTest):
 
         # The standalone 'Bob' record has been removed from the database.
         eq_(
-            [],
+            [], 
             self._db.query(Contributor).filter(Contributor.name=="Bob").all())
 
         # Bob's book is now associated with 'Robert', not the standalone
@@ -488,7 +488,7 @@ class TestContributor(DatabaseTest):
         self._names("Hormel, Bob 1950?-", "Hormel", "Bob Hormel")
         self._names("Holland, Henry 1583-1650? Monumenta sepulchraria Sancti Pauli",
                     "Holland", "Henry Holland")
-
+        
 
         # Suffixes stay on the end, except for "Mrs.", which goes
         # to the front.
@@ -594,10 +594,10 @@ class TestEdition(DatabaseTest):
             oclc_classify, oclc_number, 1)
         open_library.primary_identifier.equivalent_to(
             oclc_linked_data, oclc_number, 1)
-
+       
         # Here's a Edition for a Recovering the Classics cover.
         recovering, ignore = Edition.for_foreign_id(
-            self._db, web_source, Identifier.URI,
+            self._db, web_source, Identifier.URI, 
             "http://recoveringtheclassics.com/pride-and-prejudice.jpg")
         recovering.title = "Recovering the Classics cover"
 
@@ -715,7 +715,7 @@ class TestEdition(DatabaseTest):
             self._db, ids, threem)
         eq_(set([overdrive_resource, oclc_resource]), set(resources3))
         eq_(oclc_resource, champ3)
-
+        
 
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
@@ -782,7 +782,7 @@ class TestEdition(DatabaseTest):
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
-        """Verify we can get a LicensePool for a data source and an
+        """Verify we can get a LicensePool for a data source and an 
         appropriate work identifier."""
         now = datetime.datetime.utcnow()
         pool, was_new = LicensePool.for_foreign_id(
@@ -791,7 +791,7 @@ class TestLicensePool(DatabaseTest):
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
         eq_(Identifier.GUTENBERG_ID, pool.identifier.type)
-        eq_("541", pool.identifier.identifier)
+        eq_("541", pool.identifier.identifier)        
 
     def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
         """OCLC doesn't offer licenses. It only provides metadata. We can get
@@ -799,10 +799,10 @@ class TestLicensePool(DatabaseTest):
         LicensePool for OCLC's view of a book.
         """
         assert_raises_regexp(
-            ValueError,
+            ValueError, 
             'Data source "OCLC Classify" does not offer licenses',
             LicensePool.for_foreign_id,
-            self._db, DataSource.OCLC, "1015",
+            self._db, DataSource.OCLC, "1015", 
             Identifier.OCLC_WORK)
 
     def test_no_license_pool_for_non_primary_identifier(self):
@@ -811,7 +811,7 @@ class TestLicensePool(DatabaseTest):
         identifier, not some other kind of identifier.
         """
         assert_raises_regexp(
-            ValueError,
+            ValueError, 
             "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
             LicensePool.for_foreign_id,
             self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}")
@@ -825,7 +825,7 @@ class TestLicensePool(DatabaseTest):
 
         work = self._work(title="Foo")
         p1.work = work
-
+        
         assert p1 in work.license_pools
 
         eq_([p2], LicensePool.with_no_work(self._db))
@@ -952,7 +952,7 @@ class TestWork(DatabaseTest):
         primary = work.primary_edition
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)
-
+        
         # This work is not presentation ready because it has no
         # cover. If we record the fact that we tried and failed to
         # find a cover, it will be considered presentation ready.
@@ -970,29 +970,29 @@ class TestWork(DatabaseTest):
         # ready.
         primary.title = None
         work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)
+        eq_(False, work.presentation_ready)        
         primary.title = u"foo"
         work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
+        eq_(True, work.presentation_ready)        
 
         # Remove the fiction setting, and the work stops being
         # presentation ready.
         work.fiction = None
         work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)
+        eq_(False, work.presentation_ready)        
 
         work.fiction = False
         work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
+        eq_(True, work.presentation_ready)        
 
         # Remove the author's presentation string, and the work stops
         # being presentation ready.
         primary.author = None
         work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)
+        eq_(False, work.presentation_ready)        
         primary.author = u"foo"
         work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
+        eq_(True, work.presentation_ready)        
 
         # TODO: there are some other things you can do to stop a work
         # being presentation ready, and they should all be tested.
@@ -1133,7 +1133,7 @@ class TestCirculationEvent(DatabaseTest):
             delta=2,
             new_value=2,
         )
-
+        
         # Turn it into an event and see what happens.
         event, ignore = self.from_dict(data)
 
@@ -1225,8 +1225,8 @@ class TestWorkConsolidation(DatabaseTest):
 
     def setup(self):
         super(TestWorkConsolidation, self).setup()
-        # Replace the complex implementations of similarity_to with
-        # much simpler versions that let us simply say which objects
+        # Replace the complex implementations of similarity_to with 
+        # much simpler versions that let us simply say which objects 
         # are to be considered similar.
         def similarity_to(self, other):
             if other in getattr(self, 'similar', []):
@@ -1243,7 +1243,7 @@ class TestWorkConsolidation(DatabaseTest):
         super(TestWorkConsolidation, self).teardown()
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
-        # Here are two Editions with the same permanent work ID,
+        # Here are two Editions with the same permanent work ID, 
         # since they have the same title/author.
         edition1, ignore = self._edition(with_license_pool=True)
         edition2, ignore = self._edition(
@@ -1392,7 +1392,7 @@ class TestWorkConsolidation(DatabaseTest):
         edition_2a, pool_2a = self._edition(
             DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
         edition_2a.title = "The only title in this whole test."
-        pool_2b = self._licensepool(edition_2a,
+        pool_2b = self._licensepool(edition_2a, 
                                     data_source_name=DataSource.OCLC)
 
         work2 = Work()
@@ -1469,73 +1469,6 @@ class TestWorkConsolidation(DatabaseTest):
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
 
-class TestAssignGenres(DatabaseTest):
-
-    def test_genre_weights_from_metadata(self):
-        star_trek = self._work()
-        star_trek.primary_edition.title = u"Star Trek: The Book"
-        fiction, genre, target_age, audience = star_trek.genre_weights_from_metadata([])
-        eq_(100, genre[classifier.Media_Tie_in_SF])
-
-        # Genre publisher and imprint
-        harlequin = self._work()
-        harlequin.primary_edition.publisher = u"Harlequin"
-        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
-        eq_(100, genre[classifier.Romance])
-
-        harlequin.primary_edition.imprint = u"Harlequin Intrigue"
-        fiction, genre, target_age, audience = harlequin.genre_weights_from_metadata([])
-        # Imprint is more specific than publisher, so it takes precedence.
-        assert classifier.Romance not in genre
-        eq_(100, genre[classifier.Romantic_Suspense])
-
-        # Genre and audience publisher
-        harlequin_teen = self._work()
-        harlequin_teen.primary_edition.publisher = u"Harlequin"
-        harlequin_teen.primary_edition.imprint = u"Harlequin Teen"
-        fiction, genre, target_age, audience = harlequin_teen.genre_weights_from_metadata([])
-        eq_(100, genre[classifier.Romance])
-        eq_(100, audience[Classifier.AUDIENCE_YOUNG_ADULT])
-
-        harlequin_nonfiction = self._work()
-        harlequin_nonfiction.primary_edition.publisher = u"Harlequin"
-        harlequin_nonfiction.primary_edition.imprint = u"Harlequin Nonfiction"
-        fiction, genre, target_age, audience = harlequin_nonfiction.genre_weights_from_metadata([])
-        eq_(100, fiction[False])
-        assert True not in fiction
-
-        # We don't know if this is a children's book or a young adult
-        # book, but we're confident it's one or the other.
-        scholastic = self._work()
-        scholastic.primary_edition.publisher = u"Scholastic Inc."
-        fiction, genre, target_age, audience = scholastic.genre_weights_from_metadata([])
-        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
-
-        for_young_readers = self._work()
-        for_young_readers.primary_edition.imprint = u"Delacorte Books for Young Readers"
-        fiction, genre, target_age, audience = for_young_readers.genre_weights_from_metadata([])
-        eq_(-100, audience[Classifier.AUDIENCE_ADULT])
-
-    def test_nonfiction_book_cannot_be_classified_under_fiction_genre(self):
-        work = self._work()
-        work.primary_edition.title = u"Science Fiction: A Comprehensive History"
-        i = work.primary_edition.primary_identifier
-        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        i.classify(source, Subject.OVERDRIVE, u"Nonfiction", weight=1000)
-        i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
-        i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
-        ids = [i.id]
-        ([history], fiction, audience, target_age) = work.assign_genres(ids)
-
-        # This work really looks like science fiction, but it looks
-        # *even more* like nonfiction, and science fiction is not a
-        # genre of nonfiction. So this book can't be science
-        # fiction. It must be history.
-        eq_("History", history.genre.name)
-        eq_(False, fiction)
-        eq_(Classifier.AUDIENCE_ADULT, audience)
-        eq_((18,None), target_age)
-
 class TestLoans(DatabaseTest):
 
     def test_open_access_loan(self):
@@ -1583,7 +1516,7 @@ class TestLoans(DatabaseTest):
         loan.license_pool = None
         eq_(None, loan.work)
 
-        # If pool.work is None but pool.edition.work is valid, we
+        # If pool.work is None but pool.edition.work is valid, we 
         # use that.
         loan.license_pool = pool
         pool.work = None
@@ -1637,7 +1570,7 @@ class TestHold(DatabaseTest):
         # The cycle time is one week.
         default_loan = datetime.timedelta(days=6)
         default_reservation = datetime.timedelta(days=1)
-
+        
         # I'm 20th in line for 4 books.
         #
         # After 6 days, four copies are released and I am 16th in line.
@@ -1685,7 +1618,7 @@ class TestHyperlink(DatabaseTest):
         identifier = edition.primary_identifier
         data_source = pool.data_source
         hyperlink, is_new = pool.add_link(
-            Hyperlink.DESCRIPTION, "http://foo.com/", data_source,
+            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
             "text/plain", "The content")
         eq_(True, is_new)
         rep = hyperlink.resource.representation
@@ -1702,9 +1635,9 @@ class TestHyperlink(DatabaseTest):
         assert_raises_regexp(
             ValueError, re.compile("License pool is associated with .*, not .*!"),
             identifier.add_link,
-            Hyperlink.DESCRIPTION, "http://foo.com/", data_source,
+            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
             pool, "text/plain", "The content")
-
+        
 
 class TestRepresentation(DatabaseTest):
 
@@ -1808,14 +1741,14 @@ class TestScaleRepresentation(DatabaseTest):
         expect = "ValueError: Cannot load non-image representation as image: type text/plain"
         assert scaled == rep
         assert expect in rep.scale_exception
-
+        
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
         assert_raises_regexp(
-            ValueError,
+            ValueError, 
             "Unsupported destination media type: text/plain",
             rep.scale, 300, 600, self._url, "text/plain")
-
+        
 
     def test_success(self):
         cover = self.sample_cover_representation("test-book-cover.png")
@@ -1889,14 +1822,14 @@ class TestDeliveryMechanism(DatabaseTest):
 
     def test_default_fulfillable(self):
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE,
+            self._db, Representation.EPUB_MEDIA_TYPE, 
             DeliveryMechanism.ADOBE_DRM
         )
         eq_(False, is_new)
         eq_(True, mechanism.default_client_can_fulfill)
 
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE,
+            self._db, Representation.PDF_MEDIA_TYPE, 
             DeliveryMechanism.STREAMING_DRM
         )
         eq_(True, is_new)
@@ -1912,14 +1845,14 @@ class TestDeliveryMechanism(DatabaseTest):
 
 
 class TestCredentials(DatabaseTest):
-
+    
     def test_temporary_token(self):
 
         # Create a temporary token good for one hour.
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.utcnow() 
         expect_expires = now + duration
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
@@ -1938,7 +1871,7 @@ class TestCredentials(DatabaseTest):
         # expired and we cannot use it anymore.
         new_token = Credential.lookup_by_temporary_token(
             self._db, data_source, token.type, token.credential)
-        eq_(new_token, token)
+        eq_(new_token, token)        
         assert new_token.expires < now
 
         new_token = Credential.lookup_by_token(
@@ -1948,7 +1881,7 @@ class TestCredentials(DatabaseTest):
         new_token = Credential.lookup_by_temporary_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
-
+ 
         # A token with no expiration date is treated as expired.
         token.expires = None
         self._db.commit()
