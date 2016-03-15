@@ -3297,7 +3297,8 @@ class Work(Base):
         if classify:
             workgenres, self.fiction, self.audience, target_age = self.assign_genres(
                 flattened_data)
-            self.target_age = NumericRange(*target_age)
+            lower, upper = target_age
+            self.target_age = NumericRange(lower, upper, '[]')
 
 
         if choose_summary:
@@ -3498,6 +3499,8 @@ class Work(Base):
         workgenres = []
         for g, score in genre_weights.items():
             affinity = score / total_genre_weight
+            if not isinstance(g, Genre):
+                g, ignore = Genre.lookup(_db, g.name)
             wg, ignore = get_one_or_create(
                 _db, WorkGenre, work=self, genre=g)
             wg.affinity = affinity
