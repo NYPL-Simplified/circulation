@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(package_dir))
 from core.scripts import OPDSImportScript
 from core.opds_import import OPDSImporter
 from core.model import DataSource
-from config import Configuration
+from api.config import Configuration
 if len(sys.argv) > 1 and sys.argv[1].startswith('http'):
     content_server_url = sys.argv[1]
     register_timestamp = False

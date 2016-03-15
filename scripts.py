@@ -15,8 +15,8 @@ from sqlalchemy.orm import (
 )
 from psycopg2.extras import NumericRange
 
-from lanes import make_lanes
-from controller import CirculationManager
+from api.lanes import make_lanes
+from api.controller import CirculationManager
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
@@ -40,7 +40,7 @@ from core.lane import (
     Pagination,
     Facets,
 )
-from config import Configuration
+from api.config import Configuration
 from core.opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
@@ -51,18 +51,18 @@ from core.opds import (
 )
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
-from opds import CirculationManagerAnnotator
+from api.opds import CirculationManagerAnnotator
 
-from circulation import CirculationAPI
-from overdrive import (
+from api.circulation import CirculationAPI
+from api.overdrive import (
     OverdriveAPI,
     OverdriveBibliographicCoverageProvider,
 )
-from threem import (
+from api.threem import (
     ThreeMAPI,
     ThreeMBibliographicCoverageProvider,
 )
-from axis import (
+from api.axis import (
     Axis360API,
     Axis360BibliographicCoverageProvider,
 )
@@ -255,7 +255,7 @@ class LaneSweeperScript(Script):
 
     def __init__(self):
         os.environ['AUTOINITIALIZE'] = "False"
-        from app import app
+        from api.app import app
         del os.environ['AUTOINITIALIZE']
         app.manager = CirculationManager(self._db)
         self.app = app
