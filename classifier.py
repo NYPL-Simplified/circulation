@@ -3325,7 +3325,7 @@ class WorkClassifier(object):
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with the one that weighs more.
         # If the 'children' weight passes the threshold on its own
-        # we do with 'children'.
+        # we go with 'children'.
         total_juvenile_weight = children_weight + ya_weight
         if children_weight > threshold and children_weight > ya_weight:
             audience = Classifier.AUDIENCE_CHILDREN
@@ -3441,7 +3441,6 @@ class WorkClassifier(object):
         # Consolidate parent genres into their heaviest subgenre.
         genres = self.consolidate_genre_weights(genres)
         total_weight = float(sum(genres.values()))
-        total_weight = total_weight
 
         # Strip out the stragglers.
         for g, score in list(genres.items()):
