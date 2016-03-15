@@ -26,10 +26,10 @@ from config import (
 from oauth import GoogleAuthService
 
 from api.controller import CirculationManagerController
+from api.coverage import MetadataWranglerCoverageProvider
 from core.app_server import entry_response
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator
-
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""

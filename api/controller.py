@@ -84,7 +84,6 @@ from adobe_vendor_id import AdobeVendorIDController
 from axis import (
     Axis360API,
 )
-from coverage import MetadataWranglerCoverageProvider
 from overdrive import (
     OverdriveAPI,
     DummyOverdriveAPI,
