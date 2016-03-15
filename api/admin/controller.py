@@ -28,10 +28,12 @@ from oauth import GoogleAuthService
 from api.controller import CirculationManagerController
 from core.app_server import (
     entry_response, 
-    feed_response
+    feed_response,
+    load_facets_from_request,
+    load_pagination_from_request
 )
 from core.opds import AcquisitionFeed
-from opds import AdminAnnotator
+from opds import AdminAnnotator, AdminFeed
 
 
 def setup_admin_controllers(manager):
