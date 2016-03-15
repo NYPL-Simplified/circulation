@@ -157,11 +157,29 @@ class WorkController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
+
         annotator = AdminAnnotator(self.circulation)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
+    def edit(self, data_source, identifier):
+        """Edit a work's metadata."""
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        changed = False
+
+        new_title = flask.request.form.get("title")
+        if new_title and work.title != new_title:
+            work.primary_edition.title = new_title
+            changed = True
+        
+        if changed:
+            work.calculate_opds_entries()
+        return Response("", 200)
 
     def suppress(self, data_source, identifier):
         """Suppress the license pool associated with a book."""

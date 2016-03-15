@@ -37,4 +37,12 @@ class AdminAnnotator(CirculationManagerAnnotator):
                     "suppress", data_source=data_source_name,
                     identifier=identifier_identifier, _external=True)
             )
+
+        feed.add_link_to_entry(
+            entry,
+            rel="edit",
+            href=self.url_for(
+                "edit", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
+        )
             
