@@ -92,7 +92,9 @@ from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
+    COMICS_AND_GRAPHIC_NOVELS,
     GenreData,
+    WorkClassifier,
 )
 from util import (
     LanguageCodes,
@@ -3312,7 +3314,8 @@ class Work(Base):
         if classify:
             workgenres, self.fiction, self.audience, target_age = self.assign_genres(
                 flattened_data)
-            self.target_age = NumericRange(*target_age)
+            lower, upper = target_age
+            self.target_age = NumericRange(lower, upper, '[]')
 
 
         if choose_summary:
@@ -3496,239 +3499,32 @@ class Work(Base):
         self.quality = Measurement.overall_quality(
             measurements, default_value=default_quality)
 
-    def genre_weights_from_metadata(self, identifier_ids):
-        """Use work metadata to simulate genre classifications.
-
-        This is basic stuff, like: Harlequin tends to publish
-        romances.
-        """
-        fiction = Counter()
-        genre = Counter()
-        audience = Counter()
-        target_age = Counter()
-
-        if self.title and ('Star Trek:' in self.title
-            or 'Star Wars:' in self.title
-            or ('Jedi' in self.title 
-                and self.imprint=='Del Rey')
-        ):
-            genre[classifier.Media_Tie_in_SF] = 100
-
-        publisher = self.publisher
-        imprint = self.imprint
-        if (imprint in classifier.nonfiction_imprints
-            or publisher in classifier.nonfiction_publishers):
-            fiction[False] = 100
-        elif (imprint in classifier.fiction_imprints
-              or publisher in classifier.fiction_publishers):
-            fiction[True] = 100
-
-        if imprint in classifier.genre_imprints:
-            genre[classifier.genre_imprints[imprint]] += 100
-        elif publisher in classifier.genre_publishers:
-            genre[classifier.genre_publishers[publisher]] += 100
-
-        if imprint in classifier.audience_imprints:
-            audience[classifier.audience_imprints[imprint]] += 100
-        elif (publisher in classifier.not_adult_publishers
-              or imprint in classifier.not_adult_imprints):
-            audience[Classifier.AUDIENCE_ADULT] -= 100
-
-        return fiction, genre, target_age, audience
-
     def assign_genres(self, identifier_ids, cutoff=0.15):
+        classifier = WorkClassifier(self)
+
         _db = Session.object_session(self)
         classifications = Identifier.classifications_for_identifier_ids(
-            _db, identifier_ids)
-
-        # Start off with some simple guesses based on metadata, e.g. the
-        # publisher.
-        fiction_s, genre_s, target_age_s, audience_s = (
-            self.genre_weights_from_metadata(identifier_ids))
-
-        new_genres = Counter()
-        for genre, score in genre_s.items():
-            genre, ignore = Genre.lookup(_db, genre)
-            new_genres[genre] = score
-        genre_s = new_genres
-
-        target_age_relevant_classifications = []
-
-        total_weight = 0
-        classifications_from_distributor = set()
+            _db, identifier_ids
+        )
         for classification in classifications:
-            subject = classification.subject
-            if classification.data_source.name in (
-                    [DataSource.THREEM, DataSource.OVERDRIVE,
-                     DataSource.GUTENBERG]
-            ):
-                classifications_from_distributor.add(classification)
+            classifier.add(classification)
 
-            if (not subject.checked 
-                or subject.type == Classifier.FREEFORM_AUDIENCE):
-                subject.assign_to_genre()
-
-            if (subject.fiction is None and not subject.genre
-                and not subject.audience and not subject.target_age):
-                # This Classification is completely irrelevant to how
-                # this book is classified.
-                continue
-
-            weight = classification.scaled_weight
-
-            if subject.fiction is not None:
-                fiction_s[subject.fiction] += weight
-            audience_s[subject.audience] += weight
-            if subject.audience:
-                total_weight += weight
-
-            if subject.genre:
-                genre_s[subject.genre] += weight
-
-            if subject.target_age and (
-                    subject.target_age.lower is not None
-                    or subject.target_age.upper is not None):
-                target_age_relevant_classifications.append(classification)
-
-        if fiction_s[True] > fiction_s[False]:
-            fiction = True
-        else:
-            # We default to nonfiction.
-            fiction = False
-
-        if classifications_from_distributor:
-            if not any(i.subject.audience not in (Classifier.AUDIENCE_ADULT, None)
-                       for i in classifications_from_distributor):
-                # If this was a book for children or young adults, the
-                # distributor would have given some indication of that
-                # fact. In the absense of any such indication, we can
-                # assume very strongly that this is a book for adults.
-                #
-                # 3M is terrible at distinguishing between childrens'
-                # books and YA books, but books for adults can be
-                # distinguished by their lack of childrens/YA
-                # classifications.
-                audience_s[Classifier.AUDIENCE_ADULT] += 500
-
-        unmarked = audience_s[None]
-        adult = audience_s[Classifier.AUDIENCE_ADULT]
-        audience = Classifier.AUDIENCE_ADULT
-
-        # To avoid embarassing situations we will classify works by
-        # default as being intended for adults.
-        # 
-        # To be classified as a young adult or childrens' book, there
-        # must be twice as many votes for that status as for the
-        # 'adult' status, or, if there are no 'adult' classifications,
-        # at least min(10, 50% of the total) votes must be for Young Adult or
-        # Children.
-        if adult:
-            threshold = adult * 2
-        else:
-            threshold = min(total_weight*0.5, 10)
-
-        ya_score = audience_s[Classifier.AUDIENCE_YOUNG_ADULT]
-        ch_score = audience_s[Classifier.AUDIENCE_CHILDREN]
-        if (ch_score > threshold and ch_score > ya_score):
-            audience = Classifier.AUDIENCE_CHILDREN
-        elif ya_score > threshold:
-            audience = Classifier.AUDIENCE_YOUNG_ADULT
-
-        # Remove any genres whose fiction status is inconsistent with the
-        # (independently determined) fiction status of the book.
-        #
-        # It doesn't matter if a book is classified as 'science
-        # fiction' 100 times; if we know it's nonfiction, it can't be
-        # science fiction. (It's probably a history of science fiction
-        # or something.)
-        for genre, weight in list(genre_s.items()):
-            if genre.default_fiction != fiction:
-                del genre_s[genre]
-
-        # Clear any previous genre assignments.
-        for i in self.work_genres:
-            _db.delete(i)
-        self.work_genres = []
-
-        # Consolidate parent genres into their heaviest subgenre.
-        genre_s = Classifier.consolidate_weights(genre_s)
-        total_weight = float(sum(genre_s.values()))
-        workgenres = []
-
-        # First, strip out the stragglers.
-        for g, score in genre_s.items():
-            affinity = score / total_weight
-            if affinity < cutoff:
-                total_weight -= score
-                del genre_s[g]
+        genre_weights, fiction, audience, target_age = classifier.classify
 
         # Assign WorkGenre objects to the remainder.
-        for g, score in genre_s.items():
-            affinity = score / total_weight
+        total_genre_weight = float(sum(genre_weights.values()))
+        workgenres = []
+        for g, score in genre_weights.items():
+            affinity = score / total_genre_weight
             if not isinstance(g, Genre):
                 g, ignore = Genre.lookup(_db, g.name)
             wg, ignore = get_one_or_create(
                 _db, WorkGenre, work=self, genre=g)
-            wg.affinity = score/total_weight
+            wg.affinity = affinity
             workgenres.append(wg)
 
-        target_age_mins = []
-        target_age_maxes = []
-        most_relevant = None
-        for c in target_age_relevant_classifications:
-            score = c.quality_as_indicator_of_target_age
-            if not score:
-                continue
-            if not most_relevant or score > most_relevant:
-                most_relevant = score
-            if score >= most_relevant:
-                target_min = c.subject.target_age.lower
-                target_max = c.subject.target_age.upper
-                if target_min:
-                    if not c.subject.target_age.lower_inc:
-                        target_min += 1
-                    for i in range(0,c.weight):
-                        target_age_mins.append(target_min)
-                if target_max:
-                    if not c.subject.target_age.upper_inc:
-                        target_max -= 1
-                    for i in range(0,c.weight):
-                        target_age_maxes.append(target_max)
-
-        if target_age_mins:
-            mins = Counter(target_age_mins)
-            [(target_age_min, count)] = mins.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the smallest one.
-                target_age_min = min(target_age_mins)
-
-            maxes = Counter(target_age_maxes)
-            [(target_age_max, count)] = maxes.most_common(1)
-            if count == 1:
-                # Everyone has a different opinion. Pick the largest one.
-                target_age_max = max(target_age_maxes)
-
-            # If we have a well-attested target age, we can make
-            # an audience decision on that basis.
-            if target_age_min > target_age_max:
-                target_age_min, target_age_max = target_age_max, target_age_min
-            if (most_relevant > 
-                Classification._quality_as_indicator_of_target_age[Subject.TAG]):
-                if target_age_min < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-                    audience = Classifier.AUDIENCE_CHILDREN
-                elif target_age_min < 18:
-                    audience = Classifier.AUDIENCE_YOUNG_ADULT
-                elif classifier not in Classifier.AUDIENCES_ADULT:
-                    audience = Classifier.AUDIENCE_ADULT
-            target_age = (target_age_min, target_age_max, '[]')
-        else:
-            if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-                target_age = (14, 17)
-            elif audience in (Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY):
-                target_age = (18, None)
-            else:
-                target_age = None, None
         return workgenres, fiction, audience, target_age
+
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4555,6 +4351,21 @@ class Subject(Base):
             lower += 1
         return "%s-%s" % (lower,upper)
 
+    @property
+    def describes_format(self):
+        """Does this Subject describe a format of book rather than
+        subject matter, audience, etc?
+
+        If so, there are limitations on when we believe this Subject
+        actually applies to a given book--it may describe a very
+        different adaptation of the same underlying work.
+
+        TODO: See note in assign_genres about the hacky way this is used.
+        """
+        if self.genre and self.genre.name==COMICS_AND_GRAPHIC_NOVELS:
+            return True
+        return False
+
     @classmethod
     def lookup(cls, _db, type, identifier, name):
         """Turn a subject type and identifier into a Subject."""
@@ -4734,6 +4545,13 @@ class Classification(Base):
         if subject_type in q:
             return q[subject_type]
         return 0.1
+
+    @property
+    def comes_from_license_source(self):
+        if not self.identifier.licensed_through:
+            return False
+        return self.identifier.licensed_through.data_source == self.data_source
+
 
 class WillNotGenerateExpensiveFeed(Exception):
     """This exception is raised when a feed is not cached, but it's too

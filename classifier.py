@@ -15,12 +15,13 @@
 import json
 import os
 import pkgutil
+import re
 from collections import (
     Counter,
     defaultdict,
 )
 from nose.tools import set_trace
-import re
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
 base_dir = os.path.split(__file__)[0]
@@ -77,70 +78,6 @@ class Classifier(object):
 
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
-
-    @classmethod
-    def consolidate_weights(cls, weights, subgenre_swallows_parent_at=0.03):
-        """If a genre and its subgenres both show up, examine the subgenre
-        with the highest weight. If its weight exceeds a certain
-        proportion of the weight of the parent genre, assign the
-        parent's weight to the subgenre and remove the parent.
-        """
-        #print "Before consolidation:"
-        #for genre, weight in weights.items():
-        #    print "", genre, weight
-
-        # Convert Genre objects to GenreData.
-        consolidated = Counter()
-        for genre, weight in weights.items():
-            if not isinstance(genre, GenreData):
-                genre = genres[genre.name]
-            consolidated[genre] += weight
-
-        heaviest_child = dict()
-        for genre, weight in consolidated.items():
-            for parent in genre.parents:
-                if parent in consolidated:
-                    if ((not parent in heaviest_child) 
-                        or weight > heaviest_child[parent][1]):
-                        heaviest_child[parent] = (genre, weight)
-        #print "Heaviest child:"
-        #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
-        made_it = False
-        while not made_it:
-            for parent, (child, weight) in sorted(list(heaviest_child.items())):
-                parent_weight = consolidated.get(parent, 0)
-                if weight > (subgenre_swallows_parent_at * parent_weight):
-                    consolidated[child] += parent_weight
-                    del consolidated[parent]
-                    changed = False
-                    for parent in parent.parents:
-                        if parent in heaviest_child:
-                            heaviest_child[parent] = (child, consolidated[child])
-                            changed = True
-                    if changed:
-                        # We changed the dict, so we need to restart
-                        # the iteration.
-                        break
-            # We made it all the way through the dict without changing it.
-            made_it = True
-        #print "Final heaviest child:"
-        #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
-        #print "After consolidation:"
-        #for genre, weight in consolidated.items():
-        #    print "", genre, weight
-        return consolidated
-
-    @classmethod
-    def default_target_age_for_audience(self, audience):
-        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 17)
-        elif audience in (
-                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
-        ):
-            return (18, None)
-        return (None, None)
 
     @classmethod
     def lookup(cls, scheme):
@@ -234,6 +171,23 @@ class Classifier(object):
         about the target age for this book?
         """
         return None, None
+
+    @classmethod
+    def default_target_age_for_audience(self, audience):
+        """The default target age for a given audience.
+
+        We don't know what age range a children's book is appropriate
+        for, but we can make a decent guess for a YA book, for an
+        'Adult' book it's pretty clear, and for an 'Adults Only' book
+        it's very clear.
+        """
+        if audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return (14, 17)
+        elif audience in (
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ):
+            return (18, None)
+        return (None, None)
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -454,6 +408,8 @@ class AgeClassifier(Classifier):
                     if young > 99:
                         # This is not an age at all.
                         young = None
+                    if young > old:
+                        young, old = old, young
                     return young, old
         return None, None
 
@@ -485,7 +441,10 @@ class Axis360AudienceClassifier(Classifier):
         m = cls.age_re.search(identifier)
         if not m:
             return None, None
-        return tuple(map(int, m.groups()))
+        young, old = map(int, m.groups())
+        if young > old:
+            young, old = old, young
+        return (young, old)
 
 
 # This is the large-scale structure of our classification system.
@@ -497,10 +456,12 @@ class Axis360AudienceClassifier(Classifier):
 # specific audience (e.g. erotica is adults-only), and the third item
 # in the tuple describes that audience.
 
+COMICS_AND_GRAPHIC_NOVELS = u"Comics & Graphic Novels"
+
 fiction_genres = [
     u"Adventure",
     u"Classics",
-    u"Comics & Graphic Novels",
+    COMICS_AND_GRAPHIC_NOVELS,
     u"Drama",
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
@@ -2296,9 +2257,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                ),
                
                Parenting : match_kw(
-                   "children",
-                   # "family" doesn't work because of many specific
-                   # families.
+                   # "children" isn't here because the vast majority of
+                   # "children" tags indicate books _for_ children.
+
+                   # "family" isn't here because the vast majority
+                   # of "family" tags deal with specific families, e.g.
+                   # the Kennedys.
+
                    "parenting",
                    "parent",
                    "parents",
@@ -3130,59 +3095,455 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
         # Default to assuming it's an unmarked age.
         return AgeClassifier.target_age(identifier, name, False)
 
-# TODO: This needs a lot of additions.
-genre_publishers = {
-    "Harlequin" : Romance,
-    "Pocket Books/Star Trek" : Media_Tie_in_SF,
-    "Kensington" : Urban_Fiction,
-    "Fodor's Travel Publications" : Travel,
-    "Marvel Entertainment, LLC" : Comics_Graphic_Novels,
-}
 
-genre_imprints = {
-    "Harlequin Intrigue" : Romantic_Suspense,
-    "Love Inspired Suspense" : Romantic_Suspense,
-    "Harlequin Historical" : Historical_Romance,
-    "Harlequin Historical Undone" : Historical_Romance,
-    "Frommers" : Travel,
-}
+class WorkClassifier(object):
+    """Boil down a bunch of Classification objects into a few values."""
 
-audience_imprints = {
-    "Harlequin Teen" : Classifier.AUDIENCE_YOUNG_ADULT,
-    "HarperTeen" : Classifier.AUDIENCE_YOUNG_ADULT,
-    "Open Road Media Teen & Tween" : Classifier.AUDIENCE_YOUNG_ADULT,
-    "Rosen Young Adult" : Classifier.AUDIENCE_YOUNG_ADULT,
-}
+    # TODO: This needs a lot of additions.
+    genre_publishers = {
+        "Harlequin" : Romance,
+        "Pocket Books/Star Trek" : Media_Tie_in_SF,
+        "Kensington" : Urban_Fiction,
+        "Fodor's Travel Publications" : Travel,
+        "Marvel Entertainment, LLC" : Comics_Graphic_Novels,
+    }
 
-not_adult_publishers = set([
-    "Scholastic Inc.",
-    "Random House Children's Books",
-    "Little, Brown Books for Young Readers",
-    "Penguin Young Readers Group",
-    "Hachette Children's Books",
-    "Nickelodeon Publishing",
-])
+    genre_imprints = {
+        "Harlequin Intrigue" : Romantic_Suspense,
+        "Love Inspired Suspense" : Romantic_Suspense,
+        "Harlequin Historical" : Historical_Romance,
+        "Harlequin Historical Undone" : Historical_Romance,
+        "Frommers" : Travel,
+    }
 
-not_adult_imprints = set([
-    "Scholastic",
-    "Random House Books for Young Readers",
-    "HMH Books for Young Readers",
-    "Knopf Books for Young Readers",
-    "Delacorte Books for Young Readers",
-    "Open Road Media Young Readers",
-    "Macmillan Young Listeners",
-    "Bloomsbury Childrens",
-    "NYR Children's Collection",
-    "Bloomsbury USA Childrens",
-    "National Geographic Children's Books",
-])
+    audience_imprints = {
+        "Harlequin Teen" : Classifier.AUDIENCE_YOUNG_ADULT,
+        "HarperTeen" : Classifier.AUDIENCE_YOUNG_ADULT,
+        "Open Road Media Teen & Tween" : Classifier.AUDIENCE_YOUNG_ADULT,
+        "Rosen Young Adult" : Classifier.AUDIENCE_YOUNG_ADULT,
+    }
 
-fiction_imprints = set(["Del Rey"])
-nonfiction_imprints = set(["Harlequin Nonfiction"])
+    not_adult_publishers = set([
+        "Scholastic Inc.",
+        "Random House Children's Books",
+        "Little, Brown Books for Young Readers",
+        "Penguin Young Readers Group",
+        "Hachette Children's Books",
+        "Nickelodeon Publishing",
+    ])
 
-nonfiction_publishers = set(["Wiley"])
-fiction_publishers = set([])
+    not_adult_imprints = set([
+        "Scholastic",
+        "Random House Books for Young Readers",
+        "HMH Books for Young Readers",
+        "Knopf Books for Young Readers",
+        "Delacorte Books for Young Readers",
+        "Open Road Media Young Readers",
+        "Macmillan Young Listeners",
+        "Bloomsbury Childrens",
+        "NYR Children's Collection",
+        "Bloomsbury USA Childrens",
+        "National Geographic Children's Books",
+    ])
 
+    fiction_imprints = set(["Del Rey"])
+    nonfiction_imprints = set(["Harlequin Nonfiction"])
+
+    nonfiction_publishers = set(["Wiley"])
+    fiction_publishers = set([])
+
+    def __init__(self, work, test_session=None):
+        self._db = Session.object_session(work)
+        if test_session:
+            self._db = test_session
+        self.work = work
+        self.fiction_weights = Counter()
+        self.audience_weights = Counter()
+        self.target_age_relevant_classifications = set()
+        self.genre_weights = Counter()
+        self.direct_from_license_source = set()
+        self.prepared = False
+
+    def add(self, classification):
+        """Prepare a single Classification for consideration."""
+        # Make sure the Subject is ready to be used in calculations.
+        if not classification.subject.checked:
+            classification.subject.assign_to_genre()
+
+        if classification.comes_from_license_source:
+            self.direct_from_license_source.add(classification)
+        else:
+            if classification.subject.describes_format:
+                # TODO: This is a bit of a hack.
+                #
+                # Only accept a classification having to do with
+                # format (e.g. 'comic books') if that classification
+                # comes direct from the license source. Otherwise it's
+                # really easy for a graphic adaptation of a novel to
+                # get mixed up with the original novel, whereupon the
+                # original book is classified as a graphic novel.
+                return
+
+        # Put the weight of the classification behind various
+        # considerations.
+        weight = classification.scaled_weight
+        subject = classification.subject
+        self.fiction_weights[subject.fiction] += weight
+        if subject.genre:
+            self.weigh_genre(subject.genre, weight)
+
+        self.audience_weights[subject.audience] += weight
+
+        # We can't evaluate target age until all the data is in, so
+        # save the classification for later if it's relevant
+        if subject.target_age and (
+                subject.target_age.lower or subject.target_age.upper
+        ):
+            self.target_age_relevant_classifications.add(classification)
+
+    def weigh_metadata(self):
+        """Modify the weights according to the given Work's metadata.
+
+        Use work metadata to simulate classifications.
+
+        This is basic stuff, like: Harlequin tends to publish
+        romances.
+        """
+        if self.work.title and ('Star Trek:' in self.work.title
+            or 'Star Wars:' in self.work.title
+            or ('Jedi' in self.work.title 
+                and self.work.imprint=='Del Rey')
+        ):
+            self.weigh_genre(Media_Tie_in_SF, 100)
+
+        publisher = self.work.publisher
+        imprint = self.work.imprint
+        if (imprint in self.nonfiction_imprints
+            or publisher in self.nonfiction_publishers):
+            self.fiction_weights[False] = 100
+        elif (imprint in self.fiction_imprints
+              or publisher in self.fiction_publishers):
+            self.fiction_weights[True] = 100
+
+        if imprint in self.genre_imprints:
+            self.weigh_genre(self.genre_imprints[imprint], 100)
+        elif publisher in self.genre_publishers:
+            self.weigh_genre(self.genre_publishers[publisher], 100)
+
+        if imprint in self.audience_imprints:
+            self.audience_weights[self.audience_imprints[imprint]] += 100
+        elif (publisher in self.not_adult_publishers
+              or imprint in self.not_adult_imprints):
+            for audience in [Classifier.AUDIENCE_ADULT, 
+                             Classifier.AUDIENCE_ADULTS_ONLY]: 
+                self.audience_weights[audience] -= 100
+
+    def prepare_to_classify(self):
+        """Called the first time classify() is called. Does miscellaneous
+        one-time prep work that requires all data to be in place.
+        """
+        self.weigh_metadata()
+
+        children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT)
+        audiences = [classification.subject.audience
+            for classification in self.direct_from_license_source]
+        if self.direct_from_license_source and not any(
+                audience in children_and_ya for audience in audiences
+        ):
+            # If this was a book for children or young adults, the
+            # distributor would have given some indication of that
+            # fact. In the absense of any such indication, we can
+            # assume very strongly that this is a book for adults.
+            #
+            # 3M is terrible at distinguishing between childrens'
+            # books and YA books, but books for adults can be
+            # distinguished by their lack of childrens/YA
+            # classifications.
+            self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+        else:
+            for audience in audiences:
+                self.audience_weights[audience] += 100
+        self.prepared = True
+
+    @property
+    def classify(self):
+        # Do a little prep work.
+        if not self.prepared:
+            self.prepare_to_classify()
+
+        # Actually figure out the classifications
+        fiction = self.fiction
+        genres = self.genres(fiction)
+        audience = self.audience
+        target_age = self.target_age(audience)
+        return genres, fiction, audience, target_age
+
+    @property
+    def fiction(self):
+        """Is it more likely this is a fiction or nonfiction book?"""
+        # Default to nonfiction.
+        is_fiction = False
+        if self.fiction_weights[True] > self.fiction_weights[False]:
+            is_fiction = True
+        return is_fiction
+
+    @property
+    def audience(self):
+        """What's the most likely audience for this book?"""
+        w = self.audience_weights
+        unmarked_weight = w.get(None, 0)
+
+        children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
+        ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
+        adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
+        adults_only_weight = w.get(Classifier.AUDIENCE_ADULTS_ONLY, 0)
+
+        total_adult_weight = adult_weight + adults_only_weight
+        total_weight = sum(w.values())
+        
+        # To avoid embarassing situations we will classify works as
+        # being intended for adults absent convincing evidence to the
+        # contrary.
+        audience = Classifier.AUDIENCE_ADULT
+
+        # There are two cases when a book will be classified as a
+        # young adult or childrens' book:
+        #
+        # 1. The weight of that audience is more than twice the
+        # combined weight of the 'adult' and 'adults only' audiences.
+        #
+        # 2. The weight of that audience is greater than 10, and
+        # the 'adult' and 'adults only' audiences have no weight
+        # whatsoever.
+        #
+        # Either way, we have a numeric threshold that must be met.
+        if total_adult_weight > 0:
+            threshold = total_adult_weight * 2
+        else:
+            threshold = 10
+
+        # If both the 'children' weight and the 'YA' weight pass the
+        # threshold, we go with the one that weighs more.
+        # If the 'children' weight passes the threshold on its own
+        # we go with 'children'.
+        total_juvenile_weight = children_weight + ya_weight
+        if children_weight > threshold and children_weight > ya_weight:
+            audience = Classifier.AUDIENCE_CHILDREN
+        elif ya_weight > threshold:
+            audience = Classifier.AUDIENCE_YOUNG_ADULT
+        elif total_juvenile_weight > threshold:
+            # Neither weight passes the threshold on its own, but
+            # combined they do pass the threshold. Go with
+            # 'Young Adult' to be safe.
+            audience = Classifier.AUDIENCE_YOUNG_ADULT
+
+        # If the 'adults only' weight is more than 1/4 of the total adult
+        # weight, classify as 'adults only' to be safe.
+        #
+        # TODO: This has not been calibrated.
+        if (audience==Classifier.AUDIENCE_ADULT
+            and adults_only_weight > total_adult_weight/4):
+            audience = Classifier.AUDIENCE_ADULTS_ONLY
+
+        return audience
+
+    @classmethod
+    def top_tier_values(self, counter):
+        """Given a Counter mapping values to their frequency of occurance,
+        return all values that are as common as the most common value.
+        """
+        top_frequency = None
+        top_tier = set()
+        for age, freq in counter.most_common():
+            if not top_frequency:
+                top_frequency = freq
+            if freq != top_frequency:
+                # We've run out of candidates
+                break
+            else:
+                # This candidate occurs with the maximum frequency.
+                top_tier.add(age)
+        return top_tier
+
+    def target_age(self, audience):
+        """Derive a target age from the gathered data."""
+
+        if audience not in (
+                Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        ):
+            # This is not a children's or YA book. Assertions about
+            # target age are irrelevant and the default value rules.
+            return Classifier.default_target_age_for_audience(audience)
+
+        # Only consider the most reliable classifications.
+        reliable_classifications = self.most_reliable_target_age_subset
+
+        # Try to reach consensus on the lower and upper bounds of the
+        # age range.
+        target_age_mins = []
+        target_age_maxes = []
+        for c in reliable_classifications:
+            target_min = c.subject.target_age.lower
+            target_max = c.subject.target_age.upper
+            if target_min is not None:
+                if not c.subject.target_age.lower_inc:
+                    target_min += 1
+                for i in range(0,c.weight):
+                    target_age_mins.append(target_min)
+            if target_max is not None:
+                if not c.subject.target_age.upper_inc:
+                    target_max -= 1
+                for i in range(0,c.weight):
+                    target_age_maxes.append(target_max)
+
+        target_age_min = None
+        target_age_max = None
+        if target_age_mins:
+            # Find the youngest age in the top tier of values.
+            candidates = self.top_tier_values(Counter(target_age_mins))
+            target_age_min = min(candidates)
+
+        if target_age_maxes:
+            # Find the oldest age in the top tier of values.
+            candidates = self.top_tier_values(Counter(target_age_maxes))
+            target_age_max = max(candidates)
+
+        if not target_age_min and not target_age_max:
+            # We found no opinions about target age. Use the default.
+            return Classifier.default_target_age_for_audience(audience)
+
+        if target_age_min is None:
+            target_age_min = target_age_max
+
+        if target_age_max is None:
+            target_age_max = target_age_min
+
+        # If min and max got mixed up somehow, un-mix them. This should
+        # never happen, but we fix it just in case.
+        if target_age_min > target_age_max:
+            target_age_min, target_age_max = target_age_max, target_age_min
+        return target_age_min, target_age_max
+
+    def genres(self, fiction, cutoff=0.15):
+        """Consolidate genres and apply a low-pass filter."""
+        # Remove any genres whose fiction status is inconsistent with the
+        # (independently determined) fiction status of the book.
+        #
+        # It doesn't matter if a book is classified as 'science
+        # fiction' 100 times; if we know it's nonfiction, it can't be
+        # science fiction. (It's probably a history of science fiction
+        # or something.)
+        genres = dict(self.genre_weights)
+        for genre in list(genres.keys()):
+            if genre.default_fiction != fiction:
+                del genres[genre]
+
+        # Consolidate parent genres into their heaviest subgenre.
+        genres = self.consolidate_genre_weights(genres)
+        total_weight = float(sum(genres.values()))
+
+        # Strip out the stragglers.
+        for g, score in list(genres.items()):
+            affinity = score / total_weight
+            if affinity < cutoff:
+                total_weight -= score
+                del genres[g]
+        return genres
+
+    def weigh_genre(self, genre_data, weight):
+        """A helper method that ensure we always use database Genre
+        objects, not GenreData objects, when weighting genres.
+        """
+        from model import Genre
+        genre, ignore = Genre.lookup(self._db, genre_data.name)
+        self.genre_weights[genre] += weight
+
+    @property
+    def most_reliable_target_age_subset(self):
+        """Not all target age data is created equal. This method isolates the
+        most reliable subset of a set of classifications.
+        
+        For example, if we have an Overdrive classification saying
+        that the book is a picture book (target age: 0-3), and we also
+        have a bunch of tags saying that the book is for ages 2-5 and
+        0-2 and 1-3 and 12-13, we will use the (reliable) Overdrive
+        classification and ignore the (unreliable) tags altogether,
+        rather than try to average everything out.
+        
+        But if there is no Overdrive classification, that set of tags
+        will be the most reliable target age subset, and we'll
+        just do the best we can.
+        """
+        highest_quality_score = None
+        reliable_classifications = []
+        for c in self.target_age_relevant_classifications:
+            score = c.quality_as_indicator_of_target_age
+            if not score:
+                continue
+            if (not highest_quality_score or score > highest_quality_score):
+                # If we gather a bunch of data, then discover a more reliable
+                # type of data, we need to start all over.
+                highest_quality_score = score
+                reliable_classifications = []
+            if score == highest_quality_score:
+                reliable_classifications.append(c)
+        return reliable_classifications    
+
+    @classmethod
+    def consolidate_genre_weights(
+            cls, weights, subgenre_swallows_parent_at=0.03
+    ):
+        """If a genre and its subgenres both show up, examine the subgenre
+        with the highest weight. If its weight exceeds a certain
+        proportion of the weight of the parent genre, assign the
+        parent's weight to the subgenre and remove the parent.
+        """
+        #print "Before consolidation:"
+        #for genre, weight in weights.items():
+        #    print "", genre, weight
+
+        # Convert Genre objects to GenreData.
+        consolidated = Counter()
+        for genre, weight in weights.items():
+            if not isinstance(genre, GenreData):
+                genre = genres[genre.name]
+            consolidated[genre] += weight
+
+        heaviest_child = dict()
+        for genre, weight in consolidated.items():
+            for parent in genre.parents:
+                if parent in consolidated:
+                    if ((not parent in heaviest_child) 
+                        or weight > heaviest_child[parent][1]):
+                        heaviest_child[parent] = (genre, weight)
+        #print "Heaviest child:"
+        #for parent, (genre, weight) in heaviest_child.items():
+        #    print "", parent, genre, weight
+        made_it = False
+        while not made_it:
+            for parent, (child, weight) in sorted(list(heaviest_child.items())):
+                parent_weight = consolidated.get(parent, 0)
+                if weight > (subgenre_swallows_parent_at * parent_weight):
+                    consolidated[child] += parent_weight
+                    del consolidated[parent]
+                    changed = False
+                    for parent in parent.parents:
+                        if parent in heaviest_child:
+                            heaviest_child[parent] = (child, consolidated[child])
+                            changed = True
+                    if changed:
+                        # We changed the dict, so we need to restart
+                        # the iteration.
+                        break
+            # We made it all the way through the dict without changing it.
+            made_it = True
+        #print "Final heaviest child:"
+        #for parent, (genre, weight) in heaviest_child.items():
+        #    print "", parent, genre, weight
+        #print "After consolidation:"
+        #for genre, weight in consolidated.items():
+        #    print "", genre, weight
+        return consolidated
 
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
@@ -3199,3 +3560,4 @@ Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifie
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
 Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
+

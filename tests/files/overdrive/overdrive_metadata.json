@@ -52,6 +52,10 @@
                 {
                     "type": "ASIN",
                     "value": "B000VI88N2"
+                },
+                {
+                    "type": "ASIN",
+                    "value": ""
                 }
             ],
             "name": "Kindle Book",
