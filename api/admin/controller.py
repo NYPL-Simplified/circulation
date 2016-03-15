@@ -19,7 +19,7 @@ from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
 
 from config import (
-    Configuration,
+    Configuration, 
     CannotLoadConfiguration
 )
 
@@ -27,7 +27,7 @@ from oauth import GoogleAuthService
 
 from api.controller import CirculationManagerController
 from core.app_server import (
-    entry_response,
+    entry_response, 
     feed_response
 )
 from core.opds import AcquisitionFeed
@@ -129,7 +129,7 @@ class SigninController(AdminController):
             flask.session["admin_access_token"] = admin_details.get("access_token")
             flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
             return redirect(redirect_url, Response=Response)
-
+    
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
         domain"""
@@ -153,7 +153,7 @@ class WorkController(CirculationManagerController):
 
     def details(self, data_source, identifier):
         """Return an OPDS entry with detailed information for admins.
-
+        
         This includes relevant links for editing the book.
         """
 
@@ -166,38 +166,46 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
+
     def suppress(self, data_source, identifier):
         """Suppress the license pool associated with a book."""
-
+        
         # Turn source + identifier into a LicensePool
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
-
+    
         pool.suppressed = True
         return Response("", 200)
 
     def unsuppress(self, data_source, identifier):
         """Unsuppress the license pool associated with a book."""
-
+        
         # Turn source + identifier into a LicensePool
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
-
+    
         pool.suppressed = False
         return Response("", 200)
 
-
+    
 class FeedController(CirculationManagerController):
 
     def complaints(self):
         this_url = self.url_for('complaints')
-        annotator = self.manager.annotator(None)
-        opds_feed = AcquisitionFeed.complaints(
+        annotator = AdminAnnotator(self.circulation)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        opds_feed = AdminFeed.complaints(
             _db=self._db, title="Complaints",
-            url=this_url, annotator=annotator
+            url=this_url, annotator=annotator,
+            facets=facets, pagination=pagination
         )
-        return feed_response(opds_feed)
+        return feed_response(opds_feed)    

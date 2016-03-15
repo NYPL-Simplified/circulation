@@ -13,7 +13,13 @@ from api.admin.config import (
     Configuration,
     temp_config,
 )
-from core.model import Admin, create
+from core.model import (
+    Admin,
+    Complaint,
+    create,
+    SessionManager
+)
+
 
 class AdminControllerTest(ControllerTest):
 
@@ -60,7 +66,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
 
-        
+
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -151,3 +157,37 @@ class TestSigninController(AdminControllerTest):
                 eq_(False, interloper_email)
 
 
+class TestFeedController(AdminControllerTest):
+
+    def test_complaints(self):
+        type = next(iter(Complaint.VALID_TYPES))
+
+        for i in range(2):
+            work1 = self._work(
+                "fiction work with complaint %i" % i,
+                language="eng",
+                fiction=True,
+                with_open_access_download=True)
+            complaint1 = self._complaint(
+                work1.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+            work2 = self._work(
+                "nonfiction work with complaint %i" % i,
+                language="eng",
+                fiction=False,
+                with_open_access_download=True)
+            complaint2 = self._complaint(
+                work2.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.complaints()
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(len(entries), 4)

@@ -158,7 +158,7 @@ class TestBaseController(ControllerTest):
 
         problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.identifier)
         eq_(INVALID_INPUT.uri, problem_detail.uri)
-
+        
         problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier")
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
@@ -173,7 +173,7 @@ class TestBaseController(ControllerTest):
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
-
+        
         patron = self.controller.authenticated_patron("5", "5555")
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -182,7 +182,7 @@ class TestBaseController(ControllerTest):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.licenses_available = 0
-
+            
             # This is an open-access work, so there's no problem.
             eq_(True, pool.open_access)
 
@@ -209,8 +209,8 @@ class TestBaseController(ControllerTest):
 
         self.manager.lending_policy = load_lending_policy(
             {
-                "60": {"audiences": ["Children"]},
-                "152": {"audiences": ["Children"]},
+                "60": {"audiences": ["Children"]}, 
+                "152": {"audiences": ["Children"]}, 
                 "62": {"audiences": ["Children"]}
             }
         )
@@ -224,7 +224,7 @@ class TestBaseController(ControllerTest):
 
 
 class TestIndexController(ControllerTest):
-
+    
     def test_simple_redirect(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -268,7 +268,7 @@ class TestAccountController(ControllerTest):
             account_info = json.loads(self.manager.accounts.account())
             eq_(None, account_info.get('username'))
             eq_("200", account_info.get('barcode'))
-
+            
     def test_patron_info_with_username(self):
         auth = 'Basic ' + base64.b64encode('0:2222')
         with self.app.test_request_context(
@@ -303,7 +303,7 @@ class TestLoanController(ControllerTest):
             # The loan has yet to be fulfilled.
             eq_(None, loan.fulfillment)
 
-            # We've been given an OPDS feed with one entry, which tells us how
+            # We've been given an OPDS feed with one entry, which tells us how 
             # to fulfill the license.
             eq_(201, response.status_code)
             feed = feedparser.parse(response.get_data())
@@ -312,7 +312,7 @@ class TestLoanController(ControllerTest):
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
             [mech1, mech2] = self.pool.delivery_mechanisms
             expects = [url_for('fulfill', data_source=self.data_source.name,
-                              identifier=self.identifier.identifier,
+                              identifier=self.identifier.identifier, 
                               mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -413,7 +413,7 @@ class TestLoanController(ControllerTest):
              response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
 
              eq_(200, response.status_code)
-
+             
     def test_revoke_hold(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
@@ -440,18 +440,18 @@ class TestLoanController(ControllerTest):
 
         # Patron with $1.00 fine
         auth = 'Basic ' + base64.b64encode('5:5555')
-
+        
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
-
+            
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
                 response = self.manager.loans.borrow(
                     DataSource.THREEM, pool.identifier.identifier)
-
+                
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "outstanding fines" in response.detail
@@ -473,7 +473,7 @@ class TestLoanController(ControllerTest):
                 ))
                 response = self.manager.loans.borrow(
                     DataSource.THREEM, pool.identifier.identifier)
-
+                
                 eq_(201, response.status_code)
 
     def test_3m_cant_revoke_hold_if_reserved(self):
@@ -527,7 +527,7 @@ class TestLoanController(ControllerTest):
         )
         threem_pool.licenses_available = 0
         threem_pool.open_access = False
-
+        
         loan = LoanInfo(
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
@@ -556,7 +556,7 @@ class TestLoanController(ControllerTest):
 
             eq_(overdrive_entry['opds_availability']['status'], 'available')
             eq_(threem_entry['opds_availability']['status'], 'ready')
-
+            
             overdrive_links = overdrive_entry['links']
             fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
             revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
@@ -654,7 +654,7 @@ class TestFeedController(ControllerTest):
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
-
+            
             eq_(1, len(entries))
 
             links = feed['feed']['links']
@@ -677,7 +677,7 @@ class TestFeedController(ControllerTest):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input",
+                "http://librarysimplified.org/terms/problem/invalid-input", 
                 response.uri
             )
 
@@ -686,9 +686,9 @@ class TestFeedController(ControllerTest):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input",
+                "http://librarysimplified.org/terms/problem/invalid-input", 
                 response.uri
-            )
+            )            
 
     def test_groups(self):
         with temp_config() as config:
@@ -701,14 +701,14 @@ class TestFeedController(ControllerTest):
             for i in range(2):
                 self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
                 self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
-
+        
             SessionManager.refresh_materialized_views(self._db)
             with self.app.test_request_context("/"):
                 response = self.manager.opds_feeds.groups(None, None)
 
                 feed = feedparser.parse(response.data)
                 entries = feed['entries']
-
+                
                 counter = Counter()
                 for entry in entries:
                     links = [x for x in entry.links if x['rel'] == 'collection']
@@ -731,6 +731,6 @@ class TestFeedController(ControllerTest):
 
             assert 'links' in entry
             assert len(entry.links) > 0
-
+            
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
             assert len(borrow_links) > 0
