@@ -13,7 +13,13 @@ from api.admin.config import (
     Configuration,
     temp_config,
 )
-from core.model import Admin, create
+from core.model import (
+    Admin,
+    create,
+    Identifier,
+    DataSource,
+    CoverageRecord,
+)
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -81,32 +87,29 @@ class TestWorkController(AdminControllerTest):
             eq_(False, lp.suppressed)
 
     def test_refresh_metadata(self):
-        permalink_route = '/works/' + self.datasource + '/' + self.identifier
-
+        wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         success_provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful", [Identifier.GUTENBERG_ID],
-            DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+            "Always successful", [Identifier.GUTENBERG_ID], wrangler
         )
         failure_provider = NeverSuccessfulCoverageProvider(
-            "Never successful", [Identifier.GUTENBERG_ID],
-            DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+            "Never successful", [Identifier.GUTENBERG_ID], wrangler
         )
 
         with self.app.test_request_context('/'):
-            # A successful response from the metadata wrangler returns user to
-            # the permalink.
-            response = self.manager.work_controller.refresh_metadata(
-                self.datasource, self.identifier, provider=success_provider
+            [lp] = self.english_1.license_pools
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=success_provider
             )
-            eq_(302, response.status_code)
-            eq_(permalink_route, response.headers['Location'])
+            eq_(200, response.status_code)
+            # Also, the work has a coverage record now for the wrangler.
+            assert CoverageRecord.lookup(lp.identifier, wrangler)
 
-
-            response = self.manager.work_controller.refresh_metadata(
-                self.datasource, self.identifier, provider=failure_provider
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=failure_provider
             )
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
+
 
 class TestSigninController(AdminControllerTest):
 
@@ -177,5 +180,3 @@ class TestSigninController(AdminControllerTest):
                 interloper_email = self.manager.admin_signin_controller.staff_email("rando@gmail.com")
                 eq_(True, staff_email)
                 eq_(False, interloper_email)
-
-

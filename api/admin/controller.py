@@ -210,7 +210,4 @@ class WorkController(CirculationManagerController):
             # Otherwise, it just doesn't know anything.
             return METADATA_REFRESH_FAILURE
 
-        return redirect(
-            url_for('permalink', data_source=data_source, identifier=identifier),
-            Response=Response
-        )
+        return Response("", 200)
