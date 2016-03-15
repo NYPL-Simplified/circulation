@@ -3495,7 +3495,7 @@ class Work(Base):
         genre_weights, fiction, audience, target_age = classifier.classify
 
         # Assign WorkGenre objects to the remainder.
-        total_genre_weight = sum(genre_weights.values())
+        total_genre_weight = float(sum(genre_weights.values()))
         workgenres = []
         for g, score in genre_weights.items():
             affinity = score / total_genre_weight

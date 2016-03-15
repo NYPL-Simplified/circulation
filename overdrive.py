@@ -630,7 +630,7 @@ class OverdriveRepresentationExtractor(object):
                     type_key = Identifier.UPC
                 elif t == 'PublisherCatalogNumber':
                     continue
-                if type_key:
+                if type_key and v:
                     identifiers.append(
                         IdentifierData(type_key, v, 1)
                     )
