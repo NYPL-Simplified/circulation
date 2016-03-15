@@ -1032,17 +1032,15 @@ class TestWork(DatabaseTest):
             type2,
             "work2 complaint1 source",
             "work2 complaint1 detail")
-
         work3 = self._work(
             "fiction work without complaint",
             language="eng",
             fiction=True,
             with_open_access_download=True)
-
         work4 = self._work(
             "nonfiction work without complaint",
             language="eng",
-            fiction=True,
+            fiction=False,
             with_open_access_download=True)
 
         results = Work.with_complaint(self._db).all()
