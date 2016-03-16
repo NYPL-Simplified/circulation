@@ -57,6 +57,7 @@ from classifier import (
     Classifier,
     Fantasy,
     Romance,
+    Science_Fiction,
     Drama,
 )
 
@@ -1000,24 +1001,22 @@ class TestWork(DatabaseTest):
 
     def test_assign_genres_from_weights(self):
         work = self._work()
-        
-        # This work was once classified under Fantasy.
+
         fantasy, ignore = Genre.lookup(self._db, Fantasy)
-        wg, ignore = get_one_or_create(
-            self._db, WorkGenre, work=work, genre=fantasy,
-            affinity=1
-        )        
-
-        assert fantasy in [x.genre for x in work.work_genres]
-
-        # But now it's only classified under Romance.
+        sf, ignore = Genre.lookup(self._db, Science_Fiction)
         romance, ignore = Genre.lookup(self._db, Romance)
-        work.assign_genres_from_weights({Romance : 1000})
+        
+        # This work was once classified under Fantasy and Romance.        
+        work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
+        before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
+        eq_([(u'Fantasy', 0.5), (u'Romance', 0.5)], before)
 
-        [romance_wg] = work.work_genres
-        eq_(romance, romance_wg.genre)
-        eq_(1, romance_wg.affinity)
+        # But now it's classified under Science Fiction and Romance.
+        work.assign_genres_from_weights({Romance : 100, Science_Fiction : 300})
+        self._db.commit()
+        after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
+        eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
 class TestCirculationEvent(DatabaseTest):
 
