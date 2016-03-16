@@ -174,7 +174,7 @@ class WorkController(CirculationManagerController):
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            work.primary_edition.title = new_title
+            work.primary_edition.title = unicode(new_title)
             changed = True
         
         if changed:
