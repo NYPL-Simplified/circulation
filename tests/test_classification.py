@@ -66,6 +66,7 @@ class TestTargetAge(object):
         def f(t):
             return GradeLevelClassifier.target_age(t, None)
         eq_((5,6), GradeLevelClassifier.target_age(None, "grades 0-1"))
+        eq_((4,7), f("pk - 2"))
         eq_((5,7), f("grades k-2"))
         eq_((6,6), f("first grade"))
         eq_((6,6), f("1st grade"))
