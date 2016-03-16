@@ -73,11 +73,11 @@ class TestMetadataImporter(DatabaseTest):
 
         eq_(Identifier.OVERDRIVE_ID, overdrive.type)
         eq_('eae60d41-e0b8-4f9d-90b5-cbc43d433c2f', overdrive.identifier)
-        eq_(1, overdrive.weight)
+        eq_(0.75, overdrive.weight)
 
         eq_(Identifier.THREEM_ID, threem.type)
         eq_('eswhyz9', threem.identifier)
-        eq_(1, threem.weight)
+        eq_(0.75, threem.weight)
 
         # Now let's check out subjects.
         eq_(
