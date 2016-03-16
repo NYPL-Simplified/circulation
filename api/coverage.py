@@ -8,7 +8,6 @@ from core.coverage import (
 from sqlalchemy import (
     and_,
 )
-from monitor import HTTPIntegrationException
 from core.model import (
     CoverageRecord,
     DataSource,
@@ -26,6 +25,10 @@ from core.opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
 )
+
+class HTTPIntegrationException(Exception):
+    pass
+
 
 class OPDSImportCoverageProvider(CoverageProvider):
 
@@ -118,14 +121,18 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         )
 
         for edition in imported:
-            self.finalize_import(edition)
+            self.finalize_batch(edition)
             results.append(edition.primary_identifier)
 
         for failure in self.handle_import_messages(messages_by_id):
             results.append(failure)
         return results
 
-    def finalize_import(self, edition):
+    def process_item(self, identifier):
+        [result] = self.process_batch([identifier])
+        return result
+
+    def finalize_batch(self, edition):
         """Now that an OPDS entry has been imported into an Edition, make sure
         there's a Work associated with the edition, and mark the Work
         as presentation-ready.
