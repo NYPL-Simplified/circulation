@@ -178,7 +178,7 @@ class WorkController(CirculationManagerController):
             changed = True
         
         if changed:
-            work.calculate_opds_entries()
+            work.calculate_presentation(calculate_opds_entry=True, search_index_client=self.manager.external_search)
         return Response("", 200)
 
     def suppress(self, data_source, identifier):
