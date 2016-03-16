@@ -26,6 +26,8 @@ from config import (
 from oauth import GoogleAuthService
 
 from api.controller import CirculationManagerController
+from api.coverage import MetadataWranglerCoverageProvider
+from core.app_server import entry_response
 from core.app_server import (
     entry_response, 
     feed_response,
@@ -34,7 +36,6 @@ from core.app_server import (
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
-
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -168,7 +169,6 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-
     def suppress(self, data_source, identifier):
         """Suppress the license pool associated with a book."""
         
@@ -193,6 +193,32 @@ class WorkController(CirculationManagerController):
         pool.suppressed = False
         return Response("", 200)
 
+    def refresh_metadata(self, data_source, identifier, provider=None):
+        """Refresh the metadata for a book from the content server"""
+        if not provider:
+            provider = MetadataWranglerCoverageProvider(self._db)
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        try:
+            record = provider.ensure_coverage(pool.identifier, force=True)
+        except Exception:
+            # The coverage provider may raise an HTTPIntegrationException.
+            return REMOTE_INTEGRATION_FAILED
+
+        if record.exception:
+            # There was a coverage failure.
+            if (isinstance(record.exception, int)
+                and record.exception in [201, 202]):
+                # A 201/202 error means it's never looked up this work before
+                # so it's started the resolution process or looking for sources.
+                return METADATA_REFRESH_PENDING
+            # Otherwise, it just doesn't know anything.
+            return METADATA_REFRESH_FAILURE
+
+        return Response("", 200)
+
     
 class FeedController(CirculationManagerController):
 
@@ -211,3 +237,4 @@ class FeedController(CirculationManagerController):
             facets=facets, pagination=pagination
         )
         return feed_response(opds_feed)    
+

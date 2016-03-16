@@ -575,11 +575,15 @@ class TestLoanController(ControllerTest):
             assert 'me' in account_links[0]['href']
 
 class TestWorkController(ControllerTest):
+    def setup(self):
+        super(TestWorkController, self).setup()
+        [self.lp] = self.english_1.license_pools
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier.identifier
 
     def test_permalink(self):
-        [lp] = self.english_1.license_pools
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.permalink(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.work_controller.permalink(self.datasource, self.identifier)
             annotator = CirculationManagerAnnotator(None, None)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
@@ -591,9 +595,8 @@ class TestWorkController(ControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_report_problem_get(self):
-        [lp] = self.english_1.license_pools
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.report(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.work_controller.report(self.datasource, self.identifier)
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
         for i in Complaint.VALID_TYPES:
@@ -605,11 +608,10 @@ class TestWorkController(ControllerTest):
                             "source": "foo",
                             "detail": "bar"}
         )
-        [lp] = self.english_1.license_pools
         with self.app.test_request_context("/", method="POST", data=data):
-            response = self.manager.work_controller.report(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.work_controller.report(self.datasource, self.identifier)
         eq_(201, response.status_code)
-        [complaint] = lp.complaints
+        [complaint] = self.lp.complaints
         eq_(error_type, complaint.type)
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)

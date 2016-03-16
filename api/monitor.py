@@ -28,9 +28,6 @@ from core.external_search import (
     ExternalSearchIndex,
 )
 
-class HTTPIntegrationException(Exception):
-    pass
-
 class SearchIndexUpdateMonitor(WorkSweepMonitor):
     """Make sure the search index is up-to-date for every work.
     """

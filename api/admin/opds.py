@@ -21,6 +21,13 @@ class AdminAnnotator(CirculationManagerAnnotator):
             identifier_identifier = identifier.identifier
             data_source_name = active_license_pool.data_source.name
 
+        feed.add_link_to_entry(
+            entry,
+            rel="http://librarysimplified.org/terms/rel/refresh",
+            href=self.url_for(
+                "refresh", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
+        )
 
         if active_license_pool.suppressed:
             feed.add_link_to_entry(

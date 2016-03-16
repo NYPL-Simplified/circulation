@@ -17,9 +17,15 @@ from core.model import (
     Admin,
     Complaint,
     create,
+    Identifier,
+    DataSource,
+    CoverageRecord,
     SessionManager
 )
-
+from core.testing import (
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
 
 class AdminControllerTest(ControllerTest):
 
@@ -51,7 +57,6 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(suppress_links))
             assert lp.identifier.identifier in suppress_links[0]
 
-
         lp.suppressed = True
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
@@ -65,8 +70,6 @@ class TestWorkController(AdminControllerTest):
             eq_(0, len(suppress_links))
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
-
-
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -84,6 +87,30 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
+
+    def test_refresh_metadata(self):
+        wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        success_provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", [Identifier.GUTENBERG_ID], wrangler
+        )
+        failure_provider = NeverSuccessfulCoverageProvider(
+            "Never successful", [Identifier.GUTENBERG_ID], wrangler
+        )
+
+        with self.app.test_request_context('/'):
+            [lp] = self.english_1.license_pools
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=success_provider
+            )
+            eq_(200, response.status_code)
+            # Also, the work has a coverage record now for the wrangler.
+            assert CoverageRecord.lookup(lp.identifier, wrangler)
+
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=failure_provider
+            )
+            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
+            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
 
 class TestSigninController(AdminControllerTest):

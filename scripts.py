@@ -424,7 +424,7 @@ class UpdateMetadata(Script):
         identifiers = [x.primary_identifier for x in editions]
         client = SimplifiedOPDSLookup.from_config()
         feed = client.lookup(identifiers).content
-        importer = DetailedOPDSImporter(self._db, feed)
+        importer = OPDSImporter(self._db, feed)
         results = importer.import_from_feed()
         self._db.commit()
 
