@@ -252,8 +252,8 @@ class ContributorData(object):
 class IdentifierData(object):
     def __init__(self, type, identifier, weight=1):
         self.type = type
+        self.weight = weight
         self.identifier = identifier
-        self.weight = 1
 
     def __repr__(self):
         return '<IdentifierData type="%s" identifier="%s" weight="%s">' % (
@@ -889,6 +889,8 @@ class Metadata(object):
 
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
+                if not identifier_data.identifier:
+                    continue
                 new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
                 identifier.equivalent_to(
