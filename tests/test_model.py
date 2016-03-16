@@ -362,6 +362,27 @@ class TestUnresolvedIdentifier(DatabaseTest):
         assert never_tried in ready
         assert tried_a_long_time_ago in ready
 
+class TestSubject(DatabaseTest):
+
+    def test_assign_to_genre_can_remove_genre(self):
+        # Here's a Subject that identifies children's books.
+        subject, was_new = Subject.lookup(self._db, Subject.TAG, "Children's books", None)
+
+        # The genre and audience data for this Subject is totally wrong.
+        subject.audience = Classifier.AUDIENCE_ADULT
+        subject.target_age = NumericRange(1,10)
+        subject.fiction = False
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        subject.genre = sf
+
+        # But calling assign_to_genre() will fix it.
+        subject.assign_to_genre()
+        eq_(Classifier.AUDIENCE_CHILDREN, subject.audience)
+        eq_(NumericRange(None, None), subject.target_age)
+        eq_(None, subject.genre)
+        eq_(None, subject.fiction)
+        
+
 class TestContributor(DatabaseTest):
 
     def test_lookup_by_viaf(self):

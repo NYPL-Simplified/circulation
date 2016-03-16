@@ -4448,15 +4448,18 @@ class Subject(Base):
                 audience = Classifier.AUDIENCE_YOUNG_ADULT
             else:
                 audience = Classifier.AUDIENCE_CHILDREN
+
         if genredata:
             _db = Session.object_session(self)
             genre, was_new = Genre.lookup(_db, genredata.name, True)
-            if genre != self.genre:
-                log.info(
-                    "%s:%s genre %r=>%r", self.type, self.identifier,
-                    self.genre, genre
-                )
-            self.genre = genre
+        else:
+            genre = None
+        if genre != self.genre:
+            log.info(
+                "%s:%s genre %r=>%r", self.type, self.identifier,
+                self.genre, genre
+            )
+        self.genre = genre
 
         if audience:
             if self.audience != audience:
