@@ -14,6 +14,7 @@ from metadata_layer import (
     FormatData,
     LinkData,
     Metadata,
+    IdentifierData,
 )
 
 import os
@@ -30,6 +31,14 @@ from model import (
 from . import (
     DatabaseTest,
 )
+
+class TestIdentifierData(object):
+
+    def test_constructor(self):
+        data = IdentifierData(Identifier.ISBN, "foo", 0.5)
+        eq_(Identifier.ISBN, data.type)
+        eq_("foo", data.identifier)
+        eq_(0.5, data.weight)
 
 class TestMetadataImporter(DatabaseTest):
 

@@ -242,11 +242,18 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             annotation = d.get('description', None)
             primary_isbn10 = d.get('primary_isbn10', None)
             primary_isbn13 = d.get('primary_isbn13', None)
-            for isbn in d.get('isbns', []):
+
+            # The list of other ISBNs frequently contains ISBNs for
+            # other books in the same series, as well as ISBNs that
+            # are just wrong. Assign these equivalencies at a low
+            # level of confidence.
+            for isbn in d.get('isbns', []): 
                 isbn13 = isbn.get('isbn13', None)
-                other_isbns.append(
-                    IdentifierData(Identifier.ISBN, isbn13, 0.80)
-                )
+                if isbn13:
+                    other_isbns.append( 
+                        IdentifierData(Identifier.ISBN, isbn13, 0.50) 
+                    )
+
 
         primary_isbn = primary_isbn13 or primary_isbn10
         if primary_isbn:
