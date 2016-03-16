@@ -198,7 +198,7 @@ METADATA_REFRESH_PENDING = pd(
 )
 
 METADATA_REFRESH_FAILURE = pd(
-      "http://librarysimplified.org/terms/problem/metadata-refresh-pending",
+      "http://librarysimplified.org/terms/problem/metadata-refresh-failure",
       400,
       "Metadata could not be refreshed.",
       "Metadata could not be refreshed.",
