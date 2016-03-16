@@ -63,7 +63,7 @@ class TestMetadataImporter(DatabaseTest):
         [overdrive] = m1.identifiers
         eq_(Identifier.OVERDRIVE_ID, overdrive.type)
         eq_('504BA8F6-FF4E-4B57-896E-F1A50CFFCA0C', overdrive.identifier)
-        eq_(1, overdrive.weight)
+        eq_(0.75, overdrive.weight)
 
         # The second book has no ID at all.
         eq_([], m2.identifiers)
