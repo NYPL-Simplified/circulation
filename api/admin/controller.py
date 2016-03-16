@@ -28,8 +28,13 @@ from oauth import GoogleAuthService
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCoverageProvider
 from core.app_server import entry_response
+from core.app_server import (
+    entry_response, 
+    feed_response,
+    load_pagination_from_request
+)
 from core.opds import AcquisitionFeed
-from opds import AdminAnnotator
+from opds import AdminAnnotator, AdminFeed
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -42,6 +47,7 @@ def setup_admin_controllers(manager):
 
     manager.admin_work_controller = WorkController(manager)
     manager.admin_signin_controller = SigninController(manager)
+    manager.admin_feed_controller = FeedController(manager)
 
 
 class AdminController(object):
@@ -211,3 +217,20 @@ class WorkController(CirculationManagerController):
             return METADATA_REFRESH_FAILURE
 
         return Response("", 200)
+
+    
+class FeedController(CirculationManagerController):
+
+    def complaints(self):
+        this_url = self.url_for('complaints')
+        annotator = AdminAnnotator(self.circulation)
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        opds_feed = AdminFeed.complaints(
+            _db=self._db, title="Complaints",
+            url=this_url, annotator=annotator,
+            pagination=pagination
+        )
+        return feed_response(opds_feed)    
+
