@@ -42,6 +42,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    WorkGenre,
     Identifier,
     Edition,
     get_one_or_create,
@@ -56,6 +57,7 @@ from classifier import (
     Classifier,
     Fantasy,
     Romance,
+    Science_Fiction,
     Drama,
 )
 
@@ -996,6 +998,21 @@ class TestWork(DatabaseTest):
 
         # TODO: there are some other things you can do to stop a work
         # being presentation ready, and they should all be tested.
+
+    def test_assign_genres_from_weights(self):
+        work = self._work()
+
+        # This work was once classified under Fantasy and Romance.        
+        work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
+        self._db.commit()
+        before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
+        eq_([(u'Fantasy', 0.5), (u'Romance', 0.5)], before)
+
+        # But now it's classified under Science Fiction and Romance.
+        work.assign_genres_from_weights({Romance : 100, Science_Fiction : 300})
+        self._db.commit()
+        after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
+        eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
     def test_with_complaint(self):
         type = iter(Complaint.VALID_TYPES)

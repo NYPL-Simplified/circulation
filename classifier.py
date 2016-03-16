@@ -196,6 +196,7 @@ class GradeLevelClassifier(Classifier):
         'preschool' : 3,
         'pre-school' : 3,
         'p' : 3,
+        'pk' : 4,
 
         # Easy readers
         'kindergarten' : 5,
@@ -229,12 +230,13 @@ class GradeLevelClassifier(Classifier):
     # levels.
     grade_res = [
         re.compile(x, re.I) for x in [
-            "grades? ([kp0-9]+)-([kp0-9]+)", 
-            "gr\.? ([kp0-9]+)-([kp0-9]+)", 
-            "grade ([kp0-9]+)", 
-            "grade: ([kp0-9]+) to ([kp0-9]+)", 
+            "grades? ([kp0-9]+) to ([kp0-9]+)?", 
+            "grades? ([kp0-9]+) ?-? ?([kp0-9]+)?", 
+            "gr\.? ([kp0-9]+) ?-? ?([kp0-9]+)?", 
+            "grades?: ([kp0-9]+) to ([kp0-9]+)", 
+            "grades?: ([kp0-9]+) ?-? ?([kp0-9]+)?", 
             "gr\.? ([kp0-9]+)", 
-            "([0-9]+)[tns][hdt] grade",
+            "([0-9]+)[tnsr][hdt] grade",
             "([a-z]+) grade",
             r'\b(kindergarten|preschool)\b',
         ]
@@ -309,6 +311,18 @@ class GradeLevelClassifier(Classifier):
                     return young, old
         return None, None
 
+    @classmethod
+    def target_age_match(cls, query):
+        target_age = None
+        grade_words = None
+        target_age = cls.target_age(None, query, require_explicit_grade_marker=True)
+        if target_age:
+            for r in cls.grade_res:
+                match = r.search(query)
+                if match:
+                    grade_words = match.group()
+                    break
+        return (target_age, grade_words)
 
 class InterestLevelClassifier(Classifier):
 
@@ -336,12 +350,12 @@ class AgeClassifier(Classifier):
     # Regular expressions that match common ways of expressing ages.
     age_res = [
         re.compile(x, re.I) for x in [
-            "age ([0-9]+) ?- ?([0-9]+)",
-            "age: ([0-9]+) ?- ?([0-9]+)",
+            "age ([0-9]+) ?-? ?([0-9]+)?",
+            "age: ([0-9]+) ?-? ?([0-9]+)?",
             "age: ([0-9]+) to ([0-9]+)",
             "ages ([0-9]+) ?- ?([0-9]+)",
-            "([0-9]+) ?- ?([0-9]+) year",
-            "([0-9]+) year",
+            "([0-9]+) ?- ?([0-9]+) years?",
+            "([0-9]+) years?",
             "ages ([0-9]+)+",
             "([0-9]+) and up",
             "([0-9]+) years? and up",
@@ -390,7 +404,7 @@ class AgeClassifier(Classifier):
                     young = old = None
                     if groups:
                         young = int(groups[0])
-                        if len(groups) > 1:
+                        if len(groups) > 1 and groups[1] != None:
                             old = int(groups[1])
                     if not old and any(
                             [k.endswith(x) for x in 
@@ -412,6 +426,19 @@ class AgeClassifier(Classifier):
                         young, old = old, young
                     return young, old
         return None, None
+
+    @classmethod
+    def target_age_match(cls, query):
+        target_age = None
+        age_words = None
+        target_age = cls.target_age(None, query, require_explicit_age_marker=True)
+        if target_age:
+            for r in cls.age_res:
+                match = r.search(query)
+                if match:
+                    age_words = match.group()
+                    break
+        return (target_age, age_words)
 
 
 class Axis360AudienceClassifier(Classifier):
