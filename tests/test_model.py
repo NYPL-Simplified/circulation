@@ -1002,10 +1002,6 @@ class TestWork(DatabaseTest):
     def test_assign_genres_from_weights(self):
         work = self._work()
 
-        fantasy, ignore = Genre.lookup(self._db, Fantasy)
-        sf, ignore = Genre.lookup(self._db, Science_Fiction)
-        romance, ignore = Genre.lookup(self._db, Romance)
-        
         # This work was once classified under Fantasy and Romance.        
         work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
