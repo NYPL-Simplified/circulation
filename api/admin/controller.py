@@ -31,7 +31,6 @@ from core.app_server import entry_response
 from core.app_server import (
     entry_response, 
     feed_response,
-    load_facets_from_request,
     load_pagination_from_request
 )
 from core.opds import AcquisitionFeed
@@ -225,16 +224,13 @@ class FeedController(CirculationManagerController):
     def complaints(self):
         this_url = self.url_for('complaints')
         annotator = AdminAnnotator(self.circulation)
-        facets = load_facets_from_request()
-        if isinstance(facets, ProblemDetail):
-            return facets
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
         opds_feed = AdminFeed.complaints(
             _db=self._db, title="Complaints",
             url=this_url, annotator=annotator,
-            facets=facets, pagination=pagination
+            pagination=pagination
         )
         return feed_response(opds_feed)    
 

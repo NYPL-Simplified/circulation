@@ -49,7 +49,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
     def complaints_url(self, facets, pagination):
         kwargs = dict(facets.items())
         kwargs.update(dict(pagination.items()))
-        return self.cdn_url_for("complaints", **kwargs)
+        return self.url_for("complaints", _external=True, **kwargs)
 
     def annotate_feed(self, feed):
         # Add a 'search' link.
@@ -68,8 +68,8 @@ class AdminAnnotator(CirculationManagerAnnotator):
 class AdminFeed(AcquisitionFeed):
 
     @classmethod
-    def complaints(cls, _db, title, url, annotator, facets=None, pagination=None):
-        facets = facets or Facets.default()
+    def complaints(cls, _db, title, url, annotator, pagination=None):
+        facets = Facets.default()
         pagination = pagination or Pagination.default()
 
         q = Work.with_complaint(_db)
