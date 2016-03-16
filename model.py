@@ -3494,19 +3494,36 @@ class Work(Base):
 
         genre_weights, fiction, audience, target_age = classifier.classify
 
+        workgenres = self.assign_genres_from_weights(genre_weights)
+        return workgenres, fiction, audience, target_age
+
+    def assign_genres_from_weights(self, genre_weights):
         # Assign WorkGenre objects to the remainder.
+        _db = Session.object_session(self)
         total_genre_weight = float(sum(genre_weights.values()))
         workgenres = []
+        current_workgenres = _db.query(WorkGenre).filter(WorkGenre.work==self)
+        by_genre = dict()
+        for wg in current_workgenres:
+            by_genre[wg.genre] = wg
         for g, score in genre_weights.items():
             affinity = score / total_genre_weight
             if not isinstance(g, Genre):
                 g, ignore = Genre.lookup(_db, g.name)
-            wg, ignore = get_one_or_create(
-                _db, WorkGenre, work=self, genre=g)
+            if g in by_genre:
+                wg = by_genre[g]
+                del by_genre[g]
+            else:
+                wg, ignore = get_one_or_create(
+                    _db, WorkGenre, work=self, genre=g)
             wg.affinity = affinity
             workgenres.append(wg)
 
-        return workgenres, fiction, audience, target_age
+        # Any WorkGenre objects left over represent genres the Work
+        # was once classified under, but is no longer. Delete them.
+        for wg in by_genre.values():
+            _db.delete(wg)
+        return workgenres
 
 
     def assign_appeals(self, character, language, setting, story,

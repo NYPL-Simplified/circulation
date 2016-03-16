@@ -42,6 +42,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    WorkGenre,
     Identifier,
     Edition,
     get_one_or_create,
@@ -997,6 +998,26 @@ class TestWork(DatabaseTest):
         # TODO: there are some other things you can do to stop a work
         # being presentation ready, and they should all be tested.
 
+    def test_assign_genres_from_weights(self):
+        work = self._work()
+        
+        # This work was once classified under Fantasy.
+        fantasy, ignore = Genre.lookup(self._db, Fantasy)
+        wg, ignore = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=fantasy,
+            affinity=1
+        )        
+
+        assert fantasy in [x.genre for x in work.work_genres]
+
+        # But now it's only classified under Romance.
+        romance, ignore = Genre.lookup(self._db, Romance)
+        work.assign_genres_from_weights({Romance : 1000})
+        self._db.commit()
+
+        [romance_wg] = work.work_genres
+        eq_(romance, romance_wg.genre)
+        eq_(1, romance_wg.affinity)
 
 class TestCirculationEvent(DatabaseTest):
 
