@@ -13,7 +13,19 @@ from api.admin.config import (
     Configuration,
     temp_config,
 )
-from core.model import Admin, create
+from core.model import (
+    Admin,
+    Complaint,
+    create,
+    Identifier,
+    DataSource,
+    CoverageRecord,
+    SessionManager
+)
+from core.testing import (
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
 
 class AdminControllerTest(ControllerTest):
 
@@ -45,7 +57,6 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(suppress_links))
             assert lp.identifier.identifier in suppress_links[0]
 
-
         lp.suppressed = True
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
@@ -59,8 +70,6 @@ class TestWorkController(AdminControllerTest):
             eq_(0, len(suppress_links))
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
-
-        
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -78,6 +87,30 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
+
+    def test_refresh_metadata(self):
+        wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        success_provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", [Identifier.GUTENBERG_ID], wrangler
+        )
+        failure_provider = NeverSuccessfulCoverageProvider(
+            "Never successful", [Identifier.GUTENBERG_ID], wrangler
+        )
+
+        with self.app.test_request_context('/'):
+            [lp] = self.english_1.license_pools
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=success_provider
+            )
+            eq_(200, response.status_code)
+            # Also, the work has a coverage record now for the wrangler.
+            assert CoverageRecord.lookup(lp.identifier, wrangler)
+
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.data_source.name, lp.identifier.identifier, provider=failure_provider
+            )
+            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
+            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
 
 class TestSigninController(AdminControllerTest):
@@ -151,3 +184,37 @@ class TestSigninController(AdminControllerTest):
                 eq_(False, interloper_email)
 
 
+class TestFeedController(AdminControllerTest):
+
+    def test_complaints(self):
+        type = next(iter(Complaint.VALID_TYPES))
+
+        for i in range(2):
+            work1 = self._work(
+                "fiction work with complaint %i" % i,
+                language="eng",
+                fiction=True,
+                with_open_access_download=True)
+            complaint1 = self._complaint(
+                work1.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+            work2 = self._work(
+                "nonfiction work with complaint %i" % i,
+                language="eng",
+                fiction=False,
+                with_open_access_download=True)
+            complaint2 = self._complaint(
+                work2.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.complaints()
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(len(entries), 4)

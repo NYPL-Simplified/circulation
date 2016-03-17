@@ -189,3 +189,17 @@ INVALID_CSRF_TOKEN = pd(
       "Invalid CSRF token",
       "There was an error saving your changes.",
 )
+
+METADATA_REFRESH_PENDING = pd(
+      "http://librarysimplified.org/terms/problem/metadata-refresh-pending",
+      201,
+      "Metadata refresh pending.",
+      "The Metadata Wrangler is looking for new data. Check back later.",
+)
+
+METADATA_REFRESH_FAILURE = pd(
+      "http://librarysimplified.org/terms/problem/metadata-refresh-failure",
+      400,
+      "Metadata could not be refreshed.",
+      "Metadata could not be refreshed.",
+)
