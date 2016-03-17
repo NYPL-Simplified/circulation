@@ -354,10 +354,27 @@ class WorkConsolidationScript(WorkProcessingScript):
 class WorkPresentationScript(WorkProcessingScript):
     """Calculate the presentation for Work objects."""
 
+    choose_edition = True
+    classify = True
+    choose_summary = True
+    calculate_quality = True
+
     def process_work(self, work):
         work.calculate_presentation(
-            choose_edition=True, classify=True, choose_summary=True,
-            calculate_quality=True)
+            choose_edition=self.choose_edition, 
+            classify=self.classify,
+            choose_summary=self.choose_summary,
+            calculate_quality=self.calculate_quality
+        )
+
+class WorkClassificationScript(WorkPresentationScript):
+    """Recalculate the classification for Work objects.
+    Just the classification, not the rest of calculate_presentation.
+    """
+    choose_edition = False
+    classify = True
+    choose_summary = False
+    calculate_quality = False
   
 
 class CustomListManagementScript(Script):

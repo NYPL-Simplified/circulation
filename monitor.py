@@ -376,39 +376,6 @@ class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)
 
-class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
-
-    """Reclassifies works using (one hopes) new data or updated
-    classification rules.
-    """
-
-    def __init__(self, _db, interval_seconds=3600*24):
-        super(ReclassifierMonitor, self).__init__(
-            _db, "Reclassifier", interval_seconds)
-
-    def run_once(self, offset):
-        new_offset = super(ReclassifierMonitor, self).run_once(offset)
-        if new_offset == 0:
-            self.stop_running = True
-        return new_offset
-
-    def process_work(self, work):
-        work.calculate_presentation(
-        choose_edition=False, classify=True,
-        choose_summary=False,
-        calculate_quality=False, debug=True,
-        search_index_client=self.search_index_client
-    )
-
-class OverdriveReclassifierMonitor(ReclassifierMonitor):
-    """Reclassify only Overdrive books."""
-
-    def work_query(self):
-        return self._db.query(Work).join(Work.primary_edition).join(
-            Edition.data_source).filter(
-                DataSource.name==DataSource.OVERDRIVE).filter(
-                    Work.presentation_ready==True)
-
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
 
