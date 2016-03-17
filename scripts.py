@@ -57,7 +57,7 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
-    def parse_identifier_list(self, _db, arguments):
+    def parse_identifier_list(cls, _db, arguments):
         """Turn a list of arguments into a list of identifiers.
 
         This makes it easy to identify specific identifiers on the
@@ -71,13 +71,36 @@ class Script(object):
         """
         current_identifier_type = None
         if len(arguments) == 0:
-            return
+            return []
         identifier_type = arguments[0]
+        identifiers = []
         for arg in arguments[1:]:
             identifier, ignore = Identifier.for_foreign_id(
-                _db, identifier_type, arg, autocreate=False)
+                _db, identifier_type, arg, autocreate=False
+            )
+            if not identifier:
+                logging.warn(
+                    "Could not load identifier %s/%s", identifier_type, arg
+                )
             if identifier:
-                yield identifier
+                identifiers.append(identifier)
+        return identifiers
+
+    @classmethod
+    def parse_identifier_list_or_data_source(cls, _db, arguments):
+        """Try to parse `arguments` as a list of identifiers.
+        If that fails, try to interpret it as a data source.
+        """
+        identifiers = cls.parse_identifier_list(_db, arguments)
+        if identifiers:
+            return identifiers
+
+        if len(arguments) == 1:
+            # Try treating the sole argument as a data source.
+            restrict_to_source = arguments[0]
+            data_source = DataSource.lookup(_db, restrict_to_source)
+            return data_source
+        return []
 
     def run(self):
         self.load_configuration()
@@ -155,16 +178,9 @@ class IdentifierInputScript(Script):
         """Try to parse the command-line arguments as a list of identifiers.
         If that fails, try to find a data source.
         """
-        identifiers = list(self.parse_identifiers())
-        if identifiers:
-            return identifiers
-
-        if len(sys.argv) == 2:
-            # Try treating the command-line argument as a data source.
-            restrict_to_source = sys.argv[1]
-            data_source = DataSource.lookup(self._db, restrict_to_source)
-            return data_source
-        return None
+        return self.parse_identifier_list_or_data_source(
+            self._db, sys.argv[1:]
+        )
 
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
