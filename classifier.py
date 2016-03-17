@@ -2674,6 +2674,14 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         Drama : match_kw(
             "opera",
         ),
+
+        Erotica : match_kw(
+            "erotic poetry",
+            "gay erotica",
+            "lesbian erotica",
+            "erotic photography",
+        ),
+
         Literary_Criticism : match_kw(
             "literary history", # Not History
             "romance language", # Not Romance
