@@ -486,11 +486,14 @@ class RefreshMaterializedViewsScript(Script):
         print "Vacuumed in %.2f sec." % (b-a)
 
 
-class Explain(Script):
+class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        title = sys.argv[1]
-        editions = self._db.query(Edition).filter(Edition.title.ilike(title))
+        identifiers = self.parse_identifiers()
+        identifier_ids = [x.id for x in identifiers]
+        editions = self._db.query(Edition).filter(
+            Edition.primary_identifier_id.in_(identifier_ids)
+        )
         for edition in editions:
             self.explain(self._db, edition)
             print "-" * 80
