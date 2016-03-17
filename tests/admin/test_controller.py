@@ -16,10 +16,12 @@ from api.admin.config import (
 )
 from core.model import (
     Admin,
+    Complaint,
     create,
     Identifier,
     DataSource,
     CoverageRecord,
+    SessionManager
 )
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
@@ -191,3 +193,39 @@ class TestSigninController(AdminControllerTest):
                 interloper_email = self.manager.admin_signin_controller.staff_email("rando@gmail.com")
                 eq_(True, staff_email)
                 eq_(False, interloper_email)
+
+
+class TestFeedController(AdminControllerTest):
+
+    def test_complaints(self):
+        type = next(iter(Complaint.VALID_TYPES))
+
+        for i in range(2):
+            work1 = self._work(
+                "fiction work with complaint %i" % i,
+                language="eng",
+                fiction=True,
+                with_open_access_download=True)
+            complaint1 = self._complaint(
+                work1.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+            work2 = self._work(
+                "nonfiction work with complaint %i" % i,
+                language="eng",
+                fiction=False,
+                with_open_access_download=True)
+            complaint2 = self._complaint(
+                work2.license_pools[0],
+                type,
+                "complaint source %i" % i,
+                "complaint detail %i" % i)
+
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.complaints()
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(len(entries), 4)

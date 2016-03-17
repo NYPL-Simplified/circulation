@@ -90,6 +90,12 @@ def unsuppress(data_source, identifier):
 def refresh(data_source, identifier):
     return app.manager.admin_work_controller.refresh_metadata(data_source, identifier)
 
+@app.route('/admin/complaints')
+@returns_problem_detail
+@requires_admin
+def complaints():
+    return app.manager.admin_feed_controller.complaints()
+
 @app.route('/admin')
 @app.route('/admin/')
 def admin_view():
