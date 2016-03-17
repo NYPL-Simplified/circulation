@@ -65,7 +65,6 @@ class UpdateOpenAccessURL(EditionSweepMonitor):
             _db, 
             "Update open access URLs for Gutenberg editions", 
             interval_seconds)
-        self.make_presentation_ready = MakePresentationReady(self._db)
         self.batch_size = batch_size
     
     def edition_query(self):
