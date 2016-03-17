@@ -11,6 +11,7 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Complaint,
     Contributor,
     CoverageRecord,
     CustomList,
@@ -289,6 +290,15 @@ class DatabaseTest(object):
                 edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
         return customlist, editions
+
+    def _complaint(self, license_pool, type, source, detail):
+        complaint, is_new = Complaint.register(
+            license_pool,
+            type,
+            source,
+            detail
+        )
+        return complaint
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
