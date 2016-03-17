@@ -289,25 +289,25 @@ class WorkConsolidationScript(WorkProcessingScript):
             self.clear_existing_works()                  
 
         logging.info("Consolidating works.")
-        LicensePool.consolidate_works(self.db)
+        LicensePool.consolidate_works(self._db)
 
         logging.info("Deleting works with no editions.")
         for i in self.db.query(Work).filter(Work.primary_edition==None):
-            self.db.delete(i)            
-        self.db.commit()
+            self._db.delete(i)            
+        self._db.commit()
 
     def clear_existing_works(self):
         # Locate works we want to consolidate.
         unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
-        work_records = self.db.query(Edition)
+        work_records = self._db.query(Edition)
         if getattr(self, 'identifier_type', None):
             work_records = work_records.join(
                 Identifier).filter(
                     Identifier.type==self.identifier_type)
             for wr in work_records:
                 work_ids_to_delete.add(wr.work_id)
-            work_records = self.db.query(Edition).filter(
+            work_records = self._db.query(Edition).filter(
                 Edition.work_id.in_(work_ids_to_delete))
         else:
             work_records = work_records.filter(Edition.work_id!=None)
@@ -315,7 +315,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         # Unset the work IDs for any works we want to re-consolidate.
         work_records.update(unset_work_id, synchronize_session='fetch')
 
-        pools = self.db.query(LicensePool)
+        pools = self._db.query(LicensePool)
         if getattr(self, 'identifier_type', None):
             # Unset the work IDs for those works' LicensePools.
             pools = pools.join(Identifier).filter(
@@ -325,7 +325,7 @@ class WorkConsolidationScript(WorkProcessingScript):
                 # going to delete should have showed up in the first
                 # query--but just in case.
                 work_ids_to_delete.add(pool.work_id)
-            pools = self.db.query(LicensePool).filter(
+            pools = self._db.query(LicensePool).filter(
                 LicensePool.work_id.in_(work_ids_to_delete))
         else:
             pools = pools.filter(LicensePool.work_id!=None)
@@ -334,22 +334,22 @@ class WorkConsolidationScript(WorkProcessingScript):
         # Delete all work-genre assignments for works that will be
         # reconsolidated.
         if work_ids_to_delete:
-            genres = self.db.query(WorkGenre)
+            genres = self._db.query(WorkGenre)
             genres = genres.filter(WorkGenre.work_id.in_(work_ids_to_delete))
             logging.info(
                 "Deleting %d genre assignments.", genres.count()
             )
             genres.delete(synchronize_session='fetch')
-            self.db.flush()
+            self._db.flush()
 
         if work_ids_to_delete:
-            works = self.db.query(Work)
+            works = self._db.query(Work)
             logging.info(
                 "Deleting %d works.", len(work_ids_to_delete)
             )
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
-            self.db.commit()
+            self._db.commit()
 
 
 class WorkPresentationScript(WorkProcessingScript):
