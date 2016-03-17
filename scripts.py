@@ -416,19 +416,6 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         )
 
 
-class UpdateMetadata(Script):
-    """Force a metadata refresh of a given book from the metadata wrangler."""
-    def run(self):
-        title = sys.argv[1]
-        editions = self._db.query(Edition).filter(Edition.title.ilike(title))
-        identifiers = [x.primary_identifier for x in editions]
-        client = SimplifiedOPDSLookup.from_config()
-        feed = client.lookup(identifiers).content
-        importer = DetailedOPDSImporter(self._db, feed)
-        results = importer.import_from_feed()
-        self._db.commit()
-
-
 class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
     """Alternate between running bibliographic coverage providers for
     all registered book sources.
