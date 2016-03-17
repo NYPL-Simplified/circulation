@@ -70,6 +70,8 @@ class Script(object):
         Basic but effective.
         """
         current_identifier_type = None
+        if len(arguments) == 0:
+            return
         identifier_type = arguments[0]
         for arg in arguments[1:]:
             identifier, ignore = Identifier.for_foreign_id(
@@ -149,6 +151,20 @@ class IdentifierInputScript(Script):
             self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
         return identifiers
 
+    def parse_identifiers_or_data_source(self):
+        """Try to parse the command-line arguments as a list of identifiers.
+        If that fails, try to find a data source.
+        """
+        identifiers = list(self.parse_identifiers())
+        if identifiers:
+            return identifiers
+
+        if len(sys.argv) == 2:
+            # Try treating the command-line argument as a data source.
+            restrict_to_source = sys.argv[1]
+            data_source = DataSource.lookup(self._db, restrict_to_source)
+            return data_source
+        return None
 
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
@@ -193,68 +209,53 @@ class BibliographicRefreshScript(IdentifierInputScript):
             provider(self._db).ensure_coverage(identifier, force=True)
 
 
-class WorkProcessingScript(Script):
+class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, _db=None, force=False, restrict_to_source=None, 
-                 specific_identifier=None, random_order=True,
-                 batch_size=10):
-        self.db = _db or self._db
-        if restrict_to_source:
-            # Process works from a certain data source.
-            data_source = DataSource.lookup(self.db, restrict_to_source)
-            self.restrict_to_source = data_source
-        else:
-            # Process works from any data source.
-            self.restrict_to_source = None
-        self.force = force
-        self.specific_works = None
-        if specific_identifier:
-            # Look up the works for this identifier
-            q = self.db.query(Work).join(Edition).filter(
-                Edition.primary_identifier==specific_identifier)
-            self.specific_works = q
+    def __init__(self, force=False, batch_size=10):
 
+        identifiers_or_source = self.parse_identifiers_or_data_source()
         self.batch_size = batch_size
+        self.query = self.make_query(identifiers_or_source)
+
+    def make_query(self, identifiers):
+        query = self._db.query(Work)
+        if identifiers is None:
+            self.log.info(
+                "Processing all %d works.", query.count()
+            )
+        elif isinstance(identifiers, DataSource):
+            # Find all works from the given data source.
+            query = query.join(Edition).filter(
+                Edition.data_source==identifiers
+            )
+            self.log.info(
+                "Processing %d works from %s", query.count(),
+                identifiers.name
+            )
+        else:
+            # Find works with specific identifiers.
+            query = query.join(Edition).filter(
+                    Edition.primary_identifier_id.in_(
+                        [x.id for x in identifiers]
+                    )
+            )
+            self.log.info(
+                "Processing %d specific works." % query.count()
+            )
+        return query.order_by(Work.id)
 
     def do_run(self):
-        q = None
-        if self.specific_works:
-            logging.info(
-                "Processing specific works: %r", self.specific_works.all()
-            )
-            q = self.specific_works
-        elif self.restrict_to_source:
-            logging.info(
-                "Processing %s works.",
-                self.restrict_to_source.name,
-            )
-        else:
-            logging.info("Processing all works.")
-
-        if not q:
-            q = self.db.query(Work)
-            if self.restrict_to_source:
-                q = q.join(Edition).filter(
-                    Edition.data_source==self.restrict_to_source)
-            q = self.query_hook(q)
-
-        q = q.order_by(Work.id)
-        logging.info("That's %d works.", q.count())
-
         works = True
         offset = 0
         while works:
-            works = q.offset(offset).limit(self.batch_size)
+            works = self.query.offset(offset).limit(self.batch_size)
             for work in works:
                 self.process_work(work)
             offset += self.batch_size
-            self.db.commit()
-        self.db.commit()
-
-    def query_hook(self, q):
-        return q
+            self._db.commit()
+        self._db.commit()
 
     def process_work(self, work):
         raise NotImplementedError()      
