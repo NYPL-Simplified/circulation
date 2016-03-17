@@ -234,6 +234,7 @@ class WorkProcessingScript(IdentifierInputScript):
         identifiers_or_source = self.parse_identifiers_or_data_source()
         self.batch_size = batch_size
         self.query = self.make_query(identifiers_or_source)
+        self.force = force
 
     def make_query(self, identifiers):
         query = self._db.query(Work)
