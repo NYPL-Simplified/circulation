@@ -5,6 +5,7 @@ import datetime
 import os
 import re
 import logging
+import sys
 
 from nose.tools import set_trace
 
@@ -603,15 +604,38 @@ class ThreeMEventMonitor(Monitor):
     associated with it until the ThreeMCirculationMonitor runs.
     """
 
+    TWO_YEARS_AGO = datetime.timedelta(365*2)
+    name = "3M Event Monitor"
+
     def __init__(self, _db, default_start_time=None,
                  account_id=None, library_id=None, account_key=None):
+        if not default_start_time:
+            default_start_time = self.create_default_start_time(sys.argv[1:])
+
         super(ThreeMEventMonitor, self).__init__(
-            _db, "3M Event Monitor", default_start_time=default_start_time)
-        self.account_id = account_id
-        self.library_id = library_id
-        self.account_key = account_key
-        self.api = ThreeMAPI(self._db, self.account_id, self.library_id,
-                             self.account_key)
+            _db, self.name, default_start_time=default_start_time)
+        self.api = ThreeMAPI(self._db, account_id, library_id, account_key)
+
+    @classmethod
+    def create_default_start_time(cls, date_args=None):
+        """Sets the default start time if it's passed as an argument.
+
+        The command line date argument should have the format YYYY-MM-DD.
+        """
+        if date_args:
+            date = date_args[0]
+            try:
+                year, month, day = [int(digit) for digit in date.split('-')]
+                return datetime.datetime(year, month, day)
+            except ValueError:
+                # Date argument wasn't in the proper format.
+                two_years_ago = datetime.datetime.utcnow() - cls.TWO_YEARS_AGO
+                logging.getLogger(cls.name).warn(
+                    "Couldn't parse date value. Using default instead: %s",
+                    two_years_ago.strftime('%B %d, %Y')
+                )
+                return two_years_ago
+        return None
 
     def slice_timespan(self, start, cutoff, increment):
         """Slice a span of time into segements no large than [increment].
