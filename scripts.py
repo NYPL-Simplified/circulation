@@ -267,7 +267,7 @@ class WorkProcessingScript(IdentifierInputScript):
         works = True
         offset = 0
         while works:
-            works = self.query.offset(offset).limit(self.batch_size)
+            works = self.query.offset(offset).limit(self.batch_size).all()
             for work in works:
                 self.process_work(work)
             offset += self.batch_size
@@ -376,7 +376,7 @@ class WorkClassificationScript(WorkPresentationScript):
     classify = True
     choose_summary = False
     calculate_quality = False
-  
+
 
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a

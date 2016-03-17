@@ -92,6 +92,7 @@ from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
+    Erotica,
     COMICS_AND_GRAPHIC_NOVELS,
     GenreData,
     WorkClassifier,
@@ -4450,6 +4451,12 @@ class Subject(Base):
         log = logging.getLogger("Subject-genre assignment")
 
         genredata, audience, target_age, fiction = classifier.classify(self)
+
+        # If the genre is erotica, the audience will always be ADULTS_ONLY,
+        # no matter what the classifier says.
+        if genredata == Erotica:
+            audience = Classifier.AUDIENCE_ADULTS_ONLY
+
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = (None, None)
         lower, upper = target_age
