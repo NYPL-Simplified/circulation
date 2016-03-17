@@ -4454,7 +4454,7 @@ class Subject(Base):
 
         # If the genre is erotica, the audience will always be ADULTS_ONLY,
         # no matter what the classifier says.
-        if genredata and genredata == Erotica:
+        if genredata == Erotica:
             audience = Classifier.AUDIENCE_ADULTS_ONLY
 
         if audience in Classifier.AUDIENCES_ADULT:
