@@ -49,6 +49,15 @@ class TestOPDS(DatabaseTest):
         suppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         eq_(0, len(suppress_links))
 
+    def test_feed_includes_edit_link(self):
+        work = self._work(with_open_access_download=True)
+        lp = work.license_pools[0]
+ 
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
+        [entry] = feedparser.parse(unicode(feed))['entries']
+        [edit_link] = [x for x in entry['links'] if x['rel'] == "edit"]
+        assert lp.identifier.identifier in edit_link["href"]
+
     def test_complaints_feed(self):
         """Test the ability to show a paginated feed of works with complaints.
         """
@@ -157,3 +166,4 @@ class TestAnnotator(AdminAnnotator):
 
     def annotate_feed(self, feed):
         super(TestAnnotator, self).annotate_feed(feed)
+
