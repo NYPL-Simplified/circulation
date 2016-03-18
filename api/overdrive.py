@@ -477,7 +477,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if isinstance(book, basestring):
             book_id = book
             circulation_link = self.AVAILABILITY_ENDPOINT % dict(
-                collection_name=self.collection_name,
+                collection_token=self.collection_token,
                 product_id=book_id
             )
             book = dict(id=book_id)
