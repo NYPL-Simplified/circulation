@@ -627,7 +627,7 @@ class ThreeMEventMonitor(Monitor):
                 # Date argument wasn't in the proper format.
                 two_years_ago = datetime.datetime.utcnow() - self.TWO_YEARS_AGO
                 self.log.warn(
-                    "%s. Using default date instead: %s.", e,
+                    "%r. Using default date instead: %s.", e,
                     two_years_ago.strftime("%B %d, %Y")
                 )
                 return two_years_ago
