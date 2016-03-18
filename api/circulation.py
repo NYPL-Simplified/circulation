@@ -14,6 +14,7 @@ from core.model import (
     Loan,
     Hold,
 )
+from core.util.cdn import cdnify
 from config import Configuration
 
 class CirculationInfo(object):
@@ -349,7 +350,8 @@ class CirculationAPI(object):
             raise NoOpenAccessDownload()
 
         rep = fulfillment.resource.representation
-        content_link = rep.url
+        cdn_host = Configuration.cdn_host(Configuration.CDN_OPEN_ACCESS_CONTENT)
+        content_link = cdnify(rep.url, cdn_host)
         media_type = rep.media_type
         return FulfillmentInfo(
             identifier_type=licensepool.identifier.type,
