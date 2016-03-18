@@ -208,7 +208,8 @@ class TestErrorParser(object):
 class TestThreeMEventMonitor(DatabaseTest):
 
   def test_default_start_time(self):
-    monitor = ThreeMEventMonitor(self._db)
+    monitor = ThreeMEventMonitor(self._db, testing=True)
+
     no_args = []
     eq_(None, monitor.create_default_start_time(no_args))
 

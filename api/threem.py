@@ -513,12 +513,11 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     count the same event.  However it will greatly improve our current
     view of our 3M circulation, which is more important.
     """
-    def __init__(self, _db, account_id=None, library_id=None, account_key=None):
+    def __init__(self, _db, testing=False):
         super(ThreeMCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
-        self.api = ThreeMAPI(self._db, account_id, library_id,
-                             account_key)
+        self.api = ThreeMAPI(self._db, testing=testing)
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
     def identifier_query(self):
@@ -607,13 +606,13 @@ class ThreeMEventMonitor(Monitor):
 
     def __init__(self, _db, default_start_time=None,
                  account_id=None, library_id=None, account_key=None,
-                 cli_date=None):
+                 cli_date=None, testing=False):
         self.service_name = "3M Event Monitor"
         if not default_start_time:
             default_start_time = self.create_default_start_time(cli_date)
         super(ThreeMEventMonitor, self).__init__(
             _db, self.service_name, default_start_time=default_start_time)
-        self.api = ThreeMAPI(self._db, account_id, library_id, account_key)
+        self.api = ThreeMAPI(self._db, testing=testing)
 
     def create_default_start_time(self, cli_date):
         """Sets the default start time if it's passed as an argument.
