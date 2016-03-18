@@ -46,6 +46,14 @@ class AdminAnnotator(CirculationManagerAnnotator):
                     identifier=identifier_identifier, _external=True)
             )
 
+        feed.add_link_to_entry(
+            entry,
+            rel="edit",
+            href=self.url_for(
+                "edit", data_source=data_source_name,
+                identifier=identifier_identifier, _external=True)
+        )
+            
     def complaints_url(self, facets, pagination):
         kwargs = dict(facets.items())
         kwargs.update(dict(pagination.items()))
@@ -100,3 +108,4 @@ class AdminFeed(AcquisitionFeed):
 
         annotator.annotate_feed(feed)
         return unicode(feed)
+
