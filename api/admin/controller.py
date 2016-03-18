@@ -35,6 +35,8 @@ from core.app_server import (
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
+import json
+
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -168,6 +170,26 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
+        
+    def complaints(self, data_source, identifier):
+        """Return JSON with detailed complaint information for admins."""
+        
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        index = dict({})
+        for pool in work.license_pools:
+            for complaint in pool.complaints:
+                index[complaint.type] = index.get(complaint.type, 0) + 1
+        response = dict({
+            "book": { 
+                "title": work.title 
+            },
+            "complaints": index
+        })
+        
+        return json.dumps(response)
 
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""

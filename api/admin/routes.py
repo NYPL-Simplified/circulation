@@ -3,7 +3,8 @@ from functools import wraps
 import flask
 from flask import (
     Response,
-    redirect
+    redirect,
+    url_for
 )
 import os
 
@@ -62,12 +63,17 @@ def admin_signin():
 def work_details(data_source, identifier):
     return app.manager.admin_work_controller.details(data_source, identifier)
 
+@app.route('/admin/works/<data_source>/<identifier>/complaints.json', methods=['GET'])
+@returns_problem_detail
+@requires_admin
+def work_complaints(data_source, identifier):
+    return app.manager.admin_work_controller.complaints(data_source, identifier)
+
 @app.route('/admin/works/<data_source>/<identifier>/edit', methods=['POST'])
 @returns_problem_detail
 @requires_admin
 def edit(data_source, identifier):
     return app.manager.admin_work_controller.edit(data_source, identifier)
-
 
 @app.route('/admin/works/<data_source>/<identifier>/suppress', methods=['POST'])
 @returns_problem_detail
@@ -106,7 +112,7 @@ def admin_view():
         return redirect(app.manager.url_for('admin_signin', redirect=redirect_url))
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,
-        home_url=app.manager.url_for('acquisition_groups'))
+        home_url=url_for('acquisition_groups'))
 
 @app.route('/admin/static/circulation-web.js')
 @returns_problem_detail
