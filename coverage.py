@@ -17,9 +17,6 @@ from model import (
 from metadata_layer import (
     ReplacementPolicy
 )
-from external_search import (
-    ExternalSearchIndex,
-)
 
 import log # This sets the appropriate log format.
 
@@ -214,7 +211,6 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
         work, created = license_pool.calculate_work(
             even_if_no_author=True,
-            search_index_client=self.search_index
         )
         if not work:
             e = "Work could not be calculated"
@@ -282,7 +278,6 @@ class BibliographicCoverageProvider(CoverageProvider):
     def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api
-        self.search_index = ExternalSearchIndex()
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
