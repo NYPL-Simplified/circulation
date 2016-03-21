@@ -3284,10 +3284,13 @@ class WorkClassifier(object):
         self.weigh_metadata()
 
         explicitly_indicated_audiences = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ADULTS_ONLY)
-        audiences = [classification.subject.audience
-            for classification in self.direct_from_license_source]
+        audiences_from_license_source = set(
+            [classification.subject.audience
+             for classification in self.direct_from_license_source]
+        )
         if self.direct_from_license_source and not any(
-                audience in explicitly_indicated_audiences for audience in audiences
+                audience in explicitly_indicated_audiences 
+                for audience in audiences_from_license_source
         ):
             # If this was erotica, or a book for children or young
             # adults, the distributor would have given some indication
@@ -3300,9 +3303,6 @@ class WorkClassifier(object):
             # distinguished by their _lack_ of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
-        else:
-            for audience in audiences:
-                self.audience_weights[audience] += 100
         self.prepared = True
 
     @property
