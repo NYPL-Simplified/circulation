@@ -3299,7 +3299,7 @@ class WorkClassifier(object):
             # books and YA books, but books for adults can be
             # distinguished by their _lack_ of childrens/YA
             # classifications.
-            self.audience_weights[classifier.AUDIENCE_ADULT] += 500
+            self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
         else:
             for audience in audiences:
                 self.audience_weights[audience] += 100
