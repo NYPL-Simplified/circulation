@@ -55,8 +55,7 @@ class ThreeMAPI(object):
 
     log = logging.getLogger("3M API")
 
-    def __init__(self, _db, account_id=None, library_id=None, account_key=None,
-                 base_url = "https://cloudlibraryapi.3m.com/",
+    def __init__(self, _db, base_url = "https://cloudlibraryapi.3m.com/",
                  version="2.0", testing=False):
         self._db = _db
         self.version = version
@@ -67,17 +66,10 @@ class ThreeMAPI(object):
         if testing:
             return
 
-        if not account_id or not library_id or not account_key:
-            values = self.environment_values()
-            if len([x for x in values if not x]):
-                raise CannotLoadConfiguration(
-                    "3M integration has incomplete configuration.")
-
-        (env_library_id, env_account_id, 
-         env_account_key) = values
-        self.library_id = library_id or env_library_id
-        self.account_id = account_id or env_account_id
-        self.account_key = account_key or env_account_key
+        values = self.environment_values()
+        if len([x for x in values if not x]):
+            raise CannotLoadConfiguration("3M integration has incomplete configuration.")
+        (self.library_id, self.account_id, self.account_key) = values
 
     @classmethod
     def environment_values(

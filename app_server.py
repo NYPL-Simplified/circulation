@@ -5,6 +5,7 @@ import flask
 import json
 import os
 import sys
+import subprocess
 from lxml import etree
 from flask import url_for, make_response
 from util.flask_util import problem
@@ -182,10 +183,14 @@ class ErrorHandler(object):
                 sys.exit()
         return make_response(body, 500, {"Content-Type": "text/plain"})
 
+
 class HeartbeatController(object):
 
+    git_ref = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+
     def heartbeat(self):
-        return make_response("", 200, {"Content-Type": "text/plain"})
+        server_info = json.dumps(dict(git_ref=self.git_ref))
+        return make_response(server_info, 200, {"Content-Type": "application/json"})
 
 
 class URNLookupController(object):

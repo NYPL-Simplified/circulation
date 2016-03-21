@@ -120,9 +120,9 @@ class Script(object):
 
 class RunMonitorScript(Script):
 
-    def __init__(self, monitor):
+    def __init__(self, monitor, **kwargs):
         if callable(monitor):
-            monitor = monitor(self._db)
+            monitor = monitor(self._db, **kwargs)
         self.monitor = monitor
         self.name = self.monitor.service_name
 
