@@ -124,10 +124,10 @@ class TestWorkController(AdminControllerTest):
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
 
-class TestSigninController(AdminControllerTest):
+class TestSignInController(AdminControllerTest):
 
     def setup(self):
-        super(TestSigninController, self).setup()
+        super(TestSignInController, self).setup()
         self.admin, ignore = create(
             self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
             credential=json.dumps({
@@ -141,7 +141,7 @@ class TestSigninController(AdminControllerTest):
     def test_authenticated_admin_from_request(self):
         with self.app.test_request_context('/admin'):
             flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_signin_controller.authenticated_admin_from_request()
+            response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
         # Returns an error if you aren't authenticated.
@@ -151,7 +151,7 @@ class TestSigninController(AdminControllerTest):
             }
             with self.app.test_request_context('/admin'):
                 # You get back a problem detail when you're not authenticated.
-                response = self.manager.admin_signin_controller.authenticated_admin_from_request()
+                response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
                 eq_(401, response.status_code)
                 eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
 
@@ -162,7 +162,7 @@ class TestSigninController(AdminControllerTest):
             'access_token' : u'tubular',
             'credentials' : u'gnarly',
         }
-        admin = self.manager.admin_signin_controller.authenticated_admin(new_admin_details)
+        admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
         eq_('admin@nypl.org', admin.email)
         eq_('tubular', admin.access_token)
         eq_('gnarly', admin.credential)
@@ -173,24 +173,24 @@ class TestSigninController(AdminControllerTest):
             'access_token' : u'bananas',
             'credentials' : u'b-a-n-a-n-a-s',
         }
-        admin = self.manager.admin_signin_controller.authenticated_admin(existing_admin_details)
+        admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
         eq_(self.admin.id, admin.id)
         eq_('bananas', self.admin.access_token)
         eq_('b-a-n-a-n-a-s', self.admin.credential)
 
     def test_admin_signin(self):
-        with self.app.test_request_context('/admin/signin?redirect=foo'):
+        with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.session['admin_access_token'] = self.admin.access_token
-            response = self.manager.admin_signin_controller.signin()
+            response = self.manager.admin_sign_in_controller.sign_in()
             eq_(302, response.status_code)
             eq_("foo", response.headers["Location"])
 
     def test_staff_email(self):
         with temp_config() as config:
             config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
-            with self.app.test_request_context('/admin/signin'):
-                staff_email = self.manager.admin_signin_controller.staff_email("working@alibrary.org")
-                interloper_email = self.manager.admin_signin_controller.staff_email("rando@gmail.com")
+            with self.app.test_request_context('/admin/sign_in'):
+                staff_email = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
+                interloper_email = self.manager.admin_sign_in_controller.staff_email("rando@gmail.com")
                 eq_(True, staff_email)
                 eq_(False, interloper_email)
 
