@@ -94,7 +94,7 @@ class ExternalSearchIndex(Elasticsearch):
                 }
             }
 
-        main_fields = ['title^4', 'author^4', 'subtitle^3']
+        main_fields = ['title^4', 'author^4', 'subtitle^3', 'summary']
 
         # Find results that match the full query string in one of the main
         # fields.
