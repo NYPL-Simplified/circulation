@@ -3187,7 +3187,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3198,10 +3198,14 @@ class WorkClassifier(object):
         self.genre_weights = Counter()
         self.direct_from_license_source = set()
         self.prepared = False
+        self.debug = debug
+        self.classifications = []
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
         # Make sure the Subject is ready to be used in calculations.
+        if self.debug:
+            self.classifications.append(classification)
         if not classification.subject.checked:
             classification.subject.assign_to_genre()
 
@@ -3279,22 +3283,23 @@ class WorkClassifier(object):
         """
         self.weigh_metadata()
 
-        children_and_ya = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT)
+        explicitly_indicated_audiences = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ADULTS_ONLY)
         audiences = [classification.subject.audience
             for classification in self.direct_from_license_source]
         if self.direct_from_license_source and not any(
-                audience in children_and_ya for audience in audiences
+                audience in explicitly_indicated_audiences for audience in audiences
         ):
-            # If this was a book for children or young adults, the
-            # distributor would have given some indication of that
-            # fact. In the absense of any such indication, we can
-            # assume very strongly that this is a book for adults.
+            # If this was erotica, or a book for children or young
+            # adults, the distributor would have given some indication
+            # of that fact. In the absense of any such indication, we
+            # can assume very strongly that this is a regular old book
+            # for adults.
             #
             # 3M is terrible at distinguishing between childrens'
             # books and YA books, but books for adults can be
-            # distinguished by their lack of childrens/YA
+            # distinguished by their _lack_ of childrens/YA
             # classifications.
-            self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+            self.audience_weights[classifier.AUDIENCE_ADULT] += 500
         else:
             for audience in audiences:
                 self.audience_weights[audience] += 100

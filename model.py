@@ -2762,9 +2762,9 @@ class Edition(Base):
         #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
         # Now that everything's calculated, log it.
-        msg = "Calculated presentation for %s (by %s, pub=%s, pwid=%s, language=%s, cover=%r)"
+        msg = "Calculated presentation for %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
         args = [self.title, self.author, self.publisher, 
-                self.permanent_work_id, self.language]
+                self.primary_identifier, self.permanent_work_id, self.language]
         if self.cover and self.cover.representation:
             args.append(self.cover.representation.mirror_url)
         else:
@@ -3369,6 +3369,12 @@ class Work(Base):
         l = ["%s (by %s)" % (self.title, self.author)]
         l.append(" language=%s" % self.language)
         l.append(" quality=%s" % self.quality)
+
+        if self.primary_edition and self.primary_edition.primary_identifier:
+            primary_identifier = self.primary_edition.primary_identifier
+        else:
+            primary_identifier=None
+        l.append(" primary id=%s" % primary_identifier)
         if self.fiction:
             fiction = "Fiction"
         elif self.fiction == False:

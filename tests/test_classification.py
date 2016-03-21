@@ -605,6 +605,27 @@ class TestWorkClassifier(DatabaseTest):
         # than their actual weight, as per Classification.scaled_weight
         eq_(50000, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
 
+    def test_adults_only_indication_from_distributor_has_no_implication_for_audience(self):
+        # Create some classifications that end up in
+        # direct_from_license_source, one of which implies the book is
+        # for adults only.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        for subject in ('Erotic Literature', 'Science Fiction', 'History'):
+            c = i.classify(source, Subject.OVERDRIVE, subject, weight=1)
+            self.classifier.add(c)
+
+        self.classifier.prepare_to_classify()
+
+        # Again, Overdrive classifications are regarded as 50 times
+        # more reliable than their actual weight, as per
+        # Classification.scaled_weight
+        eq_(50, self.classifier.audience_weights[Classifier.AUDIENCE_ADULTS_ONLY])
+        
+        # No boost was given to AUDIENCE_ADULT, because a distributor
+        # classification implied AUDIENCE_ADULTS_ONLY.
+        eq_(0, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
+
     def test_no_signal_from_distributor_has_no_implication_for_audience(self):
         # This work has no classifications that end up in
         # direct_from_license_source. In the absence of any such
