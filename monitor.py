@@ -25,9 +25,6 @@ from model import (
     UnresolvedIdentifier,
     Work,
 )
-from external_search import (
-    ExternalSearchIndex,
-)
 
 class Monitor(object):
 
@@ -43,14 +40,6 @@ class Monitor(object):
         self.interval_seconds = interval_seconds
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
-
-        search = Configuration.integration(
-            Configuration.ELASTICSEARCH_INTEGRATION)
-        if search:
-            search_index_client = ExternalSearchIndex()
-        else:
-            search_index_client = None
-        self.search_index_client=search_index_client
 
         if not default_start_time:
              default_start_time = (

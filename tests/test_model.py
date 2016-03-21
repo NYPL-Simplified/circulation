@@ -47,7 +47,6 @@ from model import (
     Edition,
     get_one_or_create,
 )
-
 from external_search import (
     DummyExternalSearchIndex,
 )

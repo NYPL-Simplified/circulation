@@ -3355,8 +3355,10 @@ class Work(Base):
         if calculate_opds_entry:
             self.calculate_opds_entries()
 
-        if search_index_client:
-            self.update_external_index(search_index_client)
+        if not search_index_client:
+            search_index_client = ExternalSearchIndex()
+
+        self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -4988,8 +4990,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None,
-                       search_index_client=None):
+    def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -5085,7 +5086,7 @@ class LicensePool(Base):
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
-        work.calculate_presentation(search_index_client=search_index_client)
+        work.calculate_presentation()
 
         if created:
             logging.info("Created a new work: %r", work)
