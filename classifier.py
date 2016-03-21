@@ -3314,7 +3314,7 @@ class WorkClassifier(object):
         # Actually figure out the classifications
         fiction = self.fiction
         genres = self.genres(fiction)
-        audience = self.audience
+        audience = self.audience(genres)
         target_age = self.target_age(audience)
         return genres, fiction, audience, target_age
 
@@ -3327,12 +3327,16 @@ class WorkClassifier(object):
             is_fiction = True
         return is_fiction
 
-    @property
-    def audience(self):
+    def audience(self, genres=[]):
         """What's the most likely audience for this book?"""
-        w = self.audience_weights
-        unmarked_weight = w.get(None, 0)
+        # If we determined that Erotica was a significant enough
+        # component of the classification to count as a genre, the
+        # audience will always be 'Adults Only', even if the audience
+        # weights would indicate something else.
+        if Erotica in genres:
+            return Classifier.AUDIENCE_ADULTS_ONLY
 
+        w = self.audience_weights
         children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
