@@ -2079,6 +2079,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                
         Humorous_Fiction : match_kw(
             "comedy",
+            "funny",
             "humor",
             "humorous",
             "humourous",
@@ -2088,6 +2089,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         ),
         Humorous_Nonfiction : match_kw(
             "comedy",
+            "funny",
             "humor",
             "humorous",
             "humour",
