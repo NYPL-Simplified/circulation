@@ -121,7 +121,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         )
 
         for edition in imported:
-            self.finalize_batch(edition)
+            self.finalize_edition(edition)
             results.append(edition.primary_identifier)
 
         for failure in self.handle_import_messages(messages_by_id):
@@ -132,7 +132,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         [result] = self.process_batch([identifier])
         return result
 
-    def finalize_batch(self, edition):
+    def finalize_edition(self, edition):
         """Now that an OPDS entry has been imported into an Edition, make sure
         there's a Work associated with the edition, and mark the Work
         as presentation-ready.
@@ -150,8 +150,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         # Make sure there's a Work associated with the edition.
         if pool and not work:
             work, new_work = pool.calculate_work(
-                even_if_no_author=True,
-                search_index_client=self.search_index
+                even_if_no_author=True
             )            
 
         # If the Work wasn't presentation ready before, it
