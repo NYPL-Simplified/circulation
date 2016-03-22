@@ -200,10 +200,11 @@ class TestOPDSImporter(DatabaseTest):
         assert mouse.work is not None
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
-        editions, popularity, quality, rating = sorted(
+        popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
-            key=lambda x: x.quantity_measured)
+            key=lambda x: x.quantity_measured
+        )
 
         eq_(DataSource.OCLC_LINKED_DATA, editions.data_source.name)
         eq_(Measurement.PUBLISHED_EDITIONS, editions.quantity_measured)
