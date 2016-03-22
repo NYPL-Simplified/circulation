@@ -4569,7 +4569,6 @@ class Subject(Base):
         log = logging.getLogger("Subject-genre assignment")
 
         genredata, audience, target_age, fiction = classifier.classify(self)
-
         # If the genre is erotica, the audience will always be ADULTS_ONLY,
         # no matter what the classifier says.
         if genredata == Erotica:
@@ -4578,13 +4577,9 @@ class Subject(Base):
         if audience in Classifier.AUDIENCES_ADULT:
             target_age = Classifier.default_target_age_for_audience(audience)
         if not audience:
+            # We have no audience but some target age information.
+            # Try to determine an audience based on that.
             audience = Classifier.default_audience_for_target_age(target_age)
-            if target_age.lower >= 18:
-                audience = Classifier.AUDIENCE_ADULT
-            elif target_age.lower >= 12:
-                audience = Classifier.AUDIENCE_YOUNG_ADULT
-            else:
-                audience = Classifier.AUDIENCE_CHILDREN
 
         if genredata:
             _db = Session.object_session(self)
@@ -4614,17 +4609,7 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if self.target_age:
-            old_target_age = (self.target_age.lower, self.target_age.upper)
-        else:
-            old_target_age = None
-
-        if target_age:
-            new_target_age = (target_age.lower, target_age.upper)
-        else:
-            new_target_age = None
-
-        if old_target_age != new_target_age:
+        if self.target_age != target_age:
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, target_age

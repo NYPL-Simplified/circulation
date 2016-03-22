@@ -85,8 +85,12 @@ class TestClassifierLookup(object):
 class TestTargetAge(object):
     def test_age_from_grade_classifier(self):
         def f(t):
-            return GradeLevelClassifier.target_age(t, None)
-        eq_((5,6), GradeLevelClassifier.target_age(None, "grades 0-1"))
+            v = GradeLevelClassifier.target_age(t, None)
+            return v.lower, v.upper
+        eq_(
+            Classifier.nr(5,6), 
+            GradeLevelClassifier.target_age(None, "grades 0-1")
+        )
         eq_((4,7), f("pk - 2"))
         eq_((5,7), f("grades k-2"))
         eq_((6,6), f("first grade"))
@@ -107,19 +111,20 @@ class TestTargetAge(object):
         # target_age() will assume that a number it sees is talking
         # about a grade level, unless require_explicit_grade_marker is
         # True.
-        eq_((7,9), GradeLevelClassifier.target_age("2-4", None, False))
-        eq_((None,None), GradeLevelClassifier.target_age("2-4", None, True))
         eq_((14,17), f("Children's Audio - 9-12"))
-        eq_((None,None), GradeLevelClassifier.target_age(
+        eq_(Classifier.nr(7,9), GradeLevelClassifier.target_age("2-4", None, False))
+        eq_(Classifier.nr(None,None), GradeLevelClassifier.target_age("2-4", None, True))
+        eq_(Classifier.nr(None,None), GradeLevelClassifier.target_age(
             "Children's Audio - 9-12", None, True))
 
-        eq_((None,None), GradeLevelClassifier.target_age("grade 50", None))
-        eq_((None,None), GradeLevelClassifier.target_age("road grades -- history", None))
-        eq_((None,None), GradeLevelClassifier.target_age(None, None))
+        eq_(Classifier.nr(None,None), GradeLevelClassifier.target_age("grade 50", None))
+        eq_(Classifier.nr(None,None), GradeLevelClassifier.target_age("road grades -- history", None))
+        eq_(Classifier.nr(None,None), GradeLevelClassifier.target_age(None, None))
 
     def test_age_from_age_classifier(self):
         def f(t):
-            return AgeClassifier.target_age(t, None)
+            v = AgeClassifier.target_age(t, None)
+            return v.lower, v.upper
         eq_((9,12), f("Ages 9-12"))
         eq_((9,11), f("9 and up"))
         eq_((9,11), f("9 and up."))
@@ -134,14 +139,15 @@ class TestTargetAge(object):
         eq_((0,3), f("0-3"))
         eq_((None,None), f("K-3"))
 
-        eq_((None,None), AgeClassifier.target_age("K-3", None, True))
-        eq_((None,None), AgeClassifier.target_age("9-12", None, True))
-        eq_((9,11), AgeClassifier.target_age("9 and up", None, True))
-        eq_((7,9), AgeClassifier.target_age("7 years and up.", None, True))
+        eq_(Classifier.nr(None,None), AgeClassifier.target_age("K-3", None, True))
+        eq_(Classifier.nr(None,None), AgeClassifier.target_age("9-12", None, True))
+        eq_(Classifier.nr(9,11), AgeClassifier.target_age("9 and up", None, True))
+        eq_(Classifier.nr(7,9), AgeClassifier.target_age("7 years and up.", None, True))
 
     def test_age_from_keyword_classifier(self):
         def f(t):
-            return LCSH.target_age(t, None)
+            v = LCSH.target_age(t, None)
+            return v.lower, v.upper
         eq_((5,5), f("Interest age: from c 5 years"))
         eq_((9,12), f("Children's Books / 9-12 Years"))
         eq_((9,12), f("Ages 9-12"))
@@ -170,7 +176,8 @@ class TestTargetAge(object):
     def test_age_from_age_or_grade_classifier(self):
         def f(t):
             t = AgeOrGradeClassifier.scrub_identifier(t)
-            return AgeOrGradeClassifier.target_age(t, None)
+            v = AgeOrGradeClassifier.target_age(t, None)
+            return v.lower, v.upper
         eq_((5,6), f("Children's - Kindergarten, Age 5-6"))
         eq_((5,5), f("Children's - Kindergarten"))
         eq_((9,12), f("Ages 9-12"))
@@ -188,7 +195,8 @@ class TestInterestLevelClassifier(object):
 
     def test_target_age(self):
         def f(t):
-            return InterestLevelClassifier.target_age(t, None)
+            v = InterestLevelClassifier.target_age(t, None)
+            return v.lower, v.upper
         eq_((5,8), f("lg"))
         eq_((9,13), f("mg"))
         eq_((9,13), f("mg+"))
@@ -383,7 +391,8 @@ class TestBISAC(object):
 
         def target(bisac):
             dummy = DummySubject(bisac)
-            return BISAC.classify(dummy)[2]
+            v = BISAC.classify(dummy)[2]
+            return v.lower, v.upper
         
         eq_((14,17), target("JUVENILE FICTION / Action & Adventure / General"))
         eq_((18, None), target("Erotica / General"))
@@ -435,7 +444,8 @@ class TestAxis360Classifier(object):
 
     def test_age(self):
         def f(t):
-            return Axis360AudienceClassifier.target_age(t, None)
+            v = Axis360AudienceClassifier.target_age(t, None)
+            return v.lower, v.upper
         eq_((5,6), f("Children's - Kindergarten, Age 5-6"))
         eq_((7,8), f("Children's - Grade 2-3, Age 7-8"))
         eq_((9,11), f("Children's - Grade 4-6, Age 9-11"))
@@ -527,7 +537,9 @@ class TestOverdriveClassifier(object):
             Overdrive.scrub_identifier("Foreign Language Study - Italian"))
 
     def test_target_age(self):
-        a = Overdrive.target_age
+        def a(x, y):
+            v = Overdrive.target_age(x,y)
+            return v.lower, v.upper
         eq_((0,4), a("Picture Book Nonfiction", None))
         eq_((5,8), a("Beginning Reader", None))
         eq_((None,None), a("Fiction", None))
@@ -778,7 +790,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(c1)
 
         target_age = self.classifier.target_age(Classifier.AUDIENCE_ADULT)
-        eq_((18, None), target_age)
+        eq_(Classifier.nr(18, None), target_age)
 
     def test_most_reliable_target_age_subset(self):
         # We have a very weak but reliable signal that this is a book for
@@ -804,8 +816,9 @@ class TestWorkClassifier(DatabaseTest):
 
         # And only most_reliable_target_age_subset is used to calculate
         # the target age.
+        a = self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         eq_(
-            NumericRange(0,3, '[]'),  
+            Classifier.nr(0,4),
             self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         )
 
@@ -825,7 +838,7 @@ class TestWorkClassifier(DatabaseTest):
         genres, fiction, audience, target_age = self.classifier.classify
 
         eq_(Classifier.AUDIENCE_CHILDREN, audience)
-        eq_(NumericRange(6,9, '[]'), target_age)
+        eq_(Classifier.nr(6,9), target_age)
 
     def test_fiction_status_restricts_genre(self):
         # Classify a book to imply that it's 50% science fiction and
@@ -913,8 +926,6 @@ class TestWorkClassifier(DatabaseTest):
             self.classifier.add(classification)
         self.classifier.prepare_to_classify()
 
-        self.classifier.audience
-
         genres, fiction, audience, target_age = self.classifier.classify
 
         # This work really looks like science fiction (w=100), but it
@@ -924,7 +935,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(u"History", genres.keys()[0].name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
-        eq_(NumericRange(14,17, '[]'), target_age)
+        eq_(Classifier.nr(14,17), target_age)
 
     def test_top_tier_values(self):
         c = Counter()
