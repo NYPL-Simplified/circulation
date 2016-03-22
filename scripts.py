@@ -273,7 +273,6 @@ class WorkProcessingScript(IdentifierInputScript):
                 self.process_work(work)
             offset += self.batch_size
             self._db.commit()
-            break
         self._db.commit()
 
     def process_work(self, work):

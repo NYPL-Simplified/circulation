@@ -2708,7 +2708,7 @@ class Edition(Base):
     UNKNOWN_AUTHOR = u"[Unknown]"
 
     def calculate_presentation(self, policy=None):
-        """Make sure the presentation of this edition is up-to-date."""
+        """Make sure the presentation of this Edition is up-to-date."""
         _db = Session.object_session(self)
         changed = False
         if policy is None:
@@ -2754,14 +2754,14 @@ class Edition(Base):
         # Now that everything's calculated, log it.
         if policy.verbose:
             if changed:
-                changed = "changed"
+                changed_status = "changed"
                 level = logging.info
             else:
-                changed = "unchanged"
+                changed_status = "unchanged"
                 level = logging.debug
 
             msg = "Presentation %s for Edition %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
-            args = [changed, self.title, self.author, self.publisher, 
+            args = [changed_status, self.title, self.author, self.publisher, 
                     self.primary_identifier, self.permanent_work_id, self.language]
             if self.cover and self.cover.representation:
                 args.append(self.cover.representation.mirror_url)
@@ -2852,7 +2852,7 @@ class PresentationCalculationPolicy(object):
                  choose_cover=True,
                  regenerate_opds_entries=False, 
                  update_search_index=False,
-                 verbose=True
+                 verbose=True,
     ):
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
@@ -3422,12 +3422,19 @@ class Work(Base):
                 )
             self.calculate_quality(flattened_data, default_quality)
 
+        # TODO: This still isn't working
+        if self.summary_text:
+            if isinstance(self.summary_text, unicode):
+                new_summary_text = self.summary_text
+            else:
+                new_summary_text = self.summary_text.decode("utf8")
+
         changed = (
             edition_metadata_changed or
             classification_changed or
             primary_edition != self.primary_edition or
             summary != self.summary or
-            summary_text != self.summary_text or
+            summary_text != new_summary_text or
             quality != self.quality
         )
 
@@ -3449,8 +3456,14 @@ class Work(Base):
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
-        if policy.verbose:
-            logging.info(self.detailed_representation)
+        if policy.verbose:            
+            if changed:
+                changed = "changed"
+                representation = self.detailed_representation
+            else:
+                changed = "unchanged"
+                representation = repr(self)                
+            logging.info("Presentation %s for work: %s", changed, representation)
 
     @property
     def detailed_representation(self):
@@ -3626,7 +3639,7 @@ class Work(Base):
             workgenres_changed or 
             old_fiction != self.fiction or
             old_audience != self.audience or
-            old_target_age != self.target_age
+            numericrange_to_tuple(old_target_age) != numericrange_to_tuple(self.target_age)
         )
 
         return classification_changed
@@ -3652,7 +3665,7 @@ class Work(Base):
             else:
                 wg, is_new = get_one_or_create(
                     _db, WorkGenre, work=self, genre=g)
-            if is_new or wg.affinity != affinity:
+            if is_new or round(wg.affinity,2) != round(affinity, 2):
                 changed = True
             wg.affinity = affinity
             workgenres.append(wg)
@@ -6479,3 +6492,16 @@ def dump_query(query):
             v = v.encode(enc)
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
+
+
+def numericrange_to_tuple(r):
+    """Helper method to normalize NumericRange into a tuple."""
+    if r is None:
+        return (None, None)
+    lower = r.lower
+    upper = r.upper
+    if lower and not r.lower_inc:
+        lower -= 1
+    if upper and not r.upper_inc:
+        upper -= 1
+    return lower, upper
