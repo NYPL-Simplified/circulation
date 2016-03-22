@@ -77,7 +77,6 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             )
             metadata_lookup = SimplifiedOPDSLookup(url)
         self.lookup = metadata_lookup
-        self.search_index = ExternalSearchIndex()
 
         super(MetadataWranglerCoverageProvider, self).__init__(
             self.service_name,
