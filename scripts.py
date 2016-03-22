@@ -18,6 +18,7 @@ from model import (
     Edition,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Subject,
     Work,
     WorkGenre,
@@ -272,6 +273,7 @@ class WorkProcessingScript(IdentifierInputScript):
                 self.process_work(work)
             offset += self.batch_size
             self._db.commit()
+            break
         self._db.commit()
 
     def process_work(self, work):
@@ -355,27 +357,25 @@ class WorkConsolidationScript(WorkProcessingScript):
 class WorkPresentationScript(WorkProcessingScript):
     """Calculate the presentation for Work objects."""
 
-    choose_edition = True
-    classify = True
-    choose_summary = True
-    calculate_quality = True
+    # Do a complete recalculation of the presentation.
+    policy = PresentationCalculationPolicy()
 
     def process_work(self, work):
-        work.calculate_presentation(
-            choose_edition=self.choose_edition, 
-            classify=self.classify,
-            choose_summary=self.choose_summary,
-            calculate_quality=self.calculate_quality
-        )
+        work.calculate_presentation(policy=self.policy)
 
 class WorkClassificationScript(WorkPresentationScript):
-    """Recalculate the classification for Work objects.
-    Just the classification, not the rest of calculate_presentation.
+    """Recalculate the classification--and nothing else--for Work objects.
     """
-    choose_edition = False
-    classify = True
-    choose_summary = False
-    calculate_quality = False
+    policy = PresentationCalculationPolicy(
+        choose_edition=False,
+        set_edition_metadata=False,
+        classify=True,
+        choose_summary=False,
+        calculate_quality=False,
+        choose_cover=False,
+        regenerate_opds_entries=False, 
+        update_search_index=False,
+    )
 
 
 class CustomListManagementScript(Script):
@@ -501,7 +501,7 @@ class Explain(IdentifierInputScript):
         #self._db.commit()
 
     @classmethod
-    def explain(cls, _db, edition, calculate_presentation=False):
+    def explain(cls, _db, edition, presentation_calculation_policy=None):
         if edition.medium != 'Book':
             return
         output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
@@ -520,9 +520,9 @@ class Explain(IdentifierInputScript):
         else:
             print " No associated work."
 
-        if work and calculate_presentation:
+        if work and presentation_calculation_policy is not None:
              print "!!! About to calculate presentation!"
-             work.calculate_presentation()
+             work.calculate_presentation(policy=presentation_calculation_policy)
              print "!!! All done!"
              print
              print "After recalculating presentation:"

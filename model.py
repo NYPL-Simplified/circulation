@@ -2383,6 +2383,8 @@ class Edition(Base):
         self.open_access_download_url = url
 
     def set_cover(self, resource):
+        old_cover = self.cover
+        old_cover_full_url = self.cover_full_url
         self.cover = resource
         self.cover_full_url = resource.representation.mirror_url
 
@@ -2399,11 +2401,12 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
-        logging.debug(
-            "Setting cover for %s/%s: full=%s thumb=%s", 
-            self.primary_identifier.type, self.primary_identifier.identifier,
-            self.cover_full_url, self.cover_thumbnail_url
-        )
+        if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
+            logging.debug(
+                "Setting cover for %s/%s: full=%s thumb=%s", 
+                self.primary_identifier.type, self.primary_identifier.identifier,
+                self.cover_full_url, self.cover_thumbnail_url
+            )
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,
                         **kwargs):
