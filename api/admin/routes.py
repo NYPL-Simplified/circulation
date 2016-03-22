@@ -67,7 +67,10 @@ def work_details(data_source, identifier):
 @returns_problem_detail
 @requires_admin
 def work_complaints(data_source, identifier):
-    return flask.jsonify(**app.manager.admin_work_controller.complaints(data_source, identifier))
+    data = app.manager.admin_work_controller.complaints(data_source, identifier)
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
 
 @app.route('/admin/works/<data_source>/<identifier>/edit', methods=['POST'])
 @returns_problem_detail
