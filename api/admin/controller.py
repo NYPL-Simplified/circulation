@@ -178,10 +178,7 @@ class WorkController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
-        index = dict({})
-        for pool in work.license_pools:
-            for complaint in pool.complaints:
-                index[complaint.type] = index.get(complaint.type, 0) + 1
+        index = work.complaints_index()
         response = dict({
             "book": { 
                 "id": data_source + "/" + identifier
