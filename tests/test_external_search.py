@@ -520,38 +520,29 @@ class TestExternalSearch(DatabaseTest):
         search = DummyExternalSearchIndex()
 
         # Basic query
-        query = search.make_query("test")['bool']
+        query = search.make_query("test")
 
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must']
-        should = query['should']
+        must = query['dis_max']['queries']
 
-        eq_(1, len(must))
-        multi_match = must[0]['bool']['should'][0]['multi_match']
+        eq_(2, len(must))
+        multi_match = must[0]['multi_match']
         eq_("test", multi_match['query'])
         assert "title^4" in multi_match['fields']
-        
-        eq_(1, len(should))
-        multi_match = should[0]['multi_match']
-        eq_("test", multi_match['query'])
         assert 'publisher' in multi_match['fields']
 
 
         # Query with genre
-        query = search.make_query("test romance")['bool']
-        
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        query = search.make_query("test romance")
 
-        eq_(2, len(must))
+        must = query['dis_max']['queries']
+
+        eq_(3, len(must))
         full_query = must[0]['multi_match']
         eq_("test romance", full_query['query'])
         assert "title^4" in full_query['fields']
+        assert 'publisher' in full_query['fields']
 
-        classification_query = must[1]['bool']['must']
+        classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         genre_query = classification_query[0]['multi_match']
         eq_('Romance', genre_query['query'])
@@ -560,24 +551,16 @@ class TestExternalSearch(DatabaseTest):
         assert "test" in remaining_query['query']
         assert "romance" not in remaining_query['query']
         assert 'author^4' in remaining_query['fields']
-        
-        eq_(1, len(should))
-        multi_match = should[0]['multi_match']
-        eq_("test romance", multi_match['query'])
-        assert 'publisher' in multi_match['fields']
 
 
         # Query with fiction
-        query = search.make_query("test nonfiction")['bool']
+        query = search.make_query("test nonfiction")
         
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        must = query['dis_max']['queries']
 
-        eq_(2, len(must))
+        eq_(3, len(must))
 
-        classification_query = must[1]['bool']['must']
+        classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         fiction_query = classification_query[0]['multi_match']
         eq_('Nonfiction', fiction_query['query'])
@@ -590,16 +573,13 @@ class TestExternalSearch(DatabaseTest):
         
 
         # Query with genre and fiction
-        query = search.make_query("test romance fiction")['bool']
-        
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        query = search.make_query("test romance fiction")
 
-        eq_(2, len(must))
+        must = query['dis_max']['queries']
 
-        classification_query = must[1]['bool']['must']
+        eq_(3, len(must))
+
+        classification_query = must[2]['bool']['must']
         eq_(3, len(classification_query))
         genre_query = classification_query[0]['multi_match']
         eq_('Romance', genre_query['query'])
@@ -615,18 +595,15 @@ class TestExternalSearch(DatabaseTest):
         assert 'author^4' in remaining_query['fields']
 
         # Query with audience
-        query = search.make_query("test young adult")['bool']
-        
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        query = search.make_query("test young adult")
 
-        eq_(2, len(must))
+        must = query['dis_max']['queries']
+
+        eq_(3, len(must))
         full_query = must[0]['multi_match']
         eq_("test young adult", full_query['query'])
 
-        classification_query = must[1]['bool']['must']
+        classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         audience_query = classification_query[0]['multi_match']
         eq_('YoungAdult', audience_query['query'])
@@ -636,18 +613,15 @@ class TestExternalSearch(DatabaseTest):
         assert "young" not in remaining_query['query']
         
         # Query with grade
-        query = search.make_query("test grade 6")['bool']
+        query = search.make_query("test grade 6")
         
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        must = query['dis_max']['queries']
 
-        eq_(2, len(must))
+        eq_(3, len(must))
         full_query = must[0]['multi_match']
         eq_("test grade 6", full_query['query'])
 
-        classification_query = must[1]['bool']['must']
+        classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
@@ -662,18 +636,15 @@ class TestExternalSearch(DatabaseTest):
         assert "grade" not in remaining_query['query']
         
         # Query with age
-        query = search.make_query("test 5-10 years")['bool']
-        
-        assert 'must' in query
-        assert 'should' in query
-        must = query['must'][0]['bool']['should']
-        should = query['should']
+        query = search.make_query("test 5-10 years")
 
-        eq_(2, len(must))
+        must = query['dis_max']['queries']
+
+        eq_(3, len(must))
         full_query = must[0]['multi_match']
         eq_("test 5-10 years", full_query['query'])
 
-        classification_query = must[1]['bool']['must']
+        classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
