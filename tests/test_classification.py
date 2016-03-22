@@ -3,6 +3,7 @@
 from nose.tools import eq_, set_trace
 from . import DatabaseTest
 from collections import Counter
+from psycopg2.extras import NumericRange
 from model import (
     Genre,
     DataSource,
@@ -30,23 +31,43 @@ from classifier import (
 class TestClassifier(object):
 
     def test_default_target_age_for_audience(self):
+
+        def r(l, h):
+            return NumericRange(l, h, '[]')
+
         eq_(
-            (None, None), 
+            r(None, None), 
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_CHILDREN)
         )
         eq_(
-            (14, 17), 
+            r(14, 17), 
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_YOUNG_ADULT)
         )
         eq_(
-            (18, None), 
+            r(18, None), 
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULT)
         )
         eq_(
-            (18, None), 
+            r(18, None), 
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULTS_ONLY)
         )
 
+    def test_default_audience_for_target_age(self):
+        def aud(low,high, expect):
+            range = NumericRange(low, high, '[]')
+            eq_(expect, Classifier.default_audience_for_target_age(range))
+
+        eq_(None, Classifier.default_audience_for_target_age(None))
+        aud(None, None, None)
+        aud(None, 17, Classifier.AUDIENCE_YOUNG_ADULT)
+        aud(None, 4, Classifier.AUDIENCE_CHILDREN)
+        aud(None, 44, None)
+        aud(18, 44, Classifier.AUDIENCE_ADULT)
+        aud(12, 15, Classifier.AUDIENCE_CHILDREN)
+        aud(14, 14, Classifier.AUDIENCE_YOUNG_ADULT)
+        aud(14, 19, Classifier.AUDIENCE_YOUNG_ADULT)
+        aud(2, 14, Classifier.AUDIENCE_CHILDREN)
+        aud(2, 8, Classifier.AUDIENCE_CHILDREN)
 
 class TestClassifierLookup(object):
 
@@ -783,7 +804,10 @@ class TestWorkClassifier(DatabaseTest):
 
         # And only most_reliable_target_age_subset is used to calculate
         # the target age.
-        eq_((0,3),  self.classifier.target_age(Classifier.AUDIENCE_CHILDREN))
+        eq_(
+            NumericRange(0,3, '[]'),  
+            self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
+        )
 
     def test_target_age_errs_towards_wider_span(self):
         i = self._identifier()
@@ -801,7 +825,7 @@ class TestWorkClassifier(DatabaseTest):
         genres, fiction, audience, target_age = self.classifier.classify
 
         eq_(Classifier.AUDIENCE_CHILDREN, audience)
-        eq_((6,9), target_age)
+        eq_(NumericRange(6,9, '[]'), target_age)
 
     def test_fiction_status_restricts_genre(self):
         # Classify a book to imply that it's 50% science fiction and
@@ -900,7 +924,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(u"History", genres.keys()[0].name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
-        eq_((14,17), target_age)
+        eq_(NumericRange(14,17, '[]'), target_age)
 
     def test_top_tier_values(self):
         c = Counter()

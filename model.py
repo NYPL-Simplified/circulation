@@ -2704,13 +2704,75 @@ class Edition(Base):
 
     UNKNOWN_AUTHOR = u"[Unknown]"
 
-    def calculate_presentation(self, calculate_opds_entry=True):
-
+    def calculate_presentation(self, policy=None):
+        """Make sure the presentation of this edition is up-to-date."""
         _db = Session.object_session(self)
+        changed = False
+        if policy is None:
+            policy = PresentationCalculationPolicy()
 
+        # Gather information up front that will be used to determine
+        # whether this method actually did anything.
+        old_author = self.author
+        old_sort_author = self.sort_author
+        old_sort_title = self.sort_title
+        old_work_id = self.permanent_work_id
+        old_open_access_download_url = self.open_access_download_url
+        old_cover = self.cover
+        old_cover_full_url = self.cover_full_url
+
+        if policy.set_edition_metadata:
+            self.author, self.sort_author = self.calculate_author()
+            self.sort_title = TitleProcessor.sort_title_for(self.title)
+            self.calculate_permanent_work_id()
+            self.set_open_access_link()
+
+        if policy.choose_cover:
+            self.choose_cover()
+
+        if (self.author != old_author 
+            or self.sort_author != old_sort_author
+            or self.sort_title != old_sort_title
+            or self.permanent_work_id != old_work_id
+            or self.open_access_download_url != old_open_access_download_url
+            or self.cover != old_cover
+            or self.cover_full_url != old_cover_full_url
+        ):
+            changed = True
+
+        if changed:
+            # last_update_time tracks the last time the data 
+            # actually changed.
+            #
+            # TODO: We need CoverageProviders to track the last time
+            # we _checked_ whether or not to change the data.
+            self.last_update_time = datetime.datetime.utcnow()
+
+        # Now that everything's calculated, log it.
+        if policy.verbose:
+            if changed:
+                changed = "changed"
+                level = logging.info
+            else:
+                changed = "unchanged"
+                level = logging.debug
+
+            msg = "Presentation %s for Edition %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
+            args = [changed, self.title, self.author, self.publisher, 
+                    self.primary_identifier, self.permanent_work_id, self.language]
+            if self.cover and self.cover.representation:
+                args.append(self.cover.representation.mirror_url)
+            else:
+                args.append(None)
+            level(msg, *args)
+        return changed
+
+    def calculate_author(self):
+        """Turn the list of Contributors into string values for .author
+        and .sort_author.
+        """
         sort_names = []
         display_names = []
-        self.last_update_time = datetime.datetime.utcnow()
         for author in self.author_contributors:
             if author.name and not author.display_name or not author.family_name:
                 default_family, default_display = author.default_names()
@@ -2719,19 +2781,17 @@ class Edition(Base):
             display_names.append([family_name, display_name])
             sort_names.append(author.name)
         if display_names:
-            self.author = ", ".join([x[1] for x in sorted(display_names)])
+            author = ", ".join([x[1] for x in sorted(display_names)])
         else:
-            self.author = self.UNKNOWN_AUTHOR
+            author = self.UNKNOWN_AUTHOR
         if sort_names:
-            self.sort_author = " ; ".join(sorted(sort_names))
+            sort_author = " ; ".join(sorted(sort_names))
         else:
-            self.sort_author = self.UNKNOWN_AUTHOR
-           
-        if not self.sort_title:
-            self.sort_title = TitleProcessor.sort_title_for(self.title)
-        self.calculate_permanent_work_id()
+            sort_author = self.UNKNOWN_AUTHOR
+        return author, sort_author
 
-        self.set_open_access_link()
+    def choose_cover(self):
+        """Try to find a cover that can be used for this Edition."""
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
@@ -2754,23 +2814,6 @@ class Edition(Base):
                 self.set_cover(best_cover)
                 break
 
-        from opds import (
-            AcquisitionFeed,
-            Annotator,
-        )
-        #self.simple_opds_entry = etree.tostring(
-        #    AcquisitionFeed.single_entry(_db, self, Annotator))
-
-        # Now that everything's calculated, log it.
-        msg = "Calculated presentation for %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
-        args = [self.title, self.author, self.publisher, 
-                self.primary_identifier, self.permanent_work_id, self.language]
-        if self.cover and self.cover.representation:
-            args.append(self.cover.representation.mirror_url)
-        else:
-            args.append(None)
-        logging.info(msg, *args)
-
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
@@ -2791,6 +2834,40 @@ class WorkGenre(Base):
 
     def __repr__(self):
         return "%s (%d%%)" % (self.genre.name, self.affinity*100)
+
+
+class PresentationCalculationPolicy(object):
+    """Which parts of the Work or Edition's presentation
+    are we actually looking to update?
+    """
+    def __init__(self, 
+                 choose_edition=True, 
+                 set_edition_metadata=True,
+                 classify=True,
+                 choose_summary=True, 
+                 calculate_quality=True,
+                 choose_cover=True,
+                 regenerate_opds_entries=False, 
+                 update_search_index=False,
+                 verbose=True
+    ):
+        self.choose_edition = choose_edition
+        self.set_edition_metadata = set_edition_metadata
+        self.classify = classify
+        self.choose_summary=choose_summary, 
+        self.calculate_quality=calculate_quality,
+        self.choose_cover = choose_cover
+
+        # We will regenerate OPDS entries if any of the metadata
+        # changes, but if regenerate_opds_entries is True we will
+        # _always_ do so. This is so we can regenerate _all_ the OPDS
+        # entries if the OPDS presentation algorithm changes.
+        self.regenerate_opds_entries = regenerate_opds_entries
+
+        # Similarly for update_search_index.
+        self.update_search_index = update_search_index
+
+        self.verbose = verbose
 
 
 class Work(Base):
@@ -3266,12 +3343,7 @@ class Work(Base):
                 edition.is_primary_for_work = True
                 self.primary_edition = edition
 
-    def calculate_presentation(self, choose_edition=True,
-                               classify=True, choose_summary=True,
-                               calculate_quality=True,
-                               calculate_opds_entry=True,
-                               search_index_client=None,
-                               debug=True):
+    def calculate_presentation(self, policy=None, search_index_client=None):
         """Determine the following information:
         
         * Which Edition is the 'primary'. The default view of the
@@ -3283,87 +3355,99 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-        dirty = False
-        if choose_edition or not self.primary_edition:
+        policy = policy or PresentationCalculationPolicy()
+
+        # Gather information up front so we can see if anything
+        # actually changed.
+        changed = False
+        edition_metadata_changed = False
+        classification_changed = False
+
+        primary_edition = self.primary_edition
+        summary = self.summary
+        summary_text = self.summary_text
+        quality = self.quality
+
+        if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
         privileged_data_source = None
-        privileged_data_source_descriptions = None
         if self.primary_edition:
             privileged_data_source = self.primary_edition.data_source
-            # We can't use descriptions or covers from Gutenberg.
-            if privileged_data_source.name != DataSource.GUTENBERG:
-                privileged_data_source_descriptions = privileged_data_source
+            # Descriptions from Gutenberg are useless, so it can't
+            # be a privileged data source.
+            if privileged_data_source.name == DataSource.GUTENBERG:
+                privileged_data_source = None
 
         if self.primary_edition:
-            self.primary_edition.calculate_presentation(
-                calculate_opds_entry=calculate_opds_entry)
+            edition_metadata_changed = self.primary_edition.calculate_presentation(
+                policy
+            )
 
-        if not (classify or choose_summary or calculate_quality):
-            return
+        if policy.classify or policy.choose_summary or policy.calculate_quality:
+            # Find all related IDs that might have associated descriptions,
+            # classifications, or measurements.
+            _db = Session.object_session(self)
+            primary_identifier_ids = [
+                x.primary_identifier.id for x in self.editions
+            ]
+            data = Identifier.recursively_equivalent_identifier_ids(
+                _db, primary_identifier_ids, 5, threshold=0.5
+            )
+            flattened_data = Identifier.flatten_identifier_ids(data)
+        else:
+            flattened_data = []
 
-        # Find all related IDs that might have associated descriptions
-        # or classifications.
-        _db = Session.object_session(self)
-        primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions]
-        data = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, 5, threshold=0.5)
-        flattened_data = Identifier.flatten_identifier_ids(data)
-        if classify:
-            workgenres, self.fiction, self.audience, target_age = self.assign_genres(
-                flattened_data)
-            lower, upper = target_age
-            self.target_age = NumericRange(lower, upper, '[]')
+        if policy.classify:
+            classification_changed = self.assign_genres(flattened_data)
 
-
-        if choose_summary:
+        if policy.choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source_descriptions)
+                _db, flattened_data, privileged_data_source
+            )
             # TODO: clean up the content
-            self.set_summary(summary)
+            self.set_summary(summary)      
 
-        # Measure the number of IDs associated with the work (~the
-        # number of editions of the work published in modern times).
-        if privileged_data_source:
-            oclc_linked_data = DataSource.lookup(
-                _db, DataSource.OCLC_LINKED_DATA)
-            self.primary_edition.primary_identifier.add_measurement(
-                oclc_linked_data, Measurement.PUBLISHED_EDITIONS, 
-                len(flattened_data))
-            #if dsn == DataSource.GUTENBERG:
-            #    # Only consider the quality signals associated with the
-            #    # primary edition. Otherwise texts that have multiple
-            #    # Gutenberg editions will drag down the quality of popular
-            #    # books.
-            #    flattened_data = [self.primary_edition.primary_identifier.id]
-
-        
-
-        if calculate_quality:
+        if policy.calculate_quality:
             default_quality = 0
             if self.primary_edition:
                 data_source_name = self.primary_edition.data_source.name
                 default_quality = self.default_quality_by_data_source.get(
-                    data_source_name, 0)
+                    data_source_name, 0
+                )
             self.calculate_quality(flattened_data, default_quality)
 
-        self.last_update_time = datetime.datetime.utcnow()
+        changed = (
+            edition_metadata_changed or
+            classification_changed or
+            primary_edition != self.primary_edition or
+            summary != self.summary or
+            summary_text != self.summary_text or
+            quality != self.quality
+        )
 
-        if calculate_opds_entry:
+        if changed:
+            # last_update_time tracks the last time the data actually
+            # changed, not the last time we checked whether or not to
+            # change it.
+            #
+            # TODO: We need WorkCoverageProviders for the various checks
+            # we ran to determine whether or not to change something.
+            self.last_update_time = datetime.datetime.utcnow()
+
+        if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
 
-        if not search_index_client:
-            search_index_client = ExternalSearchIndex()
-
-        self.update_external_index(search_index_client)
+        if changed or policy.update_search_index:
+            if not search_index_client:
+                search_index_client = ExternalSearchIndex()
+            self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
-        if debug:
+        if policy.verbose:
             logging.info(self.detailed_representation)
-
 
     @property
     def detailed_representation(self):
@@ -3509,7 +3593,17 @@ class Work(Base):
             measurements, default_value=default_quality)
 
     def assign_genres(self, identifier_ids, cutoff=0.15):
+        """Set classification information for this work based on the
+        given flattened set of equivalent identifiers (`identifier_ids`).
+
+        :return: A boolean explaining whether or not any data actually
+        changed.
+        """
         classifier = WorkClassifier(self)
+
+        old_fiction = self.fiction
+        old_audience = self.audience
+        old_target_age = self.target_age
 
         _db = Session.object_session(self)
         classifications = Identifier.classifications_for_identifier_ids(
@@ -3518,13 +3612,25 @@ class Work(Base):
         for classification in classifications:
             classifier.add(classification)
 
-        genre_weights, fiction, audience, target_age = classifier.classify
+        (genre_weights, self.fiction, self.audience, 
+         self.target_age) = classifier.classify
 
-        workgenres = self.assign_genres_from_weights(genre_weights)
-        return workgenres, fiction, audience, target_age
+        workgenres, workgenres_changed = self.assign_genres_from_weights(
+            genre_weights
+        )
+
+        classification_changed = (
+            workgenres_changed or 
+            old_fiction != self.fiction or
+            old_audience != self.audience or
+            old_target_age != self.target_age
+        )
+
+        return classification_changed
 
     def assign_genres_from_weights(self, genre_weights):
         # Assign WorkGenre objects to the remainder.
+        changed = False
         _db = Session.object_session(self)
         total_genre_weight = float(sum(genre_weights.values()))
         workgenres = []
@@ -3538,10 +3644,13 @@ class Work(Base):
                 g, ignore = Genre.lookup(_db, g.name)
             if g in by_genre:
                 wg = by_genre[g]
+                is_new = False
                 del by_genre[g]
             else:
-                wg, ignore = get_one_or_create(
+                wg, is_new = get_one_or_create(
                     _db, WorkGenre, work=self, genre=g)
+            if is_new or wg.affinity != affinity:
+                changed = True
             wg.affinity = affinity
             workgenres.append(wg)
 
@@ -3549,7 +3658,8 @@ class Work(Base):
         # was once classified under, but is no longer. Delete them.
         for wg in by_genre.values():
             _db.delete(wg)
-        return workgenres
+            changed = True
+        return workgenres, changed
 
 
     def assign_appeals(self, character, language, setting, story,
@@ -4466,14 +4576,9 @@ class Subject(Base):
             audience = Classifier.AUDIENCE_ADULTS_ONLY
 
         if audience in Classifier.AUDIENCES_ADULT:
-            target_age = (None, None)
-        lower, upper = target_age
-        if lower and upper:
-            if lower > upper:
-                lower, upper = upper, lower
-            target_age = (lower, upper, '[]')
-        target_age = NumericRange(*target_age)
-        if not audience and target_age and target_age != NumericRange(None, None):
+            target_age = Classifier.default_target_age_for_audience(audience)
+        if not audience:
+            audience = Classifier.default_audience_for_target_age(target_age)
             if target_age.lower >= 18:
                 audience = Classifier.AUDIENCE_ADULT
             elif target_age.lower >= 12:

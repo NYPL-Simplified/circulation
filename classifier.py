@@ -23,6 +23,7 @@ from collections import (
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
+from psycopg2.extras import NumericRange
 
 base_dir = os.path.split(__file__)[0]
 resource_dir = os.path.join(base_dir, "resources")
@@ -170,7 +171,7 @@ class Classifier(object):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
-        return None, None
+        return NumericRange(None, None, '[]')
 
     @classmethod
     def default_target_age_for_audience(self, audience):
@@ -182,12 +183,50 @@ class Classifier(object):
         it's very clear.
         """
         if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 17)
+            return NumericRange(14, 17, '[]')
         elif audience in (
                 Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
         ):
-            return (18, None)
-        return (None, None)
+            return (NumericRange(18, None, '[]'))
+        return NumericRange(None, None, '[]')
+
+    @classmethod
+    def default_audience_for_target_age(cls, target_age):
+        """The default audience for a given target age.
+
+        Inverse of default_target_age_for_audience.
+        """
+        if not target_age:
+            # We were not passed a NumericRange
+            return None
+
+        lower = target_age.lower
+        upper = target_age.upper
+
+        if not lower and not upper:
+            # We have no information.
+            return None
+
+        # Sometimes we can determine audience given only a lower bound.
+        if lower:
+            if lower < cls.YOUNG_ADULT_AGE_CUTOFF:
+                return Classifier.AUDIENCE_CHILDREN
+            elif lower < 18:
+                return Classifier.AUDIENCE_YOUNG_ADULT
+            else:
+                return Classifier.AUDIENCE_ADULT
+
+        # Sometimes we can determine audience given only an upper
+        # bound.
+        if upper:
+            if upper < cls.YOUNG_ADULT_AGE_CUTOFF:
+                return Classifier.AUDIENCE_CHILDREN
+            elif upper < 18:
+                return Classifier.AUDIENCE_YOUNG_ADULT
+
+        # This will happen if lower is null and upper is greater than 18.
+        # This is a pretty weird case and we don't have a good answer.
+        return None
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -3462,7 +3501,7 @@ class WorkClassifier(object):
         # never happen, but we fix it just in case.
         if target_age_min > target_age_max:
             target_age_min, target_age_max = target_age_max, target_age_min
-        return target_age_min, target_age_max
+        return NumericRange(target_age_min, target_age_max, '[]')
 
     def genres(self, fiction, cutoff=0.15):
         """Consolidate genres and apply a low-pass filter."""

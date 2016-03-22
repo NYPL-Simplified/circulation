@@ -377,7 +377,7 @@ class TestSubject(DatabaseTest):
         # But calling assign_to_genre() will fix it.
         subject.assign_to_genre()
         eq_(Classifier.AUDIENCE_CHILDREN, subject.audience)
-        eq_(NumericRange(None, None), subject.target_age)
+        eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
         
