@@ -35,7 +35,6 @@ from core.app_server import (
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
-import json
 
 
 def setup_admin_controllers(manager):
@@ -172,7 +171,7 @@ class WorkController(CirculationManagerController):
         )
         
     def complaints(self, data_source, identifier):
-        """Return JSON with detailed complaint information for admins."""
+        """Return detailed complaint information for admins."""
         
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
