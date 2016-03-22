@@ -371,7 +371,7 @@ class TestExternalSearch(DatabaseTest):
         age_range_and_fiction.set_presentation_ready()
         age_range_and_fiction.update_external_index(self.search)
 
-        age_range_only = self._work()
+        age_range_only = self._work(fiction=False)
         age_range_only.target_age = NumericRange(7, 7)
         age_range_only.set_presentation_ready()
         age_range_only.update_external_index(self.search)

@@ -139,7 +139,7 @@ class ExternalSearchIndex(Elasticsearch):
                 # or a dash.
                 word_boundary_pattern = r"\b%s[\w'\-]*\b"
 
-                return re.compile(word_boundary_pattern % match, re.IGNORECASE).sub("", original_string)
+                return re.compile(word_boundary_pattern % match.strip(), re.IGNORECASE).sub("", original_string)
 
             if genre:
                 match_genre = make_match_query(genre.name, ['classifications.name'])
