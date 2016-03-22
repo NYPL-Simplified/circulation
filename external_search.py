@@ -141,34 +141,15 @@ class ExternalSearchIndex(Elasticsearch):
 
                 return re.compile(word_boundary_pattern % match, re.IGNORECASE).sub("", original_string)
 
-            # For children's, it could be the parenting genre or the children audience,
-            # so only one of genre and audience must match.
-            if genre and audience and (audience_match in genre_match or genre_match in audience_match):
+            if genre:
                 match_genre = make_match_query(genre.name, ['classifications.name'])
-                match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
-                genre_or_audience_query = {
-                    'bool': {
-                        'should' : [
-                            match_genre,
-                            match_audience,
-                        ],
-                        'minimum_should_match': 1
-                    }
-                }
-                classification_queries.append(genre_or_audience_query)
+                classification_queries.append(match_genre)
                 remaining_string = without_match(remaining_string, genre_match)
+
+            if audience:
+                match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
+                classification_queries.append(match_audience)
                 remaining_string = without_match(remaining_string, audience_match)
-
-            else:
-                if genre:
-                    match_genre = make_match_query(genre.name, ['classifications.name'])
-                    classification_queries.append(match_genre)
-                    remaining_string = without_match(remaining_string, genre_match)
-
-                if audience:
-                    match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
-                    classification_queries.append(match_audience)
-                    remaining_string = without_match(remaining_string, audience_match)
 
             if fiction:
                 match_fiction = make_match_query(fiction, ['fiction'])
