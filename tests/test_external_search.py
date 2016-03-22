@@ -48,6 +48,7 @@ class TestExternalSearch(DatabaseTest):
         work.primary_edition.subtitle = "Or, the Whale"
         work.primary_edition.series = "Classics"
         work.summary_text = "Ishmael"
+        work.primary_edition.publisher = "Project Gutenberg"
         work.set_presentation_ready()
         work.update_external_index(self.search)
         time.sleep(1)
@@ -67,7 +68,10 @@ class TestExternalSearch(DatabaseTest):
         summary_results = self.search.query_works("ishmael", None, None, None, None, None, None, None)
         eq_(1, len(summary_results["hits"]["hits"]))
 
-    def test_query_works_ranks_title_above_subtitle_above_summary(self):
+        publisher_results = self.search.query_works("gutenberg", None, None, None, None, None, None, None)
+        eq_(1, len(summary_results["hits"]["hits"]))
+
+    def test_query_works_ranks_title_above_subtitle_above_summary_above_publisher(self):
         if not self.search:
             return
 
@@ -85,14 +89,20 @@ class TestExternalSearch(DatabaseTest):
         summary_match.set_presentation_ready()
         summary_match.update_external_index(self.search)
         
+        publisher_match = self._work()
+        publisher_match.primary_edition.publisher = "Match"
+        publisher_match.set_presentation_ready()
+        publisher_match.update_external_index(self.search)
+
         time.sleep(1)
  
         results = self.search.query_works("match", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
-        eq_(3, len(hits))
+        eq_(4, len(hits))
         eq_(unicode(title_match.id), hits[0]['_id'])
         eq_(unicode(subtitle_match.id), hits[1]['_id'])
         eq_(unicode(summary_match.id), hits[2]['_id'])
+        eq_(unicode(publisher_match.id), hits[3]['_id'])
         
     def test_query_works_ranks_closer_match_higher(self):
         if not self.search:
@@ -126,11 +136,31 @@ class TestExternalSearch(DatabaseTest):
         title_only.update_external_index(self.search)
 
         time.sleep(1)
-        
+
         results = self.search.query_works("moby melville", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(title_author.id), hits[0]['_id'])
+
+    def test_query_works_ranks_single_field_match_higher_than_cross_field(self):
+        if not self.search:
+            return
+
+        single_field = self._work(title="Moby Dick")
+        single_field.set_presentation_ready()
+        single_field.update_external_index(self.search)
+
+        cross_fields = self._work(title="Moby", authors="Dick")
+        cross_fields.set_presentation_ready()
+        cross_fields.update_external_index(self.search)
+
+        time.sleep(1)
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        eq_(unicode(single_field.id), hits[0]['_id'])
+        eq_(unicode(cross_fields.id), hits[1]['_id'])
 
     def test_query_works_matches_misspelled_word(self):
         if not self.search:

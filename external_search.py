@@ -71,7 +71,7 @@ class ExternalSearchIndex(Elasticsearch):
                 'multi_match': {
                     'query': query_string,
                     'fields': fields,
-                    'type': 'best_fields'
+                    'type': "best_fields"
                 }
             }
 
@@ -94,12 +94,33 @@ class ExternalSearchIndex(Elasticsearch):
                 }
             }
 
-        main_fields = ['title^4', 'author^4', "series^4", 'subtitle^3', 'summary']
+        main_fields = ['title^4', 'author^4', "series^4", 'subtitle^3', 'summary^2', 'publisher', 'imprint']
 
         # Find results that match the full query string in one of the main
         # fields.
         match_full_query = make_match_query(query_string, main_fields)
         must_match_options = [match_full_query]
+
+        # Find results that match terms from the query in different fields,
+        # e.g. title and author.
+        # The boost factor here is very questionable. If it's lower, then a
+        # result where all the terms match different fields may be ranked below
+        # a result where only one of the terms matches any field. If it's higher,
+        # a result where all the terms match one field may be ranked below a
+        # result where all the terms match but in different fields. I've
+        # tweaked this for a particular query so it may not work well more generally.
+        # I'd like cross_fields and best_fields to have equal weight but the
+        # scores from cross_fields seem to always be lower than best_fields.
+        # I'm not sure it's a good idea to use them together at all.
+        cross_fields_query = {
+            'multi_match': {
+                'query': query_string,
+                'fields': main_fields,
+                'type': "cross_fields",
+                'boost': 3
+             }
+        }
+        must_match_options.append(cross_fields_query)
 
 
         # If fiction or genre is in the query, results can match the fiction or 
@@ -188,22 +209,14 @@ class ExternalSearchIndex(Elasticsearch):
             must_match_options.append(match_classification_and_rest_of_query)
 
         # Results must match either the full query or the genre/fiction query.
-        must_match = {
-            'bool': {
-                'should': must_match_options,
-                'minimum_should_match': 1
+        # dis_max uses the highest score from the matching queries, rather than
+        # summing the scores.
+        return {
+            'dis_max': {
+                'queries': must_match_options
             }
         }
         
-        # Results don't have to match any of the secondary fields, but if they do,
-        # they'll have a higher score.
-        secondary_fields = ["summary^2", "publisher", "imprint"]
-        match_secondary_fields = make_match_query(query_string, secondary_fields)
-        
-        return dict(bool=dict(must=[must_match],
-                              should=[match_secondary_fields]),
-        )
-
     def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
