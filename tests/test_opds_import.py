@@ -206,10 +206,6 @@ class TestOPDSImporter(DatabaseTest):
             key=lambda x: x.quantity_measured
         )
 
-        eq_(DataSource.OCLC_LINKED_DATA, editions.data_source.name)
-        eq_(Measurement.PUBLISHED_EDITIONS, editions.quantity_measured)
-        eq_(1, editions.value)
-
         eq_(DataSource.METADATA_WRANGLER, popularity.data_source.name)
         eq_(Measurement.POPULARITY, popularity.quantity_measured)
         eq_(0.25, popularity.value)
