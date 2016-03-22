@@ -150,17 +150,16 @@ class TestWorkController(AdminControllerTest):
             "complaint3 detail")
 
         SessionManager.refresh_materialized_views(self._db)
-        [lp] = work.license_pools()
+        [lp] = work.license_pools
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_feed_controller.complaints(lp.data_source.name, lp.identifier.identifier)
-            data = json.loads(response.data)
+            response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.identifier)
             expected = dict({})
             expected[type1] = 2
             expected[type2] = 1
 
-            eq_(data.book.id, lp.data_source.name + "/" + lp.identifier.identifier)
-            eq_(data.complaints, expected)
+            eq_(response['book']['id'], lp.data_source.name + "/" + lp.identifier.identifier)
+            eq_(response['complaints'], expected)
         
 
 class TestSigninController(AdminControllerTest):
