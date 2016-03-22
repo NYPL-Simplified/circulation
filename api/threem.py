@@ -513,12 +513,11 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     count the same event.  However it will greatly improve our current
     view of our 3M circulation, which is more important.
     """
-    def __init__(self, _db, account_id=None, library_id=None, account_key=None):
+    def __init__(self, _db, testing=False):
         super(ThreeMCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
-        self.api = ThreeMAPI(self._db, account_id, library_id,
-                             account_key)
+        self.api = ThreeMAPI(self._db, testing=testing)
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
     def identifier_query(self):
@@ -603,15 +602,36 @@ class ThreeMEventMonitor(Monitor):
     associated with it until the ThreeMCirculationMonitor runs.
     """
 
+    TWO_YEARS_AGO = datetime.timedelta(365*2)
+
     def __init__(self, _db, default_start_time=None,
-                 account_id=None, library_id=None, account_key=None):
+                 account_id=None, library_id=None, account_key=None,
+                 cli_date=None, testing=False):
+        self.service_name = "3M Event Monitor"
+        if not default_start_time:
+            default_start_time = self.create_default_start_time(cli_date)
         super(ThreeMEventMonitor, self).__init__(
-            _db, "3M Event Monitor", default_start_time=default_start_time)
-        self.account_id = account_id
-        self.library_id = library_id
-        self.account_key = account_key
-        self.api = ThreeMAPI(self._db, self.account_id, self.library_id,
-                             self.account_key)
+            _db, self.service_name, default_start_time=default_start_time)
+        self.api = ThreeMAPI(self._db, testing=testing)
+
+    def create_default_start_time(self, cli_date):
+        """Sets the default start time if it's passed as an argument.
+
+        The command line date argument should have the format YYYY-MM-DD.
+        """
+        if cli_date:
+            try:
+                date = cli_date[0]
+                return datetime.datetime.strptime(date, "%Y-%m-%d")
+            except ValueError as e:
+                # Date argument wasn't in the proper format.
+                two_years_ago = datetime.datetime.utcnow() - self.TWO_YEARS_AGO
+                self.log.warn(
+                    "%r. Using default date instead: %s.", e,
+                    two_years_ago.strftime("%B %d, %Y")
+                )
+                return two_years_ago
+        return None
 
     def slice_timespan(self, start, cutoff, increment):
         """Slice a span of time into segements no large than [increment].

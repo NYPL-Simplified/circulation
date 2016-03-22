@@ -22,6 +22,7 @@ from core.model import (
 from core.lane import Lane
 from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
+from core.util.cdn import cdnify
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -473,8 +474,9 @@ class CirculationManagerAnnotator(Annotator):
         return link_tag
 
     def open_access_link(self, lpdm):
-        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, 
-                  href=lpdm.resource.url)
+        cdn_host = Configuration.cdn_host(Configuration.CDN_OPEN_ACCESS_CONTENT)
+        url = cdnify(lpdm.resource.url, cdn_host)
+        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
         rep = lpdm.resource.representation
         if rep and rep.media_type:
             kw['type'] = rep.media_type
