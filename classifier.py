@@ -3166,11 +3166,11 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.nr(13, 15)
 
         strict_age = AgeClassifier.target_age(identifier, name, True)
-        if any(strict_age):
+        if strict_age.lower or strict_age.upper:
             return strict_age
 
         strict_grade = GradeLevelClassifier.target_age(identifier, name, True)
-        if any(strict_grade):
+        if strict_grade.lower or strict_grade.upper:
             return strict_grade
 
         # Default to assuming it's an unmarked age.
