@@ -63,11 +63,11 @@ def admin_signin():
 def work_details(data_source, identifier):
     return app.manager.admin_work_controller.details(data_source, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/complaints.json', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier>/complaints', methods=['GET'])
 @returns_problem_detail
 @requires_admin
 def work_complaints(data_source, identifier):
-    return app.manager.admin_work_controller.complaints(data_source, identifier)
+    return flask.jsonify(**app.manager.admin_work_controller.complaints(data_source, identifier))
 
 @app.route('/admin/works/<data_source>/<identifier>/edit', methods=['POST'])
 @returns_problem_detail

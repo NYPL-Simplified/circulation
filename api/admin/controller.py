@@ -184,12 +184,12 @@ class WorkController(CirculationManagerController):
                 index[complaint.type] = index.get(complaint.type, 0) + 1
         response = dict({
             "book": { 
-                "title": work.title 
+                "id": data_source + "/" + identifier
             },
             "complaints": index
         })
         
-        return json.dumps(response)
+        return response
 
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
