@@ -5,6 +5,7 @@ from api.threem import (
     CirculationParser,
     EventParser,
     ErrorParser,
+    ThreeMEventMonitor,
 )
 from core.model import (
     CirculationEvent,
@@ -15,6 +16,7 @@ from core.model import (
     Identifier,
     Edition,
 )
+from . import DatabaseTest
 from api.circulation_exceptions import *
 
 class Test3MEventParser(object):
@@ -201,3 +203,25 @@ class TestErrorParser(object):
         # exception for it.
         error = parser.process_all(self.TRIED_TO_HOLD_BOOK_ON_LOAN)
         assert isinstance(error, CannotHold)
+
+
+class TestThreeMEventMonitor(DatabaseTest):
+
+  def test_default_start_time(self):
+    monitor = ThreeMEventMonitor(self._db, testing=True)
+
+    no_args = []
+    eq_(None, monitor.create_default_start_time(no_args))
+
+    not_date_args = ['initialize']
+    too_many_args = ['2013', '04', '02']
+    for args in [not_date_args, too_many_args]:
+      two_years_ago = datetime.datetime.utcnow() - monitor.TWO_YEARS_AGO
+      default_start_time = monitor.create_default_start_time(args)
+
+      eq_(True, isinstance(default_start_time, datetime.datetime))
+      assert (two_years_ago - default_start_time).total_seconds() <= 2
+
+    proper_args = ['2013-04-02']
+    default_start_time = monitor.create_default_start_time(proper_args)
+    eq_(datetime.datetime(2013, 4, 2), default_start_time)
