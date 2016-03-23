@@ -3422,7 +3422,6 @@ class Work(Base):
                 )
             self.calculate_quality(flattened_data, default_quality)
 
-        # TODO: This still isn't working
         if self.summary_text:
             if isinstance(self.summary_text, unicode):
                 new_summary_text = self.summary_text
@@ -3435,7 +3434,7 @@ class Work(Base):
             primary_edition != self.primary_edition or
             summary != self.summary or
             summary_text != new_summary_text or
-            quality != self.quality
+            float(quality) != float(self.quality)
         )
 
         if changed:
