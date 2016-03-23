@@ -193,18 +193,6 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             )
             availability.update(pool, False)
 
-    @classmethod
-    def create_identifier_strings(cls, identifiers):
-        identifier_strings = []
-        for i in identifiers:
-            if isinstance(i, Identifier):
-                value = i.identifier
-            else:
-                value = i
-            identifier_strings.append(value)
-
-        return identifier_strings
-
 class Axis360CirculationMonitor(Monitor):
 
     """Maintain LicensePools for Axis 360 titles.
@@ -520,26 +508,3 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
-
-
-class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for Axis360 records."""
-
-    def __init__(self, _db):
-        self.parser = BibliographicParser()
-        super(Axis360BibliographicCoverageProvider, self).__init__(
-            _db, Axis360API(_db), DataSource.AXIS_360,
-            workset_size=25
-        )
-
-    def process_batch(self, identifiers):
-        identifier_strings = self.api.create_identifier_strings(identifiers)
-        response = self.api.availability(title_ids=identifier_strings)
-        batch_results = []
-        for metadata, availability in self.parser.process_all(response.content):
-            identifier, is_new = metadata.primary_identifier.load(self._db)
-            result = self.set_metadata(identifier, metadata)
-            if not isinstance(result, CoverageFailure):
-                result = self.set_presentation_ready(identifier)
-            batch_results.append(result)
-        return batch_results
