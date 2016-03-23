@@ -3,13 +3,13 @@ from nose.tools import (
     set_trace,
 )
 
-from external_search import ExternalSearchIndex
+from external_search import DummyExternalSearchIndex
 
 class TestExternalSearch(object):
 
     def test_make_query(self):
 
-        search = ExternalSearchIndex(fallback_to_dummy=True)
+        search = DummyExternalSearchIndex()
 
         # Basic query
         query = search.make_query("test")['bool']

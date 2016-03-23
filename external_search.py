@@ -14,25 +14,24 @@ class ExternalSearchIndex(Elasticsearch):
     
     work_document_type = 'work-type'
 
-    def __init__(self, url=None, works_index=None, fallback_to_dummy=True):
+    def __init__(self, url=None, works_index=None):
     
         integration = Configuration.integration(
             Configuration.ELASTICSEARCH_INTEGRATION, 
-            required=not fallback_to_dummy
         )
         self.log = logging.getLogger("External search index")
         self.works_index = works_index or integration.get(
             Configuration.ELASTICSEARCH_INDEX_KEY
         ) or None
 
-        if fallback_to_dummy and not integration:
+        if not integration:
             return
 
         url = integration[Configuration.URL]
         use_ssl = url and url.startswith('https://')
         self.log.info("Connecting to Elasticsearch cluster at %s", url)
         super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
-        if not url and not fallback_to_dummy:
+        if not url:
             raise Exception("Cannot connect to Elasticsearch cluster.")
         if self.works_index and not self.indices.exists(self.works_index):
             self.log.info("Creating index %s", self.works_index)
@@ -287,7 +286,7 @@ class ExternalSearchIndex(Elasticsearch):
             return {}
 
 
-class DummyExternalSearchIndex(object):
+class DummyExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
 

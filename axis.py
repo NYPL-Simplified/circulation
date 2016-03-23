@@ -187,14 +187,27 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
         response = self.api.availability(title_ids=identifier_strings)
+        seen_identifiers = set()
         batch_results = []
         for metadata, availability in self.parser.process_all(response.content):
             identifier, is_new = metadata.primary_identifier.load(self._db)
-            set_trace()
+            seen_identifiers.add(identifier.identifier)
             result = self.set_metadata(identifier, metadata)
             if not isinstance(result, CoverageFailure):
                 result = self.set_presentation_ready(identifier)
             batch_results.append(result)
+
+        # Create a CoverageFailure object for each original identifier
+        # not mentioned in the results.
+        for identifier_string in identifier_strings:
+            if identifier_string not in seen_identifiers:
+                identifier, ignore = Identifier.for_foreign_id(
+                    self._db, Identifier.AXIS_360_ID, identifier_string
+                )
+                result = CoverageFailure(
+                    self, identifier, "Book not in collection", transient=True
+                )
+                batch_results.append(result)
         return batch_results
 
     def process_item(self, identifier):

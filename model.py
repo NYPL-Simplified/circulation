@@ -2762,9 +2762,9 @@ class Edition(Base):
         #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
         # Now that everything's calculated, log it.
-        msg = "Calculated presentation for %s (by %s, pub=%s, pwid=%s, language=%s, cover=%r)"
+        msg = "Calculated presentation for %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
         args = [self.title, self.author, self.publisher, 
-                self.permanent_work_id, self.language]
+                self.primary_identifier.identifier, self.permanent_work_id, self.language]
         if self.cover and self.cover.representation:
             args.append(self.cover.representation.mirror_url)
         else:
@@ -3355,8 +3355,10 @@ class Work(Base):
         if calculate_opds_entry:
             self.calculate_opds_entries()
 
-        if search_index_client:
-            self.update_external_index(search_index_client)
+        if not search_index_client:
+            search_index_client = ExternalSearchIndex()
+
+        self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
         if debug:
@@ -3369,6 +3371,12 @@ class Work(Base):
         l = ["%s (by %s)" % (self.title, self.author)]
         l.append(" language=%s" % self.language)
         l.append(" quality=%s" % self.quality)
+
+        if self.primary_edition and self.primary_edition.primary_identifier:
+            primary_identifier = self.primary_edition.primary_identifier
+        else:
+            primary_identifier=None
+        l.append(" primary id=%s" % primary_identifier)
         if self.fiction:
             fiction = "Fiction"
         elif self.fiction == False:
@@ -4988,8 +4996,7 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None,
-                       search_index_client=None):
+    def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
@@ -5085,7 +5092,7 @@ class LicensePool(Base):
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
-        work.calculate_presentation(search_index_client=search_index_client)
+        work.calculate_presentation()
 
         if created:
             logging.info("Created a new work: %r", work)

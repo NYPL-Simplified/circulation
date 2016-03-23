@@ -34,6 +34,9 @@ from coverage import (
     CoverageProvider,
     CoverageFailure,
 )
+from external_search import DummyExternalSearchIndex
+import mock
+import model
 
 class DatabaseTest(object):
 
@@ -49,11 +52,13 @@ class DatabaseTest(object):
         self.counter = 0
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
+        self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+        self.search_mock.start()
 
     def teardown(self):
         self._db.close()
         self.__transaction.rollback()
-
+        self.search_mock.stop()
 
     @property
     def _id(self):
