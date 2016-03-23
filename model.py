@@ -3427,6 +3427,8 @@ class Work(Base):
                 new_summary_text = self.summary_text
             else:
                 new_summary_text = self.summary_text.decode("utf8")
+        else:
+            new_summary_text = self.summary_text
 
         changed = (
             edition_metadata_changed or
