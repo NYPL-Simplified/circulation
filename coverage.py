@@ -102,6 +102,16 @@ class CoverageProvider(object):
         self._db.commit()
         return offset
 
+    def run_on_identifiers(self, identifiers):
+        # Split a specific set of identifiers into batches and
+        # process one batch at a time.
+        index = 0
+        while index < len(identifiers):
+            batch = identifiers[index:index+self.workset_size]
+            self.process_batch(batch)
+            self._db.commit()
+            index += self.workset_size
+
     def run_once(self, offset):
         batch = self.items_that_need_coverage.limit(
             self.workset_size).offset(offset)
