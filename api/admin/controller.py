@@ -35,6 +35,7 @@ from core.app_server import (
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
+from collections import Counter
 
 
 def setup_admin_controllers(manager):
@@ -177,12 +178,13 @@ class WorkController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
-        index = work.complaints_index()
+        counter = self._count_complaints_for_work(work)
         response = dict({
             "book": { 
-                "id": data_source + "/" + identifier
+                "data_source": data_source,
+                "identifier": identifier
             },
-            "complaints": index
+            "complaints": counter
         })
         
         return response
@@ -254,6 +256,10 @@ class WorkController(CirculationManagerController):
             return METADATA_REFRESH_FAILURE
 
         return Response("", 200)
+
+    def _count_complaints_for_work(self, work):
+        complaint_types = [complaint.type for pool in work.license_pools for complaint in pool.complaints]
+        return Counter(complaint_types)
 
     
 class FeedController(CirculationManagerController):

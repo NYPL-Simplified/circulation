@@ -154,12 +154,9 @@ class TestWorkController(AdminControllerTest):
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.identifier)
-            expected = dict({})
-            expected[type1] = 2
-            expected[type2] = 1
-
-            eq_(response['book']['id'], lp.data_source.name + "/" + lp.identifier.identifier)
-            eq_(response['complaints'], expected)
+            eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier'], lp.identifier.identifier)
+            eq_(response['complaints'], dict({ type1: 2, type2: 1 }))
         
 
 class TestSigninController(AdminControllerTest):
