@@ -37,6 +37,8 @@ from threem import (
     ThreeMBibliographicCoverageProvider,
 )
 
+from axis import Axis360BibliographicCoverageProvider
+
 class Script(object):
 
     @property
@@ -219,6 +221,8 @@ class BibliographicRefreshScript(IdentifierInputScript):
             provider = ThreeMBibliographicCoverageProvider
         elif identifier.type==Identifier.OVERDRIVE_ID:
             provider = OverdriveBibliographicCoverageProvider
+        elif identifier.type==Identifier.AXIS_360_ID:
+            provider = Axis360BibliographicCoverageProvider
         else:
             self.log.warn("Cannot update coverage for %r" % identifier)
         if provider:
