@@ -89,6 +89,20 @@ class TestCoverageProvider(DatabaseTest):
         # Timestamp was not updated.
         eq_([], self._db.query(Timestamp).all())
 
+    def test_run_on_identifiers(self):
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, self.output_source
+        )
+        provider.workset_size = 6
+        
+        to_be_tested = [self._identifier() for i in range(6)]
+        not_to_be_tested = [self._identifier() for i in range(6)]
+        provider.run_on_identifiers(to_be_tested)
+        for i in to_be_tested:
+            assert i in provider.attempts
+        for i in not_to_be_tested:
+            assert i not in provider.attempts
+
     def test_always_successful(self):
 
         # We start with no CoverageRecords and no Timestamp.

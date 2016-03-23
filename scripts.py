@@ -38,6 +38,8 @@ from threem import (
     ThreeMBibliographicCoverageProvider,
 )
 
+from axis import Axis360BibliographicCoverageProvider
+
 class Script(object):
 
     @property
@@ -193,11 +195,9 @@ class RunCoverageProviderScript(IdentifierInputScript):
         self.name = self.provider.service_name
 
     def do_run(self):
-
         identifiers = self.parse_identifiers()
         if identifiers:
-            self.provider.process_batch(identifiers)
-            self._db.commit()
+            self.provider.run_on_identifiers(identifiers)
         else:
             self.provider.run()
 
@@ -213,6 +213,7 @@ class BibliographicRefreshScript(IdentifierInputScript):
             )
         for identifier in identifiers:
             self.refresh_metadata(identifier)
+        self._db.commit()
 
     def refresh_metadata(self, identifier):
         provider = None
@@ -220,6 +221,8 @@ class BibliographicRefreshScript(IdentifierInputScript):
             provider = ThreeMBibliographicCoverageProvider
         elif identifier.type==Identifier.OVERDRIVE_ID:
             provider = OverdriveBibliographicCoverageProvider
+        elif identifier.type==Identifier.AXIS_360_ID:
+            provider = Axis360BibliographicCoverageProvider
         else:
             self.log.warn("Cannot update coverage for %r" % identifier)
         if provider:
