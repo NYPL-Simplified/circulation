@@ -3284,10 +3284,13 @@ class WorkClassifier(object):
         self.weigh_metadata()
 
         explicitly_indicated_audiences = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ADULTS_ONLY)
-        audiences = [classification.subject.audience
-            for classification in self.direct_from_license_source]
+        audiences_from_license_source = set(
+            [classification.subject.audience
+             for classification in self.direct_from_license_source]
+        )
         if self.direct_from_license_source and not any(
-                audience in explicitly_indicated_audiences for audience in audiences
+                audience in explicitly_indicated_audiences 
+                for audience in audiences_from_license_source
         ):
             # If this was erotica, or a book for children or young
             # adults, the distributor would have given some indication
@@ -3300,9 +3303,6 @@ class WorkClassifier(object):
             # distinguished by their _lack_ of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
-        else:
-            for audience in audiences:
-                self.audience_weights[audience] += 100
         self.prepared = True
 
     @property
@@ -3314,7 +3314,7 @@ class WorkClassifier(object):
         # Actually figure out the classifications
         fiction = self.fiction
         genres = self.genres(fiction)
-        audience = self.audience
+        audience = self.audience(genres)
         target_age = self.target_age(audience)
         return genres, fiction, audience, target_age
 
@@ -3327,12 +3327,16 @@ class WorkClassifier(object):
             is_fiction = True
         return is_fiction
 
-    @property
-    def audience(self):
+    def audience(self, genres=[]):
         """What's the most likely audience for this book?"""
-        w = self.audience_weights
-        unmarked_weight = w.get(None, 0)
+        # If we determined that Erotica was a significant enough
+        # component of the classification to count as a genre, the
+        # audience will always be 'Adults Only', even if the audience
+        # weights would indicate something else.
+        if Erotica in genres:
+            return Classifier.AUDIENCE_ADULTS_ONLY
 
+        w = self.audience_weights
         children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
