@@ -191,7 +191,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         batch_results = []
         for metadata, availability in self.parser.process_all(response.content):
             identifier, is_new = metadata.primary_identifier.load(self._db)
-            seen_identifiers.append(identifier.identifier)
+            seen_identifiers.add(identifier.identifier)
             result = self.set_metadata(identifier, metadata)
             if not isinstance(result, CoverageFailure):
                 result = self.set_presentation_ready(identifier)
