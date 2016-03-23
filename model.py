@@ -2764,7 +2764,7 @@ class Edition(Base):
         # Now that everything's calculated, log it.
         msg = "Calculated presentation for %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
         args = [self.title, self.author, self.publisher, 
-                self.primary_identifier, self.permanent_work_id, self.language]
+                self.primary_identifier.identifier, self.permanent_work_id, self.language]
         if self.cover and self.cover.representation:
             args.append(self.cover.representation.mirror_url)
         else:

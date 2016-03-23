@@ -10,6 +10,7 @@ import re
 
 from util import LanguageCodes
 from util.xmlparser import XMLParser
+from coverage import CoverageFailure
 from model import (
     Contributor,
     DataSource,
@@ -31,6 +32,7 @@ from metadata_layer import (
 )
 
 from config import Configuration
+from coverage import BibliographicCoverageProvider
 
 class Axis360API(object):
 
@@ -145,6 +147,18 @@ class Axis360API(object):
         return response
 
     @classmethod
+    def create_identifier_strings(cls, identifiers):
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+
+        return identifier_strings
+
+    @classmethod
     def parse_token(cls, token):
         data = json.loads(token)
         return data['access_token']
@@ -155,6 +169,51 @@ class Axis360API(object):
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)
+
+class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for Axis 360 records.
+
+    Currently this is only used by BibliographicRefreshScript. It's
+    not normally necessary because the Axis 360 API combines
+    bibliographic and availability data.
+    """
+    def __init__(self, _db):
+        self.parser = BibliographicParser()
+        super(Axis360BibliographicCoverageProvider, self).__init__(
+            _db, Axis360API(_db), DataSource.AXIS_360,
+            workset_size=25
+        )
+
+    def process_batch(self, identifiers):
+        identifier_strings = self.api.create_identifier_strings(identifiers)
+        response = self.api.availability(title_ids=identifier_strings)
+        seen_identifiers = set()
+        batch_results = []
+        for metadata, availability in self.parser.process_all(response.content):
+            identifier, is_new = metadata.primary_identifier.load(self._db)
+            seen_identifiers.add(identifier.identifier)
+            result = self.set_metadata(identifier, metadata)
+            if not isinstance(result, CoverageFailure):
+                result = self.set_presentation_ready(identifier)
+            batch_results.append(result)
+
+        # Create a CoverageFailure object for each original identifier
+        # not mentioned in the results.
+        for identifier_string in identifier_strings:
+            if identifier_string not in seen_identifiers:
+                identifier, ignore = Identifier.for_foreign_id(
+                    self._db, Identifier.AXIS_360_ID, identifier_string
+                )
+                result = CoverageFailure(
+                    self, identifier, "Book not in collection", transient=True
+                )
+                batch_results.append(result)
+        return batch_results
+
+    def process_item(self, identifier):
+        results = self.process_batch([identifier])
+        return results[0]
+
 
 class Axis360Parser(XMLParser):
 

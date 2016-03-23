@@ -659,7 +659,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(True, new_classifier.fiction)
 
     def test_adult_book_by_default(self):
-        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
 
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
@@ -673,17 +673,17 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULTS_ONLY : 1,
             Classifier.AUDIENCE_CHILDREN : 22,
         }
-        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
         
         # Now it's overwhelming. (the 'children' weight is more than twice
         # the combined 'adult' + 'adults only' weight.
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 23
-        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
         # Now it's overwhelmingly likely to be a YA book.
         del self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN]
         self.classifier.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] = 23
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience())
 
     def test_ya_book_when_childrens_and_ya_combined_beat_adult(self):
         # Individually, the 'children' and 'ya' buckets don't beat the
@@ -698,7 +698,22 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_CHILDREN : 10,
             Classifier.AUDIENCE_YOUNG_ADULT : 9,
         }
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience())
+
+    def test_genre_may_restrict_audience(self):
+
+        # The audience info says this is a YA book.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_YOUNG_ADULT : 1000
+        }
+
+        # Without any genre information, it's classified as YA.
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, self.classifier.audience())
+
+        # But if it's Erotica, it is always classified as Adults Only.
+        genres = { classifier.Erotica : 50,
+                   classifier.Science_Fiction: 50}
+        eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience(genres))
 
     def test_format_classification_from_license_source_is_used(self):
         # This book will be classified as a comic book, because 
@@ -730,11 +745,11 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULTS_ONLY : 0,
             Classifier.AUDIENCE_CHILDREN : 10,
         }
-        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
 
         # Now we're confident.
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 11
-        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
     def test_adults_only_threshold(self):
         # The 'adults only' weight here is not even close to a
@@ -745,7 +760,7 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULTS_ONLY : 2,
             Classifier.AUDIENCE_CHILDREN : 4,
         }
-        eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience)
+        eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience())
         
     def test_target_age_is_default_for_adult_books(self):
         # Target age data can't override an independently determined
