@@ -194,11 +194,9 @@ class RunCoverageProviderScript(IdentifierInputScript):
         self.name = self.provider.service_name
 
     def do_run(self):
-
         identifiers = self.parse_identifiers()
         if identifiers:
-            self.provider.process_batch(identifiers)
-            self._db.commit()
+            self.provider.run_on_identifiers(identifiers)
         else:
             self.provider.run()
 
