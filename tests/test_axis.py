@@ -14,8 +14,18 @@ from model import (
 )
 
 from axis import (
+    Axis360API,
     BibliographicParser,
 )
+
+from . import DatabaseTest
+
+class TestAxis360API(DatabaseTest):
+
+    def test_create_identifier_strings(self):
+        identifier = self._identifier()
+        values = Axis360API.create_identifier_strings(["foo", identifier])
+        eq_(["foo", identifier.identifier], values)
 
 class TestParsers(object):
 
