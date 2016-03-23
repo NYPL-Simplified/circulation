@@ -214,6 +214,7 @@ class BibliographicRefreshScript(IdentifierInputScript):
             )
         for identifier in identifiers:
             self.refresh_metadata(identifier)
+        self._db.commit()
 
     def refresh_metadata(self, identifier):
         provider = None
