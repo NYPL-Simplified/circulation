@@ -13,3 +13,13 @@ admin = """
 </body>
 </html>
 """
+
+admin_sign_in_again = """
+<!doctype html>
+<html>
+<head><title>Circulation Manager</title></head>
+<body>
+  <p>You are now logged in. You may close this window and try your request again.
+</body>
+</html>
+"""

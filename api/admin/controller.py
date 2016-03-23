@@ -46,7 +46,7 @@ def setup_admin_controllers(manager):
             sys.exit()
 
     manager.admin_work_controller = WorkController(manager)
-    manager.admin_signin_controller = SigninController(manager)
+    manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_feed_controller = FeedController(manager)
 
 
@@ -96,7 +96,7 @@ class AdminController(object):
         """Returns the CSRF token for the current session."""
         return flask.session.get("csrf_token")
 
-class SigninController(AdminController):
+class SignInController(AdminController):
 
     ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
@@ -106,7 +106,7 @@ class SigninController(AdminController):
 </body>
 </html>"""
 
-    def signin(self):
+    def sign_in(self):
         """Redirects admin if they're signed in."""
         admin = self.authenticated_admin_from_request()
 
@@ -116,7 +116,7 @@ class SigninController(AdminController):
         elif admin:
             return redirect(flask.request.args.get("redirect"), Response=Response)
 
-    def redirect_after_signin(self):
+    def redirect_after_sign_in(self):
         """Uses the Google OAuth client to determine admin details upon
         callback. Barring error, redirects to the provided redirect url.."""
 
@@ -149,7 +149,6 @@ class SigninController(AdminController):
             message=problem_detail.detail
         )
         return Response(html, problem_detail.status_code)
-
 
 class WorkController(CirculationManagerController):
 
