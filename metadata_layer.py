@@ -1032,7 +1032,7 @@ class Metadata(object):
 
     def update_contributions(self, _db, edition, metadata_client=None, 
                              replace=True):
-        if replace and self.contributors is not None:
+        if replace and self.contributors:
             dirty = False
             # Remove any old Contributions from this data source --
             # we're about to add a new set
