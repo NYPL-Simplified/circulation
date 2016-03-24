@@ -177,8 +177,7 @@ class WorkController(CirculationManagerController):
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
-        work = pool.work
-        counter = self._count_complaints_for_work(work)
+        counter = self._count_complaints_for_licensepool(pool)
         response = dict({
             "book": { 
                 "data_source": data_source,
@@ -257,8 +256,8 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def _count_complaints_for_work(self, work):
-        complaint_types = [complaint.type for pool in work.license_pools for complaint in pool.complaints]
+    def _count_complaints_for_licensepool(self, pool):
+        complaint_types = [complaint.type for complaint in pool.complaints]
         return Counter(complaint_types)
 
     
