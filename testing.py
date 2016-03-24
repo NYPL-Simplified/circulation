@@ -191,12 +191,13 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
         return work
 
-    def _coverage_record(self, edition, coverage_source):
+    def _coverage_record(self, edition, coverage_source, operation=None):
         record, ignore = get_one_or_create(
             self._db, CoverageRecord,
             identifier=edition.primary_identifier,
             data_source=coverage_source,
-            create_method_kwargs = dict(date=datetime.utcnow()))
+            operation=operation,
+            create_method_kwargs = dict(timestamp=datetime.utcnow()))
         return record
 
     def _licensepool(self, edition, open_access=True, 

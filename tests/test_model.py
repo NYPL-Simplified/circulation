@@ -1982,6 +1982,57 @@ class TestPatron(DatabaseTest):
             patron._external_type = None
 
 
+class TestCoverageRecord(DatabaseTest):
+
+    def test_lookup(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        edition = self._edition()
+        operation = 'foo'
+        record = self._coverage_record(edition, source, operation)
+
+        lookup = CoverageRecord.lookup(edition, source, operation)
+        eq_(lookup, record)
+
+        lookup = CoverageRecord.lookup(edition, source)
+        eq_(None, lookup)
+
+        lookup = CoverageRecord.lookup(edition.primary_identifier, source, operation)
+        eq_(lookup, record)
+
+        lookup = CoverageRecord.lookup(edition.primary_identifier, source)
+        eq_(None, lookup)
+
+    def test_add_for(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        edition = self._edition()
+        operation = 'foo'
+        record, is_new = CoverageRecord.add_for(edition, source, operation)
+        eq_(True, is_new)
+
+        # If we call add_for again we get the same record back, but we
+        # can modify the timestamp.
+        a_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+        record2, is_new = CoverageRecord.add_for(
+            edition, source, operation, a_week_ago
+        )
+        eq_(record, record2)
+        eq_(False, is_new)
+        eq_(a_week_ago, record2.timestamp)
+
+        # If we don't specify an operation we get a totally different
+        # record.
+        record3, ignore = CoverageRecord.add_for(edition, source)
+        assert record3 != record
+        eq_(None, record3.operation)
+        seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
+        assert seconds < 10
+
+        # If we call lookup we get the same record.
+        record4 = CoverageRecord.lookup(edition.primary_identifier, source)
+        eq_(record3, record4)
+
+
+
 class TestComplaint(DatabaseTest):
 
     def setup(self):

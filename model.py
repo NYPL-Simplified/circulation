@@ -794,21 +794,24 @@ class DataSource(Base):
 
 
 class CoverageRecord(Base):
-    """A record of a Identifier being used as input into another data
-    source.
-    """
+    """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+    # If applicable, this is the ID of the data source that took the
+    # Identifier as input.
     data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True)
-    date = Column(Date, index=True)
+        Integer, ForeignKey('datasources.id')
+    )
+    operation = Column(String(255), default=None)
+        
+    timestamp = Column(DateTime, index=True)
     exception = Column(Unicode, index=True)
 
     @classmethod
-    def lookup(self, edition_or_identifier, data_source):
+    def lookup(self, edition_or_identifier, data_source, operation=None):
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -818,14 +821,15 @@ class CoverageRecord(Base):
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition) 
         return get_one(
-                _db, CoverageRecord,
-                identifier=identifier,
-                data_source=data_source,
-                on_multiple='interchangeable',
-            )
+            _db, CoverageRecord,
+            identifier=identifier,
+            data_source=data_source,
+            operation=operation,
+            on_multiple='interchangeable',
+        )
 
     @classmethod
-    def add_for(self, edition, data_source, date=None):
+    def add_for(self, edition, data_source, operation=None, date=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -839,11 +843,55 @@ class CoverageRecord(Base):
             _db, CoverageRecord,
             identifier=identifier,
             data_source=data_source,
+            operation=operation,
             on_multiple='interchangeable'
         )
-        coverage_record.date = date
+        coverage_record.timestamp = date
         return coverage_record, is_new
 
+Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
+
+class WorkCoverageRecord(Base):
+    """A record of some operation that was performed on a Work.
+
+    This is similar to CoverageRecord, which operates on Identifiers,
+    but since Work identifiers have no meaning outside of the database,
+    we presume that all the operations involve internal work only,
+    and as such there is no data_source_id.
+    """
+    __tablename__ = 'workcoveragerecords'
+
+    id = Column(Integer, primary_key=True)
+    work_id = Column(
+        Integer, ForeignKey('works.id'), index=True)
+    operation = Column(String(255), index=True, default=None)
+        
+    timestamp = Column(DateTime, index=True)
+    exception = Column(Unicode, index=True)
+
+    @classmethod
+    def lookup(self, work, operation):
+        _db = Session.object_session(work)
+        return get_one(
+            _db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            on_multiple='interchangeable',
+        )
+
+    @classmethod
+    def add_for(self, work, operation, timestamp=None):
+        _db = Session.object_session(work)
+        timestamp = timestamp or datetime.datetime.utcnow()
+        coverage_record, is_new = get_one_or_create(
+            _db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            on_multiple='interchangeable'
+        )
+        coverage_record.timestamp = timestamp
+        return coverage_record, is_new
+Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
 
 class Equivalency(Base):
     """An assertion that two Identifiers identify the same work.
