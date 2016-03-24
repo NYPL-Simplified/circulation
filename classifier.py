@@ -155,7 +155,7 @@ class Classifier(object):
         """
         if 'juvenile' in name:
             return cls.AUDIENCE_CHILDREN
-        elif 'young adult' in name or "YA" in name.original:
+        elif 'young adult' in name or 'YA' in name.original:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
 
@@ -1153,6 +1153,18 @@ class BISACClassifier(ThreeMClassifier):
     def scrub_identifier(cls, identifier):
         identifier = identifier.replace(' / ', '/')
         return ThreeMClassifier.scrub_identifier(identifier)
+
+    @classmethod
+    def audience(cls, identifier, name):
+        if not identifier:
+            return Classifier.audience(identifier, name)
+        identifier = Lowercased(identifier)
+        if 'juvenile' in identifier:
+            return Classifier.AUDIENCE_CHILDREN
+        elif 'young adult' in identifier:
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        else:
+            return Classifier.AUDIENCE_ADULT
 
 
 class OverdriveClassifier(Classifier):
@@ -3187,7 +3199,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3356,7 +3368,7 @@ class WorkClassifier(object):
         # 1. The weight of that audience is more than twice the
         # combined weight of the 'adult' and 'adults only' audiences.
         #
-        # 2. The weight of that audience is greater than 10, and
+        # 2. The weight of that audience is greater than 0, and
         # the 'adult' and 'adults only' audiences have no weight
         # whatsoever.
         #
@@ -3364,7 +3376,7 @@ class WorkClassifier(object):
         if total_adult_weight > 0:
             threshold = total_adult_weight * 2
         else:
-            threshold = 10
+            threshold = 0
 
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with the one that weighs more.
