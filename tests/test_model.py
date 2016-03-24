@@ -42,6 +42,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    WorkCoverageRecord,
     WorkGenre,
     Identifier,
     Edition,
@@ -2031,6 +2032,50 @@ class TestCoverageRecord(DatabaseTest):
         record4 = CoverageRecord.lookup(edition.primary_identifier, source)
         eq_(record3, record4)
 
+
+class TestWorkCoverageRecord(DatabaseTest):
+
+    def test_lookup(self):
+        work = self._work()
+        operation = 'foo'
+
+        lookup = WorkCoverageRecord.lookup(work, operation)
+        eq_(None, lookup)
+
+        record = self._work_coverage_record(work, operation)
+
+        lookup = WorkCoverageRecord.lookup(work, operation)
+        eq_(lookup, record)
+
+        eq_(None, WorkCoverageRecord.lookup(work, "another operation"))
+
+    def test_add_for(self):
+        work = self._work()
+        operation = 'foo'
+        record, is_new = WorkCoverageRecord.add_for(work, operation)
+        eq_(True, is_new)
+
+        # If we call add_for again we get the same record back, but we
+        # can modify the timestamp.
+        a_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+        record2, is_new = WorkCoverageRecord.add_for(
+            work, operation, a_week_ago
+        )
+        eq_(record, record2)
+        eq_(False, is_new)
+        eq_(a_week_ago, record2.timestamp)
+
+        # If we don't specify an operation we get a totally different
+        # record.
+        record3, ignore = WorkCoverageRecord.add_for(work, None)
+        assert record3 != record
+        eq_(None, record3.operation)
+        seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
+        assert seconds < 10
+
+        # If we call lookup we get the same record.
+        record4 = WorkCoverageRecord.lookup(work, None)
+        eq_(record3, record4)
 
 
 class TestComplaint(DatabaseTest):

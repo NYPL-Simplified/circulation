@@ -26,6 +26,7 @@ from model import (
     Identifier,
     Edition,
     Work,
+    WorkCoverageRecord,
     UnresolvedIdentifier,
     get_one_or_create
 )
@@ -198,6 +199,15 @@ class DatabaseTest(object):
             data_source=coverage_source,
             operation=operation,
             create_method_kwargs = dict(timestamp=datetime.utcnow()))
+        return record
+
+    def _work_coverage_record(self, work, operation=None):
+        record, ignore = get_one_or_create(
+            self._db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            create_method_kwargs = dict(timestamp=datetime.utcnow())
+        )
         return record
 
     def _licensepool(self, edition, open_access=True, 

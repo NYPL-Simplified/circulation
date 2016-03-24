@@ -2976,6 +2976,9 @@ class Work(Base):
     primary_edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined')
 
+    # One Work may have many asosciated WorkCoverageRecords.
+    coverage_records = relationship("WorkCoverageRecord", backref="work")
+
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
