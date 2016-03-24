@@ -155,7 +155,7 @@ class Classifier(object):
         """
         if 'juvenile' in name:
             return cls.AUDIENCE_CHILDREN
-        elif 'young adult' in name or 'YA' in name.original:
+        elif 'young adult' in name or "YA" in name.original:
             return cls.AUDIENCE_YOUNG_ADULT
         return None
 
@@ -3199,7 +3199,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=True):
+    def __init__(self, work, test_session=None, debug=False):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3362,21 +3362,12 @@ class WorkClassifier(object):
         # contrary.
         audience = Classifier.AUDIENCE_ADULT
 
-        # There are two cases when a book will be classified as a
-        # young adult or childrens' book:
-        #
-        # 1. The weight of that audience is more than twice the
+        # A book will be classified as a young adult or childrens'
+        # book when the weight of that audience is more than twice the
         # combined weight of the 'adult' and 'adults only' audiences.
-        #
-        # 2. The weight of that audience is greater than 0, and
-        # the 'adult' and 'adults only' audiences have no weight
-        # whatsoever.
-        #
-        # Either way, we have a numeric threshold that must be met.
-        if total_adult_weight > 0:
-            threshold = total_adult_weight * 2
-        else:
-            threshold = 0
+        # If that combined weight is zero, then any amount of evidence
+        # is sufficient.
+        threshold = total_adult_weight * 2
 
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with the one that weighs more.
