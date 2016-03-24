@@ -64,9 +64,8 @@ from api.threem import (
 )
 from api.axis import (
     Axis360API,
-    Axis360BibliographicCoverageProvider,
 )
-
+from core.axis import Axis360BibliographicCoverageProvider
 
 class Script(CoreScript):
     def load_config(self):

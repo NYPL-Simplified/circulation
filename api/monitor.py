@@ -38,7 +38,7 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
             "Index Update Monitor", 
             interval_seconds)
         self.batch_size = batch_size
-        self.search_index_client = ExternalSearchIndex(fallback_to_dummy=False)
+        self.search_index_client = ExternalSearchIndex()
 
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)
