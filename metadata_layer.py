@@ -1027,7 +1027,9 @@ class Metadata(object):
 
         # Finally, update the coverage record for this edition
         # and data source.
-        CoverageRecord.add_for(edition, data_source, self.last_update_time)
+        CoverageRecord.add_for(
+            edition, data_source, timestamp=self.last_update_time
+        )
         return edition
 
     def update_contributions(self, _db, edition, metadata_client=None, 

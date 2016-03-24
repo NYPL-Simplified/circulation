@@ -829,7 +829,7 @@ class CoverageRecord(Base):
         )
 
     @classmethod
-    def add_for(self, edition, data_source, operation=None, date=None):
+    def add_for(self, edition, data_source, operation=None, timestamp=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -838,7 +838,7 @@ class CoverageRecord(Base):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition) 
-        date = date or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
@@ -846,7 +846,7 @@ class CoverageRecord(Base):
             operation=operation,
             on_multiple='interchangeable'
         )
-        coverage_record.timestamp = date
+        coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
 Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
