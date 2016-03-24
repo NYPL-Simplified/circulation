@@ -156,7 +156,8 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.identifier)
             eq_(response['book']['data_source'], lp.data_source.name)
             eq_(response['book']['identifier'], lp.identifier.identifier)
-            eq_(response['complaints'], dict({ type1: 2, type2: 1 }))
+            eq_(response['complaints'][type1], 2)
+            eq_(response['complaints'][type2], 1)
         
 
 class TestSigninController(AdminControllerTest):
