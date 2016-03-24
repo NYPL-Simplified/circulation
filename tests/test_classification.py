@@ -348,11 +348,13 @@ class TestBISAC(object):
 
         young_adult = Classifier.AUDIENCE_YOUNG_ADULT
         adult = Classifier.AUDIENCE_ADULT
+        children = Classifier.AUDIENCE_CHILDREN
         def aud(bisac):
             return BISAC.audience(BISAC.scrub_identifier(bisac), None)
             
         eq_(adult, aud("FAMILY & RELATIONSHIPS / Love & Romance"))
-        eq_(young_adult, aud("JUVENILE FICTION / Action & Adventure / General"))
+        eq_(children, aud("JUVENILE FICTION / Action & Adventure / General"))
+        eq_(young_adult, aud("YOUNG ADULT FICTION / Action & Adventure / General"))
 
     def test_default_age_range_for_audience(self):
         class DummySubject(object):
@@ -364,7 +366,8 @@ class TestBISAC(object):
             dummy = DummySubject(bisac)
             return BISAC.classify(dummy)[2]
         
-        eq_((14,17), target("JUVENILE FICTION / Action & Adventure / General"))
+        eq_((None, None), target("JUVENILE FICTION / Action & Adventure / General"))
+        eq_((14,17), target("YOUNG ADULT FICTION / Action & Adventure / General"))
         eq_((18, None), target("Erotica / General"))
 
     def test_genre(self):
@@ -737,18 +740,13 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_childrens_book_when_no_evidence_for_adult_book(self):
         # There is no evidence in the 'adult' or 'adults only'
-        # buckets, but not enough evidence in the 'children' bucket to
-        # be confident.
-
+        # buckets, so minimal evidence in the 'children' bucket is
+        # sufficient to be confident.
         self.classifier.audience_weights = {
             Classifier.AUDIENCE_ADULT : 0,
             Classifier.AUDIENCE_ADULTS_ONLY : 0,
-            Classifier.AUDIENCE_CHILDREN : 10,
+            Classifier.AUDIENCE_CHILDREN : 1,
         }
-        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
-
-        # Now we're confident.
-        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 11
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
     def test_adults_only_threshold(self):

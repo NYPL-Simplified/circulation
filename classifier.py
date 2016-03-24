@@ -1154,6 +1154,18 @@ class BISACClassifier(ThreeMClassifier):
         identifier = identifier.replace(' / ', '/')
         return ThreeMClassifier.scrub_identifier(identifier)
 
+    @classmethod
+    def audience(cls, identifier, name):
+        if not identifier:
+            return Classifier.audience(identifier, name)
+        identifier = Lowercased(identifier)
+        if 'juvenile' in identifier:
+            return Classifier.AUDIENCE_CHILDREN
+        elif 'young adult' in identifier:
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        else:
+            return Classifier.AUDIENCE_ADULT
+
 
 class OverdriveClassifier(Classifier):
 
@@ -3350,21 +3362,12 @@ class WorkClassifier(object):
         # contrary.
         audience = Classifier.AUDIENCE_ADULT
 
-        # There are two cases when a book will be classified as a
-        # young adult or childrens' book:
-        #
-        # 1. The weight of that audience is more than twice the
+        # A book will be classified as a young adult or childrens'
+        # book when the weight of that audience is more than twice the
         # combined weight of the 'adult' and 'adults only' audiences.
-        #
-        # 2. The weight of that audience is greater than 10, and
-        # the 'adult' and 'adults only' audiences have no weight
-        # whatsoever.
-        #
-        # Either way, we have a numeric threshold that must be met.
-        if total_adult_weight > 0:
-            threshold = total_adult_weight * 2
-        else:
-            threshold = 10
+        # If that combined weight is zero, then any amount of evidence
+        # is sufficient.
+        threshold = total_adult_weight * 2
 
         # If both the 'children' weight and the 'YA' weight pass the
         # threshold, we go with the one that weighs more.
