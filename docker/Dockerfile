@@ -23,10 +23,6 @@ RUN git clone https://github.com/NYPL-Simplified/circulation.git
 WORKDIR circulation
 RUN git submodule update --init --recursive
 
-# Setup post-receive so new changes can be pulled using git.
-COPY post-receive .git/hooks/post-receive
-RUN chmod +x .git/hooks/post-receive
-
 # Set up the virtual environment and install python libraries
 RUN virtualenv env && \
     echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/var/www/circulation/config.json\"" >> env/bin/activate
