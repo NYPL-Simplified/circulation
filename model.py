@@ -817,6 +817,25 @@ class CoverageRecord(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
     )
 
+    def __repr__(self):
+        if self.operation:
+            operation = ' operation="%s"' % self.operation
+        else:
+            operation = ''
+        if self.exception:
+            exception = ' exception="%s"' % self.exception
+        else:
+            exception = ''
+        template = '<CoverageRecord: identifier=%s/%s data_source="%s"%s timestamp="%s"%s>'
+        return template % (
+            self.identifier.type, 
+            self.identifier.identifier,
+            self.data_source.name,
+            operation, 
+            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            exception
+        )
+
     @classmethod
     def lookup(self, edition_or_identifier, data_source, operation=None):
         _db = Session.object_session(edition_or_identifier)
@@ -872,8 +891,8 @@ class WorkCoverageRecord(Base):
     CLASSIFY_OPERATION = 'classify'
     SUMMARY_OPERATION = 'summary'
     QUALITY_OPERATION = 'quality'
-    OPDS_OPERATION = 'opds'
-    SEARCH_INDEX_OPERATION = 'search-index'
+    GENERATE_OPDS_OPERATION = 'generate-opds'
+    UPDATE_SEARCH_INDEX_OPERATION = 'update-search-index'
 
     id = Column(Integer, primary_key=True)
     work_id = Column(
@@ -886,6 +905,18 @@ class WorkCoverageRecord(Base):
     __table_args__ = (
         UniqueConstraint('work_id', 'operation'),
     )
+
+    def __repr__(self):
+        if self.exception:
+            exception = ' exception="%s"' % self.exception
+        else:
+            exception = ''
+        template = '<WorkCoverageRecord: work_id=%s operation="%s" timestamp="%s"%s>'
+        return template % (
+            self.work_id, self.operation, 
+            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            exception
+        )
 
     @classmethod
     def lookup(self, work, operation):
@@ -2795,6 +2826,10 @@ class Edition(Base):
             self.sort_title = TitleProcessor.sort_title_for(self.title)
             self.calculate_permanent_work_id()
             self.set_open_access_link()
+            CoverageRecord.add_for(
+                self, data_source=self.data_source, 
+                operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
+            )
 
         if policy.choose_cover:
             self.choose_cover()
@@ -2812,9 +2847,6 @@ class Edition(Base):
         if changed:
             # last_update_time tracks the last time the data 
             # actually changed.
-            #
-            # TODO: We need CoverageProviders to track the last time
-            # we _checked_ whether or not to change the data.
             self.last_update_time = datetime.datetime.utcnow()
 
         # Now that everything's calculated, log it.
@@ -2882,6 +2914,14 @@ class Edition(Base):
                         )
                 self.set_cover(best_cover)
                 break
+
+        # Whether or not we succeeded in setting the cover,
+        # record the fact that we tried.
+        CoverageRecord.add_for(
+            self, data_source=self.data_source, 
+            operation=CoverageRecord.CHOOSE_COVER_OPERATION
+        )
+
 
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
@@ -3167,6 +3207,9 @@ class Work(Base):
         # TODO: clean up the content
         if resource:
             self.summary_text = resource.representation.content
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.SUMMARY_OPERATION
+        )
 
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
@@ -3442,6 +3485,10 @@ class Work(Base):
 
         if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
+            WorkCoverageRecord.add_for(
+                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+            )
+
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
@@ -3474,6 +3521,9 @@ class Work(Base):
 
         if policy.classify:
             classification_changed = self.assign_genres(flattened_data)
+            WorkCoverageRecord.add_for(
+                self, operation=WorkCoverageRecord.CLASSIFY_OPERATION
+            )
 
         if policy.choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
@@ -3512,9 +3562,6 @@ class Work(Base):
             # last_update_time tracks the last time the data actually
             # changed, not the last time we checked whether or not to
             # change it.
-            #
-            # TODO: We need WorkCoverageProviders for the various checks
-            # we ran to determine whether or not to change something.
             self.last_update_time = datetime.datetime.utcnow()
 
         if changed or policy.regenerate_opds_entries:
@@ -3593,6 +3640,9 @@ class Work(Base):
                                                force_create=True)
         if verbose is not None:
             self.verbose_opds_entry = etree.tostring(verbose)
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        )
         # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
 
@@ -3622,7 +3672,9 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        )
 
     def set_presentation_ready(self, as_of=None):
         as_of = as_of or datetime.datetime.utcnow()
@@ -3677,6 +3729,9 @@ class Work(Base):
 
         self.quality = Measurement.overall_quality(
             measurements, default_value=default_quality)
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.QUALITY_OPERATION
+        )
 
     def assign_genres(self, identifier_ids, cutoff=0.15):
         """Set classification information for this work based on the

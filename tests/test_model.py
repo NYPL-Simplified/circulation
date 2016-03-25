@@ -802,6 +802,37 @@ class TestEdition(DatabaseTest):
         p1.patrons_in_hold_queue = 3
         eq_(False, better(generic, generic2))
 
+    def test_calculate_presentation_registers_coverage_records(self):
+        edition = self._edition()
+        identifier = edition.primary_identifier
+
+        # This Identifier has no CoverageRecords.
+        eq_([], identifier.coverage_records)
+
+        # But once we calculate the Edition's presentation...
+        edition.calculate_presentation()
+
+        # Two CoverageRecords have been associated with this Identifier.
+        records = identifier.coverage_records
+
+        # One for setting the Edition metadata and one for choosing
+        # the Edition's cover.
+        expect = set([
+            CoverageRecord.SET_EDITION_METADATA_OPERATION,
+            CoverageRecord.CHOOSE_COVER_OPERATION]
+        )
+        eq_(expect, set([x.operation for x in records]))
+
+        # We know the records are associated with this specific
+        # Edition, not just the Identifier, because each
+        # CoverageRecord's DataSource is set to this Edition's
+        # DataSource.
+        set_trace()
+        eq_(
+            [edition.data_source, edition.data_source], 
+            [x.data_source for x in records]
+        )
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -947,6 +978,11 @@ class TestWork(DatabaseTest):
         for p in pool1, pool2, pool3:
             work.license_pools.append(p)
 
+        # This Work starts out with a single CoverageRecord reflecting the
+        # work done to generate its initial OPDS entry.
+        [record] = work.coverage_records
+        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, record.operation)
+
         work.last_update_time = None
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
@@ -969,6 +1005,20 @@ class TestWork(DatabaseTest):
         # The index has been updated with a document.
         [[args, doc]] = index.docs.items()
         eq_(doc, work.to_search_document())
+
+        # The Work now has a complete set of WorkCoverageRecords
+        # associated with it, reflecting all the operations that
+        # occured as part of calculate_presentation().
+        records = work.coverage_records
+        expect = set([
+            WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
+            WorkCoverageRecord.CLASSIFY_OPERATION,
+            WorkCoverageRecord.SUMMARY_OPERATION,
+            WorkCoverageRecord.QUALITY_OPERATION,
+            WorkCoverageRecord.GENERATE_OPDS_OPERATION,
+            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+        ])
+        eq_(expect, set([x.operation for x in records]))
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
