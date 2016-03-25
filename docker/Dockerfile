@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Java & elasticsearch and set it up to run on boot
 RUN apt-get install -y --no-install-recommends openjdk-7-jre && \
     wget -qO - https://packages.elastic.co/GPG-KEY-elasticsearch | apt-key add - && \
-    echo "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main" | tee -a /etc/apt/sources.list.d/elasticsearch-2.x.list && \
+    echo "deb http://packages.elastic.co/elasticsearch/1.x/debian stable main" | tee -a /etc/apt/sources.list.d/elasticsearch-1.x.list && \
     apt-get install -y elasticsearch && \
     update-rc.d elasticsearch defaults 95 10
 
