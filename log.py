@@ -60,8 +60,12 @@ class LogglyAPI(object):
         return HTTPSHandler(url)
        
 
-def set_formatter(handler):
-    output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
+def set_formatter(handler, output_type=None, data_format=None):
+    log_config = Configuration.logging_policy()
+    if not output_type:
+        output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text')
+    if not data_format:
+        data_format = log_config.get(Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
     if output_type in ('json', 'loggly'):
         cls = JSONFormatter
     else:
@@ -70,22 +74,21 @@ def set_formatter(handler):
     return handler
 
 log_config = Configuration.logging_policy()
-if not os.environ.get('TESTING'):
+logger = logging.getLogger()
+if os.environ.get('TESTING'):
+    log_level = 'DEBUG'
+    output_type = 'text'
+else:
     log_level = log_config.get(Configuration.LOG_LEVEL, 'INFO').upper()
-
     output_type = log_config.get(Configuration.LOG_OUTPUT_TYPE, 'text').lower()
     if output_type == 'loggly':
         logging.getLogger().addHandler(LogglyAPI.handler(log_level))
-
-    data_format = log_config.get(
-        Configuration.LOG_DATA_FORMAT, DEFAULT_DATA_FORMAT)
     stderr_handler = logging.StreamHandler()
     logging.getLogger().addHandler(stderr_handler)
 
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
-    for handler in logger.handlers:
-        set_formatter(handler)
+logger.setLevel(log_level)
+for handler in logger.handlers:
+    set_formatter(handler, output_type)
 
 database_log_level = log_config.get(Configuration.DATABASE_LOG_LEVEL, 'WARN')
 for logger in (
