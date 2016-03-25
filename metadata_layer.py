@@ -840,13 +840,9 @@ class Metadata(object):
         if self.last_update_time and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
-                check_date = coverage_record.date
-                if not isinstance(check_date, datetime.date):
-                    check_date = check_date.date()
-                last_date = self.last_update_time
-                if isinstance(last_date, datetime.datetime):
-                    last_date = last_date.date()
-                if check_date >= last_date:
+                check_time = coverage_record.timestamp
+                last_time = self.last_update_time
+                if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return
 

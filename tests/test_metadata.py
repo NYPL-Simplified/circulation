@@ -213,17 +213,17 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(coverage, None)
         
-        last_update = datetime.date(2015, 1, 1)
+        last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
                      title=u"New title", last_update_time=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(last_update, coverage.date)
+        eq_(last_update, coverage.timestamp)
         eq_(u"New title", edition.title)
 
-        older_last_update = datetime.date(2014, 1, 1)
+        older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
                      last_update_time=older_last_update
@@ -232,9 +232,9 @@ class TestMetadataImporter(DatabaseTest):
         eq_(u"New title", edition.title)
 
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(last_update, coverage.date)
+        eq_(last_update, coverage.timestamp)
 
         m.apply(edition, force=True)
         eq_(u"Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(older_last_update, coverage.date)
+        eq_(older_last_update, coverage.timestamp)
