@@ -472,7 +472,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
                 api.update_licensepool(identifier.identifier)
         elif identifier.type==Identifier.AXIS_360_ID:
             provider = Axis360BibliographicCoverageProvider(self._db)
-            provider.ensure_coverage(identifiers, force=True)
+            provider.process_batch(identifiers)
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
