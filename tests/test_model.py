@@ -827,7 +827,6 @@ class TestEdition(DatabaseTest):
         # Edition, not just the Identifier, because each
         # CoverageRecord's DataSource is set to this Edition's
         # DataSource.
-        set_trace()
         eq_(
             [edition.data_source, edition.data_source], 
             [x.data_source for x in records]
