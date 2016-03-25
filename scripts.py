@@ -20,7 +20,6 @@ from api.controller import CirculationManager
 from api.threem import ThreeMCirculationSweep
 from api.overdrive import OverdriveAPI
 from core import log
-from core.axis import Axis360BibliographicCoverageProvider
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
