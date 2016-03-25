@@ -186,11 +186,8 @@ class ErrorHandler(object):
 
 class HeartbeatController(object):
 
-    git_ref = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
-
     def heartbeat(self):
-        server_info = json.dumps(dict(git_ref=self.git_ref))
-        return make_response(server_info, 200, {"Content-Type": "application/json"})
+        return make_response("", 200, {"Content-Type": "application/json"})
 
 
 class URNLookupController(object):
