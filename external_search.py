@@ -19,6 +19,9 @@ class ExternalSearchIndex(object):
     
         self.log = logging.getLogger("External search index")
 
+        # By default, assume that there is no search index.
+        self.works_index = None
+
         if not ExternalSearchIndex.__client:
             integration = Configuration.integration(
                 Configuration.ELASTICSEARCH_INTEGRATION, 
