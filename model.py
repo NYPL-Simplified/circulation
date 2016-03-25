@@ -1301,7 +1301,8 @@ class Identifier(Base):
                 cls._update_equivalents(
                     equivalents, e.input_id, e.output_id, e.strength, e.votes)
             else:
-                logging.debug("Ignoring signal below threshold: %r", e)
+                # logging.debug("Ignoring signal below threshold: %r", e)
+                pass
 
             if e.output_id not in seen_identifier_ids:
                 # This is our first time encountering the
@@ -2963,8 +2964,8 @@ class PresentationCalculationPolicy(object):
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
         self.classify = classify
-        self.choose_summary=choose_summary, 
-        self.calculate_quality=calculate_quality,
+        self.choose_summary=choose_summary
+        self.calculate_quality=calculate_quality
         self.choose_cover = choose_cover
 
         # We will regenerate OPDS entries if any of the metadata
@@ -4750,7 +4751,7 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if self.target_age != target_age:
+        if numericrange_to_tuple(self.target_age) != numericrange_to_tuple(target_age):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, target_age

@@ -362,6 +362,16 @@ class TestKeyword(object):
     def test_children_audience_implies_no_genre(self):
         eq_(None, self.genre("Children's Books"))
 
+    def test_young_adult_wins_over_children(self):
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "children's books - young adult fiction")
+        )
+
+    def test_juvenile_romance_means_young_adult(self):
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "juvenile fiction / love & romance")
+        )
+
 class TestBISAC(object):
 
     def test_is_fiction(self):

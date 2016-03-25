@@ -242,7 +242,7 @@ class WorkProcessingScript(IdentifierInputScript):
 
     def make_query(self, identifiers):
         query = self._db.query(Work)
-        if identifiers is None:
+        if not identifiers:
             self.log.info(
                 "Processing all %d works.", query.count()
             )
@@ -378,7 +378,6 @@ class WorkClassificationScript(WorkPresentationScript):
         regenerate_opds_entries=False, 
         update_search_index=False,
     )
-
 
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a
