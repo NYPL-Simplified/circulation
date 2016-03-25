@@ -810,6 +810,10 @@ class CoverageRecord(Base):
     timestamp = Column(DateTime, index=True)
     exception = Column(Unicode, index=True)
 
+    __table_args__ = (
+        UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
+    )
+
     @classmethod
     def lookup(self, edition_or_identifier, data_source, operation=None):
         _db = Session.object_session(edition_or_identifier)
@@ -868,6 +872,10 @@ class WorkCoverageRecord(Base):
         
     timestamp = Column(DateTime, index=True)
     exception = Column(Unicode, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('work_id', 'operation'),
+    )
 
     @classmethod
     def lookup(self, work, operation):
