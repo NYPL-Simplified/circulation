@@ -14,6 +14,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    PresentationCalculationPolicy,
 )
 from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
@@ -183,7 +184,14 @@ class WorkController(CirculationManagerController):
             changed = True
         
         if changed:
-            work.calculate_presentation(calculate_opds_entry=True)
+            # Even if the presentation doesn't visibly change, we want
+            # to regenerate the OPDS entries and update the search
+            # index for the work, because that might be the 'real'
+            # problem the user is trying to fix.
+            policy = PresentationCalculationPolicy(
+                regenerate_opds_entries=True, update_search_index=True,
+            )
+            work.calculate_presentation()
         return Response("", 200)
 
     def suppress(self, data_source, identifier):
