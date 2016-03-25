@@ -23,6 +23,7 @@ from collections import (
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
+from psycopg2.extras import NumericRange
 
 base_dir = os.path.split(__file__)[0]
 resource_dir = os.path.join(base_dir, "resources")
@@ -80,6 +81,11 @@ class Classifier(object):
     classifiers = dict()
 
     @classmethod
+    def nr(cls, lower, upper):
+        """Turn a 2-tuple into an inclusive NumericRange."""
+        return NumericRange(lower, upper, '[]')
+
+    @classmethod
     def lookup(cls, scheme):
         """Look up a classifier for a classification scheme."""
         return cls.classifiers.get(scheme, None)
@@ -103,7 +109,7 @@ class Classifier(object):
         audience = cls.audience(identifier, name)
 
         target_age = cls.target_age(identifier, name) 
-        if target_age == (None, None):
+        if target_age == cls.nr(None, None):
             target_age = cls.default_target_age_for_audience(audience)
 
         return (cls.genre(identifier, name, fiction, audience),
@@ -170,10 +176,10 @@ class Classifier(object):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
-        return None, None
+        return cls.nr(None, None)
 
     @classmethod
-    def default_target_age_for_audience(self, audience):
+    def default_target_age_for_audience(cls, audience):
         """The default target age for a given audience.
 
         We don't know what age range a children's book is appropriate
@@ -182,12 +188,50 @@ class Classifier(object):
         it's very clear.
         """
         if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return (14, 17)
+            return cls.nr(14, 17)
         elif audience in (
                 Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
         ):
-            return (18, None)
-        return (None, None)
+            return cls.nr(18, None)
+        return cls.nr(None, None)
+
+    @classmethod
+    def default_audience_for_target_age(cls, target_age):
+        """The default audience for a given target age.
+
+        Inverse of default_target_age_for_audience.
+        """
+        if not target_age:
+            # We were not passed a NumericRange
+            return None
+
+        lower = target_age.lower
+        upper = target_age.upper
+
+        if not lower and not upper:
+            # We have no information.
+            return None
+
+        # Sometimes we can determine audience given only a lower bound.
+        if lower:
+            if lower < cls.YOUNG_ADULT_AGE_CUTOFF:
+                return Classifier.AUDIENCE_CHILDREN
+            elif lower < 18:
+                return Classifier.AUDIENCE_YOUNG_ADULT
+            else:
+                return Classifier.AUDIENCE_ADULT
+
+        # Sometimes we can determine audience given only an upper
+        # bound.
+        if upper:
+            if upper < cls.YOUNG_ADULT_AGE_CUTOFF:
+                return Classifier.AUDIENCE_CHILDREN
+            elif upper < 18:
+                return Classifier.AUDIENCE_YOUNG_ADULT
+
+        # This will happen if lower is null and upper is greater than 18.
+        # This is a pretty weird case and we don't have a good answer.
+        return None
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -266,11 +310,11 @@ class GradeLevelClassifier(Classifier):
 
         if (identifier and "education" in identifier) or (name and 'education' in name):
             # This is a book about teaching, e.g. fifth grade.
-            return None, None
+            return cls.nr(None, None)
 
         if (identifier and 'grader' in identifier) or (name and 'grader' in name):
             # This is a book about, e.g. fifth graders.
-            return None, None
+            return cls.nr(None, None)
 
         if require_explicit_grade_marker:
             res = cls.grade_res
@@ -292,7 +336,7 @@ class GradeLevelClassifier(Classifier):
 
                     if (not young in cls.american_grade_to_age
                         and not old in cls.american_grade_to_age):
-                        return None, None
+                        return cls.nr(None, None)
 
                     if young in cls.american_grade_to_age:
                         young = cls.american_grade_to_age[young]
@@ -308,8 +352,8 @@ class GradeLevelClassifier(Classifier):
                         old = young
                     if young is None and old is not None:
                         young = old
-                    return young, old
-        return None, None
+                    return cls.nr(young, old)
+        return cls.nr(None, None)
 
     @classmethod
     def target_age_match(cls, query):
@@ -338,11 +382,11 @@ class InterestLevelClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'lg':
-            return 5,8
+            return cls.nr(5,8)
         if identifier in ('mg+', 'mg'):
-            return 9,13
+            return cls.nr(9,13)
         if identifier == 'ug':
-            return 14,17
+            return cls.nr(14,17)
         return None
 
 
@@ -371,7 +415,9 @@ class AgeClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
-        lower, upper = cls.target_age(identifier, name, require_explicit_age_marker)
+        target_age = cls.target_age(identifier, name, require_explicit_age_marker)
+        lower = target_age.lower
+        upper = target_age.upper
         if not lower and not upper:
             return None
         if lower < 12:
@@ -392,7 +438,7 @@ class AgeClassifier(Classifier):
             if match:
                 # This is for babies.
                 upper_bound = int(match.groups()[0])
-                return 0, upper_bound
+                return cls.nr(0, upper_bound)
 
         for r in res:
             for k in identifier, name:
@@ -424,8 +470,8 @@ class AgeClassifier(Classifier):
                         young = None
                     if young > old:
                         young, old = old, young
-                    return young, old
-        return None, None
+                    return cls.nr(young, old)
+        return cls.nr(None, None)
 
     @classmethod
     def target_age_match(cls, query):
@@ -464,14 +510,14 @@ class Axis360AudienceClassifier(Classifier):
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
         if (not identifier.startswith(cls.TEEN_PREFIX)
             and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return None, None
+            return cls.nr(None, None)
         m = cls.age_re.search(identifier)
         if not m:
-            return None, None
+            return cls.nr(None, None)
         young, old = map(int, m.groups())
         if young > old:
             young, old = old, young
-        return (young, old)
+        return cls.nr(young, old)
 
 
 # This is the large-scale structure of our classification system.
@@ -1308,10 +1354,10 @@ class OverdriveClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier.startswith('Picture Book'):
-            return 0, 4
+            return cls.nr(0, 4)
         elif identifier.startswith('Beginning Reader'):
-            return 5,8
-        return None, None
+            return cls.nr(5,8)
+        return cls.nr(None, None)
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
@@ -1621,7 +1667,7 @@ class AgeOrGradeClassifier(Classifier):
         age 9-12 or grade 9-12.
         """
         age = AgeClassifier.target_age(identifier, name, True)
-        if age == (None, None):
+        if age == cls.nr(None, None):
             age = GradeLevelClassifier.target_age(identifier, name, True)
         return age
 
@@ -3127,16 +3173,16 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'pre-adolescent':
-            return (9, 12)
+            return cls.nr(9, 12)
         if identifier == 'early adolescents':
-            return (13, 15)
+            return cls.nr(13, 15)
 
         strict_age = AgeClassifier.target_age(identifier, name, True)
-        if any(strict_age):
+        if strict_age.lower or strict_age.upper:
             return strict_age
 
         strict_grade = GradeLevelClassifier.target_age(identifier, name, True)
-        if any(strict_grade):
+        if strict_grade.lower or strict_grade.upper:
             return strict_grade
 
         # Default to assuming it's an unmarked age.
@@ -3430,6 +3476,7 @@ class WorkClassifier(object):
         target_age_mins = []
         target_age_maxes = []
         for c in reliable_classifications:
+            target_age = c.subject.target_age
             target_min = c.subject.target_age.lower
             target_max = c.subject.target_age.upper
             if target_min is not None:
@@ -3469,7 +3516,7 @@ class WorkClassifier(object):
         # never happen, but we fix it just in case.
         if target_age_min > target_age_max:
             target_age_min, target_age_max = target_age_max, target_age_min
-        return target_age_min, target_age_max
+        return Classifier.nr(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
         """Consolidate genres and apply a low-pass filter."""
