@@ -2858,9 +2858,11 @@ class Edition(Base):
                 changed_status = "unchanged"
                 level = logging.debug
 
-            msg = "Presentation %s for Edition %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
+            msg = u"Presentation %s for Edition %s (by %s, pub=%s, ident=%s/%s, pwid=%s, language=%s, cover=%r)"
             args = [changed_status, self.title, self.author, self.publisher, 
-                    self.primary_identifier, self.permanent_work_id, self.language]
+                    self.primary_identifier.type, self.primary_identifier.identifier,
+                    self.permanent_work_id, self.language
+            ]
             if self.cover and self.cover.representation:
                 args.append(self.cover.representation.mirror_url)
             else:

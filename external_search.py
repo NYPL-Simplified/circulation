@@ -10,32 +10,44 @@ import os
 import logging
 import re
 
-class ExternalSearchIndex(Elasticsearch):
+class ExternalSearchIndex(object):
     
     work_document_type = 'work-type'
+    __client = None
 
     def __init__(self, url=None, works_index=None):
     
-        integration = Configuration.integration(
-            Configuration.ELASTICSEARCH_INTEGRATION, 
-        )
         self.log = logging.getLogger("External search index")
-        self.works_index = works_index or integration.get(
-            Configuration.ELASTICSEARCH_INDEX_KEY
-        ) or None
 
-        if not integration:
-            return
+        if not ExternalSearchIndex.__client:
+            integration = Configuration.integration(
+                Configuration.ELASTICSEARCH_INTEGRATION, 
+            )
+            works_index = works_index or integration.get(
+                Configuration.ELASTICSEARCH_INDEX_KEY
+            ) or None
 
-        url = integration[Configuration.URL]
-        use_ssl = url and url.startswith('https://')
-        self.log.info("Connecting to Elasticsearch cluster at %s", url)
-        super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
-        if not url:
-            raise Exception("Cannot connect to Elasticsearch cluster.")
-        if self.works_index and not self.indices.exists(self.works_index):
-            self.log.info("Creating index %s", self.works_index)
-            self.indices.create(self.works_index)
+            if not integration:
+                return
+
+            url = integration[Configuration.URL]
+            use_ssl = url and url.startswith('https://')
+            self.log.info("Connecting to Elasticsearch cluster at %s", url)
+            ExternalSearchIndex.__client = Elasticsearch(url, use_ssl=use_ssl)
+            ExternalSearchIndex.__client.works_index = works_index
+            if not url:
+                raise Exception("Cannot connect to Elasticsearch cluster.")
+            if works_index and not self.__client.indices.exists(works_index):
+                self.log.info("Creating index %s", works_index)
+                self.__client.indices.create(works_index)
+
+        self.works_index = self.__client.works_index
+        self.indices = self.__client.indices
+        self.search = self.__client.search
+        self.index = self.__client.index
+        self.delete = self.__client.delete
+        self.exists = self.__client.exists
+                
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, limit=30):
