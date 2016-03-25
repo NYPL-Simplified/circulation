@@ -797,6 +797,9 @@ class CoverageRecord(Base):
     """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
+    SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
+    CHOOSE_COVER_OPERATION = 'choose-cover'
+
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
@@ -864,6 +867,13 @@ class WorkCoverageRecord(Base):
     and as such there is no data_source_id.
     """
     __tablename__ = 'workcoveragerecords'
+
+    CHOOSE_EDITION_OPERATION = 'choose-edition'
+    CLASSIFY_OPERATION = 'classify'
+    SUMMARY_OPERATION = 'summary'
+    QUALITY_OPERATION = 'quality'
+    OPDS_OPERATION = 'opds'
+    SEARCH_INDEX_OPERATION = 'search-index'
 
     id = Column(Integer, primary_key=True)
     work_id = Column(
