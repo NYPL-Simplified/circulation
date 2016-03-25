@@ -1688,6 +1688,15 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     YOUNG_ADULT_INDICATORS = match_kw("young adult", "ya", "12-Up", 
                                       "teenage fiction")
 
+    # Children's books don't generally deal with romance, so although
+    # "Juvenile Fiction" generally refers to children's fiction,
+    # "Juvenile Fiction / Love & Romance" is almost certainly YA.
+    JUVENILE_TERMS_THAT_IMPLY_YOUNG_ADULT = set([
+        "love & romance",
+        "romance",
+        "romantic",
+    ])        
+
     # These identifiers indicate that the string "children" or
     # "juvenile" in the identifier does not actually mean the work is
     # _for_ children.
@@ -2816,12 +2825,17 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     def audience(cls, identifier, name):
         if name is None:
             return None
-        if cls.JUVENILE_INDICATORS.search(name):
-            use = cls.AUDIENCE_CHILDREN
-        elif cls.YOUNG_ADULT_INDICATORS.search(name):
+        if cls.YOUNG_ADULT_INDICATORS.search(name):
             use = cls.AUDIENCE_YOUNG_ADULT
+        elif cls.JUVENILE_INDICATORS.search(name):
+            use = cls.AUDIENCE_CHILDREN
         else:
             return None
+
+        if use == cls.AUDIENCE_CHILDREN:
+            for i in cls.JUVENILE_TERMS_THAT_IMPLY_YOUNG_ADULT:
+                if i in name:
+                    use = cls.AUDIENCE_YOUNG_ADULT
 
         # It may be for kids, or it may be about kids, e.g. "juvenile
         # delinquency".
@@ -3245,7 +3259,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
