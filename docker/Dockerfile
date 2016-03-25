@@ -1,6 +1,6 @@
 FROM python:2.7
 
-MAINTAINER Courteney Ervin <courteneyervin@nypl.org>
+MAINTAINER Library Simplified <info@librarysimplified.org>
 
 # Development libraries we'll need on top of python:2.7
 RUN apt-get update && apt-get install -y --no-install-recommends \
