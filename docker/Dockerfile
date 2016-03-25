@@ -34,3 +34,6 @@ COPY nginx.conf /etc/nginx/conf.d/circulation.conf
 COPY uwsgi.ini uwsgi.ini
 
 EXPOSE 80
+
+VOLUME /var/www/circulation
+ENTRYPOINT ["/bin/bash"]
