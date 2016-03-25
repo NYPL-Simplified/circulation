@@ -198,29 +198,35 @@ class TestSignInController(AdminControllerTest):
 class TestFeedController(AdminControllerTest):
 
     def test_complaints(self):
-        type = next(iter(Complaint.VALID_TYPES))
-
-        for i in range(2):
-            work1 = self._work(
-                "fiction work with complaint %i" % i,
-                language="eng",
-                fiction=True,
-                with_open_access_download=True)
-            complaint1 = self._complaint(
-                work1.license_pools[0],
-                type,
-                "complaint source %i" % i,
-                "complaint detail %i" % i)
-            work2 = self._work(
-                "nonfiction work with complaint %i" % i,
-                language="eng",
-                fiction=False,
-                with_open_access_download=True)
-            complaint2 = self._complaint(
-                work2.license_pools[0],
-                type,
-                "complaint source %i" % i,
-                "complaint detail %i" % i)
+        type = iter(Complaint.VALID_TYPES)
+        type1 = next(type)
+        type2 = next(type)
+        
+        work1 = self._work(
+            "fiction work with complaint 1",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+        complaint1 = self._complaint(
+            work1.license_pools[0],
+            type1,
+            "complaint source 1",
+            "complaint detail 1")
+        complaint2 = self._complaint(
+            work1.license_pools[0],
+            type2,
+            "complaint source 2",
+            "complaint detail 2")
+        work2 = self._work(
+            "nonfiction work with complaint",
+            language="eng",
+            fiction=False,
+            with_open_access_download=True)
+        complaint3 = self._complaint(
+            work2.license_pools[0],
+            type1,
+            "complaint source 3",
+            "complaint detail 3")
 
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/"):
@@ -228,4 +234,4 @@ class TestFeedController(AdminControllerTest):
             feed = feedparser.parse(response.data)
             entries = feed['entries']
 
-            eq_(len(entries), 4)
+            eq_(len(entries), 2)
