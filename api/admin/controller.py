@@ -191,7 +191,7 @@ class WorkController(CirculationManagerController):
             policy = PresentationCalculationPolicy(
                 regenerate_opds_entries=True, update_search_index=True,
             )
-            work.calculate_presentation()
+            work.calculate_presentation(policy=policy)
         return Response("", 200)
 
     def suppress(self, data_source, identifier):
