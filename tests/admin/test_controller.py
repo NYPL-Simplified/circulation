@@ -33,6 +33,7 @@ class AdminControllerTest(ControllerTest):
     def setup(self):
         with temp_config() as config:
             config[Configuration.INCLUDE_ADMIN_INTERFACE] = True
+            config[Configuration.SECRET_KEY] = "a secret"
 
             super(AdminControllerTest, self).setup()
 
@@ -187,7 +188,9 @@ class TestSignInController(AdminControllerTest):
 
     def test_staff_email(self):
         with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.ADMIN_AUTH_DOMAIN] = "alibrary.org"
+            config[Configuration.POLICIES] = {
+                Configuration.ADMIN_AUTH_DOMAIN : "alibrary.org"
+            }
             with self.app.test_request_context('/admin/sign_in'):
                 staff_email = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
                 interloper_email = self.manager.admin_sign_in_controller.staff_email("rando@gmail.com")
