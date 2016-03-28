@@ -180,7 +180,7 @@ class TestMetadataImporter(DatabaseTest):
 
         # The thumbnail image has been converted to PNG.
         assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/scaled/300/')
-        assert image.mirror_url.endswith('cover.png')
+        assert thumbnail.mirror_url.endswith('cover.png')
 
     def test_open_access_content_mirrored(self):
         mirror = DummyS3Uploader()

@@ -1107,7 +1107,7 @@ class Metadata(object):
 
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
-        thumbnail_obj, ignore = identifier.add_link(
+        thumbnail_obj, ignore = link_obj.identifier.add_link(
             rel=thumbnail.rel, href=thumbnail.href, 
             data_source=data_source, 
             license_pool=pool, media_type=thumbnail.media_type,
