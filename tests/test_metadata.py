@@ -14,6 +14,7 @@ from metadata_layer import (
     FormatData,
     LinkData,
     Metadata,
+    IdentifierData,
 )
 
 import os
@@ -30,6 +31,14 @@ from model import (
 from . import (
     DatabaseTest,
 )
+
+class TestIdentifierData(object):
+
+    def test_constructor(self):
+        data = IdentifierData(Identifier.ISBN, "foo", 0.5)
+        eq_(Identifier.ISBN, data.type)
+        eq_("foo", data.identifier)
+        eq_(0.5, data.weight)
 
 class TestMetadataImporter(DatabaseTest):
 
@@ -54,7 +63,7 @@ class TestMetadataImporter(DatabaseTest):
         [overdrive] = m1.identifiers
         eq_(Identifier.OVERDRIVE_ID, overdrive.type)
         eq_('504BA8F6-FF4E-4B57-896E-F1A50CFFCA0C', overdrive.identifier)
-        eq_(1, overdrive.weight)
+        eq_(0.75, overdrive.weight)
 
         # The second book has no ID at all.
         eq_([], m2.identifiers)
@@ -64,11 +73,11 @@ class TestMetadataImporter(DatabaseTest):
 
         eq_(Identifier.OVERDRIVE_ID, overdrive.type)
         eq_('eae60d41-e0b8-4f9d-90b5-cbc43d433c2f', overdrive.identifier)
-        eq_(1, overdrive.weight)
+        eq_(0.75, overdrive.weight)
 
         eq_(Identifier.THREEM_ID, threem.type)
         eq_('eswhyz9', threem.identifier)
-        eq_(1, threem.weight)
+        eq_(0.75, threem.weight)
 
         # Now let's check out subjects.
         eq_(
@@ -204,17 +213,17 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(coverage, None)
         
-        last_update = datetime.date(2015, 1, 1)
+        last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
                      title=u"New title", last_update_time=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(last_update, coverage.date)
+        eq_(last_update, coverage.timestamp)
         eq_(u"New title", edition.title)
 
-        older_last_update = datetime.date(2014, 1, 1)
+        older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
                      last_update_time=older_last_update
@@ -223,9 +232,9 @@ class TestMetadataImporter(DatabaseTest):
         eq_(u"New title", edition.title)
 
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(last_update, coverage.date)
+        eq_(last_update, coverage.timestamp)
 
         m.apply(edition, force=True)
         eq_(u"Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
-        eq_(older_last_update, coverage.date)
+        eq_(older_last_update, coverage.timestamp)

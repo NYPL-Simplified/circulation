@@ -889,15 +889,23 @@ class TestFilters(DatabaseTest):
         w3 = self._work(with_license_pool=True)
         w3.presentation_ready = False
 
-        self._db.commit()
+        # w4's only license pool is suppressed.
+        w4 = self._work(with_open_access_download=True)
+        w4.license_pools[0].suppressed = True
 
-        # A normal query finds all works.
-        q = self._db.query(Work).join(Work.license_pools)
-        eq_(3, q.count())
+        # A normal query against Work/LicensePool finds all works.
+        orig_q = self._db.query(Work).join(Work.license_pools)
+        eq_(4, orig_q.count())
 
-        # only_show_ready_deliverable_works filters out w2 and w3.
-        q = Lane.only_show_ready_deliverable_works(q, Work)
+        # only_show_ready_deliverable_works filters out w2, w3, and w4.
+        q = Lane.only_show_ready_deliverable_works(orig_q, Work)
         eq_([w1], q.all())
+
+        # If we decide to show suppressed works, w4 shows up again.
+        q = Lane.only_show_ready_deliverable_works(
+            orig_q, Work, show_suppressed=True
+        )
+        eq_(set([w1, w4]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
         with temp_config() as config:
@@ -906,11 +914,12 @@ class TestFilters(DatabaseTest):
             }
 
             # w1 still shows up because it's an open-access work.
-            q = Lane.only_show_ready_deliverable_works(q, Work)
+            # (w4 is open-access but it's suppressed).
+            q = Lane.only_show_ready_deliverable_works(orig_q, Work)
             eq_(1, q.count())
 
             # But if we change that...
             w1.license_pools[0].open_access = False
-            q = Lane.only_show_ready_deliverable_works(q, Work)
+            q = Lane.only_show_ready_deliverable_works(orig_q, Work)
             eq_(0, q.count())
             

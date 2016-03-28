@@ -16,3 +16,4 @@ python-dateutil
 uwsgi
 loggly-python-handler
 cairosvg
+mock

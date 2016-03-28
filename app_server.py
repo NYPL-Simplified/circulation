@@ -5,6 +5,7 @@ import flask
 import json
 import os
 import sys
+import subprocess
 from lxml import etree
 from flask import url_for, make_response
 from util.flask_util import problem
@@ -182,10 +183,11 @@ class ErrorHandler(object):
                 sys.exit()
         return make_response(body, 500, {"Content-Type": "text/plain"})
 
+
 class HeartbeatController(object):
 
     def heartbeat(self):
-        return make_response("", 200, {"Content-Type": "text/plain"})
+        return make_response("", 200, {"Content-Type": "application/json"})
 
 
 class URNLookupController(object):
@@ -272,7 +274,7 @@ class URNLookupController(object):
 
         license_sources = DataSource.license_sources_for(
             self._db, identifier)
-        if license_sources.count():
+        if identifier.type != Identifier.ISBN and license_sources.count():
             return self.register_identifier_as_unresolved(identifier)
         else:
             entry = self.make_opds_entry_from_metadata_lookups(identifier)

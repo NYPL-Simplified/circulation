@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 from nose.tools import set_trace
+from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
@@ -10,12 +11,14 @@ from config import Configuration
 import log # This sets the appropriate log format and level.
 import random
 from model import (
+    get_one_or_create,
     production_session,
     CustomList,
     DataSource,
     Edition,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Subject,
     Work,
     WorkGenre,
@@ -26,6 +29,16 @@ from external_search import (
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from nyt import NYTBestSellerAPI
+
+from overdrive import (
+    OverdriveBibliographicCoverageProvider,
+)
+
+from threem import (
+    ThreeMBibliographicCoverageProvider,
+)
+
+from axis import Axis360BibliographicCoverageProvider
 
 class Script(object):
 
@@ -46,6 +59,52 @@ class Script(object):
     def data_directory(self):
         return Configuration.data_directory()
 
+    @classmethod
+    def parse_identifier_list(cls, _db, arguments):
+        """Turn a list of arguments into a list of identifiers.
+
+        This makes it easy to identify specific identifiers on the
+        command line. Examples:
+
+        "Gutenberg ID" 1 2
+        
+        "Overdrive ID" a b c
+
+        Basic but effective.
+        """
+        current_identifier_type = None
+        if len(arguments) == 0:
+            return []
+        identifier_type = arguments[0]
+        identifiers = []
+        for arg in arguments[1:]:
+            identifier, ignore = Identifier.for_foreign_id(
+                _db, identifier_type, arg, autocreate=False
+            )
+            if not identifier:
+                logging.warn(
+                    "Could not load identifier %s/%s", identifier_type, arg
+                )
+            if identifier:
+                identifiers.append(identifier)
+        return identifiers
+
+    @classmethod
+    def parse_identifier_list_or_data_source(cls, _db, arguments):
+        """Try to parse `arguments` as a list of identifiers.
+        If that fails, try to interpret it as a data source.
+        """
+        identifiers = cls.parse_identifier_list(_db, arguments)
+        if identifiers:
+            return identifiers
+
+        if len(arguments) == 1:
+            # Try treating the sole argument as a data source.
+            restrict_to_source = arguments[0]
+            data_source = DataSource.lookup(_db, restrict_to_source)
+            return data_source
+        return []
+
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
@@ -64,9 +123,9 @@ class Script(object):
 
 class RunMonitorScript(Script):
 
-    def __init__(self, monitor):
+    def __init__(self, monitor, **kwargs):
         if callable(monitor):
-            monitor = monitor(self._db)
+            monitor = monitor(self._db, **kwargs)
         self.monitor = monitor
         self.name = self.monitor.service_name
 
@@ -106,7 +165,27 @@ class RunCoverageProvidersScript(Script):
                     offsets[provider] = offset
 
 
-class RunCoverageProviderScript(Script):
+class IdentifierInputScript(Script):
+    """A script that takes identifiers as command line inputs."""
+
+    def parse_identifiers(self):
+        potential_identifiers = sys.argv[1:]
+        identifiers = self.parse_identifier_list(
+            self._db, potential_identifiers
+        )
+        if potential_identifiers and not identifiers:
+            self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
+        return identifiers
+
+    def parse_identifiers_or_data_source(self):
+        """Try to parse the command-line arguments as a list of identifiers.
+        If that fails, try to find a data source.
+        """
+        return self.parse_identifier_list_or_data_source(
+            self._db, sys.argv[1:]
+        )
+
+class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
     def __init__(self, provider):
@@ -116,70 +195,88 @@ class RunCoverageProviderScript(Script):
         self.name = self.provider.service_name
 
     def do_run(self):
-        self.provider.run()
+        identifiers = self.parse_identifiers()
+        if identifiers:
+            self.provider.run_on_identifiers(identifiers)
+        else:
+            self.provider.run()
 
-class WorkProcessingScript(Script):
+class BibliographicRefreshScript(IdentifierInputScript):
+    """Refresh the core bibliographic data for Editions direct from the
+    license source.
+    """
+    def do_run(self):
+        identifiers = self.parse_identifiers()
+        if not identifiers:
+            raise Exception(
+                "You must specify at least one identifier to refresh."
+            )
+        for identifier in identifiers:
+            self.refresh_metadata(identifier)
+        self._db.commit()
+
+    def refresh_metadata(self, identifier):
+        provider = None
+        if identifier.type==Identifier.THREEM_ID:
+            provider = ThreeMBibliographicCoverageProvider
+        elif identifier.type==Identifier.OVERDRIVE_ID:
+            provider = OverdriveBibliographicCoverageProvider
+        elif identifier.type==Identifier.AXIS_360_ID:
+            provider = Axis360BibliographicCoverageProvider
+        else:
+            self.log.warn("Cannot update coverage for %r" % identifier)
+        if provider:
+            provider(self._db).ensure_coverage(identifier, force=True)
+
+
+class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, _db=None, force=False, restrict_to_source=None, 
-                 specific_identifier=None, random_order=True,
-                 batch_size=10):
-        self.db = _db or self._db
-        if restrict_to_source:
-            # Process works from a certain data source.
-            data_source = DataSource.lookup(self.db, restrict_to_source)
-            self.restrict_to_source = data_source
-        else:
-            # Process works from any data source.
-            self.restrict_to_source = None
-        self.force = force
-        self.specific_works = None
-        if specific_identifier:
-            # Look up the works for this identifier
-            q = self.db.query(Work).join(Edition).filter(
-                Edition.primary_identifier==specific_identifier)
-            self.specific_works = q
+    def __init__(self, force=False, batch_size=10):
 
+        identifiers_or_source = self.parse_identifiers_or_data_source()
         self.batch_size = batch_size
+        self.query = self.make_query(identifiers_or_source)
+        self.force = force
+
+    def make_query(self, identifiers):
+        query = self._db.query(Work)
+        if not identifiers:
+            self.log.info(
+                "Processing all %d works.", query.count()
+            )
+        elif isinstance(identifiers, DataSource):
+            # Find all works from the given data source.
+            query = query.join(Edition).filter(
+                Edition.data_source==identifiers
+            )
+            self.log.info(
+                "Processing %d works from %s", query.count(),
+                identifiers.name
+            )
+        else:
+            # Find works with specific identifiers.
+            query = query.join(Edition).filter(
+                    Edition.primary_identifier_id.in_(
+                        [x.id for x in identifiers]
+                    )
+            )
+            self.log.info(
+                "Processing %d specific works." % query.count()
+            )
+        return query.order_by(Work.id)
 
     def do_run(self):
-        q = None
-        if self.specific_works:
-            logging.info(
-                "Processing specific works: %r", self.specific_works.all()
-            )
-            q = self.specific_works
-        elif self.restrict_to_source:
-            logging.info(
-                "Processing %s works.",
-                self.restrict_to_source.name,
-            )
-        else:
-            logging.info("Processing all works.")
-
-        if not q:
-            q = self.db.query(Work)
-            if self.restrict_to_source:
-                q = q.join(Edition).filter(
-                    Edition.data_source==self.restrict_to_source)
-            q = self.query_hook(q)
-
-        q = q.order_by(Work.id)
-        logging.info("That's %d works.", q.count())
-
         works = True
         offset = 0
         while works:
-            works = q.offset(offset).limit(self.batch_size)
+            works = self.query.offset(offset).limit(self.batch_size).all()
             for work in works:
                 self.process_work(work)
             offset += self.batch_size
-            self.db.commit()
-        self.db.commit()
-
-    def query_hook(self, q):
-        return q
+            self._db.commit()
+        self._db.commit()
 
     def process_work(self, work):
         raise NotImplementedError()      
@@ -196,25 +293,25 @@ class WorkConsolidationScript(WorkProcessingScript):
             self.clear_existing_works()                  
 
         logging.info("Consolidating works.")
-        LicensePool.consolidate_works(self.db)
+        LicensePool.consolidate_works(self._db)
 
         logging.info("Deleting works with no editions.")
         for i in self.db.query(Work).filter(Work.primary_edition==None):
-            self.db.delete(i)            
-        self.db.commit()
+            self._db.delete(i)            
+        self._db.commit()
 
     def clear_existing_works(self):
         # Locate works we want to consolidate.
         unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
-        work_records = self.db.query(Edition)
+        work_records = self._db.query(Edition)
         if getattr(self, 'identifier_type', None):
             work_records = work_records.join(
                 Identifier).filter(
                     Identifier.type==self.identifier_type)
             for wr in work_records:
                 work_ids_to_delete.add(wr.work_id)
-            work_records = self.db.query(Edition).filter(
+            work_records = self._db.query(Edition).filter(
                 Edition.work_id.in_(work_ids_to_delete))
         else:
             work_records = work_records.filter(Edition.work_id!=None)
@@ -222,7 +319,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         # Unset the work IDs for any works we want to re-consolidate.
         work_records.update(unset_work_id, synchronize_session='fetch')
 
-        pools = self.db.query(LicensePool)
+        pools = self._db.query(LicensePool)
         if getattr(self, 'identifier_type', None):
             # Unset the work IDs for those works' LicensePools.
             pools = pools.join(Identifier).filter(
@@ -232,7 +329,7 @@ class WorkConsolidationScript(WorkProcessingScript):
                 # going to delete should have showed up in the first
                 # query--but just in case.
                 work_ids_to_delete.add(pool.work_id)
-            pools = self.db.query(LicensePool).filter(
+            pools = self._db.query(LicensePool).filter(
                 LicensePool.work_id.in_(work_ids_to_delete))
         else:
             pools = pools.filter(LicensePool.work_id!=None)
@@ -241,32 +338,73 @@ class WorkConsolidationScript(WorkProcessingScript):
         # Delete all work-genre assignments for works that will be
         # reconsolidated.
         if work_ids_to_delete:
-            genres = self.db.query(WorkGenre)
+            genres = self._db.query(WorkGenre)
             genres = genres.filter(WorkGenre.work_id.in_(work_ids_to_delete))
             logging.info(
                 "Deleting %d genre assignments.", genres.count()
             )
             genres.delete(synchronize_session='fetch')
-            self.db.flush()
+            self._db.flush()
 
         if work_ids_to_delete:
-            works = self.db.query(Work)
+            works = self._db.query(Work)
             logging.info(
                 "Deleting %d works.", len(work_ids_to_delete)
             )
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
-            self.db.commit()
+            self._db.commit()
 
 
 class WorkPresentationScript(WorkProcessingScript):
     """Calculate the presentation for Work objects."""
 
+    # Do a complete recalculation of the presentation.
+    policy = PresentationCalculationPolicy()
+
     def process_work(self, work):
-        work.calculate_presentation(
-            choose_edition=True, classify=True, choose_summary=True,
-            calculate_quality=True)
-  
+        work.calculate_presentation(policy=self.policy)
+
+class WorkClassificationScript(WorkPresentationScript):
+    """Recalculate the classification--and nothing else--for Work objects.
+    """
+    policy = PresentationCalculationPolicy(
+        choose_edition=False,
+        set_edition_metadata=False,
+        classify=True,
+        choose_summary=False,
+        calculate_quality=False,
+        choose_cover=False,
+        regenerate_opds_entries=False, 
+        update_search_index=False,
+    )
+
+class CustomListManagementScript(Script):
+    """Maintain a CustomList whose membership is determined by a
+    MembershipManager.
+    """
+
+    def __init__(self, manager_class,
+                 data_source_name, list_identifier, list_name,
+                 primary_language, description,
+                 **manager_kwargs
+             ):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        self.custom_list, is_new = get_one_or_create(
+            self._db, CustomList,
+            data_source_id=data_source.id,
+            foreign_identifier=list_identifier,
+        )
+        self.custom_list.primary_language = primary_language
+        self.custom_list.description = description
+        self.membership_manager = manager_class(
+            self.custom_list, **manager_kwargs
+        )
+
+    def run(self):
+        self.membership_manager.update()
+        self._db.commit()
+
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
@@ -321,31 +459,50 @@ class RefreshMaterializedViewsScript(Script):
     
     def do_run(self):
         # Initialize database
-        db = self._db
         from model import (
             MaterializedWork,
             MaterializedWorkWithGenre,
         )
+        db = self._db
         for i in (MaterializedWork, MaterializedWorkWithGenre):
             view_name = i.__table__.name
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
             b = time.time()
-            print "%s refreshed in %.2f sec" % (view_name, b-a)
+            print "%s refreshed in %.2f sec." % (view_name, b-a)
+
+        # Close out this session because we're about to create another one.
+        db.commit()
+        db.close()
+
+        # The normal database connection (which we want almost all the
+        # time) wraps everything in a big transaction, but VACUUM
+        # can't be executed within a transaction block. So create a
+        # separate connection that uses autocommit.
+        url = Configuration.database_url()
+        engine = create_engine(url, isolation_level="AUTOCOMMIT")
+        engine.autocommit = True
+        a = time.time()
+        engine.execute("VACUUM (VERBOSE, ANALYZE)")
+        b = time.time()
+        print "Vacuumed in %.2f sec." % (b-a)
 
 
-class Explain(Script):
+class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        title = sys.argv[1]
-        editions = self._db.query(Edition).filter(Edition.title.ilike(title))
+        identifiers = self.parse_identifiers()
+        identifier_ids = [x.id for x in identifiers]
+        editions = self._db.query(Edition).filter(
+            Edition.primary_identifier_id.in_(identifier_ids)
+        )
         for edition in editions:
             self.explain(self._db, edition)
             print "-" * 80
         #self._db.commit()
 
     @classmethod
-    def explain(cls, _db, edition, calculate_presentation=False):
+    def explain(cls, _db, edition, presentation_calculation_policy=None):
         if edition.medium != 'Book':
             return
         output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
@@ -364,9 +521,9 @@ class Explain(Script):
         else:
             print " No associated work."
 
-        if work and calculate_presentation:
+        if work and presentation_calculation_policy is not None:
              print "!!! About to calculate presentation!"
-             work.calculate_presentation()
+             work.calculate_presentation(policy=presentation_calculation_policy)
              print "!!! All done!"
              print
              print "After recalculating presentation:"

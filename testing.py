@@ -11,6 +11,7 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Complaint,
     Contributor,
     CoverageRecord,
     CustomList,
@@ -25,6 +26,7 @@ from model import (
     Identifier,
     Edition,
     Work,
+    WorkCoverageRecord,
     UnresolvedIdentifier,
     get_one_or_create
 )
@@ -33,6 +35,9 @@ from coverage import (
     CoverageProvider,
     CoverageFailure,
 )
+from external_search import DummyExternalSearchIndex
+import mock
+import model
 
 class DatabaseTest(object):
 
@@ -48,11 +53,13 @@ class DatabaseTest(object):
         self.counter = 0
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
+        self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+        self.search_mock.start()
 
     def teardown(self):
         self._db.close()
         self.__transaction.rollback()
-
+        self.search_mock.stop()
 
     @property
     def _id(self):
@@ -185,12 +192,22 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
         return work
 
-    def _coverage_record(self, edition, coverage_source):
+    def _coverage_record(self, edition, coverage_source, operation=None):
         record, ignore = get_one_or_create(
             self._db, CoverageRecord,
             identifier=edition.primary_identifier,
             data_source=coverage_source,
-            create_method_kwargs = dict(date=datetime.utcnow()))
+            operation=operation,
+            create_method_kwargs = dict(timestamp=datetime.utcnow()))
+        return record
+
+    def _work_coverage_record(self, work, operation=None):
+        record, ignore = get_one_or_create(
+            self._db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            create_method_kwargs = dict(timestamp=datetime.utcnow())
+        )
         return record
 
     def _licensepool(self, edition, open_access=True, 
@@ -289,6 +306,15 @@ class DatabaseTest(object):
                 edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
         return customlist, editions
+
+    def _complaint(self, license_pool, type, source, detail):
+        complaint, is_new = Complaint.register(
+            license_pool,
+            type,
+            source,
+            detail
+        )
+        return complaint
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried

@@ -20,13 +20,11 @@ from model import (
     CustomListEntry,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Subject,
     Timestamp,
     UnresolvedIdentifier,
     Work,
-)
-from external_search import (
-    ExternalSearchIndex,
 )
 
 class Monitor(object):
@@ -43,14 +41,6 @@ class Monitor(object):
         self.interval_seconds = interval_seconds
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
-
-        search = Configuration.integration(
-            Configuration.ELASTICSEARCH_INTEGRATION)
-        if search:
-            search_index_client = ExternalSearchIndex()
-        else:
-            search_index_client = None
-        self.search_index_client=search_index_client
 
         if not default_start_time:
              default_start_time = (
@@ -139,15 +129,19 @@ class IdentifierResolutionMonitor(Monitor):
         )
 
         for unresolved_identifier in unresolved_identifiers:
-            success = False
-            try:
-                self.resolve(unresolved_identifier)
-                success = True
-            except Exception, e:
-                self.process_failure(unresolved_identifier, e)
-            if success:
-                self._db.delete(unresolved_identifier)
-            self._db.commit()
+            self.resolve_and_handle_result(unresolved_identifier)
+
+    def resolve_and_handle_result(self, unresolved_identifier):
+        success = False
+        try:
+            self.resolve(unresolved_identifier)
+            success = True
+        except Exception, e:
+            self.process_failure(unresolved_identifier, e)
+        if success:
+            self._db.delete(unresolved_identifier)
+        self._db.commit()
+        return success
 
     def resolve(self, unresolved_identifier):
         """Resolve one UnresolvedIdentifier."""
@@ -372,39 +366,6 @@ class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)
 
-class ReclassifierMonitor(PresentationReadyWorkSweepMonitor):
-
-    """Reclassifies works using (one hopes) new data or updated
-    classification rules.
-    """
-
-    def __init__(self, _db, interval_seconds=3600*24):
-        super(ReclassifierMonitor, self).__init__(
-            _db, "Reclassifier", interval_seconds)
-
-    def run_once(self, offset):
-        new_offset = super(ReclassifierMonitor, self).run_once(offset)
-        if new_offset == 0:
-            self.stop_running = True
-        return new_offset
-
-    def process_work(self, work):
-        work.calculate_presentation(
-        choose_edition=False, classify=True,
-        choose_summary=False,
-        calculate_quality=False, debug=True,
-        search_index_client=self.search_index_client
-    )
-
-class OverdriveReclassifierMonitor(ReclassifierMonitor):
-    """Reclassify only Overdrive books."""
-
-    def work_query(self):
-        return self._db.query(Work).join(Work.primary_edition).join(
-            Edition.data_source).filter(
-                DataSource.name==DataSource.OVERDRIVE).filter(
-                    Work.presentation_ready==True)
-
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
 
@@ -507,7 +468,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             if exception:
                 work.presentation_ready_exception = exception
             else:
-                work.calculate_presentation(choose_edition=False)
+                policy = PresentationCalculationPolicy(
+                    choose_edition=False
+                )
+                work.calculate_presentation(policy)
                 work.set_presentation_ready()                    
                 one_success = True
         self.finalize_batch()

@@ -38,12 +38,88 @@ from model import (
     Representation,
 )
 
+class ReplacementPolicy(object):
+    """How serious should we be about overwriting old metadata with
+    this new metadata?
+    """
+    def __init__(
+            self,
+            identifiers=False,
+            subjects=False, 
+            contributions=False,
+            links=False,
+            formats=False,
+            rights=False,
+            even_if_not_apparently_updated=False
+    ):
+        self.identifiers = identifiers
+        self.subjects = subjects
+        self.contributions = contributions
+        self.links = links
+        self.rights = rights
+        self.formats = formats
+        self.even_if_not_apparently_updated = even_if_not_apparently_updated
+        
+    @classmethod
+    def from_license_source(self, even_if_not_apparently_updated=False):
+        """When gathering data from the license source, overwrite all old data
+        from this source with new data from the same source. Also
+        overwrite an old rights status with an updated status and update
+        the list of available formats.
+        """
+        return ReplacementPolicy(
+            identifiers=True, 
+            subjects=True, 
+            contributions=True, 
+            links=True, 
+            rights=True,
+            formats=True,
+            even_if_not_apparently_updated=even_if_not_apparently_updated
+        )
+
+    @classmethod
+    def from_metadata_source(self, even_if_not_apparently_updated=False):
+        """When gathering data from a metadata source, overwrite all old data
+        from this source, but do not overwrite the rights status or
+        the available formats. License sources are the authority on rights
+        and formats, and metadata sources have no say in the matter.
+        """
+        return ReplacementPolicy(
+            identifiers=True, 
+            subjects=True, 
+            contributions=True, 
+            links=True, 
+            rights=False,
+            formats=False,
+            even_if_not_apparently_updated=even_if_not_apparently_updated
+        )
+
+    @classmethod
+    def append_only(self, even_if_not_apparently_updated=False):
+        """Don't overwrite any information, just append it.
+
+        This should probably never be used.
+        """
+        return ReplacementPolicy(
+            identifiers=False, 
+            subjects=False, 
+            contributions=False, 
+            links=False, 
+            rights=False,
+            formats=False,
+            even_if_not_apparently_updated=even_if_not_apparently_updated
+        )
+
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
         self.type = type
         self.identifier = identifier
         self.name = name
         self.weight=weight
+
+    @property
+    def key(self):
+        return self.type, self.identifier, self.name, self.weight
 
     def __repr__(self):
         return '<SubjectData type="%s" identifier="%s" name="%s" weight=%d>' % (
@@ -177,8 +253,8 @@ class ContributorData(object):
 class IdentifierData(object):
     def __init__(self, type, identifier, weight=1):
         self.type = type
+        self.weight = weight
         self.identifier = identifier
-        self.weight = 1
 
     def __repr__(self):
         return '<IdentifierData type="%s" identifier="%s" weight="%s">' % (
@@ -723,9 +799,7 @@ class Metadata(object):
                 success = True
         return success
 
-    def apply(
-            self, edition, 
-            metadata_client=None,
+    def apply(self, edition, metadata_client=None, replace=None,
             replace_identifiers=False,
             replace_subjects=False, 
             replace_contributions=False,
@@ -741,6 +815,17 @@ class Metadata(object):
         to this MirrorUploader.
         """
         _db = Session.object_session(edition)
+
+        if replace is None:
+            replace = ReplacementPolicy(
+                identifiers=replace_identifiers,
+                subjects=replace_subjects,
+                contributions=replace_contributions,
+                links=replace_links,
+                formats=replace_formats,
+                rights=replace_rights,
+                even_if_not_apparently_updated=force
+            )
 
         # We were given an Edition, so either this metadata's
         # primary_identifier must be missing or it must match the
@@ -758,16 +843,12 @@ class Metadata(object):
 
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
-        if self.last_update_time and not force:
+        if self.last_update_time and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
-                check_date = coverage_record.date
-                if not isinstance(check_date, datetime.date):
-                    check_date = check_date.date()
-                last_date = self.last_update_time
-                if isinstance(last_date, datetime.datetime):
-                    last_date = last_date.date()
-                if check_date >= last_date:
+                check_time = coverage_record.timestamp
+                last_time = self.last_update_time
+                if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return
 
@@ -804,40 +885,57 @@ class Metadata(object):
         # the edition's primary identifier.
 
         self.update_contributions(_db, edition, metadata_client, 
-                                  replace_contributions)
+                                  replace.contributions)
 
-        # TODO: remove equivalencies when replace_identifiers is True.
+        # TODO: remove equivalencies when replace.identifiers is True.
 
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
+                if not identifier_data.identifier:
+                    continue
                 new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
                 identifier.equivalent_to(
                     data_source, new_identifier, identifier_data.weight)
 
-        if replace_subjects and self.subjects is not None:
-            # Remove any old Subjects from this data source -- we're
-            # about to add a new set.
+        new_subjects = {}
+        if self.subjects:
+            new_subjects = dict(
+                (subject.key, subject) 
+                for subject in self.subjects
+            )
+        if replace.subjects:
+            # Remove any old Subjects from this data source, unless they
+            # are also in the list of new subjects.
             surviving_classifications = []
-            dirty = False
+
+            def _key(classification):
+                s = classification.subject
+                return s.type, s.identifier, s.name, classification.weight
+
             for classification in identifier.classifications:
                 if classification.data_source == data_source:
-                    _db.delete(classification)
-                    dirty = True
-                else:
-                    surviving_classifications.append(classification)
-            if dirty:
+                    key = _key(classification)
+                    if not key in new_subjects:
+                        # The data source has stopped claiming that
+                        # this classification should exist.
+                        _db.delete(classification)
+                    else:
+                        # The data source maintains that this
+                        # classification is a good idea. We don't have
+                        # to do anything.
+                        del new_subjects[key]
+                        surviving_classifications.append(classification)
                 identifier.classifications = surviving_classifications
 
-        # Apply all specified subjects to the identifier.
-        if self.subjects:
-            for subject in self.subjects:
-                identifier.classify(
-                    data_source, subject.type, subject.identifier, 
-                    subject.name, weight=subject.weight)
+        # Apply all new subjects to the identifier.
+        for subject in new_subjects.values():
+            identifier.classify(
+                data_source, subject.type, subject.identifier, 
+                subject.name, weight=subject.weight)
 
         # Associate all links with the primary identifier.
-        if replace_links and self.links is not None:
+        if replace.links and self.links is not None:
             surviving_hyperlinks = []
             dirty = False
             for hyperlink in identifier.links:
@@ -869,7 +967,7 @@ class Metadata(object):
                     pool, data_source, link, link_obj
                 )
 
-        if pool and replace_formats:
+        if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
@@ -894,7 +992,7 @@ class Metadata(object):
                     format.content_type, format.drm_scheme, resource
                 )
 
-        if pool and replace_rights:
+        if pool and replace.rights:
             pool.set_rights_status(self.rights_uri)
 
         # Apply all measurements to the primary identifier
@@ -927,7 +1025,9 @@ class Metadata(object):
 
         # Finally, update the coverage record for this edition
         # and data source.
-        CoverageRecord.add_for(edition, data_source, self.last_update_time)
+        CoverageRecord.add_for(
+            edition, data_source, timestamp=self.last_update_time
+        )
         return edition
 
     def mirror_link(self, pool, data_source, link, link_obj, mirror):
@@ -1007,8 +1107,8 @@ class Metadata(object):
         return thumbnail_obj
 
     def update_contributions(self, _db, edition, metadata_client=None, 
-                             replace_contributions=False):
-        if replace_contributions and self.contributors is not None:
+                             replace=True):
+        if replace and self.contributors:
             dirty = False
             # Remove any old Contributions from this data source --
             # we're about to add a new set

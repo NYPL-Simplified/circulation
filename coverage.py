@@ -14,8 +14,8 @@ from model import (
     Identifier,
     Timestamp,
 )
-from external_search import (
-    ExternalSearchIndex,
+from metadata_layer import (
+    ReplacementPolicy
 )
 
 import log # This sets the appropriate log format.
@@ -49,7 +49,7 @@ class CoverageProvider(object):
     """
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100):
+                 workset_size=100, metadata_policy=None):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
         if not isinstance(input_identifier_types, list):
@@ -57,6 +57,11 @@ class CoverageProvider(object):
         self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
+        self.metadata_replacement_policy = (
+            ReplacementPolicy.from_metadata_source(
+                even_if_not_apparently_updated=True
+            )
+        )
 
     @property
     def log(self):
@@ -93,6 +98,16 @@ class CoverageProvider(object):
         Timestamp.stamp(self._db, self.service_name)
         self._db.commit()
         return offset
+
+    def run_on_identifiers(self, identifiers):
+        # Split a specific set of identifiers into batches and
+        # process one batch at a time.
+        index = 0
+        while index < len(identifiers):
+            batch = identifiers[index:index+self.workset_size]
+            self.process_batch(batch)
+            self._db.commit()
+            index += self.workset_size
 
     def run_once(self, offset):
         batch = self.items_that_need_coverage.limit(
@@ -206,7 +221,6 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
         work, created = license_pool.calculate_work(
             even_if_no_author=True,
-            search_index_client=self.search_index
         )
         if not work:
             e = "Work could not be calculated"
@@ -229,7 +243,7 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(edition)
+            metadata.apply(edition, replace=self.metadata_replacement_policy)
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
@@ -274,7 +288,6 @@ class BibliographicCoverageProvider(CoverageProvider):
     def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api
-        self.search_index = ExternalSearchIndex()
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource

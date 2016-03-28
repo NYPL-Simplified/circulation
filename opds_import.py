@@ -26,6 +26,7 @@ from metadata_layer import (
     LinkData,
     MeasurementData,
     SubjectData,
+    ReplacementPolicy,
 )
 from model import (
     get_one,
@@ -171,7 +172,17 @@ class OPDSImporter(object):
                 # before that date. There's no reason to do anything.
                 continue
 
-            metadata.apply(edition, self.metadata_client, mirror=self.mirror)
+            policy = ReplacementPolicy(
+                subjects=True,
+                links=True,
+                contributions=True,
+                even_if_not_apparently_updated=True,
+            )
+            metadata.apply(
+                edition, self.metadata_client, mirror=self.mirror,
+                policy=policy
+            )
+
             if license_pool is None:
                 # Without a LicensePool, we can't create a Work.
                 self.log.warn(

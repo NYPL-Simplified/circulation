@@ -44,7 +44,6 @@ from config import (
     CannotLoadConfiguration,
 )
 
-
 class OverdriveAPI(object):
 
     log = logging.getLogger("Overdrive API")
@@ -55,8 +54,8 @@ class OverdriveAPI(object):
     LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(library_id)s"
     ALL_PRODUCTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
     METADATA_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
-    EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_name)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
-    AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_name)s/products/%(product_id)s/availability"
+    EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
+    AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
 
     CHECKOUTS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts"
     CHECKOUT_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
@@ -92,7 +91,7 @@ class OverdriveAPI(object):
                 raise CannotLoadConfiguration("No Overdrive client configured.")
 
             (self.client_key, self.client_secret, self.website_id, 
-             self.library_id, self.collection_name) = values
+             self.library_id) = values
 
             # Get set up with up-to-date credentials from the API.
             self.check_creds()
@@ -108,7 +107,6 @@ class OverdriveAPI(object):
                 'client_secret',
                 'website_id',
                 'library_id',
-                'collection_name',
         ]:
             var = value.get(name)
             if var:
@@ -121,12 +119,10 @@ class OverdriveAPI(object):
         # Make sure all environment values are present. If any are missing,
         # return None. Otherwise return an OverdriveAPI object.
         values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No Overdrive client configured."
-            )
+        try:
+            return cls(_db)
+        except CannotLoadConfiguration, e:
             return None
-        return cls(_db)
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
@@ -253,7 +249,7 @@ class OverdriveAPI(object):
         params = dict(lastupdatetime=last_update,
                       sort="popularity:desc",
                       limit=self.PAGE_SIZE_LIMIT,
-                      collection_name=self.collection_name)
+                      collection_token=self.collection_token)
         next_link = self.make_link_safe(self.EVENTS_ENDPOINT % params)
         while next_link:
             page_inventory, next_link = self._get_book_list_page(next_link)
@@ -630,7 +626,7 @@ class OverdriveRepresentationExtractor(object):
                     type_key = Identifier.UPC
                 elif t == 'PublisherCatalogNumber':
                     continue
-                if type_key:
+                if type_key and v:
                     identifiers.append(
                         IdentifierData(type_key, v, 1)
                     )
@@ -754,5 +750,4 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             return CoverageFailure(self, identifier, e, transient=True)
 
         return self.set_metadata(identifier, metadata)
-
 

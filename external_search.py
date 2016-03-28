@@ -1,38 +1,56 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from config import Configuration
-from classifier import KeywordBasedClassifier
+from classifier import (
+    KeywordBasedClassifier,
+    GradeLevelClassifier,
+    AgeClassifier,
+)
 import os
 import logging
 import re
 
-class ExternalSearchIndex(Elasticsearch):
+class ExternalSearchIndex(object):
     
     work_document_type = 'work-type'
+    __client = None
 
-    def __init__(self, url=None, works_index=None, fallback_to_dummy=True):
+    def __init__(self, url=None, works_index=None):
     
-        integration = Configuration.integration(
-            Configuration.ELASTICSEARCH_INTEGRATION, 
-            required=not fallback_to_dummy
-        )
         self.log = logging.getLogger("External search index")
-        self.works_index = works_index or integration.get(
-            Configuration.ELASTICSEARCH_INDEX_KEY
-        ) or None
 
-        if fallback_to_dummy and not integration:
-            return
+        # By default, assume that there is no search index.
+        self.works_index = None
 
-        url = integration[Configuration.URL]
-        use_ssl = url and url.startswith('https://')
-        self.log.info("Connecting to Elasticsearch cluster at %s", url)
-        super(ExternalSearchIndex, self).__init__(url, use_ssl=use_ssl)
-        if not url and not fallback_to_dummy:
-            raise Exception("Cannot connect to Elasticsearch cluster.")
-        if self.works_index and not self.indices.exists(self.works_index):
-            self.log.info("Creating index %s", self.works_index)
-            self.indices.create(self.works_index)
+        if not ExternalSearchIndex.__client:
+            integration = Configuration.integration(
+                Configuration.ELASTICSEARCH_INTEGRATION, 
+            )
+            works_index = works_index or integration.get(
+                Configuration.ELASTICSEARCH_INDEX_KEY
+            ) or None
+
+            if not integration:
+                return
+
+            url = integration[Configuration.URL]
+            use_ssl = url and url.startswith('https://')
+            self.log.info("Connecting to Elasticsearch cluster at %s", url)
+            ExternalSearchIndex.__client = Elasticsearch(url, use_ssl=use_ssl)
+            ExternalSearchIndex.__client.works_index = works_index
+            if not url:
+                raise Exception("Cannot connect to Elasticsearch cluster.")
+            if works_index and not self.__client.indices.exists(works_index):
+                self.log.info("Creating index %s", works_index)
+                self.__client.indices.create(works_index)
+
+        self.works_index = self.__client.works_index
+        self.indices = self.__client.indices
+        self.search = self.__client.search
+        self.index = self.__client.index
+        self.delete = self.__client.delete
+        self.exists = self.__client.exists
+                
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, limit=30):
@@ -72,6 +90,25 @@ class ExternalSearchIndex(Elasticsearch):
                 }
             }
 
+        def make_target_age_query(target_age):
+            (lower, upper) = target_age.lower, target_age.upper
+            return { 
+                "bool" : {
+                    # There must be some overlap with the range in the query
+                    "must": [
+                       {"range": {"target_age.upper": {"gte": lower}}},
+                       {"range": {"target_age.lower": {"lte": upper}}},
+                     ], 
+                    # Results with ranges closer to the query are better
+                    # e.g. for query 4-6, a result with 5-6 beats 6-7
+                    "should": [
+                       {"range": {"target_age.upper": {"lte": upper}}},
+                       {"range": {"target_age.lower": {"gte": lower}}},
+                     ], 
+                    "boost": 40
+                }
+            }
+
         main_fields = ['title^4', 'author^4', 'subtitle^3']
 
         # Find results that match the full query string in one of the main
@@ -96,15 +133,28 @@ class ExternalSearchIndex(Elasticsearch):
         # Get the audience and the words in the query that matched it, if any
         audience, audience_match = KeywordBasedClassifier.audience_match(query_string)
 
-        if fiction or genre or audience:
-            genre_audience_and_fiction_queries = []
-            remaining_string = query_string
+        # Get the grade level and the words in the query that matched it, if any
+        age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
+        if age_from_grade and age_from_grade.lower == None:
+            age_from_grade = None
 
-            # If the match was "children" and the query string was "children's",
-            # we want to remove the "'s" as well as the match. We want to remove
-            # everything up to the next word boundary that's not an apostrophe
-            # or a dash.
-            word_boundary_pattern = r"\b%s[\w'\-]*\b"
+        # Get the age range and the words in the query that matched it, if any
+        age, age_match = AgeClassifier.target_age_match(query_string)
+        if age and age.lower == None:
+            age = None
+
+        if fiction or genre or audience or age_from_grade or age:
+            remaining_string = query_string
+            classification_queries = []
+
+            def without_match(original_string, match):
+                # If the match was "children" and the query string was "children's",
+                # we want to remove the "'s" as well as the match. We want to remove
+                # everything up to the next word boundary that's not an apostrophe
+                # or a dash.
+                word_boundary_pattern = r"\b%s[\w'\-]*\b"
+
+                return re.compile(word_boundary_pattern % match, re.IGNORECASE).sub("", original_string)
 
             # For children's, it could be the parenting genre or the children audience,
             # so only one of genre and audience must match.
@@ -120,44 +170,56 @@ class ExternalSearchIndex(Elasticsearch):
                         'minimum_should_match': 1
                     }
                 }
-                genre_audience_and_fiction_queries.append(genre_or_audience_query)
-                remaining_string = re.compile(word_boundary_pattern % genre_match, re.IGNORECASE).sub("", remaining_string)
-                remaining_string = re.compile(word_boundary_pattern % audience_match, re.IGNORECASE).sub("", remaining_string)
+                classification_queries.append(genre_or_audience_query)
+                remaining_string = without_match(remaining_string, genre_match)
+                remaining_string = without_match(remaining_string, audience_match)
 
             else:
                 if genre:
                     match_genre = make_match_query(genre.name, ['classifications.name'])
-                    genre_audience_and_fiction_queries.append(match_genre)
-                    remaining_string = re.compile(word_boundary_pattern % genre_match, re.IGNORECASE).sub("", remaining_string)
+                    classification_queries.append(match_genre)
+                    remaining_string = without_match(remaining_string, genre_match)
 
                 if audience:
                     match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
-                    genre_audience_and_fiction_queries.append(match_audience)
-                    remaining_string = re.compile(word_boundary_pattern % audience_match, re.IGNORECASE).sub("", remaining_string)
+                    classification_queries.append(match_audience)
+                    remaining_string = without_match(remaining_string, audience_match)
 
             if fiction:
                 match_fiction = make_match_query(fiction, ['fiction'])
-                genre_audience_and_fiction_queries.append(match_fiction)
-                remaining_string = re.compile(word_boundary_pattern % fiction, re.IGNORECASE).sub("", remaining_string)
+                classification_queries.append(match_fiction)
+                remaining_string = without_match(remaining_string, fiction)
+
+            if age_from_grade:
+                match_age_from_grade = make_target_age_query(age_from_grade)
+                classification_queries.append(match_age_from_grade)
+                remaining_string = without_match(remaining_string, grade_match)
+
+            if age:
+                match_age = make_target_age_query(age)
+                classification_queries.append(match_age)
+                remaining_string = without_match(remaining_string, age_match)
 
             if len(remaining_string.strip()) > 0:
                 # Someone who searches by genre is probably not looking for a specific book,
-                # so title isn't included, but they might be looking for an author (eg, 
-                # "science fiction iain banks").
-                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5"])
-                genre_audience_and_fiction_queries.append(match_rest_of_query)
+                # but they might be looking for an author (eg, "science fiction iain banks").
+                # However, it's possible that they're searching for a subject that's not
+                # mentioned in the summary (eg, a person's name in a biography). So title
+                # is a possible match, but is less important than author, subtitle, and summary.
+                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1"])
+                classification_queries.append(match_rest_of_query)
             
-            # If genre, audience, fiction, and the remaining string all match, the result will
+            # If classification queries and the remaining string all match, the result will
             # have a higher score than results that match the full query in one of the 
             # main fields.
-            match_genre_and_rest_of_query = {
+            match_classification_and_rest_of_query = {
                 'bool': {
-                    'must': genre_audience_and_fiction_queries,
+                    'must': classification_queries,
                     'boost': 20.0
                 }
             }
 
-            must_match_options.append(match_genre_and_rest_of_query)
+            must_match_options.append(match_classification_and_rest_of_query)
 
         # Results must match either the full query or the genre/fiction query.
         must_match = {
@@ -201,8 +263,8 @@ class ExternalSearchIndex(Elasticsearch):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:
-            lower = age_range[0]
-            upper = age_range[-1]
+            lower = age_range.lower
+            upper = age_range.upper
 
             age_clause = {
                 "and": [
@@ -239,7 +301,7 @@ class ExternalSearchIndex(Elasticsearch):
             return {}
 
 
-class DummyExternalSearchIndex(object):
+class DummyExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
 
