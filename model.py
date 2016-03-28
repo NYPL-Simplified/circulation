@@ -4226,14 +4226,18 @@ class Hyperlink(Base):
             l.append(m.hexdigest())
         return ":".join(l)
 
+    @classmethod
+    def _default_filename(self, rel):
+        if rel == self.OPEN_ACCESS_DOWNLOAD:
+            return 'content'
+        elif rel == self.IMAGE:
+            return 'cover'
+        elif rel == self.THUMBNAIL_IMAGE:
+            return 'cover-thumbnail'
+
     @property
     def default_filename(self):
-        if self.rel == self.OPEN_ACCESS_DOWNLOAD:
-            return 'content'
-        elif self.rel == self.IMAGE:
-            return 'cover'
-        elif self.rel == self.THUMBNAIL_IMAGE:
-            return 'cover-thumbnail'
+        return self._default_filename(self.rel)
 
 class Resource(Base):
     """An external resource that may be mirrored locally."""

@@ -1724,7 +1724,12 @@ class TestHyperlink(DatabaseTest):
             identifier.add_link,
             Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
             pool, "text/plain", "The content")
-        
+
+    def test_default_filename(self):
+        m = Hyperlink._default_filename
+        eq_("content", m(Hyperlink.OPEN_ACCESS_DOWNLOAD))
+        eq_("cover", m(Hyperlink.IMAGE))
+        eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
 class TestRepresentation(DatabaseTest):
 
@@ -1756,6 +1761,20 @@ class TestRepresentation(DatabaseTest):
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()
         h.queue_response(404)
+
+        url = self._url
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+        representation2, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(True, cached)
+        eq_(representation, representation2)
+
+    def test_302_creates_cachable_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(302)
 
         url = self._url
         representation, cached = Representation.get(
