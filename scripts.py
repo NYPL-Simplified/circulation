@@ -17,6 +17,8 @@ from psycopg2.extras import NumericRange
 
 from api.lanes import make_lanes
 from api.controller import CirculationManager
+from api.threem import ThreeMCirculationSweep
+from api.overdrive import OverdriveAPI
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
@@ -35,6 +37,7 @@ from core.model import (
 from core.scripts import (
     Script as CoreScript,
     RunCoverageProvidersScript,
+    IdentifierInputScript,
 )
 from core.lane import (
     Pagination,
@@ -433,3 +436,42 @@ class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
         if not providers:
             raise Exception("No licensed book sources configured, nothing to get coverage from!")
         super(BibliographicCoverageProvidersScript, self).__init__(providers)
+
+
+class AvailabilityRefreshScript(IdentifierInputScript):
+    """Refresh the availability information for a LicensePool, direct from the
+    license source.
+    """
+    def do_run(self):
+        identifiers = self.parse_identifiers()
+        if not identifiers:
+            raise Exception(
+                "You must specify at least one identifier to refresh."
+            )
+        
+        # We don't know exactly how big to make these batches, but 10 is
+        # always safe.
+        start = 0
+        size = 10
+        while start < len(identifiers):
+            batch = identifiers[start:start+size]
+            self.refresh_availability(batch)
+            self._db.commit()
+            start += size
+
+    def refresh_availability(self, identifiers):
+        provider = None
+        identifier = identifiers[0]
+        if identifier.type==Identifier.THREEM_ID:
+            sweeper = ThreeMCirculationSweep(self._db)
+            sweeper.process_batch(identifiers)
+        elif identifier.type==Identifier.OVERDRIVE_ID:
+            api = OverdriveAPI(self._db)
+            for identifier in identifiers:
+                api.update_licensepool(identifier.identifier)
+        elif identifier.type==Identifier.AXIS_360_ID:
+            provider = Axis360BibliographicCoverageProvider(self._db)
+            provider.process_batch(identifiers)
+        else:
+            self.log.warn("Cannot update coverage for %r" % identifier.type)
+
