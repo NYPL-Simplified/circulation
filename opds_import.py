@@ -177,10 +177,10 @@ class OPDSImporter(object):
                 links=True,
                 contributions=True,
                 even_if_not_apparently_updated=True,
+                mirror=self.mirror
             )
             metadata.apply(
-                edition, self.metadata_client, mirror=self.mirror,
-                policy=policy
+                edition, self.metadata_client, policy=policy
             )
 
             if license_pool is None:

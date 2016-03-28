@@ -50,7 +50,8 @@ class ReplacementPolicy(object):
             links=False,
             formats=False,
             rights=False,
-            even_if_not_apparently_updated=False
+            mirror=None,
+            even_if_not_apparently_updated=False,
     ):
         self.identifiers = identifiers
         self.subjects = subjects
@@ -59,9 +60,10 @@ class ReplacementPolicy(object):
         self.rights = rights
         self.formats = formats
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
-        
+        self.mirror = mirror
+
     @classmethod
-    def from_license_source(self, even_if_not_apparently_updated=False):
+    def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
@@ -74,11 +76,12 @@ class ReplacementPolicy(object):
             links=True, 
             rights=True,
             formats=True,
+            mirror=mirror,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
     @classmethod
-    def from_metadata_source(self, even_if_not_apparently_updated=False):
+    def from_metadata_source(self, mirror=None, even_if_not_apparently_updated=False):
         """When gathering data from a metadata source, overwrite all old data
         from this source, but do not overwrite the rights status or
         the available formats. License sources are the authority on rights
@@ -91,6 +94,7 @@ class ReplacementPolicy(object):
             links=True, 
             rights=False,
             formats=False,
+            mirror=mirror,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
@@ -807,7 +811,6 @@ class Metadata(object):
             replace_formats=False,
             replace_rights=False,
             force=False,
-            mirror=None,
     ):
         """Apply this metadata to the given edition.
 
