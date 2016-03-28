@@ -15,7 +15,10 @@ from core.util.problem_detail import ProblemDetail
 from api.routes import returns_problem_detail
 
 from controller import setup_admin_controllers
-from templates import admin as admin_template
+from templates import (
+    admin as admin_template,
+    admin_sign_in_again as sign_in_again_template,
+)
 
 
 if getattr(app, 'manager', None) is not None:
@@ -28,9 +31,9 @@ app.secret_key = Configuration.get(Configuration.SECRET_KEY)
 def requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin = app.manager.admin_signin_controller.authenticated_admin_from_request()
+        admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
-            return app.manager.admin_signin_controller.error_response(admin)
+            return app.manager.admin_sign_in_controller.error_response(admin)
         elif isinstance(admin, Response):
             return admin
         return f(*args, **kwargs)
@@ -39,7 +42,7 @@ def requires_admin(f):
 def requires_csrf_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = app.manager.admin_signin_controller.check_csrf_token()
+        token = app.manager.admin_sign_in_controller.check_csrf_token()
         if isinstance(token, ProblemDetail):
             return token
         return f(*args, **kwargs)
@@ -48,13 +51,12 @@ def requires_csrf_token(f):
 @app.route('/admin/GoogleAuth/callback')
 @returns_problem_detail
 def google_auth_callback():
-    return app.manager.admin_signin_controller.redirect_after_signin()
+    return app.manager.admin_sign_in_controller.redirect_after_sign_in()
 
-@app.route('/admin/signin')
+@app.route('/admin/sign_in')
 @returns_problem_detail
-def admin_signin():
-    return app.manager.admin_signin_controller.signin()
-
+def admin_sign_in():
+    return app.manager.admin_sign_in_controller.sign_in()
 
 @app.route('/admin/works/<data_source>/<identifier>', methods=['GET'])
 @returns_problem_detail
@@ -104,14 +106,26 @@ def refresh(data_source, identifier):
 def complaints():
     return app.manager.admin_feed_controller.complaints()
 
+@app.route('/admin/sign_in_again')
+def admin_sign_in_again():
+    """Allows an  admin with expired credentials to sign back in
+    from a new browser tab so they won't lose changes.
+    """
+    admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+    csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
+    if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
+        redirect_url = flask.request.url
+        return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+    return flask.render_template_string(sign_in_again_template)
+
 @app.route('/admin')
 @app.route('/admin/')
 def admin_view():
-    admin = app.manager.admin_signin_controller.authenticated_admin_from_request()
-    csrf_token = app.manager.admin_signin_controller.get_csrf_token()
+    admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+    csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
         redirect_url = flask.request.url
-        return redirect(app.manager.url_for('admin_signin', redirect=redirect_url))
+        return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,
         home_url=app.manager.url_for('acquisition_groups'))
