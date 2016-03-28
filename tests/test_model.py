@@ -940,6 +940,67 @@ class TestLicensePool(DatabaseTest):
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
 
+    def test_with_complaint(self):
+        type = iter(Complaint.VALID_TYPES)
+        type1 = next(type)
+        type2 = next(type)
+
+        work1 = self._work(
+            "fiction work with complaint",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+        lp1 = work1.license_pools[0]
+        lp1_complaint1 = self._complaint(
+            lp1,
+            type1,
+            "lp1 complaint1 source",
+            "lp1 complaint1 detail")
+        lp1_complaint2 = self._complaint(
+            lp1,
+            type1,
+            "lp1 complaint2 source",
+            "lp1 complaint2 detail")
+        lp1_complaint3 = self._complaint(
+            lp1,
+            type2,
+            "work1 complaint3 source",
+            "work1 complaint3 detail")
+
+        work2 = self._work(
+            "nonfiction work with complaint",
+            language="eng",
+            fiction=False,
+            with_open_access_download=True)
+        lp2 = work2.license_pools[0]
+        lp2_complaint1 = self._complaint(
+            lp2,
+            type2,
+            "work2 complaint1 source",
+            "work2 complaint1 detail")
+
+        work3 = self._work(
+            "fiction work without complaint",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+
+        work4 = self._work(
+            "nonfiction work without complaint",
+            language="eng",
+            fiction=False,
+            with_open_access_download=True)
+
+        results = LicensePool.with_complaint(self._db).all()
+        (pools, counts) = zip(*results)
+
+        eq_(2, len(results))
+        eq_(lp1.id, results[0][0].id)
+        eq_(3, results[0][1])
+        eq_(lp2.id, results[1][0].id)
+        eq_(1, results[1][1])
+
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
@@ -1083,67 +1144,6 @@ class TestWork(DatabaseTest):
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
-
-    def test_with_complaint(self):
-        type = iter(Complaint.VALID_TYPES)
-        type1 = next(type)
-        type2 = next(type)
-
-        work1 = self._work(
-            "fiction work with complaint",
-            language="eng",
-            fiction=True,
-            with_open_access_download=True)
-        work1_complaint1 = self._complaint(
-            work1.license_pools[0],
-            type1,
-            "work1 complaint1 source",
-            "work1 complaint1 detail")
-        work1_complaint2 = self._complaint(
-            work1.license_pools[0],
-            type1,
-            "work1 complaint2 source",
-            "work1 complaint2 detail")
-        work1_complaint3 = self._complaint(
-            work1.license_pools[0],
-            type2,
-            "work1 complaint3 source",
-            "work1 complaint3 detail")
-        work2 = self._work(
-            "nonfiction work with complaint",
-            language="eng",
-            fiction=False,
-            with_open_access_download=True)
-        work2_complaint1 = self._complaint(
-            work2.license_pools[0],
-            type2,
-            "work2 complaint1 source",
-            "work2 complaint1 detail")
-        work3 = self._work(
-            "fiction work without complaint",
-            language="eng",
-            fiction=True,
-            with_open_access_download=True)
-        work4 = self._work(
-            "nonfiction work without complaint",
-            language="eng",
-            fiction=False,
-            with_open_access_download=True)
-
-        results = Work.with_complaint(self._db).all()
-        (works, types, counts) = zip(*results)
-
-        eq_(3, len(results))
-        eq_(work1.id, results[0][0].id)
-        eq_(type1, results[0][1])
-        eq_(2, results[0][2])
-        eq_(work1.id, results[1][0].id)
-        eq_(type2, results[1][1])
-        eq_(1, results[1][2])
-        eq_(work2.id, results[2][0].id)
-        eq_(type2, results[2][1])
-        eq_(1, results[2][2])
-        eq_((type1, type2, type2), types)
 
 
 class TestCirculationEvent(DatabaseTest):

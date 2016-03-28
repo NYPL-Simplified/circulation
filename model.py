@@ -3266,23 +3266,6 @@ class Work(Base):
         q = q.filter(WorkGenre.genre==None)
         return q
 
-    @classmethod
-    def with_complaint(cls, _db):
-        """Return query for Works that have at least one Complaint."""
-        subquery = _db.query(
-                Work.id,
-                Complaint.type.label("complaint_type"),
-                func.count(Complaint.type).label("complaint_type_count")
-            ).\
-            select_from(Work).\
-            join(Work.license_pools, LicensePool.complaints).\
-            group_by(Work.id, Complaint.type).\
-            subquery()
-        return _db.query(Work).\
-            join(subquery, Work.id == subquery.c.id).\
-            order_by(subquery.c.complaint_type_count.desc()).\
-            add_columns(subquery.c.complaint_type, subquery.c.complaint_type_count)
-
     def all_editions(self, recursion_level=5):
         """All Editions identified by a Identifier equivalent to 
         any of the primary identifiers of this Work's Editions.
@@ -5099,6 +5082,22 @@ class LicensePool(Base):
                 for dm in self.delivery_mechanisms]
             )
         )
+
+    @classmethod
+    def with_complaint(cls, _db):
+        """Return query for LicensePools that have at least one Complaint."""
+        subquery = _db.query(
+                LicensePool.id,
+                func.count(LicensePool.id).label("complaint_count")
+            ).\
+            select_from(LicensePool).\
+            join(LicensePool.complaints).\
+            group_by(LicensePool.id).\
+            subquery()
+        return _db.query(LicensePool).\
+            join(subquery, LicensePool.id == subquery.c.id).\
+            order_by(subquery.c.complaint_count.desc()).\
+            add_columns(subquery.c.complaint_count)
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
