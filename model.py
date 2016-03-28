@@ -4228,11 +4228,11 @@ class Hyperlink(Base):
 
     @property
     def default_filename(self):
-        if self.rel == self.OPEN_ACCESS_CONTENT:
+        if self.rel == self.OPEN_ACCESS_DOWNLOAD:
             return 'content'
         elif self.rel == self.IMAGE:
             return 'cover'
-        elif self.rel == self.THUMBNAIL:
+        elif self.rel == self.THUMBNAIL_IMAGE:
             return 'cover-thumbnail'
 
 class Resource(Base):

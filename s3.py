@@ -79,10 +79,12 @@ class S3Uploader(MirrorUploader):
         return cls.url(bucket, '/')
 
     @classmethod
-    def book_url(cls, identifier, extension='epub', open_access=True, 
+    def book_url(cls, identifier, extension='.epub', open_access=True, 
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
         root = cls.content_root(open_access)
+        if not extension.startswith('.'):
+            extension = '.' + extension
         if title:
             filename = "%s/%s" % (identifier.identifier, title)
         else:
@@ -91,9 +93,9 @@ class S3Uploader(MirrorUploader):
         args = [urllib.quote(x.encode('utf-8')) for x in args]
         if data_source:
             args.insert(0, urllib.quote(data_source.name))
-            template = "%s/%s/%s.%s"
+            template = "%s/%s/%s%s"
         else:
-            template = "%s/%s.%s"
+            template = "%s/%s%s"
         return root + template % tuple(args + [extension])
 
     @classmethod

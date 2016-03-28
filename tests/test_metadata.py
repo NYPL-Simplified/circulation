@@ -15,12 +15,14 @@ from metadata_layer import (
     LinkData,
     Metadata,
     IdentifierData,
+    ReplacementPolicy,
 )
 
 import os
 from model import (
     CoverageRecord,
     DataSource,
+    Edition,
     Identifier,
     Measurement,
     DeliveryMechanism,
@@ -31,6 +33,8 @@ from model import (
 from . import (
     DatabaseTest,
 )
+
+from s3 import DummyS3Uploader
 
 class TestIdentifierData(object):
 
@@ -129,6 +133,97 @@ class TestMetadataImporter(DatabaseTest):
         eq_([thumbnail.resource.representation],
             image.resource.representation.thumbnails
         )
+
+    def sample_cover_path(self, name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def test_image_scale_and_mirror(self):
+        mirror = DummyS3Uploader()
+        edition, pool = self._edition(with_license_pool=True)
+        content = open(self.sample_cover_path("test-book-cover.png")).read()
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            content=content
+        )
+
+        # When we call metadata.apply, all image links will be scaled and
+        # 'mirrored'.
+        policy = ReplacementPolicy(mirror=mirror)
+        metadata = Metadata(links=[l1], data_source=edition.data_source)
+        metadata.apply(edition, replace=policy)
+
+        # Two Representations were 'mirrored'.
+        image, thumbnail = mirror.uploaded
+
+        # The image...
+        [image_link] = image.resource.links
+        eq_(Hyperlink.IMAGE, image_link.rel)
+
+        # And its thumbnail.
+        eq_(image, thumbnail.thumbnail_of)
+
+        # The original image is too big to be a thumbnail.
+        eq_(600, image.image_height)
+        eq_(400, image.image_width)
+
+        # The thumbnail is the right height.
+        eq_(Edition.MAX_THUMBNAIL_HEIGHT, thumbnail.image_height)
+        eq_(Edition.MAX_THUMBNAIL_WIDTH, thumbnail.image_width)
+
+        # Both images have been 'mirrored' to Amazon S3.
+        assert image.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/')
+        assert image.mirror_url.endswith('cover.jpg')
+
+        # The thumbnail image has been converted to PNG.
+        assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/scaled/300/')
+        assert image.mirror_url.endswith('cover.png')
+
+    def test_open_access_content_mirrored(self):
+        mirror = DummyS3Uploader()
+        # Here's a book.
+        edition, pool = self._edition(with_license_pool=True)
+
+        # Here's a link to the content of the book, which will be
+        # mirrored.
+        l1 = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            content="i am a tiny book"
+        )
+
+        # This link will not be mirrored.
+        l2 = LinkData(
+            rel=Hyperlink.SAMPLE, href="http://example.com/2",
+            media_type=Representation.TEXT_PLAIN,
+            content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
+        )
+
+        # Apply the metadata.
+        policy = ReplacementPolicy(mirror=mirror)
+        metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
+        metadata.apply(edition, replace=policy)
+        
+        # Only the open-access link has been 'mirrored'.
+        [book] = mirror.uploaded
+
+        # It's remained an open-access link.
+        eq_(
+            [Hyperlink.OPEN_ACCESS_DOWNLOAD], 
+            [x.rel for x in book.resource.links]
+        )
+
+        # It's been 'mirrored' to the appropriate S3 bucket.
+        set_trace()
+        assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+        expect = '/%s/%s.epub' % (
+            edition.primary_identifier.identifier,
+            edition.title
+        )
+        assert book.mirror_url.endswith(expect)
 
     def test_measurements(self):
         edition = self._edition()

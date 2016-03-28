@@ -956,11 +956,11 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            if mirror:
+            if replace.mirror:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(
-                    pool, data_source, link, link_obj, mirror
+                    pool, data_source, link, link_obj, replace.mirror
                 )
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
@@ -1051,18 +1051,30 @@ class Metadata(object):
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(_db, link.href)
-        filename = representation.default_filename(link)
-        mirror_url = mirror.cover_image_url(
-            data_source, pool.identifier, filename
-        )
+        if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            edition = pool.edition
+            if edition and edition.title:
+                title = edition.title
+            else:
+                title = None
+            extension = representation.extension()
+            mirror_url = mirror.book_url(
+                pool.identifier, data_source=data_source, title=title,
+                extension=extension
+            )
+        else:
+            filename = representation.default_filename(link_obj)
+            mirror_url = mirror.cover_image_url(
+                data_source, pool.identifier, filename
+            )
+
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
-            set_trace()
             thumbnail_filename = representation.default_filename(
-                link, Representation.PNG_MEDIA_TYPE
+                link_obj, Representation.PNG_MEDIA_TYPE
             )
             thumbnail_url = mirror.cover_image_url(
                 data_source, pool.identifier, thumbnail_filename,
@@ -1076,8 +1088,6 @@ class Metadata(object):
                 force=True
             )
             mirror.mirror_one(thumbnail)
-        set_trace()
-        pass
 
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
