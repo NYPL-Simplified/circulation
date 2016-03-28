@@ -6147,6 +6147,8 @@ class Representation(Base):
 
     @classmethod
     def _clean_media_type(cls, media_type):
+        if not media_type:
+            return media_type
         if ';' in media_type:
             media_type = media_type[:media_type.index(';')].strip()
         return media_type
@@ -6169,10 +6171,15 @@ class Representation(Base):
 
         if not filename and link:
             filename = link.default_filename
+        if not filename:
+            # This is the absolute last-ditch filename solution, and
+            # it's basically only used when we try to mirror the root
+            # URL of a domain.
+            filename = 'resource'
 
         default_extension = self.extension()
         extension = self.extension(destination_type)
-        if default_extension != extension and filename.endswith(default_extension):
+        if default_extension and default_extension != extension and filename.endswith(default_extension):
             filename = filename[:-len(default_extension)] + extension
         elif extension and not filename.endswith(extension):
             filename += extension

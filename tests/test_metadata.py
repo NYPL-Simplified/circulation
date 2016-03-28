@@ -217,7 +217,6 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         # It's been 'mirrored' to the appropriate S3 bucket.
-        set_trace()
         assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
         expect = '/%s/%s.epub' % (
             edition.primary_identifier.identifier,

@@ -1798,6 +1798,51 @@ class TestRepresentation(DatabaseTest):
         eq_(".jpg", m("image/jpeg"))
         eq_("", m("no/such-media-type"))
 
+    def test_default_filename(self):
+
+        # Here's a common sort of URL.
+        url = "http://example.com/foo/bar/baz.txt"
+        representation, ignore = self._representation(url)
+
+        # Here's the filename we would give it if we were to mirror
+        # it.
+        filename = representation.default_filename()
+        eq_("baz.txt", filename)
+
+        # File extension is always set based on media type.
+        filename = representation.default_filename(destination_type="image/png")
+        eq_("baz.txt.png", filename)
+
+        # The original file extension is not treated as reliable and
+        # need not be present.
+        url = "http://example.com/1"
+        representation, ignore = self._representation(url, "text/plain")
+        filename = representation.default_filename()
+        eq_("1", filename)
+
+        # Again, file extension is always set based on media type.
+        filename = representation.default_filename(destination_type="image/png")
+        eq_("1.png", filename)
+
+        # In this case, don't have an extension registered for
+        # text/plain, so the extension is omitted.
+        filename = representation.default_filename(destination_type="text/plain")
+        eq_("1", filename)
+
+        # This URL has no path component, so we can't even come up with a
+        # decent default filename. We have to go with 'resource'.
+        representation, ignore = self._representation("http://example.com/", "text/plain")
+        eq_('resource', representation.default_filename())
+        eq_('resource.png', representation.default_filename(destination_type="image/png"))
+
+        # But if we know what type of thing we're linking to, we can
+        # do a little better.
+        link = Hyperlink(rel=Hyperlink.IMAGE)
+        filename = representation.default_filename(link=link)
+        eq_('cover', filename)
+        filename = representation.default_filename(link=link, destination_type="image/png")
+        eq_('cover.png', filename)
+
     def test_as_image_converts_svg_to_png(self):
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
