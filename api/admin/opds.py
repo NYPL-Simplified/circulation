@@ -2,7 +2,7 @@ from nose.tools import set_trace
 
 from api.opds import CirculationManagerAnnotator
 from core.lane import Facets, Pagination
-from core.model import BaseMaterializedWork, Work
+from core.model import BaseMaterializedWork, LicensePool
 from core.opds import AcquisitionFeed
 
 class AdminAnnotator(CirculationManagerAnnotator):
@@ -80,14 +80,15 @@ class AdminFeed(AcquisitionFeed):
         facets = Facets.default()
         pagination = pagination or Pagination.default()
 
-        q = Work.with_complaint(_db)
+        q = LicensePool.with_complaint(_db)
         results = pagination.apply(q).all()
 
         if len(results) > 0:
-            (works, types, counts) = zip(*results)
+            (pools, counts) = zip(*results)
         else:
-            works = ()
+            pools = ()
 
+        works = [pool.work for pool in pools]
         feed = cls(_db, title, url, works, annotator)
 
         # Render a 'start' link
