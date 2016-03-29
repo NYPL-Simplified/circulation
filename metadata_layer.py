@@ -804,6 +804,9 @@ class Metadata(object):
                 success = True
         return success
 
+    # TODO: We need to change all calls to apply() to use a ReplacementPolicy
+    # instead of passing in individual `replace` arguments. Once that's done,
+    # we can get rid of the `replace` arguments.
     def apply(self, edition, metadata_client=None, replace=None,
             replace_identifiers=False,
             replace_subjects=False, 
