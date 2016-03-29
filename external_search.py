@@ -49,6 +49,15 @@ class ExternalSearchIndex(object):
         self.exists = self.__client.exists
 
     def setup_index(self):
+        """
+        Create the search index with appropriate mapping.
+
+        This will destroy the search index, and all works will need
+        to be indexed again. In production, don't use this on an
+        existing index. Use it to create a new index, then change the 
+        alias to point to the new index.
+        """
+
         if self.works_index:
             if self.indices.exists(self.works_index):
                 self.indices.delete(self.works_index)
