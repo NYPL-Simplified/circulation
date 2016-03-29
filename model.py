@@ -5919,12 +5919,12 @@ class Representation(Base):
         # Do we already have a usable representation?
         #
         # 'Usable' means we tried it and either got some data or
-        # received a status code outside the 2xx series.
+        # received a status code that's not in the 5xx series.
         usable_representation = (
             representation and not representation.fetch_exception
             and (
                 representation.content or representation.local_path
-                or representation.status_code and representation.status_code / 100 != 2
+                or representation.status_code and representation.status_code / 100 != 5
             )
         )
 

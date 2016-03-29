@@ -1786,6 +1786,19 @@ class TestRepresentation(DatabaseTest):
         eq_(True, cached)
         eq_(representation, representation2)
 
+    def test_500_creates_uncachable_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(500)
+        url = self._url
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+        h.queue_response(500)
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
     def test_clean_media_type(self):
         m = Representation._clean_media_type
         eq_("image/jpeg", m("image/jpeg"))
