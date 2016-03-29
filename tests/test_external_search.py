@@ -18,6 +18,14 @@ from external_search import (
 from classifier import Classifier
 
 class TestExternalSearch(DatabaseTest):
+    """
+    Most of these tests require elasticsearch to be running locally. If it's not, or there's
+    an error creating the index, the tests will pass without doing anything.
+
+    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
+    a type of search by changing analyzers or queries, but search needs to be tested manually
+    to ensure that it works well overall, with a realistic index.
+    """
 
     def setup(self):
         super(TestExternalSearch, self).setup()
@@ -27,17 +35,19 @@ class TestExternalSearch(DatabaseTest):
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index"
 
             try:
+                ExternalSearchIndex.__client = None
                 self.search = ExternalSearchIndex()
-                # start with an empty index
-                self.search.indices.delete(self.search.works_index)
-                self.search.indices.create(self.search.works_index)
-            except Exception:
+                # Start with an empty index
+                self.search.setup_index()
+            except Exception as e:
                 self.search = None
-                print "Elasticsearch isn't running locally, search tests will be skipped."
+                print "Unable to set up elasticsearch index, search tests will be skipped."
+                print e
 
     def teardown(self):
         if self.search:
             self.search.indices.delete(self.search.works_index)
+            ExternalSearchIndex.__client = None
         super(TestExternalSearch, self).teardown()
 
     def test_query_works_matches_all_main_fields(self):
@@ -146,11 +156,11 @@ class TestExternalSearch(DatabaseTest):
         if not self.search:
             return
 
-        single_field = self._work(title="Moby Dick")
+        single_field = self._work(title="Moby Dick", authors="Herman Melville")
         single_field.set_presentation_ready()
         single_field.update_external_index(self.search)
 
-        cross_fields = self._work(title="Moby", authors="Dick")
+        cross_fields = self._work(title="Moby Herman", authors="Dick Melville")
         cross_fields.set_presentation_ready()
         cross_fields.update_external_index(self.search)
 
@@ -162,7 +172,45 @@ class TestExternalSearch(DatabaseTest):
         eq_(unicode(single_field.id), hits[0]['_id'])
         eq_(unicode(cross_fields.id), hits[1]['_id'])
 
-    def test_query_works_matches_misspelled_word(self):
+    def test_query_works_matches_quoted_phrase(self):
+        if not self.search:
+            return
+
+        work = self._work(title="Moby Dick")
+        work.set_presentation_ready()
+        work.update_external_index(self.search)
+
+        another_work = self._work("Dick Moby")
+        another_work.set_presentation_ready()
+        another_work.update_external_index(self.search)
+
+        time.sleep(1)
+
+        results = self.search.query_works("\"moby dick\"", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        eq_(unicode(work.id), hits[0]["_id"])
+
+    def test_query_works_handles_negation_operator(self):
+        if not self.search:
+            return
+
+        work = self._work(title="Moby Dick")
+        work.set_presentation_ready()
+        work.update_external_index(self.search)
+
+        another_work = self._work("Moby")
+        another_work.set_presentation_ready()
+        another_work.update_external_index(self.search)
+
+        time.sleep(1)
+
+        results = self.search.query_works("moby -dick", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        eq_(unicode(another_work.id), hits[0]["_id"])
+
+    def test_query_works_matches_misspelled_phrase(self):
         if not self.search:
             return
 
@@ -172,15 +220,15 @@ class TestExternalSearch(DatabaseTest):
 
         time.sleep(1)
         
-        results = self.search.query_works("mboy", None, None, None, None, None, None, None)
+        results = self.search.query_works("movy", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+
+        results = self.search.query_works("mleville", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
 
         results = self.search.query_works("mo by dick", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-
-        results = self.search.query_works("mobydick", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
 
@@ -525,10 +573,10 @@ class TestExternalSearch(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(2, len(must))
-        multi_match = must[0]['multi_match']
-        eq_("test", multi_match['query'])
-        assert "title^4" in multi_match['fields']
-        assert 'publisher' in multi_match['fields']
+        query = must[0]['simple_query_string']
+        eq_("test", query['query'])
+        assert "title^4" in query['fields']
+        assert 'publisher' in query['fields']
 
 
         # Query with genre
@@ -537,17 +585,17 @@ class TestExternalSearch(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(3, len(must))
-        full_query = must[0]['multi_match']
+        full_query = must[0]['simple_query_string']
         eq_("test romance", full_query['query'])
         assert "title^4" in full_query['fields']
         assert 'publisher' in full_query['fields']
 
         classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
-        genre_query = classification_query[0]['multi_match']
-        eq_('Romance', genre_query['query'])
-        assert 'classifications.name' in genre_query['fields']
-        remaining_query = classification_query[1]['multi_match']
+        genre_query = classification_query[0]['match']
+        assert 'classifications.name' in genre_query
+        eq_('Romance', genre_query['classifications.name'])
+        remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "romance" not in remaining_query['query']
         assert 'author^4' in remaining_query['fields']
@@ -562,11 +610,10 @@ class TestExternalSearch(DatabaseTest):
 
         classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
-        fiction_query = classification_query[0]['multi_match']
-        eq_('Nonfiction', fiction_query['query'])
-        eq_(1, len(fiction_query['fields']))
-        assert 'fiction' in fiction_query['fields']
-        remaining_query = classification_query[1]['multi_match']
+        fiction_query = classification_query[0]['match']
+        assert 'fiction' in fiction_query
+        eq_('Nonfiction', fiction_query['fiction'])
+        remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "fiction" not in remaining_query['query']
         assert 'author^4' in remaining_query['fields']
@@ -581,14 +628,13 @@ class TestExternalSearch(DatabaseTest):
 
         classification_query = must[2]['bool']['must']
         eq_(3, len(classification_query))
-        genre_query = classification_query[0]['multi_match']
-        eq_('Romance', genre_query['query'])
-        assert 'classifications.name' in genre_query['fields']
-        fiction_query = classification_query[1]['multi_match']
-        eq_('Fiction', fiction_query['query'])
-        eq_(1, len(fiction_query['fields']))
-        assert 'fiction' in fiction_query['fields']
-        remaining_query = classification_query[2]['multi_match']
+        genre_query = classification_query[0]['match']
+        assert 'classifications.name' in genre_query
+        eq_('Romance', genre_query['classifications.name'])
+        fiction_query = classification_query[1]['match']
+        assert 'fiction' in fiction_query
+        eq_('Fiction', fiction_query['fiction'])
+        remaining_query = classification_query[2]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "romance" not in remaining_query['query']
         assert "fiction" not in remaining_query['query']
@@ -600,15 +646,15 @@ class TestExternalSearch(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(3, len(must))
-        full_query = must[0]['multi_match']
+        full_query = must[0]['simple_query_string']
         eq_("test young adult", full_query['query'])
 
         classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
-        audience_query = classification_query[0]['multi_match']
-        eq_('YoungAdult', audience_query['query'])
-        assert 'audience' in audience_query['fields']
-        remaining_query = classification_query[1]['multi_match']
+        audience_query = classification_query[0]['match']
+        assert 'audience' in audience_query
+        eq_('YoungAdult', audience_query['audience'])
+        remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "young" not in remaining_query['query']
         
@@ -618,7 +664,7 @@ class TestExternalSearch(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(3, len(must))
-        full_query = must[0]['multi_match']
+        full_query = must[0]['simple_query_string']
         eq_("test grade 6", full_query['query'])
 
         classification_query = must[2]['bool']['must']
@@ -631,7 +677,7 @@ class TestExternalSearch(DatabaseTest):
         eq_(11, age_must[0]['range']['target_age.upper']['gte'])
         eq_(11, age_must[1]['range']['target_age.lower']['lte'])
 
-        remaining_query = classification_query[1]['multi_match']
+        remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "grade" not in remaining_query['query']
         
@@ -641,7 +687,7 @@ class TestExternalSearch(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(3, len(must))
-        full_query = must[0]['multi_match']
+        full_query = must[0]['simple_query_string']
         eq_("test 5-10 years", full_query['query'])
 
         classification_query = must[2]['bool']['must']
@@ -654,7 +700,7 @@ class TestExternalSearch(DatabaseTest):
         eq_(5, age_must[0]['range']['target_age.upper']['gte'])
         eq_(10, age_must[1]['range']['target_age.lower']['lte'])
 
-        remaining_query = classification_query[1]['multi_match']
+        remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "5" not in remaining_query['query']
         assert "years" not in remaining_query['query']

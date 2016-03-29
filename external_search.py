@@ -40,9 +40,6 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client.works_index = works_index
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
-            if works_index and not self.__client.indices.exists(works_index):
-                self.log.info("Creating index %s", works_index)
-                self.__client.indices.create(works_index)
 
         self.works_index = self.__client.works_index
         self.indices = self.__client.indices
@@ -50,6 +47,69 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+
+    def setup_index(self):
+        if self.works_index:
+            if self.indices.exists(self.works_index):
+                self.indices.delete(self.works_index)
+
+            self.log.info("Creating index %s", self.works_index)
+            self.indices.create(
+                index=self.works_index,
+                body={
+                    "settings": {
+                        "analysis": {
+                            "filter": {
+                                "en_stop_filter": {
+                                    "type": "stop",
+                                    "stopwords": ["_english_"]
+                                },
+                                "en_stem_filter": {
+                                    "type": "stemmer",
+                                    "name": "english"
+                                },
+                                "en_stem_minimal_filter": {
+                                    "type": "stemmer",
+                                    "name": "english"
+                                },
+                            },
+                            "analyzer" : {
+                                "en_analyzer": {
+                                    "type": "custom",
+                                    "char_filter": ["html_strip"],
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                                },
+                                "en_minimal_analyzer": {
+                                    "type": "custom",
+                                    "char_filter": ["html_strip"],
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "asciifolding", "en_stem_minimal_filter"]
+                                },
+                            }
+                        }
+                    }
+                },
+            )
+        
+            mapping = {"properties": {}}
+            for field in ["title", "series", "subtitle", "summary"]:
+                mapping["properties"][field] = {
+                    "type": "string",
+                    "analyzer": "en_analyzer",
+                    "fields": {
+                        "minimal": {
+                            "type": "string",
+                            "analyzer": "en_minimal_analyzer"
+                        }
+                    }
+                }
+            self.indices.put_mapping(
+                doc_type=self.work_document_type,
+                body=mapping,
+                index=self.works_index,
+            )
+            
                 
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
@@ -81,14 +141,28 @@ class ExternalSearchIndex(object):
 
     def make_query(self, query_string):
 
-        def make_match_query(query_string, fields):
+        def make_query_string_query(query_string, fields):
+            return {
+                'simple_query_string': {
+                    'query': query_string,
+                    'fields': fields
+                }
+            }
+
+        def make_fuzzy_query(query_string, fields):
             return {
                 'multi_match': {
                     'query': query_string,
                     'fields': fields,
-                    'type': "best_fields"
+                    'type': 'best_fields',
+                    'fuzziness': 'AUTO'
                 }
             }
+
+        def make_match_query(query_string, field):
+            query = {'match': {}}
+            query['match'][field] = query_string
+            return query
 
         def make_target_age_query(target_age):
             (lower, upper) = target_age.lower, target_age.upper
@@ -109,34 +183,35 @@ class ExternalSearchIndex(object):
                 }
             }
 
-        main_fields = ['title^4', 'author^4', "series^4", 'subtitle^3', 'summary^2', 'publisher', 'imprint']
+        # These fields have been stemmed non-minimally and shouldn't be used with
+        # fuzzy queries.
+        stemmed_fields = [
+            'title^4',
+            "series^4", 
+            'subtitle^3',
+            'summary^2',
+        ]
+
+        # Minimally stemmed or standard fields have higher weight since they're closer to the
+        # original text.
+        other_fields = [
+            'author^5',
+            'title.minimal^5',
+            'series.minimal^5',
+            "subtitle.minimal^4",
+            "summary.minimal^3",
+            'publisher',
+            'imprint'
+        ]
 
         # Find results that match the full query string in one of the main
         # fields.
-        match_full_query = make_match_query(query_string, main_fields)
-        must_match_options = [match_full_query]
 
-        # Find results that match terms from the query in different fields,
-        # e.g. title and author.
-        # The boost factor here is very questionable. If it's lower, then a
-        # result where all the terms match different fields may be ranked below
-        # a result where only one of the terms matches any field. If it's higher,
-        # a result where all the terms match one field may be ranked below a
-        # result where all the terms match but in different fields. I've
-        # tweaked this for a particular query so it may not work well more generally.
-        # I'd like cross_fields and best_fields to have equal weight but the
-        # scores from cross_fields seem to always be lower than best_fields.
-        # I'm not sure it's a good idea to use them together at all.
-        cross_fields_query = {
-            'multi_match': {
-                'query': query_string,
-                'fields': main_fields,
-                'type': "cross_fields",
-                'boost': 3
-             }
-        }
-        must_match_options.append(cross_fields_query)
-
+        # Query string operators like "AND", "OR", "-", and quotation marks will
+        # work in the query string query, but not the fuzzy query.
+        match_full_query = make_query_string_query(query_string, stemmed_fields + other_fields)
+        fuzzy_query = make_fuzzy_query(query_string, other_fields)
+        must_match_options = [match_full_query, fuzzy_query]
 
         # If fiction or genre is in the query, results can match the fiction or 
         # genre value and the remaining words in the query string, instead of the
@@ -178,17 +253,17 @@ class ExternalSearchIndex(object):
                 return re.compile(word_boundary_pattern % match.strip(), re.IGNORECASE).sub("", original_string)
 
             if genre:
-                match_genre = make_match_query(genre.name, ['classifications.name'])
+                match_genre = make_match_query(genre.name, 'classifications.name')
                 classification_queries.append(match_genre)
                 remaining_string = without_match(remaining_string, genre_match)
 
             if audience:
-                match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
+                match_audience = make_match_query(audience.replace(" ", ""), 'audience')
                 classification_queries.append(match_audience)
                 remaining_string = without_match(remaining_string, audience_match)
 
             if fiction:
-                match_fiction = make_match_query(fiction, ['fiction'])
+                match_fiction = make_match_query(fiction, 'fiction')
                 classification_queries.append(match_fiction)
                 remaining_string = without_match(remaining_string, fiction)
 
@@ -208,7 +283,7 @@ class ExternalSearchIndex(object):
                 # However, it's possible that they're searching for a subject that's not
                 # mentioned in the summary (eg, a person's name in a biography). So title
                 # is a possible match, but is less important than author, subtitle, and summary.
-                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
+                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
                 classification_queries.append(match_rest_of_query)
             
             # If classification queries and the remaining string all match, the result will
@@ -228,7 +303,7 @@ class ExternalSearchIndex(object):
         # summing the scores.
         return {
             'dis_max': {
-                'queries': must_match_options
+                'queries': must_match_options,
             }
         }
         
