@@ -42,6 +42,7 @@ from model import (
     Timestamp,
     UnresolvedIdentifier,
     Work,
+    WorkCoverageRecord,
     WorkGenre,
     Identifier,
     Edition,
@@ -377,7 +378,7 @@ class TestSubject(DatabaseTest):
         # But calling assign_to_genre() will fix it.
         subject.assign_to_genre()
         eq_(Classifier.AUDIENCE_CHILDREN, subject.audience)
-        eq_(NumericRange(None, None), subject.target_age)
+        eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
         
@@ -801,6 +802,36 @@ class TestEdition(DatabaseTest):
         p1.patrons_in_hold_queue = 3
         eq_(False, better(generic, generic2))
 
+    def test_calculate_presentation_registers_coverage_records(self):
+        edition = self._edition()
+        identifier = edition.primary_identifier
+
+        # This Identifier has no CoverageRecords.
+        eq_([], identifier.coverage_records)
+
+        # But once we calculate the Edition's presentation...
+        edition.calculate_presentation()
+
+        # Two CoverageRecords have been associated with this Identifier.
+        records = identifier.coverage_records
+
+        # One for setting the Edition metadata and one for choosing
+        # the Edition's cover.
+        expect = set([
+            CoverageRecord.SET_EDITION_METADATA_OPERATION,
+            CoverageRecord.CHOOSE_COVER_OPERATION]
+        )
+        eq_(expect, set([x.operation for x in records]))
+
+        # We know the records are associated with this specific
+        # Edition, not just the Identifier, because each
+        # CoverageRecord's DataSource is set to this Edition's
+        # DataSource.
+        eq_(
+            [edition.data_source, edition.data_source], 
+            [x.data_source for x in records]
+        )
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -909,6 +940,67 @@ class TestLicensePool(DatabaseTest):
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
 
+    def test_with_complaint(self):
+        type = iter(Complaint.VALID_TYPES)
+        type1 = next(type)
+        type2 = next(type)
+
+        work1 = self._work(
+            "fiction work with complaint",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+        lp1 = work1.license_pools[0]
+        lp1_complaint1 = self._complaint(
+            lp1,
+            type1,
+            "lp1 complaint1 source",
+            "lp1 complaint1 detail")
+        lp1_complaint2 = self._complaint(
+            lp1,
+            type1,
+            "lp1 complaint2 source",
+            "lp1 complaint2 detail")
+        lp1_complaint3 = self._complaint(
+            lp1,
+            type2,
+            "work1 complaint3 source",
+            "work1 complaint3 detail")
+
+        work2 = self._work(
+            "nonfiction work with complaint",
+            language="eng",
+            fiction=False,
+            with_open_access_download=True)
+        lp2 = work2.license_pools[0]
+        lp2_complaint1 = self._complaint(
+            lp2,
+            type2,
+            "work2 complaint1 source",
+            "work2 complaint1 detail")
+
+        work3 = self._work(
+            "fiction work without complaint",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+
+        work4 = self._work(
+            "nonfiction work without complaint",
+            language="eng",
+            fiction=False,
+            with_open_access_download=True)
+
+        results = LicensePool.with_complaint(self._db).all()
+        (pools, counts) = zip(*results)
+
+        eq_(2, len(results))
+        eq_(lp1.id, results[0][0].id)
+        eq_(3, results[0][1])
+        eq_(lp2.id, results[1][0].id)
+        eq_(1, results[1][1])
+
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
@@ -946,6 +1038,11 @@ class TestWork(DatabaseTest):
         for p in pool1, pool2, pool3:
             work.license_pools.append(p)
 
+        # This Work starts out with a single CoverageRecord reflecting the
+        # work done to generate its initial OPDS entry.
+        [record] = work.coverage_records
+        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, record.operation)
+
         work.last_update_time = None
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
@@ -968,6 +1065,20 @@ class TestWork(DatabaseTest):
         # The index has been updated with a document.
         [[args, doc]] = index.docs.items()
         eq_(doc, work.to_search_document())
+
+        # The Work now has a complete set of WorkCoverageRecords
+        # associated with it, reflecting all the operations that
+        # occured as part of calculate_presentation().
+        records = work.coverage_records
+        expect = set([
+            WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
+            WorkCoverageRecord.CLASSIFY_OPERATION,
+            WorkCoverageRecord.SUMMARY_OPERATION,
+            WorkCoverageRecord.QUALITY_OPERATION,
+            WorkCoverageRecord.GENERATE_OPDS_OPERATION,
+            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+        ])
+        eq_(expect, set([x.operation for x in records]))
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
@@ -1033,67 +1144,6 @@ class TestWork(DatabaseTest):
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
-
-    def test_with_complaint(self):
-        type = iter(Complaint.VALID_TYPES)
-        type1 = next(type)
-        type2 = next(type)
-
-        work1 = self._work(
-            "fiction work with complaint",
-            language="eng",
-            fiction=True,
-            with_open_access_download=True)
-        work1_complaint1 = self._complaint(
-            work1.license_pools[0],
-            type1,
-            "work1 complaint1 source",
-            "work1 complaint1 detail")
-        work1_complaint2 = self._complaint(
-            work1.license_pools[0],
-            type1,
-            "work1 complaint2 source",
-            "work1 complaint2 detail")
-        work1_complaint3 = self._complaint(
-            work1.license_pools[0],
-            type2,
-            "work1 complaint3 source",
-            "work1 complaint3 detail")
-        work2 = self._work(
-            "nonfiction work with complaint",
-            language="eng",
-            fiction=False,
-            with_open_access_download=True)
-        work2_complaint1 = self._complaint(
-            work2.license_pools[0],
-            type2,
-            "work2 complaint1 source",
-            "work2 complaint1 detail")
-        work3 = self._work(
-            "fiction work without complaint",
-            language="eng",
-            fiction=True,
-            with_open_access_download=True)
-        work4 = self._work(
-            "nonfiction work without complaint",
-            language="eng",
-            fiction=False,
-            with_open_access_download=True)
-
-        results = Work.with_complaint(self._db).all()
-        (works, types, counts) = zip(*results)
-
-        eq_(3, len(results))
-        eq_(work1.id, results[0][0].id)
-        eq_(type1, results[0][1])
-        eq_(2, results[0][2])
-        eq_(work1.id, results[1][0].id)
-        eq_(type2, results[1][1])
-        eq_(1, results[1][2])
-        eq_(work2.id, results[2][0].id)
-        eq_(type2, results[2][1])
-        eq_(1, results[2][2])
-        eq_((type1, type2, type2), types)
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -1980,6 +2030,101 @@ class TestPatron(DatabaseTest):
             config[Configuration.POLICIES][key] = "(not a valid regexp"
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
+
+
+class TestCoverageRecord(DatabaseTest):
+
+    def test_lookup(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        edition = self._edition()
+        operation = 'foo'
+        record = self._coverage_record(edition, source, operation)
+
+        lookup = CoverageRecord.lookup(edition, source, operation)
+        eq_(lookup, record)
+
+        lookup = CoverageRecord.lookup(edition, source)
+        eq_(None, lookup)
+
+        lookup = CoverageRecord.lookup(edition.primary_identifier, source, operation)
+        eq_(lookup, record)
+
+        lookup = CoverageRecord.lookup(edition.primary_identifier, source)
+        eq_(None, lookup)
+
+    def test_add_for(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        edition = self._edition()
+        operation = 'foo'
+        record, is_new = CoverageRecord.add_for(edition, source, operation)
+        eq_(True, is_new)
+
+        # If we call add_for again we get the same record back, but we
+        # can modify the timestamp.
+        a_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+        record2, is_new = CoverageRecord.add_for(
+            edition, source, operation, a_week_ago
+        )
+        eq_(record, record2)
+        eq_(False, is_new)
+        eq_(a_week_ago, record2.timestamp)
+
+        # If we don't specify an operation we get a totally different
+        # record.
+        record3, ignore = CoverageRecord.add_for(edition, source)
+        assert record3 != record
+        eq_(None, record3.operation)
+        seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
+        assert seconds < 10
+
+        # If we call lookup we get the same record.
+        record4 = CoverageRecord.lookup(edition.primary_identifier, source)
+        eq_(record3, record4)
+
+
+class TestWorkCoverageRecord(DatabaseTest):
+
+    def test_lookup(self):
+        work = self._work()
+        operation = 'foo'
+
+        lookup = WorkCoverageRecord.lookup(work, operation)
+        eq_(None, lookup)
+
+        record = self._work_coverage_record(work, operation)
+
+        lookup = WorkCoverageRecord.lookup(work, operation)
+        eq_(lookup, record)
+
+        eq_(None, WorkCoverageRecord.lookup(work, "another operation"))
+
+    def test_add_for(self):
+        work = self._work()
+        operation = 'foo'
+        record, is_new = WorkCoverageRecord.add_for(work, operation)
+        eq_(True, is_new)
+
+        # If we call add_for again we get the same record back, but we
+        # can modify the timestamp.
+        a_week_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+        record2, is_new = WorkCoverageRecord.add_for(
+            work, operation, a_week_ago
+        )
+        eq_(record, record2)
+        eq_(False, is_new)
+        eq_(a_week_ago, record2.timestamp)
+
+        # If we don't specify an operation we get a totally different
+        # record.
+        record3, ignore = WorkCoverageRecord.add_for(work, None)
+        assert record3 != record
+        eq_(None, record3.operation)
+        seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
+        assert seconds < 10
+
+        # If we call lookup we get the same record.
+        record4 = WorkCoverageRecord.lookup(work, None)
+        eq_(record3, record4)
 
 
 class TestComplaint(DatabaseTest):

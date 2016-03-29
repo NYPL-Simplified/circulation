@@ -19,6 +19,9 @@ class ExternalSearchIndex(object):
     
         self.log = logging.getLogger("External search index")
 
+        # By default, assume that there is no search index.
+        self.works_index = None
+
         if not ExternalSearchIndex.__client:
             integration = Configuration.integration(
                 Configuration.ELASTICSEARCH_INTEGRATION, 
@@ -88,7 +91,7 @@ class ExternalSearchIndex(object):
             }
 
         def make_target_age_query(target_age):
-            (lower, upper) = target_age
+            (lower, upper) = target_age.lower, target_age.upper
             return { 
                 "bool" : {
                     # There must be some overlap with the range in the query
@@ -153,12 +156,12 @@ class ExternalSearchIndex(object):
 
         # Get the grade level and the words in the query that matched it, if any
         age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
-        if age_from_grade and age_from_grade[0] == None:
+        if age_from_grade and age_from_grade.lower == None:
             age_from_grade = None
 
         # Get the age range and the words in the query that matched it, if any
         age, age_match = AgeClassifier.target_age_match(query_string)
-        if age and age[0] == None:
+        if age and age.lower == None:
             age = None
 
         if fiction or genre or audience or age_from_grade or age:
@@ -254,8 +257,8 @@ class ExternalSearchIndex(object):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:
-            lower = age_range[0]
-            upper = age_range[-1]
+            lower = age_range.lower
+            upper = age_range.upper
 
             age_clause = {
                 "and": [

@@ -20,6 +20,7 @@ from model import (
     CustomListEntry,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Subject,
     Timestamp,
     UnresolvedIdentifier,
@@ -467,7 +468,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
             if exception:
                 work.presentation_ready_exception = exception
             else:
-                work.calculate_presentation(choose_edition=False)
+                policy = PresentationCalculationPolicy(
+                    choose_edition=False
+                )
+                work.calculate_presentation(policy)
                 work.set_presentation_ready()                    
                 one_success = True
         self.finalize_batch()

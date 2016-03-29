@@ -794,21 +794,50 @@ class DataSource(Base):
 
 
 class CoverageRecord(Base):
-    """A record of a Identifier being used as input into another data
-    source.
-    """
+    """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
+
+    SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
+    CHOOSE_COVER_OPERATION = 'choose-cover'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+    # If applicable, this is the ID of the data source that took the
+    # Identifier as input.
     data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True)
-    date = Column(Date, index=True)
+        Integer, ForeignKey('datasources.id')
+    )
+    operation = Column(String(255), default=None)
+        
+    timestamp = Column(DateTime, index=True)
     exception = Column(Unicode, index=True)
 
+    __table_args__ = (
+        UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
+    )
+
+    def __repr__(self):
+        if self.operation:
+            operation = ' operation="%s"' % self.operation
+        else:
+            operation = ''
+        if self.exception:
+            exception = ' exception="%s"' % self.exception
+        else:
+            exception = ''
+        template = '<CoverageRecord: identifier=%s/%s data_source="%s"%s timestamp="%s"%s>'
+        return template % (
+            self.identifier.type, 
+            self.identifier.identifier,
+            self.data_source.name,
+            operation, 
+            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            exception
+        )
+
     @classmethod
-    def lookup(self, edition_or_identifier, data_source):
+    def lookup(self, edition_or_identifier, data_source, operation=None):
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -818,14 +847,15 @@ class CoverageRecord(Base):
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition) 
         return get_one(
-                _db, CoverageRecord,
-                identifier=identifier,
-                data_source=data_source,
-                on_multiple='interchangeable',
-            )
+            _db, CoverageRecord,
+            identifier=identifier,
+            data_source=data_source,
+            operation=operation,
+            on_multiple='interchangeable',
+        )
 
     @classmethod
-    def add_for(self, edition, data_source, date=None):
+    def add_for(self, edition, data_source, operation=None, timestamp=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -834,16 +864,83 @@ class CoverageRecord(Base):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition) 
-        date = date or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
             data_source=data_source,
+            operation=operation,
             on_multiple='interchangeable'
         )
-        coverage_record.date = date
+        coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
+Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
+
+class WorkCoverageRecord(Base):
+    """A record of some operation that was performed on a Work.
+
+    This is similar to CoverageRecord, which operates on Identifiers,
+    but since Work identifiers have no meaning outside of the database,
+    we presume that all the operations involve internal work only,
+    and as such there is no data_source_id.
+    """
+    __tablename__ = 'workcoveragerecords'
+
+    CHOOSE_EDITION_OPERATION = 'choose-edition'
+    CLASSIFY_OPERATION = 'classify'
+    SUMMARY_OPERATION = 'summary'
+    QUALITY_OPERATION = 'quality'
+    GENERATE_OPDS_OPERATION = 'generate-opds'
+    UPDATE_SEARCH_INDEX_OPERATION = 'update-search-index'
+
+    id = Column(Integer, primary_key=True)
+    work_id = Column(
+        Integer, ForeignKey('works.id'), index=True)
+    operation = Column(String(255), index=True, default=None)
+        
+    timestamp = Column(DateTime, index=True)
+    exception = Column(Unicode, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('work_id', 'operation'),
+    )
+
+    def __repr__(self):
+        if self.exception:
+            exception = ' exception="%s"' % self.exception
+        else:
+            exception = ''
+        template = '<WorkCoverageRecord: work_id=%s operation="%s" timestamp="%s"%s>'
+        return template % (
+            self.work_id, self.operation, 
+            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            exception
+        )
+
+    @classmethod
+    def lookup(self, work, operation):
+        _db = Session.object_session(work)
+        return get_one(
+            _db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            on_multiple='interchangeable',
+        )
+
+    @classmethod
+    def add_for(self, work, operation, timestamp=None):
+        _db = Session.object_session(work)
+        timestamp = timestamp or datetime.datetime.utcnow()
+        coverage_record, is_new = get_one_or_create(
+            _db, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            on_multiple='interchangeable'
+        )
+        coverage_record.timestamp = timestamp
+        return coverage_record, is_new
+Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
 
 class Equivalency(Base):
     """An assertion that two Identifiers identify the same work.
@@ -1204,7 +1301,8 @@ class Identifier(Base):
                 cls._update_equivalents(
                     equivalents, e.input_id, e.output_id, e.strength, e.votes)
             else:
-                logging.debug("Ignoring signal below threshold: %r", e)
+                # logging.debug("Ignoring signal below threshold: %r", e)
+                pass
 
             if e.output_id not in seen_identifier_ids:
                 # This is our first time encountering the
@@ -2383,6 +2481,8 @@ class Edition(Base):
         self.open_access_download_url = url
 
     def set_cover(self, resource):
+        old_cover = self.cover
+        old_cover_full_url = self.cover_full_url
         self.cover = resource
         self.cover_full_url = resource.representation.mirror_url
 
@@ -2399,11 +2499,12 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
-        logging.debug(
-            "Setting cover for %s/%s: full=%s thumb=%s", 
-            self.primary_identifier.type, self.primary_identifier.identifier,
-            self.cover_full_url, self.cover_thumbnail_url
-        )
+        if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
+            logging.debug(
+                "Setting cover for %s/%s: full=%s thumb=%s", 
+                self.primary_identifier.type, self.primary_identifier.identifier,
+                self.cover_full_url, self.cover_thumbnail_url
+            )
 
     def add_contributor(self, name, roles, aliases=None, lc=None, viaf=None,
                         **kwargs):
@@ -2704,13 +2805,78 @@ class Edition(Base):
 
     UNKNOWN_AUTHOR = u"[Unknown]"
 
-    def calculate_presentation(self, calculate_opds_entry=True):
-
+    def calculate_presentation(self, policy=None):
+        """Make sure the presentation of this Edition is up-to-date."""
         _db = Session.object_session(self)
+        changed = False
+        if policy is None:
+            policy = PresentationCalculationPolicy()
 
+        # Gather information up front that will be used to determine
+        # whether this method actually did anything.
+        old_author = self.author
+        old_sort_author = self.sort_author
+        old_sort_title = self.sort_title
+        old_work_id = self.permanent_work_id
+        old_open_access_download_url = self.open_access_download_url
+        old_cover = self.cover
+        old_cover_full_url = self.cover_full_url
+
+        if policy.set_edition_metadata:
+            self.author, self.sort_author = self.calculate_author()
+            self.sort_title = TitleProcessor.sort_title_for(self.title)
+            self.calculate_permanent_work_id()
+            self.set_open_access_link()
+            CoverageRecord.add_for(
+                self, data_source=self.data_source, 
+                operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
+            )
+
+        if policy.choose_cover:
+            self.choose_cover()
+
+        if (self.author != old_author 
+            or self.sort_author != old_sort_author
+            or self.sort_title != old_sort_title
+            or self.permanent_work_id != old_work_id
+            or self.open_access_download_url != old_open_access_download_url
+            or self.cover != old_cover
+            or self.cover_full_url != old_cover_full_url
+        ):
+            changed = True
+
+        if changed:
+            # last_update_time tracks the last time the data 
+            # actually changed.
+            self.last_update_time = datetime.datetime.utcnow()
+
+        # Now that everything's calculated, log it.
+        if policy.verbose:
+            if changed:
+                changed_status = "changed"
+                level = logging.info
+            else:
+                changed_status = "unchanged"
+                level = logging.debug
+
+            msg = u"Presentation %s for Edition %s (by %s, pub=%s, ident=%s/%s, pwid=%s, language=%s, cover=%r)"
+            args = [changed_status, self.title, self.author, self.publisher, 
+                    self.primary_identifier.type, self.primary_identifier.identifier,
+                    self.permanent_work_id, self.language
+            ]
+            if self.cover and self.cover.representation:
+                args.append(self.cover.representation.mirror_url)
+            else:
+                args.append(None)
+            level(msg, *args)
+        return changed
+
+    def calculate_author(self):
+        """Turn the list of Contributors into string values for .author
+        and .sort_author.
+        """
         sort_names = []
         display_names = []
-        self.last_update_time = datetime.datetime.utcnow()
         for author in self.author_contributors:
             if author.name and not author.display_name or not author.family_name:
                 default_family, default_display = author.default_names()
@@ -2719,19 +2885,17 @@ class Edition(Base):
             display_names.append([family_name, display_name])
             sort_names.append(author.name)
         if display_names:
-            self.author = ", ".join([x[1] for x in sorted(display_names)])
+            author = ", ".join([x[1] for x in sorted(display_names)])
         else:
-            self.author = self.UNKNOWN_AUTHOR
+            author = self.UNKNOWN_AUTHOR
         if sort_names:
-            self.sort_author = " ; ".join(sorted(sort_names))
+            sort_author = " ; ".join(sorted(sort_names))
         else:
-            self.sort_author = self.UNKNOWN_AUTHOR
-           
-        if not self.sort_title:
-            self.sort_title = TitleProcessor.sort_title_for(self.title)
-        self.calculate_permanent_work_id()
+            sort_author = self.UNKNOWN_AUTHOR
+        return author, sort_author
 
-        self.set_open_access_link()
+    def choose_cover(self):
+        """Try to find a cover that can be used for this Edition."""
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
@@ -2754,22 +2918,13 @@ class Edition(Base):
                 self.set_cover(best_cover)
                 break
 
-        from opds import (
-            AcquisitionFeed,
-            Annotator,
+        # Whether or not we succeeded in setting the cover,
+        # record the fact that we tried.
+        CoverageRecord.add_for(
+            self, data_source=self.data_source, 
+            operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
-        #self.simple_opds_entry = etree.tostring(
-        #    AcquisitionFeed.single_entry(_db, self, Annotator))
 
-        # Now that everything's calculated, log it.
-        msg = "Calculated presentation for %s (by %s, pub=%s, ident=%r, pwid=%s, language=%s, cover=%r)"
-        args = [self.title, self.author, self.publisher, 
-                self.primary_identifier.identifier, self.permanent_work_id, self.language]
-        if self.cover and self.cover.representation:
-            args.append(self.cover.representation.mirror_url)
-        else:
-            args.append(None)
-        logging.info(msg, *args)
 
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
@@ -2791,6 +2946,40 @@ class WorkGenre(Base):
 
     def __repr__(self):
         return "%s (%d%%)" % (self.genre.name, self.affinity*100)
+
+
+class PresentationCalculationPolicy(object):
+    """Which parts of the Work or Edition's presentation
+    are we actually looking to update?
+    """
+    def __init__(self, 
+                 choose_edition=True, 
+                 set_edition_metadata=True,
+                 classify=True,
+                 choose_summary=True, 
+                 calculate_quality=True,
+                 choose_cover=True,
+                 regenerate_opds_entries=False, 
+                 update_search_index=False,
+                 verbose=True,
+    ):
+        self.choose_edition = choose_edition
+        self.set_edition_metadata = set_edition_metadata
+        self.classify = classify
+        self.choose_summary=choose_summary
+        self.calculate_quality=calculate_quality
+        self.choose_cover = choose_cover
+
+        # We will regenerate OPDS entries if any of the metadata
+        # changes, but if regenerate_opds_entries is True we will
+        # _always_ do so. This is so we can regenerate _all_ the OPDS
+        # entries if the OPDS presentation algorithm changes.
+        self.regenerate_opds_entries = regenerate_opds_entries
+
+        # Similarly for update_search_index.
+        self.update_search_index = update_search_index
+
+        self.verbose = verbose
 
 
 class Work(Base):
@@ -2847,6 +3036,9 @@ class Work(Base):
     clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
     primary_edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined')
+
+    # One Work may have many asosciated WorkCoverageRecords.
+    coverage_records = relationship("WorkCoverageRecord", backref="work")
 
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
@@ -3018,6 +3210,9 @@ class Work(Base):
         # TODO: clean up the content
         if resource:
             self.summary_text = resource.representation.content
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.SUMMARY_OPERATION
+        )
 
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
@@ -3070,23 +3265,6 @@ class Work(Base):
         q = q.options(contains_eager(Work.work_genres))
         q = q.filter(WorkGenre.genre==None)
         return q
-
-    @classmethod
-    def with_complaint(cls, _db):
-        """Return query for Works that have at least one Complaint."""
-        subquery = _db.query(
-                Work.id,
-                Complaint.type.label("complaint_type"),
-                func.count(Complaint.type).label("complaint_type_count")
-            ).\
-            select_from(Work).\
-            join(Work.license_pools, LicensePool.complaints).\
-            group_by(Work.id, Complaint.type).\
-            subquery()
-        return _db.query(Work).\
-            join(subquery, Work.id == subquery.c.id).\
-            order_by(subquery.c.complaint_type_count.desc()).\
-            add_columns(subquery.c.complaint_type, subquery.c.complaint_type_count)
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by a Identifier equivalent to 
@@ -3266,12 +3444,7 @@ class Work(Base):
                 edition.is_primary_for_work = True
                 self.primary_edition = edition
 
-    def calculate_presentation(self, choose_edition=True,
-                               classify=True, choose_summary=True,
-                               calculate_quality=True,
-                               calculate_opds_entry=True,
-                               search_index_client=None,
-                               debug=True):
+    def calculate_presentation(self, policy=None, search_index_client=None):
         """Determine the following information:
         
         * Which Edition is the 'primary'. The default view of the
@@ -3283,87 +3456,117 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-        dirty = False
-        if choose_edition or not self.primary_edition:
+        policy = policy or PresentationCalculationPolicy()
+
+        # Gather information up front so we can see if anything
+        # actually changed.
+        changed = False
+        edition_metadata_changed = False
+        classification_changed = False
+
+        primary_edition = self.primary_edition
+        summary = self.summary
+        summary_text = self.summary_text
+        quality = self.quality
+
+        if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
+            WorkCoverageRecord.add_for(
+                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+            )
+
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
         privileged_data_source = None
-        privileged_data_source_descriptions = None
         if self.primary_edition:
             privileged_data_source = self.primary_edition.data_source
-            # We can't use descriptions or covers from Gutenberg.
-            if privileged_data_source.name != DataSource.GUTENBERG:
-                privileged_data_source_descriptions = privileged_data_source
+            # Descriptions from Gutenberg are useless, so it can't
+            # be a privileged data source.
+            if privileged_data_source.name == DataSource.GUTENBERG:
+                privileged_data_source = None
 
         if self.primary_edition:
-            self.primary_edition.calculate_presentation(
-                calculate_opds_entry=calculate_opds_entry)
+            edition_metadata_changed = self.primary_edition.calculate_presentation(
+                policy
+            )
 
-        if not (classify or choose_summary or calculate_quality):
-            return
+        if policy.classify or policy.choose_summary or policy.calculate_quality:
+            # Find all related IDs that might have associated descriptions,
+            # classifications, or measurements.
+            _db = Session.object_session(self)
+            primary_identifier_ids = [
+                x.primary_identifier.id for x in self.editions
+            ]
+            data = Identifier.recursively_equivalent_identifier_ids(
+                _db, primary_identifier_ids, 5, threshold=0.5
+            )
+            flattened_data = Identifier.flatten_identifier_ids(data)
+        else:
+            flattened_data = []
 
-        # Find all related IDs that might have associated descriptions
-        # or classifications.
-        _db = Session.object_session(self)
-        primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions]
-        data = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, 5, threshold=0.5)
-        flattened_data = Identifier.flatten_identifier_ids(data)
-        if classify:
-            workgenres, self.fiction, self.audience, target_age = self.assign_genres(
-                flattened_data)
-            lower, upper = target_age
-            self.target_age = NumericRange(lower, upper, '[]')
+        if policy.classify:
+            classification_changed = self.assign_genres(flattened_data)
+            WorkCoverageRecord.add_for(
+                self, operation=WorkCoverageRecord.CLASSIFY_OPERATION
+            )
 
-
-        if choose_summary:
+        if policy.choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source_descriptions)
+                _db, flattened_data, privileged_data_source
+            )
             # TODO: clean up the content
-            self.set_summary(summary)
+            self.set_summary(summary)      
 
-        # Measure the number of IDs associated with the work (~the
-        # number of editions of the work published in modern times).
-        if privileged_data_source:
-            oclc_linked_data = DataSource.lookup(
-                _db, DataSource.OCLC_LINKED_DATA)
-            self.primary_edition.primary_identifier.add_measurement(
-                oclc_linked_data, Measurement.PUBLISHED_EDITIONS, 
-                len(flattened_data))
-            #if dsn == DataSource.GUTENBERG:
-            #    # Only consider the quality signals associated with the
-            #    # primary edition. Otherwise texts that have multiple
-            #    # Gutenberg editions will drag down the quality of popular
-            #    # books.
-            #    flattened_data = [self.primary_edition.primary_identifier.id]
-
-        
-
-        if calculate_quality:
+        if policy.calculate_quality:
             default_quality = 0
             if self.primary_edition:
                 data_source_name = self.primary_edition.data_source.name
                 default_quality = self.default_quality_by_data_source.get(
-                    data_source_name, 0)
+                    data_source_name, 0
+                )
             self.calculate_quality(flattened_data, default_quality)
 
-        self.last_update_time = datetime.datetime.utcnow()
+        if self.summary_text:
+            if isinstance(self.summary_text, unicode):
+                new_summary_text = self.summary_text
+            else:
+                new_summary_text = self.summary_text.decode("utf8")
+        else:
+            new_summary_text = self.summary_text
 
-        if calculate_opds_entry:
+        changed = (
+            edition_metadata_changed or
+            classification_changed or
+            primary_edition != self.primary_edition or
+            summary != self.summary or
+            summary_text != new_summary_text or
+            float(quality) != float(self.quality)
+        )
+
+        if changed:
+            # last_update_time tracks the last time the data actually
+            # changed, not the last time we checked whether or not to
+            # change it.
+            self.last_update_time = datetime.datetime.utcnow()
+
+        if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
 
-        if not search_index_client:
-            search_index_client = ExternalSearchIndex()
-
-        self.update_external_index(search_index_client)
+        if changed or policy.update_search_index:
+            if not search_index_client:
+                search_index_client = ExternalSearchIndex()
+            self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
-        if debug:
-            logging.info(self.detailed_representation)
-
+        if policy.verbose:            
+            if changed:
+                changed = "changed"
+                representation = self.detailed_representation
+            else:
+                changed = "unchanged"
+                representation = repr(self)                
+            logging.info("Presentation %s for work: %s", changed, representation)
 
     @property
     def detailed_representation(self):
@@ -3423,6 +3626,9 @@ class Work(Base):
                                                force_create=True)
         if verbose is not None:
             self.verbose_opds_entry = etree.tostring(verbose)
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        )
         # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
 
@@ -3452,7 +3658,9 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        )
 
     def set_presentation_ready(self, as_of=None):
         as_of = as_of or datetime.datetime.utcnow()
@@ -3507,9 +3715,22 @@ class Work(Base):
 
         self.quality = Measurement.overall_quality(
             measurements, default_value=default_quality)
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.QUALITY_OPERATION
+        )
 
     def assign_genres(self, identifier_ids, cutoff=0.15):
+        """Set classification information for this work based on the
+        given flattened set of equivalent identifiers (`identifier_ids`).
+
+        :return: A boolean explaining whether or not any data actually
+        changed.
+        """
         classifier = WorkClassifier(self)
+
+        old_fiction = self.fiction
+        old_audience = self.audience
+        old_target_age = self.target_age
 
         _db = Session.object_session(self)
         classifications = Identifier.classifications_for_identifier_ids(
@@ -3518,13 +3739,25 @@ class Work(Base):
         for classification in classifications:
             classifier.add(classification)
 
-        genre_weights, fiction, audience, target_age = classifier.classify
+        (genre_weights, self.fiction, self.audience, 
+         self.target_age) = classifier.classify
 
-        workgenres = self.assign_genres_from_weights(genre_weights)
-        return workgenres, fiction, audience, target_age
+        workgenres, workgenres_changed = self.assign_genres_from_weights(
+            genre_weights
+        )
+
+        classification_changed = (
+            workgenres_changed or 
+            old_fiction != self.fiction or
+            old_audience != self.audience or
+            numericrange_to_tuple(old_target_age) != numericrange_to_tuple(self.target_age)
+        )
+
+        return classification_changed
 
     def assign_genres_from_weights(self, genre_weights):
         # Assign WorkGenre objects to the remainder.
+        changed = False
         _db = Session.object_session(self)
         total_genre_weight = float(sum(genre_weights.values()))
         workgenres = []
@@ -3538,10 +3771,13 @@ class Work(Base):
                 g, ignore = Genre.lookup(_db, g.name)
             if g in by_genre:
                 wg = by_genre[g]
+                is_new = False
                 del by_genre[g]
             else:
-                wg, ignore = get_one_or_create(
+                wg, is_new = get_one_or_create(
                     _db, WorkGenre, work=self, genre=g)
+            if is_new or round(wg.affinity,2) != round(affinity, 2):
+                changed = True
             wg.affinity = affinity
             workgenres.append(wg)
 
@@ -3549,7 +3785,8 @@ class Work(Base):
         # was once classified under, but is no longer. Delete them.
         for wg in by_genre.values():
             _db.delete(wg)
-        return workgenres
+            changed = True
+        return workgenres, changed
 
 
     def assign_appeals(self, character, language, setting, story,
@@ -4459,27 +4696,17 @@ class Subject(Base):
         log = logging.getLogger("Subject-genre assignment")
 
         genredata, audience, target_age, fiction = classifier.classify(self)
-
         # If the genre is erotica, the audience will always be ADULTS_ONLY,
         # no matter what the classifier says.
         if genredata == Erotica:
             audience = Classifier.AUDIENCE_ADULTS_ONLY
 
         if audience in Classifier.AUDIENCES_ADULT:
-            target_age = (None, None)
-        lower, upper = target_age
-        if lower and upper:
-            if lower > upper:
-                lower, upper = upper, lower
-            target_age = (lower, upper, '[]')
-        target_age = NumericRange(*target_age)
-        if not audience and target_age and target_age != NumericRange(None, None):
-            if target_age.lower >= 18:
-                audience = Classifier.AUDIENCE_ADULT
-            elif target_age.lower >= 12:
-                audience = Classifier.AUDIENCE_YOUNG_ADULT
-            else:
-                audience = Classifier.AUDIENCE_CHILDREN
+            target_age = Classifier.default_target_age_for_audience(audience)
+        if not audience:
+            # We have no audience but some target age information.
+            # Try to determine an audience based on that.
+            audience = Classifier.default_audience_for_target_age(target_age)
 
         if genredata:
             _db = Session.object_session(self)
@@ -4509,17 +4736,7 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if self.target_age:
-            old_target_age = (self.target_age.lower, self.target_age.upper)
-        else:
-            old_target_age = None
-
-        if target_age:
-            new_target_age = (target_age.lower, target_age.upper)
-        else:
-            new_target_age = None
-
-        if old_target_age != new_target_age:
+        if numericrange_to_tuple(self.target_age) != numericrange_to_tuple(target_age):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, target_age
@@ -4865,6 +5082,22 @@ class LicensePool(Base):
                 for dm in self.delivery_mechanisms]
             )
         )
+
+    @classmethod
+    def with_complaint(cls, _db):
+        """Return query for LicensePools that have at least one Complaint."""
+        subquery = _db.query(
+                LicensePool.id,
+                func.count(LicensePool.id).label("complaint_count")
+            ).\
+            select_from(LicensePool).\
+            join(LicensePool.complaints).\
+            group_by(LicensePool.id).\
+            subquery()
+        return _db.query(LicensePool).\
+            join(subquery, LicensePool.id == subquery.c.id).\
+            order_by(subquery.c.complaint_count.desc()).\
+            add_columns(subquery.c.complaint_count)
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
@@ -6386,3 +6619,16 @@ def dump_query(query):
             v = v.encode(enc)
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
+
+
+def numericrange_to_tuple(r):
+    """Helper method to normalize NumericRange into a tuple."""
+    if r is None:
+        return (None, None)
+    lower = r.lower
+    upper = r.upper
+    if lower and not r.lower_inc:
+        lower -= 1
+    if upper and not r.upper_inc:
+        upper -= 1
+    return lower, upper
