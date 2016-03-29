@@ -21,7 +21,7 @@
     <schema:Rating schema:ratingValue="0.6000"/>
     <schema:Rating schema:ratingValue="0.2500" schema:additionalType="http://librarysimplified.org/terms/rel/popularity"/>
     <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image"/>
-    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image/thumbnail"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.thumb.png" rel="http://opds-spec.org/image/thumbnail"/>
     <category term="sh2008100298" label="Courtship -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="sh2008108377" label="New York (N.Y.) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="sh85047114" label="Fantasy fiction" scheme="http://purl.org/dc/terms/LCSH"/>
