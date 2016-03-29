@@ -18,7 +18,6 @@ from sqlalchemy.orm.exc import (
 import csv
 import datetime
 import logging
-import urlparse
 from util import LanguageCodes
 from model import (
     get_one,
