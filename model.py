@@ -2638,6 +2638,7 @@ class Edition(Base):
         for resource in pool.open_access_links:
             if not any(
                     [resource.representation and
+                     resource.representation.media_type and
                      resource.representation.media_type.startswith(x) 
                      for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
                 # This representation is not in a media type we 
