@@ -149,11 +149,17 @@ class TestMetadataImporter(DatabaseTest):
             media_type=Representation.JPEG_MEDIA_TYPE,
             content=content
         )
+        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png")).read()
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://example.com/thumb.jpg",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            content=content
+        )
 
         # When we call metadata.apply, all image links will be scaled and
         # 'mirrored'.
         policy = ReplacementPolicy(mirror=mirror)
-        metadata = Metadata(links=[l1], data_source=edition.data_source)
+        metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
         metadata.apply(edition, replace=policy)
 
         # Two Representations were 'mirrored'.
@@ -173,6 +179,12 @@ class TestMetadataImporter(DatabaseTest):
         # The thumbnail is the right height.
         eq_(Edition.MAX_THUMBNAIL_HEIGHT, thumbnail.image_height)
         eq_(Edition.MAX_THUMBNAIL_WIDTH, thumbnail.image_width)
+
+        # The thumbnail is newly generated from the full-size
+        # image--the thumbnail that came in from the OPDS feed was
+        # ignored.
+        assert thumbnail.url != l2.href
+        assert thumbnail.content != l2.content
 
         # Both images have been 'mirrored' to Amazon S3.
         assert image.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/')

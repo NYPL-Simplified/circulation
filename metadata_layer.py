@@ -960,6 +960,10 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
+            # TODO: We do not properly handle the (unlikely) case
+            # where there is an IMAGE_THUMBNAIL link but no IMAGE
+            # link. In such a case we should treat the IMAGE_THUMBNAIL
+            # link as though it were an IMAGE link.
             if replace.mirror:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
@@ -1048,8 +1052,7 @@ class Metadata(object):
         mirror that too.
         """
         if link_obj.rel not in (
-                Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE,
-                Hyperlink.OPEN_ACCESS_DOWNLOAD
+                Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
             return
         mirror = policy.mirror
