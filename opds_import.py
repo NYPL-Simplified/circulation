@@ -45,6 +45,7 @@ from model import (
     RightsStatus,
 )
 from opds import OPDSFeed
+from s3 import S3Uploader
 
 class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
@@ -138,7 +139,8 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, force=True):
+                 identifier_mapping=None, mirror=None, http_get=None, 
+                 force=True):
         self._db = _db
         self.force = True
         self.log = logging.getLogger("OPDS Importer")
@@ -146,6 +148,7 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         self.metadata_client = SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
+        self.http_get = http_get
 
     def import_from_feed(self, feed, even_if_no_author=False, 
                          cutoff_date=None, 
@@ -177,7 +180,8 @@ class OPDSImporter(object):
                 links=True,
                 contributions=True,
                 even_if_not_apparently_updated=True,
-                mirror=self.mirror
+                mirror=self.mirror,
+                http_get=self.http_get,
             )
             metadata.apply(
                 edition, self.metadata_client, replace=policy
@@ -689,5 +693,10 @@ class OPDSImportMonitor(Monitor):
 
             queue = new_queue
 
+class OPDSImporterWithS3Mirror(OPDSImporter):
+    """OPDS Importer that mirrors content to S3."""
 
-
+    def __init__(self, _db, **kwargs):
+        kwargs = dict(kwargs)
+        kwargs['mirror'] = S3Uploader()
+        super(OPDSImporterWithS3Mirror, self).__init__(_db, **kwargs)

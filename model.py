@@ -1397,7 +1397,12 @@ class Identifier(Base):
     def add_link(self, rel, href, data_source, license_pool=None,
                  media_type=None, content=None, content_path=None):
         """Create a link between this Identifier and a (potentially new)
-        Resource."""
+        Resource.
+
+        TODO: There's some code in metadata_layer for automatically
+        fetching, mirroring and scaling Representations as links are
+        created. It might be good to move that code into here.
+        """
         _db = Session.object_session(self)
 
         if license_pool and license_pool.identifier != self:
@@ -1421,8 +1426,18 @@ class Identifier(Base):
         )
 
         if content or content_path:
+            # We have content for this resource.
             resource.set_fetched_content(media_type, content, content_path)
-        elif media_type:
+        elif (media_type and (
+                not resource.representation 
+                or not resource.representation.mirrored_at)
+        ):
+            # There's a version of this resource stored elsewhere that we
+            # can use.
+            #
+            # TODO: just because we know the type and URL of the
+            # resource doesn't mean we can actually serve that URL
+            # to patrons. This needs some work.
             resource.set_mirrored_elsewhere(media_type)
 
         return link, new_link
@@ -5909,7 +5924,7 @@ class Representation(Base):
             representation and not representation.fetch_exception
             and (
                 representation.content or representation.local_path
-                or representation.status_code / 100 != 2
+                or representation.status_code and representation.status_code / 100 != 2
             )
         )
 
@@ -6255,8 +6270,11 @@ class Representation(Base):
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
-        # If the image is already thumbnail-size, don't bother.
-        if self.image_height <= max_height and self.image_width <= max_width:
+
+        # If the image is already a thumbnail-size bitmap, don't bother.
+        if (self.media_type != Representation.SVG_MEDIA_TYPE
+            and self.image_height <= max_height 
+            and self.image_width <= max_width):
             self.thumbnails = []
             return self, False
 

@@ -1859,6 +1859,18 @@ class TestRepresentation(DatabaseTest):
         image = hyperlink.resource.representation.as_image()
         eq_("PNG", image.format)
 
+        # Even though the SVG image is smaller than the thumbnail
+        # size, thumbnailing it will create a separate PNG-format
+        # Representation, because we want all the thumbnails to be
+        # bitmaps.
+        thumbnail, is_new = hyperlink.resource.representation.scale(
+            Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
+            self._url, Representation.PNG_MEDIA_TYPE
+        )
+        eq_(True, is_new)
+        assert thumbnail != hyperlink.resource.representation
+        eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+
 class TestScaleRepresentation(DatabaseTest):
 
     def test_set_cover(self):

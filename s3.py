@@ -201,5 +201,7 @@ class DummyS3Uploader(S3Uploader):
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)
-        for r in representations:
-            r.set_as_mirrored()
+        for representation in representations:
+            if not representation.mirror_url:
+                representation.mirror_url = representation.url
+            representation.set_as_mirrored()

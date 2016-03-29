@@ -50,6 +50,7 @@ class ReplacementPolicy(object):
             formats=False,
             rights=False,
             mirror=None,
+            http_get=None,
             even_if_not_apparently_updated=False,
     ):
         self.identifiers = identifiers
@@ -60,6 +61,7 @@ class ReplacementPolicy(object):
         self.formats = formats
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
+        self.http_get = http_get
 
     @classmethod
     def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
@@ -959,7 +961,7 @@ class Metadata(object):
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(
-                    pool, data_source, link, link_obj, replace.mirror
+                    pool, data_source, link, link_obj, replace
                 )
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
@@ -981,6 +983,11 @@ class Metadata(object):
                 link = format.link
                 if not format.content_type:
                     format.content_type = link.media_type
+                # TODO: I think it's always true that this link
+                # already exists--it was created earlier while we were
+                # iterating over self.links. It would be more
+                # efficient and less error-prone to keep track of the
+                # link objects rather than calling add_link again.
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=pool, media_type=link.media_type,
@@ -1032,7 +1039,7 @@ class Metadata(object):
         )
         return edition
 
-    def mirror_link(self, pool, data_source, link, link_obj, mirror):
+    def mirror_link(self, pool, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
@@ -1042,29 +1049,41 @@ class Metadata(object):
                 Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
             return
+        mirror = policy.mirror
+        http_get = policy.http_get
 
-        _db = Session.object_session(pool)
+        _db = Session.object_session(link_obj)
         original_url = link.href
-        identifier = pool.identifier
+        identifier = link_obj.identifier
+
+        self.log.debug("About to mirror %s" % original_url)
 
         # This will fetch a representation of the original and 
         # store it in the database.
-        representation, is_new = Representation.get(_db, link.href)
+        representation, is_new = Representation.get(
+            _db, link.href, do_get=http_get
+        )
+
+        # Make sure the (potentially newly-fetched) representation is
+        # associated with the resource.
+        link_obj.resource.representation = representation
+
+        # Determine the best URL to use when mirroring this
+        # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            edition = pool.edition
-            if edition and edition.title:
+            if pool and pool.edition and pool.edition.title:
                 title = edition.title
             else:
                 title = None
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                pool.identifier, data_source=data_source, title=title,
+                identifier, data_source=data_source, title=title,
                 extension=extension
             )
         else:
             filename = representation.default_filename(link_obj)
             mirror_url = mirror.cover_image_url(
-                data_source, pool.identifier, filename
+                data_source, identifier, filename
             )
 
         representation.mirror_url = mirror_url
@@ -1086,7 +1105,10 @@ class Metadata(object):
                 destination_media_type=Representation.PNG_MEDIA_TYPE,
                 force=True
             )
-            mirror.mirror_one(thumbnail)
+            if is_new:
+                # A thumbnail was created distinct from the original
+                # image. Mirror it as well.
+                mirror.mirror_one(thumbnail)
 
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
