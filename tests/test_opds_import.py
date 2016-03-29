@@ -468,7 +468,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         [e1, e2], messages, next_link = importer.import_from_feed(self.content_server_mini_feed)
 
         # The import process requested each remote resource in the
-        # order they appeared in the OPDS feed.
+        # order they appeared in the OPDS feed. The thumbnail
+        # image was not requested, since we were going to make our own
+        # thumbnail anyway.
         eq_(http.requests, [
             'http://www.gutenberg.org/ebooks/10557.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 

@@ -1078,7 +1078,7 @@ class Metadata(object):
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
             if pool and pool.edition and pool.edition.title:
-                title = edition.title
+                title = pool.edition.title
             else:
                 title = None
             extension = representation.extension()
