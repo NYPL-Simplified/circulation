@@ -16,6 +16,7 @@ from . import (
 
 from opds_import import (
     OPDSImporter,
+    OPDSImporterWithS3Mirror,
     StatusMessage,
 )
 from metadata_layer import (
@@ -33,6 +34,9 @@ from model import (
     RightsStatus,
     Subject,
 )
+
+from s3 import DummyS3Uploader
+from testing import DummyHTTPClient
 
 class TestStatusMessage(object):
 
@@ -55,16 +59,18 @@ class TestStatusMessage(object):
         eq_(False, message.transient)
 
 
-class TestOPDSImporter(DatabaseTest):
+class OPDSImporterTest(DatabaseTest):
 
     def setup(self):
-        super(TestOPDSImporter, self).setup()
+        super(OPDSImporterTest, self).setup()
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "opds")
         self.content_server_feed = open(
             os.path.join(self.resource_path, "content_server.opds")).read()
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
+
+class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
 
@@ -428,3 +434,71 @@ class TestOPDSImporter(DatabaseTest):
              Hyperlink.IMAGE], [x.rel for x in links])
         eq_(t1, i1.thumbnail)
         eq_(None, i2.thumbnail)
+
+class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
+
+    def test_resources_are_mirrored_on_import(self):
+
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50">
+    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+</svg>"""
+
+        http = DummyHTTPClient()
+        http.queue_response(
+            200, content='I am 10557.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE,
+        )
+        http.queue_response(
+            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+        )
+        http.queue_response(
+            200, content='I am 10441.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        s3 = DummyS3Uploader()
+
+        importer = OPDSImporter(
+            self._db, data_source_name=DataSource.OA_CONTENT_SERVER,
+            mirror=s3, http_get=http.do_get
+        )
+        [e1, e2], messages, next_link = importer.import_from_feed(self.content_server_mini_feed)
+
+        # The import process requested each remote resource in the
+        # order they appeared in the OPDS feed. The thumbnail
+        # image was not requested, since we were going to make our own
+        # thumbnail anyway.
+        eq_(http.requests, [
+            'http://www.gutenberg.org/ebooks/10557.epub.images',
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
+            'http://www.gutenberg.org/ebooks/10441.epub.images',
+        ])
+
+        [e1_oa_link] = e1.primary_identifier.links
+        [e2_oa_link, e2_image_link, e2_description_link] = sorted(
+            e2.primary_identifier.links, key=lambda x: x.rel
+        )
+
+        # The two open-access links were mirrored to S3, as was the
+        # original SVG image and its PNG thumbnail.
+        eq_(
+            [e1_oa_link.resource.representation,
+             e2_image_link.resource.representation,
+             e2_image_link.resource.representation.thumbnails[0],
+             e2_oa_link.resource.representation,
+         ],
+            s3.uploaded
+        )
+
+        # Each resource was 'mirrored' to an Amazon S3 bucket.
+        eq_(
+            ['http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557.epub',
+             'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png.svg', 
+             'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png', 
+             'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441.epub'
+         ],
+            [x.mirror_url for x in s3.uploaded]
+        )

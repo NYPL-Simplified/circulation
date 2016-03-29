@@ -49,7 +49,9 @@ class ReplacementPolicy(object):
             links=False,
             formats=False,
             rights=False,
-            even_if_not_apparently_updated=False
+            mirror=None,
+            http_get=None,
+            even_if_not_apparently_updated=False,
     ):
         self.identifiers = identifiers
         self.subjects = subjects
@@ -58,9 +60,11 @@ class ReplacementPolicy(object):
         self.rights = rights
         self.formats = formats
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
-        
+        self.mirror = mirror
+        self.http_get = http_get
+
     @classmethod
-    def from_license_source(self, even_if_not_apparently_updated=False):
+    def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
@@ -73,11 +77,12 @@ class ReplacementPolicy(object):
             links=True, 
             rights=True,
             formats=True,
+            mirror=mirror,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
     @classmethod
-    def from_metadata_source(self, even_if_not_apparently_updated=False):
+    def from_metadata_source(self, mirror=None, even_if_not_apparently_updated=False):
         """When gathering data from a metadata source, overwrite all old data
         from this source, but do not overwrite the rights status or
         the available formats. License sources are the authority on rights
@@ -90,6 +95,7 @@ class ReplacementPolicy(object):
             links=True, 
             rights=False,
             formats=False,
+            mirror=mirror,
             even_if_not_apparently_updated=even_if_not_apparently_updated
         )
 
@@ -798,6 +804,9 @@ class Metadata(object):
                 success = True
         return success
 
+    # TODO: We need to change all calls to apply() to use a ReplacementPolicy
+    # instead of passing in individual `replace` arguments. Once that's done,
+    # we can get rid of the `replace` arguments.
     def apply(self, edition, metadata_client=None, replace=None,
             replace_identifiers=False,
             replace_subjects=False, 
@@ -807,7 +816,11 @@ class Metadata(object):
             replace_rights=False,
             force=False,
     ):
-        """Apply this metadata to the given edition."""
+        """Apply this metadata to the given edition.
+
+        :param mirror: Open-access books and cover images will be mirrored
+        to this MirrorUploader.
+        """
         _db = Session.object_session(edition)
 
         if replace is None:
@@ -947,23 +960,23 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            thumbnail = link.thumbnail
-            if thumbnail:
-                if thumbnail.href == link.href:
-                    # The image serves as its own thumbnail. This is a
-                    # hacky way to represent this in the database.
-                    if link_obj.resource.representation:
-                        link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
-                else:
-                    # The thumbnail and image are different.
-                    thumbnail_obj, ignore = identifier.add_link(
-                        rel=thumbnail.rel, href=thumbnail.href, 
-                        data_source=data_source, 
-                        license_pool=pool, media_type=thumbnail.media_type,
-                        content=thumbnail.content
-                    )
-                    if thumbnail_obj.resource.representation:
-                        thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+            # TODO: We do not properly handle the (unlikely) case
+            # where there is an IMAGE_THUMBNAIL link but no IMAGE
+            # link. In such a case we should treat the IMAGE_THUMBNAIL
+            # link as though it were an IMAGE link.
+            if replace.mirror:
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(
+                    pool, data_source, link, link_obj, replace
+                )
+            elif link.thumbnail:
+                # We don't need to mirror this image, but we do need
+                # to make sure that its thumbnail exists locally and
+                # is associated with the original image.
+                self.make_thumbnail(
+                    pool, data_source, link, link_obj
+                )
 
         if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
@@ -977,6 +990,11 @@ class Metadata(object):
                 link = format.link
                 if not format.content_type:
                     format.content_type = link.media_type
+                # TODO: I think it's always true that this link
+                # already exists--it was created earlier while we were
+                # iterating over self.links. It would be more
+                # efficient and less error-prone to keep track of the
+                # link objects rather than calling add_link again.
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=pool, media_type=link.media_type,
@@ -1027,6 +1045,106 @@ class Metadata(object):
             edition, data_source, timestamp=self.last_update_time
         )
         return edition
+
+    def mirror_link(self, pool, data_source, link, link_obj, policy):
+        """Retrieve a copy of the given link and make sure it gets
+        mirrored. If it's a full-size image, create a thumbnail and
+        mirror that too.
+        """
+        if link_obj.rel not in (
+                Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
+        ):
+            return
+        mirror = policy.mirror
+        http_get = policy.http_get
+
+        _db = Session.object_session(link_obj)
+        original_url = link.href
+        identifier = link_obj.identifier
+
+        self.log.debug("About to mirror %s" % original_url)
+
+        # This will fetch a representation of the original and 
+        # store it in the database.
+        representation, is_new = Representation.get(
+            _db, link.href, do_get=http_get
+        )
+
+        # Make sure the (potentially newly-fetched) representation is
+        # associated with the resource.
+        link_obj.resource.representation = representation
+
+        # Determine the best URL to use when mirroring this
+        # representation.
+        if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            if pool and pool.edition and pool.edition.title:
+                title = pool.edition.title
+            else:
+                title = None
+            extension = representation.extension()
+            mirror_url = mirror.book_url(
+                identifier, data_source=data_source, title=title,
+                extension=extension
+            )
+        else:
+            filename = representation.default_filename(link_obj)
+            mirror_url = mirror.cover_image_url(
+                data_source, identifier, filename
+            )
+
+        representation.mirror_url = mirror_url
+        mirror.mirror_one(representation)
+
+        if link_obj.rel == Hyperlink.IMAGE:
+            # Create and mirror a thumbnail.
+            thumbnail_filename = representation.default_filename(
+                link_obj, Representation.PNG_MEDIA_TYPE
+            )
+            thumbnail_url = mirror.cover_image_url(
+                data_source, pool.identifier, thumbnail_filename,
+                Edition.MAX_THUMBNAIL_HEIGHT
+            )
+            thumbnail, is_new = representation.scale(
+                max_height=Edition.MAX_THUMBNAIL_HEIGHT,
+                max_width=Edition.MAX_THUMBNAIL_WIDTH,
+                destination_url=thumbnail_url,
+                destination_media_type=Representation.PNG_MEDIA_TYPE,
+                force=True
+            )
+            if is_new:
+                # A thumbnail was created distinct from the original
+                # image. Mirror it as well.
+                mirror.mirror_one(thumbnail)
+
+    def make_thumbnail(self, pool, data_source, link, link_obj):
+        """Make sure a Hyperlink representing an image is connected
+        to its thumbnail.
+        """
+
+        thumbnail = link.thumbnail
+        if not thumbnail:
+            return None
+
+        if thumbnail.href == link.href:
+            # The image serves as its own thumbnail. This is a
+            # hacky way to represent this in the database.
+            if link_obj.resource.representation:
+                link_obj.resource.representation.image_height = Edition.MAX_THUMBNAIL_HEIGHT
+            return link_obj
+
+        # The thumbnail and image are different. Make sure there's a
+        # separate link to the thumbnail.
+        thumbnail_obj, ignore = link_obj.identifier.add_link(
+            rel=thumbnail.rel, href=thumbnail.href, 
+            data_source=data_source, 
+            license_pool=pool, media_type=thumbnail.media_type,
+            content=thumbnail.content
+        )
+        # And make sure the thumbnail knows it's a thumbnail of the main
+        # image.
+        if thumbnail_obj.resource.representation:
+            thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
+        return thumbnail_obj
 
     def update_contributions(self, _db, edition, metadata_client=None, 
                              replace=True):

@@ -6,6 +6,7 @@ from collections import (
 )
 from lxml import etree
 from nose.tools import set_trace
+import cairosvg
 import bisect
 import datetime
 import isbnlib
@@ -20,6 +21,7 @@ import requests
 import time
 import traceback
 import urllib
+import urlparse
 import uuid
 import warnings
 
@@ -1395,7 +1397,12 @@ class Identifier(Base):
     def add_link(self, rel, href, data_source, license_pool=None,
                  media_type=None, content=None, content_path=None):
         """Create a link between this Identifier and a (potentially new)
-        Resource."""
+        Resource.
+
+        TODO: There's some code in metadata_layer for automatically
+        fetching, mirroring and scaling Representations as links are
+        created. It might be good to move that code into here.
+        """
         _db = Session.object_session(self)
 
         if license_pool and license_pool.identifier != self:
@@ -1419,8 +1426,18 @@ class Identifier(Base):
         )
 
         if content or content_path:
+            # We have content for this resource.
             resource.set_fetched_content(media_type, content, content_path)
-        elif media_type:
+        elif (media_type and (
+                not resource.representation 
+                or not resource.representation.mirrored_at)
+        ):
+            # There's a version of this resource stored elsewhere that we
+            # can use.
+            #
+            # TODO: just because we know the type and URL of the
+            # resource doesn't mean we can actually serve that URL
+            # to patrons. This needs some work.
             resource.set_mirrored_elsewhere(media_type)
 
         return link, new_link
@@ -2174,6 +2191,7 @@ class Edition(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
 
     MAX_THUMBNAIL_HEIGHT = 300
+    MAX_THUMBNAIL_WIDTH = 200
 
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
@@ -4223,6 +4241,18 @@ class Hyperlink(Base):
             l.append(m.hexdigest())
         return ":".join(l)
 
+    @classmethod
+    def _default_filename(self, rel):
+        if rel == self.OPEN_ACCESS_DOWNLOAD:
+            return 'content'
+        elif rel == self.IMAGE:
+            return 'cover'
+        elif rel == self.THUMBNAIL_IMAGE:
+            return 'cover-thumbnail'
+
+    @property
+    def default_filename(self):
+        return self._default_filename(self.rel)
 
 class Resource(Base):
     """An external resource that may be mirrored locally."""
@@ -5686,6 +5716,7 @@ class Representation(Base):
     JPEG_MEDIA_TYPE = u"image/jpeg"
     PNG_MEDIA_TYPE = u"image/png"
     GIF_MEDIA_TYPE = u"image/gif"
+    SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
     TEXT_PLAIN = u"text/plain"
 
@@ -5699,6 +5730,7 @@ class Representation(Base):
         JPEG_MEDIA_TYPE,
         PNG_MEDIA_TYPE,
         GIF_MEDIA_TYPE,
+        SVG_MEDIA_TYPE,
     ]
 
     SUPPORTED_BOOK_MEDIA_TYPES = [
@@ -5711,6 +5743,7 @@ class Representation(Base):
         MP3_MEDIA_TYPE: "mp3",
         JPEG_MEDIA_TYPE: "jpg",
         PNG_MEDIA_TYPE: "png",
+        SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
     }
 
@@ -5884,8 +5917,16 @@ class Representation(Base):
             max_age = max_age.total_seconds()
 
         # Do we already have a usable representation?
+        #
+        # 'Usable' means we tried it and either got some data or
+        # received a status code that's not in the 5xx series.
         usable_representation = (
-            representation and not representation.fetch_exception)
+            representation and not representation.fetch_exception
+            and (
+                representation.content or representation.local_path
+                or representation.status_code and representation.status_code / 100 != 5
+            )
+        )
 
         # Assuming we have a usable representation, is it
         # fresh?
@@ -6106,6 +6147,59 @@ class Representation(Base):
         return os.path.join(Configuration.data_directory(),
                             self.local_content_path)
 
+    @property
+    def clean_media_type(self):
+        """The most basic version of this representation's media type.
+
+        No profiles or anything.
+        """
+        return self._clean_media_type(self.media_type)
+
+    def extension(self, destination_type=None):
+        """Try to come up with a good file extension for this representation."""
+        destination_type = destination_type or self.clean_media_type
+        return self._extension(destination_type)
+
+    @classmethod
+    def _clean_media_type(cls, media_type):
+        if not media_type:
+            return media_type
+        if ';' in media_type:
+            media_type = media_type[:media_type.index(';')].strip()
+        return media_type
+
+    @classmethod
+    def _extension(cls, media_type):
+        value = cls.FILE_EXTENSIONS.get(media_type, '')
+        if not value:
+            return value
+        return '.' + value
+
+    def default_filename(self, link=None, destination_type=None):
+        """Try to come up with a good filename for this representation."""
+
+        scheme, netloc, path, query, fragment = urlparse.urlsplit(self.url)
+        path_parts = path.split("/")
+        filename = None
+        if path_parts:
+            filename = path_parts[-1]
+
+        if not filename and link:
+            filename = link.default_filename
+        if not filename:
+            # This is the absolute last-ditch filename solution, and
+            # it's basically only used when we try to mirror the root
+            # URL of a domain.
+            filename = 'resource'
+
+        default_extension = self.extension()
+        extension = self.extension(destination_type)
+        if default_extension and default_extension != extension and filename.endswith(default_extension):
+            filename = filename[:-len(default_extension)] + extension
+        elif extension and not filename.endswith(extension):
+            filename += extension
+        return filename
+
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
 
@@ -6128,7 +6222,13 @@ class Representation(Base):
                 % self.media_type)
         if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
-        return Image.open(self.content_fh())
+
+        fh = self.content_fh()
+        if self.media_type == self.SVG_MEDIA_TYPE:
+            # Transparently convert the SVG to a PNG.
+            png_data = cairosvg.svg2png(fh.read())
+            fh = StringIO(png_data)
+        return Image.open(fh)
 
     pil_format_for_media_type = {
         "image/gif": "gif",
@@ -6170,8 +6270,11 @@ class Representation(Base):
         # Now that we've loaded the image, take the opportunity to set
         # the image size of the original representation.
         self.image_width, self.image_height = image.size
-        # If the image is already thumbnail-size, don't bother.
-        if self.image_height <= max_height and self.image_width <= max_width:
+
+        # If the image is already a thumbnail-size bitmap, don't bother.
+        if (self.media_type != Representation.SVG_MEDIA_TYPE
+            and self.image_height <= max_height 
+            and self.image_width <= max_width):
             self.thumbnails = []
             return self, False
 
