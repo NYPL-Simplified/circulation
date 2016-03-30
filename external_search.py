@@ -263,8 +263,8 @@ class ExternalSearchIndex(object):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:
-            lower = age_range.lower
-            upper = age_range.upper
+            lower = age_range[0]
+            upper = age_range[-1]
 
             age_clause = {
                 "and": [
