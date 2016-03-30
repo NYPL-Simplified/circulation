@@ -36,6 +36,8 @@ from core.app_server import (
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
+from collections import Counter
+
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -168,6 +170,23 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
+        
+    def complaints(self, data_source, identifier):
+        """Return detailed complaint information for admins."""
+        
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        counter = self._count_complaints_for_licensepool(pool)
+        response = dict({
+            "book": { 
+                "data_source": data_source,
+                "identifier": identifier
+            },
+            "complaints": counter
+        })
+        
+        return response
 
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
@@ -243,6 +262,10 @@ class WorkController(CirculationManagerController):
             return METADATA_REFRESH_FAILURE
 
         return Response("", 200)
+
+    def _count_complaints_for_licensepool(self, pool):
+        complaint_types = [complaint.type for complaint in pool.complaints]
+        return Counter(complaint_types)
 
     
 class FeedController(CirculationManagerController):

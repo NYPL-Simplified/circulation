@@ -124,6 +124,42 @@ class TestWorkController(AdminControllerTest):
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
+    def test_complaints(self):
+        type = iter(Complaint.VALID_TYPES)
+        type1 = next(type)
+        type2 = next(type)
+
+        work = self._work(
+            "fiction work with complaint",
+            language="eng",
+            fiction=True,
+            with_open_access_download=True)
+        complaint1 = self._complaint(
+            work.license_pools[0],
+            type1,
+            "complaint1 source",
+            "complaint1 detail")
+        complaint2 = self._complaint(
+            work.license_pools[0],
+            type1,
+            "complaint2 source",
+            "complaint2 detail")
+        complaint3 = self._complaint(
+            work.license_pools[0],
+            type2,
+            "complaint3 source",
+            "complaint3 detail")
+
+        SessionManager.refresh_materialized_views(self._db)
+        [lp] = work.license_pools
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.identifier)
+            eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier'], lp.identifier.identifier)
+            eq_(response['complaints'][type1], 2)
+            eq_(response['complaints'][type2], 1)
+        
 
 class TestSignInController(AdminControllerTest):
 
