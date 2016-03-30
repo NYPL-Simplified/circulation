@@ -50,6 +50,35 @@ class TestExternalSearch(DatabaseTest):
             ExternalSearchIndex.__client = None
         super(TestExternalSearch, self).teardown()
 
+    def test_pagination(self):
+        if not self.search:
+            return
+
+        work = self._work(title="Moby Dick")
+        work.set_presentation_ready()
+        work.update_external_index(self.search)
+
+        work2 = self._work(title="Moby 2")
+        work2.set_presentation_ready()
+        work2.update_external_index(self.search)
+
+        time.sleep(1)
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=1, offset=0)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(work.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=1, offset=1)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(work2.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=2, offset=0)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        eq_(unicode(work.id), hits[0]["_id"])
+
     def test_query_works_matches_all_main_fields(self):
         if not self.search:
             return

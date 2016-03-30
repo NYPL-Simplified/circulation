@@ -122,9 +122,10 @@ class ExternalSearchIndex(object):
                 
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
-                    age_range, in_any_of_these_genres=[], fields=None, limit=30):
+                    age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_index:
             return []
+
         filter = self.make_filter(
             media, languages, exclude_languages, fiction, audience,
             age_range, in_any_of_these_genres
@@ -139,7 +140,8 @@ class ExternalSearchIndex(object):
         search_args = dict(
             index=self.works_index,
             body=dict(query=q),
-            size=limit,
+            from_=offset,
+            size=size,
         )
         if fields is not None:
             search_args['fields'] = fields
@@ -401,5 +403,9 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
 
     def query_works(self, *args, **kwargs):
         doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        if 'offset' in kwargs and 'size' in kwargs:
+            offset = kwargs['offset']
+            size = kwargs['size']
+            doc_ids = doc_ids[offset: offset + size]
         return { "hits" : { "hits" : doc_ids }}
 
