@@ -48,6 +48,9 @@ class ExternalSearchIndex(object):
         self.delete = self.__client.delete
         self.exists = self.__client.exists
 
+        if not self.indices.exists(self.works_index):
+            self.setup_index()
+
     def setup_index(self):
         """
         Create the search index with appropriate mapping.
