@@ -1,4 +1,9 @@
 import time
+import re
+from nose.tools import set_trace
+
+from core.monitor import Monitor
+
 from config import Configuration
 from authenticator import Authenticator
 from overdrive import OverdriveAPI
@@ -6,7 +11,7 @@ from threem import ThreeMAPI
 from axis import Axis360API
 
 class ServiceStatus(object):
-    """Checks timing and status for service calls"""
+    """Checks response times for third-party services."""
 
     def __init__(self, _db):
         self._db = _db
@@ -69,3 +74,35 @@ class ServiceStatus(object):
         _add_timing('Axis patron account', do_axis)
 
         return timings
+
+
+class ServiceStatusMonitor(Monitor):
+    """Monitor and log third-party service response times."""
+
+    SUCCESSFUL_STATUS = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
+
+    def __init__(self, _db):
+        super(ServiceStatusMonitor, self).__init__(
+            _db, "Third-Party Service Status Monitor"
+        )
+
+    def run_once(self, start, cutoff):
+        status = ServiceStatus(self._db).loans_status()
+        logger = self.select_log_level(status)
+        logger(status)
+
+    def select_log_level(self, status):
+        messages = [msg for api, msg in status.items()]
+
+        failures = [msg.startswith("FAILURE") for msg in messages]
+        if failures:
+            return self.log.error
+
+        request_times = [float(SUCCESSFUL_STATUS.match(msg).groups()[0])
+                         for msg in messages]
+
+        if any(time > 10 for time in request_times):
+            return self.log.error
+        elif any(time > 3 for time in request_times):
+            return self.log.warn
+        return self.log.info
