@@ -338,11 +338,12 @@ class ExternalSearchIndex(object):
         if media:
             media = [_f(medium) for medium in media]
             clauses.append(dict(terms=dict(medium=media)))
-        if fiction is not None:
-            value = "fiction" if fiction == True else "nonfiction"
-            clauses.append(dict(term=dict(fiction=value)))
+        if fiction == True:
+            clauses.append(dict(term=dict(fiction="fiction")))
+        elif fiction == False:
+            clauses.append(dict(term=dict(fiction="nonfiction")))
         if audience:
-            if isinstance(audience, list):
+            if isinstance(audience, list) or isinstance(audience, set):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:

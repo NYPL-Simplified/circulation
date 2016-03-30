@@ -15,6 +15,7 @@ from config import (
 )
 
 from lane import Lane
+from model import Edition
 from external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
@@ -596,6 +597,270 @@ class TestExternalSearch(DatabaseTest):
         eq_(unicode(age_genre_summary.id), hits[0]['_id'])
         eq_(unicode(age_summary.id), hits[1]['_id'])
 
+    def test_query_works_filters_on_media(self):
+        if not self.search:
+            return
+
+        book = self._work(title="Moby Dick")
+        book.primary_edition.medium = Edition.BOOK_MEDIUM
+        book.set_presentation_ready()
+        book.update_external_index(self.search)
+
+        audio = self._work(title="Moby Dick")
+        audio.primary_edition.medium = Edition.AUDIO_MEDIUM
+        audio.set_presentation_ready()
+        audio.update_external_index(self.search)
+
+        time.sleep(1)
+
+        book_lane = Lane(self._db, "Books", media=Edition.BOOK_MEDIUM)
+        audio_lane = Lane(self._db, "Audio", media=Edition.AUDIO_MEDIUM)
+
+        results = self.search.query_works("moby dick", book_lane.media, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(book.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", audio_lane.media, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(audio.id), hits[0]["_id"])
+
+    def test_query_works_filters_on_languages(self):
+        if not self.search:
+            return
+
+        english = self._work("Moby Dick")
+        english.primary_edition.language = "en"
+        english.set_presentation_ready()
+        english.update_external_index(self.search)
+
+        spanish = self._work("Moby Dick")
+        spanish.primary_edition.language = "es"
+        spanish.set_presentation_ready()
+        spanish.update_external_index(self.search)
+
+        time.sleep(1)
+        
+        english_lane = Lane(self._db, "English", languages="en")
+        spanish_lane = Lane(self._db, "Spanish", languages="es")
+        both_lane = Lane(self._db, "Both", languages=["en", "es"])
+
+        results = self.search.query_works("moby dick", None, english_lane.languages, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(english.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, spanish_lane.languages, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(spanish.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, both_lane.languages, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+
+    def test_query_works_filters_on_exclude_languages(self):
+        if not self.search:
+            return
+
+        english = self._work("Moby Dick")
+        english.primary_edition.language = "en"
+        english.set_presentation_ready()
+        english.update_external_index(self.search)
+
+        spanish = self._work("Moby Dick")
+        spanish.primary_edition.language = "es"
+        spanish.set_presentation_ready()
+        spanish.update_external_index(self.search)
+
+        time.sleep(1)
+        
+        no_english_lane = Lane(self._db, "English", exclude_languages="en")
+        no_spanish_lane = Lane(self._db, "Spanish", exclude_languages="es")
+        neither_lane = Lane(self._db, "Both", exclude_languages=["en", "es"])
+
+        results = self.search.query_works("moby dick", None, None, no_english_lane.exclude_languages, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(spanish.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, no_spanish_lane.exclude_languages, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(english.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, neither_lane.exclude_languages, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(0, len(hits))
+        
+    def test_query_works_filters_on_fiction(self):
+        if not self.search:
+            return
+
+        fiction = self._work(title="Moby Dick", fiction=True)
+        fiction.set_presentation_ready()
+        fiction.update_external_index(self.search)
+
+        nonfiction = self._work(title="Moby Duck", fiction=False)
+        nonfiction.set_presentation_ready()
+        nonfiction.update_external_index(self.search)
+
+        time.sleep(1)
+
+        fiction_lane = Lane(self._db, "fiction", fiction=True)
+        nonfiction_lane = Lane(self._db, "nonfiction", fiction=False)
+        both_lane = Lane(self._db, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+
+        results = self.search.query_works("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(fiction.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, nonfiction_lane.fiction, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(nonfiction.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, both_lane.fiction, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+
+    def test_query_works_filters_on_audience(self):
+        if not self.search:
+            return
+
+        adult = self._work(title="Moby Dick", audience=Classifier.AUDIENCE_ADULT)
+        adult.set_presentation_ready()
+        adult.update_external_index(self.search)
+
+        ya = self._work(title="Moby Dick", audience=Classifier.AUDIENCE_YOUNG_ADULT)
+        ya.set_presentation_ready()
+        ya.update_external_index(self.search)
+
+        children = self._work(title="Moby Dick", audience=Classifier.AUDIENCE_CHILDREN)
+        children.set_presentation_ready()
+        children.update_external_index(self.search)
+
+        time.sleep(1)
+
+        adult_lane = Lane(self._db, "Adult", audiences=Classifier.AUDIENCE_ADULT)
+        ya_lane = Lane(self._db, "YA", audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        children_lane = Lane(self._db, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
+        ya_and_children_lane = Lane(self._db, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
+
+        results = self.search.query_works("moby dick", None, None, None, None, adult_lane.audiences, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(adult.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, ya_lane.audiences, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(ya.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, children_lane.audiences, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(children.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, ya_and_children_lane.audiences, None, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        work_ids = sorted([unicode(ya.id), unicode(children.id)])
+        result_ids = sorted([hit["_id"] for hit in hits])
+        eq_(work_ids, result_ids)
+
+    def test_query_works_filters_on_age_range(self):
+        if not self.search:
+            return
+
+        no_age = self._work(title="Moby Dick")
+        no_age.set_presentation_ready()
+        no_age.update_external_index(self.search)
+
+        age_4_5 = self._work(title="Moby Dick")
+        age_4_5.target_age = NumericRange(4, 5, '[]')
+        age_4_5.set_presentation_ready()
+        age_4_5.update_external_index(self.search)
+
+        age_8 = self._work(title="Moby Dick")
+        age_8.target_age = NumericRange(8, 8, '[]')
+        age_8.set_presentation_ready()
+        age_8.update_external_index(self.search)
+
+        age_9_10 = self._work(title="Moby Dick")
+        age_9_10.target_age = NumericRange(9, 10, '[]')
+        age_9_10.set_presentation_ready()
+        age_9_10.update_external_index(self.search)
+        
+        time.sleep(1)
+
+        age_8_lane = Lane(self._db, "Age 8", age_range=[8, 8])
+        age_5_8_lane = Lane(self._db, "Age 5-8", age_range=[5, 8])
+        age_5_10_lane = Lane(self._db, "Age 5-10", age_range=[5, 10])
+        age_8_10_lane = Lane(self._db, "Age 8-10", age_range=[8, 10])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, age_8_lane.age_range, None)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+        work_ids = sorted([unicode(no_age.id), unicode(age_8.id)])
+        result_ids = sorted([hit["_id"] for hit in hits])
+        eq_(work_ids, result_ids)
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, age_5_8_lane.age_range, None)
+        hits = results["hits"]["hits"]
+        eq_(3, len(hits))
+        work_ids = sorted([unicode(no_age.id), unicode(age_4_5.id), unicode(age_8.id)])
+        result_ids = sorted([hit["_id"] for hit in hits])
+        eq_(work_ids, result_ids)
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, age_5_10_lane.age_range, None)
+        hits = results["hits"]["hits"]
+        eq_(4, len(hits))
+        work_ids = sorted([unicode(no_age.id), unicode(age_4_5.id), unicode(age_8.id), unicode(age_9_10.id)])
+        result_ids = sorted([hit["_id"] for hit in hits])
+        eq_(work_ids, result_ids)
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, age_8_10_lane.age_range, None)
+        hits = results["hits"]["hits"]
+        eq_(3, len(hits))
+        work_ids = sorted([unicode(no_age.id), unicode(age_8.id), unicode(age_9_10.id)])
+        result_ids = sorted([hit["_id"] for hit in hits])
+        eq_(work_ids, result_ids)
+
+    def test_query_works_filters_on_genre(self):
+        if not self.search:
+            return
+
+        adventure = self._work(title="Moby Dick", genre="Adventure")
+        adventure.set_presentation_ready()
+        adventure.update_external_index(self.search)
+
+        classics = self._work(title="Moby Dick", genre="Classics")
+        classics.set_presentation_ready()
+        classics.update_external_index(self.search)
+
+        time.sleep(1)
+
+        adventure_lane = Lane(self._db, "Adventure", genres=["Adventure"])
+        classics_lane = Lane(self._db, "Classics", genres=["Classics"])
+        both_lane = Lane(self._db, "Both", genres=["Adventure", "Classics"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, adventure_lane.genres)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(adventure.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, classics_lane.genres)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+        eq_(unicode(classics.id), hits[0]["_id"])
+
+        results = self.search.query_works("moby dick", None, None, None, None, None, None, both_lane.genres)
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))
+
     def test_make_query(self):
 
         search = DummyExternalSearchIndex()
@@ -753,7 +1018,7 @@ class TestSearchFromLane(DatabaseTest):
             lane.genres,
         )
 
-        medium_filter, fiction_filter, audience_filter, target_age_filter = filter['and']
+        medium_filter, audience_filter, target_age_filter = filter['and']
         upper_filter, lower_filter = target_age_filter['and']
         expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
         expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
