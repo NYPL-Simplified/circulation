@@ -79,7 +79,7 @@ class ServiceStatus(object):
 class ServiceStatusMonitor(Monitor):
     """Monitor and log third-party service response times."""
 
-    SUCCESSFUL_STATUS = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
+    SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
     def __init__(self, _db):
         super(ServiceStatusMonitor, self).__init__(
@@ -95,10 +95,10 @@ class ServiceStatusMonitor(Monitor):
         messages = [msg for api, msg in status.items()]
 
         failures = [msg.startswith("FAILURE") for msg in messages]
-        if failures:
+        if any(failures):
             return self.log.error
 
-        request_times = [float(SUCCESSFUL_STATUS.match(msg).groups()[0])
+        request_times = [float(self.SUCCESS_MSG.match(msg).groups()[0])
                          for msg in messages]
 
         if any(time > 10 for time in request_times):
