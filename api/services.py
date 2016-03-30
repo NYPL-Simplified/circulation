@@ -41,9 +41,12 @@ class ServiceStatus(object):
                 return patron
             else:
                 raise ValueError("Could not authenticate test patron!")
-
         _add_timing('Patron authentication', do_patron)
+
+        if not patrons:
+            return timings
         patron = patrons[0]
+
         def do_overdrive():
             overdrive = OverdriveAPI.from_environment(self._db)
             if not overdrive:
