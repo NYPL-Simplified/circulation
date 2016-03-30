@@ -15,6 +15,7 @@ from util import (
     TitleProcessor,
 )
 from util.opds_authentication_document import OPDSAuthenticationDocument
+from util.median import median
 
 class TestLanguageCodes(object):
 
@@ -456,3 +457,16 @@ class TestOPDSAuthenticationDocument(object):
             "A title", "An ID", links=links)
 
         eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
+
+class TestMedian(object):
+
+    def test_median(self):
+        test_set = [228.56, 205.50, 202.64, 190.15, 188.86, 187.97, 182.49,
+                    181.44, 172.46, 171.91]
+        eq_(188.41500000000002, median(test_set))
+
+        test_set = [90, 94, 53, 68, 79, 84, 87, 72, 70, 69, 65, 89, 85, 83]
+        eq_(81.0, median(test_set))
+
+        test_set = [8, 82, 781233, 857, 290, 7, 8467]
+        eq_(290, median(test_set))
