@@ -13,6 +13,7 @@ python-dateutil
 uwsgi
 loggly-python-handler
 mock
+cairosvg
 
 # In circ, feedparser is only used in tests.
 feedparser
