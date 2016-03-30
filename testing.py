@@ -382,6 +382,7 @@ class DummyHTTPClient(object):
 
     def __init__(self):
         self.responses = []
+        self.requests = []
 
     def queue_response(self, response_code, media_type="text/html",
                        other_headers=None, content=''):
@@ -392,6 +393,7 @@ class DummyHTTPClient(object):
         self.responses.append((response_code, headers, content))
 
     def do_get(self, url, headers, **kwargs):
+        self.requests.append(url)
         return self.responses.pop()
 
 import os

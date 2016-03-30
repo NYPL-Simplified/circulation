@@ -6,11 +6,15 @@ import logging
 import time
 from psycopg2.extras import NumericRange
 
-from testing import DatabaseTest
+from . import (
+    DatabaseTest,
+)
 from config import (
     temp_config,
     Configuration,
 )
+
+from lane import Lane
 from external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
@@ -733,4 +737,25 @@ class TestExternalSearch(DatabaseTest):
         assert "test" in remaining_query['query']
         assert "5" not in remaining_query['query']
         assert "years" not in remaining_query['query']
+
+class TestSearchFromLane(DatabaseTest):
         
+    def test_query_works_from_lane_definition_handles_age_range(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, "For Ages 5-10", 
+            age_range=[5,10]
+        )
+        filter = search.make_filter(
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genres,
+        )
+
+        medium_filter, fiction_filter, audience_filter, target_age_filter = filter['and']
+        upper_filter, lower_filter = target_age_filter['and']
+        expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
+        expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
+        eq_(expect_upper, upper_filter)
+        eq_(expect_lower, lower_filter)

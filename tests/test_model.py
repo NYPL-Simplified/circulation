@@ -1724,7 +1724,12 @@ class TestHyperlink(DatabaseTest):
             identifier.add_link,
             Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
             pool, "text/plain", "The content")
-        
+
+    def test_default_filename(self):
+        m = Hyperlink._default_filename
+        eq_("content", m(Hyperlink.OPEN_ACCESS_DOWNLOAD))
+        eq_("cover", m(Hyperlink.IMAGE))
+        eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
 class TestRepresentation(DatabaseTest):
 
@@ -1766,6 +1771,118 @@ class TestRepresentation(DatabaseTest):
             self._db, url, do_get=h.do_get)
         eq_(True, cached)
         eq_(representation, representation2)
+
+    def test_302_creates_cachable_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(302)
+
+        url = self._url
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+        representation2, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(True, cached)
+        eq_(representation, representation2)
+
+    def test_500_creates_uncachable_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(500)
+        url = self._url
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+        h.queue_response(500)
+        representation, cached = Representation.get(
+            self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+    def test_clean_media_type(self):
+        m = Representation._clean_media_type
+        eq_("image/jpeg", m("image/jpeg"))
+        eq_("application/atom+xml",
+            m("application/atom+xml;profile=opds-catalog;kind=acquisition")
+        )
+
+    def test_extension(self):
+        m = Representation._extension
+        eq_(".jpg", m("image/jpeg"))
+        eq_("", m("no/such-media-type"))
+
+    def test_default_filename(self):
+
+        # Here's a common sort of URL.
+        url = "http://example.com/foo/bar/baz.txt"
+        representation, ignore = self._representation(url)
+
+        # Here's the filename we would give it if we were to mirror
+        # it.
+        filename = representation.default_filename()
+        eq_("baz.txt", filename)
+
+        # File extension is always set based on media type.
+        filename = representation.default_filename(destination_type="image/png")
+        eq_("baz.txt.png", filename)
+
+        # The original file extension is not treated as reliable and
+        # need not be present.
+        url = "http://example.com/1"
+        representation, ignore = self._representation(url, "text/plain")
+        filename = representation.default_filename()
+        eq_("1", filename)
+
+        # Again, file extension is always set based on media type.
+        filename = representation.default_filename(destination_type="image/png")
+        eq_("1.png", filename)
+
+        # In this case, don't have an extension registered for
+        # text/plain, so the extension is omitted.
+        filename = representation.default_filename(destination_type="text/plain")
+        eq_("1", filename)
+
+        # This URL has no path component, so we can't even come up with a
+        # decent default filename. We have to go with 'resource'.
+        representation, ignore = self._representation("http://example.com/", "text/plain")
+        eq_('resource', representation.default_filename())
+        eq_('resource.png', representation.default_filename(destination_type="image/png"))
+
+        # But if we know what type of thing we're linking to, we can
+        # do a little better.
+        link = Hyperlink(rel=Hyperlink.IMAGE)
+        filename = representation.default_filename(link=link)
+        eq_('cover', filename)
+        filename = representation.default_filename(link=link, destination_type="image/png")
+        eq_('cover.png', filename)
+
+    def test_as_image_converts_svg_to_png(self):
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50">
+    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+</svg>"""
+        edition = self._edition()
+        pool = self._licensepool(edition)
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
+            content=svg)
+        image = hyperlink.resource.representation.as_image()
+        eq_("PNG", image.format)
+
+        # Even though the SVG image is smaller than the thumbnail
+        # size, thumbnailing it will create a separate PNG-format
+        # Representation, because we want all the thumbnails to be
+        # bitmaps.
+        thumbnail, is_new = hyperlink.resource.representation.scale(
+            Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
+            self._url, Representation.PNG_MEDIA_TYPE
+        )
+        eq_(True, is_new)
+        assert thumbnail != hyperlink.resource.representation
+        eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
 class TestScaleRepresentation(DatabaseTest):
 
