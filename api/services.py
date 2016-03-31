@@ -25,8 +25,6 @@ class ServiceStatus(object):
     def __init__(self, _db):
         self._db = _db
         self.conf = Configuration.authentication_policy()
-        self.password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
-
         self.overdrive = OverdriveAPI.from_environment(self._db)
         self.threem = ThreeMAPI.from_environment(self._db)
         self.axis = Axis360API.from_environment(self._db)
@@ -38,7 +36,7 @@ class ServiceStatus(object):
         """
         status = dict()
         patrons = []
-
+        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
         def do_patron():
             patron = self.get_patron()
             patrons.append(patron)
@@ -58,7 +56,7 @@ class ServiceStatus(object):
             def do_patron_activity(api, name, patron):
                 if not api:
                     raise ValueError("%s not configured" % name)
-                return api.patron_activity(patron, self.password)
+                return api.patron_activity(patron, password)
 
             self._add_timing(
                 status, service, do_patron_activity, api, name, patron
@@ -75,6 +73,7 @@ class ServiceStatus(object):
         """
         status = dict()
         patron = self.get_patron()
+        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
         api = CirculationAPI(
             self._db, overdrive=self.overdrive, threem=self.threem,
             axis=self.axis
@@ -91,7 +90,7 @@ class ServiceStatus(object):
         service = "Checkout IDENTIFIER:%r" % identifier
         def do_checkout():
             loan, hold, is_new = api.borrow(
-                patron, self.password, license_pool, delivery_mechanism,
+                patron, password, license_pool, delivery_mechanism,
                 Configuration.default_notification_email_address()
             )
             loans.append(loan)
@@ -106,13 +105,13 @@ class ServiceStatus(object):
         service = "Fulfill IDENTIFIER:%r" % identifier
         def do_fulfillment():
             api.fulfill(
-                patron, self.password, license_pool, delivery_mechanism
+                patron, password, license_pool, delivery_mechanism
             )
         self._add_timing(status, service, do_fulfillment)
 
         service = "Checkin IDENTIFIER: %r" % identifier
         def do_checkin():
-            api.revoke_loan(patron, self.password, license_pool)
+            api.revoke_loan(patron, password, license_pool)
         self._add_timing(status, service, do_checkin)
 
         self.log_status(status)
@@ -120,8 +119,9 @@ class ServiceStatus(object):
     def get_patron(self):
         auth = Authenticator.initialize(self._db)
         username = self.conf[Configuration.AUTHENTICATION_TEST_USERNAME]
+        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
 
-        patron = auth.authenticated_patron(self._db, username, self.password)
+        patron = auth.authenticated_patron(self._db, username, password)
         if not patron:
             raise ValueError("Could not authenticate test patron!")
         return patron

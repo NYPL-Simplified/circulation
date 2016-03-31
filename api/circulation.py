@@ -666,6 +666,6 @@ class BaseCirculationAPI(object):
         internal_format = self.delivery_mechanism_to_internal_format.get(key)
         if not internal_format:
             raise DeliveryMechanismError(
-                "Could not map Simplified delivery mechanism %s to internal delivery mechanism!" % delivery_mechanism.name
+                "Could not map Simplified delivery mechanism %s to internal delivery mechanism!" % d.name
             )
         return internal_format
