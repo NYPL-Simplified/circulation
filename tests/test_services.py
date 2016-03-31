@@ -5,10 +5,9 @@ from api.services import ServiceStatus
 class TestServiceStatusMonitor(DatabaseTest):
 
     def test_select_log_level(self):
-        service_status = ServiceStatus(self._db)
         SUCCESS = "SUCCESS: %fsec"
         def level_name(message):
-            return service_status.select_log_level(message).__name__
+            return ServiceStatus.select_log_level(message).__name__
 
         # A request failure results in an error log
         status_message = 'FAILURE: It hurts.'

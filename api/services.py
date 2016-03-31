@@ -143,6 +143,7 @@ class ServiceStatus(object):
             log_level = self.select_log_level(message)
             log_level("%s: %s", service, message)
 
+    @classmethod
     def select_log_level(self, message):
         if message.startswith("FAILURE"):
             return self.log.error
