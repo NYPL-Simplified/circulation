@@ -113,7 +113,7 @@ class CoverageProvider(object):
         batch = self.items_that_need_coverage.limit(
             self.workset_size).offset(offset)
 
-        if not batch:
+        if not batch.count():
             # The batch is empty. We're done.
             return None
 
