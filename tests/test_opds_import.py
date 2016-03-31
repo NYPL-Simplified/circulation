@@ -394,6 +394,29 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(404, message.status_code)
         eq_("I've never heard of this work.", message.message)
 
+    def test_import_failure_becomes_status_message(self):
+
+        class DoomedOPDSImporter(OPDSImporter):
+            def import_from_metadata(self, metadata, *args):
+                if metadata.title == "Johnny Crow's Party":
+                    # This import succeeds.
+                    return super(DoomedOPDSImporter, self).import_from_metadata(metadata, *args)
+                else:
+                    # Any other import fails.
+                    raise Exception("Utter failure!")
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
+        feed = open(path).read()
+        imported, messages, next_links = DoomedOPDSImporter(self._db).import_from_feed(feed)
+        
+        # One book was imported successfully.
+        [success] = imported
+        eq_("Johnny Crow's Party", success.title)
+
+        # The other failed to import, and became a StatusMessage
+        message = messages['http://www.gutenberg.org/ebooks/10441']
+        eq_(500, message.status_code)
+        assert "Utter failure!" in message.message
+
     def test_consolidate_links(self):
 
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")

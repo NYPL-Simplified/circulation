@@ -8,6 +8,7 @@ import datetime
 import feedparser
 import logging
 import requests
+import traceback
 import urllib
 from urlparse import urlparse, urljoin
 from sqlalchemy.orm.session import Session
@@ -157,60 +158,79 @@ class OPDSImporter(object):
 
         imported = []
         for metadata in metadata_objs:
-            # Locate or create a LicensePool for this book.
-            license_pool, is_new_license_pool = metadata.license_pool(self._db)
-
-            # Locate or create an Edition for this book.
-            edition, is_new_edition = metadata.edition(self._db)
-
-            if (cutoff_date 
-                and not is_new_license_pool 
-                and not is_new_edition
-                and metadata.circulation 
-                and metadata.circulation.first_appearance < cutoff_date
-            ):
-                # We've already imported this book, we've been told
-                # not to bother with books that appeared before a
-                # certain date, and this book did in fact appear
-                # before that date. There's no reason to do anything.
-                continue
-
-            policy = ReplacementPolicy(
-                subjects=True,
-                links=True,
-                contributions=True,
-                even_if_not_apparently_updated=True,
-                mirror=self.mirror,
-                http_get=self.http_get,
-            )
-            metadata.apply(
-                edition, self.metadata_client, replace=policy
-            )
-
-            if license_pool is None:
-                # Without a LicensePool, we can't create a Work.
-                self.log.warn(
-                    "No LicensePool present for Edition %r, not attempting to create Work.",
-                    edition
+            try:
+                edition = self.import_from_metadata(
+                    metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
                 )
-            else:
-                license_pool.edition = edition
-                work, is_new_work = license_pool.calculate_work(
-                    known_edition=edition,
-                    even_if_no_author=even_if_no_author,
-                )
-                if work:
-                    work.calculate_presentation()
-                    if immediately_presentation_ready:
-                        # We want this book to be presentation-ready
-                        # immediately upon import. It's okay if it
-                        # doesn't have an author or thumbnail
-                        # image--we'll fill that in later.
-                        work.set_presentation_ready_based_on_content(
-                            require_author=False, require_thumbnail=False,
-                        )
-            imported.append(edition)
+                if edition:
+                    imported.append(edition)
+            except Exception, e:
+                # Rather than scratch the whole import, treat this as a failure that only applies
+                # to this item.
+                identifier, ignore = metadata.primary_identifier.load(self._db)
+                message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
+                messages[identifier.urn] = message
+
         return imported, messages, next_links
+
+
+    def import_from_metadata(
+            self, metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
+    ):
+
+        # Locate or create a LicensePool for this book.
+        license_pool, is_new_license_pool = metadata.license_pool(self._db)
+
+        # Locate or create an Edition for this book.
+        edition, is_new_edition = metadata.edition(self._db)
+
+        if (cutoff_date 
+            and not is_new_license_pool 
+            and not is_new_edition
+            and metadata.circulation 
+            and metadata.circulation.first_appearance < cutoff_date
+        ):
+            # We've already imported this book, we've been told
+            # not to bother with books that appeared before a
+            # certain date, and this book did in fact appear
+            # before that date. There's no reason to do anything.
+            return
+
+        policy = ReplacementPolicy(
+            subjects=True,
+            links=True,
+            contributions=True,
+            even_if_not_apparently_updated=True,
+            mirror=self.mirror,
+            http_get=self.http_get,
+        )
+        metadata.apply(
+            edition, self.metadata_client, replace=policy
+        )
+
+        if license_pool is None:
+            # Without a LicensePool, we can't create a Work.
+            self.log.warn(
+                "No LicensePool present for Edition %r, not attempting to create Work.",
+                edition
+            )
+        else:
+            license_pool.edition = edition
+            work, is_new_work = license_pool.calculate_work(
+                known_edition=edition,
+                even_if_no_author=even_if_no_author,
+            )
+            if work:
+                work.calculate_presentation()
+                if immediately_presentation_ready:
+                    # We want this book to be presentation-ready
+                    # immediately upon import. It's okay if it
+                    # doesn't have an author or thumbnail
+                    # image--we'll fill that in later.
+                    work.set_presentation_ready_based_on_content(
+                        require_author=False, require_thumbnail=False,
+                    )
+        return edition
 
 
     def extract_metadata(self, feed):
