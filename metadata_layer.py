@@ -19,6 +19,7 @@ import csv
 import datetime
 import logging
 from util import LanguageCodes
+from util.median import median
 from model import (
     get_one,
     get_one_or_create,
@@ -749,11 +750,10 @@ class Metadata(object):
         for i in self.identifiers:
             by_weight[(i.type, i.identifier)].append(i.weight)
         new_identifiers = []
-        import numpy
         for (type, identifier), weights in by_weight.items():
             new_identifiers.append(
                 IdentifierData(type=type, identifier=identifier,
-                               weight=numpy.median(weights))
+                               weight=median(weights))
             )
         self.identifiers = new_identifiers
 
