@@ -1,3 +1,4 @@
+# encoding: utf-8
 import datetime
 import os
 import sys
@@ -1757,6 +1758,32 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(None, filename)
         fh = representation.content_fh()
         eq_("some text", fh.read())
+
+    def test_unicode_content_utf8_default(self):
+        unicode_content = u"A “love” story"
+        utf8_content = unicode_content.encode("utf8")
+
+        representation, ignore = self._representation(self._url, "text/plain")
+        representation.set_fetched_content(unicode_content, None)
+        eq_(utf8_content, representation.content)
+        eq_(unicode_content, representation.unicode_content)
+
+    def test_unicode_content_windows_1252(self):
+        unicode_content = u"A “love” story"
+        windows_1252_content = unicode_content.encode("windows-1252")
+
+        representation, ignore = self._representation(self._url, "text/plain")
+        representation.set_fetched_content(windows_1252_content)
+        eq_(windows_1252_content, representation.content)
+        eq_(unicode_content, representation.unicode_content)
+
+    def test_unicode_content_is_none_when_decoding_is_impossible(self):
+        byte_content = b"\x81\x02\x03"
+        representation, ignore = self._representation(self._url, "text/plain")
+        representation.set_fetched_content(byte_content)
+        eq_(byte_content, representation.content)
+        eq_(None, representation.unicode_content)
+
 
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()

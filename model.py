@@ -3228,7 +3228,7 @@ class Work(Base):
         self.summary = resource
         # TODO: clean up the content
         if resource:
-            self.summary_text = resource.representation.content
+            self.summary_text = resource.representation.unicode_content
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.SUMMARY_OPERATION
         )
@@ -6077,6 +6077,20 @@ class Representation(Base):
             if content_path.startswith('/'):
                 content_path = content_path[1:]
         return content_path
+
+    @property
+    def unicode_content(self):
+        """Attempt to convert the content into Unicode.
+        
+        If all attempts fail, we will return None rather than raise an exception.
+        """
+        content = None
+        for encoding in ('utf-8', 'windows-1252'):
+            try:
+                content = self.content.decode(encoding)
+            except UnicodeDecodeError, e:
+                pass
+        return content
 
     def set_fetched_content(self, content, content_path=None):
         """Simulate a successful HTTP request for this representation.
