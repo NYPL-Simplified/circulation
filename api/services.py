@@ -3,8 +3,10 @@ import re
 import logging
 from nose.tools import set_trace
 
-from core.monitor import Monitor
-from core.scripts import IdentifierInputScript
+from core.scripts import (
+    Script,
+    IdentifierInputScript,
+)
 
 from config import Configuration
 from authenticator import Authenticator
@@ -156,19 +158,16 @@ class ServiceStatus(object):
         return self.log.info
 
 
-class ServiceLoanStatusMonitor(Monitor):
-    """Monitor and log third-party service loan response times."""
+class PatronActivityTimingScript(Script):
+    """Log third-party service loan response times."""
 
-    def __init__(self, _db):
-        super(ServiceLoanStatusMonitor, self).__init__(
-            _db, "Third-Party Service Status Monitor"
-        )
-
-    def run_once(self, start, cutoff):
+    def run(self):
         ServiceStatus(self._db).loans_status()
 
 
-class ServiceCheckoutStatusScript(IdentifierInputScript):
+class BorrowTimingScript(IdentifierInputScript):
+    """Log third-party service checkout, fulfillment, and checkin times."""
+
     def run(self):
         identifiers = self.parse_identifiers()
         service_status = ServiceStatus(self._db)
