@@ -22,61 +22,112 @@ class ServiceStatus(object):
 
     def __init__(self, _db):
         self._db = _db
+        self.conf = Configuration.authentication_policy()
+        self.password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
+
+        self.overdrive = OverdriveAPI.from_environment(self._db)
+        self.threem = ThreeMAPI.from_environment(self._db)
+        self.axis = Axis360API.from_environment(self._db)
 
     def loans_status(self, response=False):
-        conf = Configuration.authentication_policy()
-        username = conf[Configuration.AUTHENTICATION_TEST_USERNAME]
-        password = conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
+        """Checks the length of request times for patron activity.
 
+        Returns a dict if response is set to true.
+        """
         status = dict()
         patrons = []
 
         def do_patron():
-            auth = Authenticator.initialize(self._db)
-            patron = auth.authenticated_patron(self._db, username, password)
+            patron = self.get_patron()
             patrons.append(patron)
-            if patron:
-                return patron
-            else:
-                raise ValueError("Could not authenticate test patron!")
         self._add_timing(status, 'Patron authentication', do_patron)
 
         if not patrons:
+            self.log.error("No patron created during patron authentication")
             return status
         patron = patrons[0]
 
-        def do_overdrive():
-            overdrive = OverdriveAPI.from_environment(self._db)
-            if not overdrive:
-                raise ValueError("Overdrive not configured")
-            return overdrive.patron_activity(patron, password)
-        self._add_timing(status, 'Overdrive patron account', do_overdrive)
+        apis = { 'Overdrive': self.overdrive,
+                 '3M': self.threem,
+                 'Axis': self.axis }
 
-        def do_threem():
-            threem = ThreeMAPI.from_environment(self._db)
-            if not threem:
-                raise ValueError("3M not configured")
-            return threem.patron_activity(patron, password)
-        self._add_timing(status, '3M patron account', do_threem)
+        for name, api in apis.items():
+            service = "%s patron account" % name
+            def do_patron_activity(api, name, patron):
+                if not api:
+                    raise ValueError("%s not configured" % name)
+                return api.patron_activity(patron, self.password)
 
-        def do_axis():
-            axis = Axis360API.from_environment(self._db)
-            if not axis:
-                raise ValueError("Axis not configured")
-            return axis.patron_activity(patron, password)
-        self._add_timing(status, 'Axis patron account', do_axis)
+            self._add_timing(
+                status, service, do_patron_activity, api, name, patron
+            )
 
         if response:
             return status
         self.log_status(status)
 
     def checkout_status(self, identifier):
-        pass
+        """Times request rates related to checking out a book.
 
-    def _add_timing(self, status, service, service_action):
+        Intended to be run with an identifier without license restrictions.
+        """
+        status = dict()
+        patron = self.get_patron()
+        api = CirculationAPI(
+            self._db, overdrive=self.overdrive, threem=self.threem,
+            axis=self.axis
+        )
+
+        license_pool = identifier.licensed_through
+        if not license_pool:
+            raise ValueError("No license pool for this identifier")
+        delivery_mechanism = None
+        if license_pool.delivery_mechanisms:
+            delivery_mechanism = license_pool.delivery_mechanisms[0]
+        loans = []
+
+        service = "Checkout IDENTIFIER:%r" % identifier
+        def do_checkout():
+            loan, hold, is_new = api.borrow(
+                patron, self.password, license_pool, delivery_mechanism,
+                Configuration.default_notification_email_address()
+            )
+            loans.append(loan)
+        self._add_timing(status, service, do_checkout)
+
+        # There's no reason to continue checking without a loan.
+        if not loans:
+            self.log.error("No loan created during checkout")
+            self.log_status(status)
+            return
+
+        service = "Fulfill IDENTIFIER:%r" % identifier
+        def do_fulfillment():
+            api.fulfill(
+                patron, self.password, license_pool, delivery_mechanism
+            )
+        self._add_timing(status, service, do_fulfillment)
+
+        service = "Checkin IDENTIFIER: %r" % identifier
+        def do_checkin():
+            api.revoke_loan(patron, self.password, license_pool)
+        self._add_timing(status, service, do_checkin)
+
+        self.log_status(status)
+
+    def get_patron(self):
+        auth = Authenticator.initialize(self._db)
+        username = self.conf[Configuration.AUTHENTICATION_TEST_USERNAME]
+
+        patron = auth.authenticated_patron(self._db, username, self.password)
+        if not patron:
+            raise ValueError("Could not authenticate test patron!")
+        return patron
+
+    def _add_timing(self, status, service, service_action, *args):
         try:
             start_time = time.time()
-            service_action()
+            service_action(*args)
             end_time = time.time()
             result = end_time-start_time
         except Exception, e:
@@ -97,7 +148,6 @@ class ServiceStatus(object):
             return self.log.error
 
         time = float(self.SUCCESS_MSG.match(message).groups()[0])
-
         if time > 10:
             return self.log.error
         elif time > 3:
@@ -117,3 +167,9 @@ class ServiceLoanStatusMonitor(Monitor):
         ServiceStatus(self._db).loans_status()
 
 
+class ServiceCheckoutStatusScript(IdentifierInputScript):
+    def run(self):
+        identifiers = self.parse_identifiers()
+        service_status = ServiceStatus(self._db)
+        for identifier in identifiers:
+            service_status.checkout_status(identifier)
