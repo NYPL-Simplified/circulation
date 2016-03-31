@@ -837,7 +837,7 @@ class ServiceStatusController(CirculationManagerController):
 
     def __call__(self):
         service_status = ServiceStatus(self._db)
-        timings = service_status.loans_status()
+        timings = service_status.loans_status(response=True)
         statuses = []
         for k, v in sorted(timings.items()):
             statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
