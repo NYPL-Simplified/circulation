@@ -71,7 +71,7 @@ class ReplacementPolicy(object):
         )
 
     @classmethod
-    def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
+    def from_license_source(self, **args):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
@@ -84,12 +84,11 @@ class ReplacementPolicy(object):
             links=True, 
             rights=True,
             formats=True,
-            mirror=mirror,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
     @classmethod
-    def from_metadata_source(self, mirror=None, even_if_not_apparently_updated=False):
+    def from_metadata_source(self, **args):
         """When gathering data from a metadata source, overwrite all old data
         from this source, but do not overwrite the rights status or
         the available formats. License sources are the authority on rights
@@ -102,12 +101,11 @@ class ReplacementPolicy(object):
             links=True, 
             rights=False,
             formats=False,
-            mirror=mirror,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
     @classmethod
-    def append_only(self, even_if_not_apparently_updated=False):
+    def append_only(self, **args):
         """Don't overwrite any information, just append it.
 
         This should probably never be used.
@@ -119,7 +117,7 @@ class ReplacementPolicy(object):
             links=False, 
             rights=False,
             formats=False,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
 class SubjectData(object):
