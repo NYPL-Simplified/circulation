@@ -13,7 +13,6 @@ from model import (
     Edition,
     Identifier,
     LicensePool,
-    PresentationCalculationPolicy,
     Timestamp,
 )
 from metadata_layer import (

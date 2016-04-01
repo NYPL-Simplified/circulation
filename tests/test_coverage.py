@@ -8,26 +8,34 @@ from . import (
 )
 from testing import (
     AlwaysSuccessfulCoverageProvider,
+    DummyHTTPClient,
     NeverSuccessfulCoverageProvider,
     TransientFailureCoverageProvider,
 )
 from model import (
-    Edition,
-    Identifier,
     Contributor,
-    Subject,
     CoverageRecord,
     DataSource,
+    Edition,
+    Hyperlink,
+    Identifier,
+    PresentationCalculationPolicy,
+    Representation,
+    Subject,
     Timestamp,
 )
 from metadata_layer import (
     Metadata,
     IdentifierData,
     ContributorData,
+    LinkData,
+    ReplacementPolicy,
     SubjectData,
 )
+from s3 import DummyS3Uploader
 from coverage import (
     BibliographicCoverageProvider,
+    CoverageProvider,
     CoverageFailure,
 )
 
@@ -182,6 +190,70 @@ class TestCoverageProvider(DatabaseTest):
         # But the coverage provider did run, and the timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Transient failure", timestamp.service)
+
+    def test_set_metadata_incorporates_replacement_policy(self):
+        """Make sure that if a ReplacementPolicy is passed in to
+        set_metadata(), the policy's settings (and those of its
+        .presentation_calculation_policy) are respected.
+        """
+
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = edition.primary_identifier
+
+        # All images and open-access content should be uploaded to
+        # this 'mirror'.
+        mirror = DummyS3Uploader()
+        http = DummyHTTPClient()
+        http.queue_response(
+            200, content='I am an epub.',
+            media_type=Representation.EPUB_MEDIA_TYPE,
+        )
+
+        class Tripwire(PresentationCalculationPolicy):
+            # This class sets a variable if one of its properties is
+            # accessed.
+            def __init__(self, *args, **kwargs):
+                self.tripped = False
+
+            def __getattr__(self, name):
+                self.tripped = True
+                return True
+
+        presentation_calculation_policy = Tripwire()
+
+        metadata_replacement_policy = ReplacementPolicy(
+            mirror=mirror,
+            http_get=http.do_get,
+            presentation_calculation_policy=presentation_calculation_policy
+        )
+
+        output_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        provider = CoverageProvider(
+            "service", [identifier.type], output_source
+        )
+
+        # We've got a Metadata object that includes an open-access download.
+        link = LinkData(rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://foo.com/")
+        metadata = Metadata(output_source, links=[link])
+
+        provider.set_metadata(
+            identifier, metadata, 
+            metadata_replacement_policy=metadata_replacement_policy
+        )
+
+        # The open-access download was 'downloaded' and 'mirrored'.
+        [mirrored] = mirror.uploaded
+        eq_("http://foo.com/", mirrored.url)
+        assert mirrored.mirror_url.endswith(
+            "/%s/%s.epub" % (identifier.identifier, edition.title)
+        )
+        eq_("I am an epub.", mirrored.content)
+
+        # Our custom PresentationCalculationPolicy was used when
+        # determining whether to recalculate the work's
+        # presentation. We know this because the tripwire was
+        # triggered.
+        eq_(True, presentation_calculation_policy.tripped)
 
 
 class TestBibliographicCoverageProvider(DatabaseTest):

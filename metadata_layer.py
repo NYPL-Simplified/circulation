@@ -1103,6 +1103,12 @@ class Metadata(object):
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
+
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
             thumbnail_filename = representation.default_filename(

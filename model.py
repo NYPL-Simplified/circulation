@@ -2981,6 +2981,7 @@ class PresentationCalculationPolicy(object):
                  regenerate_opds_entries=False, 
                  update_search_index=False,
                  verbose=True,
+                 post_hook=None,
     ):
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
@@ -2999,6 +3000,7 @@ class PresentationCalculationPolicy(object):
         self.update_search_index = update_search_index
 
         self.verbose = verbose
+        self.post_hook = post_hook
 
     @classmethod
     def recalculate_everything(cls):
