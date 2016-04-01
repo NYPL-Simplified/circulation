@@ -112,6 +112,13 @@ class CirculationManagerAnnotator(Annotator):
         return self.cdn_url_for(
             "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
+    def search_url(self, lane, query, pagination):
+        lane_name, languages = self._lane_name_and_languages(lane)
+        kwargs = dict(q=query)
+        kwargs.update(dict(pagination.items()))
+        return self.url_for(
+            "lane_search", lane_name=lane_name, languages=languages, _external=True, **kwargs)
+
     @classmethod
     def featured_feed_url(cls, lane, order=None, cdn=True):
         if cdn:

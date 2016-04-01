@@ -110,6 +110,15 @@ class TestOPDS(DatabaseTest):
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
 
+    def test_search_url(self):
+        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
+        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+
+        search_url = annotator.search_url(fantasy_lane, "query", dict())
+        assert "search" in search_url
+        assert "query" in search_url
+        assert "Fantasy" in search_url
+
     def test_facet_url(self):
         fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
         facets = dict(collection="main")

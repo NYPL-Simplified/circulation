@@ -721,7 +721,7 @@ class TestFeedController(ControllerTest):
                 eq_(1, counter['Other Languages'])
 
     def test_search(self):
-        with self.app.test_request_context("/?q=sam"):
+        with self.app.test_request_context("/?q=t&size=1&after=1"):
             response = self.manager.opds_feeds.search(None, None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -735,4 +735,10 @@ class TestFeedController(ControllerTest):
             assert len(entry.links) > 0
             
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
-            assert len(borrow_links) > 0
+            eq_(1, len(borrow_links))
+
+            next_links = [link for link in feed['feed']['links'] if link.rel == 'next']
+            eq_(1, len(next_links))
+
+            previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
+            eq_(1, len(previous_links))

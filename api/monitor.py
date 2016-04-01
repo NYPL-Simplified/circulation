@@ -32,13 +32,13 @@ class SearchIndexUpdateMonitor(WorkSweepMonitor):
     """Make sure the search index is up-to-date for every work.
     """
 
-    def __init__(self, _db, batch_size=100, interval_seconds=3600*24):
+    def __init__(self, _db, batch_size=100, interval_seconds=3600*24, works_index=None):
         super(SearchIndexUpdateMonitor, self).__init__(
             _db, 
-            "Index Update Monitor", 
+            "Index Update Monitor %s" % works_index, 
             interval_seconds)
         self.batch_size = batch_size
-        self.search_index_client = ExternalSearchIndex()
+        self.search_index_client = ExternalSearchIndex(works_index=works_index)
 
     def work_query(self):
         return self._db.query(Work).filter(Work.presentation_ready==True)

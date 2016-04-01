@@ -9,4 +9,9 @@ from api.monitor import (
     SearchIndexUpdateMonitor,
 )
 from core.scripts import RunMonitorScript
-RunMonitorScript(SearchIndexUpdateMonitor).run()
+
+if len(sys.argv) > 1:
+    index = sys.argv[1]
+else:
+    index = None
+RunMonitorScript(SearchIndexUpdateMonitor, works_index=index).run()

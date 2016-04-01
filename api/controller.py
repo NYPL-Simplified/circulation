@@ -496,6 +496,10 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
 
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
         # Run a search.    
         this_url += "?q=" + urllib.quote(query.encode("utf8"))
         annotator = self.manager.annotator(lane)
@@ -503,7 +507,7 @@ class OPDSFeedController(CirculationManagerController):
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'], 
             url=this_url, lane=lane, search_engine=self.manager.external_search,
-            query=query, annotator=annotator
+            query=query, annotator=annotator, pagination=pagination,
         )
         return feed_response(opds_feed)
 
