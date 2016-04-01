@@ -1,4 +1,4 @@
-FROM nypl/circulation:base
+FROM nypl/circ-base
 
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
