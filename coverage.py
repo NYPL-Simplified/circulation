@@ -13,6 +13,7 @@ from model import (
     Edition,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Timestamp,
 )
 from metadata_layer import (
@@ -54,7 +55,7 @@ class CoverageProvider(object):
     CAN_CREATE_LICENSE_POOLS = False
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100, metadata_policy=None):
+                 workset_size=100):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
 
@@ -63,11 +64,6 @@ class CoverageProvider(object):
         self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
-        self.metadata_replacement_policy = (
-            ReplacementPolicy.from_metadata_source(
-                even_if_not_apparently_updated=True
-            )
-        )
 
     @property
     def log(self):
@@ -250,13 +246,19 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
         return work
 
-    def set_metadata(self, identifier, metadata):
+    def set_metadata(self, identifier, metadata, 
+                     metadata_replacement_policy=None
+    ):
         """Finds or creates the Edition for an Identifier, updates it
         with the given metadata, then creates a Work for the book.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
+        metadata_replacement_policy = metadata_replacement_policy or (
+            ReplacementPolicy.from_metadata_source()
+        )
+
         edition = self.edition(identifier)
         if isinstance(edition, CoverageFailure):
             return edition
@@ -266,7 +268,9 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
 
         try:
-            metadata.apply(edition, replace=self.metadata_replacement_policy)
+            metadata.apply(
+                edition, replace=metadata_replacement_policy,
+            )
         except Exception as e:
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
@@ -311,16 +315,22 @@ class BibliographicCoverageProvider(CoverageProvider):
 
     CAN_CREATE_LICENSE_POOLS = True
 
-    def __init__(self, _db, api, datasource, workset_size=10):
+    def __init__(self, _db, api, datasource, workset_size=10,
+                 metadata_replacement_policy=None
+    ):
         self._db = _db
         self.api = api
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
         service_name = "%s Bibliographic Monitor" % datasource
+        metadata_replacement_policy = (
+            metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
+        )
+        self.metadata_replacement_policy = metadata_replacement_policy
         super(BibliographicCoverageProvider, self).__init__(
             service_name,
             input_identifier_types, output_source,
-            workset_size=workset_size
+            workset_size=workset_size,
         )
 
     def process_batch(self):

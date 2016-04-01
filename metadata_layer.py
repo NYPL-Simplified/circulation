@@ -34,6 +34,7 @@ from model import (
     LicensePool,
     Subject,
     Hyperlink,
+    PresentationCalculationPolicy,
     RightsStatus,
     Representation,
 )
@@ -53,6 +54,7 @@ class ReplacementPolicy(object):
             mirror=None,
             http_get=None,
             even_if_not_apparently_updated=False,
+            presentation_calculation_policy=None
     ):
         self.identifiers = identifiers
         self.subjects = subjects
@@ -63,6 +65,10 @@ class ReplacementPolicy(object):
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
         self.http_get = http_get
+        self.presentation_calculation_policy = (
+            presentation_calculation_policy or
+            PresentationCalculationPolicy()
+        )
 
     @classmethod
     def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
@@ -808,13 +814,13 @@ class Metadata(object):
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
     def apply(self, edition, metadata_client=None, replace=None,
-            replace_identifiers=False,
-            replace_subjects=False, 
-            replace_contributions=False,
-            replace_links=False,
-            replace_formats=False,
-            replace_rights=False,
-            force=False,
+              replace_identifiers=False,
+              replace_subjects=False, 
+              replace_contributions=False,
+              replace_links=False,
+              replace_formats=False,
+              replace_rights=False,
+              force=False,
     ):
         """Apply this metadata to the given edition.
 
@@ -1021,9 +1027,13 @@ class Metadata(object):
 
         # Make sure the work we just did shows up.
         if edition.work:
-            edition.work.calculate_presentation()
+            edition.work.calculate_presentation(
+                policy=replace.presentation_calculation_policy
+            )
         else:
-            edition.calculate_presentation()
+            edition.calculate_presentation(
+                policy=replace.presentation_calculation_policy
+            )
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where
