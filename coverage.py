@@ -12,6 +12,7 @@ from model import (
     DataSource,
     Edition,
     Identifier,
+    LicensePool,
     Timestamp,
 )
 from metadata_layer import (
@@ -48,10 +49,15 @@ class CoverageProvider(object):
     the record doesn't get processed next time.
     """
 
+    # Does this CoverageProvider get its data from a source that also
+    # provides licenses for books?
+    CAN_CREATE_LICENSE_POOLS = False
+
     def __init__(self, service_name, input_identifier_types, output_source,
                  workset_size=100, metadata_policy=None):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
+
         if not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
@@ -197,12 +203,29 @@ class CoverageProvider(object):
                 )
                 return coverage_record
 
+    def license_pool(self, identifier):
+        """Finds or creates the LicensePool for a given Identifier."""
+        license_pool = identifier.licensed_through
+        if not license_pool:
+            if self.CAN_CREATE_LICENSE_POOLS:
+                # The source of this data also provides license
+                # pools, so it's okay to automatically create
+                # a license pool for this book.
+                license_pool, ignore = LicensePool.for_foreign_id(
+                    self._db, self.output_source, identifier.type, 
+                    identifier.identifier
+                )
+            else:
+                return None
+        return license_pool
+
     def edition(self, identifier):
         """Finds or creates the Edition for a given Identifier."""
-        license_pool = identifier.licensed_through
+        license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
+
         edition, ignore = Edition.for_foreign_id(
             self._db, license_pool.data_source, identifier.type,
             identifier.identifier
@@ -215,12 +238,12 @@ class CoverageProvider(object):
         :return: The Work (if it could be found) or an appropriate
         CoverageFailure (if not).
         """
-        license_pool = identifier.licensed_through
+        license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
         work, created = license_pool.calculate_work(
-            even_if_no_author=True,
+            even_if_no_author=True, known_edition=self.edition(identifier)
         )
         if not work:
             e = "Work could not be calculated"
@@ -285,6 +308,9 @@ class BibliographicCoverageProvider(CoverageProvider):
 
     e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
     """
+
+    CAN_CREATE_LICENSE_POOLS = True
+
     def __init__(self, _db, api, datasource, workset_size=10):
         self._db = _db
         self.api = api

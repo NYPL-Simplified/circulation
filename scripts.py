@@ -60,7 +60,7 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
-    def parse_identifier_list(cls, _db, arguments):
+    def parse_identifier_list(cls, _db, arguments, autocreate=False):
         """Turn a list of arguments into a list of identifiers.
 
         This makes it easy to identify specific identifiers on the
@@ -79,7 +79,7 @@ class Script(object):
         identifiers = []
         for arg in arguments[1:]:
             identifier, ignore = Identifier.for_foreign_id(
-                _db, identifier_type, arg, autocreate=False
+                _db, identifier_type, arg, autocreate=autocreate
             )
             if not identifier:
                 logging.warn(
@@ -90,11 +90,11 @@ class Script(object):
         return identifiers
 
     @classmethod
-    def parse_identifier_list_or_data_source(cls, _db, arguments):
+    def parse_identifier_list_or_data_source(cls, _db, arguments, autocreate=False):
         """Try to parse `arguments` as a list of identifiers.
         If that fails, try to interpret it as a data source.
         """
-        identifiers = cls.parse_identifier_list(_db, arguments)
+        identifiers = cls.parse_identifier_list(_db, arguments, autocreate)
         if identifiers:
             return identifiers
 
