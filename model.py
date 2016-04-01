@@ -3678,7 +3678,7 @@ class Work(Base):
             if client.exists(**args):
                 client.delete(**args)
         WorkCoverageRecord.add_for(
-            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
         )
 
     def set_presentation_ready(self, as_of=None):

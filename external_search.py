@@ -40,9 +40,6 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client.works_index = works_index
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
-            if works_index and not self.__client.indices.exists(works_index):
-                self.log.info("Creating index %s", works_index)
-                self.__client.indices.create(works_index)
 
         self.works_index = self.__client.works_index
         self.indices = self.__client.indices
@@ -50,12 +47,88 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+
+        if not self.indices.exists(self.works_index):
+            self.setup_index()
+
+    def setup_index(self):
+        """
+        Create the search index with appropriate mapping.
+
+        This will destroy the search index, and all works will need
+        to be indexed again. In production, don't use this on an
+        existing index. Use it to create a new index, then change the 
+        alias to point to the new index.
+        """
+
+        if self.works_index:
+            if self.indices.exists(self.works_index):
+                self.indices.delete(self.works_index)
+
+            self.log.info("Creating index %s", self.works_index)
+            self.indices.create(
+                index=self.works_index,
+                body={
+                    "settings": {
+                        "analysis": {
+                            "filter": {
+                                "en_stop_filter": {
+                                    "type": "stop",
+                                    "stopwords": ["_english_"]
+                                },
+                                "en_stem_filter": {
+                                    "type": "stemmer",
+                                    "name": "english"
+                                },
+                                "en_stem_minimal_filter": {
+                                    "type": "stemmer",
+                                    "name": "english"
+                                },
+                            },
+                            "analyzer" : {
+                                "en_analyzer": {
+                                    "type": "custom",
+                                    "char_filter": ["html_strip"],
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                                },
+                                "en_minimal_analyzer": {
+                                    "type": "custom",
+                                    "char_filter": ["html_strip"],
+                                    "tokenizer": "standard",
+                                    "filter": ["lowercase", "asciifolding", "en_stem_minimal_filter"]
+                                },
+                            }
+                        }
+                    }
+                },
+            )
+        
+            mapping = {"properties": {}}
+            for field in ["title", "series", "subtitle", "summary"]:
+                mapping["properties"][field] = {
+                    "type": "string",
+                    "analyzer": "en_analyzer",
+                    "fields": {
+                        "minimal": {
+                            "type": "string",
+                            "analyzer": "en_minimal_analyzer"
+                        }
+                    }
+                }
+            self.indices.put_mapping(
+                doc_type=self.work_document_type,
+                body=mapping,
+                index=self.works_index,
+            )
+            
                 
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
-                    age_range, in_any_of_these_genres=[], fields=None, limit=30):
+                    age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_index:
             return []
+
         filter = self.make_filter(
             media, languages, exclude_languages, fiction, audience,
             age_range, in_any_of_these_genres
@@ -70,7 +143,8 @@ class ExternalSearchIndex(object):
         search_args = dict(
             index=self.works_index,
             body=dict(query=q),
-            size=limit,
+            from_=offset,
+            size=size,
         )
         if fields is not None:
             search_args['fields'] = fields
@@ -81,14 +155,28 @@ class ExternalSearchIndex(object):
 
     def make_query(self, query_string):
 
-        def make_match_query(query_string, fields):
+        def make_query_string_query(query_string, fields):
+            return {
+                'simple_query_string': {
+                    'query': query_string,
+                    'fields': fields
+                }
+            }
+
+        def make_fuzzy_query(query_string, fields):
             return {
                 'multi_match': {
                     'query': query_string,
                     'fields': fields,
-                    'type': 'best_fields'
+                    'type': 'best_fields',
+                    'fuzziness': 'AUTO'
                 }
             }
+
+        def make_match_query(query_string, field):
+            query = {'match': {}}
+            query['match'][field] = query_string
+            return query
 
         def make_target_age_query(target_age):
             (lower, upper) = target_age.lower, target_age.upper
@@ -109,13 +197,35 @@ class ExternalSearchIndex(object):
                 }
             }
 
-        main_fields = ['title^4', 'author^4', 'subtitle^3']
+        # These fields have been stemmed non-minimally and shouldn't be used with
+        # fuzzy queries.
+        stemmed_fields = [
+            'title^4',
+            "series^4", 
+            'subtitle^3',
+            'summary^2',
+        ]
+
+        # Minimally stemmed or standard fields have higher weight since they're closer to the
+        # original text.
+        other_fields = [
+            'author^5',
+            'title.minimal^5',
+            'series.minimal^5',
+            "subtitle.minimal^4",
+            "summary.minimal^3",
+            'publisher',
+            'imprint'
+        ]
 
         # Find results that match the full query string in one of the main
         # fields.
-        match_full_query = make_match_query(query_string, main_fields)
-        must_match_options = [match_full_query]
 
+        # Query string operators like "AND", "OR", "-", and quotation marks will
+        # work in the query string query, but not the fuzzy query.
+        match_full_query = make_query_string_query(query_string, stemmed_fields + other_fields)
+        fuzzy_query = make_fuzzy_query(query_string, other_fields)
+        must_match_options = [match_full_query, fuzzy_query]
 
         # If fiction or genre is in the query, results can match the fiction or 
         # genre value and the remaining words in the query string, instead of the
@@ -154,39 +264,20 @@ class ExternalSearchIndex(object):
                 # or a dash.
                 word_boundary_pattern = r"\b%s[\w'\-]*\b"
 
-                return re.compile(word_boundary_pattern % match, re.IGNORECASE).sub("", original_string)
+                return re.compile(word_boundary_pattern % match.strip(), re.IGNORECASE).sub("", original_string)
 
-            # For children's, it could be the parenting genre or the children audience,
-            # so only one of genre and audience must match.
-            if genre and audience and (audience_match in genre_match or genre_match in audience_match):
-                match_genre = make_match_query(genre.name, ['classifications.name'])
-                match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
-                genre_or_audience_query = {
-                    'bool': {
-                        'should' : [
-                            match_genre,
-                            match_audience,
-                        ],
-                        'minimum_should_match': 1
-                    }
-                }
-                classification_queries.append(genre_or_audience_query)
+            if genre:
+                match_genre = make_match_query(genre.name, 'classifications.name')
+                classification_queries.append(match_genre)
                 remaining_string = without_match(remaining_string, genre_match)
+
+            if audience:
+                match_audience = make_match_query(audience.replace(" ", ""), 'audience')
+                classification_queries.append(match_audience)
                 remaining_string = without_match(remaining_string, audience_match)
 
-            else:
-                if genre:
-                    match_genre = make_match_query(genre.name, ['classifications.name'])
-                    classification_queries.append(match_genre)
-                    remaining_string = without_match(remaining_string, genre_match)
-
-                if audience:
-                    match_audience = make_match_query(audience.replace(" ", ""), ['audience'])
-                    classification_queries.append(match_audience)
-                    remaining_string = without_match(remaining_string, audience_match)
-
             if fiction:
-                match_fiction = make_match_query(fiction, ['fiction'])
+                match_fiction = make_match_query(fiction, 'fiction')
                 classification_queries.append(match_fiction)
                 remaining_string = without_match(remaining_string, fiction)
 
@@ -206,7 +297,7 @@ class ExternalSearchIndex(object):
                 # However, it's possible that they're searching for a subject that's not
                 # mentioned in the summary (eg, a person's name in a biography). So title
                 # is a possible match, but is less important than author, subtitle, and summary.
-                match_rest_of_query = make_match_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1"])
+                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
                 classification_queries.append(match_rest_of_query)
             
             # If classification queries and the remaining string all match, the result will
@@ -222,22 +313,14 @@ class ExternalSearchIndex(object):
             must_match_options.append(match_classification_and_rest_of_query)
 
         # Results must match either the full query or the genre/fiction query.
-        must_match = {
-            'bool': {
-                'should': must_match_options,
-                'minimum_should_match': 1
+        # dis_max uses the highest score from the matching queries, rather than
+        # summing the scores.
+        return {
+            'dis_max': {
+                'queries': must_match_options,
             }
         }
         
-        # Results don't have to match any of the secondary fields, but if they do,
-        # they'll have a higher score.
-        secondary_fields = ["summary^2", "publisher", "imprint"]
-        match_secondary_fields = make_match_query(query_string, secondary_fields)
-        
-        return dict(bool=dict(must=[must_match],
-                              should=[match_secondary_fields]),
-        )
-
     def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
@@ -255,11 +338,12 @@ class ExternalSearchIndex(object):
         if media:
             media = [_f(medium) for medium in media]
             clauses.append(dict(terms=dict(medium=media)))
-        if fiction is not None:
-            value = "fiction" if fiction == True else "nonfiction"
-            clauses.append(dict(term=dict(fiction=value)))
+        if fiction == True:
+            clauses.append(dict(term=dict(fiction="fiction")))
+        elif fiction == False:
+            clauses.append(dict(term=dict(fiction="nonfiction")))
         if audience:
-            if isinstance(audience, list):
+            if isinstance(audience, list) or isinstance(audience, set):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:
@@ -323,5 +407,9 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
 
     def query_works(self, *args, **kwargs):
         doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        if 'offset' in kwargs and 'size' in kwargs:
+            offset = kwargs['offset']
+            size = kwargs['size']
+            doc_ids = doc_ids[offset: offset + size]
         return { "hits" : { "hits" : doc_ids }}
 
