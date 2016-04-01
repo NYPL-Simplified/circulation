@@ -35,9 +35,9 @@ git submodule update --init --recursive --force
 
 # Install the latest version of circulation-web
 if [ -d api/admin ]; then
-	cd api/admin
-	npm install
-	cd ../..
+  cd api/admin
+  npm install
+  cd ../..
 fi
 
 touch --no-dereference uwsgi.ini
