@@ -21,6 +21,7 @@ COPY post-receive.sample .git/hooks
 RUN virtualenv env && \
     echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/var/www/circulation/config.json\"" >> env/bin/activate
 RUN /bin/bash -c 'source env/bin/activate && pip install -r requirements.txt && python -m textblob.download_corpora'
+RUN mv /root/nltk_data /usr/lib/
 
 VOLUME /var/www/circulation
 ENTRYPOINT ["/bin/bash"]
