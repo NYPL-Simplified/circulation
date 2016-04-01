@@ -45,6 +45,12 @@ class TestMeasurement(DatabaseTest):
     def _rating(self, value, source=None, weight=1):
         return self._measurement(Measurement.RATING, value, source, weight)
 
+    def _quality(self, value, weight=1):
+        # The only source we recognize for quality scores is the metadata
+        # wrangler.
+        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        return self._measurement(Measurement.QUALITY, value, source, weight)
+
     def test_newer_measurement_displaces_earlier_measurement(self):
         wi = self._identifier()
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10)
@@ -134,6 +140,41 @@ class TestMeasurement(DatabaseTest):
     def test_overall_quality_based_solely_on_popularity_if_no_rating(self):
         pop = self._popularity(59)
         eq_(0.5, Measurement.overall_quality([pop]))
+
+    def test_overall_quality_with_rating_and_quality_but_not_popularity(self):
+        rat = self._rating(4)
+        qual = self._quality(0.5)
+
+        # We would expect the final quality score to be 1/2 of the quality
+        # score we got from the metadata wrangler, and 1/2 of the normalized 
+        # value of the 4-star rating.
+        expect = (rat.normalized_value / 2) + 0.25
+        eq_(expect, Measurement.overall_quality([rat, qual], 0.5, 0.5))
+
+    def test_overall_quality_with_popularity_and_quality_but_not_rating(self):
+        pop = self._popularity(4)
+        qual = self._quality(0.5)
+
+        # We would expect the final quality score to be 1/2 of the quality
+        # score we got from the metadata wrangler, and 1/2 of the normalized 
+        # value of the 4-star rating.
+        expect = (pop.normalized_value / 2) + (0.5/2)
+        eq_(expect, Measurement.overall_quality([pop, qual], 0.5, 0.5))
+
+    def test_overall_quality_with_popularity_quality_and_rating(self):
+        pop = self._popularity(4)
+        rat = self._rating(4)
+        quality_score = 0.66
+        qual = self._quality(quality_score)
+
+        # The popularity and rating are scaled appropriately and
+        # added together.
+        expect_1 = (pop.normalized_value * 0.75) + (rat.normalized_value*0.25)
+
+        # Then the whole thing is divided in half and added to half of the
+        # quality score
+        expect_total = (expect_1/2 + (quality_score/2))
+        eq_(expect_total, Measurement.overall_quality([pop, rat, qual], 0.75, 0.25))
 
     def test_overall_quality_takes_weights_into_account(self):
         rating1 = self._rating(10, weight=10)
