@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Runs any Library Simplified scripts that have special circumstances
+# for their initial run. If used in conjunction with libsimple_crontab,
+# this should be run before cron is started.
+
+if [ $libsimple_init ]; then
+  if [ -z "$threem_start_date" ]; then
+    # If no start date is set for the 3M monitor, set it to
+    # two years ago.
+    year=`date +'%Y'`
+    let "year -= 2"
+    threem_start_date="${year}-`date +'%m-%d'`"
+  fi
+  cd $LIBSIMPLE_DIR/bin && (./run threem_monitor $threem_start_date)
+  unset libsimple_init
+  unset threem_start_date
+fi
+
+exit 0
