@@ -215,11 +215,12 @@ class TestBibliographicCoverageProvider(DatabaseTest):
     def test_edition(self):
         provider = BibliographicCoverageProvider(self._db, None,
                 DataSource.OVERDRIVE)
-        identifier = self._identifier()
+        provider.CAN_CREATE_LICENSE_POOLS = False
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
         # Returns a CoverageFailure if the identifier doesn't have a
-        # license pool.
+        # license pool and none can be created.
         result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("No license pool available", result.exception)
@@ -238,8 +239,9 @@ class TestBibliographicCoverageProvider(DatabaseTest):
     def test_work(self):
         provider = BibliographicCoverageProvider(self._db, None,
                 DataSource.OVERDRIVE)
-        identifier = self._identifier()
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
+        provider.CAN_CREATE_LICENSE_POOLS = False
 
         # Returns a CoverageFailure if the identifier doesn't have a
         # license pool.
@@ -263,10 +265,12 @@ class TestBibliographicCoverageProvider(DatabaseTest):
     def test_set_metadata(self):
         provider = BibliographicCoverageProvider(self._db, None,
                 DataSource.OVERDRIVE)
-        identifier = self._identifier()
+        provider.CAN_CREATE_LICENSE_POOLS = False
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
-        # If the work can't be found, a CoverageRecord results.
+        # If there is no LicensePool and it can't be autocreated, a
+        # CoverageRecord results.
         result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("No license pool available", result.exception)
@@ -296,18 +300,38 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         # CoverageRecord results. This call raises a ValueError
         # because the primary identifier & the edition's primary
         # identifier don't match.
-        test_metadata.primary_identifier = self._identifier()
+        test_metadata.primary_identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
         result = provider.set_metadata(lp.identifier, test_metadata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
 
+    def test_autocreate_licensepool(self):
+        provider = BibliographicCoverageProvider(self._db, None,
+                DataSource.OVERDRIVE)
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+
+        # If this constant is set to False, the coverage provider cannot
+        # autocreate LicensePools for identifiers.
+        provider.CAN_CREATE_LICENSE_POOLS = False
+        eq_(None, provider.license_pool(identifier))
+
+        # If it's set to True, the coverage provider can autocreate
+        # LicensePools for identifiers.
+        provider.CAN_CREATE_LICENSE_POOLS = True
+        pool = provider.license_pool(identifier)
+        eq_(pool.data_source, provider.output_source)
+        eq_(pool.identifier, identifier)
+       
     def test_set_presentation_ready(self):
         provider = BibliographicCoverageProvider(self._db, None,
                 DataSource.OVERDRIVE)
-        identifier = self._identifier()
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
         # If the work can't be found, it can't be made presentation ready.
+        provider.CAN_CREATE_LICENSE_POOLS = False
         result = provider.set_presentation_ready(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("No license pool available", result.exception)

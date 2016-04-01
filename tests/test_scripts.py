@@ -10,6 +10,7 @@ from model import (
     get_one,
     CustomList,
     DataSource,
+    Identifier,
 )
 from scripts import (
     Script,
@@ -26,6 +27,13 @@ class TestScript(DatabaseTest):
         identifiers = Script.parse_identifier_list(self._db, args)
         eq_([i1, i2], identifiers)
         eq_([], Script.parse_identifier_list(self._db, []))
+
+    def test_parse_list_as_identifiers_with_autocreate(self):
+
+        args = [Identifier.OVERDRIVE_ID, 'brand-new-identifier']
+        [i] = Script.parse_identifier_list(self._db, args, autocreate=True)
+        eq_(Identifier.OVERDRIVE_ID, i.type)
+        eq_('brand-new-identifier', i.identifier)
 
     def test_parse_list_as_identifiers_or_data_source(self):
 
