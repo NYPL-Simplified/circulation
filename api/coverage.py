@@ -82,7 +82,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             self.service_name,
             identifier_types,
             self.coverage_source,
-            workset_size=50,
+            workset_size=20,
         )
 
     def create_id_mapping(self, batch):
