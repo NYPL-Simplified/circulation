@@ -1078,10 +1078,13 @@ class Lane(object):
         )
         return self.parent.search_target
 
-    def search(self, query, search_client, limit=30):
+    def search(self, query, search_client, pagination=None):
         """Find works in this lane that match a search query.
         """        
            
+        if not pagination:
+            pagination = Pagination.default()
+
         search_lane = self.search_target
         if not search_lane:
             # This lane is not searchable, and neither are any of its
@@ -1103,7 +1106,8 @@ class Lane(object):
                     fiction, list(search_lane.audiences), search_lane.age_range,
                     search_lane.genres,
                     fields=["_id", "title", "author", "license_pool_id"],
-                    limit=limit
+                    size=pagination.size,
+                    offset=pagination.offset,
                 )
             except elasticsearch.exceptions.ConnectionError, e:
                 logging.error(
@@ -1144,7 +1148,7 @@ class Lane(object):
 
         if not results:
             logging.debug("No elasticsearch results, falling back to database query")
-            results = self._search_database(query).limit(limit)
+            results = self._search_database(query).limit(pagination.size).offset(pagination.offset).all()
         return results
 
     def _search_database(self, query):

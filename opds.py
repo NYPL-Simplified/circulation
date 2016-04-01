@@ -252,6 +252,10 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
+    def search_url(cls, lane, query, pagination):
+        raise NotImplementedError()
+
+    @classmethod
     def default_lane_url(cls):
         raise NotImplementedError()
 
@@ -643,7 +647,7 @@ class AcquisitionFeed(OPDSFeed):
         return cached
 
     @classmethod
-    def search(cls, _db, title, url, lane, search_engine, query, limit=30,
+    def search(cls, _db, title, url, lane, search_engine, query, pagination=None,
                annotator=None
     ):
         if not isinstance(lane, Lane):
@@ -652,9 +656,21 @@ class AcquisitionFeed(OPDSFeed):
         else:
             search_lane = lane
 
-        results = search_lane.search(query, search_engine, limit)
+        results = search_lane.search(query, search_engine, pagination=pagination)
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         opds_feed.add_link(rel='start', href=annotator.default_lane_url())
+
+        if len(results) > 0:
+            # There are works in this list. Add a 'next' link.
+            opds_feed.add_link(rel="next", href=annotator.search_url(lane, query, pagination.next_page))
+
+        if pagination.offset > 0:
+            opds_feed.add_link(rel="first", href=annotator.search_url(lane, query, pagination.first_page))
+
+        previous_page = pagination.previous_page
+        if previous_page:
+            opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
+
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
 

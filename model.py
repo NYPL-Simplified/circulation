@@ -3689,7 +3689,7 @@ class Work(Base):
             if client.exists(**args):
                 client.delete(**args)
         WorkCoverageRecord.add_for(
-            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
         )
 
     def set_presentation_ready(self, as_of=None):
@@ -4095,12 +4095,15 @@ class Measurement(Base):
             # Our idea of the quality depends entirely on the work's quality scores.
             return quality
 
-        # We have both popularity and rating.
+        # We have at least two of the three... but which two?
         if popularity is None:
+            # We have rating and quality but not popularity.
             final = rating
-        if rating is None:
+        elif rating is None:
+            # We have quality and popularity but not rating.
             final = popularity
         else:
+            # We have popularity and rating but not quality.
             final = (popularity * popularity_weight) + (rating * rating_weight)
             logging.debug(
                 "(%.2f * %.2f) + (%.2f * %.2f) = %.2f", 

@@ -24,6 +24,7 @@ from model import (
     Genre,
     Measurement,
     Patron,
+    SessionManager,
     Subject,
     Work,
     get_one_or_create,
@@ -52,6 +53,7 @@ from classifier import (
     History,
     Mystery,
 )
+from external_search import DummyExternalSearchIndex
 
 class TestAnnotator(Annotator):
 
@@ -62,6 +64,14 @@ class TestAnnotator(Annotator):
         if facets:
             base += sep + facets.query_string
             sep = '&'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
+
+    @classmethod
+    def search_url(cls, lane, query, pagination):
+        base = "http://search/%s/" % lane.url_name
+        sep = '?'
         if pagination:
             base += sep + pagination.query_string
         return base
@@ -787,6 +797,52 @@ class TestOPDS(DatabaseTest):
 
             # The entries have no links (no collection links).
             assert all('links' not in entry for entry in [e1, e2])
+
+    def test_search_feed(self):
+        """Test the ability to create a paginated feed of works for a given
+        search query.
+        """
+        fantasy_lane = self.lanes.by_languages['']['Epic Fantasy']
+        fantasy_lane.searchable = True
+        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        work1.set_presentation_ready()
+        work2.set_presentation_ready()
+        SessionManager.refresh_materialized_views(self._db)
+
+        pagination = Pagination(size=1)
+        search_client = DummyExternalSearchIndex()
+        work1.update_external_index(search_client)
+        work2.update_external_index(search_client)
+
+        def make_page(pagination):
+            return AcquisitionFeed.search(
+                self._db, "test", self._url, fantasy_lane, search_client, 
+                "fantasy",
+                pagination=pagination,
+                annotator=TestAnnotator,
+            )
+        feed = make_page(pagination)
+        parsed = feedparser.parse(feed)
+        eq_(work1.title, parsed['entries'][0]['title'])
+
+        # Make sure the links are in place.
+        [start] = self.links(parsed, 'start')
+        eq_(TestAnnotator.groups_url(None), start['href'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        feed = make_page(pagination.next_page)
+        parsed = feedparser.parse(feed)
+        [previous] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination), previous['href'])
+        eq_(work2.title, parsed['entries'][0]['title'])
+
 
     def test_cache(self):
         work1 = self._work(title="The Original Title",

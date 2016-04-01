@@ -2,9 +2,15 @@ sudo: false
 
 addons:  
   postgresql: "9.3"
+  apt:
+    sources:
+      - elasticsearch-1.7
+    packages:
+      - elasticsearch
 
 services:
   - postgresql
+  - elasticsearch
 
 language: python
 
@@ -12,6 +18,9 @@ python:
   - "2.7"
 
 cache: pip
+
+before_install:
+  - sleep 10
 
 install:
   - pip install -r requirements.txt
