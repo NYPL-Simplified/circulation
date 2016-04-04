@@ -381,6 +381,16 @@ class TestKeyword(object):
             Keyword.genre(None, "Science Fiction - General")
         )
 
+        # was Military History
+        eq_(classifier.Military_SF,
+            Keyword.genre(None, "Interstellar Warfare")
+        )
+
+        # was Fantasy
+        eq_(classifier.Games,
+            Keyword.genre(None, "Games / Role Playing & Fantasy")
+        )
+
         # This isn't perfect but it covers most cases.
         eq_(classifier.Media_Tie_in_SF,
             Keyword.genre(None, "TV, Movie, Video game adaptations")

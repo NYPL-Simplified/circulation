@@ -2752,16 +2752,22 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "erotic photography",
         ),
 
+        Games : match_kw(
+            "games.*fantasy"
+        ),
+
         Literary_Criticism : match_kw(
             "literary history", # Not History
             "romance language", # Not Romance
         ),
 
-        # We need to match these first so that the 'military'
+        # We need to match these first so that the 'military'/'warfare'
         # part doesn't match Military History.
         Military_SF: match_kw(
             "science fiction.*military",
             "military.*science fiction",
+            "space warfare",            # Thankfully
+            "interstellar warfare",
         ),
         Military_Thriller: match_kw(
             "military thrillers",
