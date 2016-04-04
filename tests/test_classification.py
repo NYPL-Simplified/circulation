@@ -590,8 +590,18 @@ class TestOverdriveClassifier(object):
             return v.lower, v.upper
         eq_((0,4), a("Picture Book Nonfiction", None))
         eq_((5,8), a("Beginning Reader", None))
+        eq_((12,17), a("Young Adult Fiction", None))
         eq_((None,None), a("Fiction", None))
 
+    def test_audience(self):
+        def a(x):
+            return Overdrive.audience(x)
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Picture Books"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Beginning Reader"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Children's Video"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Juvenile Nonfiction"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, a("Young Adult Nonfiction"))
+        eq_(Classifier.AUDIENCE_ADULTS_ONLY, a("Erotic Literature"))
 
 class TestWorkClassifier(DatabaseTest):
 

@@ -1357,6 +1357,12 @@ class OverdriveClassifier(Classifier):
             return cls.nr(0, 4)
         elif identifier.startswith('Beginning Reader'):
             return cls.nr(5,8)
+        elif 'Young Adult' in identifier:
+            # Internally we believe that 'Young Adult' means ages
+            # 14-17, but after looking at a large number of Overdrive
+            # books classified as 'Young Adult' we think that
+            # Overdrive means something closer to 12-17.
+            return cls.nr(12, 17)
         return cls.nr(None, None)
 
     @classmethod
