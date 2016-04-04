@@ -615,6 +615,13 @@ class OverdriveRepresentationExtractor(object):
                         )
             )
 
+        for grade_level_info in book.get('gradeLevels', []):
+            grade_level = grade_level_info.get('value')
+            subjects.append(
+                SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level,
+                            weight=1)
+            )
+
         identifiers = []
         links = []
         for format in book.get('formats', []):

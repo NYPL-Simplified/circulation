@@ -295,7 +295,9 @@ class GradeLevelClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
-        young, old = cls.target_age(identifier, name, require_explicit_age_marker)
+        target_age = cls.target_age(identifier, name, require_explicit_age_marker)
+        young = target_age.lower
+        old = target_age.upper
         if not young:
             return None
         if young < Classifier.YOUNG_ADULT_AGE_CUTOFF:

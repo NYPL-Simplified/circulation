@@ -167,6 +167,13 @@ class TestTargetAge(object):
         eq_((None,None), f("First graders"))
         eq_((None,None), f("Fifth grade (Education)--Curricula"))
 
+    def test_audience_from_age_classifier(self):
+        def f(t):
+            return AgeClassifier.audience(t, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, f("Age 5"))
+        eq_(Classifier.AUDIENCE_ADULT, f("Age 18+"))
+        eq_(None, f("Ages Of Man"))
+
     def test_audience_from_age_or_grade_classifier(self):
         def f(t):
             return AgeOrGradeClassifier.audience(t, None)
@@ -1003,7 +1010,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(u"History", genres.keys()[0].name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
-        eq_(Classifier.nr(14,17), target_age)
+        eq_(Classifier.nr(12,17), target_age)
 
     def test_top_tier_values(self):
         c = Counter()
