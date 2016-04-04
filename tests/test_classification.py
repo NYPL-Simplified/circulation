@@ -594,8 +594,8 @@ class TestOverdriveClassifier(object):
         eq_((None,None), a("Fiction", None))
 
     def test_audience(self):
-        def a(x):
-            return Overdrive.audience(x)
+        def a(identifier):
+            return Overdrive.audience(identifier, None)
         eq_(Classifier.AUDIENCE_CHILDREN, a("Picture Books"))
         eq_(Classifier.AUDIENCE_CHILDREN, a("Beginning Reader"))
         eq_(Classifier.AUDIENCE_CHILDREN, a("Children's Video"))
