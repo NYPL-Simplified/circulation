@@ -24,7 +24,6 @@ feedparser
 textblob
 
 # Used only by circulation
-numpy
 oauth2client
 
 # A NYPL-specific requirement
