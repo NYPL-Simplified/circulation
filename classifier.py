@@ -295,7 +295,9 @@ class GradeLevelClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
-        young, old = cls.target_age(identifier, name, require_explicit_age_marker)
+        target_age = cls.target_age(identifier, name, require_explicit_age_marker)
+        young = target_age.lower
+        old = target_age.upper
         if not young:
             return None
         if young < Classifier.YOUNG_ADULT_AGE_CUTOFF:
@@ -1357,6 +1359,12 @@ class OverdriveClassifier(Classifier):
             return cls.nr(0, 4)
         elif identifier.startswith('Beginning Reader'):
             return cls.nr(5,8)
+        elif 'Young Adult' in identifier:
+            # Internally we believe that 'Young Adult' means ages
+            # 14-17, but after looking at a large number of Overdrive
+            # books classified as 'Young Adult' we think that
+            # Overdrive means something closer to 12-17.
+            return cls.nr(12, 17)
         return cls.nr(None, None)
 
     @classmethod
@@ -1685,8 +1693,15 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     JUVENILE_INDICATORS = match_kw(
         "for children", "children's", "juvenile",
         "nursery rhymes", "9-12")
-    YOUNG_ADULT_INDICATORS = match_kw("young adult", "ya", "12-Up", 
-                                      "teenage fiction")
+    YOUNG_ADULT_INDICATORS = match_kw(
+        "young adult", 
+        "ya", 
+        "12-Up", 
+        "teenage .*fiction", 
+        "teens .*fiction",
+        "teen books",
+        "teenage romance",
+    )
 
     # Children's books don't generally deal with romance, so although
     # "Juvenile Fiction" generally refers to children's fiction,
@@ -2751,16 +2766,26 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "erotic photography",
         ),
 
+        Games : match_kw(
+            "games.*fantasy"
+        ),
+
         Literary_Criticism : match_kw(
             "literary history", # Not History
             "romance language", # Not Romance
         ),
 
-        # We need to match these first so that the 'military'
+        Media_Tie_in_SF : match_kw(
+            'tv, movie, video game adaptations' # Not Film & TV
+        ),
+
+        # We need to match these first so that the 'military'/'warfare'
         # part doesn't match Military History.
         Military_SF: match_kw(
             "science fiction.*military",
             "military.*science fiction",
+            "space warfare",            # Thankfully
+            "interstellar warfare",
         ),
         Military_Thriller: match_kw(
             "military thrillers",
@@ -2788,6 +2813,10 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "romantic.*thriller",
             "romance.*thriller",
             "thriller.*romance",
+        ),
+
+        Science_Fiction : match_kw(
+            "science fiction.*general",
         ),
 
         Supernatural_Thriller: match_kw(
@@ -3223,6 +3252,7 @@ class WorkClassifier(object):
         "Harlequin Historical" : Historical_Romance,
         "Harlequin Historical Undone" : Historical_Romance,
         "Frommers" : Travel,
+        "LucasBooks": Media_Tie_in_SF,
     }
 
     audience_imprints = {
@@ -3243,6 +3273,7 @@ class WorkClassifier(object):
 
     not_adult_imprints = set([
         "Scholastic",
+        "Scholastic Paperbacks",
         "Random House Books for Young Readers",
         "HMH Books for Young Readers",
         "Knopf Books for Young Readers",
@@ -3261,7 +3292,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=True):
+    def __init__(self, work, test_session=None, debug=False):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session

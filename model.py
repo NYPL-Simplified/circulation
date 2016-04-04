@@ -4814,6 +4814,7 @@ class Classification(Base):
         # These measure age appropriateness.
         (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
         Subject.AXIS_360_AUDIENCE : 30,
+        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 20,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
         Subject.OVERDRIVE : 15,
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,

@@ -167,6 +167,13 @@ class TestTargetAge(object):
         eq_((None,None), f("First graders"))
         eq_((None,None), f("Fifth grade (Education)--Curricula"))
 
+    def test_audience_from_age_classifier(self):
+        def f(t):
+            return AgeClassifier.audience(t, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, f("Age 5"))
+        eq_(Classifier.AUDIENCE_ADULT, f("Age 18+"))
+        eq_(None, f("Ages Of Man"))
+
     def test_audience_from_age_or_grade_classifier(self):
         def f(t):
             return AgeOrGradeClassifier.audience(t, None)
@@ -348,6 +355,13 @@ class TestKeyword(object):
         eq_(classifier.Space_Opera, self.genre("space opera"))
         eq_(classifier.Drama, self.genre("opera"))
 
+    def test_audience(self):
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "Teens / Fiction"))
+
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "teen books"))
+
     def test_subgenre_wins_over_genre(self):
         # Asian_History wins over History, even though they both
         # have the same number of matches, because Asian_History is more
@@ -370,6 +384,34 @@ class TestKeyword(object):
     def test_juvenile_romance_means_young_adult(self):
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
             Keyword.audience(None, "juvenile fiction / love & romance")
+        )
+
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
+            Keyword.audience(None, "teenage romance")
+        )
+
+    def test_improvements(self):
+        """A place to put tests for miscellaneous improvements added 
+        since the original work.
+        """
+        # was Literary Fiction
+        eq_(classifier.Science_Fiction,
+            Keyword.genre(None, "Science Fiction - General")
+        )
+
+        # was Military History
+        eq_(classifier.Military_SF,
+            Keyword.genre(None, "Interstellar Warfare")
+        )
+
+        # was Fantasy
+        eq_(classifier.Games,
+            Keyword.genre(None, "Games / Role Playing & Fantasy")
+        )
+
+        # This isn't perfect but it covers most cases.
+        eq_(classifier.Media_Tie_in_SF,
+            Keyword.genre(None, "TV, Movie, Video game adaptations")
         )
 
 class TestBISAC(object):
@@ -555,8 +597,18 @@ class TestOverdriveClassifier(object):
             return v.lower, v.upper
         eq_((0,4), a("Picture Book Nonfiction", None))
         eq_((5,8), a("Beginning Reader", None))
+        eq_((12,17), a("Young Adult Fiction", None))
         eq_((None,None), a("Fiction", None))
 
+    def test_audience(self):
+        def a(identifier):
+            return Overdrive.audience(identifier, None)
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Picture Books"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Beginning Reader"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Children's Video"))
+        eq_(Classifier.AUDIENCE_CHILDREN, a("Juvenile Nonfiction"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, a("Young Adult Nonfiction"))
+        eq_(Classifier.AUDIENCE_ADULTS_ONLY, a("Erotic Literature"))
 
 class TestWorkClassifier(DatabaseTest):
 
@@ -958,7 +1010,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(u"History", genres.keys()[0].name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
-        eq_(Classifier.nr(14,17), target_age)
+        eq_(Classifier.nr(12,17), target_age)
 
     def test_top_tier_values(self):
         c = Counter()

@@ -146,6 +146,17 @@ class TestOverdriveRepresentationExtractor(object):
         [sample] = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
         eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub", sample.href)
 
+    def test_book_info_with_grade_levels(self):
+        raw, info = self.sample_json("has_grade_levels.json")
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
+
+        grade_levels = sorted(
+            [x.identifier for x in metadata.subjects 
+             if x.type==Subject.GRADE_LEVEL]
+        )
+        eq_([u'Grade 4', u'Grade 5', u'Grade 6', u'Grade 7', u'Grade 8'],
+            grade_levels)
+
     def test_book_info_with_awards(self):
         raw, info = self.sample_json("has_awards.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
