@@ -2309,6 +2309,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "star trek",
             "star wars",
             "jedi",
+            'tv, movie, video game adaptations'
         ),
                
                Music: match_kw(
@@ -2790,6 +2791,10 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "thriller.*romance",
         ),
 
+        Science_Fiction : match_kw(
+            "science fiction.*general",
+        ),
+
         Supernatural_Thriller: match_kw(
             "thriller.*supernatural",
             "supernatural.*thriller",
@@ -3223,6 +3228,7 @@ class WorkClassifier(object):
         "Harlequin Historical" : Historical_Romance,
         "Harlequin Historical Undone" : Historical_Romance,
         "Frommers" : Travel,
+        "LucasBooks": Media_Tie_in_SF,
     }
 
     audience_imprints = {
@@ -3243,6 +3249,7 @@ class WorkClassifier(object):
 
     not_adult_imprints = set([
         "Scholastic",
+        "Scholastic Paperbacks",
         "Random House Books for Young Readers",
         "HMH Books for Young Readers",
         "Knopf Books for Young Readers",
@@ -3261,7 +3268,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=True):
+    def __init__(self, work, test_session=None, debug=False):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session

@@ -372,6 +372,20 @@ class TestKeyword(object):
             Keyword.audience(None, "juvenile fiction / love & romance")
         )
 
+    def test_improvements(self):
+        """A place to put tests for miscellaneous improvements added 
+        since the original work.
+        """
+        # was Literary Fiction
+        eq_(classifier.Science_Fiction,
+            Keyword.genre(None, "Science Fiction - General")
+        )
+
+        # This isn't perfect but it covers most cases.
+        eq_(classifier.Media_Tie_in_SF,
+            Keyword.genre(None, "TV, Movie, Video game adaptations")
+        )
+
 class TestBISAC(object):
 
     def test_is_fiction(self):
