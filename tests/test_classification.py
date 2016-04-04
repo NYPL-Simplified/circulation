@@ -348,6 +348,13 @@ class TestKeyword(object):
         eq_(classifier.Space_Opera, self.genre("space opera"))
         eq_(classifier.Drama, self.genre("opera"))
 
+    def test_audience(self):
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "Teens / Fiction"))
+
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+            Keyword.audience(None, "teen books"))
+
     def test_subgenre_wins_over_genre(self):
         # Asian_History wins over History, even though they both
         # have the same number of matches, because Asian_History is more
@@ -370,6 +377,10 @@ class TestKeyword(object):
     def test_juvenile_romance_means_young_adult(self):
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
             Keyword.audience(None, "juvenile fiction / love & romance")
+        )
+
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
+            Keyword.audience(None, "teenage romance")
         )
 
     def test_improvements(self):

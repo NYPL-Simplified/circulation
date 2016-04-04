@@ -1685,8 +1685,15 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     JUVENILE_INDICATORS = match_kw(
         "for children", "children's", "juvenile",
         "nursery rhymes", "9-12")
-    YOUNG_ADULT_INDICATORS = match_kw("young adult", "ya", "12-Up", 
-                                      "teenage fiction")
+    YOUNG_ADULT_INDICATORS = match_kw(
+        "young adult", 
+        "ya", 
+        "12-Up", 
+        "teenage .*fiction", 
+        "teens .*fiction",
+        "teen books",
+        "teenage romance",
+    )
 
     # Children's books don't generally deal with romance, so although
     # "Juvenile Fiction" generally refers to children's fiction,
@@ -2309,7 +2316,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "star trek",
             "star wars",
             "jedi",
-            'tv, movie, video game adaptations'
         ),
                
                Music: match_kw(
@@ -2759,6 +2765,10 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         Literary_Criticism : match_kw(
             "literary history", # Not History
             "romance language", # Not Romance
+        ),
+
+        Media_Tie_in_SF : match_kw(
+            'tv, movie, video game adaptations' # Not Film & TV
         ),
 
         # We need to match these first so that the 'military'/'warfare'
