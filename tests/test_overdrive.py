@@ -110,7 +110,7 @@ class TestOverdriveRepresentationExtractor(object):
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
         # Links to various resources.
-        shortd, image, thumbnail, longd = sorted(
+        shortd, image, longd = sorted(
             metadata.links, key=lambda x:x.rel
         )
 
@@ -123,6 +123,8 @@ class TestOverdriveRepresentationExtractor(object):
 
         eq_(Hyperlink.IMAGE, image.rel)
         eq_('http://images.contentreserve.com/ImageType-100/0128-1/%7B3896665D-9D81-4CAC-BD43-FFC5066DE1F5%7DImg100.jpg', image.href)
+
+        thumbnail = image.thumbnail
 
         eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
         eq_('http://images.contentreserve.com/ImageType-200/0128-1/%7B3896665D-9D81-4CAC-BD43-FFC5066DE1F5%7DImg200.jpg', thumbnail.href)

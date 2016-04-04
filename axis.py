@@ -177,11 +177,12 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     not normally necessary because the Axis 360 API combines
     bibliographic and availability data.
     """
-    def __init__(self, _db):
+    def __init__(self, _db, metadata_replacement_policy=None):
         self.parser = BibliographicParser()
         super(Axis360BibliographicCoverageProvider, self).__init__(
             _db, Axis360API(_db), DataSource.AXIS_360,
-            workset_size=25
+            workset_size=25, 
+            metadata_replacement_policy=metadata_replacement_policy
         )
 
     def process_batch(self, identifiers):

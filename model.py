@@ -3000,6 +3000,17 @@ class PresentationCalculationPolicy(object):
 
         self.verbose = verbose
 
+    @classmethod
+    def recalculate_everything(cls):
+        """A PresentationCalculationPolicy that always recalculates
+        everything, even when it doesn't seem necessary.
+        """
+        return PresentationCalculationPolicy(
+            regenerate_opds_entries=True,
+            update_search_index=True,
+        )
+
+        
 
 class Work(Base):
 

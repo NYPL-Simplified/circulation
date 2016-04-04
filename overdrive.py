@@ -485,6 +485,14 @@ class OverdriveRepresentationExtractor(object):
         )
 
     @classmethod
+    def image_link_to_linkdata(cls, link, rel):
+        if not link or not 'href' in link:
+            return None
+        href = OverdriveAPI.make_link_safe(link['href'])
+        media_type = link.get('type', None)
+        return LinkData(rel=rel, href=href, media_type=media_type)
+
+    @classmethod
     def book_info_to_metadata(cls, book):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
@@ -649,23 +657,32 @@ class OverdriveRepresentationExtractor(object):
                             )
                         )
 
-        # Cover and descriptions become links.
+        # A cover and its thumbnail become a single LinkData.
         if 'images' in book:
-            for name, rel in (('cover', Hyperlink.IMAGE),
-                              ('thumbnail', Hyperlink.THUMBNAIL_IMAGE)):
-                if not name in book['images']:
-                    continue
-                link = book['images'][name]
-                href = OverdriveAPI.make_link_safe(link['href'])
-                media_type = link['type']
-                links.append(
-                    LinkData(
-                        rel=rel,
-                        href=href,
-                        media_type=media_type
-                    )
+            images = book['images']
+            image_data = cls.image_link_to_linkdata(
+                images.get('cover'), Hyperlink.IMAGE
+            )
+            for name in ['cover300Wide', 'cover150Wide', 'thumbnail']:
+                # Try to get a thumbnail that's as close as possible
+                # to the size we use.
+                image = images.get(name)
+                thumbnail_data = cls.image_link_to_linkdata(
+                    image, Hyperlink.THUMBNAIL_IMAGE
                 )
+                if not image_data:
+                    image_data = cls.image_link_to_linkdata(
+                        image, Hyperlink.IMAGE
+                    )
+                if thumbnail_data:
+                    break
 
+            if image_data:
+                if thumbnail_data:
+                    image_data.thumbnail = thumbnail_data
+                links.append(image_data)
+
+        # Descriptions become links.
         short = book.get('shortDescription')
         full = book.get('fullDescription')
         if full:
@@ -727,10 +744,10 @@ class OverdriveRepresentationExtractor(object):
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
-    def __init__(self, _db):
+    def __init__(self, _db, metadata_replacement_policy=None):
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, OverdriveAPI(_db), DataSource.OVERDRIVE,
-            workset_size=10
+            workset_size=10, metadata_replacement_policy=metadata_replacement_policy
         )
 
     def process_batch(self, identifiers):
@@ -749,5 +766,8 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        return self.set_metadata(identifier, metadata)
+        return self.set_metadata(
+            identifier, metadata, 
+            metadata_replacement_policy=self.metadata_replacement_policy
+        )
 

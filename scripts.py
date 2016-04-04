@@ -10,6 +10,7 @@ import time
 from config import Configuration
 import log # This sets the appropriate log format and level.
 import random
+from metadata_layer import ReplacementPolicy
 from model import (
     get_one_or_create,
     production_session,
@@ -205,6 +206,17 @@ class BibliographicRefreshScript(IdentifierInputScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
     """
+    def __init__(self, **metadata_replacement_args):
+        
+        self.metadata_replacement_policy = ReplacementPolicy.from_metadata_source(
+            **metadata_replacement_args
+        )
+
+        # This script is generally invoked when there's a problem, so
+        # make sure to always recalculate OPDS feeds and reindex the
+        # work.
+        self.metadata_replacement_policy.presentation_calculation_policy = PresentationCalculationPolicy.recalculate_everything()
+
     def do_run(self):
         identifiers = self.parse_identifiers()
         if not identifiers:
@@ -226,7 +238,11 @@ class BibliographicRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier)
         if provider:
-            provider(self._db).ensure_coverage(identifier, force=True)
+            provider = provider(
+                self._db, 
+                metadata_replacement_policy=self.metadata_replacement_policy,
+            )
+            provider.ensure_coverage(identifier, force=True)
 
 
 class WorkProcessingScript(IdentifierInputScript):

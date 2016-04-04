@@ -34,6 +34,7 @@ from model import (
     LicensePool,
     Subject,
     Hyperlink,
+    PresentationCalculationPolicy,
     RightsStatus,
     Representation,
 )
@@ -53,6 +54,7 @@ class ReplacementPolicy(object):
             mirror=None,
             http_get=None,
             even_if_not_apparently_updated=False,
+            presentation_calculation_policy=None
     ):
         self.identifiers = identifiers
         self.subjects = subjects
@@ -63,9 +65,13 @@ class ReplacementPolicy(object):
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
         self.http_get = http_get
+        self.presentation_calculation_policy = (
+            presentation_calculation_policy or
+            PresentationCalculationPolicy()
+        )
 
     @classmethod
-    def from_license_source(self, mirror=None, even_if_not_apparently_updated=False):
+    def from_license_source(self, **args):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
@@ -78,12 +84,11 @@ class ReplacementPolicy(object):
             links=True, 
             rights=True,
             formats=True,
-            mirror=mirror,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
     @classmethod
-    def from_metadata_source(self, mirror=None, even_if_not_apparently_updated=False):
+    def from_metadata_source(self, **args):
         """When gathering data from a metadata source, overwrite all old data
         from this source, but do not overwrite the rights status or
         the available formats. License sources are the authority on rights
@@ -96,12 +101,11 @@ class ReplacementPolicy(object):
             links=True, 
             rights=False,
             formats=False,
-            mirror=mirror,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
     @classmethod
-    def append_only(self, even_if_not_apparently_updated=False):
+    def append_only(self, **args):
         """Don't overwrite any information, just append it.
 
         This should probably never be used.
@@ -113,7 +117,7 @@ class ReplacementPolicy(object):
             links=False, 
             rights=False,
             formats=False,
-            even_if_not_apparently_updated=even_if_not_apparently_updated
+            **args
         )
 
 class SubjectData(object):
@@ -808,13 +812,13 @@ class Metadata(object):
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
     def apply(self, edition, metadata_client=None, replace=None,
-            replace_identifiers=False,
-            replace_subjects=False, 
-            replace_contributions=False,
-            replace_links=False,
-            replace_formats=False,
-            replace_rights=False,
-            force=False,
+              replace_identifiers=False,
+              replace_subjects=False, 
+              replace_contributions=False,
+              replace_links=False,
+              replace_formats=False,
+              replace_rights=False,
+              force=False,
     ):
         """Apply this metadata to the given edition.
 
@@ -1021,9 +1025,13 @@ class Metadata(object):
 
         # Make sure the work we just did shows up.
         if edition.work:
-            edition.work.calculate_presentation()
+            edition.work.calculate_presentation(
+                policy=replace.presentation_calculation_policy
+            )
         else:
-            edition.calculate_presentation()
+            edition.calculate_presentation(
+                policy=replace.presentation_calculation_policy
+            )
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where
@@ -1094,6 +1102,12 @@ class Metadata(object):
 
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
+
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.

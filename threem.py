@@ -322,10 +322,10 @@ class ItemListParser(XMLParser):
 class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for 3M records."""
 
-    def __init__(self, _db):
+    def __init__(self, _db, metadata_replacement_policy=None):
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, ThreeMAPI(_db), DataSource.THREEM,
-            workset_size=25
+            workset_size=25, metadata_replacement_policy=metadata_replacement_policy
         )
 
     def process_batch(self, identifiers):
