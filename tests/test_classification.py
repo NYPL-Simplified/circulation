@@ -778,6 +778,14 @@ class TestWorkClassifier(DatabaseTest):
             weight=100
         )
         self.classifier.add(c)
+
+        # (This classification has no bearing on audience and its
+        # weight will be ignored.)
+        c2 = i.classify(
+            source, Subject.TAG, "Pets", 
+            weight=1000
+        )
+        self.classifier.add(c2)
         self.classifier.prepare_to_classify
         genres, fiction, audience, target_age = self.classifier.classify
 
