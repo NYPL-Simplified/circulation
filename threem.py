@@ -209,7 +209,7 @@ class ItemListParser(XMLParser):
             if not i:
                 continue
             i = i.replace("&amp;amp;", "&amp;").replace("&amp;", "&").replace("&#39;", "'")
-            genres.append(SubjectData(Subject.THREEM, i, weight=30))
+            genres.append(SubjectData(Subject.THREEM, i, weight=15))
         return genres
 
     def process_one(self, tag, namespaces):
