@@ -2101,6 +2101,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "comic strips",
                    "comic book",
                    "comic books",
+                   "graphic novel",
                    "graphic novels",
 
                    # Formerly in 'Superhero'
