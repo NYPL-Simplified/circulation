@@ -1693,12 +1693,13 @@ class Identifier(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source):
+            cls, _db, identifier_types, coverage_data_source, operation=None):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source)
+                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.operation==operation)
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
@@ -2446,7 +2447,9 @@ class Edition(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, edition_data_sources, coverage_data_source):
+            cls, _db, edition_data_sources, coverage_data_source, 
+            operation=None
+    ):
         """Find Editions from `edition_data_source` whose primary
         identifiers have no CoverageRecord from
         `coverage_data_source`.
@@ -2465,8 +2468,11 @@ class Edition(Base):
         if isinstance(edition_data_sources, DataSource):
             edition_data_sources = [edition_data_sources]
         edition_data_source_ids = [x.id for x in edition_data_sources]
-        join_clause = ((Edition.primary_identifier_id==CoverageRecord.identifier_id) &
-                       (CoverageRecord.data_source_id==coverage_data_source.id))
+        join_clause = (
+            (Edition.primary_identifier_id==CoverageRecord.identifier_id) &
+            (CoverageRecord.data_source_id==coverage_data_source.id) &
+            (CoverageRecord.operation==operation)
+        )
         
         q = _db.query(Edition).outerjoin(
             CoverageRecord, join_clause)
@@ -2847,7 +2853,7 @@ class Edition(Base):
             self.calculate_permanent_work_id()
             self.set_open_access_link()
             CoverageRecord.add_for(
-                self, data_source=self.data_source, 
+                self, data_source=self.data_source,
                 operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
             )
 
@@ -2940,7 +2946,7 @@ class Edition(Base):
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.
         CoverageRecord.add_for(
-            self, data_source=self.data_source, 
+            self, data_source=self.data_source,
             operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
 
