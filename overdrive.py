@@ -619,7 +619,7 @@ class OverdriveRepresentationExtractor(object):
             grade_level = grade_level_info.get('value')
             subjects.append(
                 SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level,
-                            weight=1)
+                            weight=100)
             )
 
         identifiers = []
