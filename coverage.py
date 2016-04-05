@@ -273,7 +273,7 @@ class CoverageProvider(object):
         except Exception as e:
             self.log.warn(
                 "Error applying metadata to edition %d: %s",
-                edition.id, e
+                edition.id, e, exc_info=e
             )
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
