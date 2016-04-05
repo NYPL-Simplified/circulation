@@ -107,7 +107,7 @@ class TestTargetAge(object):
         eq_((14,14), f("9th grade"))
         eq_((15,17), f("grades 10-12"))
         eq_((8,12), f("grades 03-07"))
-        eq_((8,12), f("03-7"))
+        eq_((8,12), f("3-07"))
         eq_((17,17), f("12th grade"))
 
         # target_age() will assume that a number it sees is talking
