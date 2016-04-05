@@ -193,6 +193,9 @@ class CirculationManager(object):
                 overdrive=self.overdrive,
                 axis=self.axis
             )
+        # Make sure that any changes to the database (as might happen
+        # on initial setup) are committed before continuing.
+        self._db.commit()
 
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
