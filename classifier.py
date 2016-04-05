@@ -338,14 +338,18 @@ class GradeLevelClassifier(Classifier):
                     else:
                         young, old = gr
 
-                    if (not young in cls.american_grade_to_age
-                        and not old in cls.american_grade_to_age):
+                    # Strip leading zeros
+                    if young and young != '0':
+                        young = young.lstrip("0")
+                    if old and old != '0':
+                        old = old.lstrip("0")
+
+                    young = cls.american_grade_to_age.get(young)
+                    old = cls.american_grade_to_age.get(old)
+
+                    if not young and not old:
                         return cls.nr(None, None)
 
-                    if young in cls.american_grade_to_age:
-                        young = cls.american_grade_to_age[young]
-                    if old in cls.american_grade_to_age:
-                        old = cls.american_grade_to_age[old]
                     if young:
                         young = int(young)
                     if old:
@@ -3469,7 +3473,6 @@ class WorkClassifier(object):
             self.log.debug("Audience weights:")
             for k, v in self.audience_weights.most_common():
                 self.log.debug(" %s: %s", v, k)
-
         return genres, fiction, audience, target_age
 
     @property
