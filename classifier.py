@@ -1533,6 +1533,9 @@ class DeweyDecimalClassifier(Classifier):
         if isinstance(identifier, basestring) and identifier.startswith('Y'):
             return cls.AUDIENCE_YOUNG_ADULT
 
+        if isinstance(identifier, basestring) and identifier=='FIC':
+            # FIC is used for all types of fiction.
+            return None
         return cls.AUDIENCE_ADULT
 
     @classmethod
