@@ -138,6 +138,11 @@ class TestTargetAge(object):
         eq_((12,14), f("14 - 12"))
         eq_((0,3), f("0-3"))
         eq_((None,None), f("K-3"))
+        eq_((18, 20), f("Age 18+"))
+
+        # This could be improved but I've never actually seen a
+        # classification like this.
+        eq_((16, 16), f("up to age 16"))
 
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("K-3", None, True))
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("9-12", None, True))
@@ -173,6 +178,11 @@ class TestTargetAge(object):
         eq_(Classifier.AUDIENCE_CHILDREN, f("Age 5"))
         eq_(Classifier.AUDIENCE_ADULT, f("Age 18+"))
         eq_(None, f("Ages Of Man"))
+        eq_(None, f("Age -12"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("up to age 16"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("Age 12-14"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("Ages 13 and up"))
+        eq_(Classifier.AUDIENCE_CHILDREN, f("Age 12-13"))
 
     def test_audience_from_age_or_grade_classifier(self):
         def f(t):
@@ -235,8 +245,8 @@ class TestDewey(object):
         eq_(child, aud("NZJ300"))
         eq_(child, aud("E"))
         eq_(young_adult, aud("Y300"))
-        eq_(adult, aud("FIC"))
-        eq_(adult, aud("Fic"))
+        eq_(None, aud("FIC"))
+        eq_(None, aud("Fic"))
         eq_(adult, aud("B"))
         eq_(adult, aud("400"))
 
@@ -755,6 +765,40 @@ class TestWorkClassifier(DatabaseTest):
         c = self.identifier.classify(source, Subject.TAG, u"Fiction", weight=1)
         new_classifier.add(c)
         eq_(True, new_classifier.fiction)
+
+    def test_juvenile_classification_is_split_between_children_and_ya(self):
+
+        # 3M files both children's and YA works under 'JUVENILE FICTION'.
+        # Here's how we deal with that.
+        #
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.THREEM)
+        c = i.classify(
+            source, Subject.THREEM, "JUVENILE FICTION/Historical/Africa/", 
+            weight=100
+        )
+        self.classifier.add(c)
+        self.classifier.prepare_to_classify
+        genres, fiction, audience, target_age = self.classifier.classify
+
+        # Young Adult wins because we err on the side of showing books
+        # to kids who are too old, rather than too young.
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
+
+        # But behind the scenes, more is going on. The weight of the
+        # classifier has been split 60/40 between YA and children.
+        weights = self.classifier.audience_weights
+        eq_(60, weights[Classifier.AUDIENCE_YOUNG_ADULT])
+        eq_(40, weights[Classifier.AUDIENCE_CHILDREN])
+        # If this is in fact a children's book, this will make it
+        # relatively easy for data from some other source to come in
+        # and tip the balance.
+
+        # The adult audiences have been reduced, to reduce the chance
+        # that splitting up the weight between YA and Children will
+        # cause the work to be mistakenly classified as Adult.
+        for aud in Classifier.AUDIENCES_ADULT:
+            eq_(-50, weights[aud])
 
     def test_adult_book_by_default(self):
         eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())

@@ -425,7 +425,9 @@ class AgeClassifier(Classifier):
         if not lower and not upper:
             return None
 
-        if lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
+        if lower >= 18:
+            return Classifier.AUDIENCE_ADULT
+        elif lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
             # Although we treat "Young Adult" as starting at 14, many
             # outside sources treat it as starting at 12. As such we
             # treat "12 and up" or "12-14" as an indicator of a Young
@@ -434,10 +436,8 @@ class AgeClassifier(Classifier):
             return Classifier.AUDIENCE_YOUNG_ADULT
         elif lower < cls.YOUNG_ADULT_AGE_CUTOFF:
             return Classifier.AUDIENCE_CHILDREN
-        elif lower < 18:
-            return Classifier.AUDIENCE_YOUNG_ADULT
         else:
-            return Classifier.AUDIENCE_ADULT
+            return Classifier.AUDIENCE_YOUNG_ADULT
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
@@ -3305,7 +3305,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=True):
+    def __init__(self, work, test_session=None, debug=False):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
