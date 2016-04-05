@@ -43,7 +43,7 @@ def run():
         import socket
         socket.setdefaulttimeout(None)
 
-    app.manager.log.info("Starting app on %s:%s", host, port)
+    logging.info("Starting app on %s:%s", host, port)
     app.run(debug=debug, host=host, port=port)
 
 

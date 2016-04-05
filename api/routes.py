@@ -21,13 +21,18 @@ from opds import (
 from controller import CirculationManager
 
 
-if os.environ.get('AUTOINITIALIZE') == "False":
-    pass
-    # It's the responsibility of the importing code to set app.manager
-    # appropriately.
-else:
-    if getattr(app, 'manager', None) is None:
-        app.manager = CirculationManager()
+@app.before_first_request
+def initialize_circulation_manager():
+    if os.environ.get('AUTOINITIALIZE') == "False":
+        pass
+        # It's the responsibility of the importing code to set app.manager
+        # appropriately.
+    else:
+        if getattr(app, 'manager', None) is None:
+            app.manager = CirculationManager()
+            # Make sure that any changes to the database (as might happen
+            # on initial setup) are committed before continuing.
+            app.manager._db.commit()
 
 
 
