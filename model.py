@@ -1499,9 +1499,10 @@ class Identifier(Base):
         #    print repr(subject)
 
         logging.debug(
-            "CLASSIFICATION: %s on %s/%s: %s %s/%s",
+            "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
             data_source.name, self.type, self.identifier,
-            subject.type, subject.identifier, subject.name
+            subject.type, subject.identifier, subject.name, 
+            weight
         )
 
         # Use a Classification to connect the Identifier to the
@@ -4810,6 +4811,24 @@ class Classification(Base):
             weight = weight * 50
         return weight
 
+    # These subject types are known to be problematic in that their
+    # "Juvenile" classifications are applied indiscriminately to both
+    # YA books and Children's books. As such, we need to split the
+    # difference when weighing a classification whose subject is of
+    # this type.
+    #
+    # This goes into Classification rather than Subject because it's
+    # possible that one particular data source could use a certain
+    # subject type in an unreliable way.
+    #
+    # In fact, the 3M classifications are basically BISAC
+    # classifications used in an unreliable way, so we could merge
+    # them in the future.
+    _juvenile_subject_types = set([
+        Subject.THREEM,
+        Subject.LCC
+    ])
+
     _quality_as_indicator_of_target_age = {
         # These measure age appropriateness.
         (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
@@ -4830,6 +4849,16 @@ class Classification(Base):
         Subject.AGE_RANGE : 10,
         Subject.GRADE_LEVEL : 10,
     }
+
+    @property
+    def generic_juvenile_audience(self):        
+        """Is this a classification that mentions (e.g.) a Children's audience
+        but is actually a generic 'Juvenile' classification?
+        """
+        return (
+            self.subject.audience in Classifier.AUDIENCES_JUVENILE
+            and self.subject.type in self._juvenile_subject_types
+        )
     
     @property
     def quality_as_indicator_of_target_age(self):

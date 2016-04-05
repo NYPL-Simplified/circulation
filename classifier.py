@@ -12,6 +12,7 @@
 # SQL to find commonly used classifications not assigned to a genre 
 # select count(identifiers.id) as c, subjects.type, substr(subjects.identifier, 0, 20) as i, substr(subjects.name, 0, 20) as n from workidentifiers join classifications on workidentifiers.id=classifications.work_identifier_id join subjects on classifications.subject_id=subjects.id where subjects.genre_id is null and subjects.fiction is null group by subjects.type, i, n order by c desc;
 
+import logging
 import json
 import os
 import pkgutil
@@ -73,6 +74,7 @@ class Classifier(object):
     # A book for a child 14 or older is a young adult book.
     YOUNG_ADULT_AGE_CUTOFF = 14
 
+    AUDIENCES_JUVENILE = [AUDIENCE_CHILDREN, AUDIENCE_YOUNG_ADULT]
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN])
@@ -422,7 +424,15 @@ class AgeClassifier(Classifier):
         upper = target_age.upper
         if not lower and not upper:
             return None
-        if lower < 12:
+
+        if lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
+            # Although we treat "Young Adult" as starting at 14, many
+            # outside sources treat it as starting at 12. As such we
+            # treat "12 and up" or "12-14" as an indicator of a Young
+            # Adult audience, with a target age that overlaps what we
+            # consider a Children audience.
+            return Classifier.AUDIENCE_YOUNG_ADULT
+        elif lower < cls.YOUNG_ADULT_AGE_CUTOFF:
             return Classifier.AUDIENCE_CHILDREN
         elif lower < 18:
             return Classifier.AUDIENCE_YOUNG_ADULT
@@ -3292,7 +3302,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3305,11 +3315,13 @@ class WorkClassifier(object):
         self.prepared = False
         self.debug = debug
         self.classifications = []
+        self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
         # Make sure the Subject is ready to be used in calculations.
         if self.debug:
+            classification.subject.assign_to_genre()
             self.classifications.append(classification)
         if not classification.subject.checked:
             classification.subject.assign_to_genre()
@@ -3336,7 +3348,24 @@ class WorkClassifier(object):
         if subject.genre:
             self.weigh_genre(subject.genre, weight)
 
-        self.audience_weights[subject.audience] += weight
+        if classification.generic_juvenile_audience:
+            # We have a generic 'juvenile' classification. The
+            # audience might say 'Children' or it might say 'Young
+            # Adult' but we don't actually know which it is.
+            #
+            # We're going to split the difference, with a slight
+            # preference for YA, to bias against showing
+            # age-inappropriate material to children. To
+            # counterbalance the fact that we're splitting up the
+            # weight this way, we're also going to treat this
+            # classification as evidence _against_ an 'adult'
+            # classification.
+            self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
+            self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
+            for audience in Classifier.AUDIENCES_ADULT:
+                self.audience_weights[audience] -= weight * 0.5
+        else:
+            self.audience_weights[subject.audience] += weight
 
         # We can't evaluate target age until all the data is in, so
         # save the classification for later if it's relevant
@@ -3416,11 +3445,28 @@ class WorkClassifier(object):
         if not self.prepared:
             self.prepare_to_classify()
 
+        if self.debug:
+            for c in self.classifications:
+                self.log.debug(
+                    "%d %r (via %s)", c.weight, c.subject, c.data_source.name
+                )
+
         # Actually figure out the classifications
         fiction = self.fiction
         genres = self.genres(fiction)
         audience = self.audience(genres)
         target_age = self.target_age(audience)
+        if self.debug:
+            self.log.debug("Fiction weights:")
+            for k, v in self.fiction_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
+            self.log.debug("Genre weights:")
+            for k, v in self.genre_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
+            self.log.debug("Audience weights:")
+            for k, v in self.audience_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
+
         return genres, fiction, audience, target_age
 
     @property
@@ -3536,6 +3582,18 @@ class WorkClassifier(object):
                     target_max -= 1
                 for i in range(0,c.weight):
                     target_age_maxes.append(target_max)
+
+        if self.debug:
+            if target_age_mins:
+                self.log.debug("Possible target age minima:")
+                min_counter = Counter(target_age_mins)
+                for k, v in min_counter.most_common():
+                    self.log.debug(" %s: %s", v, k)
+            if target_age_maxes:
+                self.log.debug("Possible target age maxima:")
+                max_counter = Counter(target_age_maxes)
+                for k, v in max_counter.most_common():
+                    self.log.debug(" %s: %s", v, k)
 
         target_age_min = None
         target_age_max = None
