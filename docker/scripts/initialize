@@ -5,6 +5,7 @@
 # this should be run before cron is started.
 
 if [ $libsimple_init ]; then
+
   if [ -z "$threem_start_date" ]; then
     # If no start date is set for the 3M monitor, set it to
     # two years ago.
@@ -12,7 +13,16 @@ if [ $libsimple_init ]; then
     let "year -= 2"
     threem_start_date="${year}-`date +'%m-%d'`"
   fi
-  cd $LIBSIMPLE_DIR/bin && (./run threem_monitor $threem_start_date)
+
+  # Default Circulation Manager directory is /var/www/circulation
+  if [ -z "$LIBSIMPLE_DIR" ]; then
+    LIBSIMPLE_DIR=/var/www/circulation
+  fi
+
+  # Start the ThreeM Monitor prior to cron being started
+  $LIBSIMPLE_DIR/core/bin/run threem_monitor $threem_start_date
+
+  # Unset variables set specifically for initialization
   unset libsimple_init
   unset threem_start_date
 fi
