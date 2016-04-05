@@ -271,7 +271,7 @@ class CoverageProvider(object):
                 edition, replace=metadata_replacement_policy,
             )
         except Exception as e:
-            self.log.debug(
+            self.log.warn(
                 "Error applying metadata to edition %d: %s",
                 edition.id, e
             )
