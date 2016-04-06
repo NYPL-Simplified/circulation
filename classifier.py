@@ -130,7 +130,6 @@ class Classifier(object):
         else:
             return cls.AUDIENCE_CHILDREN
 
-
     @classmethod
     def lookup(cls, scheme):
         """Look up a classifier for a classification scheme."""
@@ -240,6 +239,33 @@ class Classifier(object):
         ):
             return cls.nr(18, None)
         return cls.nr(None, None)
+
+    @classmethod
+    def and_up(cls, young, keyword):
+        """Encapsulates the logic of what "[x] and up" actually means.
+
+        Given the lower end of an age range, tries to determine the
+        upper end of the range.
+        """
+        if young is None:
+            return None
+        if not any(
+                [keyword.endswith(x) for x in 
+                 ("and up", "and up.", "+", "+.")
+             ]
+        ):
+            return None
+
+        if young >= 12:
+            # "12 and up", "14 and up", etc.  are
+            # generally intended to cover the entire
+            # YA span.
+            old = 17
+        else:
+            # Whereas "3 and up" really means more
+            # like "3 to 5".
+            old = young + 2
+        return old
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -352,8 +378,8 @@ class GradeLevelClassifier(Classifier):
                         young = int(young)
                     if old:
                         old = int(old)
-                    if not old and k.endswith("and up"):
-                        old = young + 2
+                    if old is None:
+                        old = cls.and_up(young, k)
                     if old is None and young is not None:
                         old = young
                     if young is None and old is not None:
@@ -451,12 +477,8 @@ class AgeClassifier(Classifier):
                         young = int(groups[0])
                         if len(groups) > 1 and groups[1] != None:
                             old = int(groups[1])
-                    if not old and any(
-                            [k.endswith(x) for x in 
-                             ("and up", "and up.", "+", "+.")
-                            ]
-                    ):
-                        old = young + 2
+                    if old is None:
+                        old = cls.and_up(young, k)
                     if old is None and young is not None:
                         old = young
                     if young is None and old is not None:
