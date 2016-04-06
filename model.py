@@ -4839,11 +4839,11 @@ class Classification(Base):
         # These measure age appropriateness.
         (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
         Subject.AXIS_360_AUDIENCE : 30,
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 20,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
-        Subject.OVERDRIVE : 15,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 15, # But see below
         (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
         (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+
 
         # These measure reading level, except for TAG, which measures
         # who-knows-what.
@@ -4851,6 +4851,12 @@ class Classification(Base):
         Subject.TAG : 2,
         Subject.LEXILE_SCORE : 1,
         Subject.ATOS_SCORE: 1,
+
+        # Although Overdrive usually reserves Fiction and Nonfiction
+        # for books for adults, it's not as reliable an indicator as
+        # other Overdrive classifications.
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 5,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 5,
 
         Subject.AGE_RANGE : 10,
         Subject.GRADE_LEVEL : 10,
@@ -4873,10 +4879,16 @@ class Classification(Base):
         data_source = self.data_source.name
         subject_type = self.subject.type
         q = self._quality_as_indicator_of_target_age
-        if (data_source, subject_type) in q:
-            return q[(data_source, subject_type)]
-        if subject_type in q:
-            return q[subject_type]
+
+        keys = [
+            (data_source, subject_type, self.subject.identifier),
+            (data_source, subject_type),
+            subject_type
+        ]
+        for key in keys:
+            if key in q:
+                print "Found %s from %s" % (repr(key), data_source)
+                return q[key]
         return 0.1
 
     @property

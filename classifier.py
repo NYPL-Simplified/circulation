@@ -3315,7 +3315,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3334,7 +3334,7 @@ class WorkClassifier(object):
         """Prepare a single Classification for consideration."""
         # Make sure the Subject is ready to be used in calculations.
         if self.debug:
-            classification.subject.assign_to_genre()
+            # classification.subject.assign_to_genre()
             self.classifications.append(classification)
         if not classification.subject.checked:
             classification.subject.assign_to_genre()
