@@ -3650,7 +3650,7 @@ class WorkClassifier(object):
 
         # Err on the side of setting the minimum age too high.
         if target_age_min > target_age_max:
-            target_age_min = target_age_max
+            target_age_max = target_age_min
         return Classifier.nr(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
