@@ -83,6 +83,22 @@ class TestClassifierLookup(object):
         eq_(None, Classifier.lookup('no-such-key'))
 
 class TestTargetAge(object):
+
+    def test_nr_swaps_mismatched_ages(self):
+        """If for whatever reason a Classifier decides that something is from
+        ages 6 to 5, the Classifier.nr() method will automatically
+        convert this to "ages 5 to 6".
+
+        This sort of problem ought to be fixed inside the Classifier,
+        but if it does happen, nr() will stop it from causing
+        downstream problems.
+        """
+        range1 = Classifier.nr(5,6)
+        range2 = Classifier.nr(6,5)
+        eq_(range2, range1)
+        eq_(5, range2.lower)
+        eq_(6, range2.upper)
+
     def test_age_from_grade_classifier(self):
         def f(t):
             v = GradeLevelClassifier.target_age(t, None)
