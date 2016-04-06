@@ -4836,30 +4836,55 @@ class Classification(Base):
     ])
 
     _quality_as_indicator_of_target_age = {
-        # These measure age appropriateness.
-        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
-        Subject.AXIS_360_AUDIENCE : 30,
-        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
-        (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 15, # But see below
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+        
+        # Not all classifications are equally reliable as indicators
+        # of a target age. This dictionary contains the coefficients
+        # we multiply against the weights of incoming classifications
+        # to reflect the overall reliability of that type of
+        # classification.
+        #
+        # If we had a ton of information about target age this might
+        # not be necessary--it doesn't seem necessary for genre
+        # classifications. But we sometimes have very little
+        # information about target age, so being careful about how
+        # much we trust different data sources can become important.
+        
+        DataSource.MANUAL : 1.0,
+        DataSource.LIBRARY_STAFF: 1.0,        
+        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 1.0,
 
-
-        # These measure reading level, except for TAG, which measures
-        # who-knows-what.
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 5,
-        Subject.TAG : 2,
-        Subject.LEXILE_SCORE : 1,
-        Subject.ATOS_SCORE: 1,
-
+        Subject.AXIS_360_AUDIENCE : 0.9,
+        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        
         # Although Overdrive usually reserves Fiction and Nonfiction
         # for books for adults, it's not as reliable an indicator as
         # other Overdrive classifications.
-        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 5,
-        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 5,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 0.7,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 0.7,
+        
+        Subject.AGE_RANGE : 0.6,
+        Subject.GRADE_LEVEL : 0.6,
+        
+        # There's no real way to know what this measures, since it
+        # could be anything. If a tag mentions a target age or a grade
+        # level, the accuracy seems to be... not terrible.
+        Subject.TAG : 0.45,
 
-        Subject.AGE_RANGE : 10,
-        Subject.GRADE_LEVEL : 10,
+        # Tags that come from OCLC Linked Data are of lower quality
+        # because they sometimes talk about completely the wrong book.
+        (DataSource.OCLC_LINKED_DATA, Subject.TAG) : 0.3,
+        
+        # These measure reading level, not age appropriateness.
+        # However, if the book is a remedial work for adults we won't
+        # be calculating a target age in the first place, so it's okay
+        # to use reading level as a proxy for age appropriateness in a
+        # pinch. (But not outside of a pinch.)
+        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 0.35,
+        Subject.LEXILE_SCORE : 0.1,
+        Subject.ATOS_SCORE: 0.1,
     }
 
     @property
@@ -4883,11 +4908,11 @@ class Classification(Base):
         keys = [
             (data_source, subject_type, self.subject.identifier),
             (data_source, subject_type),
+            data_source,
             subject_type
         ]
         for key in keys:
             if key in q:
-                print "Found %s from %s" % (repr(key), data_source)
                 return q[key]
         return 0.1
 

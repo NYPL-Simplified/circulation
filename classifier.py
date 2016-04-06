@@ -3322,7 +3322,8 @@ class WorkClassifier(object):
         self.work = work
         self.fiction_weights = Counter()
         self.audience_weights = Counter()
-        self.target_age_relevant_classifications = set()
+        self.target_age_lower_weights = Counter()
+        self.target_age_upper_weights = Counter()
         self.genre_weights = Counter()
         self.direct_from_license_source = set()
         self.prepared = False
@@ -3380,12 +3381,21 @@ class WorkClassifier(object):
         else:
             self.audience_weights[subject.audience] += weight
 
-        # We can't evaluate target age until all the data is in, so
-        # save the classification for later if it's relevant
-        if subject.target_age and (
-                subject.target_age.lower or subject.target_age.upper
-        ):
-            self.target_age_relevant_classifications.add(classification)
+        if subject.target_age:
+            # Figure out how reliable this classification really is as
+            # an indicator of a target age.
+            quality_coefficient = classification.quality_as_indicator_of_target_age
+            scaled_weight = classification.weight * quality_coefficient
+            target_min = subject.target_age.lower
+            target_max = subject.target_age.upper
+            if target_min:
+                if not subject.target_age.lower_inc:
+                    target_min += 1
+                self.target_age_lower_weights[target_min] += scaled_weight
+            if target_max:
+                if not subject.target_age.upper_inc:
+                    target_max += 1
+                self.target_age_upper_weights[target_max] += scaled_weight
 
     def weigh_metadata(self):
         """Modify the weights according to the given Work's metadata.
@@ -3450,6 +3460,7 @@ class WorkClassifier(object):
             # distinguished by their _lack_ of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+
         self.prepared = True
 
     @property
@@ -3574,49 +3585,29 @@ class WorkClassifier(object):
             return Classifier.default_target_age_for_audience(audience)
 
         # Only consider the most reliable classifications.
-        reliable_classifications = self.most_reliable_target_age_subset
-
+        
         # Try to reach consensus on the lower and upper bounds of the
         # age range.
-        target_age_mins = []
-        target_age_maxes = []
-        for c in reliable_classifications:
-            target_age = c.subject.target_age
-            target_min = c.subject.target_age.lower
-            target_max = c.subject.target_age.upper
-            if target_min is not None:
-                if not c.subject.target_age.lower_inc:
-                    target_min += 1
-                for i in range(0,c.weight):
-                    target_age_mins.append(target_min)
-            if target_max is not None:
-                if not c.subject.target_age.upper_inc:
-                    target_max -= 1
-                for i in range(0,c.weight):
-                    target_age_maxes.append(target_max)
-
         if self.debug:
-            if target_age_mins:
+            if self.target_age_lower_weights:
                 self.log.debug("Possible target age minima:")
-                min_counter = Counter(target_age_mins)
-                for k, v in min_counter.most_common():
+                for k, v in self.target_age_lower_weights.most_common():
                     self.log.debug(" %s: %s", v, k)
-            if target_age_maxes:
+            if self.target_age_upper_weights:
                 self.log.debug("Possible target age maxima:")
-                max_counter = Counter(target_age_maxes)
-                for k, v in max_counter.most_common():
+                for k, v in self.target_age_upper_weights.most_common():
                     self.log.debug(" %s: %s", v, k)
 
         target_age_min = None
         target_age_max = None
-        if target_age_mins:
+        if self.target_age_lower_weights:
             # Find the youngest age in the top tier of values.
-            candidates = self.top_tier_values(Counter(target_age_mins))
+            candidates = self.top_tier_values(self.target_age_lower_weights)
             target_age_min = min(candidates)
 
-        if target_age_maxes:
+        if self.target_age_upper_weights:
             # Find the oldest age in the top tier of values.
-            candidates = self.top_tier_values(Counter(target_age_maxes))
+            candidates = self.top_tier_values(self.target_age_upper_weights)
             target_age_max = max(candidates)
 
         if not target_age_min and not target_age_max:
@@ -3629,10 +3620,9 @@ class WorkClassifier(object):
         if target_age_max is None:
             target_age_max = target_age_min
 
-        # If min and max got mixed up somehow, un-mix them. This should
-        # never happen, but we fix it just in case.
+        # Err on the side of setting the minimum age too high.
         if target_age_min > target_age_max:
-            target_age_min, target_age_max = target_age_max, target_age_min
+            target_age_min = target_age_max
         return Classifier.nr(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
@@ -3668,37 +3658,6 @@ class WorkClassifier(object):
         from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
-
-    @property
-    def most_reliable_target_age_subset(self):
-        """Not all target age data is created equal. This method isolates the
-        most reliable subset of a set of classifications.
-        
-        For example, if we have an Overdrive classification saying
-        that the book is a picture book (target age: 0-3), and we also
-        have a bunch of tags saying that the book is for ages 2-5 and
-        0-2 and 1-3 and 12-13, we will use the (reliable) Overdrive
-        classification and ignore the (unreliable) tags altogether,
-        rather than try to average everything out.
-        
-        But if there is no Overdrive classification, that set of tags
-        will be the most reliable target age subset, and we'll
-        just do the best we can.
-        """
-        highest_quality_score = None
-        reliable_classifications = []
-        for c in self.target_age_relevant_classifications:
-            score = c.quality_as_indicator_of_target_age
-            if not score:
-                continue
-            if (not highest_quality_score or score > highest_quality_score):
-                # If we gather a bunch of data, then discover a more reliable
-                # type of data, we need to start all over.
-                highest_quality_score = score
-                reliable_classifications = []
-            if score == highest_quality_score:
-                reliable_classifications.append(c)
-        return reliable_classifications    
 
     @classmethod
     def consolidate_genre_weights(
