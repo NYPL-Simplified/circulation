@@ -343,9 +343,9 @@ class GradeLevelClassifier(Classifier):
                         young, old = gr
 
                     # Strip leading zeros
-                    if young and young != '0':
+                    if young and young.lstrip('0'):
                         young = young.lstrip("0")
-                    if old and old != '0':
+                    if old and old.lstrip('0'):
                         old = old.lstrip("0")
 
                     young = cls.american_grade_to_age.get(young)

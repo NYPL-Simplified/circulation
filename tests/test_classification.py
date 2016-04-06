@@ -122,6 +122,7 @@ class TestTargetAge(object):
         eq_((13,13), f("grade 8"))
         eq_((14,14), f("9th grade"))
         eq_((15,17), f("grades 10-12"))
+        eq_((6,6), f("grades 00-01"))
         eq_((8,12), f("grades 03-07"))
         eq_((8,12), f("3-07"))
         eq_((8,10), f("5 - 3"))
