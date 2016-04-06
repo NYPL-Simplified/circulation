@@ -85,6 +85,10 @@ class Classifier(object):
     @classmethod
     def nr(cls, lower, upper):
         """Turn a 2-tuple into an inclusive NumericRange."""
+        # Just in case the upper and lower ranges are mixed up,
+        # and no prior code caught this, un-mix them.
+        if lower > upper:
+            lower, upper = upper, lower
         return NumericRange(lower, upper, '[]')
 
     @classmethod
@@ -360,6 +364,8 @@ class GradeLevelClassifier(Classifier):
                         old = young
                     if young is None and old is not None:
                         young = old
+                    if old and young and  old < young:
+                        young, old = old, young
                     return cls.nr(young, old)
         return cls.nr(None, None)
 
