@@ -76,6 +76,11 @@ class TestClassifier(object):
         # Whereas this is unambiguously 'Children' as far as we're concerned.
         aud(12, 13, Classifier.AUDIENCE_CHILDREN)
 
+    def test_and_up(self):
+
+        def u(self, young, keyword):
+            return Classifier.and_up(young, keyword)
+
 class TestClassifierLookup(object):
 
     def test_lookup(self):
@@ -176,7 +181,7 @@ class TestTargetAge(object):
         eq_((0,3), f("0-3"))
         eq_((5,8), f("05 - 08"))
         eq_((None,None), f("K-3"))
-        eq_((18, 20), f("Age 18+"))
+        eq_((18, 18), f("Age 18+"))
 
         # This could be improved but I've never actually seen a
         # classification like this.

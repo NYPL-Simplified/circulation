@@ -256,7 +256,9 @@ class Classifier(object):
         ):
             return None
 
-        if young >= 12:
+        if young >= 18:
+            old = young
+        elif young >= 12:
             # "12 and up", "14 and up", etc.  are
             # generally intended to cover the entire
             # YA span.
