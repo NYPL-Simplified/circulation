@@ -1119,6 +1119,20 @@ class TestWorkClassifier(DatabaseTest):
         [[g1, weight], [g2, weight]] = self.classifier.genres(True).items()
         eq_(set([g1, g2]), set([romance.genredata, sf.genredata]))
 
+    def test_classify_sets_minimum_age_high_if_minimum_lower_than_maximum(self):
+
+        # We somehow end up in a situation where the proposed low end
+        # of the target age is higher than the proposed high end.
+        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 1
+        self.classifier.target_age_lower_weights[10] = 1
+        self.classifier.target_age_upper_weights[4] = 1
+        
+        # We set the low end equal to the high end, erring on the side
+        # of making the book available to fewer people.
+        genres, fiction, audience, target_age = self.classifier.classify
+        eq_(10, target_age.lower)
+        eq_(10, target_age.upper)
+
     def test_classify(self):
         # At this point we've tested all the components of classify, so just
         # do an overall test to verify that classify() returns a 4-tuple
