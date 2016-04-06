@@ -61,13 +61,20 @@ class TestClassifier(object):
         aud(None, None, None)
         aud(None, 17, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(None, 4, Classifier.AUDIENCE_CHILDREN)
-        aud(None, 44, None)
+        aud(None, 44, Classifier.AUDIENCE_ADULT)
         aud(18, 44, Classifier.AUDIENCE_ADULT)
-        aud(12, 15, Classifier.AUDIENCE_CHILDREN)
         aud(14, 14, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(14, 19, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(2, 14, Classifier.AUDIENCE_CHILDREN)
         aud(2, 8, Classifier.AUDIENCE_CHILDREN)
+
+        # We treat this as YA because its target age range overlaps
+        # our YA age range, and many external sources consider books
+        # for twelve-year-olds to be "YA".
+        aud(12, 15, Classifier.AUDIENCE_YOUNG_ADULT)
+
+        # Whereas this is unambiguously 'Children' as far as we're concerned.
+        aud(12, 13, Classifier.AUDIENCE_CHILDREN)
 
 class TestClassifierLookup(object):
 

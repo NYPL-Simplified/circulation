@@ -92,7 +92,7 @@ class Classifier(object):
         return NumericRange(lower, upper, '[]')
 
     @classmethod
-    def audience_from_target_age(cls, nr):
+    def default_audience_for_target_age(cls, nr):
         if nr is None:
             return None
         lower = nr.lower
@@ -107,7 +107,7 @@ class Classifier(object):
             if upper > 18:
                 # e.g. "up to 20 years", though that doesn't
                 # make much sense.
-                return cls.ADULT
+                return cls.AUDIENCE_ADULT
             elif upper > cls.YOUNG_ADULT_AGE_CUTOFF:
                 # e.g. "up to 15 years"
                 return cls.AUDIENCE_YOUNG_ADULT
@@ -241,44 +241,6 @@ class Classifier(object):
             return cls.nr(18, None)
         return cls.nr(None, None)
 
-    @classmethod
-    def default_audience_for_target_age(cls, target_age):
-        """The default audience for a given target age.
-
-        Inverse of default_target_age_for_audience.
-        """
-        if not target_age:
-            # We were not passed a NumericRange
-            return None
-
-        lower = target_age.lower
-        upper = target_age.upper
-
-        if not lower and not upper:
-            # We have no information.
-            return None
-
-        # Sometimes we can determine audience given only a lower bound.
-        if lower:
-            if lower < cls.YOUNG_ADULT_AGE_CUTOFF:
-                return Classifier.AUDIENCE_CHILDREN
-            elif lower < 18:
-                return Classifier.AUDIENCE_YOUNG_ADULT
-            else:
-                return Classifier.AUDIENCE_ADULT
-
-        # Sometimes we can determine audience given only an upper
-        # bound.
-        if upper:
-            if upper < cls.YOUNG_ADULT_AGE_CUTOFF:
-                return Classifier.AUDIENCE_CHILDREN
-            elif upper < 18:
-                return Classifier.AUDIENCE_YOUNG_ADULT
-
-        # This will happen if lower is null and upper is greater than 18.
-        # This is a pretty weird case and we don't have a good answer.
-        return None
-
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
     american_grade_to_age = {
@@ -342,7 +304,7 @@ class GradeLevelClassifier(Classifier):
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
-        return cls.audience_from_target_age(target_age)
+        return cls.default_audience_for_target_age(target_age)
         
 
     @classmethod
@@ -462,7 +424,7 @@ class AgeClassifier(Classifier):
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
-        return cls.audience_from_target_age(target_age)
+        return cls.default_audience_for_target_age(target_age)
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
