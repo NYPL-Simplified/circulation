@@ -4917,6 +4917,10 @@ class Classification(Base):
         return 0.1
 
     @property
+    def weight_as_indicator_of_target_age(self):
+        return self.weight * self.quality_as_indicator_of_target_age
+
+    @property
     def comes_from_license_source(self):
         if not self.identifier.licensed_through:
             return False

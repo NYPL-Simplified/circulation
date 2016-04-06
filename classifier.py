@@ -3331,13 +3331,18 @@ class WorkClassifier(object):
         self.classifications = []
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
 
+        # Keep track of whether we've seen one of Overdrive's generic
+        # "Juvenile" classifications, as well as its more specific
+        # subsets like "Picture Books" and "Beginning Readers"
+        self.overdrive_juvenile_generic = False
+        self.overdrive_juvenile_with_target_age = False
+
     def add(self, classification):
         """Prepare a single Classification for consideration."""
         # Make sure the Subject is ready to be used in calculations.
         if self.debug:
-            # classification.subject.assign_to_genre()
             self.classifications.append(classification)
-        if not classification.subject.checked:
+        if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
 
         if classification.comes_from_license_source:
@@ -3384,8 +3389,7 @@ class WorkClassifier(object):
         if subject.target_age:
             # Figure out how reliable this classification really is as
             # an indicator of a target age.
-            quality_coefficient = classification.quality_as_indicator_of_target_age
-            scaled_weight = classification.weight * quality_coefficient
+            scaled_weight = classification.weight_as_indicator_of_target_age
             target_min = subject.target_age.lower
             target_max = subject.target_age.upper
             if target_min:
@@ -3396,6 +3400,18 @@ class WorkClassifier(object):
                 if not subject.target_age.upper_inc:
                     target_max += 1
                 self.target_age_upper_weights[target_max] += scaled_weight
+
+        if subject.type=='Overdrive' and subject.audience==Classifier.AUDIENCE_CHILDREN:
+            if subject.target_age and (
+                    subject.target_age.lower or subject.target_age.upper
+            ):
+                # This is a juvenile classification like "Picture
+                # Books" which implies a target age.
+                self.overdrive_juvenile_with_target_age = classification
+            else:
+                # This is a generic juvenile classification like
+                # "Juvenile Fiction".
+                self.overdrive_juvenile_generic = classification
 
     def weigh_metadata(self):
         """Modify the weights according to the given Work's metadata.
@@ -3460,6 +3476,17 @@ class WorkClassifier(object):
             # distinguished by their _lack_ of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+
+        if (self.overdrive_juvenile_generic 
+            and not self.overdrive_juvenile_with_target_age):
+            # This book is classified under 'Juvenile Fiction' but not
+            # under 'Picture Books' or 'Beginning Readers'. The
+            # implicit target age here is 9-12 (the portion of
+            # Overdrive's 'juvenile' age range not covered by 'Picture
+            # Books' or 'Beginning Readers'.
+            weight = self.overdrive_juvenile_generic.weight_as_indicator_of_target_age
+            self.target_age_lower_weights[9] += weight
+            self.target_age_upper_weights[12] += weight
 
         self.prepared = True
 
