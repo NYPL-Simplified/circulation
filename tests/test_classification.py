@@ -78,8 +78,16 @@ class TestClassifier(object):
 
     def test_and_up(self):
 
-        def u(self, young, keyword):
+        def u(young, keyword):
             return Classifier.and_up(young, keyword)
+
+        eq_(None, u(None, None))
+        eq_(None, u(6, "6 years old only"))
+        eq_(5, u(3, "3 and up"))
+        eq_(8, u(6, "6+"))
+        eq_(17, u(12, "12 and up"))
+        eq_(17, u(14, "14+."))
+        eq_(18, u(18, "18+"))
 
 class TestClassifierLookup(object):
 
