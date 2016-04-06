@@ -77,7 +77,7 @@ class TestClassifier(object):
         aud(12, 13, Classifier.AUDIENCE_CHILDREN)
 
     def test_and_up(self):
-
+        """Test the code that determines what "x and up" actually means."""
         def u(young, keyword):
             return Classifier.and_up(young, keyword)
 
