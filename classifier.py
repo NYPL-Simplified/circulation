@@ -92,14 +92,13 @@ class Classifier(object):
         return NumericRange(lower, upper, '[]')
 
     @classmethod
-    def audience_from_target_age(self, nr):
+    def audience_from_target_age(cls, nr):
         if nr is None:
             return None
         lower = nr.lower
-
+        upper = nr.upper
         if not lower and not upper:
             return None
-        upper = nr.upper
         if lower and not nr.lower_inc:
             lower += 1
         if upper and not nr.upper_inc:
@@ -108,26 +107,28 @@ class Classifier(object):
             if upper > 18:
                 # e.g. "up to 20 years", though that doesn't
                 # make much sense.
-                return Classifier.ADULT
+                return cls.ADULT
             elif upper > cls.YOUNG_ADULT_AGE_CUTOFF:
                 # e.g. "up to 15 years"
-                return Classifier.AUDIENCE_YOUNG_ADULT
+                return cls.AUDIENCE_YOUNG_ADULT
             else:
                 # e.g. "up to 14 years"
-                return Classifier.AUDIENCE_CHILDREN
+                return cls.AUDIENCE_CHILDREN
 
         # At this point we can assume that lower is not None.
         if lower >= 18:
-            return Classifier.AUDIENCE_ADULT
+            return cls.AUDIENCE_ADULT
+        elif lower >= cls.YOUNG_ADULT_AGE_CUTOFF:
+            return cls.AUDIENCE_YOUNG_ADULT
         elif lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
             # Although we treat "Young Adult" as starting at 14, many
             # outside sources treat it as starting at 12. As such we
             # treat "12 and up" or "12-14" as an indicator of a Young
             # Adult audience, with a target age that overlaps what we
             # consider a Children audience.
-            return Classifier.AUDIENCE_YOUNG_ADULT
+            return cls.AUDIENCE_YOUNG_ADULT
         else:
-            return Classifier.AUDIENCE_YOUNG_ADULT
+            return cls.AUDIENCE_CHILDREN
 
 
     @classmethod
