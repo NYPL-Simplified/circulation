@@ -957,33 +957,36 @@ class TestWorkClassifier(DatabaseTest):
         target_age = self.classifier.target_age(Classifier.AUDIENCE_ADULT)
         eq_(Classifier.nr(18, None), target_age)
 
-    def test_most_reliable_target_age_subset(self):
-        # We have a very weak but reliable signal that this is a book for
-        # young children.
+    def test_target_age_weight_scaling(self):
+        # We have a weak but reliable signal that this is a book for
+        # ages 5 to 7.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c1 = self.identifier.classify(
-            overdrive, Subject.OVERDRIVE, u"Picture Books", weight=1
+            overdrive, Subject.OVERDRIVE, u"Beginning Readers", weight=2
         )
         self.classifier.add(c1)
 
-        # We have a very strong but unreliable signal that this is a
-        # book for slightly older children.
+        # We have a louder but less reliable signal that this is a
+        # book for eleven-year-olds.
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         c2 = self.identifier.classify(
-            oclc, Subject.TAG, u"Grade 5", weight=10000
+            oclc, Subject.TAG, u"Grade 6", weight=3
         )
         self.classifier.add(c2)
 
-        # Only the reliable signal makes it into
-        # most_reliable_target_age_subset.
-        subset = self.classifier.most_reliable_target_age_subset
-        eq_([c1], subset)
+        # Both signals make it into the dataset, but they are weighted
+        # differently, and the more reliable signal becomes stronger.
+        lower = self.classifier.target_age_lower_weights
+        upper = self.classifier.target_age_upper_weights
+        assert lower[5] > lower[11]
+        assert upper[8] > upper[11]
+        eq_(lower[11], upper[11])
+        eq_(lower[5], upper[8])
 
-        # And only most_reliable_target_age_subset is used to calculate
-        # the target age.
+        # And this affects the target age we choose.
         a = self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         eq_(
-            Classifier.nr(0,4),
+            Classifier.nr(5,8),
             self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         )
 
