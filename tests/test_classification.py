@@ -1071,6 +1071,33 @@ class TestWorkClassifier(DatabaseTest):
         # [genre] = self.classifier.genres(True).items()
         # eq_((historical_romance.genredata, 105), genre)
 
+    def test_overdrive_juvenile_implicit_target_age(self):
+        # An Overdrive book that is classified under "Juvenile" but
+        # not under any more specific category is believed to have a
+        # target age range of 9-12.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        c = i.classify(source, Subject.OVERDRIVE, "Juvenile Fiction",
+                       weight=1)
+        self.classifier.add(c)
+        self.classifier.prepare_to_classify()
+        eq_([9], self.classifier.target_age_lower_weights.keys())
+        eq_([12], self.classifier.target_age_upper_weights.keys())
+
+    def test_overdrive_juvenile_explicit_target_age(self):
+        # An Overdrive book that is classified under "Juvenile" and
+        # also under some more specific category is believed to have
+        # the target age range associated with that more specific
+        # category.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        for subject in ("Juvenile Fiction", "Picture Books"):
+            c = i.classify(source, Subject.OVERDRIVE, subject, weight=1)
+        self.classifier.add(c)
+        self.classifier.prepare_to_classify()
+        eq_([0], self.classifier.target_age_lower_weights.keys())
+        eq_([4], self.classifier.target_age_upper_weights.keys())
+
     def test_genre_low_pass_filter(self):
 
         romance = self._genre(classifier.Romance)

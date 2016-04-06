@@ -3393,11 +3393,11 @@ class WorkClassifier(object):
             scaled_weight = classification.weight_as_indicator_of_target_age
             target_min = subject.target_age.lower
             target_max = subject.target_age.upper
-            if target_min:
+            if target_min is not None:
                 if not subject.target_age.lower_inc:
                     target_min += 1
                 self.target_age_lower_weights[target_min] += scaled_weight
-            if target_max:
+            if target_max is not None:
                 if not subject.target_age.upper_inc:
                     target_max += 1
                 self.target_age_upper_weights[target_max] += scaled_weight
