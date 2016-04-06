@@ -85,6 +85,10 @@ class Classifier(object):
     @classmethod
     def nr(cls, lower, upper):
         """Turn a 2-tuple into an inclusive NumericRange."""
+        # Just in case the upper and lower ranges are mixed up,
+        # and no prior code caught this, un-mix them.
+        if lower and upper and lower > upper:
+            lower, upper = upper, lower
         return NumericRange(lower, upper, '[]')
 
     @classmethod
@@ -338,14 +342,18 @@ class GradeLevelClassifier(Classifier):
                     else:
                         young, old = gr
 
-                    if (not young in cls.american_grade_to_age
-                        and not old in cls.american_grade_to_age):
+                    # Strip leading zeros
+                    if young and young.lstrip('0'):
+                        young = young.lstrip("0")
+                    if old and old.lstrip('0'):
+                        old = old.lstrip("0")
+
+                    young = cls.american_grade_to_age.get(young)
+                    old = cls.american_grade_to_age.get(old)
+
+                    if not young and not old:
                         return cls.nr(None, None)
 
-                    if young in cls.american_grade_to_age:
-                        young = cls.american_grade_to_age[young]
-                    if old in cls.american_grade_to_age:
-                        old = cls.american_grade_to_age[old]
                     if young:
                         young = int(young)
                     if old:
@@ -356,6 +364,8 @@ class GradeLevelClassifier(Classifier):
                         old = young
                     if young is None and old is not None:
                         young = old
+                    if old and young and  old < young:
+                        young, old = old, young
                     return cls.nr(young, old)
         return cls.nr(None, None)
 
@@ -3469,7 +3479,6 @@ class WorkClassifier(object):
             self.log.debug("Audience weights:")
             for k, v in self.audience_weights.most_common():
                 self.log.debug(" %s: %s", v, k)
-
         return genres, fiction, audience, target_age
 
     @property

@@ -83,6 +83,32 @@ class TestClassifierLookup(object):
         eq_(None, Classifier.lookup('no-such-key'))
 
 class TestTargetAge(object):
+
+    def test_nr_swaps_mismatched_ages(self):
+        """If for whatever reason a Classifier decides that something is from
+        ages 6 to 5, the Classifier.nr() method will automatically
+        convert this to "ages 5 to 6".
+
+        This sort of problem ought to be fixed inside the Classifier,
+        but if it does happen, nr() will stop it from causing
+        downstream problems.
+        """
+        range1 = Classifier.nr(5,6)
+        range2 = Classifier.nr(6,5)
+        eq_(range2, range1)
+        eq_(5, range2.lower)
+        eq_(6, range2.upper)
+
+        # If one of the target ages is None, it's left alone.
+        r = Classifier.nr(None,6)
+        eq_(None, r.lower)
+        eq_(6, r.upper)
+
+        r = Classifier.nr(18,None)
+        eq_(18, r.lower)
+        eq_(None, r.upper)
+
+
     def test_age_from_grade_classifier(self):
         def f(t):
             v = GradeLevelClassifier.target_age(t, None)
@@ -106,6 +132,10 @@ class TestTargetAge(object):
         eq_((13,13), f("grade 8"))
         eq_((14,14), f("9th grade"))
         eq_((15,17), f("grades 10-12"))
+        eq_((6,6), f("grades 00-01"))
+        eq_((8,12), f("grades 03-07"))
+        eq_((8,12), f("3-07"))
+        eq_((8,10), f("5 - 3"))
         eq_((17,17), f("12th grade"))
 
         # target_age() will assume that a number it sees is talking
@@ -137,6 +167,7 @@ class TestTargetAge(object):
         eq_((12,14), f("12 - 14"))
         eq_((12,14), f("14 - 12"))
         eq_((0,3), f("0-3"))
+        eq_((5,8), f("05 - 08"))
         eq_((None,None), f("K-3"))
         eq_((18, 20), f("Age 18+"))
 
