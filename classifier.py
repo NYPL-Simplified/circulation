@@ -87,7 +87,7 @@ class Classifier(object):
         """Turn a 2-tuple into an inclusive NumericRange."""
         # Just in case the upper and lower ranges are mixed up,
         # and no prior code caught this, un-mix them.
-        if lower > upper:
+        if lower and upper and lower > upper:
             lower, upper = upper, lower
         return NumericRange(lower, upper, '[]')
 

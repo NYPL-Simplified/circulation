@@ -99,6 +99,16 @@ class TestTargetAge(object):
         eq_(5, range2.lower)
         eq_(6, range2.upper)
 
+        # If one of the target ages is None, it's left alone.
+        r = Classifier.nr(None,6)
+        eq_(None, r.lower)
+        eq_(6, r.upper)
+
+        r = Classifier.nr(18,None)
+        eq_(18, r.lower)
+        eq_(None, r.upper)
+
+
     def test_age_from_grade_classifier(self):
         def f(t):
             v = GradeLevelClassifier.target_age(t, None)
