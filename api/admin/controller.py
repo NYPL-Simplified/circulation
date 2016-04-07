@@ -202,6 +202,13 @@ class WorkController(CirculationManagerController):
             work.primary_edition.title = unicode(new_title)
             changed = True
         
+        for field in ["publisher"]:
+            value = flask.request.form.get(field) or None
+            print value
+            if value != getattr(work, field):
+                setattr(work.primary_edition, field, value)
+                changed = True
+
         if changed:
             # Even if the presentation doesn't visibly change, we want
             # to regenerate the OPDS entries and update the search
