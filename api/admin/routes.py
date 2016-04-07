@@ -20,13 +20,13 @@ from templates import (
     admin_sign_in_again as sign_in_again_template,
 )
 
+# The secret key is used for signing cookies for admin login
+app.secret_key = Configuration.get(Configuration.SECRET_KEY)
+
 @app.before_first_request
 def setup_admin():
     if getattr(app, 'manager', None) is not None:
         setup_admin_controllers(app.manager)
-
-    # The secret key is used for signing cookies for admin login
-    app.secret_key = Configuration.get(Configuration.SECRET_KEY)
 
 def requires_admin(f):
     @wraps(f)
