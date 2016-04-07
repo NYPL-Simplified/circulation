@@ -3316,7 +3316,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=True):
+    def __init__(self, work, test_session=None, debug=False):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
@@ -3650,7 +3650,7 @@ class WorkClassifier(object):
 
         # Err on the side of setting the minimum age too high.
         if target_age_min > target_age_max:
-            target_age_min = target_age_max
+            target_age_max = target_age_min
         return Classifier.nr(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
