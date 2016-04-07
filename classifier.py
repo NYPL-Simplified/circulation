@@ -263,6 +263,9 @@ class Classifier(object):
             # generally intended to cover the entire
             # YA span.
             old = 17
+        elif young >= 8:
+            # "8 and up" means something like "8-12"
+            old = young + 4
         else:
             # Whereas "3 and up" really means more
             # like "3 to 5".

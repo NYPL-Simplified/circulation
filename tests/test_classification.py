@@ -85,6 +85,8 @@ class TestClassifier(object):
         eq_(None, u(6, "6 years old only"))
         eq_(5, u(3, "3 and up"))
         eq_(8, u(6, "6+"))
+        eq_(12, u(8, "8+"))
+        eq_(14, u(10, "10+"))
         eq_(17, u(12, "12 and up"))
         eq_(17, u(14, "14+."))
         eq_(18, u(18, "18+"))
