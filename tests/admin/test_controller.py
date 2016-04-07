@@ -76,12 +76,20 @@ class TestWorkController(AdminControllerTest):
     def test_edit(self):
         [lp] = self.english_1.license_pools
         with self.app.test_request_context("/"):
-            flask.request.form = ImmutableMultiDict([("title", "New title")])
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("publisher", "New publisher"),
+                ("summary", "<p>New summary</p>")
+            ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
 
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
+            eq_("New publisher", self.english_1.publisher)
+            assert "New publisher" in self.english_1.simple_opds_entry
+            eq_("<p>New summary</p>", self.english_1.summary_text)
+            assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
