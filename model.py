@@ -4856,8 +4856,8 @@ class Classification(Base):
         Subject.AXIS_360_AUDIENCE : 0.9,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
         (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.85,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.85,
         
         # Although Overdrive usually reserves Fiction and Nonfiction
         # for books for adults, it's not as reliable an indicator as

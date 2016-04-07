@@ -3330,6 +3330,7 @@ class WorkClassifier(object):
         self.prepared = False
         self.debug = debug
         self.classifications = []
+        self.seen_classifications = set()
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
 
         # Keep track of whether we've seen one of Overdrive's generic
@@ -3338,11 +3339,20 @@ class WorkClassifier(object):
         self.overdrive_juvenile_generic = False
         self.overdrive_juvenile_with_target_age = False
 
+
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        # Make sure the Subject is ready to be used in calculations.
+
+        # We only consider a given classification once from a given
+        # data source.
+        key = (classification.subject, classification.data_source)
+        if key in self.seen_classifications:
+            return
+        self.seen_classifications.add(key)
         if self.debug:
             self.classifications.append(classification)
+
+        # Make sure the Subject is ready to be used in calculations.
         if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
 
