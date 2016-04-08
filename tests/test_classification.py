@@ -61,13 +61,33 @@ class TestClassifier(object):
         aud(None, None, None)
         aud(None, 17, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(None, 4, Classifier.AUDIENCE_CHILDREN)
-        aud(None, 44, None)
+        aud(None, 44, Classifier.AUDIENCE_ADULT)
         aud(18, 44, Classifier.AUDIENCE_ADULT)
-        aud(12, 15, Classifier.AUDIENCE_CHILDREN)
         aud(14, 14, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(14, 19, Classifier.AUDIENCE_YOUNG_ADULT)
         aud(2, 14, Classifier.AUDIENCE_CHILDREN)
         aud(2, 8, Classifier.AUDIENCE_CHILDREN)
+
+        # We treat this as YA because its target age range overlaps
+        # our YA age range, and many external sources consider books
+        # for twelve-year-olds to be "YA".
+        aud(12, 15, Classifier.AUDIENCE_YOUNG_ADULT)
+
+        # Whereas this is unambiguously 'Children' as far as we're concerned.
+        aud(12, 13, Classifier.AUDIENCE_CHILDREN)
+
+    def test_and_up(self):
+        """Test the code that determines what "x and up" actually means."""
+        def u(young, keyword):
+            return Classifier.and_up(young, keyword)
+
+        eq_(None, u(None, None))
+        eq_(None, u(6, "6 years old only"))
+        eq_(5, u(3, "3 and up"))
+        eq_(8, u(6, "6+"))
+        eq_(17, u(12, "12 and up"))
+        eq_(17, u(14, "14+."))
+        eq_(18, u(18, "18+"))
 
 class TestClassifierLookup(object):
 
@@ -83,6 +103,32 @@ class TestClassifierLookup(object):
         eq_(None, Classifier.lookup('no-such-key'))
 
 class TestTargetAge(object):
+
+    def test_nr_swaps_mismatched_ages(self):
+        """If for whatever reason a Classifier decides that something is from
+        ages 6 to 5, the Classifier.nr() method will automatically
+        convert this to "ages 5 to 6".
+
+        This sort of problem ought to be fixed inside the Classifier,
+        but if it does happen, nr() will stop it from causing
+        downstream problems.
+        """
+        range1 = Classifier.nr(5,6)
+        range2 = Classifier.nr(6,5)
+        eq_(range2, range1)
+        eq_(5, range2.lower)
+        eq_(6, range2.upper)
+
+        # If one of the target ages is None, it's left alone.
+        r = Classifier.nr(None,6)
+        eq_(None, r.lower)
+        eq_(6, r.upper)
+
+        r = Classifier.nr(18,None)
+        eq_(18, r.lower)
+        eq_(None, r.upper)
+
+
     def test_age_from_grade_classifier(self):
         def f(t):
             v = GradeLevelClassifier.target_age(t, None)
@@ -106,6 +152,10 @@ class TestTargetAge(object):
         eq_((13,13), f("grade 8"))
         eq_((14,14), f("9th grade"))
         eq_((15,17), f("grades 10-12"))
+        eq_((6,6), f("grades 00-01"))
+        eq_((8,12), f("grades 03-07"))
+        eq_((8,12), f("3-07"))
+        eq_((8,10), f("5 - 3"))
         eq_((17,17), f("12th grade"))
 
         # target_age() will assume that a number it sees is talking
@@ -137,7 +187,13 @@ class TestTargetAge(object):
         eq_((12,14), f("12 - 14"))
         eq_((12,14), f("14 - 12"))
         eq_((0,3), f("0-3"))
+        eq_((5,8), f("05 - 08"))
         eq_((None,None), f("K-3"))
+        eq_((18, 18), f("Age 18+"))
+
+        # This could be improved but I've never actually seen a
+        # classification like this.
+        eq_((16, 16), f("up to age 16"))
 
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("K-3", None, True))
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("9-12", None, True))
@@ -173,6 +229,11 @@ class TestTargetAge(object):
         eq_(Classifier.AUDIENCE_CHILDREN, f("Age 5"))
         eq_(Classifier.AUDIENCE_ADULT, f("Age 18+"))
         eq_(None, f("Ages Of Man"))
+        eq_(None, f("Age -12"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("up to age 16"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("Age 12-14"))
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, f("Ages 13 and up"))
+        eq_(Classifier.AUDIENCE_CHILDREN, f("Age 12-13"))
 
     def test_audience_from_age_or_grade_classifier(self):
         def f(t):
@@ -235,8 +296,8 @@ class TestDewey(object):
         eq_(child, aud("NZJ300"))
         eq_(child, aud("E"))
         eq_(young_adult, aud("Y300"))
-        eq_(adult, aud("FIC"))
-        eq_(adult, aud("Fic"))
+        eq_(None, aud("FIC"))
+        eq_(None, aud("Fic"))
         eq_(adult, aud("B"))
         eq_(adult, aud("400"))
 
@@ -756,6 +817,48 @@ class TestWorkClassifier(DatabaseTest):
         new_classifier.add(c)
         eq_(True, new_classifier.fiction)
 
+    def test_juvenile_classification_is_split_between_children_and_ya(self):
+
+        # 3M files both children's and YA works under 'JUVENILE FICTION'.
+        # Here's how we deal with that.
+        #
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.THREEM)
+        c = i.classify(
+            source, Subject.THREEM, "JUVENILE FICTION/Historical/Africa/", 
+            weight=100
+        )
+        self.classifier.add(c)
+
+        # (This classification has no bearing on audience and its
+        # weight will be ignored.)
+        c2 = i.classify(
+            source, Subject.TAG, "Pets", 
+            weight=1000
+        )
+        self.classifier.add(c2)
+        self.classifier.prepare_to_classify
+        genres, fiction, audience, target_age = self.classifier.classify
+
+        # Young Adult wins because we err on the side of showing books
+        # to kids who are too old, rather than too young.
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
+
+        # But behind the scenes, more is going on. The weight of the
+        # classifier has been split 60/40 between YA and children.
+        weights = self.classifier.audience_weights
+        eq_(60, weights[Classifier.AUDIENCE_YOUNG_ADULT])
+        eq_(40, weights[Classifier.AUDIENCE_CHILDREN])
+        # If this is in fact a children's book, this will make it
+        # relatively easy for data from some other source to come in
+        # and tip the balance.
+
+        # The adult audiences have been reduced, to reduce the chance
+        # that splitting up the weight between YA and Children will
+        # cause the work to be mistakenly classified as Adult.
+        for aud in Classifier.AUDIENCES_ADULT:
+            eq_(-50, weights[aud])
+
     def test_adult_book_by_default(self):
         eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
 
@@ -867,33 +970,36 @@ class TestWorkClassifier(DatabaseTest):
         target_age = self.classifier.target_age(Classifier.AUDIENCE_ADULT)
         eq_(Classifier.nr(18, None), target_age)
 
-    def test_most_reliable_target_age_subset(self):
-        # We have a very weak but reliable signal that this is a book for
-        # young children.
+    def test_target_age_weight_scaling(self):
+        # We have a weak but reliable signal that this is a book for
+        # ages 5 to 7.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c1 = self.identifier.classify(
-            overdrive, Subject.OVERDRIVE, u"Picture Books", weight=1
+            overdrive, Subject.OVERDRIVE, u"Beginning Readers", weight=2
         )
         self.classifier.add(c1)
 
-        # We have a very strong but unreliable signal that this is a
-        # book for slightly older children.
+        # We have a louder but less reliable signal that this is a
+        # book for eleven-year-olds.
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         c2 = self.identifier.classify(
-            oclc, Subject.TAG, u"Grade 5", weight=10000
+            oclc, Subject.TAG, u"Grade 6", weight=3
         )
         self.classifier.add(c2)
 
-        # Only the reliable signal makes it into
-        # most_reliable_target_age_subset.
-        subset = self.classifier.most_reliable_target_age_subset
-        eq_([c1], subset)
+        # Both signals make it into the dataset, but they are weighted
+        # differently, and the more reliable signal becomes stronger.
+        lower = self.classifier.target_age_lower_weights
+        upper = self.classifier.target_age_upper_weights
+        assert lower[5] > lower[11]
+        assert upper[8] > upper[11]
+        eq_(lower[11], upper[11])
+        eq_(lower[5], upper[8])
 
-        # And only most_reliable_target_age_subset is used to calculate
-        # the target age.
+        # And this affects the target age we choose.
         a = self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         eq_(
-            Classifier.nr(0,4),
+            Classifier.nr(5,8),
             self.classifier.target_age(Classifier.AUDIENCE_CHILDREN)
         )
 
@@ -965,6 +1071,33 @@ class TestWorkClassifier(DatabaseTest):
         # [genre] = self.classifier.genres(True).items()
         # eq_((historical_romance.genredata, 105), genre)
 
+    def test_overdrive_juvenile_implicit_target_age(self):
+        # An Overdrive book that is classified under "Juvenile" but
+        # not under any more specific category is believed to have a
+        # target age range of 9-12.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        c = i.classify(source, Subject.OVERDRIVE, "Juvenile Fiction",
+                       weight=1)
+        self.classifier.add(c)
+        self.classifier.prepare_to_classify()
+        eq_([9], self.classifier.target_age_lower_weights.keys())
+        eq_([12], self.classifier.target_age_upper_weights.keys())
+
+    def test_overdrive_juvenile_explicit_target_age(self):
+        # An Overdrive book that is classified under "Juvenile" and
+        # also under some more specific category is believed to have
+        # the target age range associated with that more specific
+        # category.
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        for subject in ("Juvenile Fiction", "Picture Books"):
+            c = i.classify(source, Subject.OVERDRIVE, subject, weight=1)
+        self.classifier.add(c)
+        self.classifier.prepare_to_classify()
+        eq_([0], self.classifier.target_age_lower_weights.keys())
+        eq_([4], self.classifier.target_age_upper_weights.keys())
+
     def test_genre_low_pass_filter(self):
 
         romance = self._genre(classifier.Romance)
@@ -985,6 +1118,20 @@ class TestWorkClassifier(DatabaseTest):
 
         [[g1, weight], [g2, weight]] = self.classifier.genres(True).items()
         eq_(set([g1, g2]), set([romance.genredata, sf.genredata]))
+
+    def test_classify_sets_minimum_age_high_if_minimum_lower_than_maximum(self):
+
+        # We somehow end up in a situation where the proposed low end
+        # of the target age is higher than the proposed high end.
+        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 1
+        self.classifier.target_age_lower_weights[10] = 1
+        self.classifier.target_age_upper_weights[4] = 1
+        
+        # We set the low end equal to the high end, erring on the side
+        # of making the book available to fewer people.
+        genres, fiction, audience, target_age = self.classifier.classify
+        eq_(10, target_age.lower)
+        eq_(10, target_age.upper)
 
     def test_classify(self):
         # At this point we've tested all the components of classify, so just

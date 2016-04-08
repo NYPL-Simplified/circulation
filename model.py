@@ -1499,9 +1499,10 @@ class Identifier(Base):
         #    print repr(subject)
 
         logging.debug(
-            "CLASSIFICATION: %s on %s/%s: %s %s/%s",
+            "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
             data_source.name, self.type, self.identifier,
-            subject.type, subject.identifier, subject.name
+            subject.type, subject.identifier, subject.name, 
+            weight
         )
 
         # Use a Classification to connect the Identifier to the
@@ -1693,12 +1694,13 @@ class Identifier(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source):
+            cls, _db, identifier_types, coverage_data_source, operation=None):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source)
+                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.operation==operation)
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
@@ -2446,7 +2448,9 @@ class Edition(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, edition_data_sources, coverage_data_source):
+            cls, _db, edition_data_sources, coverage_data_source, 
+            operation=None
+    ):
         """Find Editions from `edition_data_source` whose primary
         identifiers have no CoverageRecord from
         `coverage_data_source`.
@@ -2465,8 +2469,11 @@ class Edition(Base):
         if isinstance(edition_data_sources, DataSource):
             edition_data_sources = [edition_data_sources]
         edition_data_source_ids = [x.id for x in edition_data_sources]
-        join_clause = ((Edition.primary_identifier_id==CoverageRecord.identifier_id) &
-                       (CoverageRecord.data_source_id==coverage_data_source.id))
+        join_clause = (
+            (Edition.primary_identifier_id==CoverageRecord.identifier_id) &
+            (CoverageRecord.data_source_id==coverage_data_source.id) &
+            (CoverageRecord.operation==operation)
+        )
         
         q = _db.query(Edition).outerjoin(
             CoverageRecord, join_clause)
@@ -2847,7 +2854,7 @@ class Edition(Base):
             self.calculate_permanent_work_id()
             self.set_open_access_link()
             CoverageRecord.add_for(
-                self, data_source=self.data_source, 
+                self, data_source=self.data_source,
                 operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
             )
 
@@ -2940,7 +2947,7 @@ class Edition(Base):
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.
         CoverageRecord.add_for(
-            self, data_source=self.data_source, 
+            self, data_source=self.data_source,
             operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
 
@@ -4810,26 +4817,85 @@ class Classification(Base):
             weight = weight * 50
         return weight
 
+    # These subject types are known to be problematic in that their
+    # "Juvenile" classifications are applied indiscriminately to both
+    # YA books and Children's books. As such, we need to split the
+    # difference when weighing a classification whose subject is of
+    # this type.
+    #
+    # This goes into Classification rather than Subject because it's
+    # possible that one particular data source could use a certain
+    # subject type in an unreliable way.
+    #
+    # In fact, the 3M classifications are basically BISAC
+    # classifications used in an unreliable way, so we could merge
+    # them in the future.
+    _juvenile_subject_types = set([
+        Subject.THREEM,
+        Subject.LCC
+    ])
+
     _quality_as_indicator_of_target_age = {
-        # These measure age appropriateness.
-        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
-        Subject.AXIS_360_AUDIENCE : 30,
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 20,
-        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
-        Subject.OVERDRIVE : 15,
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+        
+        # Not all classifications are equally reliable as indicators
+        # of a target age. This dictionary contains the coefficients
+        # we multiply against the weights of incoming classifications
+        # to reflect the overall reliability of that type of
+        # classification.
+        #
+        # If we had a ton of information about target age this might
+        # not be necessary--it doesn't seem necessary for genre
+        # classifications. But we sometimes have very little
+        # information about target age, so being careful about how
+        # much we trust different data sources can become important.
+        
+        DataSource.MANUAL : 1.0,
+        DataSource.LIBRARY_STAFF: 1.0,        
+        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 1.0,
 
-        # These measure reading level, except for TAG, which measures
-        # who-knows-what.
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 5,
-        Subject.TAG : 2,
-        Subject.LEXILE_SCORE : 1,
-        Subject.ATOS_SCORE: 1,
+        Subject.AXIS_360_AUDIENCE : 0.9,
+        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        
+        # Although Overdrive usually reserves Fiction and Nonfiction
+        # for books for adults, it's not as reliable an indicator as
+        # other Overdrive classifications.
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 0.7,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 0.7,
+        
+        Subject.AGE_RANGE : 0.6,
+        Subject.GRADE_LEVEL : 0.6,
+        
+        # There's no real way to know what this measures, since it
+        # could be anything. If a tag mentions a target age or a grade
+        # level, the accuracy seems to be... not terrible.
+        Subject.TAG : 0.45,
 
-        Subject.AGE_RANGE : 10,
-        Subject.GRADE_LEVEL : 10,
+        # Tags that come from OCLC Linked Data are of lower quality
+        # because they sometimes talk about completely the wrong book.
+        (DataSource.OCLC_LINKED_DATA, Subject.TAG) : 0.3,
+        
+        # These measure reading level, not age appropriateness.
+        # However, if the book is a remedial work for adults we won't
+        # be calculating a target age in the first place, so it's okay
+        # to use reading level as a proxy for age appropriateness in a
+        # pinch. (But not outside of a pinch.)
+        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 0.35,
+        Subject.LEXILE_SCORE : 0.1,
+        Subject.ATOS_SCORE: 0.1,
     }
+
+    @property
+    def generic_juvenile_audience(self):        
+        """Is this a classification that mentions (e.g.) a Children's audience
+        but is actually a generic 'Juvenile' classification?
+        """
+        return (
+            self.subject.audience in Classifier.AUDIENCES_JUVENILE
+            and self.subject.type in self._juvenile_subject_types
+        )
     
     @property
     def quality_as_indicator_of_target_age(self):
@@ -4838,11 +4904,21 @@ class Classification(Base):
         data_source = self.data_source.name
         subject_type = self.subject.type
         q = self._quality_as_indicator_of_target_age
-        if (data_source, subject_type) in q:
-            return q[(data_source, subject_type)]
-        if subject_type in q:
-            return q[subject_type]
+
+        keys = [
+            (data_source, subject_type, self.subject.identifier),
+            (data_source, subject_type),
+            data_source,
+            subject_type
+        ]
+        for key in keys:
+            if key in q:
+                return q[key]
         return 0.1
+
+    @property
+    def weight_as_indicator_of_target_age(self):
+        return self.weight * self.quality_as_indicator_of_target_age
 
     @property
     def comes_from_license_source(self):

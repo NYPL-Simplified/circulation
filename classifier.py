@@ -12,6 +12,7 @@
 # SQL to find commonly used classifications not assigned to a genre 
 # select count(identifiers.id) as c, subjects.type, substr(subjects.identifier, 0, 20) as i, substr(subjects.name, 0, 20) as n from workidentifiers join classifications on workidentifiers.id=classifications.work_identifier_id join subjects on classifications.subject_id=subjects.id where subjects.genre_id is null and subjects.fiction is null group by subjects.type, i, n order by c desc;
 
+import logging
 import json
 import os
 import pkgutil
@@ -73,6 +74,7 @@ class Classifier(object):
     # A book for a child 14 or older is a young adult book.
     YOUNG_ADULT_AGE_CUTOFF = 14
 
+    AUDIENCES_JUVENILE = [AUDIENCE_CHILDREN, AUDIENCE_YOUNG_ADULT]
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN])
@@ -83,6 +85,10 @@ class Classifier(object):
     @classmethod
     def nr(cls, lower, upper):
         """Turn a 2-tuple into an inclusive NumericRange."""
+        # Just in case the upper and lower ranges are mixed up,
+        # and no prior code caught this, un-mix them.
+        if lower and upper and lower > upper:
+            lower, upper = upper, lower
         return NumericRange(lower, upper, '[]')
 
     @classmethod
@@ -196,42 +202,72 @@ class Classifier(object):
         return cls.nr(None, None)
 
     @classmethod
-    def default_audience_for_target_age(cls, target_age):
-        """The default audience for a given target age.
-
-        Inverse of default_target_age_for_audience.
-        """
-        if not target_age:
-            # We were not passed a NumericRange
+    def default_audience_for_target_age(cls, nr):
+        if nr is None:
             return None
-
-        lower = target_age.lower
-        upper = target_age.upper
-
+        lower = nr.lower
+        upper = nr.upper
         if not lower and not upper:
-            # We have no information.
+            return None
+        if lower and not nr.lower_inc:
+            lower += 1
+        if upper and not nr.upper_inc:
+            upper += 1
+        if not lower:
+            if upper > 18:
+                # e.g. "up to 20 years", though that doesn't
+                # make much sense.
+                return cls.AUDIENCE_ADULT
+            elif upper > cls.YOUNG_ADULT_AGE_CUTOFF:
+                # e.g. "up to 15 years"
+                return cls.AUDIENCE_YOUNG_ADULT
+            else:
+                # e.g. "up to 14 years"
+                return cls.AUDIENCE_CHILDREN
+
+        # At this point we can assume that lower is not None.
+        if lower >= 18:
+            return cls.AUDIENCE_ADULT
+        elif lower >= cls.YOUNG_ADULT_AGE_CUTOFF:
+            return cls.AUDIENCE_YOUNG_ADULT
+        elif lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
+            # Although we treat "Young Adult" as starting at 14, many
+            # outside sources treat it as starting at 12. As such we
+            # treat "12 and up" or "12-14" as an indicator of a Young
+            # Adult audience, with a target age that overlaps what we
+            # consider a Children audience.
+            return cls.AUDIENCE_YOUNG_ADULT
+        else:
+            return cls.AUDIENCE_CHILDREN
+
+    @classmethod
+    def and_up(cls, young, keyword):
+        """Encapsulates the logic of what "[x] and up" actually means.
+
+        Given the lower end of an age range, tries to determine the
+        upper end of the range.
+        """
+        if young is None:
+            return None
+        if not any(
+                [keyword.endswith(x) for x in 
+                 ("and up", "and up.", "+", "+.")
+             ]
+        ):
             return None
 
-        # Sometimes we can determine audience given only a lower bound.
-        if lower:
-            if lower < cls.YOUNG_ADULT_AGE_CUTOFF:
-                return Classifier.AUDIENCE_CHILDREN
-            elif lower < 18:
-                return Classifier.AUDIENCE_YOUNG_ADULT
-            else:
-                return Classifier.AUDIENCE_ADULT
-
-        # Sometimes we can determine audience given only an upper
-        # bound.
-        if upper:
-            if upper < cls.YOUNG_ADULT_AGE_CUTOFF:
-                return Classifier.AUDIENCE_CHILDREN
-            elif upper < 18:
-                return Classifier.AUDIENCE_YOUNG_ADULT
-
-        # This will happen if lower is null and upper is greater than 18.
-        # This is a pretty weird case and we don't have a good answer.
-        return None
+        if young >= 18:
+            old = young
+        elif young >= 12:
+            # "12 and up", "14 and up", etc.  are
+            # generally intended to cover the entire
+            # YA span.
+            old = 17
+        else:
+            # Whereas "3 and up" really means more
+            # like "3 to 5".
+            old = young + 2
+        return old
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.
@@ -296,16 +332,8 @@ class GradeLevelClassifier(Classifier):
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
-        young = target_age.lower
-        old = target_age.upper
-        if not young:
-            return None
-        if young < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            return Classifier.AUDIENCE_CHILDREN
-        elif young < 18:
-            return Classifier.AUDIENCE_YOUNG_ADULT
-        else:
-            return Classifier.AUDIENCE_ADULT
+        return cls.default_audience_for_target_age(target_age)
+        
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_grade_marker=False):
@@ -336,24 +364,30 @@ class GradeLevelClassifier(Classifier):
                     else:
                         young, old = gr
 
-                    if (not young in cls.american_grade_to_age
-                        and not old in cls.american_grade_to_age):
+                    # Strip leading zeros
+                    if young and young.lstrip('0'):
+                        young = young.lstrip("0")
+                    if old and old.lstrip('0'):
+                        old = old.lstrip("0")
+
+                    young = cls.american_grade_to_age.get(young)
+                    old = cls.american_grade_to_age.get(old)
+
+                    if not young and not old:
                         return cls.nr(None, None)
 
-                    if young in cls.american_grade_to_age:
-                        young = cls.american_grade_to_age[young]
-                    if old in cls.american_grade_to_age:
-                        old = cls.american_grade_to_age[old]
                     if young:
                         young = int(young)
                     if old:
                         old = int(old)
-                    if not old and k.endswith("and up"):
-                        old = young + 2
+                    if old is None:
+                        old = cls.and_up(young, k)
                     if old is None and young is not None:
                         old = young
                     if young is None and old is not None:
                         young = old
+                    if old and young and  old < young:
+                        young, old = old, young
                     return cls.nr(young, old)
         return cls.nr(None, None)
 
@@ -418,16 +452,7 @@ class AgeClassifier(Classifier):
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
-        lower = target_age.lower
-        upper = target_age.upper
-        if not lower and not upper:
-            return None
-        if lower < 12:
-            return Classifier.AUDIENCE_CHILDREN
-        elif lower < 18:
-            return Classifier.AUDIENCE_YOUNG_ADULT
-        else:
-            return Classifier.AUDIENCE_ADULT
+        return cls.default_audience_for_target_age(target_age)
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
@@ -454,12 +479,8 @@ class AgeClassifier(Classifier):
                         young = int(groups[0])
                         if len(groups) > 1 and groups[1] != None:
                             old = int(groups[1])
-                    if not old and any(
-                            [k.endswith(x) for x in 
-                             ("and up", "and up.", "+", "+.")
-                            ]
-                    ):
-                        old = young + 2
+                    if old is None:
+                        old = cls.and_up(young, k)
                     if old is None and young is not None:
                         old = young
                     if young is None and old is not None:
@@ -1523,6 +1544,9 @@ class DeweyDecimalClassifier(Classifier):
         if isinstance(identifier, basestring) and identifier.startswith('Y'):
             return cls.AUDIENCE_YOUNG_ADULT
 
+        if isinstance(identifier, basestring) and identifier=='FIC':
+            # FIC is used for all types of fiction.
+            return None
         return cls.AUDIENCE_ADULT
 
     @classmethod
@@ -3299,19 +3323,27 @@ class WorkClassifier(object):
         self.work = work
         self.fiction_weights = Counter()
         self.audience_weights = Counter()
-        self.target_age_relevant_classifications = set()
+        self.target_age_lower_weights = Counter()
+        self.target_age_upper_weights = Counter()
         self.genre_weights = Counter()
         self.direct_from_license_source = set()
         self.prepared = False
         self.debug = debug
         self.classifications = []
+        self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
+
+        # Keep track of whether we've seen one of Overdrive's generic
+        # "Juvenile" classifications, as well as its more specific
+        # subsets like "Picture Books" and "Beginning Readers"
+        self.overdrive_juvenile_generic = False
+        self.overdrive_juvenile_with_target_age = False
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
         # Make sure the Subject is ready to be used in calculations.
         if self.debug:
             self.classifications.append(classification)
-        if not classification.subject.checked:
+        if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
 
         if classification.comes_from_license_source:
@@ -3336,14 +3368,51 @@ class WorkClassifier(object):
         if subject.genre:
             self.weigh_genre(subject.genre, weight)
 
-        self.audience_weights[subject.audience] += weight
+        if classification.generic_juvenile_audience:
+            # We have a generic 'juvenile' classification. The
+            # audience might say 'Children' or it might say 'Young
+            # Adult' but we don't actually know which it is.
+            #
+            # We're going to split the difference, with a slight
+            # preference for YA, to bias against showing
+            # age-inappropriate material to children. To
+            # counterbalance the fact that we're splitting up the
+            # weight this way, we're also going to treat this
+            # classification as evidence _against_ an 'adult'
+            # classification.
+            self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
+            self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
+            for audience in Classifier.AUDIENCES_ADULT:
+                self.audience_weights[audience] -= weight * 0.5
+        else:
+            self.audience_weights[subject.audience] += weight
 
-        # We can't evaluate target age until all the data is in, so
-        # save the classification for later if it's relevant
-        if subject.target_age and (
-                subject.target_age.lower or subject.target_age.upper
-        ):
-            self.target_age_relevant_classifications.add(classification)
+        if subject.target_age:
+            # Figure out how reliable this classification really is as
+            # an indicator of a target age.
+            scaled_weight = classification.weight_as_indicator_of_target_age
+            target_min = subject.target_age.lower
+            target_max = subject.target_age.upper
+            if target_min is not None:
+                if not subject.target_age.lower_inc:
+                    target_min += 1
+                self.target_age_lower_weights[target_min] += scaled_weight
+            if target_max is not None:
+                if not subject.target_age.upper_inc:
+                    target_max += 1
+                self.target_age_upper_weights[target_max] += scaled_weight
+
+        if subject.type=='Overdrive' and subject.audience==Classifier.AUDIENCE_CHILDREN:
+            if subject.target_age and (
+                    subject.target_age.lower or subject.target_age.upper
+            ):
+                # This is a juvenile classification like "Picture
+                # Books" which implies a target age.
+                self.overdrive_juvenile_with_target_age = classification
+            else:
+                # This is a generic juvenile classification like
+                # "Juvenile Fiction".
+                self.overdrive_juvenile_generic = classification
 
     def weigh_metadata(self):
         """Modify the weights according to the given Work's metadata.
@@ -3408,6 +3477,18 @@ class WorkClassifier(object):
             # distinguished by their _lack_ of childrens/YA
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
+
+        if (self.overdrive_juvenile_generic 
+            and not self.overdrive_juvenile_with_target_age):
+            # This book is classified under 'Juvenile Fiction' but not
+            # under 'Picture Books' or 'Beginning Readers'. The
+            # implicit target age here is 9-12 (the portion of
+            # Overdrive's 'juvenile' age range not covered by 'Picture
+            # Books' or 'Beginning Readers'.
+            weight = self.overdrive_juvenile_generic.weight_as_indicator_of_target_age
+            self.target_age_lower_weights[9] += weight
+            self.target_age_upper_weights[12] += weight
+
         self.prepared = True
 
     @property
@@ -3416,11 +3497,27 @@ class WorkClassifier(object):
         if not self.prepared:
             self.prepare_to_classify()
 
+        if self.debug:
+            for c in self.classifications:
+                self.log.debug(
+                    "%d %r (via %s)", c.weight, c.subject, c.data_source.name
+                )
+
         # Actually figure out the classifications
         fiction = self.fiction
         genres = self.genres(fiction)
         audience = self.audience(genres)
         target_age = self.target_age(audience)
+        if self.debug:
+            self.log.debug("Fiction weights:")
+            for k, v in self.fiction_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
+            self.log.debug("Genre weights:")
+            for k, v in self.genre_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
+            self.log.debug("Audience weights:")
+            for k, v in self.audience_weights.most_common():
+                self.log.debug(" %s: %s", v, k)
         return genres, fiction, audience, target_age
 
     @property
@@ -3516,37 +3613,29 @@ class WorkClassifier(object):
             return Classifier.default_target_age_for_audience(audience)
 
         # Only consider the most reliable classifications.
-        reliable_classifications = self.most_reliable_target_age_subset
-
+        
         # Try to reach consensus on the lower and upper bounds of the
         # age range.
-        target_age_mins = []
-        target_age_maxes = []
-        for c in reliable_classifications:
-            target_age = c.subject.target_age
-            target_min = c.subject.target_age.lower
-            target_max = c.subject.target_age.upper
-            if target_min is not None:
-                if not c.subject.target_age.lower_inc:
-                    target_min += 1
-                for i in range(0,c.weight):
-                    target_age_mins.append(target_min)
-            if target_max is not None:
-                if not c.subject.target_age.upper_inc:
-                    target_max -= 1
-                for i in range(0,c.weight):
-                    target_age_maxes.append(target_max)
+        if self.debug:
+            if self.target_age_lower_weights:
+                self.log.debug("Possible target age minima:")
+                for k, v in self.target_age_lower_weights.most_common():
+                    self.log.debug(" %s: %s", v, k)
+            if self.target_age_upper_weights:
+                self.log.debug("Possible target age maxima:")
+                for k, v in self.target_age_upper_weights.most_common():
+                    self.log.debug(" %s: %s", v, k)
 
         target_age_min = None
         target_age_max = None
-        if target_age_mins:
+        if self.target_age_lower_weights:
             # Find the youngest age in the top tier of values.
-            candidates = self.top_tier_values(Counter(target_age_mins))
+            candidates = self.top_tier_values(self.target_age_lower_weights)
             target_age_min = min(candidates)
 
-        if target_age_maxes:
+        if self.target_age_upper_weights:
             # Find the oldest age in the top tier of values.
-            candidates = self.top_tier_values(Counter(target_age_maxes))
+            candidates = self.top_tier_values(self.target_age_upper_weights)
             target_age_max = max(candidates)
 
         if not target_age_min and not target_age_max:
@@ -3559,10 +3648,9 @@ class WorkClassifier(object):
         if target_age_max is None:
             target_age_max = target_age_min
 
-        # If min and max got mixed up somehow, un-mix them. This should
-        # never happen, but we fix it just in case.
+        # Err on the side of setting the minimum age too high.
         if target_age_min > target_age_max:
-            target_age_min, target_age_max = target_age_max, target_age_min
+            target_age_max = target_age_min
         return Classifier.nr(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
@@ -3598,37 +3686,6 @@ class WorkClassifier(object):
         from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
-
-    @property
-    def most_reliable_target_age_subset(self):
-        """Not all target age data is created equal. This method isolates the
-        most reliable subset of a set of classifications.
-        
-        For example, if we have an Overdrive classification saying
-        that the book is a picture book (target age: 0-3), and we also
-        have a bunch of tags saying that the book is for ages 2-5 and
-        0-2 and 1-3 and 12-13, we will use the (reliable) Overdrive
-        classification and ignore the (unreliable) tags altogether,
-        rather than try to average everything out.
-        
-        But if there is no Overdrive classification, that set of tags
-        will be the most reliable target age subset, and we'll
-        just do the best we can.
-        """
-        highest_quality_score = None
-        reliable_classifications = []
-        for c in self.target_age_relevant_classifications:
-            score = c.quality_as_indicator_of_target_age
-            if not score:
-                continue
-            if (not highest_quality_score or score > highest_quality_score):
-                # If we gather a bunch of data, then discover a more reliable
-                # type of data, we need to start all over.
-                highest_quality_score = score
-                reliable_classifications = []
-            if score == highest_quality_score:
-                reliable_classifications.append(c)
-        return reliable_classifications    
 
     @classmethod
     def consolidate_genre_weights(

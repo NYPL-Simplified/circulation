@@ -16,6 +16,7 @@ from metadata_layer import (
     Metadata,
     IdentifierData,
     ReplacementPolicy,
+    SubjectData,
 )
 
 import os
@@ -26,8 +27,9 @@ from model import (
     Identifier,
     Measurement,
     DeliveryMechanism,
-    Hyperlink,
+    Hyperlink, 
     Representation,
+    Subject,
 )
 
 from . import (
@@ -96,6 +98,29 @@ class TestMetadataImporter(DatabaseTest):
              for x in sorted(m2.subjects, key=lambda x: x.identifier)]
         )
 
+    def test_classifications_from_another_source_not_updated(self):
+
+        # Set up an edition whose primary identifier has two
+        # classifications.
+        source1 = DataSource.lookup(self._db, DataSource.AXIS_360)
+        source2 = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        edition = self._edition()
+        identifier = edition.primary_identifier
+        c1 = identifier.classify(source1, Subject.TAG, "i will persist")
+        c2 = identifier.classify(source2, Subject.TAG, "i will perish")
+
+        # Now we get some new metadata from source #2.
+        subjects = [SubjectData(type=Subject.TAG, identifier="i will conquer")]
+        metadata = Metadata(subjects=subjects, data_source=source2)
+        replace = ReplacementPolicy(subjects=True)
+        metadata.apply(edition, replace=replace)
+
+        # The old classification from source #2 has been destroyed.
+        # The old classification from source #1 is still there.
+        eq_(
+            ['i will conquer', 'i will persist'],
+            sorted([x.subject.identifier for x in identifier.classifications])
+        )
 
     def test_links(self):
         edition = self._edition()
