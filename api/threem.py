@@ -21,6 +21,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    get_one,
     Identifier,
     LicensePool,
     Representation,
@@ -28,6 +29,7 @@ from core.model import (
     Loan,
     Hold,
     Session,
+    Timestamp,
 )
 
 from core.monitor import (
@@ -609,28 +611,36 @@ class ThreeMEventMonitor(Monitor):
                  cli_date=None, testing=False):
         self.service_name = "3M Event Monitor"
         if not default_start_time:
-            default_start_time = self.create_default_start_time(cli_date)
+            default_start_time = self.create_default_start_time(_db, cli_date)
         super(ThreeMEventMonitor, self).__init__(
             _db, self.service_name, default_start_time=default_start_time)
         self.api = ThreeMAPI(self._db, testing=testing)
 
-    def create_default_start_time(self, cli_date):
+    def create_default_start_time(self, _db, cli_date):
         """Sets the default start time if it's passed as an argument.
 
         The command line date argument should have the format YYYY-MM-DD.
         """
+        initialized = get_one(_db, Timestamp, self.service_name)
+        two_years_ago = datetime.datetime.utcnow() - self.TWO_YEARS_AGO
+
         if cli_date:
             try:
                 date = cli_date[0]
                 return datetime.datetime.strptime(date, "%Y-%m-%d")
             except ValueError as e:
                 # Date argument wasn't in the proper format.
-                two_years_ago = datetime.datetime.utcnow() - self.TWO_YEARS_AGO
                 self.log.warn(
                     "%r. Using default date instead: %s.", e,
                     two_years_ago.strftime("%B %d, %Y")
                 )
                 return two_years_ago
+        if not initialized:
+            self.log.info(
+                "Initializing %s from date: %s.", self.service_name,
+                two_years_ago.strftime("%B %d, %Y")
+            )
+            return two_years_ago
         return None
 
     def slice_timespan(self, start, cutoff, increment):
