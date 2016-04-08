@@ -100,6 +100,13 @@ def unsuppress(data_source, identifier):
 def refresh(data_source, identifier):
     return app.manager.admin_work_controller.refresh_metadata(data_source, identifier)
 
+@app.route('/admin/works/<data_source>/<identifier>/resolve_complaints', methods=['POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def resolve(data_source, identifier):
+    return app.manager.admin_work_controller.resolve(data_source, identifier)
+
 @app.route('/admin/complaints')
 @returns_problem_detail
 @requires_admin

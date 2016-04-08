@@ -279,8 +279,26 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
+    def resolve(self, data_source, identifier):
+        """Resolve complaints about a book."""
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        resolved = False
+
+        type = flask.request.form.get("type")
+        if type:
+            for complaint in pool.complaints:
+                if complaint.type == type and complaint.resolved == None:
+                    complaint.resolve()
+                    resolved = True
+
+        return Response("", 200)
+
     def _count_complaints_for_licensepool(self, pool):
-        complaint_types = [complaint.type for complaint in pool.complaints]
+        complaint_types = [complaint.type for complaint in pool.complaints if complaint.resolved == None]
         return Counter(complaint_types)
 
     
