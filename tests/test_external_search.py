@@ -629,8 +629,8 @@ class TestSearchQuery(DatabaseTest):
         classification_query = must[2]['bool']['must']
         eq_(2, len(classification_query))
         genre_query = classification_query[0]['match']
-        assert 'classifications.name' in genre_query
-        eq_('Romance', genre_query['classifications.name'])
+        assert 'genres.name' in genre_query
+        eq_('Romance', genre_query['genres.name'])
         remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "romance" not in remaining_query['query']
@@ -665,8 +665,8 @@ class TestSearchQuery(DatabaseTest):
         classification_query = must[2]['bool']['must']
         eq_(3, len(classification_query))
         genre_query = classification_query[0]['match']
-        assert 'classifications.name' in genre_query
-        eq_('Romance', genre_query['classifications.name'])
+        assert 'genres.name' in genre_query
+        eq_('Romance', genre_query['genres.name'])
         fiction_query = classification_query[1]['match']
         assert 'fiction' in fiction_query
         eq_('Fiction', fiction_query['fiction'])
