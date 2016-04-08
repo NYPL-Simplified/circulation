@@ -279,21 +279,39 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def resolve(self, data_source, identifier):
-        """Resolve complaints about a book."""
+    def resolve_complaints(self, data_source, identifier):
+        """Resolve all complaints for a particular license pool and complaint type."""
 
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
         resolved = False
+        found = False
 
         type = flask.request.form.get("type")
         if type:
             for complaint in pool.complaints:
-                if complaint.type == type and complaint.resolved == None:
-                    complaint.resolve()
-                    resolved = True
+                if complaint.type == type:
+                    found = True
+                    if complaint.resolved == None:
+                        complaint.resolve()
+                        resolved = True
+
+        if not found:
+            return ProblemDetail(
+                "http://librarysimplified.org/terms/problem/unrecognized-complaint",
+                status_code=404,
+                title="Unrecognized complaint.",
+                detail="The complaint you are attempting to resolve could not be found."
+            )
+        elif not resolved:
+            return ProblemDetail(
+                "http://librarysimplified.org/terms/problem/complaint-already-resolved",
+                status_code=409,
+                title="Complaint already resolved.",
+                detail="You can't resolve a complaint that is already resolved."
+            )
 
         return Response("", 200)
 

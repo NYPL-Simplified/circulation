@@ -104,8 +104,8 @@ def refresh(data_source, identifier):
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def resolve(data_source, identifier):
-    return app.manager.admin_work_controller.resolve(data_source, identifier)
+def resolve_complaints(data_source, identifier):
+    return app.manager.admin_work_controller.resolve_complaints(data_source, identifier)
 
 @app.route('/admin/complaints')
 @returns_problem_detail
