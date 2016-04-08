@@ -6808,7 +6808,7 @@ class Complaint(Base):
         return complaint, is_new
 
     def resolve(self):
-        self.resolved = datetime.datetime.now()
+        self.resolved = datetime.datetime.utcnow()
         return self.resolved
 
 
