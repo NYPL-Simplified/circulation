@@ -3881,33 +3881,39 @@ class Work(Base):
                 dict(name=contributor.name, family_name=contributor.family_name,
                      role=contribution.role))
 
-        # identifier_ids = self.all_identifier_ids()
-        # classifications = Identifier.classifications_for_identifier_ids(
-        #     _db, identifier_ids)
-        # by_scheme_and_term = Counter()
-        # classification_total_weight = 0.0
-        # for c in classifications:
-        #     subject = c.subject
-        #     if subject.type in Subject.uri_lookup:
-        #         scheme = Subject.uri_lookup[subject.type]
-        #         term = subject.name or subject.identifier
-        #         if not term:
-        #             # There's no text to search for.
-        #             continue
-        #         key = (scheme, term)
-        #         by_scheme_and_term[key] += c.weight
-        #         classification_total_weight += c.weight
+        identifier_ids = self.all_identifier_ids()
+        classifications = Identifier.classifications_for_identifier_ids(
+            _db, identifier_ids)
+        by_scheme_and_term = Counter()
+        classification_total_weight = 0.0
+        for c in classifications:
+            subject = c.subject
+            if not subject.type in Subject.TYPES_FOR_SEARCH:
+                # This subject type doesn't have terms that are useful for search
+                continue
+            if subject.type in Subject.uri_lookup:
+                scheme = Subject.uri_lookup[subject.type]
+                term = subject.name or subject.identifier
+                if not term:
+                    # There's no text to search for.
+                    continue
+                term = term.replace("/", " ").replace("--", " ")
+                key = (scheme, term)
+                by_scheme_and_term[key] += c.weight
+                classification_total_weight += c.weight
 
         classification_desc = []
         doc['classifications'] = classification_desc
-        # for (scheme, term), weight in by_scheme_and_term.items():
-        #     classification_desc.append(
-        #         dict(scheme=scheme, term=term,
-        #              weight=weight/classification_total_weight))
-
-
-        for workgenre in self.work_genres:
+        for (scheme, term), weight in by_scheme_and_term.items():
             classification_desc.append(
+                dict(scheme=scheme, term=term,
+                     weight=weight/classification_total_weight))
+
+
+        genres = []
+        doc['genres'] = genres
+        for workgenre in self.work_genres:
+            genres.append(
                 dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
                      term=workgenre.genre.id, weight=workgenre.affinity))
 
@@ -4538,6 +4544,11 @@ class Subject(Base):
     TAG = Classifier.TAG   # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
     NYPL_APPEAL = Classifier.NYPL_APPEAL
+
+    # Types with terms that are suitable for search.
+    TYPES_FOR_SEARCH = [
+        FAST, OVERDRIVE, THREEM, BISAC, TAG
+    ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
