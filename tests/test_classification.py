@@ -451,6 +451,24 @@ class TestKeyword(object):
             Keyword.audience(None, "teenage romance")
         )
 
+    def test_audience_match(self):
+        (audience, match) = Keyword.audience_match("teen books")
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
+        eq_("teen books", match)
+
+        # This is a search for a specific example so it doesn't match
+        (audience, match) = Keyword.audience_match("teen romance")
+        eq_(None, audience)
+
+    def test_genre_match(self):
+        (genre, match) = Keyword.genre_match("pets")
+        eq_(classifier.Pets, genre)
+        eq_("pets", match)
+
+        # This is a search for a specific example so it doesn't match
+        (genre, match) = Keyword.genre_match("cats")
+        eq_(None, genre)
+
     def test_improvements(self):
         """A place to put tests for miscellaneous improvements added 
         since the original work.

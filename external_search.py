@@ -214,6 +214,7 @@ class ExternalSearchIndex(object):
             'series.minimal^5',
             "subtitle.minimal^4",
             "summary.minimal^3",
+            "classifications.term^3",
             'publisher',
             'imprint'
         ]
@@ -267,7 +268,7 @@ class ExternalSearchIndex(object):
                 return re.compile(word_boundary_pattern % match.strip(), re.IGNORECASE).sub("", original_string)
 
             if genre:
-                match_genre = make_match_query(genre.name, 'classifications.name')
+                match_genre = make_match_query(genre.name, 'genres.name')
                 classification_queries.append(match_genre)
                 remaining_string = without_match(remaining_string, genre_match)
 
@@ -334,7 +335,7 @@ class ExternalSearchIndex(object):
             clauses.append({'not': dict(terms=dict(language=exclude_languages))})
         if genres:
             genre_ids = [genre.id for genre in genres]
-            clauses.append(dict(terms={"classifications.term": genre_ids}))
+            clauses.append(dict(terms={"genres.term": genre_ids}))
         if media:
             media = [_f(medium) for medium in media]
             clauses.append(dict(terms=dict(medium=media)))
