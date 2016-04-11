@@ -2201,6 +2201,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("vampires"),
                    Eg("paranormal fiction"),
                    Eg("occult fiction"),
+                   "scary",
                ),
                
                House_Home: match_kw(
