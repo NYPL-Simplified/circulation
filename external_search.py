@@ -204,6 +204,7 @@ class ExternalSearchIndex(object):
             "series^4", 
             'subtitle^3',
             'summary^2',
+            "classifications.term^2",
 
             # These fields only use the standard analyzer and are closer to the
             # original text.
