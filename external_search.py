@@ -145,6 +145,7 @@ class ExternalSearchIndex(object):
             body=dict(query=q),
             from_=offset,
             size=size,
+            explain=True,
         )
         if fields is not None:
             search_args['fields'] = fields
@@ -198,13 +199,29 @@ class ExternalSearchIndex(object):
             }
 
 
-        query_string_fields = [
+        stemmed_query_string_fields = [
             # These fields have been stemmed.
             'title^4',
             "series^4", 
             'subtitle^3',
             'summary^2',
             "classifications.term^2",
+
+            # These fields only use the standard analyzer and are closer to the
+            # original text.
+            'author^6',
+            'publisher',
+            'imprint'
+        ]
+
+        minimal_query_string_fields = [
+            # These fields have been minimally stemmed, so they have
+            # a higher weight than the stemmed fields.
+            'title.minimal^5',
+            "series.minimal^5", 
+            'subtitle.minimal^4',
+            'summary.minimal^3',
+            "classifications.term^3",
 
             # These fields only use the standard analyzer and are closer to the
             # original text.
@@ -230,10 +247,13 @@ class ExternalSearchIndex(object):
         # fields.
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
-        # work in the query string query, but not the fuzzy query.
-        match_full_query = make_query_string_query(query_string, query_string_fields)
+        # work in the query string queries, but not the fuzzy query. There are two
+        # query string queries so that stemmed matches will have lower weight, but
+        # things won't match one field stemmed and minimally stemmed in the same query.
+        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields)
+        match_full_query_minimal = make_query_string_query(query_string, minimal_query_string_fields)
         fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
-        must_match_options = [match_full_query, fuzzy_query]
+        must_match_options = [match_full_query_stemmed, match_full_query_minimal, fuzzy_query]
 
         # If fiction or genre is in the query, results can match the fiction or 
         # genre value and the remaining words in the query string, instead of the

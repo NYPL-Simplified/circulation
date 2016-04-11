@@ -420,7 +420,6 @@ class TestExternalSearch(DatabaseTest):
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         eq_(unicode(self.obama.id), hits[0]['_id'])
-        eq_(unicode(self.dodger.id), hits[1]['_id'])
 
 
         # Filters on media
