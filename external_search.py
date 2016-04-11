@@ -159,7 +159,7 @@ class ExternalSearchIndex(object):
             return {
                 'simple_query_string': {
                     'query': query_string,
-                    'fields': fields
+                    'fields': fields,
                 }
             }
 
@@ -197,24 +197,30 @@ class ExternalSearchIndex(object):
                 }
             }
 
-        # These fields have been stemmed non-minimally and shouldn't be used with
-        # fuzzy queries.
-        stemmed_fields = [
+
+        query_string_fields = [
+            # These fields have been stemmed.
             'title^4',
             "series^4", 
             'subtitle^3',
             'summary^2',
+
+            # These fields only use the standard analyzer and are closer to the
+            # original text.
+            'author^6',
+            'publisher',
+            'imprint'
         ]
 
-        # Minimally stemmed or standard fields have higher weight since they're closer to the
-        # original text.
-        other_fields = [
-            'author^5',
-            'title.minimal^5',
-            'series.minimal^5',
-            "subtitle.minimal^4",
-            "summary.minimal^3",
-            "classifications.term^3",
+        fuzzy_fields = [
+            # Only minimal stemming should be used with fuzzy queries.
+            'title.minimal^4',
+            'series.minimal^4',
+            "subtitle.minimal^3",
+            "summary.minimal^2",
+            "classifications.term^2",
+
+            'author^4',
             'publisher',
             'imprint'
         ]
@@ -224,8 +230,8 @@ class ExternalSearchIndex(object):
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
         # work in the query string query, but not the fuzzy query.
-        match_full_query = make_query_string_query(query_string, stemmed_fields + other_fields)
-        fuzzy_query = make_fuzzy_query(query_string, other_fields)
+        match_full_query = make_query_string_query(query_string, query_string_fields)
+        fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
         must_match_options = [match_full_query, fuzzy_query]
 
         # If fiction or genre is in the query, results can match the fiction or 
