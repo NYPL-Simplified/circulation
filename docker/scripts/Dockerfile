@@ -1,6 +1,6 @@
 FROM nypl/circ-base
 ENV LIBSIMPLE_DIR=/var/www/circulation
-ENV timezone="US/Eastern"
+ENV TZ=US/Eastern
 
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Switch to local timezone
-RUN echo $timezone > /etc/localtime
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 
 # Add initialize script. This will only run if the $libsimple_init variable
 # has been passed in via `docker run`, with optional $threem_start_date
@@ -23,7 +23,6 @@ RUN touch /var/log/cron.log
 COPY libsimple_crontab /etc/cron.d/circulation
 
 WORKDIR bin
-VOLUME /var/log/cron.log /var/log/libsimple /var/run/libsimple
 
 COPY supervisord.conf /etc/supervisor/conf.d
 CMD ["-c", "/usr/bin/supervisord"]
