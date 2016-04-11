@@ -145,7 +145,6 @@ class ExternalSearchIndex(object):
             body=dict(query=q),
             from_=offset,
             size=size,
-            explain=True,
         )
         if fields is not None:
             search_args['fields'] = fields
