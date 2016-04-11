@@ -5,7 +5,7 @@
 
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-HOME=/var/www/circulation/bin
+HOME=/var/www/circulation
 
 # m h dom mon dow user command
 */15 * * * * root core/bin/run axis_monitor >> /var/log/cron.log 2>&1
