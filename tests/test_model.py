@@ -1045,7 +1045,7 @@ class TestLicensePool(DatabaseTest):
         eq_(1, results[1][1])
 
         # include resolved complaints this time
-        more_results = LicensePool.with_complaint(self._db, exclude_resolved=False).all()
+        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
 
         eq_(3, len(more_results))
         eq_(lp1.id, more_results[0][0].id)
@@ -1054,6 +1054,15 @@ class TestLicensePool(DatabaseTest):
         eq_(2, more_results[1][1])
         eq_(lp3.id, more_results[2][0].id)
         eq_(1, more_results[2][1])
+
+        # show only resolved complaints
+        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        lp_ids = set([result[0].id for result in resolved_results])
+        counts = set([result[1] for result in resolved_results])
+        
+        eq_(3, len(resolved_results))
+        eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
+        eq_(counts, set([1]))
 
 
 class TestWork(DatabaseTest):

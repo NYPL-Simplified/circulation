@@ -5217,7 +5217,7 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db, exclude_resolved=True):
+    def with_complaint(cls, _db, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
         subquery = _db.query(
                 LicensePool.id,
@@ -5227,8 +5227,10 @@ class LicensePool(Base):
             join(LicensePool.complaints).\
             group_by(LicensePool.id)
 
-        if exclude_resolved:
+        if resolved == False:
             subquery = subquery.filter(Complaint.resolved == None)
+        elif resolved == True:
+            subquery = subquery.filter(Complaint.resolved != None)
 
         subquery = subquery.subquery()
 
