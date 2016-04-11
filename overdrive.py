@@ -552,11 +552,15 @@ class OverdriveRepresentationExtractor(object):
 
         extra = dict()
         if 'grade_levels' in book:
+            # n.b. Grade levels are measurements of reading level, not
+            # age appropriateness. We can use them as a measure of age
+            # appropriateness in a pinch, but we weight them less
+            # heavily than other information from Overdrive.
             for i in book['grade_levels']:
                 subject = SubjectData(
                     type=Subject.GRADE_LEVEL,
                     identifier=i['value'],
-                    weight=100
+                    weight=10
                 )
                 subjects.append(subject)
 

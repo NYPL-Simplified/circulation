@@ -1694,12 +1694,13 @@ class Identifier(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source):
+            cls, _db, identifier_types, coverage_data_source, operation=None):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source)
+                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.operation==operation)
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
@@ -2447,7 +2448,9 @@ class Edition(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, edition_data_sources, coverage_data_source):
+            cls, _db, edition_data_sources, coverage_data_source, 
+            operation=None
+    ):
         """Find Editions from `edition_data_source` whose primary
         identifiers have no CoverageRecord from
         `coverage_data_source`.
@@ -2466,8 +2469,11 @@ class Edition(Base):
         if isinstance(edition_data_sources, DataSource):
             edition_data_sources = [edition_data_sources]
         edition_data_source_ids = [x.id for x in edition_data_sources]
-        join_clause = ((Edition.primary_identifier_id==CoverageRecord.identifier_id) &
-                       (CoverageRecord.data_source_id==coverage_data_source.id))
+        join_clause = (
+            (Edition.primary_identifier_id==CoverageRecord.identifier_id) &
+            (CoverageRecord.data_source_id==coverage_data_source.id) &
+            (CoverageRecord.operation==operation)
+        )
         
         q = _db.query(Edition).outerjoin(
             CoverageRecord, join_clause)
@@ -2848,7 +2854,7 @@ class Edition(Base):
             self.calculate_permanent_work_id()
             self.set_open_access_link()
             CoverageRecord.add_for(
-                self, data_source=self.data_source, 
+                self, data_source=self.data_source,
                 operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
             )
 
@@ -2941,7 +2947,7 @@ class Edition(Base):
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.
         CoverageRecord.add_for(
-            self, data_source=self.data_source, 
+            self, data_source=self.data_source,
             operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
 
@@ -3881,33 +3887,39 @@ class Work(Base):
                 dict(name=contributor.name, family_name=contributor.family_name,
                      role=contribution.role))
 
-        # identifier_ids = self.all_identifier_ids()
-        # classifications = Identifier.classifications_for_identifier_ids(
-        #     _db, identifier_ids)
-        # by_scheme_and_term = Counter()
-        # classification_total_weight = 0.0
-        # for c in classifications:
-        #     subject = c.subject
-        #     if subject.type in Subject.uri_lookup:
-        #         scheme = Subject.uri_lookup[subject.type]
-        #         term = subject.name or subject.identifier
-        #         if not term:
-        #             # There's no text to search for.
-        #             continue
-        #         key = (scheme, term)
-        #         by_scheme_and_term[key] += c.weight
-        #         classification_total_weight += c.weight
+        identifier_ids = self.all_identifier_ids()
+        classifications = Identifier.classifications_for_identifier_ids(
+            _db, identifier_ids)
+        by_scheme_and_term = Counter()
+        classification_total_weight = 0.0
+        for c in classifications:
+            subject = c.subject
+            if not subject.type in Subject.TYPES_FOR_SEARCH:
+                # This subject type doesn't have terms that are useful for search
+                continue
+            if subject.type in Subject.uri_lookup:
+                scheme = Subject.uri_lookup[subject.type]
+                term = subject.name or subject.identifier
+                if not term:
+                    # There's no text to search for.
+                    continue
+                term = term.replace("/", " ").replace("--", " ")
+                key = (scheme, term)
+                by_scheme_and_term[key] += c.weight
+                classification_total_weight += c.weight
 
         classification_desc = []
         doc['classifications'] = classification_desc
-        # for (scheme, term), weight in by_scheme_and_term.items():
-        #     classification_desc.append(
-        #         dict(scheme=scheme, term=term,
-        #              weight=weight/classification_total_weight))
-
-
-        for workgenre in self.work_genres:
+        for (scheme, term), weight in by_scheme_and_term.items():
             classification_desc.append(
+                dict(scheme=scheme, term=term,
+                     weight=weight/classification_total_weight))
+
+
+        genres = []
+        doc['genres'] = genres
+        for workgenre in self.work_genres:
+            genres.append(
                 dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
                      term=workgenre.genre.id, weight=workgenre.affinity))
 
@@ -4539,6 +4551,11 @@ class Subject(Base):
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
     NYPL_APPEAL = Classifier.NYPL_APPEAL
 
+    # Types with terms that are suitable for search.
+    TYPES_FOR_SEARCH = [
+        FAST, OVERDRIVE, THREEM, BISAC, TAG
+    ]
+
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
@@ -4830,24 +4847,55 @@ class Classification(Base):
     ])
 
     _quality_as_indicator_of_target_age = {
-        # These measure age appropriateness.
-        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 100,
-        Subject.AXIS_360_AUDIENCE : 30,
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 20,
-        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 20,
-        Subject.OVERDRIVE : 15,
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 10,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 9,
+        
+        # Not all classifications are equally reliable as indicators
+        # of a target age. This dictionary contains the coefficients
+        # we multiply against the weights of incoming classifications
+        # to reflect the overall reliability of that type of
+        # classification.
+        #
+        # If we had a ton of information about target age this might
+        # not be necessary--it doesn't seem necessary for genre
+        # classifications. But we sometimes have very little
+        # information about target age, so being careful about how
+        # much we trust different data sources can become important.
+        
+        DataSource.MANUAL : 1.0,
+        DataSource.LIBRARY_STAFF: 1.0,        
+        (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 1.0,
 
-        # These measure reading level, except for TAG, which measures
-        # who-knows-what.
-        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 5,
-        Subject.TAG : 2,
-        Subject.LEXILE_SCORE : 1,
-        Subject.ATOS_SCORE: 1,
+        Subject.AXIS_360_AUDIENCE : 0.9,
+        (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        
+        # Although Overdrive usually reserves Fiction and Nonfiction
+        # for books for adults, it's not as reliable an indicator as
+        # other Overdrive classifications.
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 0.7,
+        (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 0.7,
+        
+        Subject.AGE_RANGE : 0.6,
+        Subject.GRADE_LEVEL : 0.6,
+        
+        # There's no real way to know what this measures, since it
+        # could be anything. If a tag mentions a target age or a grade
+        # level, the accuracy seems to be... not terrible.
+        Subject.TAG : 0.45,
 
-        Subject.AGE_RANGE : 10,
-        Subject.GRADE_LEVEL : 10,
+        # Tags that come from OCLC Linked Data are of lower quality
+        # because they sometimes talk about completely the wrong book.
+        (DataSource.OCLC_LINKED_DATA, Subject.TAG) : 0.3,
+        
+        # These measure reading level, not age appropriateness.
+        # However, if the book is a remedial work for adults we won't
+        # be calculating a target age in the first place, so it's okay
+        # to use reading level as a proxy for age appropriateness in a
+        # pinch. (But not outside of a pinch.)
+        (DataSource.OVERDRIVE, Subject.GRADE_LEVEL) : 0.35,
+        Subject.LEXILE_SCORE : 0.1,
+        Subject.ATOS_SCORE: 0.1,
     }
 
     @property
@@ -4867,11 +4915,21 @@ class Classification(Base):
         data_source = self.data_source.name
         subject_type = self.subject.type
         q = self._quality_as_indicator_of_target_age
-        if (data_source, subject_type) in q:
-            return q[(data_source, subject_type)]
-        if subject_type in q:
-            return q[subject_type]
+
+        keys = [
+            (data_source, subject_type, self.subject.identifier),
+            (data_source, subject_type),
+            data_source,
+            subject_type
+        ]
+        for key in keys:
+            if key in q:
+                return q[key]
         return 0.1
+
+    @property
+    def weight_as_indicator_of_target_age(self):
+        return self.weight * self.quality_as_indicator_of_target_age
 
     @property
     def comes_from_license_source(self):

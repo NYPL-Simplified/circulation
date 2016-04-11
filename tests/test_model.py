@@ -267,17 +267,30 @@ class TestIdentifier(DatabaseTest):
         # One of them has coverage from OCLC Classify
         c1 = self._coverage_record(g1, oclc)
 
+        # The other has coverage from a specific operation on OCLC Classify
+        c2 = self._coverage_record(g2, oclc, "some operation")
+
         # Here's a web record, just sitting there.
         w, ignore = Edition.for_foreign_id(
             self._db, web, Identifier.URI, "http://www.foo.com/")
 
-        # If we run missing_coverage_from with  picks up the Gutenberg record with no
-        # coverage from OCLC. It doesn't pick up the other
-        # Gutenberg record, and it doesn't pick up the web record.
+        # If we run missing_coverage_from we pick up the Gutenberg
+        # record with no generic OCLC coverage. It doesn't pick up the
+        # other Gutenberg record, it doesn't pick up the web record,
+        # and it doesn't pick up the OCLC coverage for a specific
+        # operation.
         [in_gutenberg_but_not_in_oclc] = Identifier.missing_coverage_from(
             self._db, [Identifier.GUTENBERG_ID], oclc).all()
 
         eq_(g2.primary_identifier, in_gutenberg_but_not_in_oclc)
+
+        # If we ask about a specific operation, we get the Gutenberg
+        # record that has coverage for that operation, but not the one
+        # that has generic OCLC coverage.
+
+        [has_generic_coverage_only] = Identifier.missing_coverage_from(
+            self._db, [Identifier.GUTENBERG_ID], oclc, "some operation").all()
+        eq_(g1.primary_identifier, has_generic_coverage_only)
 
         # We don't put web sites into OCLC, so this will pick up the
         # web record (but not the Gutenberg record).
@@ -565,6 +578,9 @@ class TestEdition(DatabaseTest):
         # One of them has coverage from OCLC Classify
         c1 = self._coverage_record(g1, oclc)
 
+        # The other has coverage from a specific operation on OCLC Classify
+        c2 = self._coverage_record(g2, oclc, "some operation")
+
         # Here's a web record, just sitting there.
         w, ignore = Edition.for_foreign_id(
             self._db, web, Identifier.URI, "http://www.foo.com/")
@@ -576,6 +592,13 @@ class TestEdition(DatabaseTest):
             self._db, gutenberg, oclc).all()
 
         eq_(g2, in_gutenberg_but_not_in_oclc)
+
+        # If we ask about a specific operation, we get the Gutenberg
+        # record that has coverage for that operation, but not the one
+        # that has generic OCLC coverage.
+        [has_generic_coverage_only] = Edition.missing_coverage_from(
+            self._db, gutenberg, oclc, "some operation").all()
+        eq_(g1, has_generic_coverage_only)
 
         # We don't put web sites into OCLC, so this will pick up the
         # web record (but not the Gutenberg record).

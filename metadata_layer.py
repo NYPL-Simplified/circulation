@@ -937,7 +937,11 @@ class Metadata(object):
                         # to do anything.
                         del new_subjects[key]
                         surviving_classifications.append(classification)
-                identifier.classifications = surviving_classifications
+                else:
+                    # This classification comes from some other data
+                    # source.  Don't mess with it.
+                    surviving_classifications.append(classification)
+            identifier.classifications = surviving_classifications
 
         # Apply all new subjects to the identifier.
         for subject in new_subjects.values():
