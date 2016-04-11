@@ -299,20 +299,9 @@ class WorkController(CirculationManagerController):
                         resolved = True
 
         if not found:
-            return ProblemDetail(
-                "http://librarysimplified.org/terms/problem/unrecognized-complaint",
-                status_code=404,
-                title="Unrecognized complaint.",
-                detail="The complaint you are attempting to resolve could not be found."
-            )
+            return UNRECOGNIZED_COMPLAINT
         elif not resolved:
-            return ProblemDetail(
-                "http://librarysimplified.org/terms/problem/complaint-already-resolved",
-                status_code=409,
-                title="Complaint already resolved.",
-                detail="You can't resolve a complaint that is already resolved."
-            )
-
+            return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
     def _count_complaints_for_licensepool(self, pool):
