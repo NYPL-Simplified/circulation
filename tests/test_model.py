@@ -968,6 +968,7 @@ class TestLicensePool(DatabaseTest):
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
+        type3 = next(type)
 
         work1 = self._work(
             "fiction work with complaint",
@@ -990,6 +991,12 @@ class TestLicensePool(DatabaseTest):
             type2,
             "work1 complaint3 source",
             "work1 complaint3 detail")
+        lp1_resolved_complaint = self._complaint(
+            lp1,
+            type3,
+            "work3 resolved complaint source",
+            "work3 resolved complaint detail",
+            datetime.datetime.now())
 
         work2 = self._work(
             "nonfiction work with complaint",
@@ -1002,12 +1009,25 @@ class TestLicensePool(DatabaseTest):
             type2,
             "work2 complaint1 source",
             "work2 complaint1 detail")
-
+        lp2_resolved_complaint = self._complaint(
+            lp2,
+            type2,
+            "work2 resolved complaint source",
+            "work2 resolved complaint detail",
+            datetime.datetime.now())
+        
         work3 = self._work(
             "fiction work without complaint",
             language="eng",
             fiction=True,
             with_open_access_download=True)
+        lp3 = work3.license_pools[0]
+        lp3_resolved_complaint = self._complaint(
+            lp3,
+            type3,
+            "work3 resolved complaint source",
+            "work3 resolved complaint detail",
+            datetime.datetime.now())
 
         work4 = self._work(
             "nonfiction work without complaint",
@@ -1015,14 +1035,34 @@ class TestLicensePool(DatabaseTest):
             fiction=False,
             with_open_access_download=True)
 
+        # excludes resolved complaints by default
         results = LicensePool.with_complaint(self._db).all()
-        (pools, counts) = zip(*results)
 
         eq_(2, len(results))
         eq_(lp1.id, results[0][0].id)
         eq_(3, results[0][1])
         eq_(lp2.id, results[1][0].id)
         eq_(1, results[1][1])
+
+        # include resolved complaints this time
+        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
+
+        eq_(3, len(more_results))
+        eq_(lp1.id, more_results[0][0].id)
+        eq_(4, more_results[0][1])
+        eq_(lp2.id, more_results[1][0].id)
+        eq_(2, more_results[1][1])
+        eq_(lp3.id, more_results[2][0].id)
+        eq_(1, more_results[2][1])
+
+        # show only resolved complaints
+        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        lp_ids = set([result[0].id for result in resolved_results])
+        counts = set([result[1] for result in resolved_results])
+        
+        eq_(3, len(resolved_results))
+        eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
+        eq_(counts, set([1]))
 
 
 class TestWork(DatabaseTest):
@@ -2330,3 +2370,31 @@ class TestComplaint(DatabaseTest):
         assert_raises(
             ValueError, Complaint.register, self.pool, type, None, None
         )
+        
+    def test_register_resolved(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, "foo", "bar", resolved=datetime.datetime.utcnow()
+        )
+        eq_(True, is_new)
+        eq_(self.type, complaint.type)
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)
+        assert abs(datetime.datetime.utcnow() -complaint.timestamp).seconds < 3
+        assert abs(datetime.datetime.utcnow() -complaint.resolved).seconds < 3
+
+        # A second complaint from the same source is not folded into the same complaint.
+        complaint2, is_new = Complaint.register(
+            self.pool, self.type, "foo", "baz"
+        )
+        eq_(True, is_new)
+        assert complaint2.id != complaint.id
+        eq_("baz", complaint2.detail)
+        eq_(2, len(self.pool.complaints))
+
+    def test_resolve(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, "foo", "bar"
+        )
+        complaint.resolve()
+        assert complaint.resolved != None
+        assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3

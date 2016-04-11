@@ -5198,7 +5198,7 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db):
+    def with_complaint(cls, _db, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
         subquery = _db.query(
                 LicensePool.id,
@@ -5206,8 +5206,15 @@ class LicensePool(Base):
             ).\
             select_from(LicensePool).\
             join(LicensePool.complaints).\
-            group_by(LicensePool.id).\
-            subquery()
+            group_by(LicensePool.id)
+
+        if resolved == False:
+            subquery = subquery.filter(Complaint.resolved == None)
+        elif resolved == True:
+            subquery = subquery.filter(Complaint.resolved != None)
+
+        subquery = subquery.subquery()
+
         return _db.query(LicensePool).\
             join(subquery, LicensePool.id == subquery.c.id).\
             order_by(subquery.c.complaint_count.desc()).\
@@ -6754,8 +6761,11 @@ class Complaint(Base):
 
     timestamp = Column(DateTime, nullable=False)
 
+    # When the complaint was resolved.
+    resolved = Column(DateTime, nullable=True)
+
     @classmethod
-    def register(self, license_pool, type, source, detail):
+    def register(self, license_pool, type, source, detail, resolved=None):
         """Register a problem detail document as a Complaint against the
         given LicensePool.
         """
@@ -6770,6 +6780,7 @@ class Complaint(Base):
                 _db, Complaint,
                 license_pool=license_pool, 
                 source=source, type=type,
+                resolved=resolved,
                 on_multiple='interchangeable',
                 create_method_kwargs = dict(
                     timestamp=now,
@@ -6785,9 +6796,14 @@ class Complaint(Base):
                 source=source,
                 type=type,
                 timestamp=now,
-                detail=detail
+                detail=detail,
+                resolved=resolved
             )
         return complaint, is_new
+
+    def resolve(self):
+        self.resolved = datetime.datetime.utcnow()
+        return self.resolved
 
 
 class Admin(Base):
