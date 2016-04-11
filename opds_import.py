@@ -224,12 +224,10 @@ class OPDSImporter(object):
                 work.calculate_presentation()
                 if immediately_presentation_ready:
                     # We want this book to be presentation-ready
-                    # immediately upon import. It's okay if it
-                    # doesn't have an author or thumbnail
-                    # image--we'll fill that in later.
-                    work.set_presentation_ready_based_on_content(
-                        require_author=False, require_thumbnail=False,
-                    )
+                    # immediately upon import. As long as no crucial
+                    # information is missing (like language or title),
+                    # this will do it.
+                    work.set_presentation_ready_based_on_content()
         return edition
 
 
