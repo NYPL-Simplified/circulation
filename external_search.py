@@ -204,10 +204,10 @@ class ExternalSearchIndex(object):
             "series^4", 
             'subtitle^3',
             'summary^2',
-            "classifications.term^2",
 
             # These fields only use the standard analyzer and are closer to the
             # original text.
+            "classifications.term^2",
             'author^6',
             'publisher',
             'imprint'
@@ -220,10 +220,10 @@ class ExternalSearchIndex(object):
             "series.minimal^5", 
             'subtitle.minimal^4',
             'summary.minimal^3',
-            "classifications.term^3",
 
             # These fields only use the standard analyzer and are closer to the
             # original text.
+            "classifications.term^3",
             'author^6',
             'publisher',
             'imprint'
@@ -235,8 +235,8 @@ class ExternalSearchIndex(object):
             'series.minimal^4',
             "subtitle.minimal^3",
             "summary.minimal^2",
-            "classifications.term^2",
 
+            "classifications.term^2",
             'author^4',
             'publisher',
             'imprint'
