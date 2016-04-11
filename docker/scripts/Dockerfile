@@ -12,12 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Switch to local timezone
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 
-# Add initialize script. This will only run if the $libsimple_init variable
-# has been passed in via `docker run`, with optional $threem_start_date
-# variable.
-COPY initialize /var/www/circulation/bin
-RUN chmod 744 /var/www/circulation/bin/initialize
-
 # Create cron tasks & logfile
 RUN touch /var/log/cron.log
 COPY libsimple_crontab /etc/cron.d/circulation
