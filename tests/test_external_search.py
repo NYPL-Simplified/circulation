@@ -608,11 +608,23 @@ class TestSearchQuery(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(3, len(must))
-        query = must[0]['simple_query_string']
-        eq_("test", query['query'])
-        assert "title^4" in query['fields']
-        assert 'publisher' in query['fields']
+        stemmed_query = must[0]['simple_query_string']
+        eq_("test", stemmed_query['query'])
+        assert "title^4" in stemmed_query['fields']
+        assert 'publisher' in stemmed_query['fields']
 
+        minimal_query = must[1]['simple_query_string']
+        eq_("test", minimal_query['query'])
+        assert "title.minimal^5" in minimal_query['fields']
+        assert 'publisher' in minimal_query['fields']
+
+
+        # Query with fuzzy exception
+        query = search.make_query("basketball")
+
+        must = query['dis_max']['queries']
+
+        eq_(2, len(must))
 
         # Query with genre
         query = search.make_query("test romance")
