@@ -29,7 +29,7 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
-from nyt import NYTBestSellerAPI
+from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
     OverdriveBibliographicCoverageProvider,
@@ -185,6 +185,26 @@ class IdentifierInputScript(Script):
         return self.parse_identifier_list_or_data_source(
             self._db, sys.argv[1:]
         )
+
+class SubjectInputScript(Script):
+    """A script whose command line filters the set of Subjects.
+
+    :return: a 2-tuple (subject type, subject filter) that can be
+    passed into the SubjectSweepMonitor constructor.
+    """
+
+    @classmethod
+    def parse_command_line(cls):
+        subject_type = None
+        if len(sys.argv) < 2:
+            return None, None
+        subject_type = sys.argv[1]
+
+        if len(sys.argv) < 3:
+            subject_filter = None
+        else:
+            subject_filter = sys.argv[2]
+        return subject_type, subject_filter
 
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
@@ -607,3 +627,12 @@ class Explain(IdentifierInputScript):
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
             print " ", genre
+
+class SubjectAssignmentScript(SubjectInputScript):
+
+    def run(self):
+        subject_type, subject_filter = self.parse_command_line()
+        monitor = SubjectAssignmentMonitor(
+            self._db, subject_type, subject_filter
+        )
+        monitor.run()
