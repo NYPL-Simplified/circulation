@@ -1183,6 +1183,8 @@ class ThreeMClassifier(Classifier):
             return True
         if identifier.startswith('JUVENILE FICTION'):
             return True
+        if identifier.startswith('YOUNG ADULT FICTION'):
+            return True
         return False
 
     @classmethod
@@ -3344,7 +3346,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
