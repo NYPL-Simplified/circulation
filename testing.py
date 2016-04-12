@@ -310,12 +310,13 @@ class DatabaseTest(object):
             editions.append(edition)
         return customlist, editions
 
-    def _complaint(self, license_pool, type, source, detail):
+    def _complaint(self, license_pool, type, source, detail, resolved=None):
         complaint, is_new = Complaint.register(
             license_pool,
             type,
             source,
-            detail
+            detail,
+            resolved
         )
         return complaint
 
