@@ -604,6 +604,20 @@ class DataSource(Base):
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
 
+    # Some sources of open-access ebooks are better than others. This
+    # list shows which sources we prefer, in ascending order of
+    # priority. unglue.it is lowest priority because it tends to
+    # aggregate books from other sources. We prefer books from their
+    # original sources.
+    OPEN_ACCESS_SOURCE_PRIORITY = [
+        UNGLUE_IT,
+        GUTENBERG,
+        GUTENBERG_EPUB_GENERATOR,
+        PROJECT_GITENBERG,
+        PLYMPTON,
+        STANDARD_EBOOKS,
+    ]
+
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, index=True)
@@ -2492,11 +2506,12 @@ class Edition(Base):
         return dict(type=type, value=content)
 
     def set_open_access_link(self):
-        resource = self.best_open_access_link
-        if resource and resource.representation:
-            url = resource.representation.mirror_url
-        else:
-            url = None
+        url = None
+        pool = self.license_pool
+        if pool:
+            resource = pool.best_open_access_link
+            if resource and resource.representation:
+                url = resource.representation.mirror_url
         self.open_access_download_url = url
 
     def set_cover(self, resource):
@@ -2627,44 +2642,6 @@ class Edition(Base):
                 similarity = self.similarity_to(candidate)
                 if similarity >= threshold:
                     yield candidate
-
-    @property
-    def best_open_access_link(self):
-        """Find the best open-access Resource for this Edition."""
-        pool = self.license_pool
-        if not pool:
-            return None
-
-        best = None
-        for resource in pool.open_access_links:
-            if not any(
-                    [resource.representation and
-                     resource.representation.media_type and
-                     resource.representation.media_type.startswith(x) 
-                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
-                # This representation is not in a media type we 
-                # support. We can't serve it, so we won't consider it.
-                continue
-                
-            data_source_priority = resource.open_access_source_priority
-            if not best or data_source_priority > best_priority:
-                # Something is better than nothing.
-                best = resource
-                best_priority = data_source_priority
-                continue
-
-            if (best.data_source.name==DataSource.GUTENBERG
-                and resource.data_source.name==DataSource.GUTENBERG
-                and 'noimages' in best.representation.mirror_url
-                and not 'noimages' in resource.representation.mirror_url):
-                # A Project Gutenberg-ism: an epub without 'noimages'
-                # in the filename is better than an epub with
-                # 'noimages' in the filename.
-                best = resource
-                best_priority = data_source_priority
-                continue
-
-        return best
 
     def best_cover_within_distance(self, distance, threshold=0.5):
         _db = Session.object_session(self)
@@ -3923,6 +3900,25 @@ class Work(Base):
 
         return doc
 
+    def mark_licensepools_as_superceded(self):
+        """Make sure that all but the single best open-access LicensePool for
+        this Work are superceded. A non-open-access LicensePool should
+        never be superceded, and this method will mark them as
+        un-superceded.
+        """
+        champion_open_access_license_pool = None
+        for pool in self.license_pools:
+            if not pool.open_access:
+                pool.superceded = False
+                continue
+            if pool.better_open_access_pool_than(champion_open_access_license_pool):
+                if champion_open_access_license_pool:
+                    champion_open_access_license_pool.superceded = True
+                champion_open_access_license_pool = pool
+                pool.superceded = False
+            else:
+                pool.superceded = True
+    
     @classmethod
     def restrict_to_custom_lists_from_data_source(
             cls, _db, base_query, data_source, on_list_as_of=None):
@@ -4324,21 +4320,6 @@ class Resource(Base):
         UniqueConstraint('url'),
     )
 
-
-    # Some sources of open-access ebooks are better than others. This
-    # list shows which sources we prefer, in ascending order of
-    # priority. unglue.it is lowest priority because it tends to
-    # aggregate books from other sources. We prefer books from their
-    # original sources.
-    OPEN_ACCESS_SOURCE_PRIORITY = [
-        DataSource.UNGLUE_IT,
-        DataSource.GUTENBERG,
-        DataSource.GUTENBERG_EPUB_GENERATOR,
-        DataSource.PROJECT_GITENBERG,
-        DataSource.PLYMPTON,
-        DataSource.STANDARD_EBOOKS,
-    ]
-
     @property
     def final_url(self):        
         """URL to the final, mirrored version of this resource, suitable
@@ -4396,25 +4377,6 @@ class Resource(Base):
         self.votes_for_quality += weight
         self.voted_quality = total_quality / float(self.votes_for_quality)
         self.update_quality()
-
-    @property
-    def open_access_source_priority(self):
-        """What priority does this resource's source have in
-        our list of open-access content sources?
-        
-        e.g. GITenberg books are prefered over Gutenberg books,
-        because there's a defined process for fixing errors and they
-        are more likely to have good cover art.
-        """
-        try:
-            priority = self.OPEN_ACCESS_SOURCE_PRIORITY.index(
-                self.data_source.name)
-        except ValueError, e:
-            # The source of this download is not mentioned in our
-            # priority list. Treat it as the lowest priority.
-            priority = -1
-        return priority
-
 
     def update_quality(self):
         """Combine `estimated_quality` with `voted_quality` to form `quality`.
@@ -5108,6 +5070,12 @@ class LicensePool(Base):
         "LicensePoolDeliveryMechanism", backref="license_pool"
     )
 
+    # A LicensePool may be superceded by some other LicensePool
+    # associated with the same Work. This may happen if it's an
+    # open-access LicensePool and a better-quality version of the same
+    # book is available from another source.
+    superceded = Column(Boolean, default=False)
+
     # A LicensePool that seemingly looks fine may be manually suppressed
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
@@ -5219,6 +5187,72 @@ class LicensePool(Base):
             join(subquery, LicensePool.id == subquery.c.id).\
             order_by(subquery.c.complaint_count.desc()).\
             add_columns(subquery.c.complaint_count)
+
+    @property
+    def open_access_source_priority(self):
+        """What priority does this LicensePool's DataSource have in
+        our list of open-access content sources?
+        
+        e.g. GITenberg books are prefered over Gutenberg books,
+        because there's a defined process for fixing errors and they
+        are more likely to have good cover art.
+        """
+        try:
+            priority = DataSource.OPEN_ACCESS_SOURCE_PRIORITY.index(
+                self.data_source.name
+            )
+        except ValueError, e:
+            # The source of this download is not mentioned in our
+            # priority list. Treat it as the lowest priority.
+            priority = -1
+        return priority
+
+    def better_open_access_pool_than(self, champion):
+        # A suppressed license pool should never be used, even if there is
+        # no alternative.
+        if self.suppressed:
+            return False
+
+        # A non-open-access license pool is not eligible for consideration.
+        if not self.open_access:
+            return False
+
+        # At this point we have a LicensePool that is at least
+        # better than nothing.
+        if not champion:
+            return True
+
+        challenger_resource = self.best_open_access_link
+        if not challenger_resource:
+            # This LicensePool is supposedly open-access but we don't
+            # actually know where the book is. It will be chosen only
+            # if there is no alternative.
+            return False
+
+        champion_priority = champion.open_access_source_priority
+        challenger_priority = self.open_access_source_priority
+
+        if challenger_priority > champion_priority:
+            return True
+
+        if challenger_priority < champion_priority:
+            return False
+
+        if (self.data_source.name == DataSource.GUTENBERG
+            and champion.data_source == self.data_source):
+            # These two LicensePools are both from Gutenberg, and
+            # normally this wouldn't matter, but higher Gutenberg
+            # numbers beat lower Gutenberg numbers.
+            champion_id = int(champion.identifier.identifier)
+            challenger_id = int(self.identifier.identifier)
+
+            if challenger_id > champion_id:
+                logging.info(
+                    "Gutenberg %d beats Gutenberg %d",
+                    challenger_id, champion_id
+                )
+                return True
+        return False
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
@@ -5466,9 +5500,46 @@ class LicensePool(Base):
             yield resource
 
     @property
+    def best_open_access_link(self):
+        """Find the best open-access Resource provided by this LicensePool."""
+        best = None
+        for resource in self.open_access_links:
+            if not any(
+                    [resource.representation and
+                     resource.representation.media_type and
+                     resource.representation.media_type.startswith(x) 
+                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
+                # This representation is not in a media type we 
+                # support. We can't serve it, so we won't consider it.
+                continue
+                
+            data_source_priority = self.open_access_source_priority
+            if not best or data_source_priority > best_priority:
+                # Something is better than nothing.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
+            if (best.data_source.name==DataSource.GUTENBERG
+                and resource.data_source.name==DataSource.GUTENBERG
+                and 'noimages' in best.representation.mirror_url
+                and not 'noimages' in resource.representation.mirror_url):
+                # A Project Gutenberg-ism: an epub without 'noimages'
+                # in the filename is better than an epub with
+                # 'noimages' in the filename.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
+        return best
+
+
+    @property
     def best_license_link(self):
         """Find the best available licensing link for the work associated
         with this LicensePool.
+
+        # TODO: This needs work and may not be necessary anymore.
         """
         edition = self.edition
         if not edition:

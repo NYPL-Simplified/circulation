@@ -772,60 +772,6 @@ class TestEdition(DatabaseTest):
         # faraway cover.
         pass
 
-    def test_better_primary_edition_than(self):
-
-        generic, p1 = self._edition(with_license_pool=True)
-        generic2, p2 = self._edition(with_license_pool=True)
-
-        def better(x,y):
-            return x.better_primary_edition_than(y)
-
-        # Something is better than nothing.
-        eq_(True, better(generic, None))
-
-        # A license pool beats no license pool.
-        no_license_pool = self._edition(with_license_pool=False)
-        eq_(True, better(generic, no_license_pool))
-        eq_(False, better(no_license_pool, generic))
-
-        # An open access pool beats non-open access.
-        open_access, ignore = self._edition(with_open_access_download=True)
-        eq_(True, better(open_access, generic))
-
-        # TODO: An open access book from a high-quality source beats one
-        # from a low-quality source.
-
-        # A high Gutenberg number beats a low Gutenberg number.
-        open_access2, ignore = self._edition(with_open_access_download=True)
-        eq_(True, better(open_access2, open_access))
-
-        # More licenses beats fewer licenses
-        p1.open_access = False
-        p2.open_access = False
-        p1.licenses_owned = 1
-        p2.licenses_owned = 2
-        eq_(True, better(generic2, generic))
-
-        p1.licenses_owned = 3
-        eq_(False, better(generic2, generic))
-
-        # More licenses available beats fewer
-        p1.licenses_owned = p2.licenses_owned = 5
-        p1.licenses_available = 2
-        p2.licenses_available = 1
-        eq_(True, better(generic, generic2))
-        p2.licenses_available = 3
-        eq_(False, better(generic, generic2))
-
-        # Fewer people on hold beats more
-        p1.licenses_available = 0
-        p1.patrons_in_hold_queue = 1
-        p2.licenses_available = 0
-        p2.patrons_in_hold_queue = 2
-        eq_(True, better(generic, generic2))
-        p1.patrons_in_hold_queue = 3
-        eq_(False, better(generic, generic2))
-
     def test_calculate_presentation_registers_coverage_records(self):
         edition = self._edition()
         identifier = edition.primary_identifier
@@ -963,6 +909,68 @@ class TestLicensePool(DatabaseTest):
 
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
+
+    def test_better_open_access_pool_than(self):
+
+        gutenberg_1 = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG,
+            with_open_access_download=True,
+        )
+
+        gutenberg_2 = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG,
+            with_open_access_download=True,
+        )
+        
+        assert int(gutenberg_1.identifier.identifier) < int(gutenberg_2.identifier.identifier)
+
+        standard_ebooks = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.STANDARD_EBOOKS,
+            with_open_access_download=True
+        )
+
+        overdrive = self._licensepool(
+            None, open_access=False, data_source_name=DataSource.OVERDRIVE
+        )
+
+        suppressed = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG
+        )
+        suppressed.suppressed = True
+
+        def better(x,y):
+            return x.better_open_access_pool_than(y)
+
+        # We would rather have nothing at all than a suppressed
+        # LicensePool.
+        eq_(False, better(suppressed, None))
+
+        # A non-open-access LicensePool is not considered at all.
+        eq_(False, better(overdrive, None))
+
+        # Something is better than nothing.
+        eq_(True, better(gutenberg_1, None))
+
+        # An open access book from a high-quality source beats one
+        # from a low-quality source.
+        eq_(True, better(standard_ebooks, gutenberg_1))
+        eq_(False, better(gutenberg_1, standard_ebooks))
+
+        # A high Gutenberg number beats a low Gutenberg number.
+        eq_(True, better(gutenberg_2, gutenberg_1))
+        eq_(False, better(gutenberg_1, gutenberg_2))
+
+        # If a supposedly open-access LicensePool doesn't have an
+        # open-access download resource, it will only be considered if
+        # there is no other alternative.
+        no_resource = self._licensepool(
+            None, open_access=True, 
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            with_open_access_download=False,
+        )
+        eq_(True, better(no_resource, None))
+        eq_(False, better(no_resource, gutenberg_1))
+        
 
     def test_with_complaint(self):
         type = iter(Complaint.VALID_TYPES)
@@ -1188,6 +1196,41 @@ class TestWork(DatabaseTest):
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
+    def test_mark_licensepools_as_superceded(self):
+        # A commercial LP that somehow got superceded will be
+        # un-superceded.
+        commercial = self._licensepool(
+            None, data_source_name=DataSource.OVERDRIVE
+        )
+        work, is_new = commercial.calculate_work()
+        commercial.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(False, commercial.superceded)
+
+        # An open-access LP that was superceded will be un-superceded if
+        # chosen.
+        gutenberg = self._licensepool(
+            None, data_source_name=DataSource.GUTENBERG,
+            open_access=True, with_open_access_download=True
+        )
+        work, is_new = gutenberg.calculate_work()
+        gutenberg.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(False, gutenberg.superceded)
+
+        # Of two open-access LPs, the one from the higher-quality data
+        # source will be un-superceded, and the one from the
+        # lower-quality data source will be superceded.
+        standard_ebooks = self._licensepool(
+            None, data_source_name=DataSource.STANDARD_EBOOKS,
+            open_access=True, with_open_access_download=True
+        )
+        work.license_pools.append(standard_ebooks)
+        gutenberg.superceded = False
+        standard_ebooks.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(True, gutenberg.superceded)
+        eq_(False, standard_ebooks.superceded)
 
 class TestCirculationEvent(DatabaseTest):
 
