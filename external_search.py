@@ -242,6 +242,15 @@ class ExternalSearchIndex(object):
             'imprint'
         ]
 
+        # These words will fuzzy match other common words that aren't relevant,
+        # so if they're present and correctly spelled we shouldn't use a
+        # fuzzy query.
+        fuzzy_exceptions = [
+            "baseball", "basketball", # These fuzzy match each other
+            "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
+        ]
+        fuzzy_exception_re = re.compile(r'\b(%s)\b' % "|".join(fuzzy_exceptions), re.I)
+
         # Find results that match the full query string in one of the main
         # fields.
 
@@ -251,8 +260,11 @@ class ExternalSearchIndex(object):
         # things won't match one field stemmed and minimally stemmed in the same query.
         match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields)
         match_full_query_minimal = make_query_string_query(query_string, minimal_query_string_fields)
-        fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
-        must_match_options = [match_full_query_stemmed, match_full_query_minimal, fuzzy_query]
+        must_match_options = [match_full_query_stemmed, match_full_query_minimal]
+
+        if not fuzzy_exception_re.search(query_string):
+            fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
+            must_match_options.append(fuzzy_query)
 
         # If fiction or genre is in the query, results can match the fiction or 
         # genre value and the remaining words in the query string, instead of the
