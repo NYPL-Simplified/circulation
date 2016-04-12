@@ -5082,10 +5082,18 @@ class LicensePool(Base):
 
     # Index the combination of DataSource and Identifier to make joins easier.
 
-    clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
-    edition = relationship(
+    clause = "and_(Edition.data_source_id!=None, Edition.primary_identifier_id==LicensePool.identifier_id)"
+    editions = relationship(
+        "Edition", primaryjoin=clause, uselist=True, lazy='joined',
+        foreign_keys=[Edition.primary_identifier_id]
+    )
+    
+
+    clause = "and_(Edition.data_source_id==None, Edition.primary_identifier_id==LicensePool.identifier_id)"
+    composite_edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined',
-        foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id])
+        foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id]
+    )
 
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
@@ -5253,6 +5261,17 @@ class LicensePool(Base):
                 )
                 return True
         return False
+
+    def build_composite_edition(self):
+        """Create or update the composite Edition for this LicensePool.
+
+        The composite Edition is made of metadata from all Editions
+        associated with the LicensePool's identifier.
+        """
+        metadata = Metadata()
+        for edition in self.editions:
+            metadata.update(edition.to_metadata())
+        composite_edition = metadata.to_edition(data_source_id=None)
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
