@@ -2735,7 +2735,7 @@ class Edition(Base):
             # Keep track of where the best open-access link for
             # this license pool comes from. It may affect which
             # license pool to use.
-            open_access_resource = self.best_open_access_link
+            open_access_resource = pool.best_open_access_link
             if not open_access_resource:
                 # An open-access edition with no usable download link will
                 # only be chosen if there is no alternative.
