@@ -550,7 +550,7 @@ class Metadata(object):
         for field in (
                 'title', 'sort_title', 'subtitle', 'language',
                 'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published':
+                'issued', 'published'
         ):
             kwargs[field] = getattr(edition, field)
 
