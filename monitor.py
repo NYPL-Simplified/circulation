@@ -403,9 +403,12 @@ class SimpleOPDSEntryCacheMonitor(OPDSEntryCacheMonitor):
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
-    def __init__(self, _db, interval_seconds=None):
+    def __init__(self, _db, subject_type=None, filter_string=None,
+                 interval_seconds=None):
         super(SubjectAssignmentMonitor, self).__init__(
-            _db, "Subject assignment monitor", interval_seconds)
+            _db, "Subject assignment monitor", subject_type, filter_string,
+            interval_seconds
+        )
 
     def process_batch(self, subjects):
         highest_id = 0
