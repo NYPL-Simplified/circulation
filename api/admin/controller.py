@@ -14,7 +14,9 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
-    PresentationCalculationPolicy,
+    DataSource,
+    Hyperlink,
+    PresentationCalculationPolicy
 )
 from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
@@ -201,7 +203,21 @@ class WorkController(CirculationManagerController):
         if new_title and work.title != new_title:
             work.primary_edition.title = unicode(new_title)
             changed = True
-        
+
+        new_publisher = flask.request.form.get("publisher")
+        if new_publisher != work.publisher:
+            work.primary_edition.publisher = unicode(new_publisher)
+            changed = True
+
+        new_summary = flask.request.form.get("summary")
+        if new_summary != work.summary_text:
+            staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+            (link, is_new) =  work.primary_edition.primary_identifier.add_link(
+                Hyperlink.DESCRIPTION, None, 
+                staff_data_source, content=new_summary)
+            work.set_summary(link.resource)
+            changed = True
+
         if changed:
             # Even if the presentation doesn't visibly change, we want
             # to regenerate the OPDS entries and update the search
@@ -263,8 +279,33 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
+    def resolve_complaints(self, data_source, identifier):
+        """Resolve all complaints for a particular license pool and complaint type."""
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        resolved = False
+        found = False
+
+        type = flask.request.form.get("type")
+        if type:
+            for complaint in pool.complaints:
+                if complaint.type == type:
+                    found = True
+                    if complaint.resolved == None:
+                        complaint.resolve()
+                        resolved = True
+
+        if not found:
+            return UNRECOGNIZED_COMPLAINT
+        elif not resolved:
+            return COMPLAINT_ALREADY_RESOLVED
+        return Response("", 200)
+
     def _count_complaints_for_licensepool(self, pool):
-        complaint_types = [complaint.type for complaint in pool.complaints]
+        complaint_types = [complaint.type for complaint in pool.complaints if complaint.resolved == None]
         return Counter(complaint_types)
 
     

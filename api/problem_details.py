@@ -203,3 +203,17 @@ METADATA_REFRESH_FAILURE = pd(
       "Metadata could not be refreshed.",
       "Metadata could not be refreshed.",
 )
+
+UNRECOGNIZED_COMPLAINT = pd(
+    "http://librarysimplified.org/terms/problem/unrecognized-complaint",
+    status_code=404,
+    title="Unrecognized complaint.",
+    detail="The complaint you are attempting to resolve could not be found."
+)
+
+COMPLAINT_ALREADY_RESOLVED = pd(
+    "http://librarysimplified.org/terms/problem/complaint-already-resolved",
+    status_code=409,
+    title="Complaint already resolved.",
+    detail="You can't resolve a complaint that is already resolved."
+)
