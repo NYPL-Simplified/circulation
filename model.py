@@ -5503,6 +5503,7 @@ class LicensePool(Base):
     def best_open_access_link(self):
         """Find the best open-access Resource provided by this LicensePool."""
         best = None
+        best_priority = -1
         for resource in self.open_access_links:
             if not any(
                     [resource.representation and
