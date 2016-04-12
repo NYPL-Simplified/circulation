@@ -501,6 +501,7 @@ class TestBISAC(object):
 
         eq_(True, fic("FICTION / Classics"))
         eq_(True, fic("JUVENILE FICTION / Concepts / Date & Time"))
+        eq_(True, fic("YOUNG ADULT FICTION / Lifestyles / Country Life"))
         eq_(False, fic("HISTORY / General"))
 
 

@@ -1183,6 +1183,8 @@ class ThreeMClassifier(Classifier):
             return True
         if identifier.startswith('JUVENILE FICTION'):
             return True
+        if identifier.startswith('YOUNG ADULT FICTION'):
+            return True
         return False
 
     @classmethod
