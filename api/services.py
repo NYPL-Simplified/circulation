@@ -52,10 +52,10 @@ class ServiceStatus(object):
                  'Axis': self.axis }
 
         for name, api in apis.items():
+            if not api:
+                continue
             service = "%s patron account" % name
             def do_patron_activity(api, name, patron):
-                if not api:
-                    raise ValueError("%s not configured" % name)
                 return api.patron_activity(patron, password)
 
             self._add_timing(
@@ -87,7 +87,7 @@ class ServiceStatus(object):
             delivery_mechanism = license_pool.delivery_mechanisms[0]
         loans = []
 
-        service = "Checkout IDENTIFIER:%r" % identifier
+        service = "Checkout IDENTIFIER: %r" % identifier
         def do_checkout():
             loan, hold, is_new = api.borrow(
                 patron, password, license_pool, delivery_mechanism,
@@ -102,7 +102,7 @@ class ServiceStatus(object):
             self.log_status(status)
             return
 
-        service = "Fulfill IDENTIFIER:%r" % identifier
+        service = "Fulfill IDENTIFIER: %r" % identifier
         def do_fulfillment():
             api.fulfill(
                 patron, password, license_pool, delivery_mechanism
