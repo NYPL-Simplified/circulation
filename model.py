@@ -2226,6 +2226,11 @@ class Edition(Base):
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
 
+    # An Edition may be the presentation edition for many LicensePools.
+    is_presentation_for = relationship(
+        "LicensePools", backref="presentation_edition"
+    )
+
     title = Column(Unicode, index=True)
     sort_title = Column(Unicode, index=True)
     subtitle = Column(Unicode, index=True)
@@ -3035,16 +3040,6 @@ class Work(Base):
     # One Work may have copies scattered across many LicensePools.
     license_pools = relationship("LicensePool", backref="work", lazy='joined')
 
-    # A single Work may claim many Editions.
-    editions = relationship("Edition", backref="work")
-
-    # But for consistency's sake, a Work takes its presentation
-    # metadata from a single Edition.
-
-    clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
-    primary_edition = relationship(
-        "Edition", primaryjoin=clause, uselist=False, lazy='joined')
-
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
@@ -3453,10 +3448,13 @@ class Work(Base):
                 self.primary_edition = edition
 
     def calculate_presentation(self, policy=None, search_index_client=None):
-        """Determine the following information:
-        
-        * Which Edition is the 'primary'. The default view of the
-        Work will be taken from the primary Edition.
+        """Make a Work ready to show to patrons.
+
+        First, every LicensePool associated with this work must have
+        its presentation edition set.
+
+        Then we determine the following information, global to the
+        work:
 
         * Subject-matter classifications for the work.
         * Whether or not the work is fiction.
@@ -3472,32 +3470,33 @@ class Work(Base):
         edition_metadata_changed = False
         classification_changed = False
 
-        primary_edition = self.primary_edition
+        # TODO: The edition metadata is now associated with the
+        # license pool, which is fine, but if there are multiple
+        # active license pools a lot of assumptions don't work
+        # anymore, especially as it pertains to the materialized view.
+
+        for pool in self.license_pools:
+            # TODO: set_presentation_edition needs to call the
+            # equivalent of calculate_presentation(policy).
+            edition_metadata_changed = (
+                edition_metadata_changed and 
+                pool.set_presentation_edition(policy)
+            )
+
         summary = self.summary
         summary_text = self.summary_text
         quality = self.quality
 
-        if policy.choose_edition or not self.primary_edition:
-            self.set_primary_edition()
-            WorkCoverageRecord.add_for(
-                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
-            )
-
-
-        # The privileged data source may short-circuit the process of
-        # finding a good cover or description.
-        privileged_data_source = None
-        if self.primary_edition:
-            privileged_data_source = self.primary_edition.data_source
-            # Descriptions from Gutenberg are useless, so it can't
-            # be a privileged data source.
-            if privileged_data_source.name == DataSource.GUTENBERG:
-                privileged_data_source = None
-
-        if self.primary_edition:
-            edition_metadata_changed = self.primary_edition.calculate_presentation(
-                policy
-            )
+        # If we find a cover or description that comes direct from a
+        # license source, it may short-circuit the process of finding
+        # a good cover or description.
+        license_data_sources = set()
+        for pool in self.license_pools:
+            # Descriptions from Gutenberg are useless, so we
+            # specifically exclude it from being a privileged data
+            # source.
+            if pool.data_source.name != DataSource.GUTENBERG:
+                license_data_sources.add(pool.data_source)
 
         if policy.classify or policy.choose_summary or policy.calculate_quality:
             # Find all related IDs that might have associated descriptions,
@@ -3521,18 +3520,28 @@ class Work(Base):
 
         if policy.choose_summary:
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source
+                _db, flattened_data, licensed_data_sources
             )
             # TODO: clean up the content
             self.set_summary(summary)      
 
         if policy.calculate_quality:
-            default_quality = 0
-            if self.primary_edition:
-                data_source_name = self.primary_edition.data_source.name
-                default_quality = self.default_quality_by_data_source.get(
-                    data_source_name, 0
+            # In the absense of other data, we will make a rough
+            # judgement as to the quality of a book based on the
+            # license source. Commercial data sources have higher
+            # default quality, because it's presumed that a librarian
+            # put some work into deciding which books to buy.
+            default_quality = None
+            for source in licensed_data_sources:
+                q = self.default_quality_by_data_source.get(
+                    source.name, None
                 )
+                if q is None:
+                    continue
+                if default_quality is None or q > default_quality:
+                    default_quality = q
+            else:
+                default_quality = 0
             self.calculate_quality(flattened_data, default_quality)
 
         if self.summary_text:
@@ -5033,9 +5042,13 @@ class LicensePool(Base):
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
 
     # Each LicensePool is associated with one DataSource and one
-    # Identifier, and therefore with one original Edition.
+    # Identifier.
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+
+    # Each LicensePool has an Edition which contains the metadata used
+    # to describe this book.
+    presentation_edition_id = Column(Integer, ForeignKey('edition.id'))
 
     # One LicensePool may be associated with one RightsStatus.
     rightsstatus_id = Column(
