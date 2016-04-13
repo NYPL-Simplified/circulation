@@ -158,7 +158,7 @@ class ContributorData(object):
         return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
 
     @classmethod
-    def from_contribution(cls):
+    def from_contribution(cls, contribution):
         """Create a ContributorData object from a data-model Contribution
         object.
         """
@@ -554,8 +554,10 @@ class Metadata(object):
         ):
             kwargs[field] = getattr(edition, field)
 
+        contributors = []
         for contribution in edition.contributions:
             contributor = ContributorData.from_contribution(contribution)
+            contributors.append(contributor)
         else:
             # This should only happen for low-quality data sources such as
             # the NYT best-seller API.
