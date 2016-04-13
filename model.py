@@ -5260,16 +5260,33 @@ class LicensePool(Base):
                 return True
         return False
 
-    def build_composite_edition(self):
-        """Create or update the composite Edition for this LicensePool.
+    def set_presentation_edition(self):
+        """Create or update the presentation Edition for this LicensePool.
 
-        The composite Edition is made of metadata from all Editions
+        The presentation Edition is made of metadata from all Editions
         associated with the LicensePool's identifier.
+
+        :return: A boolean explaining whether any of the presentation
+        information associated with this LicensePool actually changed.
         """
-        metadata = Metadata()
-        for edition in self.editions:
-            metadata.update(edition.to_metadata())
-        composite_edition = metadata.to_edition(data_source_id=None)
+        old_presentation_edition = self.presentation_edition
+        all_editions = list(self.identifier.editions_in_priority_order)
+        changed = False
+        if len(all_editions) == 1:
+            # There's only one edition associated with this
+            # LicensePool. Use it as the presentation edition rather
+            # than creating an identical composite.
+            self.presentation_edition = all_editions[0]
+        else:
+            metadata = Metadata()
+            for edition in self.identifier.editions_in_priority_order:
+                metadata.update(edition.to_metadata())
+            self.presentation_edition = metadata.to_edition(
+                data_source_id=DataSource.INTERNAL
+            )
+            # TODO: We need to determine whether or not the 
+            # data in self.presentation_edition actually changed
+        return changed or self.presentation_edition != old_presentation_edition
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
