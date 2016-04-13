@@ -266,13 +266,6 @@ class TestExternalSearch(DatabaseTest):
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
 
-        # Handles negation operator
-
-        results = self.search.query_works("moby -dick", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-
         # Matches stemmed word
 
         results = self.search.query_works("runs", None, None, None, None, None, None, None)
@@ -613,13 +606,13 @@ class TestSearchQuery(DatabaseTest):
         assert "title^4" in stemmed_query['fields']
         assert 'publisher' in stemmed_query['fields']
 
-        minimal_query = must[1]['simple_query_string']
-        eq_("test", minimal_query['query'])
-        assert "title.minimal^5" in minimal_query['fields']
-        assert 'publisher' in minimal_query['fields']
+        phrase_queries = must[1]['bool']['should']
+        eq_(3, len(phrase_queries))
+        title_phrase_query = phrase_queries[0]['match_phrase']
+        assert 'title.minimal' in title_phrase_query
+        eq_("test", title_phrase_query['title.minimal'])
 
-
-        # Query with fuzzy exception
+        # Query with fuzzy blacklist keyword
         query = search.make_query("basketball")
 
         must = query['dis_max']['queries']

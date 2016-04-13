@@ -96,7 +96,7 @@ class ExternalSearchIndex(object):
                                     "type": "custom",
                                     "char_filter": ["html_strip"],
                                     "tokenizer": "standard",
-                                    "filter": ["lowercase", "asciifolding", "en_stem_minimal_filter"]
+                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
                                 },
                             }
                         }
@@ -105,7 +105,7 @@ class ExternalSearchIndex(object):
             )
         
             mapping = {"properties": {}}
-            for field in ["title", "series", "subtitle", "summary"]:
+            for field in ["title", "series", "subtitle", "summary", "classifications.term"]:
                 mapping["properties"][field] = {
                     "type": "string",
                     "analyzer": "en_analyzer",
@@ -163,6 +163,23 @@ class ExternalSearchIndex(object):
                 }
             }
 
+        def make_phrase_query(query_string, fields):
+            field_queries = []
+            for field in fields:
+                field_query = {
+                  'match_phrase': {
+                    field: query_string
+                  }
+                }
+                field_queries.append(field_query)
+            return {
+                'bool': {
+                  'should': field_queries,
+                  'minimum_should_match': 1,
+                  'boost': 100,
+                }
+              }
+
         def make_fuzzy_query(query_string, fields):
             return {
                 'multi_match': {
@@ -204,26 +221,10 @@ class ExternalSearchIndex(object):
             "series^4", 
             'subtitle^3',
             'summary^2',
-
-            # These fields only use the standard analyzer and are closer to the
-            # original text.
             "classifications.term^2",
-            'author^6',
-            'publisher',
-            'imprint'
-        ]
-
-        minimal_query_string_fields = [
-            # These fields have been minimally stemmed, so they have
-            # a higher weight than the stemmed fields.
-            'title.minimal^5',
-            "series.minimal^5", 
-            'subtitle.minimal^4',
-            'summary.minimal^3',
 
             # These fields only use the standard analyzer and are closer to the
             # original text.
-            "classifications.term^3",
             'author^6',
             'publisher',
             'imprint'
@@ -236,7 +237,6 @@ class ExternalSearchIndex(object):
             "subtitle.minimal^3",
             "summary.minimal^2",
 
-            "classifications.term^2",
             'author^4',
             'publisher',
             'imprint'
@@ -245,24 +245,39 @@ class ExternalSearchIndex(object):
         # These words will fuzzy match other common words that aren't relevant,
         # so if they're present and correctly spelled we shouldn't use a
         # fuzzy query.
-        fuzzy_exceptions = [
+        fuzzy_blacklist = [
             "baseball", "basketball", # These fuzzy match each other
+
             "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
+
+            "football", "softball", "software", "postwar",
+
+            "hamlet", "harlem", "amulet", "tablet",
+
+            "biology", "ecology", "zoology", "geology",
+
+            "joke", "jokes" # "jake"
+
+            "cat", "cats",
+            "car", "cars",
+            "war", "wars",
+
+            "away", "stay",
         ]
-        fuzzy_exception_re = re.compile(r'\b(%s)\b' % "|".join(fuzzy_exceptions), re.I)
+        fuzzy_blacklist_re = re.compile(r'\b(%s)\b' % "|".join(fuzzy_blacklist), re.I)
 
         # Find results that match the full query string in one of the main
         # fields.
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
-        # work in the query string queries, but not the fuzzy query. There are two
-        # query string queries so that stemmed matches will have lower weight, but
-        # things won't match one field stemmed and minimally stemmed in the same query.
+        # work in the query string queries, but not the fuzzy query.
         match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields)
-        match_full_query_minimal = make_query_string_query(query_string, minimal_query_string_fields)
-        must_match_options = [match_full_query_stemmed, match_full_query_minimal]
+        must_match_options = [match_full_query_stemmed]
 
-        if not fuzzy_exception_re.search(query_string):
+        match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
+        must_match_options.append(match_phrase)
+
+        if not fuzzy_blacklist_re.search(query_string):
             fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
             must_match_options.append(fuzzy_query)
 
