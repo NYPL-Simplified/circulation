@@ -47,19 +47,17 @@ class ServiceStatus(object):
             return status
         patron = patrons[0]
 
-        apis = { 'Overdrive': self.overdrive,
-                 '3M': self.threem,
-                 'Axis': self.axis }
-
-        for name, api in apis.items():
+        for api in [self.overdrive, self.threem, self.axis]:
             if not api:
                 continue
+            name = api.source.name
             service = "%s patron account" % name
             def do_patron_activity(api, name, patron):
                 return api.patron_activity(patron, password)
 
             self._add_timing(
-                status, service, do_patron_activity, api, name, patron
+                status, service, do_patron_activity,
+                api, name, patron
             )
 
         if response:
