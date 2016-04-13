@@ -230,21 +230,6 @@ class ExternalSearchIndex(object):
             'imprint'
         ]
 
-        minimal_query_string_fields = [
-            # These fields have been minimally stemmed, so they have
-            # a higher weight than the stemmed fields.
-            'title.minimal^5',
-            "series.minimal^5", 
-            'subtitle.minimal^4',
-            'summary.minimal^3',
-
-            # These fields only use the standard analyzer and are closer to the
-            # original text.
-            'author^6',
-            'publisher',
-            'imprint'
-        ]
-
         fuzzy_fields = [
             # Only minimal stemming should be used with fuzzy queries.
             'title.minimal^4',
@@ -285,12 +270,9 @@ class ExternalSearchIndex(object):
         # fields.
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
-        # work in the query string queries, but not the fuzzy query. There are two
-        # query string queries so that stemmed matches will have lower weight, but
-        # things won't match one field stemmed and minimally stemmed in the same query.
+        # work in the query string queries, but not the fuzzy query.
         match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields)
-        match_full_query_minimal = make_query_string_query(query_string, minimal_query_string_fields)
-        must_match_options = [match_full_query_stemmed, match_full_query_minimal]
+        must_match_options = [match_full_query_stemmed]
 
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
         must_match_options.append(match_phrase)
