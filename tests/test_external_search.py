@@ -266,13 +266,6 @@ class TestExternalSearch(DatabaseTest):
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
 
-        # Handles negation operator
-
-        results = self.search.query_works("moby -dick", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-
         # Matches stemmed word
 
         results = self.search.query_works("runs", None, None, None, None, None, None, None)
@@ -607,7 +600,7 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
         stemmed_query = must[0]['simple_query_string']
         eq_("test", stemmed_query['query'])
         assert "title^4" in stemmed_query['fields']
@@ -618,26 +611,31 @@ class TestSearchQuery(DatabaseTest):
         assert "title.minimal^5" in minimal_query['fields']
         assert 'publisher' in minimal_query['fields']
 
+        phrase_queries = must[2]['bool']['should']
+        eq_(3, len(phrase_queries))
+        title_phrase_query = phrase_queries[0]['match_phrase']
+        assert 'title.minimal' in title_phrase_query
+        eq_("test", title_phrase_query['title.minimal'])
 
-        # Query with fuzzy exception
+        # Query with fuzzy blacklist keyword
         query = search.make_query("basketball")
 
         must = query['dis_max']['queries']
 
-        eq_(2, len(must))
+        eq_(3, len(must))
 
         # Query with genre
         query = search.make_query("test romance")
 
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test romance", full_query['query'])
         assert "title^4" in full_query['fields']
         assert 'publisher' in full_query['fields']
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(2, len(classification_query))
         genre_query = classification_query[0]['match']
         assert 'genres.name' in genre_query
@@ -653,9 +651,9 @@ class TestSearchQuery(DatabaseTest):
         
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(2, len(classification_query))
         fiction_query = classification_query[0]['match']
         assert 'fiction' in fiction_query
@@ -671,9 +669,9 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(3, len(classification_query))
         genre_query = classification_query[0]['match']
         assert 'genres.name' in genre_query
@@ -692,11 +690,11 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test young adult", full_query['query'])
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(2, len(classification_query))
         audience_query = classification_query[0]['match']
         assert 'audience' in audience_query
@@ -710,11 +708,11 @@ class TestSearchQuery(DatabaseTest):
         
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test grade 6", full_query['query'])
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
@@ -733,11 +731,11 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(4, len(must))
+        eq_(5, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test 5-10 years", full_query['query'])
 
-        classification_query = must[3]['bool']['must']
+        classification_query = must[4]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
