@@ -157,7 +157,26 @@ class ContributorData(object):
     def __repr__(self):
         return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
 
+    @classmethod
+    def from_contribution(cls, contribution):
+        """Create a ContributorData object from a data-model Contribution
+        object.
+        """
+        c = contribution.contributor
+        return cls(
+            sort_name=c.name,
+            display_name=c.display_name,
+            family_name=c.family_name,
+            wikipedia_name=c.wikipedia_name,
+            lc=c.lc,
+            viaf=c.viaf,
+            biography=c.biography,
+            aliases=c.aliases,
+            roles=[contribution.role]
+        )
+
     def find_sort_name(self, _db, identifiers, metadata_client):
+
         """Try as hard as possible to find this person's sort name.
         """
         log = logging.getLogger("Abstract metadata layer")
@@ -527,15 +546,21 @@ class Metadata(object):
         This doesn't contain everything but it contains enough
         information to run guess_license_pools.
         """
+        kwargs = dict()
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published'
+        ):
+            kwargs[field] = getattr(edition, field)
+
         contributors = []
         for contribution in edition.contributions:
-            c = contribution.contributor
-            contributors.append(
-                ContributorData(sort_name=c.name,
-                                display_name=c.display_name,
-                                roles=[contribution.role])
-            )
+            contributor = ContributorData.from_contribution(contribution)
+            contributors.append(contributor)
         else:
+            # This should only happen for low-quality data sources such as
+            # the NYT best-seller API.
             if edition.sort_author:
                 contributors.append(
                     ContributorData(sort_name=edition.sort_author,
@@ -544,15 +569,14 @@ class Metadata(object):
                 )
         i = edition.primary_identifier
         primary_identifier = IdentifierData(
-            type=i.type, identifier=i.identifier, weight=1)
+            type=i.type, identifier=i.identifier, weight=1
+        )
 
         return Metadata(
             data_source=edition.data_source.name,
-            title=edition.title, 
-            subtitle=edition.subtitle,
-            sort_title=edition.sort_title,
             primary_identifier=primary_identifier,
-            contributors=contributors
+            contributors=contributors,
+            **kwargs
         )
 
     def normalize_contributors(self, metadata_client):
@@ -575,6 +599,21 @@ class Metadata(object):
             if primary_author:
                 break
         return primary_author
+
+    def update(self, metadata):
+        """Update this Metadata object with values from the given Metadata
+        object.
+        
+        TODO: We might want to take a policy object as an argument.
+        """
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published', 'contributors'
+        ):
+            new_value = getattr(metadata, field)
+            if new_value:
+                setattr(self, field, new_value)
 
     def calculate_permanent_work_id(self, _db, metadata_client):
         """Try to calculate a permanent work ID from this metadata.

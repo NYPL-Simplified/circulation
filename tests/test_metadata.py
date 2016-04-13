@@ -17,6 +17,7 @@ from metadata_layer import (
     IdentifierData,
     ReplacementPolicy,
     SubjectData,
+    ContributorData,
 )
 
 import os
@@ -369,3 +370,84 @@ class TestMetadataImporter(DatabaseTest):
         eq_(u"Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
+
+
+class TestContributorData(DatabaseTest):
+    def test_from_contribution(self):
+        # Makes sure ContributorData.from_contribution copies all the fields over.
+        
+        # make author with that name, add author to list and pass to edition
+        contributors = ["PrimaryAuthor"]
+        edition, pool = self._edition(with_license_pool=True, authors=contributors)
+        
+        contribution = edition.contributions[0]
+        contributor = contribution.contributor
+        contributor.lc = "1234567"
+        contributor.viaf = "ABC123"
+        contributor.aliases = ["Primo"]
+        contributor.display_name = "Test Author For The Win"
+        contributor.family_name = "TestAuttie"
+        contributor.wikipedia_name = "TestWikiAuth"
+        contributor.biography = "He was born on Main Street."
+
+        contributor_data = ContributorData.from_contribution(contribution)
+
+        # make sure contributor fields are still what I expect
+        eq_(contributor_data.lc, contributor.lc)
+        eq_(contributor_data.viaf, contributor.viaf)
+        eq_(contributor_data.aliases, contributor.aliases)
+        eq_(contributor_data.display_name, contributor.display_name)
+        eq_(contributor_data.family_name, contributor.family_name)
+        eq_(contributor_data.wikipedia_name, contributor.wikipedia_name)
+        eq_(contributor_data.biography, contributor.biography)
+
+
+class TestMetadata(DatabaseTest):
+    def test_from_edition(self):
+        # Makes sure Metadata.from_edition copies all the fields over.
+
+        edition, pool = self._edition(with_license_pool=True)
+        metadata = Metadata.from_edition(edition)
+
+        # make sure the metadata and the originating edition match 
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published'
+        ):
+            eq_(getattr(edition, field), getattr(metadata, field))
+
+
+        e_contribution = edition.contributions[0]
+        m_contributor_data = metadata.contributors[0]
+        eq_(e_contribution.contributor.name, m_contributor_data.sort_name)
+        eq_(e_contribution.role, m_contributor_data.roles[0])
+
+        eq_(edition.data_source, metadata.data_source(self._db))
+        eq_(edition.primary_identifier.identifier, metadata.primary_identifier.identifier)
+
+    def test_update(self):
+        # Tests that Metadata.update correctly prefers new fields to old, unless 
+        # new fields aren't defined.
+
+        edition_old, pool = self._edition(with_license_pool=True)
+        edition_old.publisher = "test_old_publisher"
+        edition_old.subtitle = "old_subtitile"
+        metadata_old = Metadata.from_edition(edition_old)
+
+        edition_new, pool = self._edition(with_license_pool=True)
+        # set more fields on metadatas
+        edition_new.publisher = None
+        edition_new.subtitle = "new_updated_subtitile"
+        metadata_new = Metadata.from_edition(edition_new)
+
+        metadata_old.update(metadata_new)
+
+        eq_(metadata_old.publisher, "test_old_publisher")
+        eq_(metadata_old.subtitle, metadata_new.subtitle)
+
+
+
+
+
+

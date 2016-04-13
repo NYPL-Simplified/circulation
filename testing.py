@@ -129,7 +129,7 @@ class DatabaseTest(object):
             wr.add_contributor(unicode(authors[0]), Contributor.PRIMARY_AUTHOR_ROLE)
             wr.author = unicode(authors[0])
         for author in authors[1:]:
-            wr.add_contributor(unicode(authors[0]), Contributor.AUTHOR_ROLE)
+            wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
