@@ -5093,21 +5093,6 @@ class LicensePool(Base):
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
 
-    # Index the combination of DataSource and Identifier to make joins easier.
-
-    clause = "and_(Edition.data_source_id!=None, Edition.primary_identifier_id==LicensePool.identifier_id)"
-    editions = relationship(
-        "Edition", primaryjoin=clause, uselist=True, lazy='joined',
-        foreign_keys=[Edition.primary_identifier_id]
-    )
-    
-
-    clause = "and_(Edition.data_source_id==None, Edition.primary_identifier_id==LicensePool.identifier_id)"
-    composite_edition = relationship(
-        "Edition", primaryjoin=clause, uselist=False, lazy='joined',
-        foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id]
-    )
-
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
