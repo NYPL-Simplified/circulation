@@ -603,6 +603,7 @@ class DataSource(Base):
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
+    PRESENTATION_EDITION = "Presentation edition generator"
 
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
@@ -616,6 +617,19 @@ class DataSource(Base):
         PROJECT_GITENBERG,
         PLYMPTON,
         STANDARD_EBOOKS,
+    ]
+
+    # When we're generating the presentation edition for a
+    # LicensePool, editions are processed based on their data source,
+    # in the following order:
+    #
+    # [all other sources] < [source of the license pool] < [metadata
+    # wrangler] < [library staff] < [manual intervention]
+    #
+    # This list keeps track of the high-priority portion of that
+    # ordering.
+    PRESENTATION_EDITION_PRIORITY = [
+        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL_INTERVENTION
     ]
 
     __tablename__ = 'datasources'
