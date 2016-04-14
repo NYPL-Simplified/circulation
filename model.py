@@ -3486,16 +3486,21 @@ class Work(Base):
         edition_metadata_changed = False
         classification_changed = False
 
-        # TODO: The edition metadata is now associated with the
-        # license pool, which is fine, but if there are multiple
-        # active license pools a lot of assumptions don't work
-        # anymore, especially as it pertains to the materialized view.
-
+        old_primary_edition = self.primary_edition
+        new_primary_edition = None
+        self.mark_licensepools_as_superceded()
         for pool in self.license_pools:
+            if pool.superceded or pool.suppressed:
+                continue
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool.set_presentation_edition(policy)
             )
+            potential_primary_edition = pool.presentation_edition
+            if not new_edition or potential_primary_edition is old_primary_edition:
+                new_edition = potential_primary_edition
+        if new_primary_edition:
+            self.primary_edition = new_primary_edition
 
         summary = self.summary
         summary_text = self.summary_text
