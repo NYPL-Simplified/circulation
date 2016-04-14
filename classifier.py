@@ -975,7 +975,12 @@ class ThreeMClassifier(Classifier):
         ],
         Philosophy : "PHILOSOPHY/",
         Photography : "PHOTOGRAPHY/",
-        Poetry : "POETRY/",
+
+        Poetry : [
+            "POETRY/",
+            "Poetry",
+            "Stories in Verse",
+        ],
         Political_Science: "POLITICAL SCIENCE/",
         Psychology : "PSYCHOLOGY & PSYCHIATRY/",
         Reference_Study_Aids: "REFERENCE/",
@@ -1203,14 +1208,18 @@ class ThreeMClassifier(Classifier):
         else:
             return identifier.startswith(match_against)
 
+    COMMON_PREFIXES = [ 
+        'FICTION/', 'JUVENILE FICTION/', 'JUVENILE NONFICTION/',
+        'YOUNG ADULT FICTION/', 'YOUNG ADULT NONFICTION/',
+    ]
+
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         for prefixes in cls.PREFIX_LISTS:
             for l, v in prefixes.items():
                 if cls._match(identifier, v):
                     return l
-                for remove_prefix in [
-                        'FICTION/', 'JUVENILE FICTION/', 'JUVENILE NONFICTION/']:
+                for remove_prefix in cls.COMMON_PREFIXES:
                     if identifier.startswith(remove_prefix):
                         check = identifier[len(remove_prefix):]
                         if cls._match(check, v):
@@ -3347,7 +3356,7 @@ class WorkClassifier(object):
     nonfiction_publishers = set(["Wiley"])
     fiction_publishers = set([])
 
-    def __init__(self, work, test_session=None, debug=False):
+    def __init__(self, work, test_session=None, debug=True):
         self._db = Session.object_session(work)
         if test_session:
             self._db = test_session
