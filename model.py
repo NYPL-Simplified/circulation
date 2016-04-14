@@ -6821,6 +6821,40 @@ class Admin(Base):
         _db.commit()
 
 
+class Library(Base):
+
+    __tablename__ = 'libraries'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode, unique=True)
+    client_id = Column(Unicode, unique=True)
+    client_secret = Column(Unicode, unique=True, nullable=False)
+
+    CLIENT_ID_CHARS = ('abcdefghijklmnopqrstuvwxyz'
+                       'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                       '0123456789')
+
+    CLIENT_SECRET_CHARS = '!"#$%&()*+,-./[]^_`{}|~'
+
+    @classmethod
+    def generate(cls, _db, name):
+        library = get_one(_db, cls, name=name)
+        if not library:
+            def make_client_string(chars, length):
+                return u"".join([random.choice(chars) for x in range(length)])
+
+            full_client_secret_chars = cls.CLIENT_ID_CHARS + cls.CLIENT_SECRET_CHARS
+            client_id = make_client_string(cls.CLIENT_ID_CHARS, 25)
+            client_secret = make_client_string(full_client_secret_chars, 40)
+
+            library, new = create(
+                _db, cls, name=unicode(name), client_id=client_id,
+                client_secret=client_secret
+            )
+            return library, new
+        return library, False
+
+
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
 
