@@ -5274,7 +5274,7 @@ class LicensePool(Base):
                 return True
         return False
 
-    def set_presentation_edition(self):
+    def set_presentation_edition(self, policy):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -5283,6 +5283,7 @@ class LicensePool(Base):
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
+        _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
         all_editions = list(self.identifier.editions_in_priority_order)
         changed = False
@@ -5295,9 +5296,17 @@ class LicensePool(Base):
             metadata = Metadata()
             for edition in self.identifier.editions_in_priority_order:
                 metadata.update(edition.to_metadata())
-            # TODO: to_edition needs to set last_update_time if appropriate.
-            self.presentation_edition, edition_changed = metadata.to_edition(
-                data_source_id=DataSource.INTERNAL
+
+            # Since this is a presentation edition it does not have a
+            # license data source, even if one of the editions it was
+            # created from does have a license data source.
+            metadata.license_data_source = None
+            metadata.data_source = DataSource.PRESENTATION_EDITION
+
+            edition = metadata.edition(_db)
+            # TODO: apply() needs to set last_update_time if appropriate.
+            self.presentation_edition, changed = metadata.apply(
+                edition, policy=policy
             )
         changed = changed or self.presentation_edition.calculate_presentation()
         return (
