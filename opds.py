@@ -783,7 +783,6 @@ class AcquisitionFeed(OPDSFeed):
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False):
 
-        before = time.time()
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
@@ -813,8 +812,6 @@ class AcquisitionFeed(OPDSFeed):
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=group_title)
 
-
-        after = time.time()
         if edition:
             title = (edition.title or "") + " "
         else:

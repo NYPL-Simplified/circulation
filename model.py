@@ -283,7 +283,6 @@ def get_one(db, model, on_multiple='error', **kwargs):
     except NoResultFound:
         return None
 
-
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
                       **kwargs):
@@ -1811,7 +1810,6 @@ class UnresolvedIdentifier(Base):
             q = q.order_by(func.random())
         return q
 
-
     def set_attempt(self, time=None):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.
@@ -1820,6 +1818,7 @@ class UnresolvedIdentifier(Base):
         self.most_recent_attempt = time
         if not self.first_attempt:
             self.first_attempt = time
+
 
 class Contributor(Base):
 
@@ -3011,7 +3010,6 @@ class PresentationCalculationPolicy(object):
             update_search_index=True,
         )
 
-        
 
 class Work(Base):
 

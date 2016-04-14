@@ -400,7 +400,7 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
 
-    
+
 class ComplaintController(object):
     """A controller to register complaints against objects."""
 
@@ -433,4 +433,4 @@ class ComplaintController(object):
             )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
-        
+
