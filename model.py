@@ -629,7 +629,7 @@ class DataSource(Base):
     # This list keeps track of the high-priority portion of that
     # ordering.
     PRESENTATION_EDITION_PRIORITY = [
-        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL_INTERVENTION
+        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL
     ]
 
     __tablename__ = 'datasources'
