@@ -446,6 +446,22 @@ class TestMetadata(DatabaseTest):
         eq_(metadata_old.publisher, "test_old_publisher")
         eq_(metadata_old.subtitle, metadata_new.subtitle)
 
+    def test_apply(self):
+        edition_old, pool = self._edition(with_license_pool=True)
+
+        metadata = Metadata(data_source=DataSource.OVERDRIVE, title=u"Test_Apply_Title")
+
+        edition_new, changed = metadata.apply(edition_old)
+
+        eq_(changed, True)
+        eq_(edition_new.title, "Test_Apply_Title")
+
+        edition_new, changed = metadata.apply(edition_new)
+        eq_(changed, False)
+
+
+
+
 
 
 

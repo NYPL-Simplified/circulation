@@ -2842,11 +2842,6 @@ class Edition(Base):
         ):
             changed = True
 
-        if changed:
-            # last_update_time tracks the last time the data 
-            # actually changed.
-            self.last_update_time = datetime.datetime.utcnow()
-
         # Now that everything's calculated, log it.
         if policy.verbose:
             if changed:
