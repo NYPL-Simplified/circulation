@@ -2230,12 +2230,8 @@ class Edition(Base):
     primary_identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
 
-    # A Edition may be associated with a single Work.
-    work_id = Column(Integer, ForeignKey('works.id'), index=True)
-
-    # A Edition may be the primary identifier associated with its
-    # Work, or it may not be.
-    is_primary_for_work = Column(Boolean, index=True, default=False)
+    # A Edition may be the primary Edition associated with some Work
+    primary_for_work_id = Column(Integer, ForeignKey('works.id'), index=True)
 
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
@@ -3053,6 +3049,12 @@ class Work(Base):
 
     # One Work may have copies scattered across many LicensePools.
     license_pools = relationship("LicensePool", backref="work", lazy='joined')
+
+    # For the sake of consistency, a Work takes its presentation
+    # metadata from a single Edition.
+    primary_edition = relationship(
+        "Edition", uselist=False, lazy='joined', backref="work"
+    )
 
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
