@@ -3490,10 +3490,8 @@ class Work(Base):
         # anymore, especially as it pertains to the materialized view.
 
         for pool in self.license_pools:
-            # TODO: set_presentation_edition needs to call the
-            # equivalent of calculate_presentation(policy).
             edition_metadata_changed = (
-                edition_metadata_changed and 
+                edition_metadata_changed or
                 pool.set_presentation_edition(policy)
             )
 
