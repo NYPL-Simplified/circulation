@@ -557,6 +557,17 @@ class TestBISAC(object):
             gen("JUVENILE NONFICTION / Social Issues / Friendship")
         )
 
+        eq_(classifier.Poetry, 
+            gen("JUVENILE FICTION / Stories in Verse (see also Poetry)")
+        )
+
+        eq_(classifier.Poetry, 
+            gen("JUVENILE NONFICTION / Poetry / Humorous")
+        )
+
+        eq_(classifier.Poetry, 
+            gen("YOUNG ADULT NONFICTION / Poetry")
+        )
 
 class TestAxis360Classifier(object):
 
