@@ -324,3 +324,15 @@ class FeedController(CirculationManagerController):
         )
         return feed_response(opds_feed)    
 
+    def suppressed(self):
+        this_url = self.url_for('suppressed')
+        annotator = AdminAnnotator(self.circulation)
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        opds_feed = AdminFeed.suppressed(
+            _db=self._db, title="Hidden books",
+            url=this_url, annotator=annotator,
+            pagination=pagination
+        )
+        return feed_response(opds_feed)

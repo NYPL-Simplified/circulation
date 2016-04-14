@@ -113,6 +113,13 @@ def resolve_complaints(data_source, identifier):
 def complaints():
     return app.manager.admin_feed_controller.complaints()
 
+@app.route('/admin/suppressed')
+@returns_problem_detail
+@requires_admin
+def suppressed():
+    """Returns a feed of suppressed works."""
+    return app.manager.admin_feed_controller.suppressed()
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in

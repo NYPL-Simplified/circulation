@@ -328,3 +328,16 @@ class TestFeedController(AdminControllerTest):
             entries = feed['entries']
 
             eq_(len(entries), 2)
+
+    def test_suppressed(self):
+        suppressed_work = self._work(with_open_access_download=True)
+        suppressed_work.license_pools[0].suppressed = True
+
+        unsuppressed_work = self._work()
+
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.suppressed()
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            eq_(1, len(entries))

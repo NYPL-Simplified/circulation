@@ -59,6 +59,10 @@ class AdminAnnotator(CirculationManagerAnnotator):
         kwargs.update(dict(pagination.items()))
         return self.url_for("complaints", _external=True, **kwargs)
 
+    def suppressed_url(self, pagination):
+        kwargs = dict(pagination.items())
+        return self.url_for("suppressed", _external=True, **kwargs)
+
     def annotate_feed(self, feed):
         # Add a 'search' link.
         search_url = self.url_for(
@@ -110,3 +114,32 @@ class AdminFeed(AcquisitionFeed):
         annotator.annotate_feed(feed)
         return unicode(feed)
 
+    @classmethod
+    def suppressed(cls, _db, title, url, annotator, pagination=None):
+        pagination = pagination or Pagination.default()
+
+        q = _db.query(LicensePool).filter(LicensePool.suppressed == True)
+        pools = pagination.apply(q).all()
+
+        works = [pool.work for pool in pools]
+        feed = cls(_db, title, url, works, annotator)
+
+        # Render a 'start' link
+        top_level_title = "Collection Home"
+        start_uri = annotator.groups_url(None)
+        feed.add_link(href=start_uri, rel="start", title=top_level_title)
+
+        if len(works) > 0:
+            # There are works in this list. Add a 'next' link.
+            feed.add_link(rel="next", href=annotator.suppressed_url(pagination.next_page))
+
+        if pagination.offset > 0:
+            feed.add_link(rel="first", href=annotator.suppressed_url(pagination.first_page))
+
+        previous_page = pagination.previous_page
+        if previous_page:
+            feed.add_link(rel="previous", href=annotator.suppressed_url(previous_page))
+
+        annotator.annotate_feed(feed)
+        return unicode(feed)
+            
