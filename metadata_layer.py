@@ -693,7 +693,7 @@ class Metadata(object):
         return self.license_data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
-        """ Find or create the dition described by this Metadata object.
+        """ Find or create the edition described by this Metadata object.
         """
         if not self.primary_identifier:
             raise ValueError(
@@ -848,19 +848,6 @@ class Metadata(object):
                 potentials[lp] = confidence
                 success = True
         return success
-
-
-
-    def to_edition(self, _db): 
-        """TODO
-        """
-
-        # update title, contributors, etc.
-        edition = self.edition(_db)
-        update_changed_things, made_core_changes = self.apply(edition)
-
-        # return true if anything changed
-        return edition, made_core_changes
 
 
 
