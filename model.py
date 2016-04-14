@@ -5295,12 +5295,15 @@ class LicensePool(Base):
             metadata = Metadata()
             for edition in self.identifier.editions_in_priority_order:
                 metadata.update(edition.to_metadata())
-            self.presentation_edition = metadata.to_edition(
+            # TODO: to_edition needs to set last_update_time if appropriate.
+            self.presentation_edition, edition_changed = metadata.to_edition(
                 data_source_id=DataSource.INTERNAL
             )
-            # TODO: We need to determine whether or not the 
-            # data in self.presentation_edition actually changed
-        return changed or self.presentation_edition != old_presentation_edition
+        changed = changed or self.presentation_edition.calculate_presentation()
+        return (
+            self.presentation_edition != old_presentation_edition 
+            or changed
+        )
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
