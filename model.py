@@ -3497,7 +3497,19 @@ class Work(Base):
                 pool.set_presentation_edition(policy)
             )
             potential_primary_edition = pool.presentation_edition
-            if not new_edition or potential_primary_edition is old_primary_edition:
+
+            # We currently have no real way to choose between
+            # competing primary editions. But it doesn't matter much
+            # because in the current system there should never be more
+            # than one non-superceded license pool per Work.
+            #
+            # So basically we pick the first available edition and
+            # make it the primary.
+            if (not new_edition
+                or potential_primary_edition is old_primary_edition):
+                # We would prefer not to change the Work's primary
+                # edition unnecessarily, so if the current primary
+                # edition is still an option, choose it.
                 new_edition = potential_primary_edition
         if new_primary_edition:
             self.primary_edition = new_primary_edition
