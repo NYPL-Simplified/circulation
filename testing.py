@@ -321,8 +321,11 @@ class DatabaseTest(object):
         )
         return complaint
 
-    def _collection(self):
-        return Collection.register(self._db, "Faketown Public Library")[0]
+    def _collection(self, name=u"Faketown Public Library"):
+        return get_one_or_create(
+            self._db, Collection, name=name,
+            client_id=u"abc", client_secret=u"def"
+        )[0]
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
