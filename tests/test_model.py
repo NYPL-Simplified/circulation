@@ -305,6 +305,42 @@ class TestIdentifier(DatabaseTest):
                 self._db, [Identifier.GUTENBERG_ID], web)])
         )
 
+    def test_missing_coverage_from_with_cutoff_date(self):
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        web = DataSource.lookup(self._db, DataSource.WEB)
+
+        # Here's an Edition with a coverage record from OCLC classify.
+        gutenberg, ignore = Edition.for_foreign_id(
+            self._db, gutenberg, Identifier.GUTENBERG_ID, "1")
+        identifier = gutenberg.primary_identifier
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        coverage = self._coverage_record(gutenberg, oclc)
+
+        # The CoverageRecord knows when the coverage was provided.
+        timestamp = coverage.timestamp
+        
+        # If we ask for Identifiers that are missing coverage records
+        # as of that time, we see nothing.
+        eq_(
+            [], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], oclc, 
+                count_as_missing_before=timestamp
+            ).all()
+        )
+
+        # But if we give a time one second later, the Identifier is
+        # missing coverage.
+        eq_(
+            [identifier], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], oclc, 
+                count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
+            ).all()
+        )
+
+
 class TestUnresolvedIdentifier(DatabaseTest):
 
     def test_successful_register(self):
@@ -2398,3 +2434,4 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+

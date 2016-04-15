@@ -54,7 +54,7 @@ class CoverageProvider(object):
     CAN_CREATE_LICENSE_POOLS = False
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100):
+                 workset_size=100, cutoff_time=None):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
 
@@ -63,6 +63,7 @@ class CoverageProvider(object):
         self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
+        self.cutoff_time = cutoff_time
 
     @property
     def log(self):
@@ -83,7 +84,8 @@ class CoverageProvider(object):
         persistent errors.
         """
         return Identifier.missing_coverage_from(
-            self._db, self.input_identifier_types, self.output_source
+            self._db, self.input_identifier_types, self.output_source,
+            self.cutoff_time
         )
 
     def run(self):
