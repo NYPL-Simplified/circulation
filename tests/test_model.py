@@ -1483,6 +1483,7 @@ class TestWorkConsolidation(DatabaseTest):
         # Even before the forthcoming commit, the edition is clearly
         # associated with the work.
         eq_(work, edition.work)
+        eq_(True, edition.is_primary_for_work)
         eq_(edition, work.primary_edition)
 
         # But without this commit, the join for the .primary_edition

@@ -185,6 +185,7 @@ class DatabaseTest(object):
         work.genres = [genre]
         work.random = 0.5
         work.editions = [primary_edition]
+        primary_edition.is_primary_for_work = True
         work.primary_edition = primary_edition
         if pool != None:
             work.license_pools.append(pool)

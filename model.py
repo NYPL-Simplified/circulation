@@ -628,6 +628,10 @@ class DataSource(Base):
     #
     # This list keeps track of the high-priority portion of that
     # ordering.
+    # 
+    # "LIBRARY_STAFF" comes from the Admin Interface.
+    # "MANUAL" is not currently used, but will give the option of putting in 
+    # software engineer-created system overrides.
     PRESENTATION_EDITION_PRIORITY = [
         METADATA_WRANGLER, LIBRARY_STAFF, MANUAL
     ]
@@ -2242,7 +2246,8 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        "LicensePools", backref="presentation_edition"
+        # TODO: fix foreign key  presentation_edition_id
+        "LicensePool", uselist=False, backref="presentation_edition"
     )
 
     title = Column(Unicode, index=True)
@@ -3407,12 +3412,14 @@ class Work(Base):
         new_primary_edition = None
         self.mark_licensepools_as_superceded()
         for pool in self.license_pools:
+            """ TODO:
             if pool.superceded or pool.suppressed:
                 # mark all of the pool's editions as non-primary
                 for ():
 
 
                 continue
+            """
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool.set_presentation_edition(policy)
@@ -5001,7 +5008,9 @@ class LicensePool(Base):
 
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
-    presentation_edition_id = Column(Integer, ForeignKey('edition.id'))
+    # TODO: bring back the FK
+    presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+    #presentation_edition_id = Column(Integer)
 
     # One LicensePool may be associated with one RightsStatus.
     rightsstatus_id = Column(
