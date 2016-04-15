@@ -58,7 +58,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
     service_name = "Metadata Wrangler Coverage Provider"
 
-    def __init__(self, _db, identifier_types=None, metadata_lookup=None):
+    def __init__(self, _db, identifier_types=None, metadata_lookup=None,
+                 cutoff_time=None):
         self._db = _db
         if not identifier_types:
             identifier_types = [
@@ -83,6 +84,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             identifier_types,
             self.coverage_source,
             workset_size=20,
+            cutoff_time=cutoff_time,
         )
 
     def create_id_mapping(self, batch):
@@ -168,7 +170,7 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
     """
     service_name = "Open Access Download URL Coverage Provider"
 
-    def __init__(self, _db, content_lookup=None):
+    def __init__(self, _db, content_lookup=None, cutoff_time=None):
         self._db = _db
         if not content_lookup:
             content_server_url = (
@@ -185,6 +187,7 @@ class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
             None,
             self.coverage_source,
             workset_size=50,
+            cutoff_time=cutoff_time
         )
 
     @property
