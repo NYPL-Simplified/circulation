@@ -83,6 +83,32 @@ class TestCoverageProvider(DatabaseTest):
         # we're using ensure_coverage.
         eq_([], self._db.query(Timestamp).all())
 
+    def test_items_that_need_coverage(self):
+        cutoff_time = datetime.datetime(2016, 1, 1)
+        record = CoverageRecord.add_for(
+            self.edition, self.output_source, timestamp=cutoff_time
+        )
+
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, cutoff_time=cutoff_time
+        )
+        eq_([], provider.items_that_need_coverage.all())
+
+        one_second_after = cutoff_time + datetime.timedelta(seconds=1)
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, cutoff_time=one_second_after
+        )
+        eq_([self.edition.primary_identifier], 
+            provider.items_that_need_coverage.all())
+
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source
+        )
+        eq_([], provider.items_that_need_coverage.all())
+
     def test_ensure_coverage_transient_coverage_failure(self):
 
         provider = TransientFailureCoverageProvider(

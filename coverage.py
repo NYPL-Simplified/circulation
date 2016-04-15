@@ -85,7 +85,7 @@ class CoverageProvider(object):
         """
         return Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.output_source,
-            self.cutoff_time
+            count_as_missing_before=self.cutoff_time
         )
 
     def run(self):
