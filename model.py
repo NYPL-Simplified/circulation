@@ -2230,8 +2230,12 @@ class Edition(Base):
     primary_identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
 
-    # A Edition may be the primary Edition associated with some Work
+    # A Edition may be associated with a single Work.
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
+ 
+    # An Edition may be the primary edition associated with its
+    # Work, or it may not be.
+    is_primary_for_work = Column(Boolean, index=True, default=False)
 
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
@@ -2732,6 +2736,21 @@ class Edition(Base):
 
     UNKNOWN_AUTHOR = u"[Unknown]"
 
+
+    """ TODO: move down
+    @property
+    def work(self):
+        # TODO: decide if should be property
+        # first presentation edition of a non-suppressed, non-superceded licensepool
+        # but edition already has a work_id?
+        parent_work_license_pools = self.license_pool.work.license_pools
+        for (work in parent_works)
+        see if license pool is active,
+        if yes, set its work to mine and continue
+    """
+
+
+
     def calculate_presentation(self, policy=None):
         """Make sure the presentation of this Edition is up-to-date."""
         _db = Session.object_session(self)
@@ -2854,6 +2873,7 @@ class Edition(Base):
 
 
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
+Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -2964,10 +2984,14 @@ class Work(Base):
     # One Work may have copies scattered across many LicensePools.
     license_pools = relationship("LicensePool", backref="work", lazy='joined')
 
+    # A single Work may claim many Editions.
+    editions = relationship("Edition", backref="work")
+
     # For the sake of consistency, a Work takes its presentation
     # metadata from a single Edition.
+    clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
     primary_edition = relationship(
-        "Edition", uselist=False, lazy='joined', backref="work"
+        "Edition", primaryjoin=clause, uselist=False, lazy='joined'
     )
 
     # One Work may have many asosciated WorkCoverageRecords.
@@ -3384,6 +3408,10 @@ class Work(Base):
         self.mark_licensepools_as_superceded()
         for pool in self.license_pools:
             if pool.superceded or pool.suppressed:
+                # mark all of the pool's editions as non-primary
+                for ():
+
+
                 continue
             edition_metadata_changed = (
                 edition_metadata_changed or
@@ -3398,14 +3426,15 @@ class Work(Base):
             #
             # So basically we pick the first available edition and
             # make it the primary.
-            if (not new_edition
+            if (not new_primary_edition
                 or potential_primary_edition is old_primary_edition):
                 # We would prefer not to change the Work's primary
                 # edition unnecessarily, so if the current primary
                 # edition is still an option, choose it.
-                new_edition = potential_primary_edition
+                new_primary_edition = potential_primary_edition
         if new_primary_edition:
             self.primary_edition = new_primary_edition
+
 
         summary = self.summary
         summary_text = self.summary_text
@@ -5218,6 +5247,9 @@ class LicensePool(Base):
             self.presentation_edition, changed = metadata.apply(
                 edition, policy=policy
             )
+
+        self.presentation_edition.work = self.work
+
         changed = changed or self.presentation_edition.calculate_presentation()
         return (
             self.presentation_edition != old_presentation_edition 
@@ -5373,10 +5405,12 @@ class LicensePool(Base):
         primary_edition = known_edition or self.edition
 
         if self.work:
-            if known_edition:
-                known_edition.work = self.work
+            if primary_edition:
+                primary_edition.work = self.work
+            
             # The work has already been done.
             return self.work, False
+
 
         logging.info("Calculating work for %r", primary_edition)
         if not primary_edition:
