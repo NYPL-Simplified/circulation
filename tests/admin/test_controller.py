@@ -78,7 +78,7 @@ class TestWorkController(AdminControllerTest):
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("publisher", "New publisher"),
+                ("audience", "Adults Only"),
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
@@ -86,10 +86,23 @@ class TestWorkController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
-            eq_("New publisher", self.english_1.publisher)
-            assert "New publisher" in self.english_1.simple_opds_entry
+            eq_("Adults Only", self.english_1.audience)
+            assert 'Adults Only' in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
+
+        with self.app.test_request_context("/"):
+            # Change the audience again
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("audience", "Young Adult"),
+                ("summary", "<p>New summary</p>")
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_("Young Adult", self.english_1.audience)
+            assert 'Young Adult' in self.english_1.simple_opds_entry
+            assert 'Adults Only' not in self.english_1.simple_opds_entry
+
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
