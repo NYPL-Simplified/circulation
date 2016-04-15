@@ -111,6 +111,15 @@ class TestURNLookupController(DatabaseTest):
         eq_(404, code)
         eq_(controller.UNRECOGNIZED_IDENTIFIER, message)
 
+    def test_process_urn_with_collection(self):
+        identifier = self._identifier()
+        collection = self._collection()
+
+        eq_([], collection.assets)
+        self.controller.process_urn(identifier.urn, collection=collection)
+        eq_(1, len(collection.assets))
+        eq_(identifier, collection.assets[0].identifier)
+
 
 class TestComplaintController(DatabaseTest):
     

@@ -1051,6 +1051,9 @@ class Identifier(Base):
     # One Identifier may have many associated CoverageRecords.
     coverage_records = relationship("CoverageRecord", backref="identifier")
 
+    # One Identifier may be registered in many collections.
+    collections = relationship("CollectionAsset", backref="identifier")
+
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
@@ -6830,6 +6833,8 @@ class Collection(Base):
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
 
+    assets = relationship('CollectionAsset', backref='collection')
+
     def __repr__(self):
         return "%s ID=%s" % (self.name, self.id)
 
@@ -6896,6 +6901,27 @@ class Collection(Base):
     def _correct_secret(self, plaintext_secret):
         return (bcrypt.hashpw(plaintext_secret, self.client_secret)
                 == self.client_secret)
+
+    def track_asset(self, _db, identifier):
+        get_one_or_create(
+            _db, CollectionAsset, collection=self, identifier=identifier
+        )
+
+
+class CollectionAsset(Base):
+
+    __tablename__ = 'collectionassets'
+
+    id = Column(Integer, primary_key=True)
+    collection_id = Column(Integer, ForeignKey('collections.id'), index=True, nullable=False)
+    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('collection_id', 'identifier_id'),
+    )
+
+    def __repr__(self):
+        return "%r IDENTIFIER=%r" % (self.collection, self.identifier)
 
 
 from sqlalchemy.sql import compiler

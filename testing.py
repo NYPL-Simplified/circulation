@@ -11,6 +11,7 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -319,6 +320,9 @@ class DatabaseTest(object):
             resolved
         )
         return complaint
+
+    def _collection(self):
+        return Collection.register(self._db, "Faketown Public Library")[0]
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried

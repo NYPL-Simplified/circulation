@@ -235,7 +235,7 @@ class URNLookupController(object):
 
         return (400, self.UNRESOLVABLE_URN)
 
-    def process_urn(self, urn):
+    def process_urn(self, urn, collection=None):
         """Turn a URN into a Work suitable for use in an OPDS feed.
 
         :return: If a Work is found, the return value is None.
@@ -246,6 +246,9 @@ class URNLookupController(object):
         if not isinstance(identifier, Identifier):
             # Error.
             return identifier
+
+        if collection:
+            collection.track_asset(self._db, identifier)
 
         if identifier.licensed_through:
             # There is a LicensePool for this identifier!
@@ -360,14 +363,14 @@ class URNLookupController(object):
         # We made it!
         return entry
 
-    def work_lookup(self, annotator, controller_name='lookup'):
+    def work_lookup(self, annotator, controller_name='lookup', collection=None):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
         this_url = cdn_url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
-            code, message = self.process_urn(urn)
+            code, message = self.process_urn(urn, collection=collection)
             if code:
                 messages_by_urn[urn] = (code, message)
 
