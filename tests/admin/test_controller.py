@@ -236,15 +236,11 @@ class TestSignInController(AdminControllerTest):
             eq_(self.admin, response)
 
         # Returns an error if you aren't authenticated.
-        with temp_config() as config:
-            config[Configuration.GOOGLE_OAUTH_INTEGRATION] = {
-                Configuration.GOOGLE_OAUTH_CLIENT_JSON : "/path"
-            }
-            with self.app.test_request_context('/admin'):
-                # You get back a problem detail when you're not authenticated.
-                response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-                eq_(401, response.status_code)
-                eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
+        with self.app.test_request_context('/admin'):
+            # You get back a problem detail when you're not authenticated.
+            response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
+            eq_(401, response.status_code)
+            eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
 
     def test_authenticated_admin(self):
         # Creates a new admin with fresh details.

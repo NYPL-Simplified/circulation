@@ -14,10 +14,6 @@
     	},
         
     	"S3" : {
-        },
-
-        "Google OAuth": {
-            "client_json_file": "/path/to/client/json/file.json"
         }
     }
 }
