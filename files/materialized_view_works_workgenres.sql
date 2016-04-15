@@ -32,7 +32,7 @@ as
     licensepools.id AS license_pool_id,
     licensepools.availability_time
    FROM works
-     JOIN editions ON editions.work_id = works.id
+     JOIN editions ON editions.work_id = works.id AND editions.is_primary_for_work = true
      JOIN licensepools ON editions.data_source_id = licensepools.data_source_id AND editions.primary_identifier_id = licensepools.identifier_id
      JOIN datasources ON editions.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
