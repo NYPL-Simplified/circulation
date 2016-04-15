@@ -1694,7 +1694,9 @@ class Identifier(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source, operation=None):
+            cls, _db, identifier_types, coverage_data_source, operation=None,
+            count_as_missing_before=None
+    ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
@@ -1704,7 +1706,14 @@ class Identifier(Base):
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
-        q2 = q.filter(CoverageRecord.id==None)
+
+        missing = CoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, CoverageRecord.timestamp < count_as_missing_before
+            )
+
+        q2 = q.filter(missing)
         return q2
 
     def opds_entry(self):
