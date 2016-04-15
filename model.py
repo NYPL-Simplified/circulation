@@ -5184,7 +5184,31 @@ class LicensePool(Base):
                 return True
         return False
 
+    def editions_in_priority_order(self):
+        """Return all Editions that describe the Identifier associated with
+        this LicensePool, in the order they should be used to create a
+        presentation Edition for the LicensePool.
+        """
+        def sort_key(self, edition):
+            """Return a numeric ordering of this edition."""
+            source = edition.data_source
+            if not source:
+                # This shouldn't happen. Give this edition the
+                # lowest priority.
+                return -100
+
+            if source == self.data_source:
+                # This Edition contains information from the same data
+                # source as the LicensePool itself. Put it below any
+                # Edition from one of the data sources in
+                # PRESENTATION_EDITION_PRIORITY, but above all other
+                # Editions.
+                return -1
+            return DataSource.PRESENTATION_EDITION_PRIORITY.get(source.name, -2)
+        return sort(self.identifier.editions, key=sort_key)
+
     def set_presentation_edition(self, policy):
+
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -5195,7 +5219,7 @@ class LicensePool(Base):
         """
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
-        all_editions = list(self.identifier.editions_in_priority_order)
+        all_editions = list(self.editions_in_priority_order)
         changed = False
         if len(all_editions) == 1:
             # There's only one edition associated with this
