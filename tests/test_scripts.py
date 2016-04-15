@@ -1,4 +1,7 @@
+import datetime
+
 from nose.tools import (
+    assert_raises,
     eq_,
     set_trace,
 )
@@ -51,3 +54,19 @@ class TestScript(DatabaseTest):
         eq_(overdrive, data_source)
 
         eq_([], Script.parse_identifier_list(self._db, []))
+
+
+    def test_parse_time(self): 
+        reference_date = datetime.datetime(2016, 01, 01)
+
+        eq_(Script.parse_time("2016-01-01"), reference_date)
+
+        eq_(Script.parse_time("2016-1-1"), reference_date)
+
+        eq_(Script.parse_time("1/1/2016"), reference_date)
+
+        eq_(Script.parse_time("20160101"), reference_date)
+
+        assert_raises(ValueError, Script.parse_time, "201601-01")
+
+
