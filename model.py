@@ -24,6 +24,7 @@ import urllib
 import urlparse
 import uuid
 import warnings
+import bcrypt
 
 from PIL import (
     Image,
@@ -60,6 +61,7 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -6819,38 +6821,81 @@ class Admin(Base):
         _db.commit()
 
 
-class Library(Base):
+class Collection(Base):
 
-    __tablename__ = 'libraries'
+    __tablename__ = 'collections'
 
     id = Column(Integer, primary_key=True)
     name = Column(Unicode, unique=True)
-    client_id = Column(Unicode, unique=True)
-    client_secret = Column(Unicode, unique=True, nullable=False)
+    client_id = Column(Unicode, unique=True, index=True)
+    _client_secret = Column(Unicode, nullable=False)
 
-    CLIENT_ID_CHARS = ('abcdefghijklmnopqrstuvwxyz'
-                       'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                       '0123456789')
+    def __repr__(self):
+        return "%s ID=%s" % (self.name, self.id)
 
-    CLIENT_SECRET_CHARS = '!"#$%&()*+,-./[]^_`{}|~'
+    @hybrid_property
+    def client_secret(self):
+        return self._client_secret
+
+    @client_secret.setter
+    def _set_client_secret(self, plaintext_secret):
+        self._client_secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
 
     @classmethod
-    def generate(cls, _db, name):
-        library = get_one(_db, cls, name=name)
-        if not library:
-            def make_client_string(chars, length):
-                return u"".join([random.choice(chars) for x in range(length)])
-
-            full_client_secret_chars = cls.CLIENT_ID_CHARS + cls.CLIENT_SECRET_CHARS
-            client_id = make_client_string(cls.CLIENT_ID_CHARS, 25)
-            client_secret = make_client_string(full_client_secret_chars, 40)
-
-            library, new = create(
-                _db, cls, name=unicode(name), client_id=client_id,
-                client_secret=client_secret
+    def register(cls, _db, name):
+        name = unicode(name)
+        collection = get_one(_db, cls, name=name)
+        if collection:
+            logging.error(
+                "A collection with the name %s already exists", name
             )
-            return library, new
-        return library, False
+            return None
+
+        # Create a unique client_id
+        client_id, plaintext_client_secret = cls.generate_client_details()
+        while get_one(_db, cls, client_id=client_id):
+            client_id, plaintext_client_secret = cls.generate_client_details()
+
+        logging.info(
+            ("Creating collection %s. "
+             "RECORD THE FOLLOWING AUTHENTICATION DETAILS. "
+             "The client secret cannot be recovered."), name
+        )
+        logging.info("CLIENT ID: %s", client_id)
+        logging.info("CLIENT SECRET: %s", plaintext_client_secret)
+
+        return create(
+            _db, cls, name=name, client_id=unicode(client_id),
+            client_secret=unicode(plaintext_client_secret)
+        )
+
+    @classmethod
+    def generate_client_details(cls):
+        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                           '0123456789')
+        client_secret_chars = client_id_chars + '!"#$%&()*+,-./[]^_`{}|~'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        client_id = make_client_string(client_id_chars, 25)
+        client_secret = make_client_string(client_secret_chars, 40)
+
+        return client_id, client_secret
+
+    @classmethod
+    def authenticate(cls, _db, client_id, plaintext_client_secret):
+        collection = get_one(_db, cls, client_id=client_id)
+        if (collection and
+            collection._correct_secret(plaintext_client_secret)):
+            return collection
+        return None
+
+    def _correct_secret(self, plaintext_secret):
+        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+                == self.client_secret)
 
 
 from sqlalchemy.sql import compiler
