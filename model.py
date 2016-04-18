@@ -6840,13 +6840,20 @@ class Collection(Base):
 
     @hybrid_property
     def client_secret(self):
+        """Gets encrypted client_secret from database"""
         return self._client_secret
 
     @client_secret.setter
     def _set_client_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
         self._client_secret = unicode(bcrypt.hashpw(
             plaintext_secret, bcrypt.gensalt()
         ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is the client_secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+                == self.client_secret)
 
     @classmethod
     def register(cls, _db, name):
@@ -6858,8 +6865,8 @@ class Collection(Base):
             )
             return None
 
-        # Create a unique client_id
         client_id, plaintext_client_secret = cls.generate_client_details()
+        # Generate a new client_id if it's not unique initially.
         while get_one(_db, cls, client_id=client_id):
             client_id, plaintext_client_secret = cls.generate_client_details()
 
@@ -6897,10 +6904,6 @@ class Collection(Base):
             collection._correct_secret(plaintext_client_secret)):
             return collection
         return None
-
-    def _correct_secret(self, plaintext_secret):
-        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
-                == self.client_secret)
 
     def track_asset(self, _db, identifier):
         get_one_or_create(
