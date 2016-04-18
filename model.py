@@ -6861,27 +6861,24 @@ class Collection(Base):
         collection = get_one(_db, cls, name=name)
         if collection:
             logging.error(
-                "A collection with the name %s already exists", name
+                "A collection with the name '%s' already exists: %r",
+                name, collection
             )
-            return None
+            return None, None
 
         client_id, plaintext_client_secret = cls.generate_client_details()
         # Generate a new client_id if it's not unique initially.
         while get_one(_db, cls, client_id=client_id):
             client_id, plaintext_client_secret = cls.generate_client_details()
 
-        logging.info(
-            ("Creating collection %s. "
-             "RECORD THE FOLLOWING AUTHENTICATION DETAILS. "
-             "The client secret cannot be recovered."), name
-        )
-        logging.info("CLIENT ID: %s", client_id)
-        logging.info("CLIENT SECRET: %s", plaintext_client_secret)
-
-        return create(
+        collection, ignore = get_one_or_create(
             _db, cls, name=name, client_id=unicode(client_id),
             client_secret=unicode(plaintext_client_secret)
         )
+
+        _db.commit()
+
+        return collection, plaintext_client_secret
 
     @classmethod
     def generate_client_details(cls):
