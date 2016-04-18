@@ -3483,6 +3483,11 @@ class Work(Base):
             else:
                 edition.is_primary_for_work = True
                 self.primary_edition = edition
+        
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+        )
+
 
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Determine the following information:
@@ -3511,10 +3516,6 @@ class Work(Base):
 
         if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
-            WorkCoverageRecord.add_for(
-                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
-            )
-
 
         # The privileged data source may short-circuit the process of
         # finding a good cover or description.
