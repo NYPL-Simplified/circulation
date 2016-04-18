@@ -14,9 +14,11 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    Classification,
     DataSource,
     Hyperlink,
-    PresentationCalculationPolicy
+    PresentationCalculationPolicy,
+    Subject,
 )
 from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
@@ -199,19 +201,35 @@ class WorkController(CirculationManagerController):
         work = pool.work
         changed = False
 
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
             work.primary_edition.title = unicode(new_title)
             changed = True
 
-        new_publisher = flask.request.form.get("publisher")
-        if new_publisher != work.publisher:
-            work.primary_edition.publisher = unicode(new_publisher)
+        new_audience = flask.request.form.get("audience")
+        if new_audience != work.audience:
+            # Delete all previous staff classifications
+            old_classifications = self._db.query(Classification).filter(
+                Classification.identifier==work.primary_edition.primary_identifier,
+                Classification.data_source==staff_data_source,
+            )
+            for c in old_classifications:
+                if c.subject.type == Subject.FREEFORM_AUDIENCE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight
+            work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.FREEFORM_AUDIENCE,
+                subject_identifier=new_audience,
+                weight=100000,
+            )
             changed = True
 
         new_summary = flask.request.form.get("summary")
         if new_summary != work.summary_text:
-            staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
             (link, is_new) =  work.primary_edition.primary_identifier.add_link(
                 Hyperlink.DESCRIPTION, None, 
                 staff_data_source, content=new_summary)
@@ -224,7 +242,9 @@ class WorkController(CirculationManagerController):
             # index for the work, because that might be the 'real'
             # problem the user is trying to fix.
             policy = PresentationCalculationPolicy(
-                regenerate_opds_entries=True, update_search_index=True,
+                classify=True,
+                regenerate_opds_entries=True,
+                update_search_index=True,
             )
             work.calculate_presentation(policy=policy)
         return Response("", 200)
