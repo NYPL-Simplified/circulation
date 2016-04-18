@@ -9,6 +9,7 @@ import tempfile
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
+    assert_not_equal,
     eq_,
     set_trace,
 )
@@ -1071,6 +1072,80 @@ class TestLicensePool(DatabaseTest):
         eq_(3, len(resolved_results))
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
+
+
+    def test_editions_in_priority_order(self):
+        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+        # do not set edition_no_data_source's data source
+        edition_no_data_source = self._edition(with_license_pool=False)
+
+
+        edition_admin.primary_identifier = pool.identifier
+        edition_mw.primary_identifier = pool.identifier
+        edition_no_data_source.primary_identifier = pool.identifier
+
+        editions_correct = (edition_no_data_source, edition_od, edition_mw, edition_admin)
+        editions_contender = pool.editions_in_priority_order()
+
+        #eq_(editions_correct, editions_contender)
+        eq_(len(editions_correct), len(editions_contender))
+
+        for index, edition in enumerate(editions_correct):
+            eq_(editions_contender[index].title, editions_correct[index].title)
+
+
+    def test_set_presentation_edition(self):
+        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+ 
+        edition_mw.primary_identifier = pool.identifier
+        edition_admin.primary_identifier = pool.identifier
+
+        #edition_mw.set_license_pool = pool
+        #edition_admin.set_license_pool = pool
+
+        edition_od.title = u"OverdriveTitle1"
+        [joe], ignore = Contributor.lookup(self._db, u"Sloppy, Joe")
+        joe.family_name, joe.display_name = joe.default_names()
+        edition_od.add_contributor(joe, Contributor.AUTHOR_ROLE)
+
+        edition_mw.title = u"MetadataWranglerTitle1"
+        #TODO: keep this one not admin.  
+        edition_mw.subtitle = u"MetadataWranglerSubTitle1"
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        edition_mw.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        edition_admin.title = u"AdminInterfaceTitle1"
+        #edition_admin.subtitle = u"AdminSubTitle1"
+        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
+        jane.family_name, jane.display_name = jane.default_names()
+        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
+
+        pool.set_presentation_edition(None)
+
+        edition_composite = pool.presentation_edition
+
+        assert_not_equal(edition_mw, edition_od)
+        assert_not_equal(edition_od, edition_admin)
+        assert_not_equal(edition_admin, edition_composite)
+        assert_not_equal(edition_od, edition_composite)
+
+        # make sure admin pool data had precedence
+        eq_(edition_composite.title, u"AdminInterfaceTitle1")
+
+        # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
+        eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
+        eq_(edition_mw.is_primary_for_work, False)
+        eq_(edition_od.is_primary_for_work, False)
+        eq_(edition_admin.is_primary_for_work, False)
+        #eq_(edition_composite.is_primary_for_work, True)
+        license_pool = edition_composite.is_presentation_for
+        eq_(license_pool, pool)
+
 
 
 class TestWork(DatabaseTest):

@@ -118,6 +118,8 @@ from sqlalchemy.dialects.postgresql import (
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
 
+
+
 DEBUG = False
 
 def production_session():
@@ -804,6 +806,7 @@ class DataSource(Base):
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.PRESENTATION_EDITION, False, False, None, None),
         ):
 
             extra = dict()
@@ -2742,19 +2745,6 @@ class Edition(Base):
     UNKNOWN_AUTHOR = u"[Unknown]"
 
 
-    """ TODO: move down
-    @property
-    def work(self):
-        # TODO: decide if should be property
-        # first presentation edition of a non-suppressed, non-superceded licensepool
-        # but edition already has a work_id?
-        parent_work_license_pools = self.license_pool.work.license_pools
-        for (work in parent_works)
-        see if license pool is active,
-        if yes, set its work to mine and continue
-    """
-
-
 
     def calculate_presentation(self, policy=None):
         """Make sure the presentation of this Edition is up-to-date."""
@@ -2762,6 +2752,17 @@ class Edition(Base):
         changed = False
         if policy is None:
             policy = PresentationCalculationPolicy()
+
+        """
+        TODO: 
+        # first presentation edition of a non-suppressed, non-superceded licensepool
+        # but edition already has a work_id?
+        parent_work_license_pools = self.license_pool.work.license_pools
+
+        for (work in parent_works)
+        see if license pool is active,
+        if yes, set its work to mine and continue
+        """
 
         # Gather information up front that will be used to determine
         # whether this method actually did anything.
@@ -5222,12 +5223,13 @@ class LicensePool(Base):
                 return True
         return False
 
+
     def editions_in_priority_order(self):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
         presentation Edition for the LicensePool.
         """
-        def sort_key(self, edition):
+        def sort_key(edition):
             """Return a numeric ordering of this edition."""
             source = edition.data_source
             if not source:
@@ -5242,8 +5244,13 @@ class LicensePool(Base):
                 # PRESENTATION_EDITION_PRIORITY, but above all other
                 # Editions.
                 return -1
-            return DataSource.PRESENTATION_EDITION_PRIORITY.get(source.name, -2)
-        return sort(self.identifier.editions, key=sort_key)
+            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
+                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
+            else:
+                return -2
+
+        return sorted(self.identifier.primarily_identifies, key=sort_key)
+
 
     def set_presentation_edition(self, policy):
 
@@ -5257,32 +5264,36 @@ class LicensePool(Base):
         """
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
-        all_editions = list(self.editions_in_priority_order)
+        all_editions = list(self.editions_in_priority_order())
         changed = False
+
+        from metadata_layer import (
+            Metadata, IdentifierData, 
+        )
+
         if len(all_editions) == 1:
             # There's only one edition associated with this
             # LicensePool. Use it as the presentation edition rather
             # than creating an identical composite.
             self.presentation_edition = all_editions[0]
         else:
-            metadata = Metadata()
-            for edition in self.identifier.editions_in_priority_order:
-                metadata.update(edition.to_metadata())
+            edition_identifier = IdentifierData(self.identifier.type, self.identifier.identifier)
+            metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
+
+            for edition in all_editions:
+                if edition.data_source.name != DataSource.PRESENTATION_EDITION:
+                    metadata.update(Metadata.from_edition(edition))
 
             # Since this is a presentation edition it does not have a
             # license data source, even if one of the editions it was
             # created from does have a license data source.
-            metadata.license_data_source = None
-            metadata.data_source = DataSource.PRESENTATION_EDITION
+            #metadata.license_data_source = None
 
-            edition = metadata.edition(_db)
+            edition, is_new = metadata.edition(_db)
+
             # TODO: apply() needs to set last_update_time if appropriate.
-            self.presentation_edition, changed = metadata.apply(
-                edition, policy=policy
-            )
-
+            self.presentation_edition = metadata.apply(edition)
         self.presentation_edition.work = self.work
-
         changed = changed or self.presentation_edition.calculate_presentation()
         return (
             self.presentation_edition != old_presentation_edition 

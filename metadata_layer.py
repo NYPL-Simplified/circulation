@@ -567,6 +567,7 @@ class Metadata(object):
                                     display_name=edition.author,
                                     roles=[Contributor.PRIMARY_AUTHOR_ROLE])
                 )
+
         i = edition.primary_identifier
         primary_identifier = IdentifierData(
             type=i.type, identifier=i.identifier, weight=1
@@ -600,6 +601,7 @@ class Metadata(object):
                 break
         return primary_author
 
+
     def update(self, metadata):
         """Update this Metadata object with values from the given Metadata
         object.
@@ -614,6 +616,7 @@ class Metadata(object):
             new_value = getattr(metadata, field)
             if new_value:
                 setattr(self, field, new_value)
+
 
     def calculate_permanent_work_id(self, _db, metadata_client):
         """Try to calculate a permanent work ID from this metadata.
