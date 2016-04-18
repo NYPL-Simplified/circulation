@@ -341,3 +341,4 @@ class TestFeedController(AdminControllerTest):
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
+            eq_(suppressed_work.title, entries[0]['title'])
