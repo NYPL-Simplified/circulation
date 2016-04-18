@@ -141,6 +141,48 @@ class TestOPDS(DatabaseTest):
         eq_(1, len(parsed['entries']))
         eq_(work2.title, parsed['entries'][0]['title'])
 
+    def test_suppressed_feed(self):
+        """Test the ability to show a paginated feed of suppressed works.
+        """
+
+        work1 = self._work(with_open_access_download=True)
+        work1.license_pools[0].suppressed = True
+
+        work2 = self._work(with_open_access_download=True)
+        work2.license_pools[0].suppressed = True
+
+        pagination = Pagination(size=1)
+        annotator = TestAnnotator()
+
+        def make_page(pagination):
+            return AdminFeed.suppressed(
+                _db=self._db, title="Hidden works",
+                url=self._url, annotator=annotator,
+                pagination=pagination
+            )
+
+        first_page = make_page(pagination)
+        parsed = feedparser.parse(unicode(first_page))
+        eq_(1, len(parsed['entries']))
+        eq_(work1.title, parsed['entries'][0].title)
+
+        # Make sure the links are in place.
+        [start] = self.links(parsed, 'start')
+        eq_(annotator.groups_url(None), start['href'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(annotator.suppressed_url(pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        second_page = make_page(pagination.next_page)
+        parsed = feedparser.parse(unicode(second_page))
+        [previous] = self.links(parsed, 'previous')
+        eq_(annotator.suppressed_url(pagination), previous['href'])
+        eq_(1, len(parsed['entries']))
+        eq_(work2.title, parsed['entries'][0]['title'])
 
 class TestAnnotator(AdminAnnotator):
 
@@ -160,6 +202,13 @@ class TestAnnotator(AdminAnnotator):
         if facets:
             base += sep + facets.query_string
             sep = '&'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
+
+    def suppressed_url(self, pagination):
+        base = "http://complaints/"
+        sep = '?'
         if pagination:
             base += sep + pagination.query_string
         return base
