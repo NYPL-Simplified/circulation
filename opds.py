@@ -296,7 +296,7 @@ class Annotator(object):
             # associated with a loan, were a loan to be issued right
             # now.
             for p in work.license_pools:
-                edition = p.edition
+                edition = p.presentation_edition
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
@@ -762,7 +762,7 @@ class AcquisitionFeed(OPDSFeed):
                 active_edition = None
             elif active_license_pool:        
                 identifier = active_license_pool.identifier
-                active_edition = active_license_pool.edition
+                active_edition = active_license_pool.presentation_edition
             else:
                 active_edition = work.primary_edition
                 identifier = active_edition.primary_identifier

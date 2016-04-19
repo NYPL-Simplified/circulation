@@ -1568,7 +1568,9 @@ class Identifier(Base):
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
         if data_source:
-            resources = resources.filter(Hyperlink.data_source==data_source)
+            if isinstance(data_source, DataSource):
+                data_source = [data_source]
+            resources = resources.filter(Hyperlink.data_source_id.in_([d.id for d in data_source]))
         if rel:
             if isinstance(rel, list):
                 resources = resources.filter(Hyperlink.rel.in_(rel))
@@ -3486,13 +3488,13 @@ class Work(Base):
         # If we find a cover or description that comes direct from a
         # license source, it may short-circuit the process of finding
         # a good cover or description.
-        license_data_sources = set()
+        licensed_data_sources = set()
         for pool in self.license_pools:
             # Descriptions from Gutenberg are useless, so we
             # specifically exclude it from being a privileged data
             # source.
             if pool.data_source.name != DataSource.GUTENBERG:
-                license_data_sources.add(pool.data_source)
+                licensed_data_sources.add(pool.data_source)
 
         if policy.classify or policy.choose_summary or policy.calculate_quality:
             # Find all related IDs that might have associated descriptions,
@@ -3551,7 +3553,7 @@ class Work(Base):
         changed = (
             edition_metadata_changed or
             classification_changed or
-            primary_edition != self.primary_edition or
+            old_primary_edition != self.primary_edition or
             summary != self.summary or
             summary_text != new_summary_text or
             float(quality) != float(self.quality)
@@ -5084,7 +5086,7 @@ class LicensePool(Base):
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
     # open-access LicensePool and a better-quality version of the same
-    # book is available from another source.
+    # book is available from another Open-Access source.
     superceded = Column(Boolean, default=False)
 
     # A LicensePool that seemingly looks fine may be manually suppressed
@@ -5482,6 +5484,9 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
+        #set_trace()
+        self.set_presentation_edition(None)
+
 
         # TODO:  self.presentation_edition was self.edition in code that was failing.
         primary_edition = known_edition or self.presentation_edition
