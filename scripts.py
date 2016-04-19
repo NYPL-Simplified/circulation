@@ -1,3 +1,5 @@
+import argparse
+import datetime
 import os
 import logging
 import sys
@@ -106,6 +108,23 @@ class Script(object):
             return data_source
         return []
 
+    @classmethod
+    def parse_time(cls, time_string):
+        """Try to pass the given string as a time."""
+        if not time_string:
+            return None
+        for format in ('%Y-%m-%d', '%m/%d/%Y', '%Y%m%d'):
+            for hours in ('', ' %H:%M:%S'):
+                full_format = format + hours
+                try:
+                    parsed = datetime.datetime.strptime(
+                        time_string, full_format
+                    )
+                    return parsed
+                except ValueError, e:
+                    continue
+        raise ValueError("Could not parse time: %s" % time_string)
+
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
@@ -209,9 +228,20 @@ class SubjectInputScript(Script):
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
+    @classmethod
+    def parse_cutoff_time(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--cutoff-time', 
+            help='Update existing coverage records if they were originally created after this time.'
+        )
+        args = parser.parse_args()
+        return cls.parse_time(args.cutoff_time)
+
     def __init__(self, provider):
+        cutoff_time = self.parse_cutoff_time()
         if callable(provider):
-            provider = provider(self._db)
+            provider = provider(self._db, cutoff_time=cutoff_time)
         self.provider = provider
         self.name = self.provider.service_name
 

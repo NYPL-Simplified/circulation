@@ -1889,13 +1889,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                ),
                
                Christianity : match_kw(
-                   "schema:creativework:bible",
-                   "bible",
+                   Eg("schema:creativework:bible"),
+                   Eg("bible"),
                    Eg("sermons"),
                    Eg("devotional"),
                    Eg("theological"),
                    Eg("theology"),
-                   'biblical',
+                   Eg('biblical'),
                    "christian",
                    "christianity",
                    Eg("catholic"),
