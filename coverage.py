@@ -212,6 +212,11 @@ class CoverageProvider(object):
                 )
             else:
                 return None
+        if not license_pool.data_source:
+            # This license pool was created to track a collection's
+            # holdings before its source was known.
+            license_pool.data_source = self.output_source
+            self._db.commit()
         return license_pool
 
     def edition(self, identifier):

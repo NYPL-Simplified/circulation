@@ -42,6 +42,7 @@ from sqlalchemy.orm import (
 from sqlalchemy import (
     or_,
     MetaData,
+    Table,
 )
 from sqlalchemy.orm import (
     aliased,
@@ -1050,9 +1051,6 @@ class Identifier(Base):
 
     # One Identifier may have many associated CoverageRecords.
     coverage_records = relationship("CoverageRecord", backref="identifier")
-
-    # One Identifier may be registered in many collections.
-    collections = relationship("CollectionAsset", backref="identifier")
 
     def __repr__(self):
         records = self.primarily_identifies
@@ -6829,11 +6827,15 @@ class Collection(Base):
     __tablename__ = 'collections'
 
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode, unique=True)
+    name = Column(Unicode, unique=True, nullable=False)
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
 
-    assets = relationship('CollectionAsset', backref='collection')
+    # A collection can have many LicensePools
+    license_pools = relationship(
+        "LicensePool", secondary=lambda: collections_license_pools,
+        backref="collections"
+    )
 
     def __repr__(self):
         return "%s ID=%s" % (self.name, self.id)
@@ -6902,27 +6904,30 @@ class Collection(Base):
             return collection
         return None
 
-    def track_asset(self, _db, identifier):
-        get_one_or_create(
-            _db, CollectionAsset, collection=self, identifier=identifier
-        )
+    def catalog_identifier(self, _db, identifier):
+        """Creates a LicensePool to catalog an identifier for a collection"""
+
+        license_pool = identifier.licensed_through
+        if not license_pool:
+            license_pool, new = get_one_or_create(
+                _db, LicensePool, identifier=identifier
+            )
+        if license_pool not in self.license_pools:
+            self.license_pools.append(license_pool)
 
 
-class CollectionAsset(Base):
-
-    __tablename__ = 'collectionassets'
-
-    id = Column(Integer, primary_key=True)
-    collection_id = Column(Integer, ForeignKey('collections.id'), index=True, nullable=False)
-    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint('collection_id', 'identifier_id'),
-    )
-
-    def __repr__(self):
-        return "%r IDENTIFIER=%r" % (self.collection, self.identifier)
-
+collections_license_pools = Table(
+    'collectionslicensepools', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'license_pool_id', Integer, ForeignKey('licensepools.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('collection_id', 'license_pool_id'),
+)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
