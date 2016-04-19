@@ -696,6 +696,8 @@ class Metadata(object):
         return self.license_data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
+        """ Find or create the edition described by this Metadata object.
+        """
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find edition: metadata has no primary identifier."
@@ -850,6 +852,8 @@ class Metadata(object):
                 success = True
         return success
 
+
+
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
@@ -866,8 +870,12 @@ class Metadata(object):
 
         :param mirror: Open-access books and cover images will be mirrored
         to this MirrorUploader.
+        :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes 
+        answers the question: were any edition core fields harmed in the making of this update?  
+        So, if title changed, return True.  But if contributor changed, ignore and return False. 
         """
         _db = Session.object_session(edition)
+        made_core_changes = False
 
         if replace is None:
             replace = ReplacementPolicy(
@@ -903,7 +911,7 @@ class Metadata(object):
                 last_time = self.last_update_time
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
-                    return
+                    return edition, False
 
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
@@ -913,35 +921,30 @@ class Metadata(object):
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
-        if self.title:
-            edition.title = self.title
-        if self.subtitle:
-            edition.subtitle = self.subtitle
-        if self.language:
-            edition.language = self.language
-        if self.medium:
-            edition.medium = self.medium
-        if self.series:
-            edition.series = self.series
-        if self.publisher:
-            edition.publisher = self.publisher
-        if self.imprint:
-            edition.imprint = self.imprint
-        if self.issued:
-            edition.issued = self.issued
-        if self.published:
-            edition.published = self.published
-        if self.permanent_work_id:
-            edition.permanent_work_id = self.permanent_work_id
+
+
+        for field in (
+                'title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published', 'permanent_work_id'
+        ):
+            old_edition_value = getattr(edition, field)
+            new_metadata_value = getattr(self, field)
+            if new_metadata_value and (new_metadata_value != old_edition_value):
+                setattr(edition, field, new_metadata_value)
+                made_core_changes = True
+
+        if (made_core_changes): 
+            edition.last_update_time = datetime.datetime.utcnow()
+
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-
         self.update_contributions(_db, edition, metadata_client, 
                                   replace.contributions)
 
-        # TODO: remove equivalencies when replace.identifiers is True.
 
+        # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
                 if not identifier_data.identifier:
@@ -1098,7 +1101,8 @@ class Metadata(object):
         CoverageRecord.add_for(
             edition, data_source, timestamp=self.last_update_time
         )
-        return edition
+        return edition, made_core_changes
+
 
     def mirror_link(self, pool, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
