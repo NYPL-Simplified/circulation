@@ -644,6 +644,11 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have one Collection.
+    collection = relationship(
+        "Collection", backref="data_source", uselist=False
+    )
+
     @classmethod
     def lookup(cls, _db, name):
         if hasattr(_db, 'data_sources'):
@@ -6831,6 +6836,12 @@ class Collection(Base):
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
 
+    # A collection has one DataSource
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, unique=True,
+        nullable=False
+    )
+
     # A collection can have many LicensePools
     license_pools = relationship(
         "LicensePool", secondary=lambda: collections_license_pools,
@@ -6838,7 +6849,9 @@ class Collection(Base):
     )
 
     def __repr__(self):
-        return "%s ID=%s" % (self.name, self.id)
+        return "%s ID=%s DATASOURCE_ID=%d" % (
+            self.name, self.id, self.data_source.id
+        )
 
     @hybrid_property
     def client_secret(self):
@@ -6859,6 +6872,8 @@ class Collection(Base):
 
     @classmethod
     def register(cls, _db, name):
+        """Creates a new collection with client details and a datasource."""
+
         name = unicode(name)
         collection = get_one(_db, cls, name=name)
         if collection:
@@ -6868,6 +6883,10 @@ class Collection(Base):
             )
             return None, None
 
+        collection_data_source, ignore = get_one_or_create(
+            _db, DataSource, name=name, offers_licenses=False
+        )
+
         client_id, plaintext_client_secret = cls.generate_client_details()
         # Generate a new client_id if it's not unique initially.
         while get_one(_db, cls, client_id=client_id):
@@ -6875,7 +6894,8 @@ class Collection(Base):
 
         collection, ignore = get_one_or_create(
             _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret)
+            client_secret=unicode(plaintext_client_secret),
+            data_source=collection_data_source
         )
 
         _db.commit()
