@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -47,6 +48,7 @@ from model import (
     WorkGenre,
     Identifier,
     Edition,
+    get_one,
     get_one_or_create,
 )
 from external_search import (
@@ -2398,3 +2400,38 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+
+
+class TestCollection(DatabaseTest):
+
+    def test_encrypts_client_secret(self):
+        collection, new = get_one_or_create(
+            self._db, Collection, name=u"Test Collection", client_id=u"test",
+            client_secret=u"megatest"
+        )
+        assert collection.client_secret != u"megatest"
+        eq_(True, collection.client_secret.startswith("$2a$"))
+
+    def test_register(self):
+        collection, plaintext_secret = Collection.register(
+            self._db, u"A Library"
+        )
+
+        # It creates a collection with client_details.
+        assert collection.client_id
+        assert collection.client_secret
+
+        # It returns nothing if the name is already taken.
+        result = Collection.register(self._db, u"A Library")
+        eq_((None, None), result)
+
+        # It creates a DataSource for the Collection by default.
+        source = get_one(self._db, DataSource, name=collection.name)
+        assert source
+
+        # It can also create a Collection without a Data Source.
+        collection, plaintext_secret = Collection.register(
+            self._db, u"A Non-Library", is_source=False
+        )
+        source = get_one(self._db, DataSource, name=collection.name)
+        eq_(None, source)

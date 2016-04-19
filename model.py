@@ -6870,7 +6870,7 @@ class Collection(Base):
                 == self.client_secret)
 
     @classmethod
-    def register(cls, _db, name):
+    def register(cls, _db, name, is_source=True):
         """Creates a new collection with client details and a datasource."""
 
         name = unicode(name)
@@ -6882,21 +6882,26 @@ class Collection(Base):
             )
             return None, None
 
-        collection_data_source, ignore = get_one_or_create(
-            _db, DataSource, name=name, offers_licenses=False
-        )
+        collection_data_source = None
+        if is_source:
+            collection_data_source, ignore = get_one_or_create(
+                _db, DataSource, name=name, offers_licenses=False
+            )
 
         client_id, plaintext_client_secret = cls.generate_client_details()
         # Generate a new client_id if it's not unique initially.
         while get_one(_db, cls, client_id=client_id):
             client_id, plaintext_client_secret = cls.generate_client_details()
 
-        collection, ignore = get_one_or_create(
-            _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret),
-            data_source=collection_data_source
+        kw = dict(
+            client_id=unicode(client_id),
+            client_secret=unicode(plaintext_client_secret)
         )
 
+        if collection_data_source:
+            kw['data_source'] = collection_data_source
+
+        collection, ignore = get_one_or_create(_db, cls, name=name, **kw)
         _db.commit()
 
         return collection, plaintext_client_secret
