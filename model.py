@@ -6836,10 +6836,9 @@ class Collection(Base):
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
 
-    # A collection has one DataSource
+    # A collection can have one DataSource
     data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True, unique=True,
-        nullable=False
+        Integer, ForeignKey('datasources.id'), index=True
     )
 
     # A collection can have many LicensePools

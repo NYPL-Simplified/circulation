@@ -248,7 +248,7 @@ class URNLookupController(object):
             return identifier
 
         if collection:
-            collection.track_asset(self._db, identifier)
+            collection.catalog_identifier(self._db, identifier)
 
         if identifier.licensed_through:
             # There is a LicensePool for this identifier!
