@@ -6876,11 +6876,10 @@ class Collection(Base):
         name = unicode(name)
         collection = get_one(_db, cls, name=name)
         if collection:
-            logging.error(
-                "A collection with the name '%s' already exists: %r",
-                name, collection
+            raise ValueError(
+                "A collection with the name '%s' already exists: %r" % (
+                name, collection)
             )
-            return None, None
 
         collection_data_source = None
         if is_source:

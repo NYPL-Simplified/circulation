@@ -2422,8 +2422,7 @@ class TestCollection(DatabaseTest):
         assert collection.client_secret
 
         # It returns nothing if the name is already taken.
-        result = Collection.register(self._db, u"A Library")
-        eq_((None, None), result)
+        assert_raises(ValueError, Collection.register, self._db, u"A Library")
 
         # It creates a DataSource for the Collection by default.
         source = get_one(self._db, DataSource, name=collection.name)
