@@ -1729,7 +1729,9 @@ class Identifier(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source, operation=None):
+            cls, _db, identifier_types, coverage_data_source, operation=None,
+            count_as_missing_before=None
+    ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
@@ -1739,7 +1741,14 @@ class Identifier(Base):
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
-        q2 = q.filter(CoverageRecord.id==None)
+
+        missing = CoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, CoverageRecord.timestamp < count_as_missing_before
+            )
+
+        q2 = q.filter(missing)
         return q2
 
     def opds_entry(self):
@@ -3386,6 +3395,33 @@ class Work(Base):
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 
+
+    def set_primary_edition(self):
+        """Which of this Work's Editions should be used as the default?
+        """
+        old_primary = self.primary_edition
+        champion = None
+        old_champion = None
+        champion_book_source_priority = None
+        best_text_source = None
+
+        for edition in self.editions:
+            if edition.better_primary_edition_than(champion):
+                champion = edition
+
+        for edition in self.editions:
+            # There can be only one.
+            if edition != champion:
+                edition.is_primary_for_work = False
+            else:
+                edition.is_primary_for_work = True
+                self.primary_edition = edition
+        
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+        )
+
+
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
@@ -3417,8 +3453,6 @@ class Work(Base):
             if pool.superceded or pool.suppressed:
                 # mark all of the pool's editions as non-primary
                 for ():
-
-
                 continue
             """
             edition_metadata_changed = (
@@ -3442,6 +3476,12 @@ class Work(Base):
                 new_primary_edition = potential_primary_edition
         if new_primary_edition:
             self.primary_edition = new_primary_edition
+
+        # TODO: following comes from presentation-script-takes-last-update-time branch.
+        # I think it's outdated code, but am safekeeping it for a couple commits in case I'm wrong.  -DC
+        #if policy.choose_edition or not self.primary_edition:
+        #    self.set_primary_edition()
+
 
 
         summary = self.summary
@@ -5429,6 +5469,8 @@ class LicensePool(Base):
             logging.info("When consolidating works, created %r", etext)
             if a and not a % 100:
                 _db.commit()
+
+
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
