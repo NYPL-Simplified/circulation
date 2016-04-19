@@ -2418,15 +2418,13 @@ class TestCollection(DatabaseTest):
         )
 
         # It creates a collection with client_details.
-        assert collection.client_id
-        assert collection.client_secret
+        assert collection.client_id and collection.client_secret
 
         # It returns nothing if the name is already taken.
         assert_raises(ValueError, Collection.register, self._db, u"A Library")
 
         # It creates a DataSource for the Collection by default.
-        source = get_one(self._db, DataSource, name=collection.name)
-        assert source
+        assert get_one(self._db, DataSource, name=collection.name)
 
         # It can also create a Collection without a Data Source.
         collection, plaintext_secret = Collection.register(
@@ -2434,3 +2432,26 @@ class TestCollection(DatabaseTest):
         )
         source = get_one(self._db, DataSource, name=collection.name)
         eq_(None, source)
+
+    def test_authenticate(self):
+        collection = self._collection()
+
+        result = Collection.authenticate(self._db, u"abc", u"def")
+        eq_(collection, result)
+
+        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        eq_(None, result)
+
+    def test_catalog_identifier(self):
+        identifier = self._identifier()
+        collection = self._collection()
+
+        # It creates a license_pool and associates it with the collection
+        eq_(None, identifier.licensed_through)
+        collection.catalog_identifier(self._db, identifier)
+        eq_(1, len(collection.license_pools))
+        eq_(identifier, collection.license_pools[0].identifier)
+
+        # It doesn't duplicate identifiers in the catalog.
+        collection.catalog_identifier(self._db, identifier)
+        eq_(1, len(collection.license_pools))
