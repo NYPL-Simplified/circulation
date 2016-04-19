@@ -5483,7 +5483,8 @@ class LicensePool(Base):
         Work will be created.
         """
 
-        primary_edition = known_edition or self.edition
+        # TODO:  self.presentation_edition was self.edition in code that was failing.
+        primary_edition = known_edition or self.presentation_edition
 
         if self.work:
             if primary_edition:
