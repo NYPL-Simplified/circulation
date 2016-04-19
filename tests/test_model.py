@@ -2455,3 +2455,12 @@ class TestCollection(DatabaseTest):
         # It doesn't duplicate identifiers in the catalog.
         collection.catalog_identifier(self._db, identifier)
         eq_(1, len(collection.license_pools))
+
+    def test_catalog(self):
+        collection = self._collection()
+        i1, i2, i3 = self._identifier(), self._identifier(), self._identifier()
+
+        for identifier in [i1, i2, i3]:
+            collection.catalog_identifier(self._db, identifier)
+
+        eq_([i1, i2, i3], collection.catalog(self._db).all())

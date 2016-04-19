@@ -6938,6 +6938,11 @@ class Collection(Base):
         if license_pool not in self.license_pools:
             self.license_pools.append(license_pool)
 
+    def catalog(self, _db):
+        qu = _db.query(Identifier).join(LicensePool)
+        qu = qu.filter(LicensePool.collections.any(id=self.id))
+        return qu
+
 
 collections_license_pools = Table(
     'collectionslicensepools', Base.metadata,
