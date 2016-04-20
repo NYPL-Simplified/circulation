@@ -18,5 +18,5 @@ INVALID_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/credentials-invalid",
       401,
       "Invalid credentials",
-      "A valid library card barcode number and PIN are required.",
+      "Valid credentials are required.",
 )

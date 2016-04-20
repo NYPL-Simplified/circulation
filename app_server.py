@@ -453,7 +453,6 @@ class CollectionController(object):
                 return collection
 
             # If inaccurate authorization details were sent, return error.
-            error = INVALID_CREDENTIALS
-            return problem(error.uri, error.status_code, error.title)
+            return INVALID_CREDENTIALS.response
         return None
 

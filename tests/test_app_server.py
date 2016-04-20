@@ -108,11 +108,10 @@ class TestURNLookupController(DatabaseTest):
         identifier = self._identifier()
         collection = self._collection()
 
-        eq_([], collection.license_pools)
+        eq_([], collection.catalog)
         self.controller.process_urn(identifier.urn, collection=collection)
-        eq_(1, len(collection.license_pools))
-        [lp] = collection.license_pools
-        eq_(identifier, lp.identifier)
+        eq_(1, len(collection.catalog))
+        eq_([identifier], collection.catalog)
 
 
 class TestComplaintController(DatabaseTest):
