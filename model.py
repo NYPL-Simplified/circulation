@@ -2833,6 +2833,16 @@ class Edition(Base):
         """Turn the list of Contributors into string values for .author
         and .sort_author.
         """
+
+        # TODO:  remember to clean print_database off
+        set_trace()
+        from testing import (
+            DatabaseTest, 
+        )
+        _db = Session.object_session(self)
+        DatabaseTest.print_database_class(_db)
+        # end TODO
+
         sort_names = []
         display_names = []
         for author in self.author_contributors:
@@ -3345,6 +3355,10 @@ class Work(Base):
         All of this work's Editions will be assigned to target_work,
         and it will be marked as merged into target_work.
         """
+        # TODO: clean off
+        # for pool in self.pools
+
+
         _db = Session.object_session(self)
         similarity = self.similarity_to(target_work)
         if similarity < similarity_threshold:
@@ -3396,23 +3410,27 @@ class Work(Base):
     def set_primary_edition(self):
         """Which of this Work's Editions should be used as the default?
         """
+
         old_primary = self.primary_edition
         champion = None
         old_champion = None
         champion_book_source_priority = None
         best_text_source = None
 
+        '''
         for edition in self.editions:
             if edition.better_primary_edition_than(champion):
                 champion = edition
+        '''
 
+        # for each edition, see if its LicensePool was superceded or suppressed
+        # if yes, it's not the champion
         for edition in self.editions:
             # There can be only one.
-            if edition != champion:
+            if edition != self.primary_edition:
                 edition.is_primary_for_work = False
             else:
                 edition.is_primary_for_work = True
-                self.primary_edition = edition
         
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
@@ -3434,7 +3452,6 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-        policy = policy or PresentationCalculationPolicy()
 
         # Gather information up front so we can see if anything
         # actually changed.
@@ -3444,7 +3461,11 @@ class Work(Base):
 
         old_primary_edition = self.primary_edition
         new_primary_edition = None
+
+        print "before mark lp"
         self.mark_licensepools_as_superceded()
+        print "after mark lp"
+
         for pool in self.license_pools:
             """ TODO:
             if pool.superceded or pool.suppressed:
@@ -3466,18 +3487,21 @@ class Work(Base):
             # So basically we pick the first available edition and
             # make it the primary.
             if (not new_primary_edition
-                or potential_primary_edition is old_primary_edition):
+                or (potential_primary_edition is old_primary_edition and old_primary_edition)):
                 # We would prefer not to change the Work's primary
                 # edition unnecessarily, so if the current primary
                 # edition is still an option, choose it.
                 new_primary_edition = potential_primary_edition
+
         if new_primary_edition:
             self.primary_edition = new_primary_edition
 
         # TODO: following comes from presentation-script-takes-last-update-time branch.
-        # I think it's outdated code, but am safekeeping it for a couple commits in case I'm wrong.  -DC
-        #if policy.choose_edition or not self.primary_edition:
-        #    self.set_primary_edition()
+        # I think it's outdated code, and needs fixing.
+        # policy.choose_edition is true by default
+        policy = policy or PresentationCalculationPolicy()
+        if policy.choose_edition or not self.primary_edition:
+            self.set_primary_edition()
 
 
 
@@ -3500,6 +3524,7 @@ class Work(Base):
             # Find all related IDs that might have associated descriptions,
             # classifications, or measurements.
             _db = Session.object_session(self)
+
             primary_identifier_ids = [
                 x.primary_identifier.id for x in self.editions
             ]
@@ -5484,7 +5509,6 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
-        #set_trace()
         self.set_presentation_edition(None)
 
 
@@ -5581,6 +5605,8 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
+        print "LicensePool %s" % self
+        print "my identifier=%s" % self.identifier
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)

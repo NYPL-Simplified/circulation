@@ -227,6 +227,7 @@ class DatabaseTest(object):
             identifier=edition.primary_identifier, data_source=source,
             availability_time=datetime.utcnow()
         )
+        print "_licensepool: pool.identifier=%s" % pool.identifier
 
         if with_open_access_download:
             pool.open_access = True
@@ -255,6 +256,8 @@ class DatabaseTest(object):
                 None
             )
             pool.licenses_owned = pool.licenses_available = 1
+
+        print "_licensepool: before return pool.identifier=%s" % pool.identifier
         return pool
 
     def _representation(self, url=None, media_type=None, content=None,
@@ -319,6 +322,110 @@ class DatabaseTest(object):
             resolved
         )
         return complaint
+
+
+
+    def print_database_instance(self):
+        '''
+        Calls the class method that examines the current state of the database model 
+        (whether it's been committed or not).
+
+        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right 
+        away, without waiting for the whole test to run and the standard output section to display.
+        I use:
+        def test_name(self):
+            [code...]
+            set_trace()
+            self.print_database_instance()
+            [code...]
+        '''
+        DatabaseTest.print_database_class(self._db)
+        return
+
+
+    @classmethod
+    def print_database_class(cls, db_connection):
+        '''
+        Prints to the console the entire contents of the database, as the unit test sees it. 
+        Exists because unit tests don't persist db information, they create a memory 
+        representation of the db state, and then roll the unit test-derived transactions back.
+        So we cannot see what's going on by going into postgres and running selects.
+        This is the in-test alternative to going into postgres.
+
+        Can be called from model and metadata classes as well as tests.
+
+        NOTE: The purpose of this method is for debugging.  
+        Be careful of leaving it in code and potentially outputting 
+        vast tracts of data into your output stream on production.
+
+        Call like this:
+        set_trace()
+        from testing import (
+            DatabaseTest, 
+        )
+        _db = Session.object_session(self)
+        DatabaseTest.print_database_class(_db)
+        '''
+        works = db_connection.query(Work).all()
+        identifiers = db_connection.query(Identifier).all()
+        license_pools = db_connection.query(LicensePool).all()
+        editions = db_connection.query(Edition).all()
+
+        if (not works):
+            print "NO Work found"
+        for wCount, work in enumerate(works):
+            # pipe character at end of line helps see whitespace issues
+            print "Work[%s]=%s|" % (wCount, work)
+
+            if (not work.editions):
+                print "    NO Work.Edition found"
+            for weCount, edition in enumerate(work.editions):
+                print "    Work.Edition[%s]=%s|" % (weCount, edition)
+
+            if (not work.license_pools):
+                print "    NO Work.LicensePool found"
+            for lpCount, license_pool in enumerate(work.license_pools):
+                print "    Work.LicensePool[%s]=%s|" % (lpCount, license_pool)
+
+            print "    Work.primary_edition=%s|" % work.primary_edition
+
+        if (not Identifier):
+            print "NO Identifier found"
+        for iCount, identifier in enumerate(identifiers):
+            print "Identifier[%s]=%s|" % (iCount, identifier)
+            print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
+
+        if (not LicensePool):
+            print "NO LicensePool found"
+        for index, license_pool in enumerate(license_pools):
+            print "LicensePool[%s]=%s|" % (index, license_pool)
+            print "    LicensePool.work_id=%s|" % license_pool.work_id
+            print "    LicensePool.data_source_id=%s|" % license_pool.data_source_id
+            print "    LicensePool.identifier_id=%s|" % license_pool.identifier_id
+            print "    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id            
+            print "    LicensePool.superceded=%s|" % license_pool.superceded
+            print "    LicensePool.suppressed=%s|" % license_pool.suppressed
+
+        if (not Edition):
+            print "NO Edition found"
+        for index, edition in enumerate(editions):
+            # pipe character at end of line helps see whitespace issues
+            print "Edition[%s]=%s|" % (index, edition)
+            print "    Edition.work_id=%s|" % edition.work_id
+            print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
+            print "    Edition.is_primary_for_work=%s|" % edition.is_primary_for_work
+            print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
+            print "    Edition.author=%s|" % edition.author
+            print "    Edition.title=%s|" % edition.title
+
+            if (not edition.author_contributors):
+                print "    NO Edition.author_contributor found"
+            for acCount, author_contributor in enumerate(edition.author_contributors):
+                print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
+
+        return
+
+
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried

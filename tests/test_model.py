@@ -947,7 +947,10 @@ class TestLicensePool(DatabaseTest):
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
 
+
+
     def test_better_open_access_pool_than(self):
+        # TODO:  update with extra tests that will come out of fixing test_merge_into
 
         gutenberg_1 = self._licensepool(
             None, open_access=True, data_source_name=DataSource.GUTENBERG,
@@ -1502,6 +1505,8 @@ class TestWorkSimilarity(DatabaseTest):
         wr = self._edition()
         eq_(1, wr.similarity_to(wr))
 
+
+
 class TestWorkConsolidation(DatabaseTest):
 
     # Versions of Work and Edition instrumented to bypass the
@@ -1550,6 +1555,7 @@ class TestWorkConsolidation(DatabaseTest):
         # Note that this works even though the Edition somehow got a
         # Work without having a title or author.
 
+
     def test_calculate_work_for_licensepool_creates_new_work(self):
 
         # This work record is unique to the existing work.
@@ -1565,14 +1571,23 @@ class TestWorkConsolidation(DatabaseTest):
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
         edition2.title = self._str
         edition2.author = self._str
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+
+        set_trace()
+        pool, ignore = LicensePool.for_foreign_id(self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+
+        # lp.for_foreign_id calls Identifier.for_foreign_id
+        # e.for_foreign_id calls Identifier.for_foreign_id, and creates new e if needed
+        # i.for_foreign_id makes new one if needed.
+
+        self.print_database_instance()
 
         # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
         eq_(edition2, pool.edition)
+
+
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
         edition, ignore = Edition.for_foreign_id(
@@ -1659,33 +1674,62 @@ class TestWorkConsolidation(DatabaseTest):
 
         pool.calculate_work()
 
+
+
+    def test_multiple_licensepolls_on_identifier(self):
+        '''
+        Tests that we can have multiple LicensePool records attached to a single Identifier.
+        Note:  As of 2016-04-19, we cannot.  This test is a stub, created as a TODO.
+        '''
+        edition, pool_1 = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
+        pool_2 = self._licensepool(edition, data_source_name=DataSource.OCLC)
+        work = Work()
+        work.license_pools = [pool_1, pool_2]
+        work.editions = [edition]
+
+        assert pool_1.identifier is not None
+        assert pool_2.identifier is not None
+
+        self._db.commit()
+        #TODO:  Decide if we want to take the 
+        # A Identifier should have at most one LicensePool.
+        # __table_args__ = (
+        # UniqueConstraint('identifier_id'),
+        #) 
+        # constraint off the LicensePool model class, and then change this test to allow 
+        # for pool_1 keeping its identifier.
+        assert pool_1.identifier is None
+        assert pool_2.identifier is not None
+
+
     def test_merge_into(self):
+        '''
+        Tests that two works can have their contents merged into a single work, and that the decision 
+        to perform the merge is conditional on the works' mutual similarity score.
+        '''
 
         # Here's a work with a license pool and two work records.
-        edition_1a, pool_1a = self._edition(
-            DataSource.OCLC, Identifier.OCLC_WORK, True)
-        edition_1b, ignore = Edition.for_foreign_id(
-            self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
+        edition_1a, pool_1a = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
+        edition_1b, ignore = Edition.for_foreign_id(self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
 
         work1 = Work()
         work1.license_pools = [pool_1a]
         work1.editions = [edition_1a, edition_1b]
-        work1.set_primary_edition()
+        work1.calculate_presentation()
 
         # Here's a work with two license pools and one work record
-        edition_2a, pool_2a = self._edition(
-            DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        edition_2a.title = "The only title in this whole test."
-        pool_2b = self._licensepool(edition_2a, 
-                                    data_source_name=DataSource.OCLC)
+        edition_2a, pool_2a = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
+        edition_2b, pool_2b = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
+
+        edition_2a.title = u"The only title in this whole test."
 
         work2 = Work()
         work2.license_pools = [pool_2a, pool_2b]
         work2.editions = [edition_2a]
-        work2.set_primary_edition()
+        work2.calculate_presentation()
 
         self._db.commit()
-
+        
         # This attempt to merge the two work records will fail because
         # they don't meet the similarity threshold.
         work2.merge_into(work1, similarity_threshold=1)
@@ -1693,6 +1737,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This attempt will succeed because we lower the similarity
         # threshold.
+
         work2.merge_into(work1, similarity_threshold=0)
         eq_(work1, work2.was_merged_into)
 
@@ -1708,6 +1753,9 @@ class TestWorkConsolidation(DatabaseTest):
         # It has all three work records.
         for w in edition_1a, edition_1b, edition_2a:
             assert w in work1.editions
+        
+        eq_(True, True)
+
 
     def test_open_access_pools_grouped_together(self):
 
