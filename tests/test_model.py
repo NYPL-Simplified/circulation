@@ -2453,21 +2453,12 @@ class TestCollection(DatabaseTest):
             self._db, u"A Library"
         )
 
-        # It creates a collection with client_details.
+        # It creates client details and a DataSource for the collection
         assert collection.client_id and collection.client_secret
+        assert get_one(self._db, DataSource, name=collection.name)
 
         # It returns nothing if the name is already taken.
         assert_raises(ValueError, Collection.register, self._db, u"A Library")
-
-        # It creates a DataSource for the Collection by default.
-        assert get_one(self._db, DataSource, name=collection.name)
-
-        # It can also create a Collection without a Data Source.
-        collection, plaintext_secret = Collection.register(
-            self._db, u"A Non-Library", is_source=False
-        )
-        source = get_one(self._db, DataSource, name=collection.name)
-        eq_(None, source)
 
     def test_authenticate(self):
         collection = self._collection()
