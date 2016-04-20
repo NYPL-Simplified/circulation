@@ -39,7 +39,6 @@ class AdminControllerTest(ControllerTest):
 
             setup_admin_controllers(self.manager)
 
-
 class TestWorkController(AdminControllerTest):
 
     def test_details(self):
@@ -99,10 +98,34 @@ class TestWorkController(AdminControllerTest):
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
             eq_("Young Adult", self.english_1.audience)
             assert 'Young Adult' in self.english_1.simple_opds_entry
             assert 'Adults Only' not in self.english_1.simple_opds_entry
 
+        with self.app.test_request_context("/"):
+            # Change the summary again
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("audience", "Young Adult"),
+                ("summary", "abcd")
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            eq_("abcd", self.english_1.summary_text)
+            assert 'New summary' not in self.english_1.simple_opds_entry
+
+        with self.app.test_request_context("/"):
+            # Now delete the summary entirely
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("audience", "Young Adult"),
+                ("summary", "")
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            eq_("", self.english_1.summary_text)
+            assert 'abcd' not in self.english_1.simple_opds_entry
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools

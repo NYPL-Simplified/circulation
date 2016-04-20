@@ -230,10 +230,24 @@ class WorkController(CirculationManagerController):
 
         new_summary = flask.request.form.get("summary")
         if new_summary != work.summary_text:
-            (link, is_new) =  work.primary_edition.primary_identifier.add_link(
-                Hyperlink.DESCRIPTION, None, 
-                staff_data_source, content=new_summary)
-            work.set_summary(link.resource)
+            old_summary = None
+            if work.summary and work.summary.data_source == staff_data_source:
+                old_summary = work.summary
+
+            if new_summary:
+                (link, is_new) =  work.primary_edition.primary_identifier.add_link(
+                    Hyperlink.DESCRIPTION, None, 
+                    staff_data_source, content=new_summary)
+                work.set_summary(link.resource)
+            else:
+                work.set_summary(None)
+
+            # Delete previous staff summary
+            if old_summary:
+                for link in old_summary.links:
+                    self._db.delete(link)
+                self._db.delete(old_summary)
+
             changed = True
 
         if changed:
