@@ -2469,6 +2469,9 @@ class TestCollection(DatabaseTest):
         result = Collection.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
+        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        eq_(None, result)
+
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the collection"""
 

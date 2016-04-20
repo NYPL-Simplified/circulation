@@ -6895,10 +6895,10 @@ class Collection(Base):
             _db, DataSource, name=name, offers_licenses=False
         )
 
-        client_id, plaintext_client_secret = cls.generate_client_details()
+        client_id, plaintext_client_secret = cls._generate_client_details()
         # Generate a new client_id if it's not unique initially.
         while get_one(_db, cls, client_id=client_id):
-            client_id, plaintext_client_secret = cls.generate_client_details()
+            client_id, plaintext_client_secret = cls._generate_client_details()
 
         collection, ignore = get_one_or_create(
             _db, cls, name=name, client_id=unicode(client_id),
@@ -6910,7 +6910,7 @@ class Collection(Base):
         return collection, plaintext_client_secret
 
     @classmethod
-    def generate_client_details(cls):
+    def _generate_client_details(cls):
         client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
                            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                            '0123456789')
