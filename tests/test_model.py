@@ -759,7 +759,7 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
-    def test_calculate_presentation_summary(self):
+    def test_set_summary(self):
         e, pool = self._edition(with_license_pool=True)
         work = self._work(primary_edition=e)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
