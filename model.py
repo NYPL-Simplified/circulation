@@ -3250,6 +3250,8 @@ class Work(Base):
         # TODO: clean up the content
         if resource:
             self.summary_text = resource.representation.unicode_content
+        else:
+            self.summary_text = ""
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.SUMMARY_OPERATION
         )

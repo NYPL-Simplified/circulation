@@ -759,6 +759,25 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
+    def test_calculate_presentation_summary(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # Set the work's summmary.
+        l1, new = pool.add_link(Hyperlink.DESCRIPTION, None, overdrive, "text/plain",
+                      "F")
+        work.set_summary(l1.resource)
+
+        eq_(l1.resource, work.summary)
+        eq_("F", work.summary_text)
+
+        # Remove the summary.
+        work.set_summary(None)
+        
+        eq_(None, work.summary)
+        eq_("", work.summary_text)
+
     def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
         e, pool = self._edition(with_license_pool=True)
         oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
