@@ -6850,11 +6850,12 @@ class Collection(Base):
         Integer, ForeignKey('datasources.id'), index=True
     )
 
-    # A collection can have many LicensePools
-    license_pools = relationship(
-        "LicensePool", secondary=lambda: collections_license_pools,
+    # A collection can include many Identifiers
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
     )
+
 
     def __repr__(self):
         return "%s ID=%s DATASOURCE_ID=%d" % (
@@ -6931,33 +6932,22 @@ class Collection(Base):
         return None
 
     def catalog_identifier(self, _db, identifier):
-        """Creates a LicensePool to catalog an identifier for a collection"""
+        """Catalogs an identifier for a collection"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.commit()
 
-        license_pool = identifier.licensed_through
-        if not license_pool:
-            license_pool, new = get_one_or_create(
-                _db, LicensePool, identifier=identifier
-            )
-        if license_pool not in self.license_pools:
-            self.license_pools.append(license_pool)
-
-    def catalog(self, _db):
-        qu = _db.query(Identifier).join(LicensePool)
-        qu = qu.filter(LicensePool.collections.any(id=self.id))
-        return qu
-
-
-collections_license_pools = Table(
-    'collectionslicensepools', Base.metadata,
+collections_identifiers = Table(
+    'collectionsidentifiers', Base.metadata,
     Column(
         'collection_id', Integer, ForeignKey('collections.id'),
         index=True, nullable=False
     ),
     Column(
-        'license_pool_id', Integer, ForeignKey('licensepools.id'),
+        'identifier_id', Integer, ForeignKey('identifiers.id'),
         index=True, nullable=False
     ),
-    UniqueConstraint('collection_id', 'license_pool_id'),
+    UniqueConstraint('collection_id', 'identifier_id'),
 )
 
 from sqlalchemy.sql import compiler

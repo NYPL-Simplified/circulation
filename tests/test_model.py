@@ -2470,24 +2470,11 @@ class TestCollection(DatabaseTest):
         eq_(None, result)
 
     def test_catalog_identifier(self):
+        """#catalog_identifier associates an identifier with the collection"""
+
         identifier = self._identifier()
         collection = self._collection()
 
-        # It creates a license_pool and associates it with the collection
-        eq_(None, identifier.licensed_through)
         collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(collection.license_pools))
-        eq_(identifier, collection.license_pools[0].identifier)
-
-        # It doesn't duplicate identifiers in the catalog.
-        collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(collection.license_pools))
-
-    def test_catalog(self):
-        collection = self._collection()
-        i1, i2, i3 = self._identifier(), self._identifier(), self._identifier()
-
-        for identifier in [i1, i2, i3]:
-            collection.catalog_identifier(self._db, identifier)
-
-        eq_([i1, i2, i3], collection.catalog(self._db).all())
+        eq_(1, len(collection.catalog))
+        eq_(identifier, collection.catalog[0])
