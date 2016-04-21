@@ -5303,9 +5303,8 @@ class LicensePool(Base):
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
 
+    # TODO:  policy is not used in this method.  Remove argument?
     def set_presentation_edition(self, policy):
-        # TODO:  policy is not used in this method.  Remove argument?
-
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -5346,7 +5345,7 @@ class LicensePool(Base):
             edition, is_new = metadata.edition(_db)
 
             # TODO: apply() needs to set last_update_time if appropriate.
-            self.presentation_edition = metadata.apply(edition)
+            self.presentation_edition, edition_core_changed = metadata.apply(edition)
         self.presentation_edition.work = self.work
         changed = changed or self.presentation_edition.calculate_presentation()
         return (

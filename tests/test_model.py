@@ -1136,6 +1136,11 @@ class TestLicensePool(DatabaseTest):
 
 
     def test_set_presentation_edition(self):
+        """
+        Make sure composite edition creation makes good choices when combining 
+        field data from provider, metadata wrangler, admin interface, etc. editions.
+        """
+        # create different types of editions, all with the same identifier
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
         edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
         edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
@@ -1143,23 +1148,19 @@ class TestLicensePool(DatabaseTest):
         edition_mw.primary_identifier = pool.identifier
         edition_admin.primary_identifier = pool.identifier
 
-        #edition_mw.set_license_pool = pool
-        #edition_admin.set_license_pool = pool
-
+        # set overlapping fields on editions
         edition_od.title = u"OverdriveTitle1"
         [joe], ignore = Contributor.lookup(self._db, u"Sloppy, Joe")
         joe.family_name, joe.display_name = joe.default_names()
         edition_od.add_contributor(joe, Contributor.AUTHOR_ROLE)
 
         edition_mw.title = u"MetadataWranglerTitle1"
-        #TODO: keep this one not admin.  
         edition_mw.subtitle = u"MetadataWranglerSubTitle1"
         [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
         edition_mw.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition_admin.title = u"AdminInterfaceTitle1"
-        #edition_admin.subtitle = u"AdminSubTitle1"
         [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
         jane.family_name, jane.display_name = jane.default_names()
         edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
@@ -1181,6 +1182,7 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_mw.is_primary_for_work, False)
         eq_(edition_od.is_primary_for_work, False)
         eq_(edition_admin.is_primary_for_work, False)
+        # TODO: does the following line need to be set to work?
         #eq_(edition_composite.is_primary_for_work, True)
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
