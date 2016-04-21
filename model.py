@@ -440,8 +440,8 @@ class LoanAndHoldMixin(object):
             return None
         if license_pool.work:
             return license_pool.work
-        if license_pool.edition and license_pool.edition.work:
-            return license_pool.edition.work
+        if license_pool.presentation_edition and license_pool.presentation_edition.work:
+            return license_pool.presentation_edition.work
         return None        
 
 
@@ -5304,6 +5304,7 @@ class LicensePool(Base):
 
 
     def set_presentation_edition(self, policy):
+        # TODO:  policy is not used in this method.  Remove argument?
 
         """Create or update the presentation Edition for this LicensePool.
 
@@ -5352,6 +5353,7 @@ class LicensePool(Base):
             self.presentation_edition != old_presentation_edition 
             or changed
         )
+
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):

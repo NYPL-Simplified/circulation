@@ -1820,6 +1820,7 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
         patron = self._patron()
@@ -1833,14 +1834,13 @@ class TestLoans(DatabaseTest):
         loan.license_pool = None
         eq_(None, loan.work)
 
-        # If pool.work is None but pool.edition.work is valid, we 
-        # use that.
+        # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
-        eq_(pool.edition.work, loan.work)
+        eq_(pool.presentation_edition.work, loan.work)
 
         # If that's also None, we're helpless.
-        pool.edition.work = None
+        pool.presentation_edition.work = None
         eq_(None, loan.work)
 
 
