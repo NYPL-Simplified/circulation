@@ -227,7 +227,6 @@ class DatabaseTest(object):
             identifier=edition.primary_identifier, data_source=source,
             availability_time=datetime.utcnow()
         )
-        print "_licensepool: pool.identifier=%s" % pool.identifier
 
         if with_open_access_download:
             pool.open_access = True
@@ -257,8 +256,8 @@ class DatabaseTest(object):
             )
             pool.licenses_owned = pool.licenses_available = 1
 
-        print "_licensepool: before return pool.identifier=%s" % pool.identifier
         return pool
+
 
     def _representation(self, url=None, media_type=None, content=None,
                         mirrored=False):
@@ -336,7 +335,7 @@ class DatabaseTest(object):
         def test_name(self):
             [code...]
             set_trace()
-            self.print_database_instance()
+            self.print_database_instance()  # TODO: remove before prod
             [code...]
         '''
         DatabaseTest.print_database_class(self._db)
@@ -364,7 +363,7 @@ class DatabaseTest(object):
             DatabaseTest, 
         )
         _db = Session.object_session(self)
-        DatabaseTest.print_database_class(_db)
+        DatabaseTest.print_database_class(_db)  # TODO: remove before prod
         '''
         works = db_connection.query(Work).all()
         identifiers = db_connection.query(Identifier).all()

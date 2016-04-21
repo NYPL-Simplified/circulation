@@ -1557,34 +1557,21 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
+        edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+            title=self._str, authors=[self._str], with_license_pool=True)
 
         # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
-        edition1.title = self._str
-        edition1.author = self._str
         preexisting_work = Work()
         preexisting_work.editions = [edition1]
 
         # This work record is unique to the new LicensePool
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-        edition2.title = self._str
-        edition2.author = self._str
-
-        pool, ignore = LicensePool.for_foreign_id(self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-
-        # lp.for_foreign_id calls Identifier.for_foreign_id
-        # e.for_foreign_id calls Identifier.for_foreign_id, and creates new e if needed
-        # i.for_foreign_id makes new one if needed.
-
-        self.print_database_instance()
+        edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+            title=self._str, authors=[self._str], with_license_pool=True)
 
         # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
-        eq_(edition2, pool.edition)
 
 
 
