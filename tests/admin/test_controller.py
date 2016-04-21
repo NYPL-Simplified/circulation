@@ -244,7 +244,7 @@ class TestSignInController(AdminControllerTest):
 
     def test_authenticated_admin_from_request(self):
         with self.app.test_request_context('/admin'):
-            flask.session['admin_access_token'] = self.admin.access_token
+            flask.session['admin_email'] = self.admin.email
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
@@ -280,7 +280,7 @@ class TestSignInController(AdminControllerTest):
 
     def test_admin_signin(self):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
-            flask.session['admin_access_token'] = self.admin.access_token
+            flask.session['admin_email'] = self.admin.email
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(302, response.status_code)
             eq_("foo", response.headers["Location"])

@@ -74,9 +74,9 @@ class AdminController(object):
     def authenticated_admin_from_request(self):
         """Returns an authenticated admin or begins the Google OAuth flow"""
 
-        access_token = flask.session.get("admin_access_token")
-        if access_token:
-            admin = get_one(self._db, Admin, access_token=access_token)
+        email = flask.session.get("admin_email")
+        if email:
+            admin = get_one(self._db, Admin, email=email)
             if admin and self.google.active_credentials(admin):
                 return admin
         return INVALID_ADMIN_CREDENTIALS
@@ -135,7 +135,7 @@ class SignInController(AdminController):
             return self.error_response(INVALID_ADMIN_CREDENTIALS)
         else:
             admin = self.authenticated_admin(admin_details)
-            flask.session["admin_access_token"] = admin_details.get("access_token")
+            flask.session["admin_email"] = admin_details.get("email")
             flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
             return redirect(redirect_url, Response=Response)
     
