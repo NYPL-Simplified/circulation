@@ -351,7 +351,7 @@ class FeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
         opds_feed = AdminFeed.suppressed(
-            _db=self._db, title="Hidden books",
+            _db=self._db, title="Hidden Books",
             url=this_url, annotator=annotator,
             pagination=pagination
         )
