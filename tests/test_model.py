@@ -1572,7 +1572,6 @@ class TestWorkConsolidation(DatabaseTest):
         edition2.title = self._str
         edition2.author = self._str
 
-        set_trace()
         pool, ignore = LicensePool.for_foreign_id(self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
 
         # lp.for_foreign_id calls Identifier.for_foreign_id
@@ -1676,7 +1675,7 @@ class TestWorkConsolidation(DatabaseTest):
 
 
 
-    def test_multiple_licensepolls_on_identifier(self):
+    def test_multiple_licensepools_on_identifier(self):
         '''
         Tests that we can have multiple LicensePool records attached to a single Identifier.
         Note:  As of 2016-04-19, we cannot.  This test is a stub, created as a TODO.
@@ -1754,7 +1753,6 @@ class TestWorkConsolidation(DatabaseTest):
         for w in edition_1a, edition_1b, edition_2a:
             assert w in work1.editions
         
-        eq_(True, True)
 
 
     def test_open_access_pools_grouped_together(self):

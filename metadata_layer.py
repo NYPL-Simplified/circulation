@@ -934,9 +934,6 @@ class Metadata(object):
                 setattr(edition, field, new_metadata_value)
                 made_core_changes = True
 
-        if (made_core_changes): 
-            edition.last_update_time = datetime.datetime.utcnow()
-
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.

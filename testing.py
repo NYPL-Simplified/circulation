@@ -389,13 +389,13 @@ class DatabaseTest(object):
 
             print "    Work.primary_edition=%s|" % work.primary_edition
 
-        if (not Identifier):
+        if (not identifiers):
             print "NO Identifier found"
         for iCount, identifier in enumerate(identifiers):
             print "Identifier[%s]=%s|" % (iCount, identifier)
             print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
 
-        if (not LicensePool):
+        if (not license_pools):
             print "NO LicensePool found"
         for index, license_pool in enumerate(license_pools):
             print "LicensePool[%s]=%s|" % (index, license_pool)
@@ -406,7 +406,7 @@ class DatabaseTest(object):
             print "    LicensePool.superceded=%s|" % license_pool.superceded
             print "    LicensePool.suppressed=%s|" % license_pool.suppressed
 
-        if (not Edition):
+        if (not editions):
             print "NO Edition found"
         for index, edition in enumerate(editions):
             # pipe character at end of line helps see whitespace issues

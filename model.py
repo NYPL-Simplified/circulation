@@ -2834,15 +2834,6 @@ class Edition(Base):
         and .sort_author.
         """
 
-        # TODO:  remember to clean print_database off
-        set_trace()
-        from testing import (
-            DatabaseTest, 
-        )
-        _db = Session.object_session(self)
-        DatabaseTest.print_database_class(_db)
-        # end TODO
-
         sort_names = []
         display_names = []
         for author in self.author_contributors:
@@ -3009,8 +3000,8 @@ class Work(Base):
     # A single Work may claim many Editions.
     editions = relationship("Edition", backref="work")
 
-    # For the sake of consistency, a Work takes its presentation
-    # metadata from a single Edition.
+    # A Work takes its presentation metadata from a single Edition.  
+    # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
     clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
     primary_edition = relationship(
         "Edition", primaryjoin=clause, uselist=False, lazy='joined'
@@ -5071,9 +5062,7 @@ class LicensePool(Base):
 
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
-    # TODO: bring back the FK
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
-    #presentation_edition_id = Column(Integer)
 
     # One LicensePool may be associated with one RightsStatus.
     rightsstatus_id = Column(
@@ -5329,6 +5318,8 @@ class LicensePool(Base):
         all_editions = list(self.editions_in_priority_order())
         changed = False
 
+        # TODO: come back later and see if can do a cleaner solution.
+        # initially added import code in here to avoid circular import
         from metadata_layer import (
             Metadata, IdentifierData, 
         )
@@ -5511,8 +5502,6 @@ class LicensePool(Base):
         """
         self.set_presentation_edition(None)
 
-
-        # TODO:  self.presentation_edition was self.edition in code that was failing.
         primary_edition = known_edition or self.presentation_edition
 
         if self.work:
