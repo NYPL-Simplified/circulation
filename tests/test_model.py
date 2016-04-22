@@ -1825,6 +1825,9 @@ class TestLoans(DatabaseTest):
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
+        # TODO:  determine if using pool.presentation_edition is correct for lending.
+        # Because, while the old pool.edition was tied to something you can lend, the presentation_edition 
+        # is not representing a lendable object, really.  
         patron = self._patron()
         work = self._work(with_license_pool=True)
         pool = work.license_pools[0]

@@ -220,21 +220,25 @@ class TestMetadataImporter(DatabaseTest):
         assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/scaled/300/')
         assert thumbnail.mirror_url.endswith('cover.png')
 
+
     def test_open_access_content_mirrored(self):
+        """
+        TODO:
+        """
         mirror = DummyS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
         # Here's a link to the content of the book, which will be
         # mirrored.
-        l1 = LinkData(
+        link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
             media_type=Representation.EPUB_MEDIA_TYPE,
             content="i am a tiny book"
         )
 
         # This link will not be mirrored.
-        l2 = LinkData(
+        link_unmirrored = LinkData(
             rel=Hyperlink.SAMPLE, href="http://example.com/2",
             media_type=Representation.TEXT_PLAIN,
             content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
@@ -242,7 +246,7 @@ class TestMetadataImporter(DatabaseTest):
 
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
-        metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
+        metadata = Metadata(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
         metadata.apply(edition, replace=policy)
         
         # Only the open-access link has been 'mirrored'.
@@ -261,6 +265,14 @@ class TestMetadataImporter(DatabaseTest):
             edition.title
         )
         assert book.mirror_url.endswith(expect)
+
+        # make sure the mirrored link is safely on edition
+        assert edition.license_pool.identifier.links[0].resource.representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+        # make sure the unmirrored link is safely on edition
+        eq_('http://example.com/2', edition.license_pool.identifier.links[1].resource.representation.url)
+        # make sure the unmirrored link has not been translated to an S3 URL
+        eq_(None, edition.license_pool.identifier.links[1].resource.representation.mirror_url)
+
 
     def test_measurements(self):
         edition = self._edition()

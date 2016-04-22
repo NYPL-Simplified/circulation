@@ -5043,8 +5043,9 @@ Index(
     CachedFeed.facets, CachedFeed.pagination
 )
 
-class LicensePool(Base):
 
+
+class LicensePool(Base):
     """A pool of undifferentiated licenses for a work from a given source.
     """
 

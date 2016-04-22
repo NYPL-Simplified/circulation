@@ -1004,6 +1004,13 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
+        # now that pool uses a composite edition, we must create that edition before 
+        # calculating any links
+        # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
+        # and it's possible there's a better way.
+        pool.set_presentation_edition(None)
+
+
         for link in self.links:
             link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=data_source, 
@@ -1132,8 +1139,8 @@ class Metadata(object):
         # Determine the best URL to use when mirroring this
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            if pool and pool.edition and pool.edition.title:
-                title = pool.edition.title
+            if pool and pool.presentation_edition and pool.presentation_edition.title:
+                title = pool.presentation_edition.title
             else:
                 title = None
             extension = representation.extension()
