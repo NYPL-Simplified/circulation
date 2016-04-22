@@ -244,7 +244,7 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
-    def feed_url(cls, lane, facets, pagination):
+    def feed_url(cls, lane, facets=None, pagination=None):
         raise NotImplementedError()
 
     @classmethod
@@ -571,19 +571,19 @@ class AcquisitionFeed(OPDSFeed):
         )
 
         # Render a 'start' link and an 'up' link.
-        top_level_title = "Collection Home"
+        top_level_title = "All Books"
         start_uri = annotator.groups_url(None)
         feed.add_link(href=start_uri, rel="start", title=top_level_title)
 
-        if lane.parent:
-            parent = lane.parent
-            if isinstance(parent, Lane):
-                title = lane.parent.display_name
+        if isinstance(lane, Lane):
+            visible_parent = lane.visible_parent()
+            if isinstance(visible_parent, Lane):
+                title = visible_parent.display_name
             else:
                 title = top_level_title
-            up_uri = annotator.groups_url(lane.parent)
+            up_uri = annotator.groups_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
-
+        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -636,16 +636,17 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        top_level_title = "Collection Home"
-
-        if lane.parent:
-            if isinstance(lane.parent, Lane):
-                title = lane.parent.display_name
-            else:
-                title = top_level_title
-            feed.add_link(rel='up', href=annotator.groups_url(lane.parent), title=title)
+        # Add "up" link
+        top_level_title = "All Books"
+        visible_parent = lane.visible_parent()
+        if isinstance(visible_parent, Lane):
+            title = visible_parent.display_name
+        else:
+            title = top_level_title
+        up_uri = annotator.groups_url(visible_parent)
+        feed.add_link(href=up_uri, rel="up", title=title)
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
-
+        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -664,7 +665,7 @@ class AcquisitionFeed(OPDSFeed):
 
         results = search_lane.search(query, search_engine, pagination=pagination)
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
-        opds_feed.add_link(rel='start', href=annotator.default_lane_url())
+        opds_feed.add_link(rel='start', href=annotator.default_lane_url(), title="All Books")
 
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
@@ -677,7 +678,12 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
-        opds_feed.add_link(rel="up", href=annotator.groups_url(search_lane), title=lane.display_name)
+        visible_sublanes = [lane for lane in search_lane.sublanes if not lane.invisible]
+        if len(visible_sublanes) > 0:
+            lane_url = annotator.groups_url(search_lane)
+        else:
+            lane_url = annotator.feed_url(search_lane)
+        opds_feed.add_link(rel="up", href=lane_url, title=lane.display_name)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
