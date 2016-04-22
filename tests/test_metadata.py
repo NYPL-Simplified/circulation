@@ -286,6 +286,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
 
+
     def test_explicit_formatdata(self):
         # Creating an edition with an open-access download will
         # automatically create a delivery mechanism.

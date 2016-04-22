@@ -1004,11 +1004,17 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
+
         # now that pool uses a composite edition, we must create that edition before 
         # calculating any links
         # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
         # and it's possible there's a better way.
-        pool.set_presentation_edition(None)
+        # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
+        # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
+        # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
+        # it's problematic that pool isn't always being set in this method.
+        if pool:
+            pool.set_presentation_edition(None)
 
 
         for link in self.links:
