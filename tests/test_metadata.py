@@ -223,7 +223,8 @@ class TestMetadataImporter(DatabaseTest):
 
     def test_open_access_content_mirrored(self):
         """
-        TODO:
+        Make sure that open access material links are translated to our S3 buckets, and that 
+        commercial material links are left as is.
         """
         mirror = DummyS3Uploader()
         # Here's a book.
