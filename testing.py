@@ -335,6 +335,7 @@ class DatabaseTest(object):
 
         NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right 
         away, without waiting for the whole test to run and the standard output section to display.
+        You can also use nosetest --nocapture.
         I use:
         def test_name(self):
             [code...]
