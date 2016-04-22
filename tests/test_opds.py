@@ -685,8 +685,9 @@ class TestOPDS(DatabaseTest):
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
-        [up] = self.links(parsed, 'up')
-        eq_(TestAnnotator.groups_url(Fantasy), up['href'])
+        [up_link] = self.links(parsed, 'up')
+        eq_(TestAnnotator.groups_url(Fantasy), up_link['href'])
+        eq_(fantasy_lane.parent.display_name, up_link['title'])
 
         [start] = self.links(parsed, 'start')
         eq_(TestAnnotator.groups_url(None), start['href'])
@@ -835,6 +836,11 @@ class TestOPDS(DatabaseTest):
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
+
+        # Make sure there's an "up" link to the lane that was searched
+        [up_link] = self.links(parsed, 'up')
+        eq_(TestAnnotator.groups_url(fantasy_lane), up_link['href'])
+        eq_(fantasy_lane.display_name, up_link['title'])
 
         # Now get the second page and make sure it has a 'previous' link.
         feed = make_page(pagination.next_page)
