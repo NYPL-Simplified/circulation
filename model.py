@@ -1326,20 +1326,11 @@ class Identifier(Base):
                 # in the next round.
                 new_working_set.add(e.input_id)
 
-        #logging.debug("At level %d.", levels)
-        #logging.debug(" Original working set: %r", sorted(original_working_set))
-        #logging.debug(" New working set: %r", sorted(new_working_set))
-        #logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
-        #logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
-        #logging.debug(" %d equivalents", len(equivalents))
-
         if new_working_set:
 
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            #logging.debug(
-            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -1363,10 +1354,6 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        #logging.debug(
-        #    "Pruned %d from working set",
-        #    len(surviving_working_set.intersection(new_working_set))
-        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
