@@ -1005,6 +1005,7 @@ class Metadata(object):
                 identifier.links = surviving_hyperlinks
 
 
+        # TODO:  remove below comment.
         # now that pool uses a composite edition, we must create that edition before 
         # calculating any links
         # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
@@ -1013,9 +1014,8 @@ class Metadata(object):
         # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
         # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
         # it's problematic that pool isn't always being set in this method.
-        if pool:
-            pool.set_presentation_edition(None)
 
+        link_objects = {}
 
         for link in self.links:
             link_obj, ignore = identifier.add_link(
@@ -1023,23 +1023,7 @@ class Metadata(object):
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            # TODO: We do not properly handle the (unlikely) case
-            # where there is an IMAGE_THUMBNAIL link but no IMAGE
-            # link. In such a case we should treat the IMAGE_THUMBNAIL
-            # link as though it were an IMAGE link.
-            if replace.mirror:
-                # We need to mirror this resource. If it's an image, a
-                # thumbnail may be provided as a side effect.
-                self.mirror_link(
-                    pool, data_source, link, link_obj, replace
-                )
-            elif link.thumbnail:
-                # We don't need to mirror this image, but we do need
-                # to make sure that its thumbnail exists locally and
-                # is associated with the original image.
-                self.make_thumbnail(
-                    pool, data_source, link, link_obj
-                )
+            link_objects[link] = link_obj
 
         if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
@@ -1058,11 +1042,7 @@ class Metadata(object):
                 # iterating over self.links. It would be more
                 # efficient and less error-prone to keep track of the
                 # link objects rather than calling add_link again.
-                link_obj, ignore = identifier.add_link(
-                    rel=link.rel, href=link.href, data_source=data_source, 
-                    license_pool=pool, media_type=link.media_type,
-                    content=link.content
-                )
+                link_obj = link_objects[format.link]
                 resource = link_obj.resource
             else:
                 resource = None
@@ -1106,12 +1086,30 @@ class Metadata(object):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        for link in self.links:
+            link_obj = link_objects[link]
+            # TODO: We do not properly handle the (unlikely) case
+            # where there is an IMAGE_THUMBNAIL link but no IMAGE
+            # link. In such a case we should treat the IMAGE_THUMBNAIL
+            # link as though it were an IMAGE link.
+            if replace.mirror:
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(pool, data_source, link, link_obj, replace)
+            elif link.thumbnail:
+                # We don't need to mirror this image, but we do need
+                # to make sure that its thumbnail exists locally and
+                # is associated with the original image.
+                self.make_thumbnail(pool, data_source, link, link_obj)
+
+
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
             edition, data_source, timestamp=self.last_update_time
         )
         return edition, made_core_changes
+
 
 
     def mirror_link(self, pool, data_source, link, link_obj, policy):

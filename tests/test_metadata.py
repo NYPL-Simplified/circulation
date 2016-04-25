@@ -245,11 +245,14 @@ class TestMetadataImporter(DatabaseTest):
             content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
         )
 
+        #pool.set_presentation_edition(None)
+
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
         metadata = Metadata(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
         metadata.apply(edition, replace=policy)
         
+
         # Only the open-access link has been 'mirrored'.
         [book] = mirror.uploaded
 
@@ -258,6 +261,7 @@ class TestMetadataImporter(DatabaseTest):
             [Hyperlink.OPEN_ACCESS_DOWNLOAD], 
             [x.rel for x in book.resource.links]
         )
+
 
         # It's been 'mirrored' to the appropriate S3 bucket.
         assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')

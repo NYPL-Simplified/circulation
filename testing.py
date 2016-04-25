@@ -64,6 +64,12 @@ class DatabaseTest(object):
         self.__transaction.rollback()
         self.search_mock.stop()
 
+    def shortDescription(self):
+        """  Prevents nosetests from displaying docstrings instead of method names when 
+        testing with verbosity level >= 2.
+        """
+        return None
+
     @property
     def _id(self):
         self.counter += 1
@@ -133,7 +139,8 @@ class DatabaseTest(object):
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
-                                     with_open_access_download=with_open_access_download)                
+                                     with_open_access_download=with_open_access_download)  
+            pool.set_presentation_edition(None)              
             return wr, pool
         return wr
 
