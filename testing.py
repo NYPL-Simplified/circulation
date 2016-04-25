@@ -433,8 +433,8 @@ def _setup(dbinfo):
     SessionManager.initialize_data(db)
     # Test data: Create the patron used by the dummy authentication
     # mechanism.
-    get_one_or_create(db, Patron, authorization_identifier="200",
-                      create_method_kwargs=dict(external_identifier="200200200"))
+    get_one_or_create(db, Patron, authorization_identifier=u"200",
+                      create_method_kwargs=dict(external_identifier=u"200200200"))
     db.commit()
 
     print "Connection is now %r" % dbinfo.connection

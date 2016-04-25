@@ -6915,7 +6915,7 @@ class Collection(Base):
         client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
                            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                            '0123456789')
-        client_secret_chars = client_id_chars + '!"#$%&()*+,-./[]^_`{}|~'
+        client_secret_chars = client_id_chars + '!#$%&*+,-._'
 
         def make_client_string(chars, length):
             return u"".join([random.choice(chars) for x in range(length)])
@@ -6926,7 +6926,7 @@ class Collection(Base):
 
     @classmethod
     def authenticate(cls, _db, client_id, plaintext_client_secret):
-        collection = get_one(_db, cls, client_id=client_id)
+        collection = get_one(_db, cls, client_id=unicode(client_id))
         if (collection and
             collection._correct_secret(plaintext_client_secret)):
             return collection
