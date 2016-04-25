@@ -571,7 +571,7 @@ class AcquisitionFeed(OPDSFeed):
         )
 
         # Render a 'start' link and an 'up' link.
-        top_level_title = "All Books"
+        top_level_title = annotator.top_level_title() or "Collection Home"
         start_uri = annotator.groups_url(None)
         feed.add_link(href=start_uri, rel="start", title=top_level_title)
 
@@ -637,7 +637,7 @@ class AcquisitionFeed(OPDSFeed):
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
         # Add "up" link
-        top_level_title = "All Books"
+        top_level_title = annotator.top_level_title() or "Collection Home"
         visible_parent = lane.visible_parent()
         if isinstance(visible_parent, Lane):
             title = visible_parent.display_name
@@ -645,6 +645,7 @@ class AcquisitionFeed(OPDSFeed):
             title = top_level_title
         up_uri = annotator.groups_url(visible_parent)
         feed.add_link(href=up_uri, rel="up", title=title)
+
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
         annotator.annotate_feed(feed, lane)
@@ -665,7 +666,7 @@ class AcquisitionFeed(OPDSFeed):
 
         results = search_lane.search(query, search_engine, pagination=pagination)
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
-        opds_feed.add_link(rel='start', href=annotator.default_lane_url(), title="All Books")
+        opds_feed.add_link(rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
@@ -678,8 +679,8 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
-        visible_sublanes = [lane for lane in search_lane.sublanes if not lane.invisible]
-        if len(visible_sublanes) > 0:
+        # Add "up" link
+        if search_lane.has_visible_sublane():
             lane_url = annotator.groups_url(search_lane)
         else:
             lane_url = annotator.feed_url(search_lane)
