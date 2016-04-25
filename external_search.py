@@ -383,9 +383,9 @@ class ExternalSearchIndex(object):
 
         clauses = []
         if languages:
-            clauses.append(dict(terms=dict(language=languages)))
+            clauses.append(dict(terms=dict(language=list(languages))))
         if exclude_languages:
-            clauses.append({'not': dict(terms=dict(language=exclude_languages))})
+            clauses.append({'not': dict(terms=dict(language=list(exclude_languages)))})
         if genres:
             genre_ids = [genre.id for genre in genres]
             clauses.append(dict(terms={"genres.term": genre_ids}))

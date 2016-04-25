@@ -766,3 +766,42 @@ class TestSearchFilterFromLane(DatabaseTest):
         expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
         eq_(expect_upper, upper_filter)
         eq_(expect_lower, lower_filter)
+
+    def test_query_works_from_lane_definition_handles_languages(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, "english or spanish", 
+            languages=set(['eng', 'spa']),
+        )
+        filter = search.make_filter(
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genres,
+        )
+        
+        languages_filter, medium_filter = filter['and']
+        expect_languages = ['eng', 'spa']
+        assert 'terms' in languages_filter
+        assert 'language' in languages_filter['terms']
+        eq_(expect_languages, sorted(languages_filter['terms']['language']))
+
+    def test_query_works_from_lane_definition_handles_exclude_languages(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, "Not english or spanish", 
+            exclude_languages=set(['eng', 'spa']),
+        )
+        filter = search.make_filter(
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genres,
+        )
+        
+        exclude_languages_filter, medium_filter = filter['and']
+        expect_exclude_languages = ['eng', 'spa']
+        assert 'not' in exclude_languages_filter
+        assert 'terms' in exclude_languages_filter['not']
+        assert 'language' in exclude_languages_filter['not']['terms']
+        eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
