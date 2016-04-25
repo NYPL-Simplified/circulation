@@ -3248,7 +3248,7 @@ class Work(Base):
     def set_summary(self, resource):
         self.summary = resource
         # TODO: clean up the content
-        if resource:
+        if resource and resource.representation:
             self.summary_text = resource.representation.unicode_content
         else:
             self.summary_text = ""
