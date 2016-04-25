@@ -226,6 +226,8 @@ class CirculationManager(object):
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
+        kwargs.update(dict({ "top_level_title": self.display_name }))
+
         return CirculationManagerAnnotator(
             self.circulation, lane, *args, **kwargs
         )

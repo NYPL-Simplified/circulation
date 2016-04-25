@@ -29,7 +29,8 @@ class CirculationManagerAnnotator(Annotator):
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={}, 
                  facet_view='feed',
-                 test_mode=False
+                 test_mode=False,
+                 top_level_title="All Books"
     ):
         self.circulation = circulation
         self.lane = lane
@@ -37,8 +38,12 @@ class CirculationManagerAnnotator(Annotator):
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
-        self.facet_view=facet_view
-        self.test_mode=test_mode
+        self.facet_view = facet_view
+        self.test_mode = test_mode
+        self._top_level_title = top_level_title
+
+    def top_level_title(self):
+        return self._top_level_title
 
     def url_for(self, *args, **kwargs):
         if self.test_mode:
@@ -105,10 +110,13 @@ class CirculationManagerAnnotator(Annotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
-    def feed_url(self, lane, facets, pagination):
+    def feed_url(self, lane, facets=None, pagination=None):
         lane_name, languages = self._lane_name_and_languages(lane)
-        kwargs = dict(facets.items())
-        kwargs.update(dict(pagination.items()))
+        kwargs = dict({})
+        if facets != None:
+            kwargs.update(dict(facets.items()))
+        if pagination != None:
+            kwargs.update(dict(pagination.items()))
         return self.cdn_url_for(
             "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
