@@ -436,23 +436,3 @@ class ComplaintController(object):
             )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
-
-
-class CollectionController(object):
-    """A controller to manage collections and their assets"""
-
-    def __init__(self, _db):
-        self._db = _db
-
-    def authenticated_collection_from_request(self):
-        header = flask.request.authorization
-        if header:
-            client_id, client_secret = header.username, header.password
-            collection = Collection.authenticate(client_id, client_secret)
-            if collection:
-                return collection
-
-            # If inaccurate authorization details were sent, return error.
-            return INVALID_CREDENTIALS.response
-        return None
-
