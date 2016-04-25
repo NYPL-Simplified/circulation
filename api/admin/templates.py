@@ -1,7 +1,10 @@
 admin = """
 <!doctype html>
 <html>
-<head><title>Circulation Manager</title></head>
+<head>
+<title>Circulation Manager</title>
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+</head>
 <body>
   <script src=\"/admin/static/circulation-web.js\"></script>
   <script>
