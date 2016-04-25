@@ -780,7 +780,7 @@ class TestEdition(DatabaseTest):
         eq_(None, work.summary)
         eq_("", work.summary_text)
 
-    def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
+    def test_calculate_evaluate_summary_quality_with_privileged_data_sources(self):
         e, pool = self._edition(with_license_pool=True)
         oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -806,7 +806,7 @@ class TestEdition(DatabaseTest):
         # But if we say that Overdrive is the privileged data source, it wins
         # automatically. The other resource isn't even considered.
         champ2, resources2 = Identifier.evaluate_summary_quality(
-            self._db, ids, overdrive)
+            self._db, ids, [overdrive])
         eq_(overdrive_resource, champ2)
         eq_([overdrive_resource], resources2)
 
@@ -816,10 +816,26 @@ class TestEdition(DatabaseTest):
         # wins.
         threem = DataSource.lookup(self._db, DataSource.THREEM)
         champ3, resources3 = Identifier.evaluate_summary_quality(
-            self._db, ids, threem)
+            self._db, ids, [threem])
         eq_(set([overdrive_resource, oclc_resource]), set(resources3))
         eq_(oclc_resource, champ3)
-        
+
+        # If there are two privileged data sources and there's no
+        # description from the first, the second is used.
+        champ4, resources4 = Identifier.evaluate_summary_quality(
+            self._db, ids, [threem, overdrive])
+        eq_([overdrive_resource], resources4)
+        eq_(overdrive_resource, champ4)
+
+        # Even an empty string wins if it's from the most privileged data source.
+        staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
+        staff_resource = l3.resource
+
+        champ5, resources5 = Identifier.evaluate_summary_quality(
+            self._db, ids, [staff, overdrive])
+        eq_([staff_resource], resources5)
+        eq_(staff_resource, champ5)
 
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
