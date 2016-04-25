@@ -322,8 +322,9 @@ class DatabaseTest(object):
         return complaint
 
     def _collection(self, name=u"Faketown Public Library"):
+        source, ignore = get_one_or_create(self._db, DataSource, name=name)
         return get_one_or_create(
-            self._db, Collection, name=name,
+            self._db, Collection, name=name, data_source=source,
             client_id=u"abc", client_secret=u"def"
         )[0]
 
