@@ -41,13 +41,6 @@ class TestURNLookupController(DatabaseTest):
         eq_(400, code)
         eq_(URNLookupController.INVALID_URN, message)
 
-    # We can't run this test at the moment because we actually can
-    # get info from an ISBN.
-    #def test_process_urn_unresolvable_urn(self):
-    #    code, message = self.controller.process_urn("urn:isbn:9781449358068")
-    #    eq_(400, code)
-    #    eq_(URNLookupController.UNRESOLVABLE_URN, message)
-
     def test_process_urn_initial_registration(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)
         code, message = self.controller.process_urn(identifier.urn)
@@ -110,6 +103,26 @@ class TestURNLookupController(DatabaseTest):
         # input.
         eq_(404, code)
         eq_(controller.UNRECOGNIZED_IDENTIFIER, message)
+
+    def test_process_urn_with_collection(self):
+        collection = self._collection()
+        i1 = self._identifier()
+        i2 = self._identifier()
+
+        eq_([], collection.catalog)
+        self.controller.process_urn(i1.urn, collection=collection)
+        eq_(1, len(collection.catalog))
+        eq_([i1], collection.catalog)
+
+        # Adds new identifiers to an existing catalog
+        self.controller.process_urn(i2.urn, collection=collection)
+        eq_(2, len(collection.catalog))
+        eq_([i1, i2], collection.catalog)
+
+        # Does not duplicate identifiers in the catalog
+        self.controller.process_urn(i1.urn, collection=collection)
+        eq_(2, len(collection.catalog))
+        eq_([i1, i2], collection.catalog)
 
 
 class TestComplaintController(DatabaseTest):

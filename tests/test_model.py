@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -47,6 +48,7 @@ from model import (
     WorkGenre,
     Identifier,
     Edition,
+    get_one,
     get_one_or_create,
 )
 from external_search import (
@@ -2454,3 +2456,47 @@ class TestComplaint(DatabaseTest):
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
 
+
+class TestCollection(DatabaseTest):
+
+    def test_encrypts_client_secret(self):
+        collection, new = get_one_or_create(
+            self._db, Collection, name=u"Test Collection", client_id=u"test",
+            client_secret=u"megatest"
+        )
+        assert collection.client_secret != u"megatest"
+        eq_(True, collection.client_secret.startswith("$2a$"))
+
+    def test_register(self):
+        collection, plaintext_secret = Collection.register(
+            self._db, u"A Library"
+        )
+
+        # It creates client details and a DataSource for the collection
+        assert collection.client_id and collection.client_secret
+        assert get_one(self._db, DataSource, name=collection.name)
+
+        # It returns nothing if the name is already taken.
+        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+
+    def test_authenticate(self):
+        collection = self._collection()
+
+        result = Collection.authenticate(self._db, u"abc", u"def")
+        eq_(collection, result)
+
+        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        eq_(None, result)
+
+        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        eq_(None, result)
+
+    def test_catalog_identifier(self):
+        """#catalog_identifier associates an identifier with the collection"""
+
+        identifier = self._identifier()
+        collection = self._collection()
+
+        collection.catalog_identifier(self._db, identifier)
+        eq_(1, len(collection.catalog))
+        eq_(identifier, collection.catalog[0])

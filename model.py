@@ -24,6 +24,7 @@ import urllib
 import urlparse
 import uuid
 import warnings
+import bcrypt
 
 from PIL import (
     Image,
@@ -41,6 +42,7 @@ from sqlalchemy.orm import (
 from sqlalchemy import (
     or_,
     MetaData,
+    Table,
 )
 from sqlalchemy.orm import (
     aliased,
@@ -60,6 +62,7 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -282,7 +285,6 @@ def get_one(db, model, on_multiple='error', **kwargs):
             return q.one()
     except NoResultFound:
         return None
-
 
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
@@ -641,6 +643,11 @@ class DataSource(Base):
 
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
+
+    # One DataSource can have one Collection.
+    collection = relationship(
+        "Collection", backref="data_source", uselist=False
+    )
 
     @classmethod
     def lookup(cls, _db, name):
@@ -1820,7 +1827,6 @@ class UnresolvedIdentifier(Base):
             q = q.order_by(func.random())
         return q
 
-
     def set_attempt(self, time=None):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.
@@ -1829,6 +1835,7 @@ class UnresolvedIdentifier(Base):
         self.most_recent_attempt = time
         if not self.first_attempt:
             self.first_attempt = time
+
 
 class Contributor(Base):
 
@@ -3020,7 +3027,6 @@ class PresentationCalculationPolicy(object):
             update_search_index=True,
         )
 
-        
 
 class Work(Base):
 
@@ -6831,6 +6837,120 @@ class Admin(Base):
         self.credential = credential
         _db.commit()
 
+
+class Collection(Base):
+
+    __tablename__ = 'collections'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode, unique=True, nullable=False)
+    client_id = Column(Unicode, unique=True, index=True)
+    _client_secret = Column(Unicode, nullable=False)
+
+    # A collection can have one DataSource
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True
+    )
+
+    # A collection can include many Identifiers
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
+        backref="collections"
+    )
+
+
+    def __repr__(self):
+        return "%s ID=%s DATASOURCE_ID=%d" % (
+            self.name, self.id, self.data_source.id
+        )
+
+    @hybrid_property
+    def client_secret(self):
+        """Gets encrypted client_secret from database"""
+        return self._client_secret
+
+    @client_secret.setter
+    def _set_client_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
+        self._client_secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is the client_secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+                == self.client_secret)
+
+    @classmethod
+    def register(cls, _db, name):
+        """Creates a new collection with client details and a datasource."""
+
+        name = unicode(name)
+        collection = get_one(_db, cls, name=name)
+        if collection:
+            raise ValueError(
+                "A collection with the name '%s' already exists: %r" % (
+                name, collection)
+            )
+
+        collection_data_source, ignore = get_one_or_create(
+            _db, DataSource, name=name, offers_licenses=False
+        )
+
+        client_id, plaintext_client_secret = cls._generate_client_details()
+        # Generate a new client_id if it's not unique initially.
+        while get_one(_db, cls, client_id=client_id):
+            client_id, plaintext_client_secret = cls._generate_client_details()
+
+        collection, ignore = get_one_or_create(
+            _db, cls, name=name, client_id=unicode(client_id),
+            client_secret=unicode(plaintext_client_secret),
+            data_source=collection_data_source
+        )
+
+        _db.commit()
+        return collection, plaintext_client_secret
+
+    @classmethod
+    def _generate_client_details(cls):
+        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                           '0123456789')
+        client_secret_chars = client_id_chars + '!"#$%&()*+,-./[]^_`{}|~'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        client_id = make_client_string(client_id_chars, 25)
+        client_secret = make_client_string(client_secret_chars, 40)
+
+        return client_id, client_secret
+
+    @classmethod
+    def authenticate(cls, _db, client_id, plaintext_client_secret):
+        collection = get_one(_db, cls, client_id=client_id)
+        if (collection and
+            collection._correct_secret(plaintext_client_secret)):
+            return collection
+        return None
+
+    def catalog_identifier(self, _db, identifier):
+        """Catalogs an identifier for a collection"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.commit()
+
+collections_identifiers = Table(
+    'collectionsidentifiers', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'identifier_id', Integer, ForeignKey('identifiers.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('collection_id', 'identifier_id'),
+)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

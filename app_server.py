@@ -235,7 +235,7 @@ class URNLookupController(object):
 
         return (400, self.UNRESOLVABLE_URN)
 
-    def process_urn(self, urn):
+    def process_urn(self, urn, collection=None):
         """Turn a URN into a Work suitable for use in an OPDS feed.
 
         :return: If a Work is found, the return value is None.
@@ -246,6 +246,9 @@ class URNLookupController(object):
         if not isinstance(identifier, Identifier):
             # Error.
             return identifier
+
+        if collection:
+            collection.catalog_identifier(self._db, identifier)
 
         if identifier.licensed_through:
             # There is a LicensePool for this identifier!
@@ -360,14 +363,14 @@ class URNLookupController(object):
         # We made it!
         return entry
 
-    def work_lookup(self, annotator, controller_name='lookup'):
+    def work_lookup(self, annotator, controller_name='lookup', collection=None):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
         this_url = cdn_url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
-            code, message = self.process_urn(urn)
+            code, message = self.process_urn(urn, collection=collection)
             if code:
                 messages_by_urn[urn] = (code, message)
 
@@ -400,7 +403,7 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
 
-    
+
 class ComplaintController(object):
     """A controller to register complaints against objects."""
 
@@ -433,4 +436,23 @@ class ComplaintController(object):
             )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
-        
+
+
+class CollectionController(object):
+    """A controller to manage collections and their assets"""
+
+    def __init__(self, _db):
+        self._db = _db
+
+    def authenticated_collection_from_request(self):
+        header = flask.request.authorization
+        if header:
+            client_id, client_secret = header.username, header.password
+            collection = Collection.authenticate(client_id, client_secret)
+            if collection:
+                return collection
+
+            # If inaccurate authorization details were sent, return error.
+            return INVALID_CREDENTIALS.response
+        return None
+

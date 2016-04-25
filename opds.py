@@ -636,9 +636,15 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
+        top_level_title = "Collection Home"
+
         if lane.parent:
-            feed.add_link(rel='up', href=annotator.groups_url(lane.parent))
-        feed.add_link(rel='start', href=annotator.default_lane_url())
+            if isinstance(lane.parent, Lane):
+                title = lane.parent.display_name
+            else:
+                title = top_level_title
+            feed.add_link(rel='up', href=annotator.groups_url(lane.parent), title=title)
+        feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
 
         annotator.annotate_feed(feed, lane)
 
@@ -670,6 +676,8 @@ class AcquisitionFeed(OPDSFeed):
         previous_page = pagination.previous_page
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
+
+        opds_feed.add_link(rel="up", href=annotator.groups_url(search_lane), title=lane.display_name)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
@@ -783,7 +791,6 @@ class AcquisitionFeed(OPDSFeed):
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False):
 
-        before = time.time()
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
@@ -813,8 +820,6 @@ class AcquisitionFeed(OPDSFeed):
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=group_title)
 
-
-        after = time.time()
         if edition:
             title = (edition.title or "") + " "
         else:
