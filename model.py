@@ -6844,6 +6844,7 @@ class Collection(Base):
     name = Column(Unicode, unique=True, nullable=False)
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
+    last_checked = Column(DateTime)
 
     # A collection can have one DataSource
     data_source_id = Column(
