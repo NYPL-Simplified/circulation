@@ -1229,8 +1229,10 @@ class TestWork(DatabaseTest):
 
         # This Work starts out with a single CoverageRecord reflecting the
         # work done to generate its initial OPDS entry.
-        [generate_opds_record, choose_edition_record] = work.coverage_records
-        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, generate_opds_record.operation)
+        [record1, record2] = work.coverage_records
+        # we don't know what order the records came back in, but one of them is an opds generation record.
+        assert ((WorkCoverageRecord.GENERATE_OPDS_OPERATION == record1.operation) or 
+            (WorkCoverageRecord.GENERATE_OPDS_OPERATION == record2.operation))
 
         work.last_update_time = None
         work.presentation_ready = True
