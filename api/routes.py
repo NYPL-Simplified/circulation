@@ -8,7 +8,7 @@ from flask import (
     redirect,
 )
 
-from app import app
+from app import app, _db
 
 from config import Configuration
 from core.app_server import (
@@ -20,7 +20,6 @@ from opds import (
 )
 from controller import CirculationManager
 
-
 @app.before_first_request
 def initialize_circulation_manager():
     if os.environ.get('AUTOINITIALIZE') == "False":
@@ -29,7 +28,7 @@ def initialize_circulation_manager():
         # appropriately.
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager()
+            app.manager = CirculationManager(_db=_db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
