@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import os
 import logging
 import urlparse
 
@@ -14,7 +15,9 @@ from core.model import SessionManager
 
 app = Flask(__name__)
 
-session_factory = SessionManager.sessionmaker()
+testing = 'TESTING' in os.environ
+db_url = Configuration.database_url(testing)
+session_factory = SessionManager.sessionmaker(db_url)
 _db = flask_scoped_session(session_factory, app)
 
 import routes
