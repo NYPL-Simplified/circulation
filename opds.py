@@ -166,7 +166,7 @@ class Annotator(object):
         elif work.fiction == False:
             fiction_term = 'Nonfiction'
         if fiction_term:
-            fiction_scheme = simplified_ns + "fiction/"
+            fiction_scheme = Subject.SIMPLIFIED_FICTION_STATUS
             categories[fiction_scheme] = [
                 dict(term=fiction_scheme + fiction_term,
                      label=fiction_term)
