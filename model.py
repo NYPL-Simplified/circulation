@@ -38,6 +38,7 @@ from sqlalchemy.orm import (
     backref,
     defer,
     relationship,
+    sessionmaker,
 )
 from sqlalchemy import (
     or_,
@@ -158,6 +159,11 @@ class SessionManager(object):
     def engine(cls, url=None):
         url = url or Configuration.database_url()
         return create_engine(url, echo=DEBUG)
+
+    @classmethod
+    def sessionmaker(cls, url=None):
+        engine = cls.engine(url)
+        return sessionmaker(bind=engine)
 
     @classmethod
     def initialize(cls, url):
