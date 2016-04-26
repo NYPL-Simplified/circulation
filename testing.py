@@ -309,6 +309,8 @@ class DatabaseTest(object):
             data_source=data_source,
             foreign_identifier=foreign_identifier
         )
+
+        set_trace()
         editions = []
         for i in range(num_entries):
             if entries_exist_as_works:
@@ -336,7 +338,7 @@ class DatabaseTest(object):
 
 
     def print_database_instance(self):
-        '''
+        """
         Calls the class method that examines the current state of the database model 
         (whether it's been committed or not).
 
@@ -349,14 +351,14 @@ class DatabaseTest(object):
             set_trace()
             self.print_database_instance()  # TODO: remove before prod
             [code...]
-        '''
+        """
         DatabaseTest.print_database_class(self._db)
         return
 
 
     @classmethod
     def print_database_class(cls, db_connection):
-        '''
+        """
         Prints to the console the entire contents of the database, as the unit test sees it. 
         Exists because unit tests don't persist db information, they create a memory 
         representation of the db state, and then roll the unit test-derived transactions back.
@@ -376,7 +378,7 @@ class DatabaseTest(object):
         )
         _db = Session.object_session(self)
         DatabaseTest.print_database_class(_db)  # TODO: remove before prod
-        '''
+        """
         works = db_connection.query(Work).all()
         identifiers = db_connection.query(Identifier).all()
         license_pools = db_connection.query(LicensePool).all()

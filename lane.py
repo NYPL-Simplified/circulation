@@ -870,10 +870,10 @@ class Lane(object):
             contains_eager(Work.license_pools),
             contains_eager(Work.primary_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
-            contains_eager(Work.license_pools, LicensePool.edition),
+            contains_eager(Work.license_pools, LicensePool.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
             defer(Work.primary_edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.edition, Edition.extra),
+            defer(Work.license_pools, LicensePool.presentation_edition, Edition.extra),
         )
         q = self._defer_unused_opds_entry(q)
 
@@ -905,7 +905,7 @@ class Lane(object):
         q = q.options(
             lazyload(mw.license_pool, LicensePool.data_source),
             lazyload(mw.license_pool, LicensePool.identifier),
-            lazyload(mw.license_pool, LicensePool.edition),
+            lazyload(mw.license_pool, LicensePool.presentation_edition),
         )
         q = self._defer_unused_opds_entry(q, work_model=mw)
 
@@ -1130,7 +1130,7 @@ class Lane(object):
                     q = q.options(
                         lazyload(mw.license_pool, LicensePool.data_source),
                         lazyload(mw.license_pool, LicensePool.identifier),
-                        lazyload(mw.license_pool, LicensePool.edition),
+                        lazyload(mw.license_pool, LicensePool.presentation_edition),
                     )
                     q = self.only_show_ready_deliverable_works(q, mw)
                     q = self._defer_unused_opds_entry(q, work_model=mw)
