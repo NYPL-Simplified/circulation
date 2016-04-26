@@ -2489,9 +2489,14 @@ class TestCollection(DatabaseTest):
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
 
+        # A collection with no catalog returns nothing.
+        eq_([], collection.works_updated(self._db).all())
+
+        # A collection with a catalog returns updated works in the catalog
         collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
         collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
-        updated_works = collection.works_updated(self._db)
+        updated_works = collection.works_updated(self._db).all()
+
         eq_(2, len(updated_works))
         assert w1 in updated_works
         assert w2 in updated_works
@@ -2499,9 +2504,9 @@ class TestCollection(DatabaseTest):
 
         # Once the collection has checked, known works don't get returned.
         collection.last_checked = datetime.datetime.utcnow()
-        eq_([], collection.works_updated(self._db))
+        eq_([], collection.works_updated(self._db).all())
 
         # But if the work is updated, we get it back.
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
-        eq_([w1], collection.works_updated(self._db))
+        eq_([w1], collection.works_updated(self._db).all())
         pass

@@ -6928,21 +6928,18 @@ class Collection(Base):
     def works_updated(self, _db):
         """Returns all of a collection's works that have been updated since the
         last time the collection was checked"""
-        if self.catalog:
-            catalog_identifier_ids = [identifier.id for identifier in self.catalog]
 
-            # Find the works in the catalog that have been created or updated
-            # since the collection last checked.
-            query = _db.query(Work).join(Work.coverage_records)
-            query = query.join(Work.license_pools).join(Identifier)
-            query = query.filter(Identifier.id.in_(catalog_identifier_ids))
-            if self.last_checked:
-                query = query.filter(
-                    WorkCoverageRecord.timestamp > self.last_checked
-                )
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if self.last_checked:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > self.last_checked
+            )
 
-            return query.all()
-        return []
+        return query
 
 
 collections_identifiers = Table(
