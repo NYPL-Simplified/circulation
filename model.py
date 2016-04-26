@@ -3413,7 +3413,8 @@ class Work(Base):
                 # let the edition know it's attached to this work now
                 edition.work = self
                 # let the edition's pool know they have a work
-                edition.is_presentation_for.work = self
+                if edition.is_presentation_for:
+                    edition.is_presentation_for.work = self
 
         
         WorkCoverageRecord.add_for(
