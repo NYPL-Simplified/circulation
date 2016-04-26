@@ -8,11 +8,14 @@ from flask import (
     Response,
     redirect,
 )
-
+from flask_sqlalchemy_session import flask_scoped_session
 from config import Configuration
-
+from core.model import SessionManager
 
 app = Flask(__name__)
+
+session_factory = SessionManager.sessionmaker()
+_db = flask_scoped_session(session_factory, app)
 
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):

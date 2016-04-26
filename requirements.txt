@@ -4,6 +4,7 @@ pillow
 psycopg2
 requests
 sqlalchemy==1.0.6
+flask-sqlalchemy-session
 lxml
 flask
 isbnlib
