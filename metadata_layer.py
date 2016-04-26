@@ -1032,24 +1032,6 @@ class Metadata(object):
 
         self.set_default_rights_uri(data_source)
 
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if not format.content_type:
-                    format.content_type = link.media_type
-                # TODO: I think it's always true that this link
-                # already exists--it was created earlier while we were
-                # iterating over self.links. It would be more
-                # efficient and less error-prone to keep track of the
-                # link objects rather than calling add_link again.
-                link_obj = link_objects[format.link]
-                resource = link_obj.resource
-            else:
-                resource = None
-            if pool:
-                pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, resource
-                )
 
         if pool and replace.rights:
             pool.set_rights_status(self.rights_uri)
@@ -1086,6 +1068,7 @@ class Metadata(object):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             link_obj = link_objects[link]
             # TODO: We do not properly handle the (unlikely) case
@@ -1102,6 +1085,25 @@ class Metadata(object):
                 # is associated with the original image.
                 self.make_thumbnail(pool, data_source, link, link_obj)
 
+        # follows up on the mirror link, and confirms the delivery mechanism.
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if not format.content_type:
+                    format.content_type = link.media_type
+                # TODO: I think it's always true that this link
+                # already exists--it was created earlier while we were
+                # iterating over self.links. It would be more
+                # efficient and less error-prone to keep track of the
+                # link objects rather than calling add_link again.
+                link_obj = link_objects[format.link]
+                resource = link_obj.resource
+            else:
+                resource = None
+            if pool:
+                pool.set_delivery_mechanism(
+                    format.content_type, format.drm_scheme, resource
+                )
 
         # Finally, update the coverage record for this edition
         # and data source.
@@ -1117,6 +1119,7 @@ class Metadata(object):
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
         """
+
         if link_obj.rel not in (
                 Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
@@ -1160,6 +1163,7 @@ class Metadata(object):
 
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
+
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
