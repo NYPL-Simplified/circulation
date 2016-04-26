@@ -257,19 +257,16 @@ class WorkController(CirculationManagerController):
             )
             changed = True
 
-        new_summary = flask.request.form.get("summary")
+        new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
             old_summary = None
             if work.summary and work.summary.data_source == staff_data_source:
                 old_summary = work.summary
 
-            if new_summary:
-                (link, is_new) =  work.primary_edition.primary_identifier.add_link(
-                    Hyperlink.DESCRIPTION, None, 
-                    staff_data_source, content=new_summary)
-                work.set_summary(link.resource)
-            else:
-                work.set_summary(None)
+            (link, is_new) =  work.primary_edition.primary_identifier.add_link(
+                Hyperlink.DESCRIPTION, None, 
+                staff_data_source, content=new_summary)
+            work.set_summary(link.resource)
 
             # Delete previous staff summary
             if old_summary:
@@ -394,7 +391,7 @@ class FeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
         opds_feed = AdminFeed.suppressed(
-            _db=self._db, title="Hidden books",
+            _db=self._db, title="Hidden Books",
             url=this_url, annotator=annotator,
             pagination=pagination
         )
