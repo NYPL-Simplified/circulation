@@ -195,6 +195,8 @@ class WorkController(CirculationManagerController):
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
 
+        STAFF_WEIGHT = 100000
+
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
@@ -226,7 +228,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.FREEFORM_AUDIENCE,
                 subject_identifier=new_audience,
-                weight=100000,
+                weight=STAFF_WEIGHT,
             )
             changed = True
 
@@ -253,7 +255,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.AGE_RANGE,
                 subject_identifier=age_range_identifier,
-                weight=10000000,
+                weight=STAFF_WEIGHT * 100,
             )
             changed = True
 
