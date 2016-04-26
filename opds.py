@@ -226,9 +226,9 @@ class Annotator(object):
         """Return an HTML summary of this work."""
         summary = ""
         if work: 
-            if work.summary_text:
+            if work.summary_text != None:
                 summary = work.summary_text
-            elif work.summary:
+            elif work.summary and work.summary.content:
                 work.summary_text = work.summary.content
                 summary = work.summary_text
         return summary

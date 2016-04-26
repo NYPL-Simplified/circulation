@@ -38,6 +38,7 @@ from sqlalchemy.orm import (
     backref,
     defer,
     relationship,
+    sessionmaker,
 )
 from sqlalchemy import (
     or_,
@@ -158,6 +159,11 @@ class SessionManager(object):
     def engine(cls, url=None):
         url = url or Configuration.database_url()
         return create_engine(url, echo=DEBUG)
+
+    @classmethod
+    def sessionmaker(cls, url=None):
+        engine = cls.engine(url)
+        return sessionmaker(bind=engine)
 
     @classmethod
     def initialize(cls, url):
@@ -1649,7 +1655,7 @@ class Identifier(Base):
 
     @classmethod
     def evaluate_summary_quality(cls, _db, identifier_ids, 
-                                 privileged_data_source=None):
+                                 privileged_data_sources=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
         This is an automatic evaluation based solely on the content of
@@ -1661,42 +1667,46 @@ class Identifier(Base):
         need to see which noun phrases are most frequently used to
         describe the underlying work.
 
-        :param privileged_data_source: If present, a summary from this
-        data source will be instantly chosen, short-circuiting the
-        decision process.
+        :param privileged_data_sources: If present, a summary from one
+        of these data source will be instantly chosen, short-circuiting the
+        decision process. Data sources are in order of priority.
 
         :return: The single highest-rated summary Resource.
 
         """
         evaluator = SummaryEvaluator()
 
+        if privileged_data_sources and len(privileged_data_sources) > 0:
+            privileged_data_source = privileged_data_sources[0]
+        else:
+            privileged_data_source = None
+
         # Find all rel="description" resources associated with any of
         # these records.
         rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
-            _db, identifier_ids, rels, privileged_data_source)
-        descriptions = descriptions.join(
-            Resource.representation).filter(
-                Representation.content != None).all()
+            _db, identifier_ids, rels, privileged_data_source).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
         for r in descriptions:
-            evaluator.add(r.representation.content)
+            if r.representation and r.representation.content:
+                evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
         for r in descriptions:
-            content = r.representation.content
-            quality = evaluator.score(content)
-            r.set_estimated_quality(quality)
+            if r.representation and r.representation.content:
+                content = r.representation.content
+                quality = evaluator.score(content)
+                r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
                 champion = r
 
         if privileged_data_source and not champion:
             # We could not find any descriptions from the privileged
             # data source. Try relaxing that restriction.
-            return cls.evaluate_summary_quality(_db, identifier_ids)
+            return cls.evaluate_summary_quality(_db, identifier_ids, privileged_data_sources[1:])
         return champion, descriptions
 
     @classmethod
@@ -3254,8 +3264,10 @@ class Work(Base):
     def set_summary(self, resource):
         self.summary = resource
         # TODO: clean up the content
-        if resource:
+        if resource and resource.representation:
             self.summary_text = resource.representation.unicode_content
+        else:
+            self.summary_text = ""
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.SUMMARY_OPERATION
         )
@@ -3558,8 +3570,9 @@ class Work(Base):
             )
 
         if policy.choose_summary:
+            staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source
+                _db, flattened_data, [staff_data_source, privileged_data_source]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
@@ -3649,7 +3662,7 @@ class Work(Base):
             else:
                 return s.decode("utf8", "replace")
 
-        if self.summary:
+        if self.summary and self.summary.representation:
             snippet = _ensure(self.summary.representation.content)[:100]
             d = " Description (%.2f) %s" % (self.summary.quality, snippet)
             l.append(d)
