@@ -204,7 +204,8 @@ class DatabaseTest(object):
             # bc loan tests assume that.
             pool.set_presentation_edition(None)
 
-            work.license_pools.append(pool)
+            if not work.license_pools[0]:
+                work.license_pools.append(pool)
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True

@@ -893,6 +893,7 @@ class TestLicensePool(DatabaseTest):
     def test_update_availability(self):
         work = self._work(with_license_pool=True)
         work.last_update_time = None
+
         [pool] = work.license_pools
         pool.update_availability(30, 20, 2, 0)
         eq_(30, pool.licenses_owned)
@@ -1228,21 +1229,19 @@ class TestWork(DatabaseTest):
 
         # This Work starts out with a single CoverageRecord reflecting the
         # work done to generate its initial OPDS entry.
-        [record] = work.coverage_records
-        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, record.operation)
+        [generate_opds_record, choose_edition_record] = work.coverage_records
+        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, generate_opds_record.operation)
 
         work.last_update_time = None
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
         work.calculate_presentation(search_index_client=index)
 
-        # The title of the Work is the title of its primary work
-        # record.
+        # The title of the Work is the title of its primary work record.
         eq_("The 2nd Title", work.title)
         eq_("The 2nd Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary work
-        # record.
+        # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
