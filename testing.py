@@ -140,6 +140,7 @@ class DatabaseTest(object):
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
                                      with_open_access_download=with_open_access_download)  
+
             pool.set_presentation_edition(None)              
             return wr, pool
         return wr
@@ -191,9 +192,13 @@ class DatabaseTest(object):
             genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
         work.genres = [genre]
         work.random = 0.5
+
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
-        work.primary_edition = primary_edition
+
+        #work.primary_edition = primary_edition
+        work.set_primary_edition()
+
         if pool != None:
             # make sure the pool's presentation_edition is set, 
             # bc loan tests assume that.
@@ -310,7 +315,6 @@ class DatabaseTest(object):
             foreign_identifier=foreign_identifier
         )
 
-        set_trace()
         editions = []
         for i in range(num_entries):
             if entries_exist_as_works:

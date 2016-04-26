@@ -3402,18 +3402,6 @@ class Work(Base):
         """Which of this Work's Editions should be used as the default?
         """
 
-        old_primary = self.primary_edition
-        champion = None
-        old_champion = None
-        champion_book_source_priority = None
-        best_text_source = None
-
-        '''
-        for edition in self.editions:
-            if edition.better_primary_edition_than(champion):
-                champion = edition
-        '''
-
         # for each edition, see if its LicensePool was superceded or suppressed
         # if yes, it's not the champion
         for edition in self.editions:
@@ -3422,6 +3410,11 @@ class Work(Base):
                 edition.is_primary_for_work = False
             else:
                 edition.is_primary_for_work = True
+                # let the edition know it's attached to this work now
+                edition.work = self
+                # let the edition's pool know they have a work
+                edition.is_presentation_for.work = self
+
         
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
@@ -5347,6 +5340,7 @@ class LicensePool(Base):
 
             # TODO: apply() needs to set last_update_time if appropriate.
             self.presentation_edition, edition_core_changed = metadata.apply(edition)
+
         self.presentation_edition.work = self.work
         changed = changed or self.presentation_edition.calculate_presentation()
         return (
@@ -5359,7 +5353,7 @@ class LicensePool(Base):
                  content=None, content_path=None):
         """Add a link between this LicensePool and a Resource.
 
-        :param rel: The relationship between this LicensePooland the resource
+        :param rel: The relationship between this LicensePool and the resource
                on the other end of the link.
         :param href: The URI of the resource on the other end of the link.
         :param media_type: Media type of the representation associated

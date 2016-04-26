@@ -233,6 +233,15 @@ class TestMembershipManager(DatabaseTest):
 
         update_time = datetime.datetime(2015, 1, 1)
 
+
+        '''
+        execution path:
+        calls _customlist
+        which calls _work
+            which calls _edition, which makes an edition and a pool (through _licensepool)
+            then makes work through get_one_or_create
+        '''
+
         custom_list, ignore = self._customlist()
         manager = BooksInSeries(custom_list)
         manager.update(update_time)
