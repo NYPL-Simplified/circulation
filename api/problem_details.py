@@ -190,6 +190,13 @@ INVALID_CSRF_TOKEN = pd(
       "There was an error saving your changes.",
 )
 
+INVALID_EDIT = pd(
+      "http://librarysimplified.org/terms/problem/invalid-edit",
+      400,
+      "Invalid edit",
+      "There was a problem with the edited metadata."
+)
+
 METADATA_REFRESH_PENDING = pd(
       "http://librarysimplified.org/terms/problem/metadata-refresh-pending",
       201,

@@ -78,7 +78,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("audience", "Adults Only"),
-                ("summary", "<p>New summary</p>")
+                ("summary", "<p>New summary</p>"),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
 
@@ -91,24 +91,31 @@ class TestWorkController(AdminControllerTest):
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
-            # Change the audience again
+            # Change the audience again, and add a target age
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("audience", "Young Adult"),
-                ("summary", "<p>New summary</p>")
+                ("summary", "<p>New summary</p>"),
+                ("target_age_min", 13),
+                ("target_age_max", 15),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_("Young Adult", self.english_1.audience)
             assert 'Young Adult' in self.english_1.simple_opds_entry
             assert 'Adults Only' not in self.english_1.simple_opds_entry
+            eq_(13, self.english_1.target_age.lower)
+            eq_(15, self.english_1.target_age.upper)
+            assert "13-15" in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
             # Change the summary again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("audience", "Young Adult"),
-                ("summary", "abcd")
+                ("summary", "abcd"),
+                ("target_age_min", 13),
+                ("target_age_max", 15),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
@@ -116,16 +123,51 @@ class TestWorkController(AdminControllerTest):
             assert 'New summary' not in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
-            # Now delete the summary entirely
+            # Now delete the summary entirely and change the target age again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("audience", "Young Adult"),
-                ("summary", "")
+                ("summary", ""),
+                ("target_age_min", 11),
+                ("target_age_max", 14),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_("", self.english_1.summary_text)
             assert 'abcd' not in self.english_1.simple_opds_entry
+            eq_(11, self.english_1.target_age.lower)
+            eq_(14, self.english_1.target_age.upper)
+            assert "11-14" in self.english_1.simple_opds_entry
+            assert "13-15" not in self.english_1.simple_opds_entry
+
+        with self.app.test_request_context("/"):
+            # Change audience and remove target age, so computed target age is based on audience
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("audience", "Adult"),
+                ("summary", ""),
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_(200, response.status_code)
+            eq_("Adult", self.english_1.audience)
+            assert 'Adult' in self.english_1.simple_opds_entry
+            assert 'Young Adult' not in self.english_1.simple_opds_entry
+            eq_(18, self.english_1.target_age.lower)
+            eq_(None, self.english_1.target_age.upper)
+            assert "11-14" not in self.english_1.simple_opds_entry
+            assert "18" in self.english_1.simple_opds_entry
+
+    def test_edit_invalid_input(self):
+        [lp] = self.english_1.license_pools
+        with self.app.test_request_context("/"):
+            # target age min greater than target age max
+            flask.request.form = ImmutableMultiDict([
+                ("target_age_min", 10),
+                ("target_age_max", 5),
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            eq_(400, response.status_code)
+            eq_(INVALID_EDIT.uri, response.uri)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
