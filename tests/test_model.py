@@ -1180,13 +1180,27 @@ class TestLicensePool(DatabaseTest):
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
+        license_pool = edition_composite.is_presentation_for
+        eq_(license_pool, pool)
+
         eq_(edition_mw.is_primary_for_work, False)
         eq_(edition_od.is_primary_for_work, False)
         eq_(edition_admin.is_primary_for_work, False)
-        # TODO: does the following line need to be set to work?
-        #eq_(edition_composite.is_primary_for_work, True)
-        license_pool = edition_composite.is_presentation_for
-        eq_(license_pool, pool)
+        eq_(edition_composite.is_primary_for_work, False)
+
+        # is_primary_for_work can only happen if the pool has a work associated with it.
+        # add a work, and re-call set_presentation_edition, and test the primarity.
+        work = self._work()
+        # default testing work object creates and sets a primary edition, and we want an clean slate
+        work.primary_edition = None
+        #work.editions.append(i)
+        work.license_pools.append(pool)
+        pool.set_presentation_edition(None)
+
+        eq_(edition_mw.is_primary_for_work, False)
+        eq_(edition_od.is_primary_for_work, False)
+        eq_(edition_admin.is_primary_for_work, False)
+        eq_(edition_composite.is_primary_for_work, True)
 
 
 
@@ -1228,11 +1242,11 @@ class TestWork(DatabaseTest):
             work.license_pools.append(p)
 
         # This Work starts out with a single CoverageRecord reflecting the
-        # work done to generate its initial OPDS entry.
-        [record1, record2] = work.coverage_records
-        # we don't know what order the records came back in, but one of them is an opds generation record.
-        assert ((WorkCoverageRecord.GENERATE_OPDS_OPERATION == record1.operation) or 
-            (WorkCoverageRecord.GENERATE_OPDS_OPERATION == record2.operation))
+        # work done to generate its initial OPDS entry, and then it adds choose-edition 
+        # as a primary edition is set.
+        [choose_edition, generate_opds] = sorted(work.coverage_records, key=lambda x: x.operation)
+        assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
+        assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
         work.last_update_time = None
         work.presentation_ready = True

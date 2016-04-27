@@ -196,7 +196,6 @@ class DatabaseTest(object):
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
 
-        #work.primary_edition = primary_edition
         work.set_primary_edition()
 
         if pool != None:
@@ -204,7 +203,7 @@ class DatabaseTest(object):
             # bc loan tests assume that.
             pool.set_presentation_edition(None)
 
-            if not work.license_pools[0]:
+            if not work.license_pools:
                 work.license_pools.append(pool)
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.

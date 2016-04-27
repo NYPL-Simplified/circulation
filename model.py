@@ -5344,6 +5344,18 @@ class LicensePool(Base):
 
         self.presentation_edition.work = self.work
         changed = changed or self.presentation_edition.calculate_presentation()
+
+        # if the license pool is associated with a work, and the work currently has no presentation edition, 
+        # then do a courtesy call to the presentation edition, and tell it it's that work's favorite.
+        if self.work and not self.work.primary_edition:
+            self.presentation_edition.is_primary_for_work = True
+            # tell work it has a primary edition now
+            self.work.primary_edition = self.presentation_edition
+            # if work happened to have editions on it, that just 
+            # weren't registered as primary, tell them they're not
+            # this situation should never happen, but is nice cleanup.
+            self.work.set_primary_edition()
+
         return (
             self.presentation_edition != old_presentation_edition 
             or changed

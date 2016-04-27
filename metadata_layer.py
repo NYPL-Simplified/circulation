@@ -1091,11 +1091,6 @@ class Metadata(object):
                 link = format.link
                 if not format.content_type:
                     format.content_type = link.media_type
-                # TODO: I think it's always true that this link
-                # already exists--it was created earlier while we were
-                # iterating over self.links. It would be more
-                # efficient and less error-prone to keep track of the
-                # link objects rather than calling add_link again.
                 link_obj = link_objects[format.link]
                 resource = link_obj.resource
             else:

@@ -245,7 +245,6 @@ class TestMetadataImporter(DatabaseTest):
             content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
         )
 
-        #pool.set_presentation_edition(None)
 
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
@@ -272,11 +271,14 @@ class TestMetadataImporter(DatabaseTest):
         assert book.mirror_url.endswith(expect)
 
         # make sure the mirrored link is safely on edition
-        assert edition.license_pool.identifier.links[0].resource.representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+        sorted_edition_links = sorted(edition.license_pool.identifier.links, key=lambda x: x.rel)
+        mirrored_representation, unmirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
+        assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+
         # make sure the unmirrored link is safely on edition
-        eq_('http://example.com/2', edition.license_pool.identifier.links[1].resource.representation.url)
+        eq_('http://example.com/2', unmirrored_representation.url)
         # make sure the unmirrored link has not been translated to an S3 URL
-        eq_(None, edition.license_pool.identifier.links[1].resource.representation.mirror_url)
+        eq_(None, unmirrored_representation.mirror_url)
 
 
     def test_measurements(self):
