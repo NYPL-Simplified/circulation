@@ -805,6 +805,10 @@ class DataSource(Base):
             if offers_metadata_lookup:
                 l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
                 l.append(obj)
+
+                # Expunge the object from the current database session
+                # so that it can be used in other sessions.
+                _db.expunge(obj)
             yield obj
 
 
@@ -4499,6 +4503,10 @@ class Genre(Base):
         for g in _db.query(Genre):
             _db._genre_cache[g.name] = g
 
+            # Expunge the Genre object from this database session so
+            # that it can be used with other sessions.
+            _db.expunge(g)
+
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if not hasattr(_db, '_genre_cache'):
@@ -6543,6 +6551,7 @@ class DeliveryMechanism(Base):
             _db._deliverymechanism_cache = dict()
         for m in _db.query(DeliveryMechanism):
             _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
+            _db.expunge(m)
 
     @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
