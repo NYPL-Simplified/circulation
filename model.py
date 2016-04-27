@@ -1332,20 +1332,11 @@ class Identifier(Base):
                 # in the next round.
                 new_working_set.add(e.input_id)
 
-        #logging.debug("At level %d.", levels)
-        #logging.debug(" Original working set: %r", sorted(original_working_set))
-        #logging.debug(" New working set: %r", sorted(new_working_set))
-        #logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
-        #logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
-        #logging.debug(" %d equivalents", len(equivalents))
-
         if new_working_set:
 
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            #logging.debug(
-            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -1369,10 +1360,6 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        #logging.debug(
-        #    "Pruned %d from working set",
-        #    len(surviving_working_set.intersection(new_working_set))
-        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -6927,7 +6914,7 @@ class Collection(Base):
         client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
                            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                            '0123456789')
-        client_secret_chars = client_id_chars + '!"#$%&()*+,-./[]^_`{}|~'
+        client_secret_chars = client_id_chars + '!#$%&*+,-._'
 
         def make_client_string(chars, length):
             return u"".join([random.choice(chars) for x in range(length)])
@@ -6938,7 +6925,7 @@ class Collection(Base):
 
     @classmethod
     def authenticate(cls, _db, client_id, plaintext_client_secret):
-        collection = get_one(_db, cls, client_id=client_id)
+        collection = get_one(_db, cls, client_id=unicode(client_id))
         if (collection and
             collection._correct_secret(plaintext_client_secret)):
             return collection
@@ -6949,6 +6936,23 @@ class Collection(Base):
         if identifier not in self.catalog:
             self.catalog.append(identifier)
             _db.commit()
+
+    def works_updated_since(self, _db, timestamp):
+        """Returns all of a collection's works that have been updated since the
+        last time the collection was checked"""
+
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if timestamp:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > timestamp
+            )
+
+        return query
+
 
 collections_identifiers = Table(
     'collectionsidentifiers', Base.metadata,

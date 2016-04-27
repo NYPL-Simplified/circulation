@@ -2516,3 +2516,28 @@ class TestCollection(DatabaseTest):
         collection.catalog_identifier(self._db, identifier)
         eq_(1, len(collection.catalog))
         eq_(identifier, collection.catalog[0])
+
+    def test_works_updated_since(self):
+
+        collection = self._collection()
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+
+        timestamp = datetime.datetime.utcnow()
+        # A collection with no catalog returns nothing.
+        eq_([], collection.works_updated_since(self._db, timestamp).all())
+
+        # When no timestamp is passed, all works in the catalog are returned.
+        collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = collection.works_updated_since(self._db, None).all()
+
+        eq_(2, len(updated_works))
+        assert w1 in updated_works and w2 in updated_works
+        assert w3 not in updated_works
+
+        # When a timestamp is passed, only works that have been updated
+        # since then will be returned
+        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        eq_([w1], collection.works_updated_since(self._db, timestamp).all())
