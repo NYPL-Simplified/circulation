@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 from lxml import etree
+from functools import wraps
 from flask import url_for, make_response
 from util.flask_util import problem
 import traceback
@@ -156,6 +157,14 @@ def load_pagination(size, offset):
             return INVALID_INPUT.detailed("Invalid offset: %s" % offset)
     return Pagination(offset, size)
 
+def returns_problem_detail(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        v = f(*args, **kwargs)
+        if isinstance(v, ProblemDetail):
+            return v.response
+        return v
+    return decorated
 
 class ErrorHandler(object):
     def __init__(self, app, debug):
