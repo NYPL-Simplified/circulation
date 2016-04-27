@@ -257,12 +257,8 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Create all genres.
-        Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
-
-        # Load all delivery mechanisms from the database.
-        DeliveryMechanism.load_all(session)
 
         # Make sure that the mechanisms fulfillable by the default
         # client are marked as such.
@@ -657,11 +653,7 @@ class DataSource(Base):
 
     @classmethod
     def lookup(cls, _db, name):
-        if hasattr(_db, 'data_sources'):
-            return _db.data_sources.get(name)
-        else:
-            # This should only happen during tests.
-            return get_one(_db, DataSource, name=name)
+        return get_one(_db, DataSource, name=name)
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
@@ -4494,20 +4486,6 @@ class Genre(Base):
             len(classifier.genres[self.name].subgenres))
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all Genre objects into the cache associated with the
-        database connection.
-        """
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        for g in _db.query(Genre):
-            _db._genre_cache[g.name] = g
-
-            # Expunge the Genre object from this database session so
-            # that it can be used with other sessions.
-            _db.expunge(g)
-
-    @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if isinstance(name, GenreData):
             name = name.name
@@ -6533,30 +6511,11 @@ class DeliveryMechanism(Base):
         )
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all DeliveryMechanism objects into the cache associated with
-        the database connection.
-        """
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        for m in _db.query(DeliveryMechanism):
-            _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
-            _db.expunge(m)
-
-    @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        key = (content_type, drm_scheme)
-        cache = _db._deliverymechanism_cache
-        if key in cache:
-            return cache[key], False
-        result, is_new = get_one_or_create(
+        return get_one_or_create(
             _db, DeliveryMechanism, content_type=content_type,
             drm_scheme=drm_scheme
         )
-        cache[key] = result
-        return result, is_new
 
     @property
     def implicit_medium(self):
