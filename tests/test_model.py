@@ -1866,7 +1866,7 @@ class TestRepresentation(DatabaseTest):
 
     def test_set_fetched_content_file_on_disk(self):
         filename = "set_fetched_content_file_on_disk.txt"
-        path = os.path.join(self.DBInfo.tmp_data_dir, filename)
+        path = os.path.join(self.tmp_data_dir, filename)
         open(path, "w").write("some text")
 
         representation, ignore = self._representation(self._url, "text/plain")

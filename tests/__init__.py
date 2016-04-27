@@ -17,19 +17,7 @@ from testing import (
     DatabaseTest,
     DummyMetadataClient,
     DummyHTTPClient,
-    _setup,
-    _teardown,
+    package_setup
 )
 
-class CoreDBInfo(object):
-    connection = None
-    engine = None
-    transaction = None
-
-DatabaseTest.DBInfo = CoreDBInfo
-
-def setup():
-    _setup(CoreDBInfo)
-
-def teardown():
-    _teardown(CoreDBInfo)
+package_setup()
