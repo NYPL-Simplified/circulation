@@ -88,7 +88,29 @@ class ControllerTest(DatabaseTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        cls.valid_auth = 'Basic ' + base64.b64encode('200:2222')
+        cls.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CIRCULATION_MANAGER_INTEGRATION : {
+                    "url": 'http://test-circulation-manager/'
+                }
+            }
+            lanes = make_lanes_default(_db)
+            cls.manager = TestCirculationManager(_db, lanes=lanes, testing=True)
+            app.manager = cls.manager
+            cls.controller = CirculationManagerController(cls.manager)
+
         cls.app = app
+        cls._db = _db
         connection = _db.connection()
         return connection.engine, connection, _db
 
@@ -99,8 +121,16 @@ class ControllerTest(DatabaseTest):
         # every time, we want to do nothing.
         pass
 
+    def setup_database(self):
+        pass
+
+    def teardown_database(self):
+        pass
+
+class CirculationControllerTest(ControllerTest):
+
     def setup(self):
-        super(ControllerTest, self).setup()
+        super(CirculationControllerTest, self).setup()
 
         # Create two English books and a French book.
         self.english_1 = self._work(
@@ -116,28 +146,8 @@ class ControllerTest(DatabaseTest):
             u"Très Français", "Marianne", language="fre", fiction=False,
             with_open_access_download=True
         )
-        self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
-        self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                }
-            }
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.CIRCULATION_MANAGER_INTEGRATION : {
-                    "url": 'http://test-circulation-manager/'
-                }
-            }
-            lanes = make_lanes_default(self._db)
-            self.manager = TestCirculationManager(self._db, lanes=lanes, testing=True)
-            self.app.manager = self.manager
-            self.controller = CirculationManagerController(self.manager)
-
-class TestBaseController(ControllerTest):
+class TestBaseController(CirculationControllerTest):
 
     def test_authenticated_patron_invalid_credentials(self):
         value = self.controller.authenticated_patron("5", "1234")
@@ -251,7 +261,7 @@ class TestBaseController(ControllerTest):
         eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
 
-class TestIndexController(ControllerTest):
+class TestIndexController(CirculationControllerTest):
     
     def test_simple_redirect(self):
         with temp_config() as config:
@@ -288,7 +298,7 @@ class TestIndexController(ControllerTest):
                 eq_("http://cdn/groups/", response.headers['location'])
 
 
-class TestAccountController(ControllerTest):
+class TestAccountController(CirculationControllerTest):
 
     def test_patron_info_no_username(self):
         with self.app.test_request_context(
@@ -306,7 +316,7 @@ class TestAccountController(ControllerTest):
             eq_("0", account_info.get('barcode'))
 
 
-class TestLoanController(ControllerTest):
+class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
         self.pool = self.english_1.license_pools[0]
@@ -602,7 +612,7 @@ class TestLoanController(ControllerTest):
             eq_(1, len(account_links))
             assert 'me' in account_links[0]['href']
 
-class TestWorkController(ControllerTest):
+class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
         [self.lp] = self.english_1.license_pools
@@ -645,7 +655,7 @@ class TestWorkController(ControllerTest):
         eq_("bar", complaint.detail)
 
 
-class TestFeedController(ControllerTest):
+class TestFeedController(CirculationControllerTest):
 
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
