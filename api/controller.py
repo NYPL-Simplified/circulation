@@ -108,7 +108,7 @@ class CirculationManager(object):
     parent = None
     language_key = ""
 
-    def __init__(self, _db=None, lanes=None, testing=False):
+    def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
 
@@ -118,9 +118,6 @@ class CirculationManager(object):
             except CannotLoadConfiguration, e:
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
-
-        if _db is None and not testing:
-            _db = production_session()
         self._db = _db
 
         self.testing = testing
@@ -147,6 +144,7 @@ class CirculationManager(object):
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
         self.opds_authentication_document = self.create_authentication_document()
+        self._db.expunge_all()
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)

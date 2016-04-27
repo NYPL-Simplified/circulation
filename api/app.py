@@ -17,6 +17,7 @@ app = Flask(__name__)
 
 testing = 'TESTING' in os.environ
 db_url = Configuration.database_url(testing)
+SessionManager.initialize(db_url)
 session_factory = SessionManager.sessionmaker(db_url)
 _db = flask_scoped_session(session_factory, app)
 
