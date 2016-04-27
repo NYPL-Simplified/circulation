@@ -192,15 +192,12 @@ class HeartbeatController(object):
 
 class URNLookupController(object):
 
-    INVALID_URN = "Could not parse identifier."
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
     UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
     WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
-
-    COULD_NOT_PARSE_URN_TYPE = "http://librarysimplified.org/terms/problem/could-not-parse-urn"
 
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
@@ -217,7 +214,7 @@ class URNLookupController(object):
             identifier, is_new = Identifier.parse_urn(
                 _db, urn)
         except ValueError, e:
-            return (400, self.INVALID_URN)
+            return (INVALID_URN.status_code, INVALID_URN.detail)
 
         if not must_support_metadata:
             return identifier
