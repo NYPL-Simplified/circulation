@@ -66,11 +66,18 @@ class TestCirculationManager(CirculationManager):
         return cdnify(base_url, "http://cdn/")
 
 class ControllerTest(DatabaseTest):
-    def setup(self):
-        super(ControllerTest, self).setup()
+
+    app = None
+
+    @classmethod
+    def get_database_connection(cls):
+        """Set up the app server and create a database session scoped to its
+        requests.
+        """
 
         os.environ['AUTOINITIALIZE'] = "False"
-        from api.app import app
+        from api.app import app, _db
+        app.secret_key = 'test'
         del os.environ['AUTOINITIALIZE']
 
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
@@ -81,7 +88,19 @@ class ControllerTest(DatabaseTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
-        self.app = app
+        cls.app = app
+        connection = _db.connection()
+        return connection.engine, connection, _db
+
+    @classmethod
+    def teardown_database_connection(cls):
+        # The superclass implementation closes the session, but since
+        # we reuse a scoped session instead of creating a new one
+        # every time, we want to do nothing.
+        pass
+
+    def setup(self):
+        super(ControllerTest, self).setup()
 
         # Create two English books and a French book.
         self.english_1 = self._work(
