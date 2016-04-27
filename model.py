@@ -4509,27 +4509,17 @@ class Genre(Base):
 
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        if isinstance(name, Genre):
-            return name, False
         if isinstance(name, GenreData):
             name = name.name
-        if name in _db._genre_cache:
-            return _db._genre_cache[name], False
+        args = (_db, Genre)
         if autocreate:
-            m = get_one_or_create
+            result, new = get_one_or_create(*args, name=name)
         else:
-            m = get_one
-        result = m(_db, Genre, name=name)
+            result = get_one(*args, name=name)
+            new = False
         if result is None:
             logging.getLogger().error('"%s" is not a recognized genre.', name)
-        if isinstance(result, tuple):
-            _db._genre_cache[name] = result[0]
-            return result
-        else:
-            _db._genre_cache[name] = result
-            return result, False
+        return result, new
 
     @property
     def genredata(self):

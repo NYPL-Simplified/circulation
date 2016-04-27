@@ -44,8 +44,9 @@ import mock
 import model
 
 def package_setup():
-    # Make sure the database schema is initialized and initial
-    # data is in place.
+    """Make sure the database schema is initialized and initial
+    data is in place.
+    """
     engine, connection, _db = DatabaseTest.get_database_connection()
 
     # Create the schema and begin a transaction.
@@ -55,8 +56,9 @@ def package_setup():
     SessionManager.initialize_data(_db)
 
     # Initialize test data.
-    
+
     # Create the patron used by the dummy authentication mechanism.
+    # TODO: This can be probably be moved to circulation.
     get_one_or_create(
         _db, Patron, authorization_identifier="200",
         create_method_kwargs=dict(external_identifier="200200200")
@@ -76,6 +78,12 @@ class DatabaseTest(object):
         return engine, connection, session
 
     @classmethod
+    def teardown_database_connection(cls):
+        # Roll back the top level transaction and disconnect from the database
+        cls.connection.close()
+        cls.engine.dispose()
+
+    @classmethod
     def setup_class(cls):
         cls.engine, cls.connection, ignore = cls.get_database_connection()
 
@@ -88,9 +96,7 @@ class DatabaseTest(object):
 
     @classmethod
     def teardown_class(cls):
-        # Roll back the top level transaction and disconnect from the database
-        cls.connection.close()
-        cls.engine.dispose()
+        cls.teardown_database_connection()
 
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
@@ -102,8 +108,11 @@ class DatabaseTest(object):
         if 'TESTING' in os.environ:
             del os.environ['TESTING']
 
-    def setup(self):
+    def setup_database(self):
         self._db = Session(self.connection)
+
+    def setup(self):
+        self.setup_database()
         self.__transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
