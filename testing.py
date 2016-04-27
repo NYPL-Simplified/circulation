@@ -67,6 +67,8 @@ def package_setup():
 
 class DatabaseTest(object):
 
+    database_reset = False
+
     engine = None
     connection = None
 
@@ -74,7 +76,16 @@ class DatabaseTest(object):
     def get_database_connection(cls):
         url = Configuration.database_url(test=True)
         engine, connection = SessionManager.initialize(url)
+
         session = Session(connection)
+        transaction = connection.begin()
+        if not cls.database_reset:
+            for table in reversed(Base.metadata.sorted_tables):
+                if not table.name.startswith('mv_'):
+                    engine.execute(table.delete())
+            Base.metadata.create_all(connection)
+            cls.database_reset = True
+        transaction.commit()
         return engine, connection, session
 
     @classmethod
@@ -110,10 +121,13 @@ class DatabaseTest(object):
 
     def setup_database(self):
         self._db = Session(self.connection)
+        self.__transaction = self.connection.begin_nested()
+
+    def teardown_database(self):
+        self.__transaction.rollback()
 
     def setup(self):
         self.setup_database()
-        self.__transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 1000
@@ -124,7 +138,7 @@ class DatabaseTest(object):
         self.search_mock.start()
 
     def teardown(self):
-        self.__transaction.rollback()
+        self.teardown_database()
         self.search_mock.stop()
 
     @property
