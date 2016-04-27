@@ -6831,7 +6831,6 @@ class Collection(Base):
     name = Column(Unicode, unique=True, nullable=False)
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
-    last_checked = Column(DateTime)
 
     # A collection can have one DataSource
     data_source_id = Column(
@@ -6925,7 +6924,7 @@ class Collection(Base):
             self.catalog.append(identifier)
             _db.commit()
 
-    def works_updated(self, _db):
+    def works_updated_since(self, _db, timestamp):
         """Returns all of a collection's works that have been updated since the
         last time the collection was checked"""
 
@@ -6934,9 +6933,9 @@ class Collection(Base):
         query = query.join(Identifier.collections).filter(
             Collection.id==self.id
         )
-        if self.last_checked:
+        if timestamp:
             query = query.filter(
-                WorkCoverageRecord.timestamp > self.last_checked
+                WorkCoverageRecord.timestamp > timestamp
             )
 
         return query
