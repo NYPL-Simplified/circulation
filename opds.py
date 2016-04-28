@@ -157,19 +157,25 @@ class Annotator(object):
         """
         if not work:
             return {}
+
+        categories = {}
+
+        fiction_term = None
+        if work.fiction == True:
+            fiction_term = 'Fiction'
+        elif work.fiction == False:
+            fiction_term = 'Nonfiction'
+        if fiction_term:
+            fiction_scheme = Subject.SIMPLIFIED_FICTION_STATUS
+            categories[fiction_scheme] = [
+                dict(term=fiction_scheme + fiction_term,
+                     label=fiction_term)
+            ]
+
         simplified_genres = []
         for wg in work.work_genres:
             simplified_genres.append(wg.genre.name)
-        if not simplified_genres:
-            sole_genre = None
-            if work.fiction == True:
-                sole_genre = 'Fiction'
-            elif work.fiction == False:
-                sole_genre = 'Nonfiction'
-            if sole_genre:
-                simplified_genres.append(sole_genre)
 
-        categories = {}
         if simplified_genres:
             categories[Subject.SIMPLIFIED_GENRE] = [
                 dict(term=Subject.SIMPLIFIED_GENRE + urllib.quote(x),

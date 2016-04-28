@@ -557,22 +557,41 @@ class TestOPDS(DatabaseTest):
         matches = [(x['term'], x['label']) for x in tags if x['scheme'] == Work.APPEALS_URI]
         eq_([], matches)
 
+    def test_acquisition_feed_includes_category_tags_for_fiction_status(self):
+        work = self._work(with_open_access_download=True)
+        work.fiction = False
+
+        work2 = self._work(with_open_access_download=True)
+        work2.fiction = True
+
+        for w in work, work2:
+            w.calculate_opds_entries(verbose=False)
+
+        self._db.commit()
+        works = self._db.query(Work)
+        feed = AcquisitionFeed(self._db, "test", "url", works)
+        feed = feedparser.parse(unicode(feed))
+        entries = sorted(feed['entries'], key = lambda x: int(x['title']))
+
+        scheme = "http://librarysimplified.org/terms/fiction/"
+
+        eq_([(scheme+'Nonfiction', 'Nonfiction')], 
+            [(x['term'], x['label']) for x in entries[0]['tags']
+             if x['scheme'] == scheme]
+        )
+        eq_([(scheme+'Fiction', 'Fiction')], 
+            [(x['term'], x['label']) for x in entries[1]['tags']
+             if x['scheme'] == scheme]
+        )
+
+
     def test_acquisition_feed_includes_category_tags_for_genres(self):
         work = self._work(with_open_access_download=True)
         g1, ignore = Genre.lookup(self._db, "Science Fiction")
         g2, ignore = Genre.lookup(self._db, "Romance")
         work.genres = [g1, g2]
 
-        work2 = self._work(with_open_access_download=True)
-        work2.genres = []
-        work2.fiction = False
-
-        work3 = self._work(with_open_access_download=True)
-        work3.genres = []
-        work3.fiction = True
-
-        for w in work, work2, work3:
-            w.calculate_opds_entries(verbose=False)
+        work.calculate_opds_entries(verbose=False)
 
         self._db.commit()
         works = self._db.query(Work)
@@ -588,14 +607,6 @@ class TestOPDS(DatabaseTest):
                 [(x['term'], x['label']) for x in entries[0]['tags']
                  if x['scheme'] == scheme]
             )
-        )
-        eq_([(scheme+'Nonfiction', 'Nonfiction')], 
-            [(x['term'], x['label']) for x in entries[1]['tags']
-             if x['scheme'] == scheme]
-        )
-        eq_([(scheme+'Fiction', 'Fiction')], 
-            [(x['term'], x['label']) for x in entries[2]['tags']
-             if x['scheme'] == scheme]
         )
 
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):

@@ -4565,9 +4565,11 @@ class Subject(Base):
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        SIMPLIFIED_FICTION_STATUS : SIMPLIFIED_FICTION_STATUS,
         "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
         "http://librarysimplified.org/terms/genres/3M/" : THREEM,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
