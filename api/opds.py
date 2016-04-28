@@ -163,6 +163,9 @@ class CirculationManagerAnnotator(Annotator):
 
         lane = lanes[0]
         self.lanes_by_work[work] = lanes[1:]
+        return self.group_or_feed_url(lane)
+
+    def lane_url(self, lane):
         lane_name = ''
         show_feed = False
         if isinstance(lane, dict):
