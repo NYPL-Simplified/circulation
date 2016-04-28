@@ -261,6 +261,14 @@ class CirculationManagerAnnotator(Annotator):
         )
         feed.add_link(**search_link)
 
+        # Add preload link
+        preload_url = dict(
+            rel='http://librarysimplified.org/terms/rel/preload',
+            type='application/atom+xml;profile=opds-catalog;kind=acquisition',
+            href=self.url_for('preload', _external=True),
+        )
+        feed.add_link(**preload_url)
+
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",
             type=OPDSFeed.ACQUISITION_FEED_TYPE,

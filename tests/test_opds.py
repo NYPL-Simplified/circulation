@@ -256,6 +256,17 @@ class TestOPDS(DatabaseTest):
         eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
         eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
 
+    def test_loans_feed_includes_preload_link(self):
+        patron = self._patron()
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+        feed = feedparser.parse(raw)['feed']
+        links = feed['links']
+
+        [preload_link] = [x for x in links if x['rel'] == 'http://librarysimplified.org/terms/rel/preload']
+        assert '/preload' in preload_link['href']
+        
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]
