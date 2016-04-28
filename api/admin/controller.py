@@ -195,6 +195,8 @@ class WorkController(CirculationManagerController):
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
 
+        STAFF_WEIGHT = 100000
+
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
@@ -208,13 +210,15 @@ class WorkController(CirculationManagerController):
             work.primary_edition.title = unicode(new_title)
             changed = True
 
+        # Previous staff classifications
+        old_classifications = self._db.query(Classification).filter(
+            Classification.identifier==work.primary_edition.primary_identifier,
+            Classification.data_source==staff_data_source,
+        )
+
         new_audience = flask.request.form.get("audience")
         if new_audience != work.audience:
-            # Delete all previous staff classifications
-            old_classifications = self._db.query(Classification).filter(
-                Classification.identifier==work.primary_edition.primary_identifier,
-                Classification.data_source==staff_data_source,
-            )
+            # Delete all previous staff audience classifications
             for c in old_classifications:
                 if c.subject.type == Subject.FREEFORM_AUDIENCE:
                     self._db.delete(c)
@@ -224,16 +228,54 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.FREEFORM_AUDIENCE,
                 subject_identifier=new_audience,
-                weight=100000,
+                weight=STAFF_WEIGHT,
             )
             changed = True
 
-        new_summary = flask.request.form.get("summary")
+        new_target_age_min = flask.request.form.get("target_age_min")
+        new_target_age_max = flask.request.form.get("target_age_max")
+        if new_target_age_max < new_target_age_min:
+            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
+
+        if work.target_age:
+            old_target_age_min = work.target_age.lower
+            old_target_age_max = work.target_age.upper
+        else:
+            old_target_age_min = None
+            old_target_age_max = None
+        if new_target_age_min != old_target_age_min or new_target_age_max != old_target_age_max:
+            # Delete all previous staff target age classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.AGE_RANGE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight - higher than audience
+            age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
+            work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.AGE_RANGE,
+                subject_identifier=age_range_identifier,
+                weight=STAFF_WEIGHT * 100,
+            )
+            changed = True
+
+        new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
+            old_summary = None
+            if work.summary and work.summary.data_source == staff_data_source:
+                old_summary = work.summary
+
             (link, is_new) =  work.primary_edition.primary_identifier.add_link(
                 Hyperlink.DESCRIPTION, None, 
                 staff_data_source, content=new_summary)
             work.set_summary(link.resource)
+
+            # Delete previous staff summary
+            if old_summary:
+                for link in old_summary.links:
+                    self._db.delete(link)
+                self._db.delete(old_summary)
+
             changed = True
 
         if changed:

@@ -20,7 +20,6 @@ from opds import (
 )
 from controller import CirculationManager
 
-
 @app.before_first_request
 def initialize_circulation_manager():
     if os.environ.get('AUTOINITIALIZE') == "False":

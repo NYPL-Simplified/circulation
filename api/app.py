@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import os
 import logging
 import urlparse
 
@@ -8,9 +9,7 @@ from flask import (
     Response,
     redirect,
 )
-
 from config import Configuration
-
 
 app = Flask(__name__)
 

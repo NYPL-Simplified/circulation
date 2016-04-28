@@ -72,6 +72,15 @@ class ControllerTest(DatabaseTest):
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
+
+        # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
+        # to prevent one test failure from breaking later tests as well.
+        # When used with flask's test_request_context, exceptions
+        # from previous tests wuold cause flask to roll back the db
+        # when you entered a new request context, deleting rows that
+        # were created in the test setup.
+        app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
+
         self.app = app
 
         # Create two English books and a French book.
