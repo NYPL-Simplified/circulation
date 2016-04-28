@@ -977,14 +977,14 @@ class Metadata(object):
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(
-                    pool, data_source, link, link_obj, replace
+                    pool, link_data_source, link, link_obj, replace
                 )
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
                 self.make_thumbnail(
-                    pool, data_source, link, link_obj
+                    pool, link_data_source, link, link_obj
                 )
 
         if pool and replace.formats:
