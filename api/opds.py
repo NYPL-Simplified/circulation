@@ -34,7 +34,8 @@ class CirculationManagerAnnotator(Annotator):
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={}, 
                  facet_view='feed',
-                 test_mode=False
+                 test_mode=False,
+                 top_level_title="All Books"
     ):
         self.circulation = circulation
         self.lane = lane
@@ -42,8 +43,12 @@ class CirculationManagerAnnotator(Annotator):
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.lanes_by_work = defaultdict(list)
-        self.facet_view=facet_view
-        self.test_mode=test_mode
+        self.facet_view = facet_view
+        self.test_mode = test_mode
+        self._top_level_title = top_level_title
+
+    def top_level_title(self):
+        return self._top_level_title
 
     def url_for(self, *args, **kwargs):
         if self.test_mode:
@@ -110,10 +115,13 @@ class CirculationManagerAnnotator(Annotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
-    def feed_url(self, lane, facets, pagination):
+    def feed_url(self, lane, facets=None, pagination=None):
         lane_name, languages = self._lane_name_and_languages(lane)
-        kwargs = dict(facets.items())
-        kwargs.update(dict(pagination.items()))
+        kwargs = dict({})
+        if facets != None:
+            kwargs.update(dict(facets.items()))
+        if pagination != None:
+            kwargs.update(dict(pagination.items()))
         return self.cdn_url_for(
             "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
 
@@ -162,6 +170,7 @@ class CirculationManagerAnnotator(Annotator):
         self.lanes_by_work[work] = lanes[1:]
         lane_name = ''
         show_feed = False
+
         if isinstance(lane, dict):
             show_feed = lane.get('link_to_list_feed', show_feed)
             title = lane.get('label', lane_name)
@@ -170,24 +179,24 @@ class CirculationManagerAnnotator(Annotator):
         if isinstance(lane, basestring):
             return lane, lane_name
 
-        lane_name = lane_name or lane.url_name
         if hasattr(lane, 'display_name') and not title:
             title = lane.display_name
 
-        if hasattr(lane, 'language_key'):
-            languages = lane.language_key
-        else:
-            languages = None
+        if show_feed:
+            return self.feed_url(lane)
 
+        return self.lane_url(lane), title
+
+    def lane_url(self, lane):
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.        
-        if lane.sublanes and not show_feed:
-            url = self.cdn_url_for('acquisition_groups', languages=languages, lane_name=lane_name, _external=True)
+        if lane.sublanes:
+            url = self.groups_url(lane)
         else:
-            url = self.cdn_url_for('feed', languages=languages, lane_name=lane_name, order='author', _external=True)
-        return url, title
+            url = self.feed_url(lane)
+        return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)

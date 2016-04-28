@@ -20,6 +20,7 @@ from core.model import (
 from core.classifier import (
     Classifier,
     Fantasy,
+    Urban_Fantasy
 )
 
 from core.opds import (
@@ -53,7 +54,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         super(TestCirculationManagerAnnotator, self).setup()
         self.work = self._work(with_open_access_download=True)
         self.annotator = CirculationManagerAnnotator(
-            None, Fantasy, test_mode=True
+            None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
 
     def test_open_access_link(self):
@@ -77,6 +78,26 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             link_url = link_tag.get('href')
             assert link_url.startswith(cdn_host)
             assert link_url == cdnify(lpdm.resource.url, cdn_host)
+
+    def test_top_level_title(self):
+        eq_("Test Top Level Title", self.annotator.top_level_title())
+
+    def test_lane_url(self):
+        fantasy_lane_with_sublanes = Lane(
+            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            sublanes=[Urban_Fantasy])
+
+        fantasy_lane_without_sublanes = Lane(
+            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
+        eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
+
+        feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
+        eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+
 
 class TestOPDS(DatabaseTest):
 
