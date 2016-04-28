@@ -26,6 +26,8 @@ class Configuration(CoreConfiguration):
 
     MAX_OUTSTANDING_FINES = "max_outstanding_fines"
 
+    PRELOADED_CONTENT = "preloaded_content"
+
     ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
     ADOBE_VENDOR_ID = "vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = "node_value"
