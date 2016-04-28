@@ -168,7 +168,7 @@ class CirculationManagerAnnotator(Annotator):
 
         lane = lanes[0]
         self.lanes_by_work[work] = lanes[1:]
-        return self.group_or_feed_url(lane)
+        return self.lane_url(lane), title
 
     def lane_url(self, lane):
         lane_name = ''
@@ -198,7 +198,7 @@ class CirculationManagerAnnotator(Annotator):
             url = self.cdn_url_for('acquisition_groups', languages=languages, lane_name=lane_name, _external=True)
         else:
             url = self.cdn_url_for('feed', languages=languages, lane_name=lane_name, order='author', _external=True)
-        return url, title
+        return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
