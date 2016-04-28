@@ -68,6 +68,7 @@ from config import Configuration
 from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
+    PreloadFeed,
 )
 from problem_details import *
 
@@ -508,6 +509,16 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'], 
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
+        )
+        return feed_response(opds_feed)
+
+    def preload(self):
+        this_url = url_for("preload", _external=True)
+
+        annotator = self.manager.annotator(None)
+        opds_feed = PreloadFeed.page(
+            self._db, "Content to Preload", this_url,
+            annotator=annotator,
         )
         return feed_response(opds_feed)
 
