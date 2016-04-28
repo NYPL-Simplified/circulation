@@ -216,6 +216,28 @@ class WorkController(CirculationManagerController):
             Classification.data_source==staff_data_source,
         )
 
+        new_fiction = False
+        if flask.request.form.get("fiction") == "fiction":
+            new_fiction = True
+        if new_fiction != work.fiction:
+            # Delete previous staff fiction classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight (higher than genre)
+            fiction_term = "Fiction"
+            if not new_fiction:
+                fiction_term = "Nonfiction"
+            classification = work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
+                subject_identifier=fiction_term,
+                weight=STAFF_WEIGHT * 100,
+            )
+            classification.subject.fiction = new_fiction
+            changed = True
+
         new_audience = flask.request.form.get("audience")
         if new_audience != work.audience:
             # Delete all previous staff audience classifications
