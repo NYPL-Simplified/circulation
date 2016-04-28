@@ -1248,7 +1248,7 @@ class TestWork(DatabaseTest):
         # in the second half of the test is based on business logic, not list order.
         for i in edition3, edition1:
             work.editions.append(i)
-        for p in pool3, pool2, pool1:
+        for p in pool3, pool1:
             work.license_pools.append(p)
 
         # This Work starts out with a single CoverageRecord reflecting the
@@ -1258,10 +1258,21 @@ class TestWork(DatabaseTest):
         assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
         assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
+        # pools aren't yet aware of each other
+        eq_(pool1.superceded, False)
+        eq_(pool2.superceded, False)
+        eq_(pool3.superceded, False)
+
         work.last_update_time = None
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
+
         work.calculate_presentation(search_index_client=index)
+
+        # one and only one license pool should be un-superceded
+        eq_(pool1.superceded, True)
+        eq_(pool2.superceded, False)
+        eq_(pool3.superceded, True)
 
         # sanity check
         eq_(work.primary_edition, pool2.presentation_edition)
@@ -1301,7 +1312,6 @@ class TestWork(DatabaseTest):
             WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
         ])
         eq_(expect, set([x.operation for x in records]))
-
         
         # Now mark the pool with the presentation edition as suppressed.
         # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
@@ -1382,6 +1392,7 @@ class TestWork(DatabaseTest):
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
+
     def test_mark_licensepools_as_superceded(self):
         # A commercial LP that somehow got superceded will be
         # un-superceded.
@@ -1417,6 +1428,52 @@ class TestWork(DatabaseTest):
         work.mark_licensepools_as_superceded()
         eq_(True, gutenberg.superceded)
         eq_(False, standard_ebooks.superceded)
+
+        # Of three open-access pools, 1 and only 1 will be chosen as non-superceded.
+        gitenberg1 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
+        )
+
+        gitenberg2 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
+        )
+
+        gutenberg1 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.GUTENBERG, with_open_access_download=True
+        )
+
+        work_multipool = self._work(primary_edition=None)
+        work_multipool.license_pools.append(gutenberg1)
+        work_multipool.license_pools.append(gitenberg2)
+        work_multipool.license_pools.append(gitenberg1)
+
+        # pools aren't yet aware of each other
+        eq_(gutenberg1.superceded, False)
+        eq_(gitenberg1.superceded, False)
+        eq_(gitenberg2.superceded, False)
+
+        # make pools figure out who's best
+        work_multipool.mark_licensepools_as_superceded()
+
+        eq_(gutenberg1.superceded, True)
+        # There's no way to choose between the two gitenberg pools, 
+        # so making sure only one has been chosen is enough. 
+        chosen_count = 0
+        for chosen_pool in gutenberg1, gitenberg1, gitenberg2:
+            if chosen_pool.superceded is False:
+                chosen_count += 1;
+        eq_(chosen_count, 1)
+
+        # throw wrench in
+        gitenberg1.suppressed = True
+
+        # recalculate bests
+        work_multipool.mark_licensepools_as_superceded()
+        eq_(gutenberg1.superceded, True)
+        eq_(gitenberg1.superceded, True)
+        eq_(gitenberg2.superceded, False)
+
+
 
 class TestCirculationEvent(DatabaseTest):
 
