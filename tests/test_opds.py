@@ -58,6 +58,13 @@ from external_search import DummyExternalSearchIndex
 class TestAnnotator(Annotator):
 
     @classmethod
+    def lane_url(cls, lane):
+        if lane.has_visible_sublane():
+            return cls.groups_url(lane)
+        else:
+            return cls.feed_url(lane)
+
+    @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):
         base = "http://%s/" % lane.url_name
         sep = '?'
@@ -858,10 +865,7 @@ class TestOPDS(DatabaseTest):
 
         # Make sure there's an "up" link to the lane that was searched
         [up_link] = self.links(parsed, 'up')
-        if fantasy_lane.has_visible_sublane():
-            uplink_url = TestAnnotator.groups_url(fantasy_lane)
-        else:
-            uplink_url = TestAnnotator.feed_url(fantasy_lane)
+        uplink_url = TestAnnotator.lane_url(fantasy_lane)
         eq_(uplink_url, up_link['href'])
         eq_(fantasy_lane.display_name, up_link['title'])
 
