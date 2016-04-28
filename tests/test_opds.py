@@ -53,7 +53,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         super(TestCirculationManagerAnnotator, self).setup()
         self.work = self._work(with_open_access_download=True)
         self.annotator = CirculationManagerAnnotator(
-            None, Fantasy, test_mode=True
+            None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
 
     def test_open_access_link(self):
@@ -77,6 +77,10 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             link_url = link_tag.get('href')
             assert link_url.startswith(cdn_host)
             assert link_url == cdnify(lpdm.resource.url, cdn_host)
+
+    def test_top_level_title(self):
+        eq_("Test Top Level Title", self.annotator.top_level_title())
+
 
 class TestOPDS(DatabaseTest):
 
