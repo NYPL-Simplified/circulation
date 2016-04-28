@@ -761,7 +761,26 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
-    def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
+    def test_set_summary(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # Set the work's summmary.
+        l1, new = pool.add_link(Hyperlink.DESCRIPTION, None, overdrive, "text/plain",
+                      "F")
+        work.set_summary(l1.resource)
+
+        eq_(l1.resource, work.summary)
+        eq_("F", work.summary_text)
+
+        # Remove the summary.
+        work.set_summary(None)
+        
+        eq_(None, work.summary)
+        eq_("", work.summary_text)
+
+    def test_calculate_evaluate_summary_quality_with_privileged_data_sources(self):
         e, pool = self._edition(with_license_pool=True)
         oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -787,7 +806,7 @@ class TestEdition(DatabaseTest):
         # But if we say that Overdrive is the privileged data source, it wins
         # automatically. The other resource isn't even considered.
         champ2, resources2 = Identifier.evaluate_summary_quality(
-            self._db, ids, overdrive)
+            self._db, ids, [overdrive])
         eq_(overdrive_resource, champ2)
         eq_([overdrive_resource], resources2)
 
@@ -797,10 +816,26 @@ class TestEdition(DatabaseTest):
         # wins.
         threem = DataSource.lookup(self._db, DataSource.THREEM)
         champ3, resources3 = Identifier.evaluate_summary_quality(
-            self._db, ids, threem)
+            self._db, ids, [threem])
         eq_(set([overdrive_resource, oclc_resource]), set(resources3))
         eq_(oclc_resource, champ3)
-        
+
+        # If there are two privileged data sources and there's no
+        # description from the first, the second is used.
+        champ4, resources4 = Identifier.evaluate_summary_quality(
+            self._db, ids, [threem, overdrive])
+        eq_([overdrive_resource], resources4)
+        eq_(overdrive_resource, champ4)
+
+        # Even an empty string wins if it's from the most privileged data source.
+        staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
+        staff_resource = l3.resource
+
+        champ5, resources5 = Identifier.evaluate_summary_quality(
+            self._db, ids, [staff, overdrive])
+        eq_([staff_resource], resources5)
+        eq_(staff_resource, champ5)
 
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
@@ -2440,6 +2475,10 @@ class TestComplaint(DatabaseTest):
 
 class TestCollection(DatabaseTest):
 
+    def setup(self):
+        super(TestCollection, self).setup()
+        self.collection = self._collection()
+
     def test_encrypts_client_secret(self):
         collection, new = get_one_or_create(
             self._db, Collection, name=u"Test Collection", client_id=u"test",
@@ -2461,10 +2500,9 @@ class TestCollection(DatabaseTest):
         assert_raises(ValueError, Collection.register, self._db, u"A Library")
 
     def test_authenticate(self):
-        collection = self._collection()
 
         result = Collection.authenticate(self._db, u"abc", u"def")
-        eq_(collection, result)
+        eq_(self.collection, result)
 
         result = Collection.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
@@ -2476,8 +2514,29 @@ class TestCollection(DatabaseTest):
         """#catalog_identifier associates an identifier with the collection"""
 
         identifier = self._identifier()
-        collection = self._collection()
+        self.collection.catalog_identifier(self._db, identifier)
+        eq_(1, len(self.collection.catalog))
+        eq_(identifier, self.collection.catalog[0])
 
-        collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(collection.catalog))
-        eq_(identifier, collection.catalog[0])
+    def test_works_updated_since(self):
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        timestamp = datetime.datetime.utcnow()
+        # A collection with no catalog returns nothing.
+        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+
+        # When no timestamp is passed, all works in the catalog are returned.
+        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.collection.works_updated_since(self._db, None).all()
+
+        eq_(2, len(updated_works))
+        assert w1 in updated_works and w2 in updated_works
+        assert w3 not in updated_works
+
+        # When a timestamp is passed, only works that have been updated
+        # since then will be returned
+        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())

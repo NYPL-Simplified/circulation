@@ -322,8 +322,9 @@ class DatabaseTest(object):
         return complaint
 
     def _collection(self, name=u"Faketown Public Library"):
+        source, ignore = get_one_or_create(self._db, DataSource, name=name)
         return get_one_or_create(
-            self._db, Collection, name=name,
+            self._db, Collection, name=name, data_source=source,
             client_id=u"abc", client_secret=u"def"
         )[0]
 
@@ -433,8 +434,8 @@ def _setup(dbinfo):
     SessionManager.initialize_data(db)
     # Test data: Create the patron used by the dummy authentication
     # mechanism.
-    get_one_or_create(db, Patron, authorization_identifier="200",
-                      create_method_kwargs=dict(external_identifier="200200200"))
+    get_one_or_create(db, Patron, authorization_identifier=u"200",
+                      create_method_kwargs=dict(external_identifier=u"200200200"))
     db.commit()
 
     print "Connection is now %r" % dbinfo.connection

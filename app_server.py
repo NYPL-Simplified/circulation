@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 from lxml import etree
+from functools import wraps
 from flask import url_for, make_response
 from util.flask_util import problem
 import traceback
@@ -156,6 +157,14 @@ def load_pagination(size, offset):
             return INVALID_INPUT.detailed("Invalid offset: %s" % offset)
     return Pagination(offset, size)
 
+def returns_problem_detail(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        v = f(*args, **kwargs)
+        if isinstance(v, ProblemDetail):
+            return v.response
+        return v
+    return decorated
 
 class ErrorHandler(object):
     def __init__(self, app, debug):
@@ -192,15 +201,12 @@ class HeartbeatController(object):
 
 class URNLookupController(object):
 
-    INVALID_URN = "Could not parse identifier."
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
     UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
     WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
-
-    COULD_NOT_PARSE_URN_TYPE = "http://librarysimplified.org/terms/problem/could-not-parse-urn"
 
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
@@ -217,7 +223,7 @@ class URNLookupController(object):
             identifier, is_new = Identifier.parse_urn(
                 _db, urn)
         except ValueError, e:
-            return (400, self.INVALID_URN)
+            return (INVALID_URN.status_code, INVALID_URN.detail)
 
         if not must_support_metadata:
             return identifier
@@ -436,23 +442,3 @@ class ComplaintController(object):
             )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
-
-
-class CollectionController(object):
-    """A controller to manage collections and their assets"""
-
-    def __init__(self, _db):
-        self._db = _db
-
-    def authenticated_collection_from_request(self):
-        header = flask.request.authorization
-        if header:
-            client_id, client_secret = header.username, header.password
-            collection = Collection.authenticate(client_id, client_secret)
-            if collection:
-                return collection
-
-            # If inaccurate authorization details were sent, return error.
-            return INVALID_CREDENTIALS.response
-        return None
-
