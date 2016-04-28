@@ -13,6 +13,7 @@ from app import app
 from config import Configuration
 from core.app_server import (
     ErrorHandler,
+    returns_problem_detail,
 )
 from core.util.problem_detail import ProblemDetail
 from opds import (
@@ -60,16 +61,6 @@ def requires_auth(f):
         else:
             return f(*args, **kwargs)
     return decorated
-
-def returns_problem_detail(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        v = f(*args, **kwargs)
-        if isinstance(v, ProblemDetail):
-            return v.response
-        return v
-    return decorated
-
 
 @app.route('/')
 @returns_problem_detail

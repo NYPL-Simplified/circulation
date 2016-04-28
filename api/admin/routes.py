@@ -11,8 +11,7 @@ from api.app import app
 from config import Configuration
 
 from core.util.problem_detail import ProblemDetail
-
-from api.routes import returns_problem_detail
+from core.app_server import returns_problem_detail
 
 from controller import setup_admin_controllers
 from templates import (
