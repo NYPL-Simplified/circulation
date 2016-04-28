@@ -58,7 +58,14 @@ from external_search import DummyExternalSearchIndex
 class TestAnnotator(Annotator):
 
     @classmethod
-    def feed_url(cls, lane, facets, pagination):
+    def lane_url(cls, lane):
+        if lane.has_visible_sublane():
+            return cls.groups_url(lane)
+        else:
+            return cls.feed_url(lane)
+
+    @classmethod
+    def feed_url(cls, lane, facets=None, pagination=None):
         base = "http://%s/" % lane.url_name
         sep = '?'
         if facets:
@@ -94,6 +101,10 @@ class TestAnnotator(Annotator):
             ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
         )
 
+    @classmethod
+    def top_level_title(cls):
+        return "Test Top Level Title"
+
 
 class TestAnnotatorWithGroup(TestAnnotator):
 
@@ -116,6 +127,8 @@ class TestAnnotatorWithGroup(TestAnnotator):
         else:
             return "http://groups/", "Top-level groups"
 
+    def top_level_title(self):
+        return "Test Top Level Title"
 
 
 class TestAnnotators(DatabaseTest):
@@ -702,6 +715,7 @@ class TestOPDS(DatabaseTest):
 
         [start] = self.links(parsed, 'start')
         eq_(TestAnnotator.groups_url(None), start['href'])
+        eq_(TestAnnotator.top_level_title(), start['title'])
 
         [next_link] = self.links(parsed, 'next')
         eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination.next_page), next_link['href'])
@@ -773,7 +787,7 @@ class TestOPDS(DatabaseTest):
 
             [start_link] = self.links(parsed['feed'], 'start')
             eq_("http://groups/", start_link['href'])
-            eq_("Collection Home", start_link['title'])
+            eq_(annotator.top_level_title(), start_link['title'])
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         """Test that a page feed is returned when the requested groups
@@ -841,6 +855,7 @@ class TestOPDS(DatabaseTest):
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
         eq_(TestAnnotator.groups_url(None), start['href'])
+        eq_(TestAnnotator.top_level_title(), start['title'])
 
         [next_link] = self.links(parsed, 'next')
         eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination.next_page), next_link['href'])
@@ -850,7 +865,8 @@ class TestOPDS(DatabaseTest):
 
         # Make sure there's an "up" link to the lane that was searched
         [up_link] = self.links(parsed, 'up')
-        eq_(TestAnnotator.groups_url(fantasy_lane), up_link['href'])
+        uplink_url = TestAnnotator.lane_url(fantasy_lane)
+        eq_(uplink_url, up_link['href'])
         eq_(fantasy_lane.display_name, up_link['title'])
 
         # Now get the second page and make sure it has a 'previous' link.
