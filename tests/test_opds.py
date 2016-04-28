@@ -849,7 +849,7 @@ class TestOPDS(DatabaseTest):
         [up_link] = self.links(parsed, 'up')
         if fantasy_lane.has_visible_sublane():
             uplink_url = TestAnnotator.groups_url(fantasy_lane)
-        else: 
+        else:
             uplink_url = TestAnnotator.feed_url(fantasy_lane)
         eq_(uplink_url, up_link['href'])
         eq_(fantasy_lane.display_name, up_link['title'])
