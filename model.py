@@ -3447,9 +3447,7 @@ class Work(Base):
         old_primary_edition = self.primary_edition
         new_primary_edition = None
 
-        print "before mark lp"
         self.mark_licensepools_as_superceded()
-        print "after mark lp"
 
         for pool in self.license_pools:
             """ TODO:
