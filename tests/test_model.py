@@ -1207,20 +1207,28 @@ class TestLicensePool(DatabaseTest):
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
-
+        """ Test that:
+        - work coverage records are made on work creation and primary edition selection.
+        - work's presentation information (author, title, etc. fields) does a proper job 
+          of combining fields from underlying editions.
+        - work's presentation information keeps in sync with work's primary edition.
+        - there can be only one edition that thinks it's the primary edition for this work.
+        - time stamps are stamped.
+        """
         gutenberg_source = DataSource.GUTENBERG
+        gitenberg_source = DataSource.PROJECT_GITENBERG
 
         [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
-        edition1, pool1 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition1.title = u"The 1st Title"
-        edition1.title = u"The 1st Subtitle"
+        edition1.subtitle = u"The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
-        edition2, pool2 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition2.title = u"The 2nd Title"
         edition2.subtitle = u"The 2nd Subtitle"
         edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
@@ -1228,17 +1236,19 @@ class TestWork(DatabaseTest):
         alice.family_name, alice.display_name = alice.default_names()
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        edition3, pool3 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition3.title = u"The 2nd Title"
         edition3.subtitle = u"The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         work = self._work(primary_edition=edition2)
-        for i in edition1, edition3:
+        # add in 3, 2, 1 order to make sure the selection of edition1 as primary
+        # in the second half of the test is based on business logic, not list order.
+        for i in edition3, edition1:
             work.editions.append(i)
-        for p in pool1, pool2, pool3:
+        for p in pool3, pool2, pool1:
             work.license_pools.append(p)
 
         # This Work starts out with a single CoverageRecord reflecting the
@@ -1252,6 +1262,15 @@ class TestWork(DatabaseTest):
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
         work.calculate_presentation(search_index_client=index)
+
+        # sanity check
+        eq_(work.primary_edition, pool2.presentation_edition)
+        eq_(work.primary_edition, edition2)
+
+        # editions know who's primary
+        eq_(edition1.is_primary_for_work, False)
+        eq_(edition2.is_primary_for_work, True)
+        eq_(edition3.is_primary_for_work, False)
 
         # The title of the Work is the title of its primary work record.
         eq_("The 2nd Title", work.title)
@@ -1282,6 +1301,42 @@ class TestWork(DatabaseTest):
             WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
         ])
         eq_(expect, set([x.operation for x in records]))
+
+        
+        # Now mark the pool with the presentation edition as suppressed.
+        # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
+        # which will mark the suppressed pool as superceded and take its edition out of the running.
+        # Make sure that work's presentation edition and work's author, etc. 
+        # fields are updated accordingly, and that the superceded pool's edition 
+        # knows it's no longer the champ.
+        #for pool in work.license_pools:
+        #    if pool.presentation_edition is work.primary_edition:
+        pool2.suppressed = True
+        
+        work.calculate_presentation(search_index_client=index)
+
+        # The title of the Work is the title of its primary work record.
+        eq_("The 1st Title", work.title)
+        eq_("The 1st Subtitle", work.subtitle)
+
+        # author of composite edition is still Alice and Bob combined
+        eq_("Bob Bitshifter", work.author)
+        eq_("Bitshifter, Bob", work.sort_author)
+
+        # sanity check
+        eq_(work.primary_edition, pool1.presentation_edition)
+        eq_(work.primary_edition, edition1)
+
+        # editions know who's primary
+        eq_(edition1.is_primary_for_work, True)
+        eq_(edition2.is_primary_for_work, False)
+        eq_(edition3.is_primary_for_work, False)
+
+        # The last update time has been set.
+        # Updating availability also modified work.last_update_time.
+        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        
+
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)

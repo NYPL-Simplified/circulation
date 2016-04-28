@@ -3447,17 +3447,17 @@ class Work(Base):
         old_primary_edition = self.primary_edition
         new_primary_edition = None
 
-        print "before mark lp"
+        # an open access pool may be "superceded", if there's a better-quality 
+        # open-access pool available
         self.mark_licensepools_as_superceded()
-        print "after mark lp"
 
         for pool in self.license_pools:
-            """ TODO:
+            # a superceded pool's composite edition is not good enough
+            # Note:  making the assumption here that we won't have a situation 
+            # where we marked all of the work's pools as superceded or suppressed. 
             if pool.superceded or pool.suppressed:
-                # mark all of the pool's editions as non-primary
-                for ():
                 continue
-            """
+
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool.set_presentation_edition(policy)
@@ -3480,6 +3480,14 @@ class Work(Base):
 
         if new_primary_edition:
             self.primary_edition = new_primary_edition
+
+        # go through the loser pools, and tell them they lost
+        for pool in self.license_pools:
+            if pool.presentation_edition is self.primary_edition:
+                # make sure edition knows it's primary
+                pool.presentation_edition.is_primary_for_work = True
+            else:
+                pool.mark_editions_nonprimary()
 
         # TODO: following comes from presentation-script-takes-last-update-time branch.
         # I think it's outdated code, and needs fixing.
@@ -5223,6 +5231,9 @@ class LicensePool(Base):
         return priority
 
     def better_open_access_pool_than(self, champion):
+        """ Is this open-access pool generally known for better-quality
+        download files than the passed-in pool?
+        """
         # A suppressed license pool should never be used, even if there is
         # no alternative.
         if self.suppressed:
@@ -5298,7 +5309,8 @@ class LicensePool(Base):
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
 
-    # TODO:  policy is not used in this method.  Remove argument?
+    # TODO:  policy is not used in this method.  Removing argument
+    # breaks many-many tests, and needs own branch.
     def set_presentation_edition(self, policy):
         """Create or update the presentation Edition for this LicensePool.
 
@@ -5360,6 +5372,16 @@ class LicensePool(Base):
             self.presentation_edition != old_presentation_edition 
             or changed
         )
+
+
+    def mark_editions_nonprimary(self):
+        """Go through this pool's editions, and tell them they're 
+        not primary for the pool's work.
+        """
+        all_editions = list(self.editions_in_priority_order())
+        for edition in all_editions:
+            edition.is_primary_for_work = False
+
 
 
     def add_link(self, rel, href, data_source, media_type=None,
