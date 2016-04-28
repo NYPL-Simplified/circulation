@@ -250,6 +250,10 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
+    def lane_url(cls, lane):
+        raise NotImplementedError()
+    
+    @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):
         raise NotImplementedError()
 
@@ -686,11 +690,7 @@ class AcquisitionFeed(OPDSFeed):
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
         # Add "up" link
-        if search_lane.has_visible_sublane():
-            lane_url = annotator.groups_url(search_lane)
-        else:
-            lane_url = annotator.feed_url(search_lane)
-        opds_feed.add_link(rel="up", href=lane_url, title=lane.display_name)
+        opds_feed.add_link(rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
