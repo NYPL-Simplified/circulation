@@ -4,6 +4,8 @@ from flask import url_for
 from lxml import etree
 from collections import defaultdict
 
+from sqlalchemy.orm import lazyload
+
 from config import Configuration
 from core.opds import (
     Annotator,
@@ -15,9 +17,12 @@ from core.opds import (
 )
 from core.model import (
     Identifier,
+    LicensePool,
     LicensePoolDeliveryMechanism,
     Session,
     BaseMaterializedWork,
+    Work,
+    Edition,
 )
 from core.lane import Lane
 from circulation import BaseCirculationAPI
@@ -255,6 +260,14 @@ class CirculationManagerAnnotator(Annotator):
             href=search_url
         )
         feed.add_link(**search_link)
+
+        # Add preload link
+        preload_url = dict(
+            rel='http://librarysimplified.org/terms/rel/preload',
+            type='application/atom+xml;profile=opds-catalog;kind=acquisition',
+            href=self.url_for('preload', _external=True),
+        )
+        feed.add_link(**preload_url)
 
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",
@@ -556,3 +569,40 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
         return AcquisitionFeed.single_entry(db, work, annotator)
+
+
+class PreloadFeed(AcquisitionFeed):
+
+    @classmethod
+    def page(cls, _db, title, url, annotator=None,
+             use_materialized_works=True):
+
+        """Create a feed of content to preload on devices."""
+        configured_content = Configuration.policy(Configuration.PRELOADED_CONTENT)
+
+        identifiers = [Identifier.parse_urn(_db, urn)[0] for urn in configured_content]
+        identifier_ids = [identifier.id for identifier in identifiers]
+
+        if use_materialized_works:
+            from core.model import MaterializedWork
+            q = _db.query(MaterializedWork)
+            q = q.filter(MaterializedWork.primary_identifier_id.in_(identifier_ids))
+
+            # Avoid eager loading of objects that are contained in the 
+            # materialized view.
+            q = q.options(
+                lazyload(MaterializedWork.license_pool, LicensePool.data_source),
+                lazyload(MaterializedWork.license_pool, LicensePool.identifier),
+                lazyload(MaterializedWork.license_pool, LicensePool.edition),
+            )
+        else:
+            q = _db.query(Work).join(Work.primary_edition)
+            q = q.filter(Edition.primary_identifier_id.in_(identifier_ids))
+
+        works = q.all()
+        feed = cls(_db, title, url, works, annotator)
+
+        annotator.annotate_feed(feed, None)
+        content = unicode(feed)
+        return content
+        
