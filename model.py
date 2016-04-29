@@ -3489,13 +3489,14 @@ class Work(Base):
             else:
                 pool.mark_editions_nonprimary()
 
-        # TODO: following comes from presentation-script-takes-last-update-time branch.
-        # I think it's outdated code, and needs fixing.
-        # policy.choose_edition is true by default
+
+        # Note: policy.choose_edition is true by default.
+        # If we don't have a self.primary_edition by now, we won't get it in 
+        # self.set_primary_edition().  That method will just set all the editions' 
+        # is_primary_for_work attributes to False.
         policy = policy or PresentationCalculationPolicy()
         if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
-
 
 
         summary = self.summary
@@ -5341,14 +5342,15 @@ class LicensePool(Base):
             metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
 
             for edition in all_editions:
-                if edition.data_source.name != DataSource.PRESENTATION_EDITION:
+                #if edition.data_source and (edition.data_source.name != DataSource.PRESENTATION_EDITION):
+                if (edition.data_source.name != DataSource.PRESENTATION_EDITION):
                     metadata.update(Metadata.from_edition(edition))
 
-            # Since this is a presentation edition it does not have a
+            # Note: Since this is a presentation edition it does not have a
             # license data source, even if one of the editions it was
-            # created from does have a license data source.
-            #metadata.license_data_source = None
-
+            # created from does have a license data source.  However, we cannot do 
+            # metadata.license_data_source = None, because metadata.edition relies on it.
+            metadata.license_data_source = None
             edition, is_new = metadata.edition(_db)
 
             # TODO: apply() needs to set last_update_time if appropriate.

@@ -1182,18 +1182,19 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
-
-        eq_(edition_mw.is_primary_for_work, False)
-        eq_(edition_od.is_primary_for_work, False)
-        eq_(edition_admin.is_primary_for_work, False)
-        eq_(edition_composite.is_primary_for_work, False)
-
+        
         # is_primary_for_work can only happen if the pool has a work associated with it.
         # add a work, and re-call set_presentation_edition, and test the primarity.
         work = self._work()
         # default testing work object creates and sets a primary edition, and we want an clean slate
         work.primary_edition = None
-        #work.editions.append(i)
+
+        # we haven't set a primary yet
+        eq_(edition_mw.is_primary_for_work, False)
+        eq_(edition_od.is_primary_for_work, False)
+        eq_(edition_admin.is_primary_for_work, False)
+        eq_(edition_composite.is_primary_for_work, False)
+
         work.license_pools.append(pool)
         pool.set_presentation_edition(None)
 

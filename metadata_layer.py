@@ -703,7 +703,13 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        data_source = self.license_data_source(_db) or self.data_source(_db)
+        # replaces data_source = self.license_data_source(_db) or self.data_source(_db)
+        # while guarding against presentation editions not having licenses.
+        if self.data_source:
+            data_source = self.data_source(_db)
+        if self.license_data_source:
+            data_source = self.license_data_source(_db)
+
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
