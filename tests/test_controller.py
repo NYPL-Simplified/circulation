@@ -82,8 +82,6 @@ class ControllerTest(DatabaseTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
 
-        app.secret_key = 'test'
-
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
