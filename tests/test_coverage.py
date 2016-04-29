@@ -8,12 +8,13 @@ from . import (
 )
 
 from core.model import (
+    CoverageRecord,
     DataSource,
     Identifier,
 )
 
 from core.opds_import import(
-    StatusMessage
+    StatusMessage,
 )
 
 from core.coverage import(
@@ -21,6 +22,8 @@ from core.coverage import(
 )
 
 from api.coverage import (
+    MetadataWranglerCoverageProvider,
+    MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
 )
 
@@ -52,3 +55,67 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(identifier2, f2.obj)
         eq_("404: we're doomed", f2.exception)
         eq_(False, f2.transient)
+
+
+class TestMetadataWranglerCoverageProvider(DatabaseTest):
+
+    def test_items_that_need_coverage(self):
+        reaper_source = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER_COLLECTION
+        )
+        other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        cr = self._coverage_record(self._edition(), other_source)
+        reaper_cr = self._coverage_record(self._edition(), reaper_source)
+
+        provider = MetadataWranglerCoverageProvider(self._db)
+        items = provider.items_that_need_coverage.all()
+        assert reaper_cr.identifier not in items
+        eq_([cr.identifier], items)
+        pass
+
+
+class TestMetadataWranglerCollectionReaper(DatabaseTest):
+
+    def setup(self):
+        super(TestMetadataWranglerCollectionReaper, self).setup()
+        self.wrangler_source = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+        self.reaper = MetadataWranglerCollectionReaper(self._db)
+
+    def test_items_that_need_coverage(self):
+        covered_unlicensed_lp = self._licensepool(None, open_access=False)
+        covered_unlicensed_lp.update_availability(0, 0, 0, 0)
+        self._coverage_record(covered_unlicensed_lp.edition, self.wrangler_source)
+
+        # Identifiers that haven't been looked up on the Metadata Wrangler
+        # are ignored, even if they don't have licenses.
+        uncovered_unlicensed_lp = self._licensepool(None, open_access=False)
+        uncovered_unlicensed_lp.update_availability(0, 0, 0, 0)
+        # Identifiers that have owned licenses are ignored.
+        licensed_lp = self._licensepool(None, open_access=False)
+        # Identifiers that represent open access identifiers are ignored.
+        open_access_lp = self._licensepool(None)
+
+        items = self.reaper.items_that_need_coverage.all()
+        eq_(1, len(items))
+        assert licensed_lp.identifier not in items
+        assert open_access_lp.identifier not in items
+        assert uncovered_unlicensed_lp.identifier not in items
+        eq_([covered_unlicensed_lp.identifier], items)
+
+    def test_finalize_batch(self):
+        reaper_source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER_COLLECTION)
+        cr_wrangler = self._coverage_record(self._edition(), self.wrangler_source)
+        cr_reaper = self._coverage_record(self._edition(), reaper_source)
+
+        # Create coverage records for an Identifier that is double-covered.
+        doubly_covered = self._edition()
+        doubly_wrangler = self._coverage_record(doubly_covered, self.wrangler_source)
+        doubly_reaper = self._coverage_record(doubly_covered, reaper_source)
+
+        self.reaper.finalize_batch()
+        remaining_records = self._db.query(CoverageRecord).all()
+        assert doubly_wrangler not in remaining_records
+        eq_([cr_wrangler, cr_reaper, doubly_reaper], remaining_records)
+        pass
