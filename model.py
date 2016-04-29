@@ -3487,7 +3487,7 @@ class Work(Base):
                 # make sure edition knows it's primary
                 pool.presentation_edition.is_primary_for_work = True
             else:
-                pool.mark_editions_nonprimary()
+                pool.mark_edition_primarity(primary_for_work_edition=None)
 
 
         # Note: policy.choose_edition is true by default.
@@ -5342,15 +5342,14 @@ class LicensePool(Base):
             metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
 
             for edition in all_editions:
-                #if edition.data_source and (edition.data_source.name != DataSource.PRESENTATION_EDITION):
                 if (edition.data_source.name != DataSource.PRESENTATION_EDITION):
                     metadata.update(Metadata.from_edition(edition))
 
             # Note: Since this is a presentation edition it does not have a
             # license data source, even if one of the editions it was
-            # created from does have a license data source.  However, we cannot do 
-            # metadata.license_data_source = None, because metadata.edition relies on it.
-            metadata.license_data_source = None
+            # created from does have a license data source.
+            metadata._license_data_source = None
+            metadata.license_data_source_obj = None
             edition, is_new = metadata.edition(_db)
 
             # TODO: apply() needs to set last_update_time if appropriate.
@@ -5376,14 +5375,16 @@ class LicensePool(Base):
         )
 
 
-    def mark_editions_nonprimary(self):
-        """Go through this pool's editions, and tell them they're 
-        not primary for the pool's work.
+    def mark_edition_primarity(self, primary_for_work_edition=None):
+        """Go through this pool's editions, and explicitly tell them  
+        whether they're primary for the pool's work.
         """
         all_editions = list(self.editions_in_priority_order())
         for edition in all_editions:
-            edition.is_primary_for_work = False
-
+            if (primary_for_work_edition != None and (edition is primary_for_work_edition)):
+                edition.is_primary_for_work = True
+            else:
+                edition.is_primary_for_work = False
 
 
     def add_link(self, rel, href, data_source, media_type=None,
