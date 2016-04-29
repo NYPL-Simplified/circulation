@@ -66,12 +66,14 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         cr = self._coverage_record(self._edition(), other_source)
         reaper_cr = self._coverage_record(self._edition(), reaper_source)
+        relicensed, relicensed_lp = self._edition(with_license_pool=True)
+        self._coverage_record(relicensed, reaper_source)
+        relicensed_lp.update_availability(1, 0, 0, 0)
 
         provider = MetadataWranglerCoverageProvider(self._db)
         items = provider.items_that_need_coverage.all()
         assert reaper_cr.identifier not in items
-        eq_([cr.identifier], items)
-        pass
+        eq_([cr.identifier, relicensed_lp.identifier], items)
 
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
@@ -118,4 +120,3 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         remaining_records = self._db.query(CoverageRecord).all()
         assert doubly_wrangler not in remaining_records
         eq_([cr_wrangler, cr_reaper, doubly_reaper], remaining_records)
-        pass

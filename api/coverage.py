@@ -100,8 +100,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 join(Identifier.coverage_records).\
                 filter(CoverageRecord.data_source==reaper_source)
         # TODO: Add a check for reapered and relicensed Identifiers.
-        # relicensed = reaper_covered.join(Identifier.license_pool).
-        return uncovered.except_(reaper_covered)
+        relicensed = reaper_covered.join(Identifier.licensed_through).\
+                filter(LicensePool.licenses_owned > 0)
+        return uncovered.except_(reaper_covered).union(relicensed)
 
     def create_id_mapping(self, batch):
         mapping = dict()
