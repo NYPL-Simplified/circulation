@@ -704,6 +704,7 @@ class Metadata(object):
             )
 
         data_source = self.license_data_source(_db) or self.data_source(_db)
+
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
