@@ -49,13 +49,19 @@ def package_setup():
     """
     engine, connection, _db = DatabaseTest.get_database_connection()
 
-    # Create the schema and begin a transaction.
+    # First, recreate the schema.
+    #
+    # Base.metadata.drop_all(connection) doesn't work here, so we
+    # approximate by dropping everything except the materialized
+    # views.
+    for table in reversed(Base.metadata.sorted_tables):
+        if not table.name.startswith('mv_'):
+            engine.execute(table.delete())
+
     Base.metadata.create_all(connection)
 
     # Initialize basic database data needed by the application.
     SessionManager.initialize_data(_db)
-
-    # Initialize test data.
 
     # Create the patron used by the dummy authentication mechanism.
     # TODO: This can be probably be moved to circulation.
@@ -67,8 +73,6 @@ def package_setup():
 
 class DatabaseTest(object):
 
-    database_reset = False
-
     engine = None
     connection = None
 
@@ -77,26 +81,18 @@ class DatabaseTest(object):
         url = Configuration.database_url(test=True)
         engine, connection = SessionManager.initialize(url)
 
-        session = Session(connection)
-        transaction = connection.begin()
-        if not cls.database_reset:
-            for table in reversed(Base.metadata.sorted_tables):
-                if not table.name.startswith('mv_'):
-                    engine.execute(table.delete())
-            Base.metadata.create_all(connection)
-            cls.database_reset = True
-        transaction.commit()
-        return engine, connection, session
-
-    @classmethod
-    def teardown_database_connection(cls):
-        # Roll back the top level transaction and disconnect from the database
-        cls.connection.close()
-        cls.engine.dispose()
+        return engine, connection, Session(connection)
 
     @classmethod
     def setup_class(cls):
-        cls.engine, cls.connection, ignore = cls.get_database_connection()
+
+        # Create a new connection to the database.
+        cls.engine, cls.connection, cls._db = cls.get_database_connection()
+
+        # This transaction will be rolled back once all of the class's
+        # tests have been run. It shouldn't be necessary since each
+        # test also runs in a nested transaction.
+        cls.class_transaction = cls._db.begin_nested()
 
         # Initialize a temporary data directory.
         cls.old_data_dir = Configuration.data_directory
@@ -107,7 +103,11 @@ class DatabaseTest(object):
 
     @classmethod
     def teardown_class(cls):
-        cls.teardown_database_connection()
+        # Roll back any pending changes in the database session and
+        # disconnect from the database.
+        cls._db.rollback()
+        cls.connection.close()
+        cls.engine.dispose()
 
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
@@ -119,15 +119,8 @@ class DatabaseTest(object):
         if 'TESTING' in os.environ:
             del os.environ['TESTING']
 
-    def setup_database(self):
-        self._db = Session(self.connection)
-        self.__transaction = self.connection.begin_nested()
-
-    def teardown_database(self):
-        self.__transaction.rollback()
-
     def setup(self):
-        self.setup_database()
+        self.transaction = self._db.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 1000
@@ -138,7 +131,10 @@ class DatabaseTest(object):
         self.search_mock.start()
 
     def teardown(self):
-        self.teardown_database()
+        # Roll back all database changes that happened during this test.
+        if self.transaction.is_active:
+            self.transaction.rollback()
+        self._db.rollback()
         self.search_mock.stop()
 
     @property
