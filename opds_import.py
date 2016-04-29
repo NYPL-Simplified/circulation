@@ -200,6 +200,7 @@ class OPDSImporter(object):
             subjects=True,
             links=True,
             contributions=True,
+            rights=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
             http_get=self.http_get,
