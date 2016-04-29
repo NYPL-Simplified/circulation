@@ -114,6 +114,12 @@ class TestDataSource(DatabaseTest):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
 
+    def test_metadata_sources_for(self):
+        [content_cafe] = DataSource.metadata_sources_for(
+            self._db, Identifier.ISBN
+        )
+        eq_(DataSource.CONTENT_CAFE, content_cafe.name)
+
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
         source = DataSource.license_source_for(self._db, identifier)

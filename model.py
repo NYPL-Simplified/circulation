@@ -728,7 +728,6 @@ class DataSource(Base):
             DataSource.primary_identifier_type==type)
         return q
 
-
     @classmethod
     def metadata_sources_for(cls, _db, identifier):
         """Finds the DataSources that provide metadata for books
@@ -739,19 +738,19 @@ class DataSource(Base):
         else:
             type = identifier.type
 
-        if not hasattr(_db, 'metadata_lookups_by_identifier_type'):
+        if not hasattr(cls, 'metadata_lookups_by_identifier_type'):
             # This should only happen during testing.
             list(DataSource.well_known_sources(_db))
-        return _db.metadata_lookups_by_identifier_type[identifier.type]
+
+        names = cls.metadata_lookups_by_identifier_type[type] 
+        return _db.query(DataSource).filter(DataSource.name.in_(names))
 
     @classmethod
     def well_known_sources(cls, _db):
-        """Make sure all the well-known sources exist and are loaded into
-        the cache associated with the database connection.
+        """Make sure all the well-known sources exist in the database.
         """
 
-        _db.data_sources = dict()
-        _db.metadata_lookups_by_identifier_type = defaultdict(list)
+        cls.metadata_lookups_by_identifier_type = defaultdict(list)
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
@@ -793,14 +792,10 @@ class DataSource(Base):
                 )
             )
 
-            _db.data_sources[obj.name] = obj
             if offers_metadata_lookup:
-                l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
-                l.append(obj)
+                l = cls.metadata_lookups_by_identifier_type[primary_identifier_type]
+                l.append(obj.name)
 
-                # Expunge the object from the current database session
-                # so that it can be used in other sessions.
-                _db.expunge(obj)
             yield obj
 
 
