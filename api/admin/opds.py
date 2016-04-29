@@ -96,9 +96,12 @@ class AdminFeed(AcquisitionFeed):
         feed = cls(_db, title, url, works, annotator)
 
         # Render a 'start' link
-        top_level_title = "Collection Home"
+        top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
         feed.add_link(href=start_uri, rel="start", title=top_level_title)
+
+        # Render an 'up' link, same as the 'start' link to indicate top-level feed
+        feed.add_link(href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
@@ -125,9 +128,12 @@ class AdminFeed(AcquisitionFeed):
         feed = cls(_db, title, url, works, annotator)
 
         # Render a 'start' link
-        top_level_title = "Collection Home"
+        top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
         feed.add_link(href=start_uri, rel="start", title=top_level_title)
+
+        # Render an 'up' link, same as the 'start' link to indicate top-level feed
+        feed.add_link(href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.

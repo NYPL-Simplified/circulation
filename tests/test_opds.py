@@ -20,6 +20,7 @@ from core.model import (
 from core.classifier import (
     Classifier,
     Fantasy,
+    Urban_Fantasy
 )
 
 from core.opds import (
@@ -53,7 +54,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         super(TestCirculationManagerAnnotator, self).setup()
         self.work = self._work(with_open_access_download=True)
         self.annotator = CirculationManagerAnnotator(
-            None, Fantasy, test_mode=True
+            None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
 
     def test_open_access_link(self):
@@ -77,6 +78,47 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             link_url = link_tag.get('href')
             assert link_url.startswith(cdn_host)
             assert link_url == cdnify(lpdm.resource.url, cdn_host)
+
+    def test_top_level_title(self):
+        eq_("Test Top Level Title", self.annotator.top_level_title())
+
+    def test_group_uri_with_flattened_lane(self):
+        spanish_lane = Lane(
+            self._db, "Spanish", languages="spa"
+        )
+        flat_spanish_lane = dict({
+            "lane": spanish_lane,
+            "label": "All Spanish",
+            "link_to_list_feed": True
+        })
+        spanish_work = self._work(
+            title="Spanish Book",
+            with_license_pool=True,
+            language="spa"
+        )
+        lp = spanish_work.license_pools[0]
+        self.annotator.lanes_by_work[spanish_work].append(flat_spanish_lane)
+
+        feed_url = self.annotator.feed_url(spanish_lane)
+        group_uri = self.annotator.group_uri(spanish_work, lp, lp.identifier)
+        eq_((feed_url, "All Spanish"), group_uri)
+
+    def test_lane_url(self):
+        fantasy_lane_with_sublanes = Lane(
+            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            sublanes=[Urban_Fantasy])
+
+        fantasy_lane_without_sublanes = Lane(
+            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
+        eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
+
+        feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
+        eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+
 
 class TestOPDS(DatabaseTest):
 
@@ -256,6 +298,17 @@ class TestOPDS(DatabaseTest):
         eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
         eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
 
+    def test_loans_feed_includes_preload_link(self):
+        patron = self._patron()
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+        feed = feedparser.parse(raw)['feed']
+        links = feed['links']
+
+        [preload_link] = [x for x in links if x['rel'] == 'http://librarysimplified.org/terms/rel/preload']
+        assert '/preload' in preload_link['href']
+        
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]

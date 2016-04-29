@@ -68,6 +68,7 @@ from config import Configuration
 from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
+    PreloadFeed,
 )
 from problem_details import *
 
@@ -224,7 +225,7 @@ class CirculationManager(object):
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
-            self.circulation, lane, *args, **kwargs
+            self.circulation, lane, *args, top_level_title=self.display_name, **kwargs
         )
 
     def create_authentication_document(self):
@@ -505,6 +506,16 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'], 
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
+        )
+        return feed_response(opds_feed)
+
+    def preload(self):
+        this_url = url_for("preload", _external=True)
+
+        annotator = self.manager.annotator(None)
+        opds_feed = PreloadFeed.page(
+            self._db, "Content to Preload", this_url,
+            annotator=annotator,
         )
         return feed_response(opds_feed)
 

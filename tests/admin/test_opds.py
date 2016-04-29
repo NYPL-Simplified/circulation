@@ -126,6 +126,11 @@ class TestOPDS(DatabaseTest):
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
         eq_(annotator.groups_url(None), start['href'])
+        eq_(annotator.top_level_title(), start['title'])
+
+        [up] = self.links(parsed, 'up')
+        eq_(annotator.groups_url(None), up['href'])
+        eq_(annotator.top_level_title(), up['title'])
 
         [next_link] = self.links(parsed, 'next')
         eq_(annotator.complaints_url(facets, pagination.next_page), next_link['href'])
@@ -169,6 +174,11 @@ class TestOPDS(DatabaseTest):
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
         eq_(annotator.groups_url(None), start['href'])
+        eq_(annotator.top_level_title(), start['title'])
+
+        [up] = self.links(parsed, 'up')
+        eq_(annotator.groups_url(None), up['href'])
+        eq_(annotator.top_level_title(), up['title'])
 
         [next_link] = self.links(parsed, 'next')
         eq_(annotator.suppressed_url(pagination.next_page), next_link['href'])

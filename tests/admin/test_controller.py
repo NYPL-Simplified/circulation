@@ -79,6 +79,7 @@ class TestWorkController(AdminControllerTest):
                 ("title", "New title"),
                 ("audience", "Adults Only"),
                 ("summary", "<p>New summary</p>"),
+                ("fiction", "nonfiction"),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
 
@@ -89,13 +90,16 @@ class TestWorkController(AdminControllerTest):
             assert 'Adults Only' in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
+            eq_(False, self.english_1.fiction)
+            assert "Nonfiction" in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
-            # Change the audience again, and add a target age
+            # Change the audience and fiction status again, and add a target age
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("audience", "Young Adult"),
                 ("summary", "<p>New summary</p>"),
+                ("fiction", "fiction"),
                 ("target_age_min", 13),
                 ("target_age_max", 15),
             ])
@@ -104,6 +108,9 @@ class TestWorkController(AdminControllerTest):
             eq_("Young Adult", self.english_1.audience)
             assert 'Young Adult' in self.english_1.simple_opds_entry
             assert 'Adults Only' not in self.english_1.simple_opds_entry
+            eq_(True, self.english_1.fiction)
+            assert "Fiction" in self.english_1.simple_opds_entry
+            assert "Nonfiction" not in self.english_1.simple_opds_entry
             eq_(13, self.english_1.target_age.lower)
             eq_(15, self.english_1.target_age.upper)
             assert "13-15" in self.english_1.simple_opds_entry
@@ -114,6 +121,7 @@ class TestWorkController(AdminControllerTest):
                 ("title", "New title"),
                 ("audience", "Young Adult"),
                 ("summary", "abcd"),
+                ("fiction", "fiction"),
                 ("target_age_min", 13),
                 ("target_age_max", 15),
             ])
@@ -128,6 +136,7 @@ class TestWorkController(AdminControllerTest):
                 ("title", "New title"),
                 ("audience", "Young Adult"),
                 ("summary", ""),
+                ("fiction", "fiction"),
                 ("target_age_min", 11),
                 ("target_age_max", 14),
             ])
@@ -146,6 +155,7 @@ class TestWorkController(AdminControllerTest):
                 ("title", "New title"),
                 ("audience", "Adult"),
                 ("summary", ""),
+                ("fiction", "fiction"),
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
