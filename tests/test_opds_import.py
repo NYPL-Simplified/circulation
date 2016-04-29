@@ -4,6 +4,7 @@ from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
+    assert_raises
 )
 import feedparser
 
@@ -13,8 +14,13 @@ from psycopg2.extras import NumericRange
 from . import (
     DatabaseTest,
 )
-
+from config import (
+    Configuration,
+    temp_config,
+    CannotLoadConfiguration
+)
 from opds_import import (
+    SimplifiedOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     StatusMessage,
@@ -59,6 +65,43 @@ class TestStatusMessage(object):
         eq_(False, message.transient)
 
 
+class TestSimplifiedOPDSLookup(object):
+
+    def test_authenticates_wrangler_requests(self):
+        """Tests that the client_id and client_secret are set for any
+        Metadata Wrangler lookups"""
+
+        mw_integration = Configuration.METADATA_WRANGLER_INTEGRATION
+        mw_client_id = Configuration.METADATA_WRANGLER_CLIENT_ID
+        mw_client_secret = Configuration.METADATA_WRANGLER_CLIENT_SECRET
+
+        with temp_config() as config:
+            config['integrations'][mw_integration] = {
+                Configuration.URL : "http://localhost",
+                mw_client_id : "abc",
+                mw_client_secret : "def"
+            }
+            importer = SimplifiedOPDSLookup.from_config()
+            eq_("abc", importer.client_id)
+            eq_("def", importer.client_secret)
+
+            # An error is raised if only one value is set.
+            del config['integrations'][mw_integration][mw_client_secret]
+            assert_raises(CannotLoadConfiguration, SimplifiedOPDSLookup.from_config)
+
+            # The details are None if client configuration isn't set at all.
+            del config['integrations'][mw_integration][mw_client_id]
+            importer = SimplifiedOPDSLookup.from_config()
+            eq_(None, importer.client_id)
+            eq_(None, importer.client_secret)
+
+            # For other integrations, the details aren't created at all.
+            config['integrations']["Content Server"]["url"] = "http://whatevz"
+            importer = SimplifiedOPDSLookup.from_config("Content Server")
+            eq_(False, hasattr(importer, "client_id"))
+            eq_(False, hasattr(importer, "client_secret"))
+
+
 class OPDSImporterTest(DatabaseTest):
 
     def setup(self):
@@ -70,10 +113,10 @@ class OPDSImporterTest(DatabaseTest):
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
 
+
 class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
-
         importer = OPDSImporter(self._db, DataSource.NYT)
         data, status_messages, next_link = importer.extract_metadata(
             self.content_server_mini_feed
@@ -90,7 +133,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(u"I'm working to locate a source for this identifier.", message.message)
 
         eq_("http://localhost:5000/?after=327&size=100", next_link[0])
-
 
     def test_extract_metadata_from_feedparser(self):
 
@@ -184,7 +226,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(Measurement.POPULARITY, r3.quantity_measured)
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
-
 
     def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
