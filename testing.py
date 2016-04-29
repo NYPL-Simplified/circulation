@@ -47,7 +47,7 @@ def package_setup():
     """Make sure the database schema is initialized and initial
     data is in place.
     """
-    engine, connection, _db = DatabaseTest.get_database_connection()
+    engine, connection = DatabaseTest.get_database_connection()
 
     # First, recreate the schema.
     #
@@ -61,6 +61,7 @@ def package_setup():
     Base.metadata.create_all(connection)
 
     # Initialize basic database data needed by the application.
+    _db = Session(connection)
     SessionManager.initialize_data(_db)
 
     # Create the patron used by the dummy authentication mechanism.
@@ -70,6 +71,8 @@ def package_setup():
         create_method_kwargs=dict(external_identifier="200200200")
     )
     _db.commit()
+    connection.close()
+    engine.dispose()
 
 class DatabaseTest(object):
 
@@ -81,12 +84,12 @@ class DatabaseTest(object):
         url = Configuration.database_url(test=True)
         engine, connection = SessionManager.initialize(url)
 
-        return engine, connection, Session(connection)
+        return engine, connection
 
     @classmethod
     def setup_class(cls):
         # Initialize a temporary data directory.
-        cls.engine, cls.connection, ignore = cls.get_database_connection()
+        cls.engine, cls.connection = cls.get_database_connection()
         cls.old_data_dir = Configuration.data_directory
         cls.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
