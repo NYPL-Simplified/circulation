@@ -20,3 +20,10 @@ INVALID_CREDENTIALS = pd(
       "Invalid credentials",
       "Valid credentials are required.",
 )
+
+INVALID_URN = pd(
+      "http://librarysimplified.org/terms/problem/could-not-parse-urn",
+      400,
+      "Invalid URN",
+      "Could not parse identifier.",
+)

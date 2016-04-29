@@ -413,7 +413,6 @@ class TestLanes(DatabaseTest):
         # children.
         eq_(lane, sublanes[0].search_target)
 
-
     def test_custom_sublanes(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
@@ -439,8 +438,6 @@ class TestLanes(DatabaseTest):
         )
         eq_([[urban_fantasy]], [x.genres for x in fantasy_lane.sublanes.lanes])
 
-
-
     def test_custom_lanes_conflict_with_subgenre_sublanes(self):
 
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
@@ -456,6 +453,7 @@ class TestLanes(DatabaseTest):
             subgenre_behavior=Lane.IN_SUBLANES,
             sublanes=[urban_fantasy_lane]
         )
+
     def test_lane_query_with_configured_opds(self):
         """The appropriate opds entry is deferred during querying.
         """
@@ -483,6 +481,45 @@ class TestLanes(DatabaseTest):
         assert "verbose_opds_entry" not in mw_query_str
 
         Configuration.DEFAULT_OPDS_FORMAT = original_setting
+
+    def test_visible_parent(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        sublane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        invisible_parent = Lane(
+            self._db, "Fantasy", invisible=True, genres=fantasy, 
+            sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        visible_grandparent = Lane(
+            self._db, "English", sublanes=[invisible_parent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(sublane.visible_parent(), visible_grandparent)
+        eq_(invisible_parent.visible_parent(), visible_grandparent)
+        eq_(visible_grandparent.visible_parent(), None)
+
+    def test_has_visible_sublane(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        sublane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy,
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        invisible_parent = Lane(
+            self._db, "Fantasy", invisible=True, genres=fantasy,
+            sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        visible_grandparent = Lane(
+            self._db, "English", sublanes=[invisible_parent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(False, visible_grandparent.has_visible_sublane())
+        eq_(True, invisible_parent.has_visible_sublane())
+        eq_(False, sublane.has_visible_sublane())
 
 
 class TestLanesQuery(DatabaseTest):

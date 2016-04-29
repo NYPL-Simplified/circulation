@@ -157,19 +157,25 @@ class Annotator(object):
         """
         if not work:
             return {}
+
+        categories = {}
+
+        fiction_term = None
+        if work.fiction == True:
+            fiction_term = 'Fiction'
+        elif work.fiction == False:
+            fiction_term = 'Nonfiction'
+        if fiction_term:
+            fiction_scheme = Subject.SIMPLIFIED_FICTION_STATUS
+            categories[fiction_scheme] = [
+                dict(term=fiction_scheme + fiction_term,
+                     label=fiction_term)
+            ]
+
         simplified_genres = []
         for wg in work.work_genres:
             simplified_genres.append(wg.genre.name)
-        if not simplified_genres:
-            sole_genre = None
-            if work.fiction == True:
-                sole_genre = 'Fiction'
-            elif work.fiction == False:
-                sole_genre = 'Nonfiction'
-            if sole_genre:
-                simplified_genres.append(sole_genre)
 
-        categories = {}
         if simplified_genres:
             categories[Subject.SIMPLIFIED_GENRE] = [
                 dict(term=Subject.SIMPLIFIED_GENRE + urllib.quote(x),
@@ -244,7 +250,11 @@ class Annotator(object):
         return identifier.urn
 
     @classmethod
-    def feed_url(cls, lane, facets, pagination):
+    def lane_url(cls, lane):
+        raise NotImplementedError()
+    
+    @classmethod
+    def feed_url(cls, lane, facets=None, pagination=None):
         raise NotImplementedError()
 
     @classmethod
@@ -571,19 +581,19 @@ class AcquisitionFeed(OPDSFeed):
         )
 
         # Render a 'start' link and an 'up' link.
-        top_level_title = "Collection Home"
+        top_level_title = annotator.top_level_title() or "Collection Home"
         start_uri = annotator.groups_url(None)
         feed.add_link(href=start_uri, rel="start", title=top_level_title)
 
-        if lane.parent:
-            parent = lane.parent
-            if isinstance(parent, Lane):
-                title = lane.parent.display_name
+        if isinstance(lane, Lane):
+            visible_parent = lane.visible_parent()
+            if isinstance(visible_parent, Lane):
+                title = visible_parent.display_name
             else:
                 title = top_level_title
-            up_uri = annotator.groups_url(lane.parent)
+            up_uri = annotator.groups_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
-
+        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -636,16 +646,18 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        top_level_title = "Collection Home"
+        # Add "up" link
+        top_level_title = annotator.top_level_title() or "Collection Home"
+        visible_parent = lane.visible_parent()
+        if isinstance(visible_parent, Lane):
+            title = visible_parent.display_name
+        else:
+            title = top_level_title
+        up_uri = annotator.groups_url(visible_parent)
+        feed.add_link(href=up_uri, rel="up", title=title)
 
-        if lane.parent:
-            if isinstance(lane.parent, Lane):
-                title = lane.parent.display_name
-            else:
-                title = top_level_title
-            feed.add_link(rel='up', href=annotator.groups_url(lane.parent), title=title)
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
-
+        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -664,7 +676,7 @@ class AcquisitionFeed(OPDSFeed):
 
         results = search_lane.search(query, search_engine, pagination=pagination)
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
-        opds_feed.add_link(rel='start', href=annotator.default_lane_url())
+        opds_feed.add_link(rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
@@ -677,7 +689,8 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
-        opds_feed.add_link(rel="up", href=annotator.groups_url(search_lane), title=lane.display_name)
+        # Add "up" link
+        opds_feed.add_link(rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)

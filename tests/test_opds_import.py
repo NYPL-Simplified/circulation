@@ -517,11 +517,12 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
+        # The first resource has no bibframe provider in OPDS so it uses the importer's data source.
         eq_(
             ['http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557.epub',
-             'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png.svg', 
-             'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png', 
-             'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441.epub'
+             'http://s3.amazonaws.com/test.cover.bucket/Gutenberg/Gutenberg%20ID/10441/cover_10441_9.png.svg', 
+             'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Gutenberg/Gutenberg%20ID/10441/cover_10441_9.png', 
+             'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441.epub'
          ],
             [x.mirror_url for x in s3.uploaded]
         )
