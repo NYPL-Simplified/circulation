@@ -144,7 +144,6 @@ class CirculationManager(object):
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
         self.opds_authentication_document = self.create_authentication_document()
-        self._db.expunge_all()
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
