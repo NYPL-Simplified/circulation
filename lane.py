@@ -1230,6 +1230,17 @@ class Lane(object):
         random.shuffle(works)
         return works
 
+    def visible_parent(self):
+        if self.parent == None:
+            return None
+        elif not self.parent.invisible:
+            return self.parent
+        else:
+            return self.parent.visible_parent()
+
+    def has_visible_sublane(self):
+        return len([lane for lane in self.sublanes if not lane.invisible]) > 0
+
 
 class LaneList(object):
     """A list of lanes such as you might see in an OPDS feed."""

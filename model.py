@@ -24,6 +24,7 @@ import urllib
 import urlparse
 import uuid
 import warnings
+import bcrypt
 
 from PIL import (
     Image,
@@ -37,10 +38,12 @@ from sqlalchemy.orm import (
     backref,
     defer,
     relationship,
+    sessionmaker,
 )
 from sqlalchemy import (
     or_,
     MetaData,
+    Table,
 )
 from sqlalchemy.orm import (
     aliased,
@@ -60,6 +63,7 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -159,6 +163,11 @@ class SessionManager(object):
         return create_engine(url, echo=DEBUG)
 
     @classmethod
+    def sessionmaker(cls, url=None):
+        engine = cls.engine(url)
+        return sessionmaker(bind=engine)
+
+    @classmethod
     def initialize(cls, url):
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
@@ -250,12 +259,8 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Create all genres.
-        Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
-
-        # Load all delivery mechanisms from the database.
-        DeliveryMechanism.load_all(session)
 
         # Make sure that the mechanisms fulfillable by the default
         # client are marked as such.
@@ -284,7 +289,6 @@ def get_one(db, model, on_multiple='error', **kwargs):
             return q.one()
     except NoResultFound:
         return None
-
 
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
@@ -676,13 +680,14 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have one Collection.
+    collection = relationship(
+        "Collection", backref="data_source", uselist=False
+    )
+
     @classmethod
     def lookup(cls, _db, name):
-        if hasattr(_db, 'data_sources'):
-            return _db.data_sources.get(name)
-        else:
-            # This should only happen during tests.
-            return get_one(_db, DataSource, name=name)
+        return get_one(_db, DataSource, name=name)
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
@@ -757,7 +762,6 @@ class DataSource(Base):
             DataSource.primary_identifier_type==type)
         return q
 
-
     @classmethod
     def metadata_sources_for(cls, _db, identifier):
         """Finds the DataSources that provide metadata for books
@@ -768,19 +772,19 @@ class DataSource(Base):
         else:
             type = identifier.type
 
-        if not hasattr(_db, 'metadata_lookups_by_identifier_type'):
+        if not hasattr(cls, 'metadata_lookups_by_identifier_type'):
             # This should only happen during testing.
             list(DataSource.well_known_sources(_db))
-        return _db.metadata_lookups_by_identifier_type[identifier.type]
+
+        names = cls.metadata_lookups_by_identifier_type[type] 
+        return _db.query(DataSource).filter(DataSource.name.in_(names)).all()
 
     @classmethod
     def well_known_sources(cls, _db):
-        """Make sure all the well-known sources exist and are loaded into
-        the cache associated with the database connection.
+        """Make sure all the well-known sources exist in the database.
         """
 
-        _db.data_sources = dict()
-        _db.metadata_lookups_by_identifier_type = defaultdict(list)
+        cls.metadata_lookups_by_identifier_type = defaultdict(list)
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
@@ -823,10 +827,10 @@ class DataSource(Base):
                 )
             )
 
-            _db.data_sources[obj.name] = obj
             if offers_metadata_lookup:
-                l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
-                l.append(obj)
+                l = cls.metadata_lookups_by_identifier_type[primary_identifier_type]
+                l.append(obj.name)
+
             yield obj
 
 
@@ -1354,20 +1358,11 @@ class Identifier(Base):
                 # in the next round.
                 new_working_set.add(e.input_id)
 
-        #logging.debug("At level %d.", levels)
-        #logging.debug(" Original working set: %r", sorted(original_working_set))
-        #logging.debug(" New working set: %r", sorted(new_working_set))
-        #logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
-        #logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
-        #logging.debug(" %d equivalents", len(equivalents))
-
         if new_working_set:
 
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            #logging.debug(
-            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -1391,10 +1386,6 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        #logging.debug(
-        #    "Pruned %d from working set",
-        #    len(surviving_working_set.intersection(new_working_set))
-        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -1679,7 +1670,7 @@ class Identifier(Base):
 
     @classmethod
     def evaluate_summary_quality(cls, _db, identifier_ids, 
-                                 privileged_data_source=None):
+                                 privileged_data_sources=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
         This is an automatic evaluation based solely on the content of
@@ -1691,42 +1682,46 @@ class Identifier(Base):
         need to see which noun phrases are most frequently used to
         describe the underlying work.
 
-        :param privileged_data_source: If present, a summary from this
-        data source will be instantly chosen, short-circuiting the
-        decision process.
+        :param privileged_data_sources: If present, a summary from one
+        of these data source will be instantly chosen, short-circuiting the
+        decision process. Data sources are in order of priority.
 
         :return: The single highest-rated summary Resource.
 
         """
         evaluator = SummaryEvaluator()
 
+        if privileged_data_sources and len(privileged_data_sources) > 0:
+            privileged_data_source = privileged_data_sources[0]
+        else:
+            privileged_data_source = None
+
         # Find all rel="description" resources associated with any of
         # these records.
         rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
-            _db, identifier_ids, rels, privileged_data_source)
-        descriptions = descriptions.join(
-            Resource.representation).filter(
-                Representation.content != None).all()
+            _db, identifier_ids, rels, privileged_data_source).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
         for r in descriptions:
-            evaluator.add(r.representation.content)
+            if r.representation and r.representation.content:
+                evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
         for r in descriptions:
-            content = r.representation.content
-            quality = evaluator.score(content)
-            r.set_estimated_quality(quality)
+            if r.representation and r.representation.content:
+                content = r.representation.content
+                quality = evaluator.score(content)
+                r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
                 champion = r
 
         if privileged_data_source and not champion:
             # We could not find any descriptions from the privileged
             # data source. Try relaxing that restriction.
-            return cls.evaluate_summary_quality(_db, identifier_ids)
+            return cls.evaluate_summary_quality(_db, identifier_ids, privileged_data_sources[1:])
         return champion, descriptions
 
     @classmethod
@@ -1857,7 +1852,6 @@ class UnresolvedIdentifier(Base):
             q = q.order_by(func.random())
         return q
 
-
     def set_attempt(self, time=None):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.
@@ -1866,6 +1860,7 @@ class UnresolvedIdentifier(Base):
         self.most_recent_attempt = time
         if not self.first_attempt:
             self.first_attempt = time
+
 
 class Contributor(Base):
 
@@ -2950,7 +2945,6 @@ class PresentationCalculationPolicy(object):
             update_search_index=True,
         )
 
-        
 
 class Work(Base):
 
@@ -3178,8 +3172,10 @@ class Work(Base):
     def set_summary(self, resource):
         self.summary = resource
         # TODO: clean up the content
-        if resource:
+        if resource and resource.representation:
             self.summary_text = resource.representation.unicode_content
+        else:
+            self.summary_text = ""
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.SUMMARY_OPERATION
         )
@@ -3536,8 +3532,9 @@ class Work(Base):
             )
 
         if policy.choose_summary:
+            staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, licensed_data_sources
+                _db, flattened_data, [staff_data_source, privileged_data_source]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
@@ -3637,7 +3634,7 @@ class Work(Base):
             else:
                 return s.decode("utf8", "replace")
 
-        if self.summary:
+        if self.summary and self.summary.representation:
             snippet = _ensure(self.summary.representation.content)[:100]
             d = " Description (%.2f) %s" % (self.summary.quality, snippet)
             l.append(d)
@@ -4450,38 +4447,18 @@ class Genre(Base):
             len(classifier.genres[self.name].subgenres))
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all Genre objects into the cache associated with the
-        database connection.
-        """
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        for g in _db.query(Genre):
-            _db._genre_cache[g.name] = g
-
-    @classmethod
     def lookup(cls, _db, name, autocreate=False):
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        if isinstance(name, Genre):
-            return name, False
         if isinstance(name, GenreData):
             name = name.name
-        if name in _db._genre_cache:
-            return _db._genre_cache[name], False
+        args = (_db, Genre)
         if autocreate:
-            m = get_one_or_create
+            result, new = get_one_or_create(*args, name=name)
         else:
-            m = get_one
-        result = m(_db, Genre, name=name)
+            result = get_one(*args, name=name)
+            new = False
         if result is None:
             logging.getLogger().error('"%s" is not a recognized genre.', name)
-        if isinstance(result, tuple):
-            _db._genre_cache[name] = result[0]
-            return result
-        else:
-            _db._genre_cache[name] = result
-            return result, False
+        return result, new
 
     @property
     def genredata(self):
@@ -4538,9 +4515,11 @@ class Subject(Base):
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        SIMPLIFIED_FICTION_STATUS : SIMPLIFIED_FICTION_STATUS,
         "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
         "http://librarysimplified.org/terms/genres/3M/" : THREEM,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
@@ -6719,29 +6698,11 @@ class DeliveryMechanism(Base):
         )
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all DeliveryMechanism objects into the cache associated with
-        the database connection.
-        """
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        for m in _db.query(DeliveryMechanism):
-            _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
-
-    @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        key = (content_type, drm_scheme)
-        cache = _db._deliverymechanism_cache
-        if key in cache:
-            return cache[key], False
-        result, is_new = get_one_or_create(
+        return get_one_or_create(
             _db, DeliveryMechanism, content_type=content_type,
             drm_scheme=drm_scheme
         )
-        cache[key] = result
-        return result, is_new
 
     @property
     def implicit_medium(self):
@@ -7032,6 +6993,137 @@ class Admin(Base):
         self.credential = credential
         _db.commit()
 
+
+class Collection(Base):
+
+    __tablename__ = 'collections'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode, unique=True, nullable=False)
+    client_id = Column(Unicode, unique=True, index=True)
+    _client_secret = Column(Unicode, nullable=False)
+
+    # A collection can have one DataSource
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True
+    )
+
+    # A collection can include many Identifiers
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
+        backref="collections"
+    )
+
+
+    def __repr__(self):
+        return "%s ID=%s DATASOURCE_ID=%d" % (
+            self.name, self.id, self.data_source.id
+        )
+
+    @hybrid_property
+    def client_secret(self):
+        """Gets encrypted client_secret from database"""
+        return self._client_secret
+
+    @client_secret.setter
+    def _set_client_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
+        self._client_secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is the client_secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+                == self.client_secret)
+
+    @classmethod
+    def register(cls, _db, name):
+        """Creates a new collection with client details and a datasource."""
+
+        name = unicode(name)
+        collection = get_one(_db, cls, name=name)
+        if collection:
+            raise ValueError(
+                "A collection with the name '%s' already exists: %r" % (
+                name, collection)
+            )
+
+        collection_data_source, ignore = get_one_or_create(
+            _db, DataSource, name=name, offers_licenses=False
+        )
+
+        client_id, plaintext_client_secret = cls._generate_client_details()
+        # Generate a new client_id if it's not unique initially.
+        while get_one(_db, cls, client_id=client_id):
+            client_id, plaintext_client_secret = cls._generate_client_details()
+
+        collection, ignore = get_one_or_create(
+            _db, cls, name=name, client_id=unicode(client_id),
+            client_secret=unicode(plaintext_client_secret),
+            data_source=collection_data_source
+        )
+
+        _db.commit()
+        return collection, plaintext_client_secret
+
+    @classmethod
+    def _generate_client_details(cls):
+        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                           '0123456789')
+        client_secret_chars = client_id_chars + '!#$%&*+,-._'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        client_id = make_client_string(client_id_chars, 25)
+        client_secret = make_client_string(client_secret_chars, 40)
+
+        return client_id, client_secret
+
+    @classmethod
+    def authenticate(cls, _db, client_id, plaintext_client_secret):
+        collection = get_one(_db, cls, client_id=unicode(client_id))
+        if (collection and
+            collection._correct_secret(plaintext_client_secret)):
+            return collection
+        return None
+
+    def catalog_identifier(self, _db, identifier):
+        """Catalogs an identifier for a collection"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.commit()
+
+    def works_updated_since(self, _db, timestamp):
+        """Returns all of a collection's works that have been updated since the
+        last time the collection was checked"""
+
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if timestamp:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > timestamp
+            )
+
+        return query
+
+
+collections_identifiers = Table(
+    'collectionsidentifiers', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'identifier_id', Integer, ForeignKey('identifiers.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('collection_id', 'identifier_id'),
+)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

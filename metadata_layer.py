@@ -1015,16 +1015,33 @@ class Metadata(object):
         # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
         # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
         # it's problematic that pool isn't always being set in this method.
-
-        link_objects = {}
+        
+        link_data_source = self.license_data_source(_db) or data_source
 
         for link in self.links:
             link_obj, ignore = identifier.add_link(
-                rel=link.rel, href=link.href, data_source=data_source, 
+                rel=link.rel, href=link.href, data_source=link_data_source, 
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            link_objects[link] = link_obj
+
+            # TODO: We do not properly handle the (unlikely) case
+            # where there is an IMAGE_THUMBNAIL link but no IMAGE
+            # link. In such a case we should treat the IMAGE_THUMBNAIL
+            # link as though it were an IMAGE link.
+            if replace.mirror:
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(
+                    pool, link_data_source, link, link_obj, replace
+                )
+            elif link.thumbnail:
+                # We don't need to mirror this image, but we do need
+                # to make sure that its thumbnail exists locally and
+                # is associated with the original image.
+                self.make_thumbnail(
+                    pool, link_data_source, link, link_obj
+                )
 
         if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
@@ -1033,6 +1050,28 @@ class Metadata(object):
 
         self.set_default_rights_uri(data_source)
 
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if not format.content_type:
+                    format.content_type = link.media_type
+                # TODO: I think it's always true that this link
+                # already exists--it was created earlier while we were
+                # iterating over self.links. It would be more
+                # efficient and less error-prone to keep track of the
+                # link objects rather than calling add_link again.
+                link_obj, ignore = identifier.add_link(
+                    rel=link.rel, href=link.href, data_source=link_data_source, 
+                    license_pool=pool, media_type=link.media_type,
+                    content=link.content
+                )
+                resource = link_obj.resource
+            else:
+                resource = None
+            if pool:
+                pool.set_delivery_mechanism(
+                    format.content_type, format.drm_scheme, resource
+                )
 
         if pool and replace.rights:
             pool.set_rights_status(self.rights_uri)
