@@ -60,6 +60,8 @@ class SimplifiedOPDSLookup(object):
 
     LOOKUP_ENDPOINT = "lookup"
     CANONICALIZE_ENDPOINT = "canonical-author-name"
+    UPDATES_ENDPOINT = "updates"
+    REMOVAL_ENDPOINT = "remove"
 
     @classmethod
     def from_config(cls, integration='Metadata Wrangler'):
@@ -126,6 +128,16 @@ class SimplifiedOPDSLookup(object):
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
+        return self._get(url)
+
+    def remove(self, identifiers):
+        """Remove items from an authenticated Metadata Wrangler collection"""
+
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
+        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
+        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
+        logging.info("Metadata Wrangler Removal URL: %s", url)
         return self._get(url)
 
 
