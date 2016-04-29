@@ -45,6 +45,8 @@ class OPDSImportCoverageProvider(CoverageProvider):
             # book.
             if not message.success:
                 exception = str(message.status_code)
+                if message.message:
+                    exception += ": %s" % message.message
                 transient = message.transient
                 identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
                 yield CoverageFailure(self, identifier_obj, exception, transient)

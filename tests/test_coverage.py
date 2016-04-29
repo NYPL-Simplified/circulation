@@ -46,9 +46,9 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         [f1, f2] = sorted(list(provider.handle_import_messages(messages_by_id)),
                           key=lambda x: x.exception)
         eq_(identifier, f1.obj)
-        eq_("201", f1.exception)
+        eq_("201: try again later", f1.exception)
         eq_(True, f1.transient)
 
         eq_(identifier2, f2.obj)
-        eq_("404", f2.exception)
+        eq_("404: we're doomed", f2.exception)
         eq_(False, f2.transient)
