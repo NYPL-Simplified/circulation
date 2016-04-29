@@ -68,15 +68,8 @@ class TestCirculationManager(CirculationManager):
 class ControllerTest(DatabaseTest):
 
     app = None
-
-    @classmethod
-    def setup_class(cls):
-        """Set up the app server and create a database session scoped to its
-        requests.
-        """
-        DatabaseTest.setup_class()
-        cls.valid_auth = 'Basic ' + base64.b64encode('200:2222')
-        cls.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+    valid_auth = 'Basic ' + base64.b64encode('200:2222')
+    invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
     def setup(self):
         """Create a CirculationManager that uses the database connection
