@@ -86,6 +86,7 @@ class DatabaseTest(object):
     @classmethod
     def setup_class(cls):
         # Initialize a temporary data directory.
+        cls.engine, cls.connection, ignore = cls.get_database_connection()
         cls.old_data_dir = Configuration.data_directory
         cls.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
@@ -94,6 +95,9 @@ class DatabaseTest(object):
 
     @classmethod
     def teardown_class(cls):
+        cls.connection.close()
+        cls.engine.dispose()
+
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
             shutil.rmtree(cls.tmp_data_dir)
@@ -106,7 +110,7 @@ class DatabaseTest(object):
 
     def setup(self):
         # Create a new connection to the database.
-        self.engine, self.connection, self._db = self.get_database_connection()
+        self._db = Session(self.connection)
         self.transaction = self._db.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
@@ -119,10 +123,8 @@ class DatabaseTest(object):
 
     def teardown(self):
         # Roll back all database changes that happened during this test.
-        self._db.rollback()
+        self.transaction.rollback()
         self._db.close()
-        self.connection.close()
-        self.engine.dispose()
         self.search_mock.stop()
 
     @property
