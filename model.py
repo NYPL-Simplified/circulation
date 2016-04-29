@@ -743,7 +743,7 @@ class DataSource(Base):
             list(DataSource.well_known_sources(_db))
 
         names = cls.metadata_lookups_by_identifier_type[type] 
-        return _db.query(DataSource).filter(DataSource.name.in_(names))
+        return _db.query(DataSource).filter(DataSource.name.in_(names)).all()
 
     @classmethod
     def well_known_sources(cls, _db):
