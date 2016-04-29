@@ -7,7 +7,7 @@ import json
 import feedparser
 from werkzeug import ImmutableMultiDict
 
-from ..test_controller import ControllerTest
+from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers
 from api.problem_details import *
 from api.admin.config import (
@@ -28,7 +28,7 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
 )
 
-class AdminControllerTest(ControllerTest):
+class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
         with temp_config() as config:

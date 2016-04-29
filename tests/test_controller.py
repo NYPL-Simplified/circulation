@@ -70,15 +70,26 @@ class ControllerTest(DatabaseTest):
     app = None
 
     @classmethod
-    def get_database_connection(cls):
+    def setup_class(cls):
         """Set up the app server and create a database session scoped to its
         requests.
         """
+        DatabaseTest.setup_class()
+        cls.valid_auth = 'Basic ' + base64.b64encode('200:2222')
+        cls.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
+    def setup(self):
+        """Create a CirculationManager that uses the database connection
+        associated with this test. Tell the application object to use
+        that CirculationManager for the duration of this test.
+        """
+        super(ControllerTest, self).setup()
         os.environ['AUTOINITIALIZE'] = "False"
-        from api.app import app, _db
-        app.secret_key = 'test'
+        from api.app import app
+        self.app = app
         del os.environ['AUTOINITIALIZE']
+
+        app.secret_key = 'test'
 
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
@@ -87,9 +98,6 @@ class ControllerTest(DatabaseTest):
         # when you entered a new request context, deleting rows that
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
-
-        cls.valid_auth = 'Basic ' + base64.b64encode('200:2222')
-        cls.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -104,28 +112,13 @@ class ControllerTest(DatabaseTest):
                     "url": 'http://test-circulation-manager/'
                 }
             }
-            lanes = make_lanes_default(_db)
-            cls.manager = TestCirculationManager(_db, lanes=lanes, testing=True)
-            app.manager = cls.manager
-            cls.controller = CirculationManagerController(cls.manager)
+            lanes = make_lanes_default(self._db)
+            self.manager = TestCirculationManager(
+                self._db, lanes=lanes, testing=True
+            )
+            app.manager = self.manager
+            self.controller = CirculationManagerController(self.manager)
 
-        cls.app = app
-        cls._db = _db
-        connection = _db.connection()
-        return connection.engine, connection, _db
-
-    @classmethod
-    def teardown_database_connection(cls):
-        # The superclass implementation closes the session, but since
-        # we reuse a scoped session instead of creating a new one
-        # every time, we want to do nothing.
-        pass
-
-    def setup_database(self):
-        pass
-
-    def teardown_database(self):
-        pass
 
 class CirculationControllerTest(ControllerTest):
 
@@ -137,7 +130,7 @@ class CirculationControllerTest(ControllerTest):
             "Quite British", "John Bull", language="eng", fiction=True,
             with_open_access_download=True
         )
-
+        print self.english_1.license_pools
         self.english_2 = self._work(
             "Totally American", "Uncle Sam", language="eng", fiction=False,
             with_open_access_download=True
@@ -348,7 +341,13 @@ class TestLoanController(CirculationControllerTest):
             [entry] = feed['entries']
             fulfillment_links = [x['href'] for x in entry['links']
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
-            [mech1, mech2] = self.pool.delivery_mechanisms
+            [mech1, mech2] = sorted(
+                self.pool.delivery_mechanisms, 
+                key=lambda x: x.delivery_mechanism.default_client_can_fulfill
+            )
+
+            fulfillable_mechanism = mech2
+
             expects = [url_for('fulfill', data_source=self.data_source.name,
                               identifier=self.identifier.identifier, 
                               mechanism_id=mech.delivery_mechanism.id,
@@ -358,14 +357,14 @@ class TestLoanController(CirculationControllerTest):
             # Now let's try to fulfill the loan.
             response = self.manager.loans.fulfill(
                 self.data_source.name, self.identifier.identifier,
-                mech1.delivery_mechanism.id
+                fulfillable_mechanism.delivery_mechanism.id
             )
             eq_(302, response.status_code)
-            eq_(mech1.resource.url,
+            eq_(fulfillable_mechanism.resource.url,
                 response.headers['Location'])
 
             # The mechanism we used has been registered with the loan.
-            eq_(mech1, loan.fulfillment)
+            eq_(fulfillable_mechanism, loan.fulfillment)
 
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
@@ -373,14 +372,14 @@ class TestLoanController(CirculationControllerTest):
                 self.data_source.name, self.identifier.identifier
             )
             eq_(302, response.status_code)
-            eq_(mech1.resource.url,
+            eq_(fulfillable_mechanism.resource.url,
                 response.headers['Location'])
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
                 self.data_source.name, self.identifier.identifier,
-                mech2.delivery_mechanism.id
+                mech1.delivery_mechanism.id
             )
 
             eq_(409, response.status_code)
