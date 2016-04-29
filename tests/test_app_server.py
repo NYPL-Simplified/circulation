@@ -165,7 +165,6 @@ class TestComplaintController(DatabaseTest):
                 "detail": "bar",
             }
         )
-        set_trace()
         with self.app.test_request_context("/"):
             response = self.controller.register(self.pool, data)
         assert response.status.startswith('201')

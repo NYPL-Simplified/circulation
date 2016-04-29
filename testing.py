@@ -95,6 +95,7 @@ class DatabaseTest(object):
 
     @classmethod
     def teardown_class(cls):
+        # Destroy the database connection and engine.
         cls.connection.close()
         cls.engine.dispose()
 
@@ -111,7 +112,7 @@ class DatabaseTest(object):
     def setup(self):
         # Create a new connection to the database.
         self._db = Session(self.connection)
-        self.transaction = self._db.begin_nested()
+        self.transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 1000
@@ -122,9 +123,13 @@ class DatabaseTest(object):
         self.search_mock.start()
 
     def teardown(self):
-        # Roll back all database changes that happened during this test.
-        self.transaction.rollback()
+        # Close the session.
         self._db.close()
+
+        # Roll back all database changes that happened during this
+        # test, whether in the session that was just closed or some
+        # other session.
+        self.transaction.rollback()
         self.search_mock.stop()
 
     @property
