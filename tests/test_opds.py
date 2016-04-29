@@ -82,6 +82,27 @@ class TestCirculationManagerAnnotator(DatabaseTest):
     def test_top_level_title(self):
         eq_("Test Top Level Title", self.annotator.top_level_title())
 
+    def test_group_uri_with_flattened_lane(self):
+        spanish_lane = Lane(
+            self._db, "Spanish", languages="spa"
+        )
+        flat_spanish_lane = dict({
+            "lane": spanish_lane,
+            "label": "All Spanish",
+            "link_to_list_feed": True
+        })
+        spanish_work = self._work(
+            title="Spanish Book",
+            with_license_pool=True,
+            language="spa"
+        )
+        lp = spanish_work.license_pools[0]
+        self.annotator.lanes_by_work[spanish_work].append(flat_spanish_lane)
+
+        feed_url = self.annotator.feed_url(spanish_lane)
+        group_uri = self.annotator.group_uri(spanish_work, lp, lp.identifier)
+        eq_((feed_url, "All Spanish"), group_uri)
+
     def test_lane_url(self):
         fantasy_lane_with_sublanes = Lane(
             self._db, "Fantasy", genres=[Fantasy], languages="eng", 

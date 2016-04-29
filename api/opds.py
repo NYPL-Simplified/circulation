@@ -183,7 +183,7 @@ class CirculationManagerAnnotator(Annotator):
             title = lane.display_name
 
         if show_feed:
-            return self.feed_url(lane)
+            return self.feed_url(lane), title
 
         return self.lane_url(lane), title
 
