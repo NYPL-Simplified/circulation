@@ -85,15 +85,6 @@ class DatabaseTest(object):
 
     @classmethod
     def setup_class(cls):
-
-        # Create a new connection to the database.
-        cls.engine, cls.connection, cls._db = cls.get_database_connection()
-
-        # This transaction will be rolled back once all of the class's
-        # tests have been run. It shouldn't be necessary since each
-        # test also runs in a nested transaction.
-        cls.class_transaction = cls._db.begin_nested()
-
         # Initialize a temporary data directory.
         cls.old_data_dir = Configuration.data_directory
         cls.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
@@ -103,12 +94,6 @@ class DatabaseTest(object):
 
     @classmethod
     def teardown_class(cls):
-        # Roll back any pending changes in the database session and
-        # disconnect from the database.
-        cls._db.rollback()
-        cls.connection.close()
-        cls.engine.dispose()
-
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
             shutil.rmtree(cls.tmp_data_dir)
@@ -120,6 +105,8 @@ class DatabaseTest(object):
             del os.environ['TESTING']
 
     def setup(self):
+        # Create a new connection to the database.
+        self.engine, self.connection, self._db = self.get_database_connection()
         self.transaction = self._db.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
@@ -132,9 +119,10 @@ class DatabaseTest(object):
 
     def teardown(self):
         # Roll back all database changes that happened during this test.
-        if self.transaction.is_active:
-            self.transaction.rollback()
         self._db.rollback()
+        self._db.close()
+        self.connection.close()
+        self.engine.dispose()
         self.search_mock.stop()
 
     @property
