@@ -6069,14 +6069,12 @@ class Representation(Base):
             media_type = None
 
         # At this point we can create/fetch a Representation object if
-        # we don't have one already, or if the URL or media type we
-        # actually got from the server differs from what we thought
-        # we had.
+        # we don't have one already, or if the URL we actually got from 
+        # the server differs from what we thought we had.
         if (not usable_representation 
-            or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url, media_type=media_type)
+                _db, Representation, url=url)
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
@@ -6248,10 +6246,35 @@ class Representation(Base):
         """
         return self._clean_media_type(self.media_type)
 
+    @property
+    def url_extension(self):
+        """The file extension in this representation's original url."""
+
+        # Known extensions can be followed by a version number (.epub3)
+        # or an additional extension (.epub.noimages)
+        known_extensions = "|".join(self.FILE_EXTENSIONS.values())
+        known_extension_re = re.compile("\.(%s)\d?\.?[\w\d]*$" % known_extensions, re.I)
+
+        known_match = known_extension_re.search(self.url)
+
+        if known_match:
+            return known_match.group()
+
+        else:
+            any_extension_re = re.compile("\.[\w\d]*$", re.I)
+        
+            any_match = any_extension_re.search(self.url)
+
+            if any_match:
+                return any_match.group()
+        return None
+
     def extension(self, destination_type=None):
         """Try to come up with a good file extension for this representation."""
-        destination_type = destination_type or self.clean_media_type
-        return self._extension(destination_type)
+        if destination_type:
+            return self._extension(destination_type)
+        else:
+            return self.url_extension or self._extension(self.clean_media_type)
 
     @classmethod
     def _clean_media_type(cls, media_type):

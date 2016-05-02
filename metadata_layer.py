@@ -1083,6 +1083,15 @@ class Metadata(object):
             _db, link.href, do_get=http_get
         )
 
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence. If we didn't see any media type, the one from
+        # the LinkObject is the best we have.
+        if representation.media_type:
+            link.media_type = representation.media_type
+        elif link.media_type:
+            representation.media_type = link.media_type
+
         # Make sure the (potentially newly-fetched) representation is
         # associated with the resource.
         link_obj.resource.representation = representation
@@ -1093,7 +1102,7 @@ class Metadata(object):
             if pool and pool.edition and pool.edition.title:
                 title = pool.edition.title
             else:
-                title = None
+                title = self.title or None
             extension = representation.extension()
             mirror_url = mirror.book_url(
                 identifier, data_source=data_source, title=title,
@@ -1107,12 +1116,6 @@ class Metadata(object):
 
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
-
-        # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
-        # precedence.
-        if representation.media_type:
-            link.media_type = representation.media_type
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
@@ -1135,6 +1138,14 @@ class Metadata(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail)
 
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            # If we mirrored book content successfully, don't keep it in
+            # the database to save space. We do keep images in case we
+            # ever need to resize them.
+            if representation.mirrored_at and not representation.mirror_exception:
+                representation.content = None
+
+        
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
