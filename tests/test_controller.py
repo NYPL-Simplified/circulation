@@ -5,6 +5,11 @@ from nose.tools import (
 )
 import os
 import datetime
+
+import flask
+from flask import url_for
+from flask_sqlalchemy_session import current_session
+
 from . import DatabaseTest
 from api.config import (
     Configuration,
@@ -36,7 +41,7 @@ from core.lane import (
     Facets,
     Pagination,
 )
-import flask
+
 from api.problem_details import *
 from api.circulation_exceptions import *
 from api.circulation import (
@@ -45,7 +50,6 @@ from api.circulation import (
 )
 
 from api.lanes import make_lanes_default
-from flask import url_for
 from core.util.cdn import cdnify
 import base64
 import feedparser
@@ -66,17 +70,15 @@ class TestCirculationManager(CirculationManager):
         return cdnify(base_url, "http://cdn/")
 
 class ControllerTest(DatabaseTest):
+    """A test that requires a functional app server."""
 
-    app = None
     valid_auth = 'Basic ' + base64.b64encode('200:2222')
     invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
-    def setup(self):
-        """Create a CirculationManager that uses the database connection
-        associated with this test. Tell the application object to use
-        that CirculationManager for the duration of this test.
-        """
+    def setup(self, _db=None):
         super(ControllerTest, self).setup()
+
+        _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         self.app = app
@@ -103,13 +105,12 @@ class ControllerTest(DatabaseTest):
                     "url": 'http://test-circulation-manager/'
                 }
             }
-            lanes = make_lanes_default(self._db)
+            lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
-                self._db, lanes=lanes, testing=True
+                _db, lanes=lanes, testing=True
             )
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-
 
 class CirculationControllerTest(ControllerTest):
 
@@ -132,6 +133,21 @@ class CirculationControllerTest(ControllerTest):
         )
 
 class TestBaseController(CirculationControllerTest):
+
+    def test_unscoped_session(self):
+        """Compare to TestScopedSession.test_scoped_session to see
+        how database sessions will be handled in production.
+        """
+        with self.app.test_request_context("/"):
+            response1 = self.manager.index_controller()
+            session1 = current_session()
+
+        with self.app.test_request_context("/"):
+            response2 = self.manager.index_controller()
+            session2 = current_session()
+
+        # Both requests used the same session.
+        eq_(session1, session2)
 
     def test_authenticated_patron_invalid_credentials(self):
         value = self.controller.authenticated_patron("5", "1234")
@@ -784,3 +800,54 @@ class TestFeedController(CirculationControllerTest):
                 assert self.english_1.title not in response.data
                 assert self.english_2.title in response.data
                 assert self.french_1.author not in response.data
+
+
+class TestScopedSession(ControllerTest):
+    """Test that in production scenarios (as opposed to normal unit tests)
+    the app server runs each incoming request in a separate database
+    session.
+
+    Compare to TestBaseController.test_unscoped_session, which tests
+    the corresponding behavior in unit tests.
+    """
+
+    def setup(self):
+        from api.app import _db
+        super(TestScopedSession, self).setup(_db)
+
+    def test_scoped_session(self):
+        # Start a simulated request to the Flask app server.
+        with self.app.test_request_context("/"):
+            session1 = current_session()
+
+            # Add an Identifier to the database.
+            identifier = Identifier(type=DataSource.GUTENBERG, identifier="1024")
+            session1.add(identifier)
+            session1.flush()
+
+            # The Identifier immediately shows up in the session that
+            # created it.
+            [identifier] = session1.query(Identifier).all()
+            eq_("1024", identifier.identifier)
+
+            # It doesn't show up in self._db, the database session
+            # used by most other unit tests, because it was created
+            # within the (still-active) context of a Flask request,
+            # which happens within a nested database session.
+            assert self._db != session1
+            eq_([], self._db.query(Identifier).all())
+
+        # Once we exit the context of the Flask request, the session is
+        # committed and the Identifier shows up everywhere.
+        [identifier] = self._db.query(Identifier).all()
+        eq_("1024", identifier.identifier)
+
+        # Now create a different simulated Flask request
+        with self.app.test_request_context("/"):
+            session2 = current_session()
+
+        # The two Flask requests got different sessions, neither of
+        # which is the same as self._db, the unscoped database session
+        # used by most other unit tests.
+        assert session1 != session2
+        assert self._db != session2
