@@ -61,7 +61,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     service_name = "Metadata Wrangler Coverage Provider"
 
     def __init__(self, _db, identifier_types=None, metadata_lookup=None,
-                 cutoff_time=None):
+                 cutoff_time=None, operation=None):
         self._db = _db
         if not identifier_types:
             identifier_types = [
@@ -78,23 +78,27 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             metadata_lookup = SimplifiedOPDSLookup.from_config()
         self.lookup = metadata_lookup
 
+        if not operation:
+            operation = CoverageRecord.SYNC_OPERATION
+        self.operation = operation
+
         super(MetadataWranglerCoverageProvider, self).__init__(
             self.service_name,
             identifier_types,
             self.output_source,
             workset_size=20,
             cutoff_time=cutoff_time,
+            operation=self.operation,
         )
 
     @property
     def items_that_need_coverage(self):
-        reaper_source = DataSource.lookup(
-            self._db, DataSource.METADATA_WRANGLER_COLLECTION
-        )
+        """Returns items that are licensed and have not been covered"""
         uncovered = super(MetadataWranglerCoverageProvider, self).items_that_need_coverage
         reaper_covered = self._db.query(Identifier).\
                 join(Identifier.coverage_records).\
-                filter(CoverageRecord.data_source==reaper_source)
+                filter(CoverageRecord.data_source==self.output_source).\
+                filter(CoverageRecord.operation==CoverageRecord.REAP_OPERATION)
         relicensed = reaper_covered.join(Identifier.licensed_through).\
                 filter(LicensePool.licenses_owned > 0).\
                 options(contains_eager(Identifier.coverage_records))
@@ -103,8 +107,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         for identifier in relicensed.all():
             [reaper_coverage_record] = [record
                     for record in identifier.coverage_records
-                    if record.data_source==reaper_source]
-            identifier.coverage_records.remove(reaper_coverage_record)
+                    if (record.data_source==self.output_source and
+                        record.operation==CoverageRecord.REAP_OPERATION)]
+            self._db.delete(reaper_coverage_record)
         return uncovered.except_(reaper_covered).union(relicensed)
 
     def create_id_mapping(self, batch):
@@ -193,25 +198,17 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
 
     def __init__(self, _db):
         super(MetadataWranglerCollectionReaper, self).__init__(_db)
-        self.output_source = DataSource.lookup(
-            self._db, DataSource.METADATA_WRANGLER_COLLECTION
-        )
-        self.collection_source = DataSource.lookup(
-            self._db, DataSource.METADATA_WRANGLER
-        )
+        self.operation = CoverageRecord.REAP_OPERATION
 
     @property
     def items_that_need_coverage(self):
-        """Retreives Identifiers that are no longer licensed and have
-        Metadata Wrangler coverage"""
+        """Retreives Identifiers that have been synced and are no longer licensed"""
 
         return self._db.query(Identifier).select_from(LicensePool).\
-            join(LicensePool.identifier).\
-            filter(
-                LicensePool.licenses_owned==0, LicensePool.open_access!=True
-            ).join(CoverageRecord).filter(
-                CoverageRecord.data_source==self.collection_source
-            )
+            join(LicensePool.identifier).join(CoverageRecord).\
+            filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
+            filter(CoverageRecord.data_source==self.output_source).\
+            filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION)
 
     def process_batch(self, batch):
         id_mapping = self.create_id_mapping(batch)
@@ -241,22 +238,26 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         This allows Identifiers to be added to the collection again via
         MetadataWranglerCoverageProvider lookup if a license is repurchased.
         """
-        # Get the identifiers that have double coverage.
         qu = self._db.query(Identifier.id).join(Identifier.coverage_records)
         reaper_covered = qu.filter(
-            CoverageRecord.data_source==self.output_source
+            CoverageRecord.data_source==self.output_source,
+            CoverageRecord.operation==CoverageRecord.REAP_OPERATION
         )
         wrangler_covered = qu.filter(
-            CoverageRecord.data_source==self.collection_source
+            CoverageRecord.data_source==self.output_source,
+            CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
         )
+        # Get the db ids of identifiers that have been both synced and reaped.
         subquery = reaper_covered.intersect(wrangler_covered).subquery()
 
-        # Retreive and the Metadata Wrangler coverage record
+        # Retreive the outdated syncing coverage record and delete it.
         coverage_records = self._db.query(CoverageRecord).\
                 join(CoverageRecord.identifier).\
                 join(subquery, Identifier.id.in_(subquery)).\
-                filter(CoverageRecord.data_source==self.collection_source)
-
+                filter(
+                    CoverageRecord.data_source==self.output_source,
+                    CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
+                )
         for record in coverage_records.all():
             self._db.delete(record)
 
