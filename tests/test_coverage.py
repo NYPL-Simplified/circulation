@@ -7,17 +7,19 @@ from . import (
     DatabaseTest,
 )
 
+from core.config import (
+    Configuration,
+    temp_config,
+)
 from core.model import (
     CoverageRecord,
     DataSource,
     Identifier,
 )
-
-from core.opds_import import(
+from core.opds_import import (
     StatusMessage,
 )
-
-from core.coverage import(
+from core.coverage import (
     CoverageFailure,
 )
 
@@ -70,7 +72,11 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         self._coverage_record(relicensed, reaper_source)
         relicensed_lp.update_availability(1, 0, 0, 0)
 
-        provider = MetadataWranglerCoverageProvider(self._db)
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
+                Configuration.URL : "http://url.gov"
+            }
+            provider = MetadataWranglerCoverageProvider(self._db)
         items = provider.items_that_need_coverage.all()
         assert reaper_cr.identifier not in items
         eq_([cr.identifier, relicensed_lp.identifier], items)
@@ -83,7 +89,12 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         self.wrangler_source = DataSource.lookup(
             self._db, DataSource.METADATA_WRANGLER
         )
-        self.reaper = MetadataWranglerCollectionReaper(self._db)
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
+                Configuration.URL : "http://url.gov"
+            }
+            self.reaper = MetadataWranglerCollectionReaper(self._db)
 
     def test_items_that_need_coverage(self):
         covered_unlicensed_lp = self._licensepool(None, open_access=False)

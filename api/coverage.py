@@ -76,10 +76,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         )
 
         if not metadata_lookup:
-            url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-            )
-            metadata_lookup = SimplifiedOPDSLookup(url)
+            metadata_lookup = SimplifiedOPDSLookup.from_config()
         self.lookup = metadata_lookup
 
         super(MetadataWranglerCoverageProvider, self).__init__(
