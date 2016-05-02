@@ -138,16 +138,14 @@ class TestBaseController(CirculationControllerTest):
         """Compare to TestScopedSession.test_scoped_session to see
         how database sessions will be handled in production.
         """
+        # Both requests used the self._db session used by most unit tests.
         with self.app.test_request_context("/"):
             response1 = self.manager.index_controller()
-            session1 = current_session()
+            eq_(self.app.manager._db, self._db)
 
         with self.app.test_request_context("/"):
             response2 = self.manager.index_controller()
-            session2 = current_session()
-
-        # Both requests used the same session.
-        eq_(session1, session2)
+            eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
         value = self.controller.authenticated_patron("5", "1234")
@@ -818,7 +816,12 @@ class TestScopedSession(ControllerTest):
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
         with self.app.test_request_context("/"):
+            # Each request is given its own database session distinct
+            # from the one used by most unit tests or the one
+            # associated with the CirculationManager object.
             session1 = current_session()
+            assert session1 != self._db
+            assert session1 != self.app.manager._db
 
             # Add an Identifier to the database.
             identifier = Identifier(type=DataSource.GUTENBERG, identifier="1024")
@@ -834,7 +837,6 @@ class TestScopedSession(ControllerTest):
             # used by most other unit tests, because it was created
             # within the (still-active) context of a Flask request,
             # which happens within a nested database session.
-            assert self._db != session1
             eq_([], self._db.query(Identifier).all())
 
         # Once we exit the context of the Flask request, the session is
@@ -845,9 +847,10 @@ class TestScopedSession(ControllerTest):
         # Now create a different simulated Flask request
         with self.app.test_request_context("/"):
             session2 = current_session()
+            assert session2 != self._db
+            assert session2 != self.app.manager._db
 
         # The two Flask requests got different sessions, neither of
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
-        assert self._db != session2

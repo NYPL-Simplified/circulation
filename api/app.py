@@ -15,6 +15,7 @@ from core.model import SessionManager
 
 app = Flask(__name__)
 
+
 testing = 'TESTING' in os.environ
 db_url = Configuration.database_url(testing)
 SessionManager.initialize(db_url)
