@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+from contextlib import contextmanager
 import os
 import datetime
 
@@ -821,9 +822,19 @@ class TestScopedSession(ControllerTest):
         from api.app import _db
         super(TestScopedSession, self).setup(_db)
 
+    @contextmanager
+    def test_request_context_and_transaction(self, *args):
+        """Run a simulated Flask request in a transaction that gets rolled
+        back at the end of the request.
+        """
+        with self.app.test_request_context(*args) as ctx:
+            transaction = current_session.begin_nested()
+            yield ctx
+            transaction.rollback()
+
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
-        with self.app.test_request_context("/"):
+        with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
             # from the one used by most unit tests or the one
             # associated with the CirculationManager object.
@@ -860,13 +871,24 @@ class TestScopedSession(ControllerTest):
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
 
-        # Once we exit the context of the Flask request, the session is
-        # committed and the Identifier shows up everywhere.
-        [identifier] = self._db.query(Identifier).all()
-        eq_("1024", identifier.identifier)
+        # Once we exit the context of the Flask request, the
+        # transaction is rolled back. The Identifier never actually
+        # enters the database.
+        #
+        # If it did enter the database, it would never leave.  Changes
+        # that happen through self._db happen inside a nested
+        # transaction which is rolled back after the test is over.
+        # But changes that happen through a session-scoped database
+        # connection are actually written to the database when we
+        # leave the scope of the request.
+        #
+        # To avoid this, we use test_request_context_and_transaction
+        # to create a nested transaction that's rolled back just
+        # before we leave the scope of the request.
+        eq_([], self._db.query(Identifier).all())
 
         # Now create a different simulated Flask request
-        with self.app.test_request_context("/"):
+        with self.test_request_context_and_transaction("/"):
             session2 = current_session()
             assert session2 != self._db
             assert session2 != self.app.manager._db
