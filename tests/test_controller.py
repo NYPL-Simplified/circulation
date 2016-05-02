@@ -122,7 +122,6 @@ class CirculationControllerTest(ControllerTest):
             "Quite British", "John Bull", language="eng", fiction=True,
             with_open_access_download=True
         )
-        print self.english_1.license_pools
         self.english_2 = self._work(
             "Totally American", "Uncle Sam", language="eng", fiction=False,
             with_open_access_download=True
