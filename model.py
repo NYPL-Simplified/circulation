@@ -257,12 +257,8 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Create all genres.
-        Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
-
-        # Load all delivery mechanisms from the database.
-        DeliveryMechanism.load_all(session)
 
         # Make sure that the mechanisms fulfillable by the default
         # client are marked as such.
@@ -658,11 +654,7 @@ class DataSource(Base):
 
     @classmethod
     def lookup(cls, _db, name):
-        if hasattr(_db, 'data_sources'):
-            return _db.data_sources.get(name)
-        else:
-            # This should only happen during tests.
-            return get_one(_db, DataSource, name=name)
+        return get_one(_db, DataSource, name=name)
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
@@ -737,7 +729,6 @@ class DataSource(Base):
             DataSource.primary_identifier_type==type)
         return q
 
-
     @classmethod
     def metadata_sources_for(cls, _db, identifier):
         """Finds the DataSources that provide metadata for books
@@ -748,19 +739,19 @@ class DataSource(Base):
         else:
             type = identifier.type
 
-        if not hasattr(_db, 'metadata_lookups_by_identifier_type'):
+        if not hasattr(cls, 'metadata_lookups_by_identifier_type'):
             # This should only happen during testing.
             list(DataSource.well_known_sources(_db))
-        return _db.metadata_lookups_by_identifier_type[identifier.type]
+
+        names = cls.metadata_lookups_by_identifier_type[type] 
+        return _db.query(DataSource).filter(DataSource.name.in_(names)).all()
 
     @classmethod
     def well_known_sources(cls, _db):
-        """Make sure all the well-known sources exist and are loaded into
-        the cache associated with the database connection.
+        """Make sure all the well-known sources exist in the database.
         """
 
-        _db.data_sources = dict()
-        _db.metadata_lookups_by_identifier_type = defaultdict(list)
+        cls.metadata_lookups_by_identifier_type = defaultdict(list)
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
@@ -803,10 +794,10 @@ class DataSource(Base):
                 )
             )
 
-            _db.data_sources[obj.name] = obj
             if offers_metadata_lookup:
-                l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
-                l.append(obj)
+                l = cls.metadata_lookups_by_identifier_type[primary_identifier_type]
+                l.append(obj.name)
+
             yield obj
 
 
@@ -4479,38 +4470,18 @@ class Genre(Base):
             len(classifier.genres[self.name].subgenres))
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all Genre objects into the cache associated with the
-        database connection.
-        """
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        for g in _db.query(Genre):
-            _db._genre_cache[g.name] = g
-
-    @classmethod
     def lookup(cls, _db, name, autocreate=False):
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        if isinstance(name, Genre):
-            return name, False
         if isinstance(name, GenreData):
             name = name.name
-        if name in _db._genre_cache:
-            return _db._genre_cache[name], False
+        args = (_db, Genre)
         if autocreate:
-            m = get_one_or_create
+            result, new = get_one_or_create(*args, name=name)
         else:
-            m = get_one
-        result = m(_db, Genre, name=name)
+            result = get_one(*args, name=name)
+            new = False
         if result is None:
             logging.getLogger().error('"%s" is not a recognized genre.', name)
-        if isinstance(result, tuple):
-            _db._genre_cache[name] = result[0]
-            return result
-        else:
-            _db._genre_cache[name] = result
-            return result, False
+        return result, new
 
     @property
     def genredata(self):
@@ -6526,29 +6497,11 @@ class DeliveryMechanism(Base):
         )
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all DeliveryMechanism objects into the cache associated with
-        the database connection.
-        """
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        for m in _db.query(DeliveryMechanism):
-            _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
-
-    @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        key = (content_type, drm_scheme)
-        cache = _db._deliverymechanism_cache
-        if key in cache:
-            return cache[key], False
-        result, is_new = get_one_or_create(
+        return get_one_or_create(
             _db, DeliveryMechanism, content_type=content_type,
             drm_scheme=drm_scheme
         )
-        cache[key] = result
-        return result, is_new
 
     @property
     def implicit_medium(self):

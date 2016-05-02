@@ -413,7 +413,6 @@ class TestLanes(DatabaseTest):
         # children.
         eq_(lane, sublanes[0].search_target)
 
-
     def test_custom_sublanes(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
@@ -439,8 +438,6 @@ class TestLanes(DatabaseTest):
         )
         eq_([[urban_fantasy]], [x.genres for x in fantasy_lane.sublanes.lanes])
 
-
-
     def test_custom_lanes_conflict_with_subgenre_sublanes(self):
 
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
@@ -456,6 +453,7 @@ class TestLanes(DatabaseTest):
             subgenre_behavior=Lane.IN_SUBLANES,
             sublanes=[urban_fantasy_lane]
         )
+
     def test_lane_query_with_configured_opds(self):
         """The appropriate opds entry is deferred during querying.
         """
@@ -483,6 +481,45 @@ class TestLanes(DatabaseTest):
         assert "verbose_opds_entry" not in mw_query_str
 
         Configuration.DEFAULT_OPDS_FORMAT = original_setting
+
+    def test_visible_parent(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        sublane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        invisible_parent = Lane(
+            self._db, "Fantasy", invisible=True, genres=fantasy, 
+            sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        visible_grandparent = Lane(
+            self._db, "English", sublanes=[invisible_parent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(sublane.visible_parent(), visible_grandparent)
+        eq_(invisible_parent.visible_parent(), visible_grandparent)
+        eq_(visible_grandparent.visible_parent(), None)
+
+    def test_has_visible_sublane(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        sublane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy,
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        invisible_parent = Lane(
+            self._db, "Fantasy", invisible=True, genres=fantasy,
+            sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        visible_grandparent = Lane(
+            self._db, "English", sublanes=[invisible_parent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(False, visible_grandparent.has_visible_sublane())
+        eq_(True, invisible_parent.has_visible_sublane())
+        eq_(False, sublane.has_visible_sublane())
 
 
 class TestLanesQuery(DatabaseTest):
@@ -601,7 +638,7 @@ class TestLanesQuery(DatabaseTest):
         # I'm putting all these tests into one method because the
         # setup function is so very expensive.
 
-        def test_expectations(lane, expected_count, predicate,
+        def _assert_expectations(lane, expected_count, predicate,
                               mw_predicate=None):
             """Ensure that a database query and a query of the
             materialized view give the same results.
@@ -618,24 +655,24 @@ class TestLanesQuery(DatabaseTest):
         # The 'everything' lane contains 18 works -- everything except
         # the music.
         lane = Lane(self._db, "Everything")
-        w, mw = test_expectations(lane, 18, lambda x: True)
+        w, mw = _assert_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
         lane = Lane(self._db, "Spanish", languages='spa')
         eq_(['spa'], lane.languages)
-        w, mw = test_expectations(lane, 1, lambda x: True)
+        w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'everything except English' lane contains that same book.
         lane = Lane(self._db, "Not English", exclude_languages='eng')
         eq_(None, lane.languages)
         eq_(['eng'], lane.exclude_languages)
-        w, mw = test_expectations(lane, 1, lambda x: True)
+        w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'music' lane contains 1 work of music
         lane = Lane(self._db, "Music", media=Edition.MUSIC_MEDIUM)
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 1, 
             lambda x: x.primary_edition.medium==Edition.MUSIC_MEDIUM,
             lambda x: x.medium==Edition.MUSIC_MEDIUM
@@ -643,14 +680,14 @@ class TestLanesQuery(DatabaseTest):
         
         # The 'English fiction' lane contains ten fiction books.
         lane = Lane(self._db, "English Fiction", fiction=True, languages='eng')
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 10, lambda x: x.fiction
         )
 
         # The 'nonfiction' lane contains seven nonfiction books.
         # It does not contain the music.
         lane = Lane(self._db, "Nonfiction", fiction=False)
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 7, 
             lambda x: x.primary_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
             lambda x: x.medium==Edition.BOOK_MEDIUM and not x.fiction
@@ -659,7 +696,7 @@ class TestLanesQuery(DatabaseTest):
         # The 'adults' lane contains five books for adults.
         lane = Lane(self._db, "Adult English",
                     audiences=Lane.AUDIENCE_ADULT, languages='eng')
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_ADULT
         )
 
@@ -669,7 +706,7 @@ class TestLanesQuery(DatabaseTest):
         lane = Lane(self._db, "Adult + Adult Only",
                     audiences=audiences, languages='eng'
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 7, lambda x: x.audience in audiences
         )
         eq_(2, len([x for x in w if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
@@ -678,7 +715,7 @@ class TestLanesQuery(DatabaseTest):
         # The 'Young Adults' lane contains five books.
         lane = Lane(self._db, "Young Adults", 
                     audiences=Lane.AUDIENCE_YOUNG_ADULT)
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_YOUNG_ADULT
         )
 
@@ -687,7 +724,7 @@ class TestLanesQuery(DatabaseTest):
             self._db, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=7
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 1, lambda x: x.audience==Lane.AUDIENCE_CHILDREN
         )
 
@@ -696,7 +733,7 @@ class TestLanesQuery(DatabaseTest):
             self._db, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=(10,12)
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 4, lambda x: x.audience==Lane.AUDIENCE_CHILDREN
         )
        
@@ -714,7 +751,7 @@ class TestLanesQuery(DatabaseTest):
             audiences=Lane.AUDIENCE_ADULT,
         )
         # We get three books: Fantasy, Urban Fantasy, and Epic Fantasy.
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 3, lambda x: True
         )
         expect = [u'Epic Fantasy Adult', u'Fantasy Adult', u'Urban Fantasy Adult']
@@ -737,7 +774,7 @@ class TestLanesQuery(DatabaseTest):
             sorted([x.name for x in lane.genres]))
 
         # We get two books: Fantasy and Epic Fantasy.
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 2, lambda x: True
         )
         expect = [u'Epic Fantasy YA', u'Fantasy YA']
@@ -748,7 +785,7 @@ class TestLanesQuery(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         lane = Lane(self._db, full_name="Overdrive Books",
                     license_source=overdrive)
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             lane, 10, lambda x: True
         )
         for i in mw:
@@ -784,7 +821,7 @@ class TestLanesQuery(DatabaseTest):
             self._db, full_name="Fiction Best Sellers",
             list_identifier=fic_name
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             fiction_best_sellers, 1, 
             lambda x: x.sort_title == self.fiction.sort_title
         )
@@ -794,7 +831,7 @@ class TestLanesQuery(DatabaseTest):
             self._db, full_name="All Best Sellers",
             list_data_source=best_seller_list_1.data_source.name
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             all_best_sellers, 2, 
             lambda x: x.sort_title in (
                 self.fiction.sort_title, self.nonfiction.sort_title
@@ -807,7 +844,7 @@ class TestLanesQuery(DatabaseTest):
             fiction=False,
             list_data_source=best_seller_list_1.data_source.name
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             all_nonfiction_best_sellers, 1, 
             lambda x: x.sort_title==self.nonfiction.sort_title
         )
@@ -819,7 +856,7 @@ class TestLanesQuery(DatabaseTest):
             list_data_source=best_seller_list_1.data_source.name,
             list_seen_in_previous_days=7
         )
-        w, mw = test_expectations(
+        w, mw = _assert_expectations(
             best_sellers_past_week, 1, 
             lambda x: x.sort_title==self.fiction.sort_title
         )
