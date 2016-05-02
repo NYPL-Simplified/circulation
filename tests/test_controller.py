@@ -762,6 +762,15 @@ class TestFeedController(CirculationControllerTest):
                 eq_(1, counter['Other Languages'])
 
     def test_search(self):
+
+        # Put two works into the search index
+        self.english_1.update_external_index(self.manager.external_search)
+        self.english_2.update_external_index(self.manager.external_search)
+
+        # Update the materialized view to make sure the works show up.
+        SessionManager.refresh_materialized_views(self._db)
+
+        # Execute a search query designed to find the second one.
         with self.app.test_request_context("/?q=t&size=1&after=1"):
             response = self.manager.opds_feeds.search(None, None)
             feed = feedparser.parse(response.data)
@@ -770,7 +779,7 @@ class TestFeedController(CirculationControllerTest):
             eq_(1, len(entries))
             entry = entries[0]
 
-            eq_("Uncle Sam", entry.author)
+            eq_(self.english_2.author, entry.author)
 
             assert 'links' in entry
             assert len(entry.links) > 0
