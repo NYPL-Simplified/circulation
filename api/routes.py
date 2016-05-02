@@ -21,7 +21,6 @@ from opds import (
 )
 from controller import CirculationManager
 
-
 @app.before_first_request
 def initialize_circulation_manager():
     if os.environ.get('AUTOINITIALIZE') == "False":
@@ -93,6 +92,11 @@ def feed(languages, lane_name):
 @returns_problem_detail
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
+
+@app.route('/preload')
+@returns_problem_detail
+def preload():
+    return app.manager.opds_feeds.preload()
 
 @app.route('/me', methods=['GET'])
 @requires_auth

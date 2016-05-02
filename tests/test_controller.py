@@ -72,6 +72,15 @@ class ControllerTest(DatabaseTest):
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
+
+        # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
+        # to prevent one test failure from breaking later tests as well.
+        # When used with flask's test_request_context, exceptions
+        # from previous tests wuold cause flask to roll back the db
+        # when you entered a new request context, deleting rows that
+        # were created in the test setup.
+        app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
+
         self.app = app
 
         # Create two English books and a French book.
@@ -742,3 +751,17 @@ class TestFeedController(ControllerTest):
 
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
+
+    def test_preload(self):
+        SessionManager.refresh_materialized_views(self._db)
+
+        with temp_config() as config:
+            urn = self.english_2.primary_edition.primary_identifier.urn
+            config[Configuration.POLICIES][Configuration.PRELOADED_CONTENT] = [urn]
+
+            with self.app.test_request_context("/"):
+                response = self.manager.opds_feeds.preload()
+
+                assert self.english_1.title not in response.data
+                assert self.english_2.title in response.data
+                assert self.french_1.author not in response.data
