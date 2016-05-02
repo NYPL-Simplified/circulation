@@ -3,8 +3,14 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+from contextlib import contextmanager
 import os
 import datetime
+
+import flask
+from flask import url_for
+from flask_sqlalchemy_session import current_session
+
 from . import DatabaseTest
 from api.config import (
     Configuration,
@@ -38,7 +44,7 @@ from core.lane import (
     Facets,
     Pagination,
 )
-import flask
+
 from api.problem_details import *
 from api.circulation_exceptions import *
 from api.circulation import (
@@ -47,7 +53,6 @@ from api.circulation import (
 )
 
 from api.lanes import make_lanes_default
-from flask import url_for
 from core.util.cdn import cdnify
 import base64
 import feedparser
@@ -68,11 +73,18 @@ class TestCirculationManager(CirculationManager):
         return cdnify(base_url, "http://cdn/")
 
 class ControllerTest(DatabaseTest):
-    def setup(self):
+    """A test that requires a functional app server."""
+
+    valid_auth = 'Basic ' + base64.b64encode('200:2222')
+    invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+
+    def setup(self, _db=None):
         super(ControllerTest, self).setup()
 
+        _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
+        self.app = app
         del os.environ['AUTOINITIALIZE']
 
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
@@ -82,25 +94,6 @@ class ControllerTest(DatabaseTest):
         # when you entered a new request context, deleting rows that
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
-
-        self.app = app
-
-        # Create two English books and a French book.
-        self.english_1 = self._work(
-            "Quite British", "John Bull", language="eng", fiction=True,
-            with_open_access_download=True
-        )
-
-        self.english_2 = self._work(
-            "Totally American", "Uncle Sam", language="eng", fiction=False,
-            with_open_access_download=True
-        )
-        self.french_1 = self._work(
-            u"Très Français", "Marianne", language="fre", fiction=False,
-            with_open_access_download=True
-        )
-        self.valid_auth = 'Basic ' + base64.b64encode('200:2222')
-        self.invalid_auth = 'Basic ' + base64.b64encode('200:2221')
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -115,12 +108,46 @@ class ControllerTest(DatabaseTest):
                     "url": 'http://test-circulation-manager/'
                 }
             }
-            lanes = make_lanes_default(self._db)
-            self.manager = TestCirculationManager(self._db, lanes=lanes, testing=True)
-            self.app.manager = self.manager
+            lanes = make_lanes_default(_db)
+            self.manager = TestCirculationManager(
+                _db, lanes=lanes, testing=True
+            )
+            app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
-class TestBaseController(ControllerTest):
+class CirculationControllerTest(ControllerTest):
+
+    def setup(self):
+        super(CirculationControllerTest, self).setup()
+
+        # Create two English books and a French book.
+        self.english_1 = self._work(
+            "Quite British", "John Bull", language="eng", fiction=True,
+            with_open_access_download=True
+        )
+        self.english_2 = self._work(
+            "Totally American", "Uncle Sam", language="eng", fiction=False,
+            with_open_access_download=True
+        )
+        self.french_1 = self._work(
+            u"Très Français", "Marianne", language="fre", fiction=False,
+            with_open_access_download=True
+        )
+
+class TestBaseController(CirculationControllerTest):
+
+    def test_unscoped_session(self):
+        """Compare to TestScopedSession.test_scoped_session to see
+        how database sessions will be handled in production.
+        """
+        # Both requests used the self._db session used by most unit tests.
+        with self.app.test_request_context("/"):
+            response1 = self.manager.index_controller()
+            eq_(self.app.manager._db, self._db)
+
+        with self.app.test_request_context("/"):
+            response2 = self.manager.index_controller()
+            eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
         value = self.controller.authenticated_patron("5", "1234")
@@ -234,7 +261,7 @@ class TestBaseController(ControllerTest):
         eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
 
-class TestIndexController(ControllerTest):
+class TestIndexController(CirculationControllerTest):
     
     def test_simple_redirect(self):
         with temp_config() as config:
@@ -271,7 +298,7 @@ class TestIndexController(ControllerTest):
                 eq_("http://cdn/groups/", response.headers['location'])
 
 
-class TestAccountController(ControllerTest):
+class TestAccountController(CirculationControllerTest):
 
     def test_patron_info_no_username(self):
         with self.app.test_request_context(
@@ -289,7 +316,7 @@ class TestAccountController(ControllerTest):
             eq_("0", account_info.get('barcode'))
 
 
-class TestLoanController(ControllerTest):
+class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
         self.pool = self.english_1.license_pools[0]
@@ -321,7 +348,13 @@ class TestLoanController(ControllerTest):
             [entry] = feed['entries']
             fulfillment_links = [x['href'] for x in entry['links']
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
-            [mech1, mech2] = self.pool.delivery_mechanisms
+            [mech1, mech2] = sorted(
+                self.pool.delivery_mechanisms, 
+                key=lambda x: x.delivery_mechanism.default_client_can_fulfill
+            )
+
+            fulfillable_mechanism = mech2
+
             expects = [url_for('fulfill', data_source=self.data_source.name,
                               identifier=self.identifier.identifier, 
                               mechanism_id=mech.delivery_mechanism.id,
@@ -331,14 +364,14 @@ class TestLoanController(ControllerTest):
             # Now let's try to fulfill the loan.
             response = self.manager.loans.fulfill(
                 self.data_source.name, self.identifier.identifier,
-                mech1.delivery_mechanism.id
+                fulfillable_mechanism.delivery_mechanism.id
             )
             eq_(302, response.status_code)
-            eq_(mech1.resource.url,
+            eq_(fulfillable_mechanism.resource.url,
                 response.headers['Location'])
 
             # The mechanism we used has been registered with the loan.
-            eq_(mech1, loan.fulfillment)
+            eq_(fulfillable_mechanism, loan.fulfillment)
 
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
@@ -346,14 +379,14 @@ class TestLoanController(ControllerTest):
                 self.data_source.name, self.identifier.identifier
             )
             eq_(302, response.status_code)
-            eq_(mech1.resource.url,
+            eq_(fulfillable_mechanism.resource.url,
                 response.headers['Location'])
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
                 self.data_source.name, self.identifier.identifier,
-                mech2.delivery_mechanism.id
+                mech1.delivery_mechanism.id
             )
 
             eq_(409, response.status_code)
@@ -585,7 +618,7 @@ class TestLoanController(ControllerTest):
             eq_(1, len(account_links))
             assert 'me' in account_links[0]['href']
 
-class TestWorkController(ControllerTest):
+class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
         [self.lp] = self.english_1.license_pools
@@ -628,7 +661,7 @@ class TestWorkController(ControllerTest):
         eq_("bar", complaint.detail)
 
 
-class TestFeedController(ControllerTest):
+class TestFeedController(CirculationControllerTest):
 
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
@@ -732,13 +765,22 @@ class TestFeedController(ControllerTest):
                 eq_(1, counter['Other Languages'])
 
     def test_search(self):
+
+        # Put two works into the search index
+        self.english_1.update_external_index(self.manager.external_search)
+        self.english_2.update_external_index(self.manager.external_search)
+
+        # Update the materialized view to make sure the works show up.
+        SessionManager.refresh_materialized_views(self._db)
+
+        # Execute a search query designed to find the second one.
         with self.app.test_request_context("/?q=t&size=1&after=1"):
             response = self.manager.opds_feeds.search(None, None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
             entry = entries[0]
-            assert entry.author in [self.english_1.author, self.english_2.author]
+            eq_(self.english_2.author, entry.author)
 
             assert 'links' in entry
             assert len(entry.links) > 0
@@ -765,3 +807,93 @@ class TestFeedController(ControllerTest):
                 assert self.english_1.title not in response.data
                 assert self.english_2.title in response.data
                 assert self.french_1.author not in response.data
+
+
+class TestScopedSession(ControllerTest):
+    """Test that in production scenarios (as opposed to normal unit tests)
+    the app server runs each incoming request in a separate database
+    session.
+
+    Compare to TestBaseController.test_unscoped_session, which tests
+    the corresponding behavior in unit tests.
+    """
+
+    def setup(self):
+        from api.app import _db
+        super(TestScopedSession, self).setup(_db)
+
+    @contextmanager
+    def test_request_context_and_transaction(self, *args):
+        """Run a simulated Flask request in a transaction that gets rolled
+        back at the end of the request.
+        """
+        with self.app.test_request_context(*args) as ctx:
+            transaction = current_session.begin_nested()
+            yield ctx
+            transaction.rollback()
+
+    def test_scoped_session(self):
+        # Start a simulated request to the Flask app server.
+        with self.test_request_context_and_transaction("/"):
+            # Each request is given its own database session distinct
+            # from the one used by most unit tests or the one
+            # associated with the CirculationManager object.
+            session1 = current_session()
+            assert session1 != self._db
+            assert session1 != self.app.manager._db
+
+            # Add an Identifier to the database.
+            identifier = Identifier(type=DataSource.GUTENBERG, identifier="1024")
+            session1.add(identifier)
+            session1.flush()
+
+            # The Identifier immediately shows up in the session that
+            # created it.
+            [identifier] = session1.query(Identifier).all()
+            eq_("1024", identifier.identifier)
+
+            # It doesn't show up in self._db, the database session
+            # used by most other unit tests, because it was created
+            # within the (still-active) context of a Flask request,
+            # which happens within a nested database transaction.
+            eq_([], self._db.query(Identifier).all())
+
+            # It shows up in the flask_scoped_session object that
+            # created the request-scoped session, because within the
+            # context of a request, running database queries on that object
+            # actually runs them against your request-scoped session.
+            [identifier] = self.app.manager._db.query(Identifier).all()
+            eq_("1024", identifier.identifier)
+
+            # But if we were to use flask_scoped_session to create a
+            # brand new session, it would not see the Identifier,
+            # because it's running in a different database session.
+            new_session = self.app.manager._db.session_factory()
+            eq_([], new_session.query(Identifier).all())
+
+        # Once we exit the context of the Flask request, the
+        # transaction is rolled back. The Identifier never actually
+        # enters the database.
+        #
+        # If it did enter the database, it would never leave.  Changes
+        # that happen through self._db happen inside a nested
+        # transaction which is rolled back after the test is over.
+        # But changes that happen through a session-scoped database
+        # connection are actually written to the database when we
+        # leave the scope of the request.
+        #
+        # To avoid this, we use test_request_context_and_transaction
+        # to create a nested transaction that's rolled back just
+        # before we leave the scope of the request.
+        eq_([], self._db.query(Identifier).all())
+
+        # Now create a different simulated Flask request
+        with self.test_request_context_and_transaction("/"):
+            session2 = current_session()
+            assert session2 != self._db
+            assert session2 != self.app.manager._db
+
+        # The two Flask requests got different sessions, neither of
+        # which is the same as self._db, the unscoped database session
+        # used by most other unit tests.
+        assert session1 != session2

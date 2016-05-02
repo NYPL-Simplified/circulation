@@ -7,4 +7,3 @@ from core.testing import (
 )
 
 package_setup()
-
