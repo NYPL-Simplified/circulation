@@ -158,6 +158,7 @@ class TestOPDS(DatabaseTest):
 
         pagination = Pagination(size=1)
         annotator = TestAnnotator()
+        titles = [work1.title, work2.title]
 
         def make_page(pagination):
             return AdminFeed.suppressed(
@@ -169,7 +170,9 @@ class TestOPDS(DatabaseTest):
         first_page = make_page(pagination)
         parsed = feedparser.parse(unicode(first_page))
         eq_(1, len(parsed['entries']))
-        eq_(work1.title, parsed['entries'][0].title)
+        assert parsed['entries'][0].title in titles
+        titles.remove(parsed['entries'][0].title)
+        [remaining_title] = titles
 
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
@@ -192,7 +195,7 @@ class TestOPDS(DatabaseTest):
         [previous] = self.links(parsed, 'previous')
         eq_(annotator.suppressed_url(pagination), previous['href'])
         eq_(1, len(parsed['entries']))
-        eq_(work2.title, parsed['entries'][0]['title'])
+        eq_(remaining_title, parsed['entries'][0]['title'])
 
 class TestAnnotator(AdminAnnotator):
 

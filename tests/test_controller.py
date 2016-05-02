@@ -25,10 +25,12 @@ from core.model import (
     Loan,
     Hold,
     DataSource,
+    Edition,
     Identifier,
     Complaint,
     SessionManager,
     CachedFeed,
+    Work,
     get_one,
     create,
 )
@@ -734,15 +736,13 @@ class TestFeedController(ControllerTest):
             response = self.manager.opds_feeds.search(None, None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
-
             eq_(1, len(entries))
             entry = entries[0]
-
-            eq_("Uncle Sam", entry.author)
+            assert entry.author in [self.english_1.author, self.english_2.author]
 
             assert 'links' in entry
             assert len(entry.links) > 0
-            
+
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
             eq_(1, len(borrow_links))
 
