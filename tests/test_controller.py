@@ -848,16 +848,15 @@ class TestScopedSession(ControllerTest):
             eq_([], self._db.query(Identifier).all())
 
             # It shows up in the flask_scoped_session object that
-            # created the request-scoped session, (I think) because it
-            # is running the parent of the request-specific
-            # transaction.
+            # created the request-scoped session, because within the
+            # context of a request, running database queries on that object
+            # actually runs them against your request-scoped session.
             [identifier] = self.app.manager._db.query(Identifier).all()
             eq_("1024", identifier.identifier)
 
             # But if we were to use flask_scoped_session to create a
             # brand new session, it would not see the Identifier,
-            # because it's running in a new request-specific
-            # transaction.
+            # because it's running in a different database session.
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
 
