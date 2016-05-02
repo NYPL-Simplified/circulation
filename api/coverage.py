@@ -5,9 +5,8 @@ from core.coverage import (
     CoverageFailure,
     CoverageProvider,
 )
-from sqlalchemy import (
-    and_,
-)
+from sqlalchemy import and_
+from sqlalchemy.orm import contains_eager
 from core.model import (
     CoverageRecord,
     DataSource,
@@ -96,9 +95,16 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         reaper_covered = self._db.query(Identifier).\
                 join(Identifier.coverage_records).\
                 filter(CoverageRecord.data_source==reaper_source)
-        # TODO: Add a check for reapered and relicensed Identifiers.
         relicensed = reaper_covered.join(Identifier.licensed_through).\
-                filter(LicensePool.licenses_owned > 0)
+                filter(LicensePool.licenses_owned > 0).\
+                options(contains_eager(Identifier.coverage_records))
+
+        # Remove Wrangler Reaper coverage records from relicensed identifiers
+        for identifier in relicensed.all():
+            [reaper_coverage_record] = [record
+                    for record in identifier.coverage_records
+                    if record.data_source==reaper_source]
+            identifier.coverage_records.remove(reaper_coverage_record)
         return uncovered.except_(reaper_covered).union(relicensed)
 
     def create_id_mapping(self, batch):
