@@ -16,7 +16,6 @@ loggly-python-handler
 mock
 cairosvg
 py-bcrypt
-flask-sqlalchemy-session
 
 # In circ, feedparser is only used in tests.
 feedparser
