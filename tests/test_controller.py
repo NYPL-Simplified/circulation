@@ -856,10 +856,10 @@ class TestScopedSession(ControllerTest):
 
             # But if we were to use flask_scoped_session to create a
             # brand new session, it would not see the Identifier,
-            # because it's running in a new request-specific.
+            # because it's running in a new request-specific
+            # transaction.
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
-
 
         # Once we exit the context of the Flask request, the session is
         # committed and the Identifier shows up everywhere.
