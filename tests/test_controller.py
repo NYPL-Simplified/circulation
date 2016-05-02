@@ -844,8 +844,22 @@ class TestScopedSession(ControllerTest):
             # It doesn't show up in self._db, the database session
             # used by most other unit tests, because it was created
             # within the (still-active) context of a Flask request,
-            # which happens within a nested database session.
+            # which happens within a nested database transaction.
             eq_([], self._db.query(Identifier).all())
+
+            # It shows up in the flask_scoped_session object that
+            # created the request-scoped session, (I think) because it
+            # is running the parent of the request-specific
+            # transaction.
+            [identifier] = self.app.manager._db.query(Identifier).all()
+            eq_("1024", identifier.identifier)
+
+            # But if we were to use flask_scoped_session to create a
+            # brand new session, it would not see the Identifier,
+            # because it's running in a new request-specific.
+            new_session = self.app.manager._db.session_factory()
+            eq_([], new_session.query(Identifier).all())
+
 
         # Once we exit the context of the Flask request, the session is
         # committed and the Identifier shows up everywhere.
