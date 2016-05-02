@@ -80,7 +80,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         items = provider.items_that_need_coverage.all()
         assert reaper_cr.identifier not in items
         eq_(2, len(items))
-        eq_([relicensed_lp.identifier, cr.identifier], sorted(items))
+        assert relicensed_lp.identifier in items
+        assert cr.identifier in items
         # The Wrangler Reaper coverage record has been removed from the
         # relicensed identifier.
         eq_([], relicensed_lp.identifier.coverage_records)

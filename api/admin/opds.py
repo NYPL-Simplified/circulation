@@ -121,7 +121,8 @@ class AdminFeed(AcquisitionFeed):
     def suppressed(cls, _db, title, url, annotator, pagination=None):
         pagination = pagination or Pagination.default()
 
-        q = _db.query(LicensePool).filter(LicensePool.suppressed == True)
+        q = _db.query(LicensePool).filter(LicensePool.suppressed == True).\
+            order_by(LicensePool.id)
         pools = pagination.apply(q).all()
 
         works = [pool.work for pool in pools]
