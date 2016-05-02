@@ -600,7 +600,6 @@ class DataSource(Base):
     GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
-    METADATA_WRANGLER_COLLECTION = "Library Simplified Metadata Wrangler Collection"
     MANUAL = "Manual intervention"
     NYT = "New York Times"
     NYPL_SHADOWCAT = "NYPL Shadowcat"
@@ -771,7 +770,6 @@ class DataSource(Base):
                 (cls.NYT, False, False, Identifier.ISBN, None),
                 (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
                 (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
-                (cls.METADATA_WRANGLER_COLLECTION, False, False, None, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
@@ -807,6 +805,8 @@ class CoverageRecord(Base):
 
     SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
     CHOOSE_COVER_OPERATION = 'choose-cover'
+    SYNC_OPERATION = 'sync'
+    REAP_OPERATION = 'reap'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(

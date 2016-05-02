@@ -281,6 +281,28 @@ class TestCoverageProvider(DatabaseTest):
         # triggered.
         eq_(True, presentation_calculation_policy.tripped)
 
+    def test_operation_included_in_records(self):
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types,
+            self.output_source, operation=CoverageRecord.SYNC_OPERATION
+        )
+        result = provider.ensure_coverage(self.edition)
+
+        # The provider's operation is added to the record on success
+        [record] = self._db.query(CoverageRecord).all()
+        eq_(record.operation, CoverageRecord.SYNC_OPERATION)
+        self._db.delete(record)
+
+        provider = NeverSuccessfulCoverageProvider(
+            "Never successful", self.input_identifier_types,
+            self.output_source, operation=CoverageRecord.REAP_OPERATION
+        )
+        result = provider.ensure_coverage(self.edition)
+
+        # The provider's operation is added to the record on failure
+        [record] = self._db.query(CoverageRecord).all()
+        eq_(record.operation, CoverageRecord.REAP_OPERATION)
+
 
 class TestBibliographicCoverageProvider(DatabaseTest):
 
