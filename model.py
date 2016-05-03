@@ -4935,6 +4935,17 @@ class Classification(Base):
             return False
         return self.identifier.licensed_through.data_source == self.data_source
 
+    @classmethod
+    def for_work_with_genre(cls, _db, work):
+        identifier = work.primary_edition.primary_identifier
+        return _db.query(Classification) \
+                    .join(Subject) \
+                    .join(DataSource) \
+                    .filter(Classification.identifier_id == identifier.id) \
+                    .filter(Subject.genre != None) \
+                    .order_by(Classification.weight.desc()) \
+                    .all()
+
 
 class WillNotGenerateExpensiveFeed(Exception):
     """This exception is raised when a feed is not cached, but it's too
