@@ -115,6 +115,13 @@ def refresh(data_source, identifier):
 def resolve_complaints(data_source, identifier):
     return app.manager.admin_work_controller.resolve_complaints(data_source, identifier)
 
+@app.route('/admin/works/<data_source>/<identifier>/update_genres', methods=['POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def update_genres(data_source, identifier):
+    return app.manager.admin_work_controller.update_genres(data_source, identifier)
+
 @app.route('/admin/complaints')
 @returns_problem_detail
 @requires_admin

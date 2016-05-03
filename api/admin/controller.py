@@ -418,12 +418,13 @@ class WorkController(CirculationManagerController):
             return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
-    def update_genres(self, data_source, identifier, new_genres):
+    def update_genres(self, data_source, identifier):
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        new_genres = flask.request.form.get("genres")
 
         current_classifications = Classification \
             .for_work_with_genre(work) \
