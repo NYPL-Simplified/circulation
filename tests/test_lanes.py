@@ -53,20 +53,20 @@ class TestLaneCreation(DatabaseTest):
         eq_(True, sf.fiction)
         eq_("Science Fiction", sf.name)
         eq_("Humor", humor.display_name)
-        assert 'Science Fiction' in [x.name for x in sf.genres]
-        assert 'Cyberpunk' in [x.name for x in sf.genres]
+        assert 'Science Fiction' in sf.genre_names
+        assert 'Cyberpunk' in sf.genre_names
         assert periodicals.invisible
 
         [space_opera] = [x for x in sf.sublanes.lanes if x.name=='Space Opera']
         eq_(True, sf.fiction)
         eq_("Space Opera", space_opera.name)
-        eq_(["Space Opera"], [x.name for x in space_opera.genres])
+        eq_(["Space Opera"], space_opera.genre_names)
 
         [history] = [x for x in nonfiction.sublanes.lanes if x.name=='History']
         eq_(False, history.fiction)
         eq_("History", history.name)
-        assert 'History' in [x.name for x in history.genres]
-        assert 'European History' in [x.name for x in history.genres]
+        assert 'History' in history.genre_names
+        assert 'European History' in history.genre_names
 
     def test_lane_for_small_collection(self):
         lane = lane_for_small_collection(self._db, ['eng', 'spa', 'chi'])
