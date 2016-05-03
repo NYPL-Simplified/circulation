@@ -601,6 +601,7 @@ class DataSource(Base):
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
     MANUAL = "Manual intervention"
+    NOVELIST = "NoveList Select"
     NYT = "New York Times"
     NYPL_SHADOWCAT = "NYPL Shadowcat"
     LIBRARY_STAFF = "Library staff"
@@ -776,6 +777,7 @@ class DataSource(Base):
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.NOVELIST, False, True, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -1185,7 +1187,6 @@ class Identifier(Base):
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
         return (type, identifier_string)
-
 
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
