@@ -224,3 +224,10 @@ COMPLAINT_ALREADY_RESOLVED = pd(
     title="Complaint already resolved.",
     detail="You can't resolve a complaint that is already resolved."
 )
+
+GENRE_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/complaint-already-resolved",
+    status_code=404,
+    title="Genre not found.",
+    detail="The specified work does not have the specified genre."
+)

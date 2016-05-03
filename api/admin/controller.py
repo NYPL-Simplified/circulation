@@ -16,9 +16,11 @@ from core.model import (
     Admin,
     Classification,
     DataSource,
+    Genre,
     Hyperlink,
     PresentationCalculationPolicy,
     Subject,
+    WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
@@ -41,7 +43,7 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
-from core.classifier import genres
+from core.classifier import genres, StaffGenreClassifier
 
 
 def setup_admin_controllers(manager):
@@ -201,7 +203,7 @@ class WorkController(CirculationManagerController):
             return pool
 
         results = Classification.for_work_with_genre(
-            self._db, pool.work)
+            self._db, pool.work).all()
 
         data = []
         for result in results:
@@ -414,6 +416,71 @@ class WorkController(CirculationManagerController):
             return UNRECOGNIZED_COMPLAINT
         elif not resolved:
             return COMPLAINT_ALREADY_RESOLVED
+        return Response("", 200)
+
+    def update_genres(self, data_source, identifier, new_genres):
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        current_classifications = Classification \
+            .for_work_with_genre(work) \
+            .join(Subject.genre) \
+            .all()
+        current_staff_classifications = [
+            c for c in current_classifications 
+            if c.data_source_id == staff_data_source.id 
+        ]
+        current_staff_genres = [c.genre.name for c in current_staff_classifications]
+        changed = False
+
+        # make sure all new genres are legit
+        for name in new_genres:
+            genre = Genre.lookup(self._db, name)
+            if not isinstance(genre, Genre):
+                return GENRE_NOT_FOUND
+
+        # begin transaction
+        __transaction = self._db.begin()
+
+        try:
+            # delete existing staff classifications for genres that aren't being kept
+            for c in current_staff_classifications:
+                # don't delete NONE genre, which need to know that staff have 
+                # removed all genres
+                if c.subject.identifier != StaffGenreClassifier.NONE:
+                    continue
+
+                if work.fiction != genres[name].is_fiction or c.subject.genre.name not in new_genres:
+                    self._db.delete(c)
+                    changed = True
+
+            # add new staff classifications for new genres
+            for genre in new_genres:
+                if genre not in current_staff_genres:
+                    work.primary_edition.primary_identifier.classify(
+                        data_source=staff_data_source,
+                        subject_type=Subject.SIMPLIFIED_GENRE,
+                        subject_identifier=genre,
+                        weight=1,
+                    )
+                    changed = True
+
+            # add blank staff classification if it doesn't exist
+            work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.SIMPLIFIED_GENRE,
+                subject_identifier=StaffGenreClassifier.NONE,
+                weight=1,
+            )
+            changed = True
+
+            __transaction.commit()
+        except:
+            __transaction.rollback()
+
         return Response("", 200)
 
     def _count_complaints_for_licensepool(self, pool):
