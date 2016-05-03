@@ -530,7 +530,7 @@ class CirculationAPI(object):
         # the provider doesn't know about, which means it's expired
         # and we should get rid of it.
         for loan in local_loans_by_identifier.values():
-            if loan.license_pool.data_source.id in data_source_ids_for_sync:
+            if loan.license_pool.data_source.id in self.data_source_ids_for_sync:
                 logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                 self._db.delete(loan)
 
