@@ -10,6 +10,7 @@ from flask import (
     redirect,
 )
 from flask_sqlalchemy_session import flask_scoped_session
+from sqlalchemy.orm import sessionmaker
 from config import Configuration
 from core.model import SessionManager
 
