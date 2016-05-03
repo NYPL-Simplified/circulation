@@ -576,17 +576,17 @@ class TestExternalSearch(DatabaseTest):
         fantasy_lane = Lane(self._db, "Fantasy", genres=["Fantasy"])
         both_lane = Lane(self._db, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, fantasy_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, both_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
@@ -757,7 +757,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         filter = search.make_filter(
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
-            lane.genres,
+            lane.genre_ids,
         )
 
         medium_filter, audience_filter, target_age_filter = filter['and']
@@ -777,7 +777,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         filter = search.make_filter(
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
-            lane.genres,
+            lane.genre_ids,
         )
         
         languages_filter, medium_filter = filter['and']
@@ -796,7 +796,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         filter = search.make_filter(
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
-            lane.genres,
+            lane.genre_ids,
         )
         
         exclude_languages_filter, medium_filter = filter['and']
