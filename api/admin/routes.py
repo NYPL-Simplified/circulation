@@ -64,6 +64,15 @@ def admin_sign_in():
 def work_details(data_source, identifier):
     return app.manager.admin_work_controller.details(data_source, identifier)
 
+@app.route('/admin/works/<data_source>/<identifier>/subjects', methods=['GET'])
+@returns_problem_detail
+@requires_admin
+def work_subjects(data_source, identifier):
+    data = app.manager.admin_work_controller.subjects(data_source, identifier)
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/works/<data_source>/<identifier>/complaints', methods=['GET'])
 @returns_problem_detail
 @requires_admin
@@ -119,6 +128,16 @@ def complaints():
 def suppressed():
     """Returns a feed of suppressed works."""
     return app.manager.admin_feed_controller.suppressed()
+
+@app.route('/admin/genres')
+@returns_problem_detail
+@requires_admin
+def genres():
+    """Returns a JSON representation of complete genre tree."""
+    data = app.manager.admin_feed_controller.genres()
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
 
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():

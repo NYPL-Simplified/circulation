@@ -41,6 +41,7 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
+from core.classifier import genres
 
 
 def setup_admin_controllers(manager):
@@ -191,6 +192,33 @@ class WorkController(CirculationManagerController):
         })
         
         return response
+
+    def subjects(self, data_source, identifier):
+        """Return list of subjects for this work that are linked to genres."""
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        results = Classification.for_work_with_genre(
+            self._db, pool.work)
+
+        data = []
+        for result in results:
+            data.append(dict({
+                "type": result.subject.type,
+                "name": result.subject.identifier,
+                "source": result.data_source.name,
+                "weight": result.weight
+            }))
+
+        return dict({
+            "book": {
+                "data_source": data_source,
+                "identifier": identifier
+            },
+            "subjects": data
+        })
 
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
@@ -420,3 +448,17 @@ class FeedController(CirculationManagerController):
             pagination=pagination
         )
         return feed_response(opds_feed)
+
+    def genres(self):
+        data = dict({
+            "Fiction": dict({}),
+            "Nonfiction": dict({})
+        })
+        for name in genres:
+            top = "Fiction" if genres[name].is_fiction else "Nonfiction"
+            data[top][name] = dict({
+                "name": name,
+                "parents": [parent.name for parent in genres[name].parents],
+                "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
+            })
+        return data
