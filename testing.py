@@ -302,7 +302,8 @@ class DatabaseTest(object):
 
     def _licensepool(self, edition, open_access=True, 
                      data_source_name=DataSource.GUTENBERG,
-                     with_open_access_download=False):
+                     with_open_access_download=False, 
+                     set_edition_as_presentation=False):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
@@ -314,6 +315,9 @@ class DatabaseTest(object):
             identifier=edition.primary_identifier, data_source=source,
             availability_time=datetime.utcnow()
         )
+
+        if set_edition_as_presentation:
+            pool.presentation_edition = edition
 
         if with_open_access_download:
             pool.open_access = True
