@@ -1130,7 +1130,8 @@ class Metadata(object):
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(
-            _db, link.href, do_get=http_get
+            _db, link.href, do_get=http_get,
+            presumed_media_type=link.media_type,
         )
 
         # Make sure the (potentially newly-fetched) representation is
@@ -1143,7 +1144,7 @@ class Metadata(object):
             if pool and pool.presentation_edition and pool.presentation_edition.title:
                 title = pool.presentation_edition.title
             else:
-                title = None
+                title = self.title or None
             extension = representation.extension()
             mirror_url = mirror.book_url(
                 identifier, data_source=data_source, title=title,
@@ -1186,6 +1187,14 @@ class Metadata(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail)
 
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            # If we mirrored book content successfully, don't keep it in
+            # the database to save space. We do keep images in case we
+            # ever need to resize them.
+            if representation.mirrored_at and not representation.mirror_exception:
+                representation.content = None
+
+        
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.

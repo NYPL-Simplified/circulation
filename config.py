@@ -116,6 +116,8 @@ class Configuration(object):
     ELASTICSEARCH_INDEX_KEY = "works_index"
 
     METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
+    METADATA_WRANGLER_CLIENT_ID = "client_id"
+    METADATA_WRANGLER_CLIENT_SECRET = "client_secret"
     CONTENT_SERVER_INTEGRATION = "Content Server"
     CIRCULATION_MANAGER_INTEGRATION = "Circulation Manager"
 
@@ -139,9 +141,6 @@ class Configuration(object):
     CDN_BOOK_COVERS = "book_covers"
     CDN_OPDS_FEEDS = "opds"
     CDN_OPEN_ACCESS_CONTENT = "open_access_books"
-
-    METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
-    CONTENT_SERVER_INTEGRATION = "Content Server"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
