@@ -273,7 +273,10 @@ class TestCoverageProvider(DatabaseTest):
         assert mirrored.mirror_url.endswith(
             "/%s/%s.epub" % (identifier.identifier, edition.title)
         )
-        eq_("I am an epub.", mirrored.content)
+        
+        # The book content was removed from the db after it was
+        # mirrored successfully.
+        eq_(None, mirrored.content)
 
         # Our custom PresentationCalculationPolicy was used when
         # determining whether to recalculate the work's

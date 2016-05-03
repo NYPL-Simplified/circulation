@@ -5970,7 +5970,8 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, debug=True):
+            max_age=None, pause_before=0, allow_redirects=True, 
+            presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6067,7 +6068,7 @@ class Representation(Base):
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
             else:
-                media_type = None
+                media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, e:
@@ -6085,7 +6086,7 @@ class Representation(Base):
         # we don't have one already, or if the URL or media type we
         # actually got from the server differs from what we thought
         # we had.
-        if (not usable_representation 
+        if (not usable_representation
             or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
@@ -6261,10 +6262,37 @@ class Representation(Base):
         """
         return self._clean_media_type(self.media_type)
 
+    @property
+    def url_extension(self):
+        """The file extension in this representation's original url."""
+
+        url_path = urlparse.urlparse(self.url).path
+
+        # Known extensions can be followed by a version number (.epub3)
+        # or an additional extension (.epub.noimages)
+        known_extensions = "|".join(self.FILE_EXTENSIONS.values())
+        known_extension_re = re.compile("\.(%s)\d?\.?[\w\d]*$" % known_extensions, re.I)
+
+        known_match = known_extension_re.search(url_path)
+
+        if known_match:
+            return known_match.group()
+
+        else:
+            any_extension_re = re.compile("\.[\w\d]*$", re.I)
+        
+            any_match = any_extension_re.search(url_path)
+
+            if any_match:
+                return any_match.group()
+        return None
+
     def extension(self, destination_type=None):
         """Try to come up with a good file extension for this representation."""
-        destination_type = destination_type or self.clean_media_type
-        return self._extension(destination_type)
+        if destination_type:
+            return self._extension(destination_type)
+        else:
+            return self.url_extension or self._extension(self.clean_media_type)
 
     @classmethod
     def _clean_media_type(cls, media_type):
