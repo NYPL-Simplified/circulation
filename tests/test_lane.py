@@ -322,11 +322,12 @@ class TestLanes(DatabaseTest):
         best, picks = lane.sublanes.lanes
         eq_("Best Sellers", best.display_name)
         eq_("Everything - Best Sellers", best.name)
-        eq_(DataSource.NYT, best.list_data_source.name)
+        nyt = DataSource.lookup(self._db, DataSource.NYT)
+        eq_(nyt.id, best.list_data_source_id)
 
         eq_("Staff Picks", picks.display_name)
         eq_("Everything - Staff Picks", picks.name)
-        eq_([staff_picks], picks.lists)
+        eq_([staff_picks.id], picks.list_ids)
 
     def test_gather_matching_genres(self):
         self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
