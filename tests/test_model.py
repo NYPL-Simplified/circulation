@@ -1947,6 +1947,28 @@ class TestRepresentation(DatabaseTest):
             self._db, url, do_get=h.do_get)
         eq_(False, cached)
 
+    def test_url_extension(self):
+        epub, ignore = self._representation("test.epub")
+        eq_(".epub", epub.url_extension)
+
+        epub3, ignore = self._representation("test.epub3")
+        eq_(".epub3", epub3.url_extension)
+
+        noimages, ignore = self._representation("test.epub.noimages")
+        eq_(".epub.noimages", noimages.url_extension)
+
+        unknown, ignore = self._representation("test.1234.abcd")
+        eq_(".abcd", unknown.url_extension)
+
+        no_extension, ignore = self._representation("test")
+        eq_(None, no_extension.url_extension)
+
+        no_filename, ignore = self._representation("foo.com/")
+        eq_(None, no_filename.url_extension)
+
+        query_param, ignore = self._representation("test.epub?version=3")
+        eq_(".epub", query_param.url_extension)
+
     def test_clean_media_type(self):
         m = Representation._clean_media_type
         eq_("image/jpeg", m("image/jpeg"))
@@ -1972,7 +1994,7 @@ class TestRepresentation(DatabaseTest):
 
         # File extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
-        eq_("baz.txt.png", filename)
+        eq_("baz.png", filename)
 
         # The original file extension is not treated as reliable and
         # need not be present.
