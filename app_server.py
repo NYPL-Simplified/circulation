@@ -10,6 +10,7 @@ from lxml import etree
 from functools import wraps
 from flask import url_for, make_response
 from util.flask_util import problem
+from util.problem_detail import ProblemDetail
 import traceback
 import logging
 from opds import (
