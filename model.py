@@ -1701,6 +1701,9 @@ class Identifier(Base):
         rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
             _db, identifier_ids, rels, privileged_data_source).all()
+        #descriptions = descriptions.join(
+        #    Resource.representation).filter(
+        #        Representation.content != None).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
@@ -1722,6 +1725,7 @@ class Identifier(Base):
             # We could not find any descriptions from the privileged
             # data source. Try relaxing that restriction.
             return cls.evaluate_summary_quality(_db, identifier_ids, privileged_data_sources[1:])
+            #return cls.evaluate_summary_quality(_db, identifier_ids)
         return champion, descriptions
 
     @classmethod
@@ -3493,6 +3497,9 @@ class Work(Base):
         policy = policy or PresentationCalculationPolicy()
         if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
+            WorkCoverageRecord.add_for(
+                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+            )
 
 
         summary = self.summary
@@ -3534,7 +3541,7 @@ class Work(Base):
         if policy.choose_summary:
             staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, [staff_data_source, privileged_data_source]
+                _db, flattened_data, [staff_data_source, licensed_data_sources]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
@@ -3598,6 +3605,8 @@ class Work(Base):
                 changed = "unchanged"
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
+
+
 
     @property
     def detailed_representation(self):

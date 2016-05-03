@@ -835,6 +835,8 @@ class TestEdition(DatabaseTest):
         eq_(overdrive_resource, champ4)
 
         # Even an empty string wins if it's from the most privileged data source.
+        # This is not a silly example.  The librarian may choose to set the description 
+        # to an empty string in the admin inteface, to override a bad overdrive/etc. description.
         staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
         staff_resource = l3.resource
