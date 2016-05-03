@@ -1080,17 +1080,9 @@ class Metadata(object):
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(
-            _db, link.href, do_get=http_get
+            _db, link.href, do_get=http_get,
+            presumed_media_type=link.media_type,
         )
-
-        # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
-        # precedence. If we didn't see any media type, the one from
-        # the LinkObject is the best we have.
-        if representation.media_type:
-            link.media_type = representation.media_type
-        elif link.media_type:
-            representation.media_type = link.media_type
 
         # Make sure the (potentially newly-fetched) representation is
         # associated with the resource.
@@ -1116,6 +1108,12 @@ class Metadata(object):
 
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
+
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.

@@ -5957,7 +5957,8 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, debug=True):
+            max_age=None, pause_before=0, allow_redirects=True, 
+            presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6054,7 +6055,7 @@ class Representation(Base):
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
             else:
-                media_type = None
+                media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, e:
@@ -6071,10 +6072,11 @@ class Representation(Base):
         # At this point we can create/fetch a Representation object if
         # we don't have one already, or if the URL we actually got from 
         # the server differs from what we thought we had.
-        if (not usable_representation 
+        if (not usable_representation
+            or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url)
+                _db, Representation, url=url, media_type=media_type)
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
