@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -439,6 +440,36 @@ class TestSubject(DatabaseTest):
         eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
+
+class TestClassification(DatabaseTest):
+    
+    def test_fork_work_with_genre(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
+        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+                
+        results = Classification.for_work_with_genre(self._db, work)
+        
+        eq_(len(results), 2)
+        eq_(results[0].weight, classification2.weight)
+        eq_(results[0].data_source, classification2.data_source)
+        eq_(results[0].subject.type, subject2.type)
+        eq_(results[0].subject.identifier, subject2.identifier)
+        eq_(results[1].weight, classification1.weight)
+        eq_(results[1].data_source, classification1.data_source)
+        eq_(results[1].subject.type, subject1.type)
+        eq_(results[1].subject.identifier, subject1.identifier)
         
 
 class TestContributor(DatabaseTest):

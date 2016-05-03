@@ -4915,7 +4915,7 @@ class Classification(Base):
                     .join(Subject) \
                     .join(DataSource) \
                     .filter(Classification.identifier_id == identifier.id) \
-                    .filter(Subject.genre != None) \
+                    .filter(Subject.genre_id != None) \
                     .order_by(Classification.weight.desc()) \
                     .all()
 
