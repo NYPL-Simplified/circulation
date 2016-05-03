@@ -401,7 +401,7 @@ class CirculationData(object):
                    license_pool.licenses_reserved != self.licenses_reserved)
 
         if changed:
-            edition = license_pool.edition
+            edition = license_pool.presentation_edition
             if edition:
                 self.log.info(
                     'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',

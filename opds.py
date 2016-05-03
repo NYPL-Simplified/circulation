@@ -1164,7 +1164,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         if not active_license_pool:
             return None
 
-        active_edition = active_license_pool.edition
+        active_edition = active_license_pool.presentation_edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
             identifier, lane_link)

@@ -216,7 +216,7 @@ class OPDSImporter(object):
                 edition
             )
         else:
-            license_pool.edition = edition
+            license_pool.presentation_edition = edition
             work, is_new_work = license_pool.calculate_work(
                 known_edition=edition,
                 even_if_no_author=even_if_no_author,
