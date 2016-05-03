@@ -107,24 +107,25 @@ class CirculationAPI(object):
         # to include loans from all licensed data sources.  We do not
         # need to include loans from open-access sources because we
         # are the authorities on those.
-        self.data_sources_for_sync = []
+        data_sources_for_sync = []
         if self.overdrive:
-            self.data_sources_for_sync.append(
+            data_sources_for_sync.append(
                 DataSource.lookup(_db, DataSource.OVERDRIVE)
             )
         if self.threem:
-            self.data_sources_for_sync.append(
+            data_sources_for_sync.append(
                 DataSource.lookup(_db, DataSource.THREEM)
             )
         if self.axis:
-            self.data_sources_for_sync.append(
+            data_sources_for_sync.append(
                 DataSource.lookup(_db, DataSource.AXIS_360)
             )
-        self.identifier_type_to_data_source = dict(
-            (ds.primary_identifier_type, ds) 
-            for ds in self.data_sources_for_sync)
+
+        self.identifier_type_to_data_source_name = dict(
+            (ds.primary_identifier_type, ds.name) 
+            for ds in data_sources_for_sync)
         self.data_source_ids_for_sync = [
-            x.id for x in self.data_sources_for_sync
+            x.id for x in data_sources_for_sync
         ]
 
     def api_for_license_pool(self, licensepool):
@@ -485,7 +486,10 @@ class CirculationAPI(object):
         for loan in remote_loans:
             # This is a remote loan. Find or create the corresponding
             # local loan.
-            source = self.identifier_type_to_data_source[loan.identifier_type]
+            source_name = self.identifier_type_to_data_source_name[
+                loan.identifier_type
+            ]
+            source = DataSource.lookup(self._db, source_name)
             key = (loan.identifier_type, loan.identifier)
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, loan.identifier_type,
@@ -504,7 +508,10 @@ class CirculationAPI(object):
             # This is a remote hold. Find or create the corresponding
             # local hold.
             key = (hold.identifier_type, hold.identifier)
-            source = self.identifier_type_to_data_source[hold.identifier_type]
+            source_name = self.identifier_type_to_data_source_name[
+                hold.identifier_type
+            ]
+            source = DataSource.lookup(self._db, source_name)
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, hold.identifier_type,
                 hold.identifier)
@@ -523,7 +530,7 @@ class CirculationAPI(object):
         # the provider doesn't know about, which means it's expired
         # and we should get rid of it.
         for loan in local_loans_by_identifier.values():
-            if loan.license_pool.data_source in self.data_sources_for_sync:
+            if loan.license_pool.data_source.id in data_source_ids_for_sync:
                 logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                 self._db.delete(loan)
 
@@ -531,7 +538,7 @@ class CirculationAPI(object):
         # the provider doesn't know about, which means it's expired
         # and we should get rid of it.
         for hold in local_holds_by_identifier.values():
-            if hold.license_pool.data_source in self.data_sources_for_sync:
+            if hold.license_pool.data_source.id in self.data_source_ids_for_sync:
                 self._db.delete(hold)
         __transaction.commit()
         return active_loans, active_holds
@@ -544,7 +551,7 @@ class DummyCirculationAPI(CirculationAPI):
         self.responses = defaultdict(list)
         self.active_loans = []
         self.active_holds = []
-        self.identifier_type_to_data_source = {
+        self.identifier_type_to_data_source_name = {
             Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
             Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
             Identifier.THREEM_ID: DataSource.THREEM,
