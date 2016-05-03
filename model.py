@@ -6070,8 +6070,9 @@ class Representation(Base):
             media_type = None
 
         # At this point we can create/fetch a Representation object if
-        # we don't have one already, or if the URL we actually got from 
-        # the server differs from what we thought we had.
+        # we don't have one already, or if the URL or media type we
+        # actually got from the server differs from what we thought
+        # we had.
         if (not usable_representation
             or media_type != representation.media_type
             or url != representation.url):
