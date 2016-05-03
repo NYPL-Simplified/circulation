@@ -535,7 +535,7 @@ class Lane(object):
 
         # The lane may be restricted to books that are on a list
         # from a given data source.
-        self.list_data_source, self.lists = self.custom_lists_for_identifier(
+        self.list_data_source_id, self.list_ids = self.custom_lists_for_identifier(
             list_data_source, list_identifier)
         set_from_parent(
             'list_seen_in_previous_days', list_seen_in_previous_days)
@@ -543,7 +543,7 @@ class Lane(object):
         set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
 
-        if self.searchable and (self.list_data_source or self.lists):
+        if self.searchable and (self.list_data_source_id or self.list_ids):
             raise UndefinedLane("Lane with list data source cannot be searchable")
 
         # However the genres came in, turn them into database Genre
@@ -644,7 +644,7 @@ class Lane(object):
         ch = Classifier.AUDIENCE_CHILDREN
         ya = Classifier.AUDIENCE_YOUNG_ADULT
         if ((include_best_sellers or include_staff_picks) and
-            (self.list_data_source or self.lists)):
+            (self.list_data_source_id or self.list_ids)):
             raise UndefinedLane(
                 "Cannot include best-seller or staff-picks in a lane based on lists."
             )
@@ -722,7 +722,15 @@ class Lane(object):
                     "Could not find any matching lists: %s, %r" %
                     (list_data_source, list_identifiers)
                 )
-        return list_data_source, lists
+        if list_data_source:
+            list_data_source_id = list_data_source.id
+        else:
+            list_data_source_id = None
+        if lists:
+            list_ids = [x.id for x in lists]
+        else:
+            list_ids = None
+        return list_data_source_id, list_ids
 
 
     @classmethod
@@ -994,18 +1002,18 @@ class Lane(object):
         q = self.only_show_ready_deliverable_works(q, work_model)
 
         distinct = False
-        if self.list_data_source or self.lists:
+        if self.list_data_source_id or self.list_ids:
             # One book can show up on more than one list; we need to
             # add a DISTINCT clause.
             distinct = True
 
             q = q.join(LicensePool.custom_list_entries)
-            if self.list_data_source:
+            if self.list_data_source_id:
                 q = q.join(CustomListEntry.customlist).filter(
-                    CustomList.data_source==self.list_data_source)
+                    CustomList.data_source_id==self.list_data_source_id)
             else:
                 q = q.filter(
-                    CustomListEntry.list_id.in_([x.id for x in self.lists])
+                    CustomListEntry.list_id.in_(self.list_ids)
                 )
             if self.list_seen_in_previous_days:
                 cutoff = datetime.datetime.utcnow() - datetime.timedelta(
