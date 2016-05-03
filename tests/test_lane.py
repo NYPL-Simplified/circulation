@@ -437,7 +437,7 @@ class TestLanes(DatabaseTest):
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes="Urban Fantasy"
         )
-        eq_([[urban_fantasy]], [x.genres for x in fantasy_lane.sublanes.lanes])
+        eq_([["Urban Fantasy"]], [x.genre_names for x in fantasy_lane.sublanes.lanes])
 
     def test_custom_lanes_conflict_with_subgenre_sublanes(self):
 
@@ -771,8 +771,10 @@ class TestLanesQuery(DatabaseTest):
         )
 
         # Urban Fantasy does not show up in this lane's genres.
-        eq_(["Epic Fantasy", "Fantasy", "Historical Fantasy"], 
-            sorted([x.name for x in lane.genres]))
+        eq_(
+            ["Epic Fantasy", "Fantasy", "Historical Fantasy"], 
+            sorted(lane.genre_names)
+        )
 
         # We get two books: Fantasy and Epic Fantasy.
         w, mw = _assert_expectations(
@@ -893,22 +895,23 @@ class TestLanesQuery(DatabaseTest):
 
         eq_("Fiction", fiction.name)
         eq_(set([Classifier.AUDIENCE_ADULT]), fiction.audiences)
-        eq_([], fiction.genres)
+        eq_([], fiction.genre_ids)
         eq_(True, fiction.fiction)
 
         eq_("Fantasy", fantasy.name)
         eq_(set(), fantasy.audiences)
-        eq_(set(fantasy_genre.self_and_subgenres), set(fantasy.genres))
+        expect = set(x.name for x in fantasy_genre.self_and_subgenres)
+        eq_(expect, set(fantasy.genre_names))
         eq_(True, fantasy.fiction)
 
         eq_("Urban Fantasy", urban_fantasy.name)
         eq_(set(), urban_fantasy.audiences)
-        eq_([urban_fantasy_genre], urban_fantasy.genres)
+        eq_([urban_fantasy_genre.id], urban_fantasy.genre_ids)
         eq_(True, urban_fantasy.fiction)
 
         eq_("Young Adult", young_adult.name)
         eq_(set([Classifier.AUDIENCE_YOUNG_ADULT]), young_adult.audiences)
-        eq_([], young_adult.genres)
+        eq_([], young_adult.genre_ids)
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
 
 class TestFilters(DatabaseTest):
