@@ -651,10 +651,8 @@ class AcquisitionFeed(OPDSFeed):
         visible_parent = lane.visible_parent()
         if isinstance(visible_parent, Lane):
             title = visible_parent.display_name
-        else:
-            title = top_level_title
-        up_uri = annotator.lane_url(visible_parent)
-        feed.add_link(href=up_uri, rel="up", title=title)
+            up_uri = annotator.lane_url(visible_parent)
+            feed.add_link(href=up_uri, rel="up", title=title)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         

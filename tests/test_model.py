@@ -443,15 +443,15 @@ class TestSubject(DatabaseTest):
 
 class TestClassification(DatabaseTest):
     
-    def test_fork_work_with_genre(self):
+    def test_for_work_with_genre(self):
         e, pool = self._edition(with_license_pool=True)
         work = self._work(primary_edition=e)
         identifier = work.primary_edition.primary_identifier
         genres = self._db.query(Genre).all()
         subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
         subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)
-        
+        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
         classification1 = self._classification(
             identifier=identifier, subject=subject1, 
             data_source=source, weight=1)
