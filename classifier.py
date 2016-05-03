@@ -3783,6 +3783,36 @@ class WorkClassifier(object):
         #    print "", genre, weight
         return consolidated
 
+
+class StaffGenreClassifier(Classifier):
+
+    NONE = "NONE"
+    
+    @classmethod
+    def genre(cls, identifier, name, fiction=None, audience=None):
+        if fiction == True:
+            all_genres = fiction_genres
+        elif fiction == False:
+            all_genres = nonfiction_genres
+        else:
+            all_genres = fiction_genres + nonfiction_genres
+
+        return cls._genre_by_name(name, all_genres)
+
+    @classmethod
+    def is_fiction(cls, identifier, name):
+        return cls._genre_by_name(name, fiction_genres) != None
+
+    @classmethod
+    def _genre_by_name(cls, name, genres):
+        for genre in all_genres:
+            if genre == name:
+                return name
+            elif isinstance(genre, dict) and name in genre.sublanes:
+                return name
+        return None
+
+
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
 Classifier.classifiers[Classifier.LCC] = LCCClassifier

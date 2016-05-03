@@ -4917,7 +4917,6 @@ class Classification(Base):
                     .filter(Classification.identifier_id == identifier.id) \
                     .filter(Subject.genre_id != None) \
                     .order_by(Classification.weight.desc()) \
-                    .all()
 
 
 class WillNotGenerateExpensiveFeed(Exception):

@@ -459,7 +459,7 @@ class TestClassification(DatabaseTest):
             identifier=identifier, subject=subject2, 
             data_source=source, weight=2)
                 
-        results = Classification.for_work_with_genre(self._db, work)
+        results = Classification.for_work_with_genre(self._db, work).all()
         
         eq_(len(results), 2)
         eq_(results[0].weight, classification2.weight)
