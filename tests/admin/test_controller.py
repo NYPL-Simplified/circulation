@@ -16,17 +16,21 @@ from api.admin.config import (
 )
 from core.model import (
     Admin,
+    Classification,
     Complaint,
-    create,
-    Identifier,
-    DataSource,
     CoverageRecord,
-    SessionManager
+    create,
+    DataSource,
+    Genre,
+    Identifier,
+    SessionManager,
+    Subject
 )
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
+from core.classifier import genres
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -302,6 +306,45 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
             eq_(response.status_code, 409)
 
+    def test_subjects(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
+        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
+        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+        classification3 = self._classification(
+            identifier=identifier, subject=subject3, 
+            data_source=source, weight=1.5)
+
+        SessionManager.refresh_materialized_views(self._db)
+        [lp] = work.license_pools
+
+        # first attempt to resolve complaints of the wrong type
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.subjects(lp.data_source.name, lp.identifier.identifier)
+            
+            eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier'], lp.identifier.identifier)
+            eq_(len(response['subjects']), 2)
+            eq_(response['subjects'][0]['name'], subject2.identifier)
+            eq_(response['subjects'][0]['type'], subject2.type)
+            eq_(response['subjects'][0]['source'], source.name)
+            eq_(response['subjects'][0]['weight'], classification2.weight)
+            eq_(response['subjects'][1]['name'], subject1.identifier)
+            eq_(response['subjects'][1]['type'], subject1.type)
+            eq_(response['subjects'][1]['source'], source.name)
+            eq_(response['subjects'][1]['weight'], classification1.weight)
+            
+
 
 class TestSignInController(AdminControllerTest):
 
@@ -426,3 +469,15 @@ class TestFeedController(AdminControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
             eq_(suppressed_work.title, entries[0]['title'])
+
+    def test_genres(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.genres()
+            
+            for name in genres:
+                top = "Fiction" if genres[name].is_fiction else "Nonfiction"
+                eq_(response[top][name], dict({
+                    "name": name,
+                    "parents": [parent.name for parent in genres[name].parents],
+                    "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
+                }))        
