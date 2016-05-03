@@ -9,9 +9,19 @@ from flask import (
     Response,
     redirect,
 )
+from flask_sqlalchemy_session import flask_scoped_session
 from config import Configuration
+from core.model import SessionManager
 
 app = Flask(__name__)
+
+
+testing = 'TESTING' in os.environ
+db_url = Configuration.database_url(testing)
+SessionManager.initialize(db_url)
+session_factory = SessionManager.sessionmaker(db_url)
+_db = flask_scoped_session(session_factory, app)
+SessionManager.initialize_data(_db)
 
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):

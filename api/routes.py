@@ -8,11 +8,12 @@ from flask import (
     redirect,
 )
 
-from app import app
+from app import app, _db
 
 from config import Configuration
 from core.app_server import (
     ErrorHandler,
+    returns_problem_detail,
 )
 from core.util.problem_detail import ProblemDetail
 from opds import (
@@ -28,7 +29,7 @@ def initialize_circulation_manager():
         # appropriately.
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager()
+            app.manager = CirculationManager(_db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
@@ -59,16 +60,6 @@ def requires_auth(f):
         else:
             return f(*args, **kwargs)
     return decorated
-
-def returns_problem_detail(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        v = f(*args, **kwargs)
-        if isinstance(v, ProblemDetail):
-            return v.response
-        return v
-    return decorated
-
 
 @app.route('/')
 @returns_problem_detail

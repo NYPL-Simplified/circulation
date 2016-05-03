@@ -471,7 +471,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         circulation information.
         """
         # Retrieve current circulation information about this book
-        # print "Update for %s" % book
         orig_book = book
         book_id = None
         if isinstance(book, basestring):
@@ -567,6 +566,7 @@ class DummyOverdriveResponse(object):
 
     def json(self):
         return json.loads(self.content)
+
 
 class DummyOverdriveAPI(OverdriveAPI):
 
