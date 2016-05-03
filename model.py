@@ -6253,12 +6253,14 @@ class Representation(Base):
     def url_extension(self):
         """The file extension in this representation's original url."""
 
+        url_path = urlparse.urlparse(self.url).path
+
         # Known extensions can be followed by a version number (.epub3)
         # or an additional extension (.epub.noimages)
         known_extensions = "|".join(self.FILE_EXTENSIONS.values())
         known_extension_re = re.compile("\.(%s)\d?\.?[\w\d]*$" % known_extensions, re.I)
 
-        known_match = known_extension_re.search(self.url)
+        known_match = known_extension_re.search(url_path)
 
         if known_match:
             return known_match.group()
@@ -6266,7 +6268,7 @@ class Representation(Base):
         else:
             any_extension_re = re.compile("\.[\w\d]*$", re.I)
         
-            any_match = any_extension_re.search(self.url)
+            any_match = any_extension_re.search(url_path)
 
             if any_match:
                 return any_match.group()

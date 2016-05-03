@@ -1966,6 +1966,9 @@ class TestRepresentation(DatabaseTest):
         no_filename, ignore = self._representation("foo.com/")
         eq_(None, no_filename.url_extension)
 
+        query_param, ignore = self._representation("test.epub?version=3")
+        eq_(".epub", query_param.url_extension)
+
     def test_clean_media_type(self):
         m = Representation._clean_media_type
         eq_("image/jpeg", m("image/jpeg"))
