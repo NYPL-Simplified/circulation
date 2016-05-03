@@ -2,6 +2,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import logging
 import os
 import shutil
 import tempfile
@@ -25,11 +26,13 @@ from model import (
     Representation,
     Resource,
     Identifier,
+    SessionManager,
     Edition,
     Work,
     WorkCoverageRecord,
     UnresolvedIdentifier,
-    get_one_or_create
+    get_one_or_create,
+    production_session
 )
 from classifier import Classifier
 from coverage import (
@@ -40,17 +43,79 @@ from external_search import DummyExternalSearchIndex
 import mock
 import model
 
+def package_setup():
+    """Make sure the database schema is initialized and initial
+    data is in place.
+    """
+    engine, connection = DatabaseTest.get_database_connection()
+
+    # First, recreate the schema.
+    #
+    # Base.metadata.drop_all(connection) doesn't work here, so we
+    # approximate by dropping everything except the materialized
+    # views.
+    for table in reversed(Base.metadata.sorted_tables):
+        if not table.name.startswith('mv_'):
+            engine.execute(table.delete())
+
+    Base.metadata.create_all(connection)
+
+    # Initialize basic database data needed by the application.
+    _db = Session(connection)
+    SessionManager.initialize_data(_db)
+
+    # Create the patron used by the dummy authentication mechanism.
+    # TODO: This can be probably be moved to circulation.
+    get_one_or_create(
+        _db, Patron, authorization_identifier="200",
+        create_method_kwargs=dict(external_identifier="200200200")
+    )
+    _db.commit()
+    connection.close()
+    engine.dispose()
+
 class DatabaseTest(object):
 
-    DBInfo = None
+    engine = None
+    connection = None
+
+    @classmethod
+    def get_database_connection(cls):
+        url = Configuration.database_url(test=True)
+        engine, connection = SessionManager.initialize(url)
+
+        return engine, connection
+
+    @classmethod
+    def setup_class(cls):
+        # Initialize a temporary data directory.
+        cls.engine, cls.connection = cls.get_database_connection()
+        cls.old_data_dir = Configuration.data_directory
+        cls.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
+        Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
+
+        os.environ['TESTING'] = 'true'
+
+    @classmethod
+    def teardown_class(cls):
+        # Destroy the database connection and engine.
+        cls.connection.close()
+        cls.engine.dispose()
+
+        if cls.tmp_data_dir.startswith("/tmp"):
+            logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
+            shutil.rmtree(cls.tmp_data_dir)
+        else:
+            logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
+
+        Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
+        if 'TESTING' in os.environ:
+            del os.environ['TESTING']
 
     def setup(self):
-        if not self.DBInfo.connection:
-            raise Exception("%r/%r connection was not initialized." % (
-                self, self.DBInfo)
-            )
-        self.__transaction = self.DBInfo.connection.begin_nested()
-        self._db = Session(self.DBInfo.connection)
+        # Create a new connection to the database.
+        self._db = Session(self.connection)
+        self.transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 1000
@@ -61,8 +126,13 @@ class DatabaseTest(object):
         self.search_mock.start()
 
     def teardown(self):
+        # Close the session.
         self._db.close()
-        self.__transaction.rollback()
+
+        # Roll back all database changes that happened during this
+        # test, whether in the session that was just closed or some
+        # other session.
+        self.transaction.rollback()
         self.search_mock.stop()
 
     @property
@@ -407,57 +477,3 @@ class DummyHTTPClient(object):
     def do_get(self, url, headers, **kwargs):
         self.requests.append(url)
         return self.responses.pop()
-
-import os
-from sqlalchemy.orm.session import Session
-
-from model import (
-    Patron,
-    SessionManager,
-    get_one_or_create,
-)
-
-def _setup(dbinfo):
-    # Connect to the database and create the schema within a transaction
-    url = Configuration.database_url(test=True)
-    engine, connection = SessionManager.initialize(url)
-    try:
-        Base.metadata.drop_all(connection)
-    except Exception, e:
-        print "Could not drop database:", e
-    Base.metadata.create_all(connection)
-    dbinfo.engine = engine
-    dbinfo.connection = connection
-    dbinfo.transaction = connection.begin_nested()
-
-    db = Session(dbinfo.connection)
-    SessionManager.initialize_data(db)
-    # Test data: Create the patron used by the dummy authentication
-    # mechanism.
-    get_one_or_create(db, Patron, authorization_identifier=u"200",
-                      create_method_kwargs=dict(external_identifier=u"200200200"))
-    db.commit()
-
-    print "Connection is now %r" % dbinfo.connection
-    print "Transaction is now %r" % dbinfo.transaction
-
-    dbinfo.old_data_dir = Configuration.data_directory
-    dbinfo.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
-    Configuration.instance[Configuration.DATA_DIRECTORY] =dbinfo.tmp_data_dir
-    os.environ['TESTING'] = 'true'
-
-def _teardown(dbinfo):
-    # Roll back the top level transaction and disconnect from the database
-    dbinfo.transaction.rollback()
-    dbinfo.connection.close()
-    dbinfo.engine.dispose()
-
-    if dbinfo.tmp_data_dir.startswith("/tmp"):
-        print "Removing temporary directory %s" % dbinfo.tmp_data_dir
-        shutil.rmtree(dbinfo.tmp_data_dir)
-    else:
-        print "Cowardly refusing to remove 'temporary' directory %s" % dbinfo.tmp_data_dir
-
-    Configuration.instance[Configuration.DATA_DIRECTORY] = dbinfo.old_data_dir
-    if 'TESTING' in os.environ:
-        del os.environ['TESTING']
