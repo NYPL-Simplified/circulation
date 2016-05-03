@@ -417,7 +417,7 @@ class Lane(object):
         vars = dict(
             full_name=self.name or "",
             display_name=self.display_name or "",
-            genres = "+".join([g.name for g in self.genres] or ["all"]),
+            genres = "+".join(self.genre_names or ["all"]),
             fiction=self.fiction,
             media=", ".join(self.media or ["all"]),
             audiences = "+".join(self.audiences or ["all"]),
@@ -562,9 +562,11 @@ class Lane(object):
             fiction = self.FICTION_DEFAULT_FOR_GENRE
 
         # Find all the genres that will go into this lane.
-        self.genres, self.fiction = self.gather_matching_genres(
+        genres, self.fiction = self.gather_matching_genres(
             genres, fiction, full_exclude_genres
         )
+        self.genre_ids = [x.id for x in genres]
+        self.genre_names = [x.name for x in genres]
 
         if sublanes and not isinstance(sublanes, list):
             sublanes = [sublanes]
@@ -850,7 +852,7 @@ class Lane(object):
         * Be in one of the languages listed in `languages`,
           and not one of the languages listed in `exclude_languages`.
 
-        * Be filed under of the genres listed in `self.genres` (or, if
+        * Be filed under of the genres listed in `self.genre_ids` (or, if
           `self.include_subgenres` is True, any of those genres'
           subgenres).
 
@@ -885,10 +887,10 @@ class Lane(object):
         )
         q = self._defer_unused_opds_entry(q)
 
-        if self.genres:
+        if self.genre_ids:
             q = q.join(Work.work_genres)
             q = q.options(contains_eager(Work.work_genres))
-            q = q.filter(WorkGenre.genre_id.in_([g.id for g in self.genres]))
+            q = q.filter(WorkGenre.genre_id.in_(self.genre_ids))
 
         q = self.apply_filters(q, facets, pagination, Work, Edition)
 
@@ -900,10 +902,10 @@ class Lane(object):
             MaterializedWork,
             MaterializedWorkWithGenre,
         )
-        if self.genres:
+        if self.genre_ids:
             mw =MaterializedWorkWithGenre
             q = self._db.query(mw)
-            q = q.filter(mw.genre_id.in_([g.id for g in self.genres]))
+            q = q.filter(mw.genre_id.in_(self.genre_ids))
         else:
             mw = MaterializedWork
             q = self._db.query(mw)
@@ -1112,7 +1114,7 @@ class Lane(object):
                 docs = search_client.query_works(
                     query, search_lane.media, search_lane.languages, search_lane.exclude_languages,
                     fiction, list(search_lane.audiences), search_lane.age_range,
-                    search_lane.genres,
+                    search_lane.genre_ids,
                     fields=["_id", "title", "author", "license_pool_id"],
                     size=pagination.size,
                     offset=pagination.offset,
