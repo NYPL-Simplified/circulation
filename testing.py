@@ -127,10 +127,13 @@ class DatabaseTest(object):
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
 
+        # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
+        # which pops an isbn off the list and messes tests up.  so exclude 
+        # _ functions from participating.
         # also attempt to stop nosetest showing docstrings instead of function names.
-        for name, obj in inspect.getmembers(self):
-            if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
-                obj.__doc__ = None
+        #for name, obj in inspect.getmembers(self):
+        #    if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
+        #        obj.__doc__ = None
 
 
     def teardown(self):
