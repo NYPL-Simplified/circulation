@@ -1272,9 +1272,12 @@ class TestWork(DatabaseTest):
         work = self._work()
         identifier = work.primary_edition.primary_identifier
         genres = self._db.query(Genre).all()
-        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
-        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
-        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
         source = DataSource.lookup(self._db, DataSource.AXIS_360)        
         classification1 = self._classification(
             identifier=identifier, subject=subject1, 
@@ -1285,15 +1288,7 @@ class TestWork(DatabaseTest):
                 
         results = work.classifications_with_genre().all()
         
-        eq_(len(results), 2)
-        eq_(results[0].weight, classification2.weight)
-        eq_(results[0].data_source_id, classification2.data_source_id)
-        eq_(results[0].subject.type, subject2.type)
-        eq_(results[0].subject.identifier, subject2.identifier)
-        eq_(results[1].weight, classification1.weight)
-        eq_(results[1].data_source_id, classification1.data_source_id)
-        eq_(results[1].subject.type, subject1.type)
-        eq_(results[1].subject.identifier, subject1.identifier)
+        eq_([classification2, classification1], results)
 
 
 class TestCirculationEvent(DatabaseTest):

@@ -400,14 +400,9 @@ class DatabaseTest(object):
             client_id=u"abc", client_secret=u"def"
         )[0]
 
-    def _subject(self, type, identifier, genre=None):
-        if genre == None:
-            return get_one_or_create(
-                self._db, Subject, type=type, identifier=identifier
-            )[0]
-
+    def _subject(self, type, identifier):
         return get_one_or_create(
-            self._db, Subject, type=type, identifier=identifier, genre=genre
+            self._db, Subject, type=type, identifier=identifier
         )[0]
 
     def _classification(self, identifier, subject, data_source, weight=1):
