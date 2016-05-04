@@ -42,6 +42,8 @@ from coverage import (
 from external_search import DummyExternalSearchIndex
 import mock
 import model
+import inspect
+
 
 def package_setup():
     """Make sure the database schema is initialized and initial
@@ -125,6 +127,12 @@ class DatabaseTest(object):
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
 
+        # also attempt to stop nosetest showing docstrings instead of function names.
+        for name, obj in inspect.getmembers(self):
+            if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
+                obj.__doc__ = None
+
+
     def teardown(self):
         # Close the session.
         self._db.close()
@@ -136,10 +144,7 @@ class DatabaseTest(object):
         self.search_mock.stop()
 
     def shortDescription(self):
-        """  Prevents nosetests from displaying docstrings instead of method names when 
-        testing with verbosity level >= 2.
-        """
-        return None
+        return None # Stop nosetests displaying docstrings instead of class names when verbosity level >= 2.
 
     @property
     def _id(self):
