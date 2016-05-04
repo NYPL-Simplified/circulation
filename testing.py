@@ -12,6 +12,7 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -19,15 +20,16 @@ from model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Edition,
     Genre,
     Hyperlink,
+    Identifier,
     LicensePool,
     Patron,
     Representation,
     Resource,
-    Identifier,
     SessionManager,
-    Edition,
+    Subject,
     Work,
     WorkCoverageRecord,
     UnresolvedIdentifier,
@@ -396,6 +398,17 @@ class DatabaseTest(object):
         return get_one_or_create(
             self._db, Collection, name=name, data_source=source,
             client_id=u"abc", client_secret=u"def"
+        )[0]
+
+    def _subject(self, type, identifier):
+        return get_one_or_create(
+            self._db, Subject, type=type, identifier=identifier
+        )[0]
+
+    def _classification(self, identifier, subject, data_source, weight=1):
+        return get_one_or_create(
+            self._db, Classification, identifier=identifier, subject=subject, 
+            data_source=data_source, weight=weight
         )[0]
 
 class InstrumentedCoverageProvider(CoverageProvider):

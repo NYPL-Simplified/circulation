@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -439,7 +440,7 @@ class TestSubject(DatabaseTest):
         eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
-        
+
 
 class TestContributor(DatabaseTest):
 
@@ -1266,6 +1267,28 @@ class TestWork(DatabaseTest):
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
+
+    def test_classifications_with_genre(self):
+        work = self._work()
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+                
+        results = work.classifications_with_genre().all()
+        
+        eq_([classification2, classification1], results)
 
 
 class TestCirculationEvent(DatabaseTest):
