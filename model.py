@@ -1204,7 +1204,7 @@ class Identifier(Base):
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
-        
+
         `data_source` is the DataSource that believes the two 
         identifiers are equivalent.
         """
@@ -5956,11 +5956,10 @@ class Representation(Base):
                    'video/'
         ])
 
-
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
-            accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, debug=True):
+            params=None, accept=None, max_age=None, pause_before=0,
+            allow_redirects=True, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -5977,9 +5976,12 @@ class Representation(Base):
         :return: A 2-tuple (representation, obtained_from_cache)
 
         """
-        do_get = do_get or cls.simple_http_get
-
         representation = None
+        request_kwargs = {}
+        if params:
+            do_get = do_get or cls.simple_http_post
+            request_kwargs.update({'data' : params})
+        do_get = do_get or cls.simple_http_get
 
         # TODO: We allow representations of the same URL in different
         # media types, but we don't have a good solution here for
@@ -6052,7 +6054,7 @@ class Representation(Base):
             time.sleep(pause_before)
         media_type = None
         try:
-            status_code, headers, content = do_get(url, headers)
+            status_code, headers, content = do_get(url, headers, **request_kwargs)
             exception = None
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
@@ -6079,7 +6081,7 @@ class Representation(Base):
             or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url, media_type=media_type)
+                _db, Representation, url=url, media_type=unicode(media_type))
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
@@ -6135,6 +6137,12 @@ class Representation(Base):
         representation.content = content
         return representation, False
 
+    @classmethod
+    def post(cls, _db, url, params, max_age=None):
+        return cls.get(
+            _db, url, do_get=cls.simple_http_post, params=params, max_age=max_age
+        )
+
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
        
@@ -6144,7 +6152,6 @@ class Representation(Base):
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
             self.image_width, self.image_height = image.size
-            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
         else:
             self.image_width = self.image_height = None
 
@@ -6212,6 +6219,14 @@ class Representation(Base):
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
         response = requests.get(url, headers=headers, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    @classmethod
+    def simple_http_post(cls, url, headers, **kwargs):
+        """The most simple HTTP-based POST."""
+        if not 'timeout' in kwargs:
+            kwargs['timeout'] = 20
+        response = requests.post(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
