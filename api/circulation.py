@@ -440,7 +440,6 @@ class CirculationAPI(object):
                 )
 
         threads = []
-        import time
         before = time.time()
         for api in self.apis:
             thread = PatronActivityThread(api, patron, pin)
