@@ -176,20 +176,16 @@ class CirculationManager(object):
     def setup_circulation(self):
         """Set up distributor APIs and a the Circulation object."""
         if self.testing:
-
-            self.overdrive = DummyOverdriveAPI(self._db)
-            self.threem = DummyThreeMAPI(self._db)
-            self.axis = None
             self.circulation = DummyCirculationAPI(self._db)
         else:
-            self.overdrive = OverdriveAPI.from_environment(self._db)
-            self.threem = ThreeMAPI.from_environment(self._db)
-            self.axis = Axis360API.from_environment(self._db)
+            overdrive = OverdriveAPI.from_environment(self._db)
+            threem = ThreeMAPI.from_environment(self._db)
+            axis = Axis360API.from_environment(self._db)
             self.circulation = CirculationAPI(
                 _db=self._db, 
-                threem=self.threem, 
-                overdrive=self.overdrive,
-                axis=self.axis
+                threem=threem, 
+                overdrive=overdrive,
+                axis=axis
             )
 
     def setup_controllers(self):
