@@ -505,26 +505,38 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             book, license_pool, is_new
         )
 
-    def update_licensepool_with_book_info(self, book, license_pool, is_new):
+    def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
         Also creates an Edition and gives it very basic bibliographic
-        information (the title), if possible.
+        information (the title), if possible.  If the new Edition is the only 
+        candidate for the pool's presentation_edition, promote it to presentation status.
         """
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
         )
-        circulation_changed = circulation.update(license_pool, is_new)
+        circulation_changed = circulation.update(license_pool, is_new_pool)
 
-        edition, ignore = Edition.for_foreign_id(
+        edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,
             license_pool.identifier.identifier)
         edition.title = edition.title or book.get('title')
-        if is_new:
+
+        # if the pool does not already have a presetation edition, 
+        # and if this edition is newly made, then associate pool and edition
+        # as presentation_edition
+        if ((not license_pool.presentation_edition) and is_new_edition): 
+            # NOTE:  I think it might not be guaranteed that edition will be set as 
+            # pool's presentation_edition here.  Also, let's keep an eye on this code 
+            # bit's performance speed.
+            edition_changed = license_pool.set_presentation_edition(None)
+
+        if is_new_pool:
             license_pool.open_access = False
             self.log.info("New Overdrive book discovered: %r", edition)
-        return license_pool, is_new, circulation_changed
+        return license_pool, is_new_pool, circulation_changed
+
 
     @classmethod
     def get_download_link(self, checkout_response, format_type, error_url):
