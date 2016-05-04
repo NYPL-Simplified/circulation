@@ -43,7 +43,7 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
-from core.classifier import genres, StaffGenreClassifier
+from core.classifier import genres, SimplifiedGenreClassifier
 
 
 def setup_admin_controllers(manager):
@@ -162,6 +162,8 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
+    STAFF_WEIGHT = 100000
+
     def details(self, data_source, identifier):
         """Return an OPDS entry with detailed information for admins.
         
@@ -225,8 +227,6 @@ class WorkController(CirculationManagerController):
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
 
-        STAFF_WEIGHT = 100000
-
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
@@ -263,7 +263,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
                 subject_identifier=fiction_term,
-                weight=STAFF_WEIGHT * 100,
+                weight=WorkControllerSTAFF_WEIGHT * 100,
             )
             classification.subject.fiction = new_fiction
             changed = True
@@ -280,7 +280,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.FREEFORM_AUDIENCE,
                 subject_identifier=new_audience,
-                weight=STAFF_WEIGHT,
+                weight=WorkController.STAFF_WEIGHT,
             )
             changed = True
 
@@ -307,7 +307,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.AGE_RANGE,
                 subject_identifier=age_range_identifier,
-                weight=STAFF_WEIGHT * 100,
+                weight=WorkController.STAFF_WEIGHT * 100,
             )
             changed = True
 
@@ -424,63 +424,62 @@ class WorkController(CirculationManagerController):
             return pool
         work = pool.work
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        new_genres = flask.request.form.get("genres")
+        new_genres = flask.request.form.getlist("genres")
 
-        current_classifications = Classification \
-            .for_work_with_genre(work) \
-            .join(Subject.genre) \
+        current_staff_classifications = Classification \
+            .for_work_with_genre(self._db, work) \
+            .filter(Classification.data_source_id == staff_data_source.id) \
             .all()
-        current_staff_classifications = [
-            c for c in current_classifications 
-            if c.data_source_id == staff_data_source.id 
+        current_staff_genres = [
+            c.subject.genre.name 
+            for c in current_staff_classifications 
+            if c.subject.genre
         ]
-        current_staff_genres = [c.genre.name for c in current_staff_classifications]
-        changed = False
 
         # make sure all new genres are legit
         for name in new_genres:
-            genre = Genre.lookup(self._db, name)
+            genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
+            if work.fiction != genres[name].is_fiction:
+                return INCOMPATIBLE_GENRE
 
-        # begin transaction
-        __transaction = self._db.begin()
+        # delete existing staff classifications for genres that aren't being kept
+        for c in current_staff_classifications:
+            name = c.subject.genre.name
+            if work.fiction != genres[name].is_fiction or name not in new_genres:
+                self._db.delete(c)
 
-        try:
-            # delete existing staff classifications for genres that aren't being kept
-            for c in current_staff_classifications:
-                # don't delete NONE genre, which need to know that staff have 
-                # removed all genres
-                if c.subject.identifier != StaffGenreClassifier.NONE:
-                    continue
+        # add new staff classifications for new genres
+        for genre in new_genres:
+            if genre not in current_staff_genres:
+                classification = work.primary_edition.primary_identifier.classify(
+                    data_source=staff_data_source,
+                    subject_type=Subject.SIMPLIFIED_GENRE,
+                    subject_identifier=genre,
+                    weight=WorkController.STAFF_WEIGHT * 100
+                )
 
-                if work.fiction != genres[name].is_fiction or c.subject.genre.name not in new_genres:
-                    self._db.delete(c)
-                    changed = True
+        # add NONE classification if we aren't keeping any genres
+        staff_classifications_count = Classification \
+            .for_work_with_genre(self._db, work) \
+            .filter(Classification.data_source_id == staff_data_source.id) \
+            .count()
 
-            # add new staff classifications for new genres
-            for genre in new_genres:
-                if genre not in current_staff_genres:
-                    work.primary_edition.primary_identifier.classify(
-                        data_source=staff_data_source,
-                        subject_type=Subject.SIMPLIFIED_GENRE,
-                        subject_identifier=genre,
-                        weight=1,
-                    )
-                    changed = True
-
-            # add blank staff classification if it doesn't exist
+        if staff_classifications_count == 0:
             work.primary_edition.primary_identifier.classify(
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_GENRE,
-                subject_identifier=StaffGenreClassifier.NONE,
-                weight=1,
+                subject_identifier=SimplifiedGenreClassifier.NONE,
+                weight=WorkController.STAFF_WEIGHT * 100
             )
-            changed = True
 
-            __transaction.commit()
-        except:
-            __transaction.rollback()
+        policy = PresentationCalculationPolicy(
+            classify=True,
+            regenerate_opds_entries=True,
+            update_search_index=True
+        )
+        work.calculate_presentation(policy=policy)
 
         return Response("", 200)
 
