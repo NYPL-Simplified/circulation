@@ -387,7 +387,7 @@ class ExternalSearchIndex(object):
         if exclude_languages:
             clauses.append({'not': dict(terms=dict(language=list(exclude_languages)))})
         if genres:
-            if isinstance(genre[0], int):
+            if isinstance(genres[0], int):
                 # We were given genre IDs.
                 genre_ids = genres
             else:
