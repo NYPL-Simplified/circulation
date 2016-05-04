@@ -359,6 +359,11 @@ class FormatData(object):
         self.link = link
 
 class CirculationData(object):
+    
+    log = logging.getLogger(
+        "Abstract metadata layer - Circulation data"
+    )
+
     def __init__(
             self, licenses_owned, 
             licenses_available, 
@@ -373,10 +378,6 @@ class CirculationData(object):
         self.patrons_in_hold_queue = patrons_in_hold_queue
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
-        self.log = logging.getLogger(
-            "Abstract metadata layer - Circulation data"
-        )
-
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
