@@ -4537,7 +4537,7 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {

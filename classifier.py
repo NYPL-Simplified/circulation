@@ -79,6 +79,8 @@ class Classifier(object):
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN])
 
+    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
 
@@ -3784,10 +3786,10 @@ class WorkClassifier(object):
         return consolidated
 
 
-class StaffGenreClassifier(Classifier):
+class SimplifiedGenreClassifier(Classifier):
 
     NONE = "NONE"
-    
+
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         if fiction == True:
@@ -3796,20 +3798,16 @@ class StaffGenreClassifier(Classifier):
             all_genres = nonfiction_genres
         else:
             all_genres = fiction_genres + nonfiction_genres
-
-        return cls._genre_by_name(name, all_genres)
-
-    @classmethod
-    def is_fiction(cls, identifier, name):
-        return cls._genre_by_name(name, fiction_genres) != None
+        return cls._genre_by_name(identifier.original, all_genres)
 
     @classmethod
     def _genre_by_name(cls, name, genres):
-        for genre in all_genres:
+        for genre in genres:
             if genre == name:
-                return name
-            elif isinstance(genre, dict) and name in genre.sublanes:
-                return name
+                return globals()["genres"][name]
+            elif isinstance(genre, dict):
+                if name == genre["name"] or name in genre.get("subgenres", []):
+                    return globals()["genres"][name]
         return None
 
 
@@ -3828,4 +3826,4 @@ Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifie
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
 Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
-
+Classifier.classifiers[Classifier.SIMPLIFIED_GENRE] = SimplifiedGenreClassifier
