@@ -3722,6 +3722,7 @@ class Work(Base):
         """
         if (not self.primary_edition
             or not self.license_pools
+            or all([lp.suppressed for lp in self.license_pools])
             or not self.title
             or not self.language
             or self.fiction is None
@@ -5101,6 +5102,10 @@ class LicensePool(Base):
     # A LicensePool that seemingly looks fine may be manually suppressed
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
+
+    # A textual description of a problem with this license pool
+    # that caused us to suppress it.
+    license_exception = Column(Unicode, index=True)
 
     # Index the combination of DataSource and Identifier to make joins easier.
 
