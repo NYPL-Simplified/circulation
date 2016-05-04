@@ -219,7 +219,6 @@ class DatabaseTest(object):
             with_license_pool = True
         language = language or "eng"
         title = unicode(title or self._str)
-        genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
         if audience == Classifier.AUDIENCE_CHILDREN:
             # TODO: This is necessary because Gutenberg's childrens books
@@ -253,9 +252,10 @@ class DatabaseTest(object):
                 audience=audience,
                 fiction=fiction,
                 quality=quality), id=self._id)
-        if not isinstance(genre, Genre):
-            genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
-        work.genres = [genre]
+        if genre:
+            if not isinstance(genre, Genre):
+                genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
+            work.genres = [genre]
         work.random = 0.5
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
