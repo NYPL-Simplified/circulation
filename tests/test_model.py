@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -47,6 +48,7 @@ from model import (
     WorkGenre,
     Identifier,
     Edition,
+    get_one,
     get_one_or_create,
 )
 from external_search import (
@@ -111,6 +113,12 @@ class TestDataSource(DatabaseTest):
     def test_lookup_returns_none_for_nonexistent_source(self):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
+
+    def test_metadata_sources_for(self):
+        [content_cafe] = DataSource.metadata_sources_for(
+            self._db, Identifier.ISBN
+        )
+        eq_(DataSource.CONTENT_CAFE, content_cafe.name)
 
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
@@ -304,6 +312,42 @@ class TestIdentifier(DatabaseTest):
             [x.id for x in Identifier.missing_coverage_from(
                 self._db, [Identifier.GUTENBERG_ID], web)])
         )
+
+    def test_missing_coverage_from_with_cutoff_date(self):
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        web = DataSource.lookup(self._db, DataSource.WEB)
+
+        # Here's an Edition with a coverage record from OCLC classify.
+        gutenberg, ignore = Edition.for_foreign_id(
+            self._db, gutenberg, Identifier.GUTENBERG_ID, "1")
+        identifier = gutenberg.primary_identifier
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        coverage = self._coverage_record(gutenberg, oclc)
+
+        # The CoverageRecord knows when the coverage was provided.
+        timestamp = coverage.timestamp
+        
+        # If we ask for Identifiers that are missing coverage records
+        # as of that time, we see nothing.
+        eq_(
+            [], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], oclc, 
+                count_as_missing_before=timestamp
+            ).all()
+        )
+
+        # But if we give a time one second later, the Identifier is
+        # missing coverage.
+        eq_(
+            [identifier], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], oclc, 
+                count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
+            ).all()
+        )
+
 
 class TestUnresolvedIdentifier(DatabaseTest):
 
@@ -723,7 +767,26 @@ class TestEdition(DatabaseTest):
         eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
         eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
 
-    def test_calculate_evaluate_summary_quality_with_privileged_data_source(self):
+    def test_set_summary(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # Set the work's summmary.
+        l1, new = pool.add_link(Hyperlink.DESCRIPTION, None, overdrive, "text/plain",
+                      "F")
+        work.set_summary(l1.resource)
+
+        eq_(l1.resource, work.summary)
+        eq_("F", work.summary_text)
+
+        # Remove the summary.
+        work.set_summary(None)
+        
+        eq_(None, work.summary)
+        eq_("", work.summary_text)
+
+    def test_calculate_evaluate_summary_quality_with_privileged_data_sources(self):
         e, pool = self._edition(with_license_pool=True)
         oclc = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -749,7 +812,7 @@ class TestEdition(DatabaseTest):
         # But if we say that Overdrive is the privileged data source, it wins
         # automatically. The other resource isn't even considered.
         champ2, resources2 = Identifier.evaluate_summary_quality(
-            self._db, ids, overdrive)
+            self._db, ids, [overdrive])
         eq_(overdrive_resource, champ2)
         eq_([overdrive_resource], resources2)
 
@@ -759,10 +822,26 @@ class TestEdition(DatabaseTest):
         # wins.
         threem = DataSource.lookup(self._db, DataSource.THREEM)
         champ3, resources3 = Identifier.evaluate_summary_quality(
-            self._db, ids, threem)
+            self._db, ids, [threem])
         eq_(set([overdrive_resource, oclc_resource]), set(resources3))
         eq_(oclc_resource, champ3)
-        
+
+        # If there are two privileged data sources and there's no
+        # description from the first, the second is used.
+        champ4, resources4 = Identifier.evaluate_summary_quality(
+            self._db, ids, [threem, overdrive])
+        eq_([overdrive_resource], resources4)
+        eq_(overdrive_resource, champ4)
+
+        # Even an empty string wins if it's from the most privileged data source.
+        staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
+        staff_resource = l3.resource
+
+        champ5, resources5 = Identifier.evaluate_summary_quality(
+            self._db, ids, [staff, overdrive])
+        eq_([staff_resource], resources5)
+        eq_(staff_resource, champ5)
 
     def test_calculate_presentation_cover(self):
         # TODO: Verify that a cover will be used even if it's some
@@ -968,6 +1047,7 @@ class TestLicensePool(DatabaseTest):
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
+        type3 = next(type)
 
         work1 = self._work(
             "fiction work with complaint",
@@ -990,6 +1070,12 @@ class TestLicensePool(DatabaseTest):
             type2,
             "work1 complaint3 source",
             "work1 complaint3 detail")
+        lp1_resolved_complaint = self._complaint(
+            lp1,
+            type3,
+            "work3 resolved complaint source",
+            "work3 resolved complaint detail",
+            datetime.datetime.now())
 
         work2 = self._work(
             "nonfiction work with complaint",
@@ -1002,12 +1088,25 @@ class TestLicensePool(DatabaseTest):
             type2,
             "work2 complaint1 source",
             "work2 complaint1 detail")
-
+        lp2_resolved_complaint = self._complaint(
+            lp2,
+            type2,
+            "work2 resolved complaint source",
+            "work2 resolved complaint detail",
+            datetime.datetime.now())
+        
         work3 = self._work(
             "fiction work without complaint",
             language="eng",
             fiction=True,
             with_open_access_download=True)
+        lp3 = work3.license_pools[0]
+        lp3_resolved_complaint = self._complaint(
+            lp3,
+            type3,
+            "work3 resolved complaint source",
+            "work3 resolved complaint detail",
+            datetime.datetime.now())
 
         work4 = self._work(
             "nonfiction work without complaint",
@@ -1015,14 +1114,34 @@ class TestLicensePool(DatabaseTest):
             fiction=False,
             with_open_access_download=True)
 
+        # excludes resolved complaints by default
         results = LicensePool.with_complaint(self._db).all()
-        (pools, counts) = zip(*results)
 
         eq_(2, len(results))
         eq_(lp1.id, results[0][0].id)
         eq_(3, results[0][1])
         eq_(lp2.id, results[1][0].id)
         eq_(1, results[1][1])
+
+        # include resolved complaints this time
+        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
+
+        eq_(3, len(more_results))
+        eq_(lp1.id, more_results[0][0].id)
+        eq_(4, more_results[0][1])
+        eq_(lp2.id, more_results[1][0].id)
+        eq_(2, more_results[1][1])
+        eq_(lp3.id, more_results[2][0].id)
+        eq_(1, more_results[2][1])
+
+        # show only resolved complaints
+        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        lp_ids = set([result[0].id for result in resolved_results])
+        counts = set([result[1] for result in resolved_results])
+        
+        eq_(3, len(resolved_results))
+        eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
+        eq_(counts, set([1]))
 
 
 class TestWork(DatabaseTest):
@@ -1108,31 +1227,22 @@ class TestWork(DatabaseTest):
         work = self._work(with_license_pool=True)
         primary = work.primary_edition
         work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)
+        eq_(True, work.presentation_ready)
         
-        # This work is not presentation ready because it has no
-        # cover. If we record the fact that we tried and failed to
-        # find a cover, it will be considered presentation ready.
-        work.primary_edition.no_known_cover = True
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
-
-        # It would also work to add a cover, of course.
-        work.primary_edition.cover_thumbnail_url = "http://example.com/"
-        work.primary_edition.no_known_cover = False
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
+        # This work is presentation ready because it has a title
+        # and a fiction status.
 
         # Remove the title, and the work stops being presentation
         # ready.
         primary.title = None
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
+
         primary.title = u"foo"
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
-        # Remove the fiction setting, and the work stops being
+        # Remove the fiction status, and the work stops being
         # presentation ready.
         work.fiction = None
         work.set_presentation_ready_based_on_content()
@@ -1141,18 +1251,6 @@ class TestWork(DatabaseTest):
         work.fiction = False
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
-
-        # Remove the author's presentation string, and the work stops
-        # being presentation ready.
-        primary.author = None
-        work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)        
-        primary.author = u"foo"
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)        
-
-        # TODO: there are some other things you can do to stop a work
-        # being presentation ready, and they should all be tested.
 
     def test_assign_genres_from_weights(self):
         work = self._work()
@@ -1774,7 +1872,7 @@ class TestRepresentation(DatabaseTest):
 
     def test_set_fetched_content_file_on_disk(self):
         filename = "set_fetched_content_file_on_disk.txt"
-        path = os.path.join(self.DBInfo.tmp_data_dir, filename)
+        path = os.path.join(self.tmp_data_dir, filename)
         open(path, "w").write("some text")
 
         representation, ignore = self._representation(self._url, "text/plain")
@@ -1849,6 +1947,28 @@ class TestRepresentation(DatabaseTest):
             self._db, url, do_get=h.do_get)
         eq_(False, cached)
 
+    def test_url_extension(self):
+        epub, ignore = self._representation("test.epub")
+        eq_(".epub", epub.url_extension)
+
+        epub3, ignore = self._representation("test.epub3")
+        eq_(".epub3", epub3.url_extension)
+
+        noimages, ignore = self._representation("test.epub.noimages")
+        eq_(".epub.noimages", noimages.url_extension)
+
+        unknown, ignore = self._representation("test.1234.abcd")
+        eq_(".abcd", unknown.url_extension)
+
+        no_extension, ignore = self._representation("test")
+        eq_(None, no_extension.url_extension)
+
+        no_filename, ignore = self._representation("foo.com/")
+        eq_(None, no_filename.url_extension)
+
+        query_param, ignore = self._representation("test.epub?version=3")
+        eq_(".epub", query_param.url_extension)
+
     def test_clean_media_type(self):
         m = Representation._clean_media_type
         eq_("image/jpeg", m("image/jpeg"))
@@ -1874,7 +1994,7 @@ class TestRepresentation(DatabaseTest):
 
         # File extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
-        eq_("baz.txt.png", filename)
+        eq_("baz.png", filename)
 
         # The original file extension is not treated as reliable and
         # need not be present.
@@ -2351,3 +2471,100 @@ class TestComplaint(DatabaseTest):
         assert_raises(
             ValueError, Complaint.register, self.pool, type, None, None
         )
+        
+    def test_register_resolved(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, "foo", "bar", resolved=datetime.datetime.utcnow()
+        )
+        eq_(True, is_new)
+        eq_(self.type, complaint.type)
+        eq_("foo", complaint.source)
+        eq_("bar", complaint.detail)
+        assert abs(datetime.datetime.utcnow() -complaint.timestamp).seconds < 3
+        assert abs(datetime.datetime.utcnow() -complaint.resolved).seconds < 3
+
+        # A second complaint from the same source is not folded into the same complaint.
+        complaint2, is_new = Complaint.register(
+            self.pool, self.type, "foo", "baz"
+        )
+        eq_(True, is_new)
+        assert complaint2.id != complaint.id
+        eq_("baz", complaint2.detail)
+        eq_(2, len(self.pool.complaints))
+
+    def test_resolve(self):
+        complaint, is_new = Complaint.register(
+            self.pool, self.type, "foo", "bar"
+        )
+        complaint.resolve()
+        assert complaint.resolved != None
+        assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+
+
+class TestCollection(DatabaseTest):
+
+    def setup(self):
+        super(TestCollection, self).setup()
+        self.collection = self._collection()
+
+    def test_encrypts_client_secret(self):
+        collection, new = get_one_or_create(
+            self._db, Collection, name=u"Test Collection", client_id=u"test",
+            client_secret=u"megatest"
+        )
+        assert collection.client_secret != u"megatest"
+        eq_(True, collection.client_secret.startswith("$2a$"))
+
+    def test_register(self):
+        collection, plaintext_secret = Collection.register(
+            self._db, u"A Library"
+        )
+
+        # It creates client details and a DataSource for the collection
+        assert collection.client_id and collection.client_secret
+        assert get_one(self._db, DataSource, name=collection.name)
+
+        # It returns nothing if the name is already taken.
+        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+
+    def test_authenticate(self):
+
+        result = Collection.authenticate(self._db, u"abc", u"def")
+        eq_(self.collection, result)
+
+        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        eq_(None, result)
+
+        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        eq_(None, result)
+
+    def test_catalog_identifier(self):
+        """#catalog_identifier associates an identifier with the collection"""
+
+        identifier = self._identifier()
+        self.collection.catalog_identifier(self._db, identifier)
+        eq_(1, len(self.collection.catalog))
+        eq_(identifier, self.collection.catalog[0])
+
+    def test_works_updated_since(self):
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        timestamp = datetime.datetime.utcnow()
+        # A collection with no catalog returns nothing.
+        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+
+        # When no timestamp is passed, all works in the catalog are returned.
+        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.collection.works_updated_since(self._db, None).all()
+
+        eq_(2, len(updated_works))
+        assert w1 in updated_works and w2 in updated_works
+        assert w3 not in updated_works
+
+        # When a timestamp is passed, only works that have been updated
+        # since then will be returned
+        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())

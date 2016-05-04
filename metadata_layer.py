@@ -340,6 +340,11 @@ class FormatData(object):
         self.link = link
 
 class CirculationData(object):
+    
+    log = logging.getLogger(
+        "Abstract metadata layer - Circulation data"
+    )
+
     def __init__(
             self, licenses_owned, 
             licenses_available, 
@@ -354,10 +359,6 @@ class CirculationData(object):
         self.patrons_in_hold_queue = patrons_in_hold_queue
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
-        self.log = logging.getLogger(
-            "Abstract metadata layer - Circulation data"
-        )
-
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
@@ -961,10 +962,11 @@ class Metadata(object):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
-
+        
+        link_data_source = self.license_data_source(_db) or data_source
         for link in self.links:
             link_obj, ignore = identifier.add_link(
-                rel=link.rel, href=link.href, data_source=data_source, 
+                rel=link.rel, href=link.href, data_source=link_data_source, 
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
@@ -976,14 +978,14 @@ class Metadata(object):
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(
-                    pool, data_source, link, link_obj, replace
+                    pool, link_data_source, link, link_obj, replace
                 )
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
                 self.make_thumbnail(
-                    pool, data_source, link, link_obj
+                    pool, link_data_source, link, link_obj
                 )
 
         if pool and replace.formats:
@@ -1004,7 +1006,7 @@ class Metadata(object):
                 # efficient and less error-prone to keep track of the
                 # link objects rather than calling add_link again.
                 link_obj, ignore = identifier.add_link(
-                    rel=link.rel, href=link.href, data_source=data_source, 
+                    rel=link.rel, href=link.href, data_source=link_data_source, 
                     license_pool=pool, media_type=link.media_type,
                     content=link.content
                 )
@@ -1079,7 +1081,8 @@ class Metadata(object):
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(
-            _db, link.href, do_get=http_get
+            _db, link.href, do_get=http_get,
+            presumed_media_type=link.media_type,
         )
 
         # Make sure the (potentially newly-fetched) representation is
@@ -1092,7 +1095,7 @@ class Metadata(object):
             if pool and pool.edition and pool.edition.title:
                 title = pool.edition.title
             else:
-                title = None
+                title = self.title or None
             extension = representation.extension()
             mirror_url = mirror.book_url(
                 identifier, data_source=data_source, title=title,
@@ -1134,6 +1137,14 @@ class Metadata(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail)
 
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            # If we mirrored book content successfully, don't keep it in
+            # the database to save space. We do keep images in case we
+            # ever need to resize them.
+            if representation.mirrored_at and not representation.mirror_exception:
+                representation.content = None
+
+        
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.

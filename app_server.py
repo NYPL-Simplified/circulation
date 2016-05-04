@@ -7,8 +7,10 @@ import os
 import sys
 import subprocess
 from lxml import etree
+from functools import wraps
 from flask import url_for, make_response
 from util.flask_util import problem
+from util.problem_detail import ProblemDetail
 import traceback
 import logging
 from opds import (
@@ -156,6 +158,14 @@ def load_pagination(size, offset):
             return INVALID_INPUT.detailed("Invalid offset: %s" % offset)
     return Pagination(offset, size)
 
+def returns_problem_detail(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        v = f(*args, **kwargs)
+        if isinstance(v, ProblemDetail):
+            return v.response
+        return v
+    return decorated
 
 class ErrorHandler(object):
     def __init__(self, app, debug):
@@ -192,15 +202,12 @@ class HeartbeatController(object):
 
 class URNLookupController(object):
 
-    INVALID_URN = "Could not parse identifier."
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
     UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
     WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
-
-    COULD_NOT_PARSE_URN_TYPE = "http://librarysimplified.org/terms/problem/could-not-parse-urn"
 
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
@@ -217,7 +224,7 @@ class URNLookupController(object):
             identifier, is_new = Identifier.parse_urn(
                 _db, urn)
         except ValueError, e:
-            return (400, self.INVALID_URN)
+            return (INVALID_URN.status_code, INVALID_URN.detail)
 
         if not must_support_metadata:
             return identifier
@@ -235,7 +242,7 @@ class URNLookupController(object):
 
         return (400, self.UNRESOLVABLE_URN)
 
-    def process_urn(self, urn):
+    def process_urn(self, urn, collection=None):
         """Turn a URN into a Work suitable for use in an OPDS feed.
 
         :return: If a Work is found, the return value is None.
@@ -246,6 +253,9 @@ class URNLookupController(object):
         if not isinstance(identifier, Identifier):
             # Error.
             return identifier
+
+        if collection:
+            collection.catalog_identifier(self._db, identifier)
 
         if identifier.licensed_through:
             # There is a LicensePool for this identifier!
@@ -360,14 +370,14 @@ class URNLookupController(object):
         # We made it!
         return entry
 
-    def work_lookup(self, annotator, controller_name='lookup'):
+    def work_lookup(self, annotator, controller_name='lookup', collection=None):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
         this_url = cdn_url_for(controller_name, _external=True, urn=urns)
         for urn in urns:
-            code, message = self.process_urn(urn)
+            code, message = self.process_urn(urn, collection=collection)
             if code:
                 messages_by_urn[urn] = (code, message)
 
@@ -400,7 +410,7 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
 
-    
+
 class ComplaintController(object):
     """A controller to register complaints against objects."""
 
@@ -433,4 +443,3 @@ class ComplaintController(object):
             )
 
         return make_response("Success", 201, {"Content-Type": "text/plain"})
-        

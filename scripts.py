@@ -1,3 +1,5 @@
+import argparse
+import datetime
 import os
 import logging
 import sys
@@ -29,7 +31,7 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
-from nyt import NYTBestSellerAPI
+from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
     OverdriveBibliographicCoverageProvider,
@@ -105,6 +107,23 @@ class Script(object):
             data_source = DataSource.lookup(_db, restrict_to_source)
             return data_source
         return []
+
+    @classmethod
+    def parse_time(cls, time_string):
+        """Try to pass the given string as a time."""
+        if not time_string:
+            return None
+        for format in ('%Y-%m-%d', '%m/%d/%Y', '%Y%m%d'):
+            for hours in ('', ' %H:%M:%S'):
+                full_format = format + hours
+                try:
+                    parsed = datetime.datetime.strptime(
+                        time_string, full_format
+                    )
+                    return parsed
+                except ValueError, e:
+                    continue
+        raise ValueError("Could not parse time: %s" % time_string)
 
     def run(self):
         self.load_configuration()
@@ -186,12 +205,43 @@ class IdentifierInputScript(Script):
             self._db, sys.argv[1:]
         )
 
+class SubjectInputScript(Script):
+    """A script whose command line filters the set of Subjects.
+
+    :return: a 2-tuple (subject type, subject filter) that can be
+    passed into the SubjectSweepMonitor constructor.
+    """
+
+    @classmethod
+    def parse_command_line(cls):
+        subject_type = None
+        if len(sys.argv) < 2:
+            return None, None
+        subject_type = sys.argv[1]
+
+        if len(sys.argv) < 3:
+            subject_filter = None
+        else:
+            subject_filter = sys.argv[2]
+        return subject_type, subject_filter
+
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
+    @classmethod
+    def parse_cutoff_time(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--cutoff-time', 
+            help='Update existing coverage records if they were originally created after this time.'
+        )
+        args = parser.parse_args()
+        return cls.parse_time(args.cutoff_time)
+
     def __init__(self, provider):
+        cutoff_time = self.parse_cutoff_time()
         if callable(provider):
-            provider = provider(self._db)
+            provider = provider(self._db, cutoff_time=cutoff_time)
         self.provider = provider
         self.name = self.provider.service_name
 
@@ -607,3 +657,12 @@ class Explain(IdentifierInputScript):
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
             print " ", genre
+
+class SubjectAssignmentScript(SubjectInputScript):
+
+    def run(self):
+        subject_type, subject_filter = self.parse_command_line()
+        monitor = SubjectAssignmentMonitor(
+            self._db, subject_type, subject_filter
+        )
+        monitor.run()

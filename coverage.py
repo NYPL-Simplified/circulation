@@ -30,12 +30,14 @@ class CoverageFailure(object):
         self.exception = exception
         self.transient = transient
 
-    def to_coverage_record(self):
+    def to_coverage_record(self, operation=None):
         if not self.transient:
             # This is a permanent error. Turn it into a CoverageRecord
             # so we don't keep trying to provide coverage that isn't
             # gonna happen.
-            record, ignore = CoverageRecord.add_for(self.obj, self.output_source)
+            record, ignore = CoverageRecord.add_for(
+                self.obj, self.output_source, operation=operation
+            )
             record.exception = self.exception
             return record
 
@@ -54,7 +56,7 @@ class CoverageProvider(object):
     CAN_CREATE_LICENSE_POOLS = False
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100):
+                 workset_size=100, cutoff_time=None, operation=None):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
 
@@ -63,6 +65,8 @@ class CoverageProvider(object):
         self.input_identifier_types = input_identifier_types
         self.output_source = output_source
         self.workset_size = workset_size
+        self.cutoff_time = cutoff_time
+        self.operation = operation
 
     @property
     def log(self):
@@ -83,7 +87,8 @@ class CoverageProvider(object):
         persistent errors.
         """
         return Identifier.missing_coverage_from(
-            self._db, self.input_identifier_types, self.output_source
+            self._db, self.input_identifier_types, self.output_source,
+            count_as_missing_before=self.cutoff_time
         )
 
     def run(self):
@@ -133,7 +138,7 @@ class CoverageProvider(object):
                     # Create a CoverageRecord memorializing this
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
-                    item.to_coverage_record()
+                    item.to_coverage_record(operation=self.operation)
             else:
                 # Count this as a success and add a CoverageRecord for
                 # it. It won't show up anymore, on this run or
@@ -186,7 +191,7 @@ class CoverageProvider(object):
         if force or coverage_record is None:
             result = self.process_item(identifier)
             if isinstance(result, CoverageFailure):
-                coverage_record = result.to_coverage_record()
+                coverage_record = result.to_coverage_record(operation=self.operation)
                 if coverage_record:
                     return coverage_record
                 # Returns a CoverageFailure if the CoverageRecord
@@ -273,7 +278,7 @@ class CoverageProvider(object):
         except Exception as e:
             self.log.warn(
                 "Error applying metadata to edition %d: %s",
-                edition.id, e
+                edition.id, e, exc_info=e
             )
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
@@ -292,7 +297,9 @@ class CoverageProvider(object):
         return identifier
 
     def add_coverage_record_for(self, identifier):
-        return CoverageRecord.add_for(identifier, self.output_source)
+        return CoverageRecord.add_for(
+            identifier, self.output_source, operation=self.operation
+        )
 
     def process_item(self, identifier):
         raise NotImplementedError()

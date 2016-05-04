@@ -273,6 +273,14 @@ class IdentifierSweepMonitor(Monitor):
 
 class SubjectSweepMonitor(IdentifierSweepMonitor):
 
+    def __init__(self, _db, name, subject_type=None, filter_string=None,
+                 batch_size=500):
+        super(SubjectSweepMonitor, self).__init__(
+            _db, name, batch_size=batch_size
+        )
+        self.subject_type = subject_type
+        self.filter_string = filter_string
+
     def run_once(self, offset):
         q = self.subject_query().filter(
             Subject.id > offset).order_by(
@@ -285,7 +293,17 @@ class SubjectSweepMonitor(IdentifierSweepMonitor):
             return 0
 
     def subject_query(self):
-        return self._db.query(Subject)
+        qu = self._db.query(Subject)
+        if self.subject_type:
+            qu = qu.filter(Subject.type==self.subject_type)
+        if self.filter_string:
+            filter_string = '%' + self.filter_string + '%'
+            or_clause = or_(
+                Subject.identifier.ilike(filter_string),
+                Subject.name.ilike(filter_string)
+            )
+            qu = qu.filter(or_clause)
+        return qu
 
 class CustomListEntrySweepMonitor(IdentifierSweepMonitor):
 
@@ -385,9 +403,12 @@ class SimpleOPDSEntryCacheMonitor(OPDSEntryCacheMonitor):
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
-    def __init__(self, _db, interval_seconds=None):
+    def __init__(self, _db, subject_type=None, filter_string=None,
+                 interval_seconds=None):
         super(SubjectAssignmentMonitor, self).__init__(
-            _db, "Subject assignment monitor", interval_seconds)
+            _db, "Subject assignment monitor", subject_type, filter_string,
+            interval_seconds
+        )
 
     def process_batch(self, subjects):
         highest_id = 0

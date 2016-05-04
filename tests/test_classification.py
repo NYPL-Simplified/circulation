@@ -453,6 +453,24 @@ class TestKeyword(object):
             Keyword.audience(None, "teenage romance")
         )
 
+    def test_audience_match(self):
+        (audience, match) = Keyword.audience_match("teen books")
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
+        eq_("teen books", match)
+
+        # This is a search for a specific example so it doesn't match
+        (audience, match) = Keyword.audience_match("teen romance")
+        eq_(None, audience)
+
+    def test_genre_match(self):
+        (genre, match) = Keyword.genre_match("pets")
+        eq_(classifier.Pets, genre)
+        eq_("pets", match)
+
+        # This is a search for a specific example so it doesn't match
+        (genre, match) = Keyword.genre_match("cats")
+        eq_(None, genre)
+
     def test_improvements(self):
         """A place to put tests for miscellaneous improvements added 
         since the original work.
@@ -485,6 +503,7 @@ class TestBISAC(object):
 
         eq_(True, fic("FICTION / Classics"))
         eq_(True, fic("JUVENILE FICTION / Concepts / Date & Time"))
+        eq_(True, fic("YOUNG ADULT FICTION / Lifestyles / Country Life"))
         eq_(False, fic("HISTORY / General"))
 
 
@@ -540,6 +559,17 @@ class TestBISAC(object):
             gen("JUVENILE NONFICTION / Social Issues / Friendship")
         )
 
+        eq_(classifier.Poetry, 
+            gen("JUVENILE FICTION / Stories in Verse (see also Poetry)")
+        )
+
+        eq_(classifier.Poetry, 
+            gen("JUVENILE NONFICTION / Poetry / Humorous")
+        )
+
+        eq_(classifier.Poetry, 
+            gen("YOUNG ADULT NONFICTION / Poetry")
+        )
 
 class TestAxis360Classifier(object):
 
@@ -1120,6 +1150,20 @@ class TestWorkClassifier(DatabaseTest):
 
         [[g1, weight], [g2, weight]] = self.classifier.genres(True).items()
         eq_(set([g1, g2]), set([romance.genredata, sf.genredata]))
+
+    def test_classify_sets_minimum_age_high_if_minimum_lower_than_maximum(self):
+
+        # We somehow end up in a situation where the proposed low end
+        # of the target age is higher than the proposed high end.
+        self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 1
+        self.classifier.target_age_lower_weights[10] = 1
+        self.classifier.target_age_upper_weights[4] = 1
+        
+        # We set the low end equal to the high end, erring on the side
+        # of making the book available to fewer people.
+        genres, fiction, audience, target_age = self.classifier.classify
+        eq_(10, target_age.lower)
+        eq_(10, target_age.upper)
 
     def test_classify(self):
         # At this point we've tested all the components of classify, so just

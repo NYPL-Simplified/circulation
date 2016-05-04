@@ -18,6 +18,7 @@ from model import (
     CoverageRecord,
     DataSource,
     Identifier,
+    Subject,
     Timestamp,
     UnresolvedIdentifier,
 )
@@ -27,6 +28,7 @@ from monitor import (
     PresentationReadyMonitor,
     IdentifierResolutionMonitor,
     ResolutionFailed,
+    SubjectSweepMonitor,
 )
 
 class DummyMonitor(Monitor):
@@ -257,3 +259,26 @@ class TestIdentifierResolutionMonitor(DatabaseTest):
         eq_(success, True)
 
 
+class TestSubjectSweepMonitor(DatabaseTest):
+
+    def test_subject_query(self):
+        s1, ignore = Subject.lookup(self._db, Subject.DDC, "100", None)
+        s2, ignore = Subject.lookup(
+            self._db, Subject.TAG, None, "100 Years of Solitude"
+        )
+
+        dewey_monitor = SubjectSweepMonitor(
+            self._db, "Test Monitor", Subject.DDC
+        )
+        eq_([s1], dewey_monitor.subject_query().all())
+
+        one_hundred_monitor = SubjectSweepMonitor(
+            self._db, "Test Monitor", None, "100"
+        )
+        eq_([s1, s2], one_hundred_monitor.subject_query().all())
+
+        specific_tag_monitor = SubjectSweepMonitor(
+            self._db, "Test Monitor", Subject.TAG, "Years"
+        )
+        eq_([s2], specific_tag_monitor.subject_query().all())
+        

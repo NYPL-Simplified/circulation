@@ -18,7 +18,10 @@ from lxml import builder, etree
 from monitor import Monitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from metadata_layer import (
     CirculationData,
     Metadata,
@@ -48,11 +51,17 @@ from model import (
 from opds import OPDSFeed
 from s3 import S3Uploader
 
+class AccessNotAuthenticated(Exception):
+    """No authentication is configured for this service"""
+    pass
+
 class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
     CANONICALIZE_ENDPOINT = "canonical-author-name"
+    UPDATES_ENDPOINT = "updates"
+    REMOVAL_ENDPOINT = "remove"
 
     @classmethod
     def from_config(cls, integration='Metadata Wrangler'):
@@ -65,13 +74,42 @@ class SimplifiedOPDSLookup(object):
         if not base_url.endswith('/'):
             base_url += "/"
         self.base_url = base_url
+        self._set_auth()
+
+    def _set_auth(self):
+        """Sets client authentication details for the Metadata Wrangler"""
+
+        metadata_wrangler_url = Configuration.integration_url(
+            Configuration.METADATA_WRANGLER_INTEGRATION
+        )
+        if (self.base_url==metadata_wrangler_url or
+            self.base_url==metadata_wrangler_url+'/'):
+            values = Configuration.integration(Configuration.METADATA_WRANGLER_INTEGRATION)
+            self.client_id = values.get(Configuration.METADATA_WRANGLER_CLIENT_ID)
+            self.client_secret = values.get(Configuration.METADATA_WRANGLER_CLIENT_SECRET)
+
+            details = [self.client_id, self.client_secret]
+            if len([d for d in details if not d]) == 1:
+                # Raise an error if one is set, but not the other.
+                raise CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+
+    @property
+    def authenticated(self):
+        return bool(self.client_id and self.client_secret)
+
+    def _get(self, url):
+        """Runs requests with the appropriate authentication"""
+
+        if self.client_id and self.client_secret:
+            return requests.get(url, auth=(self.client_id, self.client_secret))
+        return requests.get(url)
 
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
         args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         logging.info("Lookup URL: %s", url)
-        return requests.get(url)
+        return self._get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
         """Attempt to find the canonical name for the author of a book.
@@ -90,7 +128,18 @@ class SimplifiedOPDSLookup(object):
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return requests.get(url)
+        return self._get(url)
+
+    def remove(self, identifiers):
+        """Remove items from an authenticated Metadata Wrangler collection"""
+
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
+        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
+        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
+        logging.info("Metadata Wrangler Removal URL: %s", url)
+        return self._get(url)
+
 
 class OPDSXMLParser(XMLParser):
 
@@ -102,6 +151,7 @@ class OPDSXMLParser(XMLParser):
                    "schema" : "http://schema.org/",
                    "atom" : "http://www.w3.org/2005/Atom",
     }
+
 
 class StatusMessage(object):
 
@@ -123,6 +173,7 @@ class StatusMessage(object):
         return '<StatusMessage: code=%s message="%s">' % (
             self.status_code, self.message
         )
+
 
 class OPDSImporter(object):
 
@@ -173,7 +224,6 @@ class OPDSImporter(object):
 
         return imported, messages, next_links
 
-
     def import_from_metadata(
             self, metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
     ):
@@ -200,6 +250,7 @@ class OPDSImporter(object):
             subjects=True,
             links=True,
             contributions=True,
+            rights=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
             http_get=self.http_get,
@@ -224,14 +275,11 @@ class OPDSImporter(object):
                 work.calculate_presentation()
                 if immediately_presentation_ready:
                     # We want this book to be presentation-ready
-                    # immediately upon import. It's okay if it
-                    # doesn't have an author or thumbnail
-                    # image--we'll fill that in later.
-                    work.set_presentation_ready_based_on_content(
-                        require_author=False, require_thumbnail=False,
-                    )
+                    # immediately upon import. As long as no crucial
+                    # information is missing (like language or title),
+                    # this will do it.
+                    work.set_presentation_ready_based_on_content()
         return edition
-
 
     def extract_metadata(self, feed):
         """Turn an OPDS feed into a list of Metadata objects and a list of
@@ -271,7 +319,6 @@ class OPDSImporter(object):
             elif k not in new_dict or v != None:
                 new_dict[k] = v
         return new_dict
-
 
     @classmethod
     def extract_metadata_from_feedparser(cls, feed):
@@ -401,7 +448,7 @@ class OPDSImporter(object):
                 media_type=media_type,
                 content=content
             )
-            
+
         summary_detail = entry.get('summary_detail', None)
         link = summary_to_linkdata(summary_detail)
         if link:
@@ -533,7 +580,6 @@ class OPDSImporter(object):
 
         logging.info("Refusing to create ContributorData for contributor with no sort name, display name, or VIAF.")
         return None
-
 
     @classmethod
     def extract_subject(cls, parser, category_tag):
@@ -695,8 +741,6 @@ class OPDSImportMonitor(Monitor):
         else:
             return next_links
 
-        
-
     def run_once(self, start, cutoff):
         queue = [self.feed_url]
         seen_links = set([])
@@ -712,6 +756,7 @@ class OPDSImportMonitor(Monitor):
                 self._db.commit()
 
             queue = new_queue
+
 
 class OPDSImporterWithS3Mirror(OPDSImporter):
     """OPDS Importer that mirrors content to S3."""

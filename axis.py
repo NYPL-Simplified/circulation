@@ -66,15 +66,19 @@ class Axis360API(object):
 
     @classmethod
     def environment_values(cls):
-        value = Configuration.integration('Axis 360')
-        return [
-            value[var] for var in [
+        config = Configuration.integration('Axis 360')
+        values = []
+        for name in [
                 'library_id',
                 'username',
                 'password',
                 'server',
-            ]
-        ]
+        ]:
+            value = config.get(name)
+            if value:
+                value = value.encode("utf8")
+            values.append(value)
+        return values
 
     @classmethod
     def from_environment(cls, _db):

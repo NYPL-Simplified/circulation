@@ -118,7 +118,6 @@ class OverdriveAPI(object):
     def from_environment(cls, _db):
         # Make sure all environment values are present. If any are missing,
         # return None. Otherwise return an OverdriveAPI object.
-        values = cls.environment_values()
         try:
             return cls(_db)
         except CannotLoadConfiguration, e:

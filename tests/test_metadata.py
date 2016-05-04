@@ -6,10 +6,13 @@ from nose.tools import (
 import datetime
 import pkgutil
 import csv
+from copy import deepcopy
 
 from metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
+    CirculationData,
+    ContributorData,
     MeasurementData,
     FormatData,
     LinkData,
@@ -369,3 +372,55 @@ class TestMetadataImporter(DatabaseTest):
         eq_(u"Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
+
+    def test_links_use_license_data_source(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.PDF_MEDIA_TYPE,
+            href=self._url
+        )
+
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        oa_content_server = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        m = Metadata(data_source=oa_content_server,
+                     license_data_source=gutenberg,
+                     links=[link])
+
+        m.apply(edition)
+
+        links = edition.primary_identifier.links
+        eq_(1, len(links))
+        eq_(gutenberg, links[0].data_source)
+        eq_(gutenberg, links[0].resource.data_source)
+
+    def test_metadata_can_be_deepcopied(self):
+
+        # Check that we didn't put something in the metadata that
+        # will prevent it from being copied. (e.g., self.log)
+
+        subject = SubjectData(Subject.TAG, "subject")
+        contributor = ContributorData()
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
+        measurement = MeasurementData(Measurement.RATING, 5)
+        format = FormatData(Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        circulation = CirculationData(0, 0, 0, 0)
+
+        m = Metadata(
+            DataSource.GUTENBERG,
+            subjects=[subject],
+            contributors=[contributor],
+            primary_identifier=identifier,
+            links=[link],
+            measurements=[measurement],
+            formats=[format],
+            circulation=circulation,
+        )
+
+        m_copy = deepcopy(m)
+
+        # If deepcopy didn't throw an exception we're ok.
+        assert m_copy is not None

@@ -266,13 +266,6 @@ class TestExternalSearch(DatabaseTest):
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
 
-        # Handles negation operator
-
-        results = self.search.query_works("moby -dick", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-
         # Matches stemmed word
 
         results = self.search.query_works("runs", None, None, None, None, None, None, None)
@@ -420,7 +413,6 @@ class TestExternalSearch(DatabaseTest):
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         eq_(unicode(self.obama.id), hits[0]['_id'])
-        eq_(unicode(self.dodger.id), hits[1]['_id'])
 
 
         # Filters on media
@@ -584,17 +576,17 @@ class TestExternalSearch(DatabaseTest):
         fantasy_lane = Lane(self._db, "Fantasy", genres=["Fantasy"])
         both_lane = Lane(self._db, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, fantasy_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, both_lane.genres)
+        results = self.search.query_works("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
@@ -608,29 +600,41 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(2, len(must))
-        query = must[0]['simple_query_string']
-        eq_("test", query['query'])
-        assert "title^4" in query['fields']
-        assert 'publisher' in query['fields']
+        eq_(3, len(must))
+        stemmed_query = must[0]['simple_query_string']
+        eq_("test", stemmed_query['query'])
+        assert "title^4" in stemmed_query['fields']
+        assert 'publisher' in stemmed_query['fields']
 
+        phrase_queries = must[1]['bool']['should']
+        eq_(3, len(phrase_queries))
+        title_phrase_query = phrase_queries[0]['match_phrase']
+        assert 'title.minimal' in title_phrase_query
+        eq_("test", title_phrase_query['title.minimal'])
+
+        # Query with fuzzy blacklist keyword
+        query = search.make_query("basketball")
+
+        must = query['dis_max']['queries']
+
+        eq_(2, len(must))
 
         # Query with genre
         query = search.make_query("test romance")
 
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test romance", full_query['query'])
         assert "title^4" in full_query['fields']
         assert 'publisher' in full_query['fields']
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(2, len(classification_query))
         genre_query = classification_query[0]['match']
-        assert 'classifications.name' in genre_query
-        eq_('Romance', genre_query['classifications.name'])
+        assert 'genres.name' in genre_query
+        eq_('Romance', genre_query['genres.name'])
         remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "romance" not in remaining_query['query']
@@ -642,9 +646,9 @@ class TestSearchQuery(DatabaseTest):
         
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(2, len(classification_query))
         fiction_query = classification_query[0]['match']
         assert 'fiction' in fiction_query
@@ -660,13 +664,13 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(3, len(classification_query))
         genre_query = classification_query[0]['match']
-        assert 'classifications.name' in genre_query
-        eq_('Romance', genre_query['classifications.name'])
+        assert 'genres.name' in genre_query
+        eq_('Romance', genre_query['genres.name'])
         fiction_query = classification_query[1]['match']
         assert 'fiction' in fiction_query
         eq_('Fiction', fiction_query['fiction'])
@@ -681,11 +685,11 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test young adult", full_query['query'])
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(2, len(classification_query))
         audience_query = classification_query[0]['match']
         assert 'audience' in audience_query
@@ -699,11 +703,11 @@ class TestSearchQuery(DatabaseTest):
         
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test grade 6", full_query['query'])
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
@@ -722,11 +726,11 @@ class TestSearchQuery(DatabaseTest):
 
         must = query['dis_max']['queries']
 
-        eq_(3, len(must))
+        eq_(4, len(must))
         full_query = must[0]['simple_query_string']
         eq_("test 5-10 years", full_query['query'])
 
-        classification_query = must[2]['bool']['must']
+        classification_query = must[3]['bool']['must']
         eq_(2, len(classification_query))
         grade_query = classification_query[0]['bool']
         assert 'must' in grade_query
@@ -753,7 +757,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         filter = search.make_filter(
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
-            lane.genres,
+            lane.genre_ids,
         )
 
         medium_filter, audience_filter, target_age_filter = filter['and']
@@ -762,3 +766,42 @@ class TestSearchFilterFromLane(DatabaseTest):
         expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
         eq_(expect_upper, upper_filter)
         eq_(expect_lower, lower_filter)
+
+    def test_query_works_from_lane_definition_handles_languages(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, "english or spanish", 
+            languages=set(['eng', 'spa']),
+        )
+        filter = search.make_filter(
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genre_ids,
+        )
+        
+        languages_filter, medium_filter = filter['and']
+        expect_languages = ['eng', 'spa']
+        assert 'terms' in languages_filter
+        assert 'language' in languages_filter['terms']
+        eq_(expect_languages, sorted(languages_filter['terms']['language']))
+
+    def test_query_works_from_lane_definition_handles_exclude_languages(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, "Not english or spanish", 
+            exclude_languages=set(['eng', 'spa']),
+        )
+        filter = search.make_filter(
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genre_ids,
+        )
+        
+        exclude_languages_filter, medium_filter = filter['and']
+        expect_exclude_languages = ['eng', 'spa']
+        assert 'not' in exclude_languages_filter
+        assert 'terms' in exclude_languages_filter['not']
+        assert 'language' in exclude_languages_filter['not']['terms']
+        eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))

@@ -17,3 +17,4 @@ uwsgi
 loggly-python-handler
 cairosvg
 mock
+py-bcrypt

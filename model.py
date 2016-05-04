@@ -24,6 +24,7 @@ import urllib
 import urlparse
 import uuid
 import warnings
+import bcrypt
 
 from PIL import (
     Image,
@@ -37,10 +38,12 @@ from sqlalchemy.orm import (
     backref,
     defer,
     relationship,
+    sessionmaker,
 )
 from sqlalchemy import (
     or_,
     MetaData,
+    Table,
 )
 from sqlalchemy.orm import (
     aliased,
@@ -60,6 +63,7 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -157,6 +161,11 @@ class SessionManager(object):
         return create_engine(url, echo=DEBUG)
 
     @classmethod
+    def sessionmaker(cls, url=None):
+        engine = cls.engine(url)
+        return sessionmaker(bind=engine)
+
+    @classmethod
     def initialize(cls, url):
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
@@ -248,12 +257,8 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Create all genres.
-        Genre.load_all(session)
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
-
-        # Load all delivery mechanisms from the database.
-        DeliveryMechanism.load_all(session)
 
         # Make sure that the mechanisms fulfillable by the default
         # client are marked as such.
@@ -282,7 +287,6 @@ def get_one(db, model, on_multiple='error', **kwargs):
             return q.one()
     except NoResultFound:
         return None
-
 
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
@@ -642,13 +646,14 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have one Collection.
+    collection = relationship(
+        "Collection", backref="data_source", uselist=False
+    )
+
     @classmethod
     def lookup(cls, _db, name):
-        if hasattr(_db, 'data_sources'):
-            return _db.data_sources.get(name)
-        else:
-            # This should only happen during tests.
-            return get_one(_db, DataSource, name=name)
+        return get_one(_db, DataSource, name=name)
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
@@ -723,7 +728,6 @@ class DataSource(Base):
             DataSource.primary_identifier_type==type)
         return q
 
-
     @classmethod
     def metadata_sources_for(cls, _db, identifier):
         """Finds the DataSources that provide metadata for books
@@ -734,19 +738,19 @@ class DataSource(Base):
         else:
             type = identifier.type
 
-        if not hasattr(_db, 'metadata_lookups_by_identifier_type'):
+        if not hasattr(cls, 'metadata_lookups_by_identifier_type'):
             # This should only happen during testing.
             list(DataSource.well_known_sources(_db))
-        return _db.metadata_lookups_by_identifier_type[identifier.type]
+
+        names = cls.metadata_lookups_by_identifier_type[type] 
+        return _db.query(DataSource).filter(DataSource.name.in_(names)).all()
 
     @classmethod
     def well_known_sources(cls, _db):
-        """Make sure all the well-known sources exist and are loaded into
-        the cache associated with the database connection.
+        """Make sure all the well-known sources exist in the database.
         """
 
-        _db.data_sources = dict()
-        _db.metadata_lookups_by_identifier_type = defaultdict(list)
+        cls.metadata_lookups_by_identifier_type = defaultdict(list)
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
@@ -788,10 +792,10 @@ class DataSource(Base):
                 )
             )
 
-            _db.data_sources[obj.name] = obj
             if offers_metadata_lookup:
-                l = _db.metadata_lookups_by_identifier_type[primary_identifier_type]
-                l.append(obj)
+                l = cls.metadata_lookups_by_identifier_type[primary_identifier_type]
+                l.append(obj.name)
+
             yield obj
 
 
@@ -801,6 +805,8 @@ class CoverageRecord(Base):
 
     SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
     CHOOSE_COVER_OPERATION = 'choose-cover'
+    SYNC_OPERATION = 'sync'
+    REAP_OPERATION = 'reap'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1319,20 +1325,11 @@ class Identifier(Base):
                 # in the next round.
                 new_working_set.add(e.input_id)
 
-        #logging.debug("At level %d.", levels)
-        #logging.debug(" Original working set: %r", sorted(original_working_set))
-        #logging.debug(" New working set: %r", sorted(new_working_set))
-        #logging.debug(" %d equivalencies seen so far.",  len(seen_equivalency_ids))
-        #logging.debug(" %d identifiers seen so far.", len(seen_identifier_ids))
-        #logging.debug(" %d equivalents", len(equivalents))
-
         if new_working_set:
 
             q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
             new_identifiers = [repr(i) for i in q]
             new_working_set_repr = ", ".join(new_identifiers)
-            #logging.debug(
-            #    " Here's the new working set: %r", new_working_set_repr)
 
         surviving_working_set = set()
         for id in original_working_set:
@@ -1356,10 +1353,6 @@ class Identifier(Base):
                             equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
                             surviving_working_set.add(new_id)
 
-        #logging.debug(
-        #    "Pruned %d from working set",
-        #    len(surviving_working_set.intersection(new_working_set))
-        #)
         return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
                 equivalents)
 
@@ -1642,7 +1635,7 @@ class Identifier(Base):
 
     @classmethod
     def evaluate_summary_quality(cls, _db, identifier_ids, 
-                                 privileged_data_source=None):
+                                 privileged_data_sources=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
         This is an automatic evaluation based solely on the content of
@@ -1654,47 +1647,53 @@ class Identifier(Base):
         need to see which noun phrases are most frequently used to
         describe the underlying work.
 
-        :param privileged_data_source: If present, a summary from this
-        data source will be instantly chosen, short-circuiting the
-        decision process.
+        :param privileged_data_sources: If present, a summary from one
+        of these data source will be instantly chosen, short-circuiting the
+        decision process. Data sources are in order of priority.
 
         :return: The single highest-rated summary Resource.
 
         """
         evaluator = SummaryEvaluator()
 
+        if privileged_data_sources and len(privileged_data_sources) > 0:
+            privileged_data_source = privileged_data_sources[0]
+        else:
+            privileged_data_source = None
+
         # Find all rel="description" resources associated with any of
         # these records.
         rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
-            _db, identifier_ids, rels, privileged_data_source)
-        descriptions = descriptions.join(
-            Resource.representation).filter(
-                Representation.content != None).all()
+            _db, identifier_ids, rels, privileged_data_source).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
         for r in descriptions:
-            evaluator.add(r.representation.content)
+            if r.representation and r.representation.content:
+                evaluator.add(r.representation.content)
         evaluator.ready()
 
         # Then have the evaluator rank each resource.
         for r in descriptions:
-            content = r.representation.content
-            quality = evaluator.score(content)
-            r.set_estimated_quality(quality)
+            if r.representation and r.representation.content:
+                content = r.representation.content
+                quality = evaluator.score(content)
+                r.set_estimated_quality(quality)
             if not champion or r.quality > champion.quality:
                 champion = r
 
         if privileged_data_source and not champion:
             # We could not find any descriptions from the privileged
             # data source. Try relaxing that restriction.
-            return cls.evaluate_summary_quality(_db, identifier_ids)
+            return cls.evaluate_summary_quality(_db, identifier_ids, privileged_data_sources[1:])
         return champion, descriptions
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, identifier_types, coverage_data_source, operation=None):
+            cls, _db, identifier_types, coverage_data_source, operation=None,
+            count_as_missing_before=None
+    ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
         """
@@ -1704,7 +1703,14 @@ class Identifier(Base):
         q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             q = q.filter(Identifier.type.in_(identifier_types))
-        q2 = q.filter(CoverageRecord.id==None)
+
+        missing = CoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, CoverageRecord.timestamp < count_as_missing_before
+            )
+
+        q2 = q.filter(missing)
         return q2
 
     def opds_entry(self):
@@ -1811,7 +1817,6 @@ class UnresolvedIdentifier(Base):
             q = q.order_by(func.random())
         return q
 
-
     def set_attempt(self, time=None):
         """Set most_recent_attempt (and possibly first_attempt) to the given
         time.
@@ -1820,6 +1825,7 @@ class UnresolvedIdentifier(Base):
         self.most_recent_attempt = time
         if not self.first_attempt:
             self.first_attempt = time
+
 
 class Contributor(Base):
 
@@ -2278,12 +2284,6 @@ class Edition(Base):
     # This lets us avoid a lot of work figuring out the best open
     # access link for this Edition.
     open_access_download_url = Column(Unicode)
-
-    # This is set to True if we know there just isn't a cover for this
-    # edition. That lets us know it's okay to set the corresponding
-    # work to presentation ready even in the absence of a cover for
-    # its primary edition.
-    no_known_cover = Column(Boolean, default=False)
 
     # An OPDS entry containing all metadata about this entry that
     # would be relevant to display to a library patron.
@@ -3017,7 +3017,6 @@ class PresentationCalculationPolicy(object):
             update_search_index=True,
         )
 
-        
 
 class Work(Base):
 
@@ -3245,8 +3244,10 @@ class Work(Base):
     def set_summary(self, resource):
         self.summary = resource
         # TODO: clean up the content
-        if resource:
+        if resource and resource.representation:
             self.summary_text = resource.representation.unicode_content
+        else:
+            self.summary_text = ""
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.SUMMARY_OPERATION
         )
@@ -3549,8 +3550,9 @@ class Work(Base):
             )
 
         if policy.choose_summary:
+            staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, privileged_data_source
+                _db, flattened_data, [staff_data_source, privileged_data_source]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
@@ -3640,7 +3642,7 @@ class Work(Base):
             else:
                 return s.decode("utf8", "replace")
 
-        if self.summary:
+        if self.summary and self.summary.representation:
             snippet = _ensure(self.summary.representation.content)[:100]
             d = " Description (%.2f) %s" % (self.summary.quality, snippet)
             l.append(d)
@@ -3706,9 +3708,7 @@ class Work(Base):
         self.presentation_ready_attempt = as_of
         self.random = random.random()
 
-    def set_presentation_ready_based_on_content(
-            self, require_author=True, require_thumbnail=True
-    ):
+    def set_presentation_ready_based_on_content(self):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3716,26 +3716,15 @@ class Work(Base):
         patrons and (pending availability) checked out. It doesn't
         necessarily mean the presentation is complete.
 
-        A work with no summary can still be presentation ready,
-        since many public domain books have no summary.
-
-        A work with no cover can be presentation ready 
-
-        A work with no genres can be presentation ready, but we do
-        at least need to know whether it's fiction or nonfiction.
+        The absolute minimum data necessary is a title, a language,
+        and a fiction/nonfiction status. We don't need a cover or an
+        author -- we can fill in that info later if it exists.
         """
         if (not self.primary_edition
             or not self.license_pools
             or not self.title
-            or (require_author and not self.primary_edition.author)
             or not self.language
             or self.fiction is None
-            or (
-                require_thumbnail and not (
-                    self.cover_thumbnail_url
-                    or self.primary_edition.no_known_cover
-                )
-            )
         ):
             self.presentation_ready = False
         else:
@@ -3887,33 +3876,39 @@ class Work(Base):
                 dict(name=contributor.name, family_name=contributor.family_name,
                      role=contribution.role))
 
-        # identifier_ids = self.all_identifier_ids()
-        # classifications = Identifier.classifications_for_identifier_ids(
-        #     _db, identifier_ids)
-        # by_scheme_and_term = Counter()
-        # classification_total_weight = 0.0
-        # for c in classifications:
-        #     subject = c.subject
-        #     if subject.type in Subject.uri_lookup:
-        #         scheme = Subject.uri_lookup[subject.type]
-        #         term = subject.name or subject.identifier
-        #         if not term:
-        #             # There's no text to search for.
-        #             continue
-        #         key = (scheme, term)
-        #         by_scheme_and_term[key] += c.weight
-        #         classification_total_weight += c.weight
+        identifier_ids = self.all_identifier_ids()
+        classifications = Identifier.classifications_for_identifier_ids(
+            _db, identifier_ids)
+        by_scheme_and_term = Counter()
+        classification_total_weight = 0.0
+        for c in classifications:
+            subject = c.subject
+            if not subject.type in Subject.TYPES_FOR_SEARCH:
+                # This subject type doesn't have terms that are useful for search
+                continue
+            if subject.type in Subject.uri_lookup:
+                scheme = Subject.uri_lookup[subject.type]
+                term = subject.name or subject.identifier
+                if not term:
+                    # There's no text to search for.
+                    continue
+                term = term.replace("/", " ").replace("--", " ")
+                key = (scheme, term)
+                by_scheme_and_term[key] += c.weight
+                classification_total_weight += c.weight
 
         classification_desc = []
         doc['classifications'] = classification_desc
-        # for (scheme, term), weight in by_scheme_and_term.items():
-        #     classification_desc.append(
-        #         dict(scheme=scheme, term=term,
-        #              weight=weight/classification_total_weight))
-
-
-        for workgenre in self.work_genres:
+        for (scheme, term), weight in by_scheme_and_term.items():
             classification_desc.append(
+                dict(scheme=scheme, term=term,
+                     weight=weight/classification_total_weight))
+
+
+        genres = []
+        doc['genres'] = genres
+        for workgenre in self.work_genres:
+            genres.append(
                 dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
                      term=workgenre.genre.id, weight=workgenre.affinity))
 
@@ -4475,38 +4470,18 @@ class Genre(Base):
             len(classifier.genres[self.name].subgenres))
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all Genre objects into the cache associated with the
-        database connection.
-        """
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        for g in _db.query(Genre):
-            _db._genre_cache[g.name] = g
-
-    @classmethod
     def lookup(cls, _db, name, autocreate=False):
-        if not hasattr(_db, '_genre_cache'):
-            _db._genre_cache = dict()
-        if isinstance(name, Genre):
-            return name, False
         if isinstance(name, GenreData):
             name = name.name
-        if name in _db._genre_cache:
-            return _db._genre_cache[name], False
+        args = (_db, Genre)
         if autocreate:
-            m = get_one_or_create
+            result, new = get_one_or_create(*args, name=name)
         else:
-            m = get_one
-        result = m(_db, Genre, name=name)
+            result = get_one(*args, name=name)
+            new = False
         if result is None:
             logging.getLogger().error('"%s" is not a recognized genre.', name)
-        if isinstance(result, tuple):
-            _db._genre_cache[name] = result[0]
-            return result
-        else:
-            _db._genre_cache[name] = result
-            return result, False
+        return result, new
 
     @property
     def genredata(self):
@@ -4545,6 +4520,11 @@ class Subject(Base):
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
     NYPL_APPEAL = Classifier.NYPL_APPEAL
 
+    # Types with terms that are suitable for search.
+    TYPES_FOR_SEARCH = [
+        FAST, OVERDRIVE, THREEM, BISAC, TAG
+    ]
+
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
@@ -4558,9 +4538,11 @@ class Subject(Base):
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
+        SIMPLIFIED_FICTION_STATUS : SIMPLIFIED_FICTION_STATUS,
         "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
         "http://librarysimplified.org/terms/genres/3M/" : THREEM,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
@@ -5206,7 +5188,7 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db):
+    def with_complaint(cls, _db, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
         subquery = _db.query(
                 LicensePool.id,
@@ -5214,8 +5196,15 @@ class LicensePool(Base):
             ).\
             select_from(LicensePool).\
             join(LicensePool.complaints).\
-            group_by(LicensePool.id).\
-            subquery()
+            group_by(LicensePool.id)
+
+        if resolved == False:
+            subquery = subquery.filter(Complaint.resolved == None)
+        elif resolved == True:
+            subquery = subquery.filter(Complaint.resolved != None)
+
+        subquery = subquery.subquery()
+
         return _db.query(LicensePool).\
             join(subquery, LicensePool.id == subquery.c.id).\
             order_by(subquery.c.complaint_count.desc()).\
@@ -5970,7 +5959,8 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, debug=True):
+            max_age=None, pause_before=0, allow_redirects=True, 
+            presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6067,7 +6057,7 @@ class Representation(Base):
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
             else:
-                media_type = None
+                media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, e:
@@ -6085,7 +6075,7 @@ class Representation(Base):
         # we don't have one already, or if the URL or media type we
         # actually got from the server differs from what we thought
         # we had.
-        if (not usable_representation 
+        if (not usable_representation
             or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
@@ -6261,10 +6251,37 @@ class Representation(Base):
         """
         return self._clean_media_type(self.media_type)
 
+    @property
+    def url_extension(self):
+        """The file extension in this representation's original url."""
+
+        url_path = urlparse.urlparse(self.url).path
+
+        # Known extensions can be followed by a version number (.epub3)
+        # or an additional extension (.epub.noimages)
+        known_extensions = "|".join(self.FILE_EXTENSIONS.values())
+        known_extension_re = re.compile("\.(%s)\d?\.?[\w\d]*$" % known_extensions, re.I)
+
+        known_match = known_extension_re.search(url_path)
+
+        if known_match:
+            return known_match.group()
+
+        else:
+            any_extension_re = re.compile("\.[\w\d]*$", re.I)
+        
+            any_match = any_extension_re.search(url_path)
+
+            if any_match:
+                return any_match.group()
+        return None
+
     def extension(self, destination_type=None):
         """Try to come up with a good file extension for this representation."""
-        destination_type = destination_type or self.clean_media_type
-        return self._extension(destination_type)
+        if destination_type:
+            return self._extension(destination_type)
+        else:
+            return self.url_extension or self._extension(self.clean_media_type)
 
     @classmethod
     def _clean_media_type(cls, media_type):
@@ -6508,29 +6525,11 @@ class DeliveryMechanism(Base):
         )
 
     @classmethod
-    def load_all(cls, _db):
-        """Load all DeliveryMechanism objects into the cache associated with
-        the database connection.
-        """
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        for m in _db.query(DeliveryMechanism):
-            _db._deliverymechanism_cache[(m.content_type, m.drm_scheme)] = m
-
-    @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        if not hasattr(_db, '_deliverymechanism_cache'):
-            _db._deliverymechanism_cache = dict()
-        key = (content_type, drm_scheme)
-        cache = _db._deliverymechanism_cache
-        if key in cache:
-            return cache[key], False
-        result, is_new = get_one_or_create(
+        return get_one_or_create(
             _db, DeliveryMechanism, content_type=content_type,
             drm_scheme=drm_scheme
         )
-        cache[key] = result
-        return result, is_new
 
     @property
     def implicit_medium(self):
@@ -6762,8 +6761,11 @@ class Complaint(Base):
 
     timestamp = Column(DateTime, nullable=False)
 
+    # When the complaint was resolved.
+    resolved = Column(DateTime, nullable=True)
+
     @classmethod
-    def register(self, license_pool, type, source, detail):
+    def register(self, license_pool, type, source, detail, resolved=None):
         """Register a problem detail document as a Complaint against the
         given LicensePool.
         """
@@ -6778,6 +6780,7 @@ class Complaint(Base):
                 _db, Complaint,
                 license_pool=license_pool, 
                 source=source, type=type,
+                resolved=resolved,
                 on_multiple='interchangeable',
                 create_method_kwargs = dict(
                     timestamp=now,
@@ -6793,9 +6796,14 @@ class Complaint(Base):
                 source=source,
                 type=type,
                 timestamp=now,
-                detail=detail
+                detail=detail,
+                resolved=resolved
             )
         return complaint, is_new
+
+    def resolve(self):
+        self.resolved = datetime.datetime.utcnow()
+        return self.resolved
 
 
 class Admin(Base):
@@ -6812,6 +6820,137 @@ class Admin(Base):
         self.credential = credential
         _db.commit()
 
+
+class Collection(Base):
+
+    __tablename__ = 'collections'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode, unique=True, nullable=False)
+    client_id = Column(Unicode, unique=True, index=True)
+    _client_secret = Column(Unicode, nullable=False)
+
+    # A collection can have one DataSource
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True
+    )
+
+    # A collection can include many Identifiers
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
+        backref="collections"
+    )
+
+
+    def __repr__(self):
+        return "%s ID=%s DATASOURCE_ID=%d" % (
+            self.name, self.id, self.data_source.id
+        )
+
+    @hybrid_property
+    def client_secret(self):
+        """Gets encrypted client_secret from database"""
+        return self._client_secret
+
+    @client_secret.setter
+    def _set_client_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
+        self._client_secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is the client_secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+                == self.client_secret)
+
+    @classmethod
+    def register(cls, _db, name):
+        """Creates a new collection with client details and a datasource."""
+
+        name = unicode(name)
+        collection = get_one(_db, cls, name=name)
+        if collection:
+            raise ValueError(
+                "A collection with the name '%s' already exists: %r" % (
+                name, collection)
+            )
+
+        collection_data_source, ignore = get_one_or_create(
+            _db, DataSource, name=name, offers_licenses=False
+        )
+
+        client_id, plaintext_client_secret = cls._generate_client_details()
+        # Generate a new client_id if it's not unique initially.
+        while get_one(_db, cls, client_id=client_id):
+            client_id, plaintext_client_secret = cls._generate_client_details()
+
+        collection, ignore = get_one_or_create(
+            _db, cls, name=name, client_id=unicode(client_id),
+            client_secret=unicode(plaintext_client_secret),
+            data_source=collection_data_source
+        )
+
+        _db.commit()
+        return collection, plaintext_client_secret
+
+    @classmethod
+    def _generate_client_details(cls):
+        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                           '0123456789')
+        client_secret_chars = client_id_chars + '!#$%&*+,-._'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        client_id = make_client_string(client_id_chars, 25)
+        client_secret = make_client_string(client_secret_chars, 40)
+
+        return client_id, client_secret
+
+    @classmethod
+    def authenticate(cls, _db, client_id, plaintext_client_secret):
+        collection = get_one(_db, cls, client_id=unicode(client_id))
+        if (collection and
+            collection._correct_secret(plaintext_client_secret)):
+            return collection
+        return None
+
+    def catalog_identifier(self, _db, identifier):
+        """Catalogs an identifier for a collection"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.commit()
+
+    def works_updated_since(self, _db, timestamp):
+        """Returns all of a collection's works that have been updated since the
+        last time the collection was checked"""
+
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if timestamp:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > timestamp
+            )
+
+        return query
+
+
+collections_identifiers = Table(
+    'collectionsidentifiers', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'identifier_id', Integer, ForeignKey('identifiers.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('collection_id', 'identifier_id'),
+)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

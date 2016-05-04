@@ -13,3 +13,17 @@ UNRECOGNIZED_DATA_SOURCE = pd(
       "Unrecognized data source.",
       "I don't know anything about that data source.",
 )
+
+INVALID_CREDENTIALS = pd(
+      "http://librarysimplified.org/terms/problem/credentials-invalid",
+      401,
+      "Invalid credentials",
+      "Valid credentials are required.",
+)
+
+INVALID_URN = pd(
+      "http://librarysimplified.org/terms/problem/could-not-parse-urn",
+      400,
+      "Invalid URN",
+      "Could not parse identifier.",
+)
