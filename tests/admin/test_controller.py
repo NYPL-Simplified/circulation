@@ -5,7 +5,7 @@ from nose.tools import (
 import flask
 import json
 import feedparser
-from werkzeug import ImmutableMultiDict
+from werkzeug import ImmutableMultiDict, MultiDict
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers
@@ -183,6 +183,68 @@ class TestWorkController(AdminControllerTest):
             eq_(400, response.status_code)
             eq_(INVALID_EDIT.uri, response.uri)
 
+    def test_update_genres(self):
+        # start with no genres
+        [lp] = self.english_1.license_pools
+    
+        # add first few fiction genres
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+
+            eq_(len(new_genre_names), len(requested_genres))
+            for genre in requested_genres:
+                eq_(True, genre in new_genre_names)
+
+        # remove a genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+
+            eq_(len(new_genre_names), len(requested_genres))
+            for genre in requested_genres:
+                eq_(True, genre in new_genre_names)
+
+        previous_genres = requested_genres
+
+        # try to add a nonfiction genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction", "Cooking"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+
+            eq_(len(new_genre_names), len(previous_genres))
+            for genre in previous_genres:
+                eq_(True, genre in new_genre_names)
+
+        # try to add a nonexistent genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction", "Epic Military Memoirs"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+
+            eq_(len(new_genre_names), len(previous_genres))
+            for genre in previous_genres:
+                eq_(True, genre in new_genre_names)
+
     def test_suppress(self):
         [lp] = self.english_1.license_pools
 
@@ -306,14 +368,17 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
             eq_(response.status_code, 409)
 
-    def test_subjects(self):
+    def test_classifications(self):
         e, pool = self._edition(with_license_pool=True)
         work = self._work(primary_edition=e)
         identifier = work.primary_edition.primary_identifier
         genres = self._db.query(Genre).all()
-        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
-        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
-        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         classification1 = self._classification(
             identifier=identifier, subject=subject1, 
@@ -330,7 +395,8 @@ class TestWorkController(AdminControllerTest):
 
         # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.subjects(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.classifications(
+                lp.data_source.name, lp.identifier.identifier)
             
             eq_(response['book']['data_source'], lp.data_source.name)
             eq_(response['book']['identifier'], lp.identifier.identifier)
@@ -343,7 +409,6 @@ class TestWorkController(AdminControllerTest):
             eq_(response['subjects'][1]['type'], subject1.type)
             eq_(response['subjects'][1]['source'], source.name)
             eq_(response['subjects'][1]['weight'], classification1.weight)
-            
 
 
 class TestSignInController(AdminControllerTest):

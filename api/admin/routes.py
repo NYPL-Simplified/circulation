@@ -63,11 +63,11 @@ def admin_sign_in():
 def work_details(data_source, identifier):
     return app.manager.admin_work_controller.details(data_source, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/subjects', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier>/classifications', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_subjects(data_source, identifier):
-    data = app.manager.admin_work_controller.subjects(data_source, identifier)
+def work_classifications(data_source, identifier):
+    data = app.manager.admin_work_controller.classifications(data_source, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)

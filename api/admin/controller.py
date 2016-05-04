@@ -197,8 +197,8 @@ class WorkController(CirculationManagerController):
         
         return response
 
-    def subjects(self, data_source, identifier):
-        """Return list of subjects for this work that are linked to genres."""
+    def classifications(self, data_source, identifier):
+        """Return list of this work's classifications that are linked to genres."""
 
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
