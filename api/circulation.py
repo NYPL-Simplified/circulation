@@ -5,6 +5,7 @@ from collections import defaultdict
 from threading import Thread
 import logging
 import re
+import time
 
 from core.model import (
     get_one,
@@ -102,6 +103,7 @@ class CirculationAPI(object):
         self.threem = threem
         self.axis = axis
         self.apis = [x for x in (overdrive, threem, axis) if x]
+        self.log = logging.getLogger("Circulation API")
 
         # When we get our view of a patron's loans and holds, we need
         # to include loans from all licensed data sources.  We do not
@@ -267,7 +269,6 @@ class CirculationAPI(object):
             hold_info.hold_position
         )
         if existing_loan:
-            logging.info("In borrow(), deleting loan #%d." % existing_loan.id)
             self._db.delete(existing_loan)
         __transaction.commit()
         return None, hold, is_new
@@ -415,29 +416,47 @@ class CirculationAPI(object):
         :return: A 2-tuple (loans, holds) containing `HoldInfo` and
         `LoanInfo` objects.
         """
+        log = self.log
         class PatronActivityThread(Thread):
             def __init__(self, api, patron, pin):
                 self.api = api
                 self.patron = patron
                 self.pin = pin
                 self.activity = None
+                self.exception = None
                 super(PatronActivityThread, self).__init__()
 
             def run(self):
-                self.activity = self.api.patron_activity(
-                    self.patron, self.pin)
+                before = time.time()
+                try:
+                    self.activity = self.api.patron_activity(
+                        self.patron, self.pin)
+                except Exception, e:
+                    self.exception = e
+                after = time.time()
+                log.debug(
+                    "Synced %s in %.2f sec", self.api.__class__.__name__,
+                    after-before
+                )
 
         threads = []
-        import time
+        before = time.time()
         for api in self.apis:
             thread = PatronActivityThread(api, patron, pin)
             threads.append(thread)
         for thread in threads:
             thread.start()
+        for thread in threads:
             thread.join()
         loans = []
         holds = []
         for thread in threads:
+            if thread.exception:
+                self.log.error(
+                    "%s errored out: %s", thread.api.__class__.__name__,
+                    thread.exception,
+                    exc_info=thread.exception
+                )
             if thread.activity:
                 for i in thread.activity:
                     l = None
@@ -446,16 +465,21 @@ class CirculationAPI(object):
                     elif isinstance(i, HoldInfo):
                         l = holds
                     else:
-                        print "WARN: value %r from patron_activity is neither a loan nor a hold." % i
+                        self.log.warn(
+                            "value %r from patron_activity is neither a loan nor a hold.", 
+                            i
+                        )
                     if l is not None:
                         l.append(i)
+        after = time.time()
+        self.log.debug("Full sync took %.2f sec", after-before)
         return loans, holds
 
     def sync_bookshelf(self, patron, pin):
 
         # Get the external view of the patron's current state.
         remote_loans, remote_holds = self.patron_activity(patron, pin)
-        
+
         # Get our internal view of the patron's current state.
         __transaction = self._db.begin_nested()
         local_loans = self._db.query(Loan).join(Loan.license_pool).filter(
