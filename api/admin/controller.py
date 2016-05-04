@@ -204,9 +204,10 @@ class WorkController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
 
-        results = Classification.for_work_with_genre(
-            self._db, pool.work).all()
-
+        results = pool.work.classifications_with_genre() \
+            .join(DataSource) \
+            .all()
+        
         data = []
         for result in results:
             data.append(dict({
@@ -263,7 +264,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
                 subject_identifier=fiction_term,
-                weight=WorkControllerSTAFF_WEIGHT * 100,
+                weight=WorkController.STAFF_WEIGHT * 100,
             )
             classification.subject.fiction = new_fiction
             changed = True
@@ -426,8 +427,7 @@ class WorkController(CirculationManagerController):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         new_genres = flask.request.form.getlist("genres")
 
-        current_staff_classifications = Classification \
-            .for_work_with_genre(self._db, work) \
+        current_staff_classifications = work.classifications_with_genre() \
             .filter(Classification.data_source_id == staff_data_source.id) \
             .all()
         current_staff_genres = [
@@ -461,8 +461,7 @@ class WorkController(CirculationManagerController):
                 )
 
         # add NONE classification if we aren't keeping any genres
-        staff_classifications_count = Classification \
-            .for_work_with_genre(self._db, work) \
+        staff_classifications_count = work.classifications_with_genre() \
             .filter(Classification.data_source_id == staff_data_source.id) \
             .count()
 
