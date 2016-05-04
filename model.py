@@ -3670,7 +3670,6 @@ class Work(Base):
         )
         # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
-
     def update_external_index(self, client):
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
@@ -3963,6 +3962,15 @@ class Work(Base):
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
         qu = qu.filter(condition)
         return qu
+
+    def classifications_with_genre(self):
+        _db = Session.object_session(self)
+        identifier = self.primary_edition.primary_identifier
+        return _db.query(Classification) \
+                    .join(Subject) \
+                    .filter(Classification.identifier_id == identifier.id) \
+                    .filter(Subject.genre_id != None) \
+                    .order_by(Classification.weight.desc())
 
 
 # Used for quality filter queries.
@@ -4907,16 +4915,6 @@ class Classification(Base):
         if not self.identifier.licensed_through:
             return False
         return self.identifier.licensed_through.data_source == self.data_source
-
-    @classmethod
-    def for_work_with_genre(cls, _db, work):
-        identifier = work.primary_edition.primary_identifier
-        return _db.query(Classification) \
-                    .join(Subject) \
-                    .join(DataSource) \
-                    .filter(Classification.identifier_id == identifier.id) \
-                    .filter(Subject.genre_id != None) \
-                    .order_by(Classification.weight.desc()) \
 
 
 class WillNotGenerateExpensiveFeed(Exception):

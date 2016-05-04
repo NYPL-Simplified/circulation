@@ -441,36 +441,6 @@ class TestSubject(DatabaseTest):
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
 
-class TestClassification(DatabaseTest):
-    
-    def test_for_work_with_genre(self):
-        e, pool = self._edition(with_license_pool=True)
-        work = self._work(primary_edition=e)
-        identifier = work.primary_edition.primary_identifier
-        genres = self._db.query(Genre).all()
-        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
-        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
-        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
-        classification1 = self._classification(
-            identifier=identifier, subject=subject1, 
-            data_source=source, weight=1)
-        classification2 = self._classification(
-            identifier=identifier, subject=subject2, 
-            data_source=source, weight=2)
-                
-        results = Classification.for_work_with_genre(self._db, work).all()
-        
-        eq_(len(results), 2)
-        eq_(results[0].weight, classification2.weight)
-        eq_(results[0].data_source, classification2.data_source)
-        eq_(results[0].subject.type, subject2.type)
-        eq_(results[0].subject.identifier, subject2.identifier)
-        eq_(results[1].weight, classification1.weight)
-        eq_(results[1].data_source, classification1.data_source)
-        eq_(results[1].subject.type, subject1.type)
-        eq_(results[1].subject.identifier, subject1.identifier)
-        
 
 class TestContributor(DatabaseTest):
 
@@ -1297,6 +1267,33 @@ class TestWork(DatabaseTest):
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
+
+    def test_classifications_with_genre(self):
+        work = self._work()
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1", genre=genres[0])
+        subject2 = self._subject(type="type2", identifier="subject2", genre=genres[1])
+        subject3 = self._subject(type="type2", identifier="subject3", genre=None)
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+                
+        results = work.classifications_with_genre().all()
+        
+        eq_(len(results), 2)
+        eq_(results[0].weight, classification2.weight)
+        eq_(results[0].data_source_id, classification2.data_source_id)
+        eq_(results[0].subject.type, subject2.type)
+        eq_(results[0].subject.identifier, subject2.identifier)
+        eq_(results[1].weight, classification1.weight)
+        eq_(results[1].data_source_id, classification1.data_source_id)
+        eq_(results[1].subject.type, subject1.type)
+        eq_(results[1].subject.identifier, subject1.identifier)
 
 
 class TestCirculationEvent(DatabaseTest):
