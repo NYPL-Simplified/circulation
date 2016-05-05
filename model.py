@@ -3722,7 +3722,6 @@ class Work(Base):
         """
         if (not self.primary_edition
             or not self.license_pools
-            or all([lp.suppressed for lp in self.license_pools])
             or not self.title
             or not self.language
             or self.fiction is None

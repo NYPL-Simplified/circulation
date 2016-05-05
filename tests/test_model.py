@@ -1252,16 +1252,6 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
-        # Suppress the license pool, and the work stops being
-        # presentation ready.
-        work.license_pools[0].suppressed = True
-        work.set_presentation_ready_based_on_content()
-        eq_(False, work.presentation_ready)
-
-        work.license_pools[0].suppressed = False
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)
-
     def test_assign_genres_from_weights(self):
         work = self._work()
 
