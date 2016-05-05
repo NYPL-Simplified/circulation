@@ -1082,7 +1082,7 @@ class Metadata(object):
 
         if policy.link_content:
             # We want to fetch the representation again, even if we 
-            # already have a recent usable copy. If we fetch it ahd it 
+            # already have a recent usable copy. If we fetch it and it 
             # hasn't changed, we'll keep using the one we have.
             max_age = 0
         else:
