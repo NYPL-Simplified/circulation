@@ -229,19 +229,28 @@ class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
     @classmethod
-    def parse_cutoff_time(cls):
+    def parse_command_line(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--cutoff-time', 
             help='Update existing coverage records if they were originally created after this time.'
         )
-        args = parser.parse_args()
-        return cls.parse_time(args.cutoff_time)
+        parser.add_argument(
+            '--identifier-type', 
+            help='Add coverage only for identifiers of the given type.',
+            action='append'
+        )
+        return parser.parse_args()
 
     def __init__(self, provider):
-        cutoff_time = self.parse_cutoff_time()
         if callable(provider):
-            provider = provider(self._db, cutoff_time=cutoff_time)
+            args = self.parse_command_line()
+            cutoff_time = self.parse_time(args.cutoff_time)
+            identifier_types = args.identifier_type or None
+            provider = provider(
+                self._db, input_identifier_types=identifier_types, 
+                cutoff_time=cutoff_time
+            )
         self.provider = provider
         self.name = self.provider.service_name
 
