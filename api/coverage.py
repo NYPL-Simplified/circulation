@@ -60,11 +60,11 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
     service_name = "Metadata Wrangler Coverage Provider"
 
-    def __init__(self, _db, identifier_types=None, metadata_lookup=None,
+    def __init__(self, _db, input_identifier_types=None, metadata_lookup=None,
                  cutoff_time=None, operation=None):
         self._db = _db
-        if not identifier_types:
-            identifier_types = [
+        if not input_identifier_types:
+            input_identifier_types = [
                 Identifier.OVERDRIVE_ID, 
                 Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID, 
@@ -84,7 +84,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
         super(MetadataWranglerCoverageProvider, self).__init__(
             self.service_name,
-            identifier_types,
+            input_identifier_types,
             self.output_source,
             workset_size=20,
             cutoff_time=cutoff_time,
