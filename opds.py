@@ -653,8 +653,9 @@ class AcquisitionFeed(OPDSFeed):
             title = visible_parent.display_name
         else:
             title = top_level_title
-        up_uri = annotator.groups_url(visible_parent)
-        feed.add_link(href=up_uri, rel="up", title=title)
+        if visible_parent:
+            up_uri = annotator.lane_url(visible_parent)
+            feed.add_link(href=up_uri, rel="up", title=title)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         

@@ -340,6 +340,11 @@ class FormatData(object):
         self.link = link
 
 class CirculationData(object):
+    
+    log = logging.getLogger(
+        "Abstract metadata layer - Circulation data"
+    )
+
     def __init__(
             self, licenses_owned, 
             licenses_available, 
@@ -354,10 +359,6 @@ class CirculationData(object):
         self.patrons_in_hold_queue = patrons_in_hold_queue
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
-        self.log = logging.getLogger(
-            "Abstract metadata layer - Circulation data"
-        )
-
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
@@ -1080,12 +1081,22 @@ class Metadata(object):
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(
-            _db, link.href, do_get=http_get
+            _db, link.href, do_get=http_get,
+            presumed_media_type=link.media_type,
         )
 
         # Make sure the (potentially newly-fetched) representation is
         # associated with the resource.
         link_obj.resource.representation = representation
+
+        # If we couldn't fetch this representation, don't mirror it,
+        # and if this was an open access link suppress the license
+        # pool until someone fixes it manually.
+        if representation.fetch_exception:
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            return
 
         # Determine the best URL to use when mirroring this
         # representation.
@@ -1093,7 +1104,7 @@ class Metadata(object):
             if pool and pool.edition and pool.edition.title:
                 title = pool.edition.title
             else:
-                title = None
+                title = self.title or None
             extension = representation.extension()
             mirror_url = mirror.book_url(
                 identifier, data_source=data_source, title=title,
@@ -1107,6 +1118,12 @@ class Metadata(object):
 
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
+
+        # If we couldn't mirror an open access link representation, suppress
+        # the license pool until someone fixes it manually.
+        if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            pool.suppressed = True
+            pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
@@ -1135,6 +1152,14 @@ class Metadata(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail)
 
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            # If we mirrored book content successfully, don't keep it in
+            # the database to save space. We do keep images in case we
+            # ever need to resize them.
+            if representation.mirrored_at and not representation.mirror_exception:
+                representation.content = None
+
+        
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.

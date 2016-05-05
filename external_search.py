@@ -387,7 +387,13 @@ class ExternalSearchIndex(object):
         if exclude_languages:
             clauses.append({'not': dict(terms=dict(language=list(exclude_languages)))})
         if genres:
-            genre_ids = [genre.id for genre in genres]
+            if isinstance(genres[0], int):
+                # We were given genre IDs.
+                genre_ids = genres
+            else:
+                # We were given genre objects. This should
+                # no longer happen but we'll handle it.
+                genre_ids = [genre.id for genre in genres]
             clauses.append(dict(terms={"genres.term": genre_ids}))
         if media:
             media = [_f(medium) for medium in media]
@@ -460,7 +466,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         return id in self.docs
 
     def query_works(self, *args, **kwargs):
-        doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
         if 'offset' in kwargs and 'size' in kwargs:
             offset = kwargs['offset']
             size = kwargs['size']

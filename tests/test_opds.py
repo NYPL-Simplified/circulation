@@ -59,10 +59,12 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def lane_url(cls, lane):
-        if lane.has_visible_sublane():
+        if lane and lane.has_visible_sublane():
             return cls.groups_url(lane)
-        else:
+        elif lane:
             return cls.feed_url(lane)
+        else:
+            return ""
 
     @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):

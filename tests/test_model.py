@@ -25,6 +25,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -444,7 +445,7 @@ class TestSubject(DatabaseTest):
         eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
-        
+
 
 class TestContributor(DatabaseTest):
 
@@ -1272,6 +1273,28 @@ class TestWork(DatabaseTest):
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
+    def test_classifications_with_genre(self):
+        work = self._work()
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+                
+        results = work.classifications_with_genre().all()
+        
+        eq_([classification2, classification1], results)
+
 
 class TestCirculationEvent(DatabaseTest):
 
@@ -1951,6 +1974,28 @@ class TestRepresentation(DatabaseTest):
             self._db, url, do_get=h.do_get)
         eq_(False, cached)
 
+    def test_url_extension(self):
+        epub, ignore = self._representation("test.epub")
+        eq_(".epub", epub.url_extension)
+
+        epub3, ignore = self._representation("test.epub3")
+        eq_(".epub3", epub3.url_extension)
+
+        noimages, ignore = self._representation("test.epub.noimages")
+        eq_(".epub.noimages", noimages.url_extension)
+
+        unknown, ignore = self._representation("test.1234.abcd")
+        eq_(".abcd", unknown.url_extension)
+
+        no_extension, ignore = self._representation("test")
+        eq_(None, no_extension.url_extension)
+
+        no_filename, ignore = self._representation("foo.com/")
+        eq_(None, no_filename.url_extension)
+
+        query_param, ignore = self._representation("test.epub?version=3")
+        eq_(".epub", query_param.url_extension)
+
     def test_clean_media_type(self):
         m = Representation._clean_media_type
         eq_("image/jpeg", m("image/jpeg"))
@@ -1976,7 +2021,7 @@ class TestRepresentation(DatabaseTest):
 
         # File extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
-        eq_("baz.txt.png", filename)
+        eq_("baz.png", filename)
 
         # The original file extension is not treated as reliable and
         # need not be present.
