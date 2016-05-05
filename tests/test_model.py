@@ -1521,17 +1521,176 @@ class TestWork(DatabaseTest):
 
 
     def test_work_remains_viable_on_pools_suppressed(self):
-        """ 2 lps, both got suppressed, call w.calc_pres
-        make sure work.title still exists
+        """ If a work has all of its pools suppressed, the work's author, title, 
+        and subtitle still have the last best-known info in them.
         """
-        pass
+        # make some authors
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        alice.family_name, alice.display_name = alice.default_names()
+
+        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_std_ebooks.title = u"The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
+        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_git.title = u"The GItenberg Title"
+        edition_git.subtitle = u"The GItenberg Subtitle"
+        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_gut.title = u"The GUtenberg Title"
+        edition_gut.subtitle = u"The GUtenberg Subtitle"
+        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        work = self._work(primary_edition=edition_git)
+
+        for ed in edition_gut, edition_std_ebooks:
+            work.editions.append(ed)
+        for p in pool_gut, pool_std_ebooks:
+            work.license_pools.append(p)
+
+        work.calculate_presentation()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary work record.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary work record.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress all of the license pools
+        pool_std_ebooks.suppressed = True
+        pool_git.suppressed = True
+        pool_gut.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # standard ebooks was last viable pool, and it stayed as work's choice
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary work record.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary work record.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+
+
 
     def test_work_updates_info_on_pool_suppressed(self):
-        """     2 lps, the prim_ed provider gets suppressed
-        other lp.pres_ed is now w.prim_ed
+        """ If the provider of the work's primary edition gets suppressed, 
+        the work will choose another child license pool's presentation edition as 
+        its primary edition.
         """
-        pass
+        # make some authors
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        alice.family_name, alice.display_name = alice.default_names()
 
+        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_std_ebooks.title = u"The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
+        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_git.title = u"The GItenberg Title"
+        edition_git.subtitle = u"The GItenberg Subtitle"
+        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_gut.title = u"The GUtenberg Title"
+        edition_gut.subtitle = u"The GUtenberg Subtitle"
+        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        work = self._work(primary_edition=edition_git)
+
+        for ed in edition_gut, edition_std_ebooks:
+            work.editions.append(ed)
+        for p in pool_gut, pool_std_ebooks:
+            work.license_pools.append(p)
+
+        work.calculate_presentation()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary work record.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary work record.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress the primary license pool
+        pool_std_ebooks.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # gitenberg is next best and it got determined to be the best
+        eq_(work.primary_edition, pool_git.presentation_edition)
+        eq_(work.primary_edition, edition_git)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, False)
+        eq_(edition_git.is_primary_for_work, True)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary work record.
+        eq_("The GItenberg Title", work.title)
+        eq_("The GItenberg Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary work record.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
+        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
 
 
