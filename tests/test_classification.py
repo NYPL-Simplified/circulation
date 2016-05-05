@@ -1217,14 +1217,15 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(c1)
         old_weight = self.classifier.genre_weights[history]
 
-        self.classifier.add(c1)
-        # The weights are the same as before.
+        c2 = i.classify(source, Subject.TAG, u"History", weight=100)
+        self.classifier.add(c2)
+        # No effect -- the weights are the same as before.
         eq_(old_weight, self.classifier.genre_weights[history])
 
         # The same classification can come in from another data source and
         # it will be taken into consideration.
         source2 = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        c2 = i.classify(source2, Subject.TAG, u"History", weight=1)
-        self.classifier.add(c2)
+        c3 = i.classify(source2, Subject.TAG, u"History", weight=1)
+        self.classifier.add(c3)
         assert self.classifier.genre_weights[history] > old_weight
 
