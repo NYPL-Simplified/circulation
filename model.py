@@ -1703,9 +1703,6 @@ class Identifier(Base):
         rels = [Hyperlink.DESCRIPTION, Hyperlink.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
             _db, identifier_ids, rels, privileged_data_source).all()
-        #descriptions = descriptions.join(
-        #    Resource.representation).filter(
-        #        Representation.content != None).all()
 
         champion = None
         # Add each resource's content to the evaluator's corpus.
@@ -1727,7 +1724,6 @@ class Identifier(Base):
             # We could not find any descriptions from the privileged
             # data source. Try relaxing that restriction.
             return cls.evaluate_summary_quality(_db, identifier_ids, privileged_data_sources[1:])
-            #return cls.evaluate_summary_quality(_db, identifier_ids)
         return champion, descriptions
 
     @classmethod
@@ -3499,9 +3495,6 @@ class Work(Base):
         policy = policy or PresentationCalculationPolicy()
         if policy.choose_edition or not self.primary_edition:
             self.set_primary_edition()
-            WorkCoverageRecord.add_for(
-                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
-            )
 
 
         summary = self.summary
@@ -5302,7 +5295,7 @@ class LicensePool(Base):
 
     # TODO:  policy is not used in this method.  Removing argument
     # breaks many-many tests, and needs own branch.
-    def set_presentation_edition(self, policy):
+    def set_presentation_edition(self, policy=None):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -5316,8 +5309,8 @@ class LicensePool(Base):
         all_editions = list(self.editions_in_priority_order())
         changed = False
 
-        # TODO: come back later and see if can do a cleaner solution.
-        # initially added import code in here to avoid circular import
+        # Note: We can do a cleaner solution, if we refactor to not use metadata's 
+        # methods to update editions.  For now, we're choosing to go with the below approach.
         from metadata_layer import (
             Metadata, IdentifierData, 
         )
@@ -5342,7 +5335,6 @@ class LicensePool(Base):
             metadata.license_data_source_obj = None
             edition, is_new = metadata.edition(_db)
 
-            # TODO: apply() needs to set last_update_time if appropriate.
             self.presentation_edition, edition_core_changed = metadata.apply(edition)
 
         self.presentation_edition.work = self.work

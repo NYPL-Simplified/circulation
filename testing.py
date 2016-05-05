@@ -438,6 +438,10 @@ class DatabaseTest(object):
             self.print_database_instance()  # TODO: remove before prod
             [code...]
         """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            return
+
         DatabaseTest.print_database_class(self._db)
         return
 
@@ -465,6 +469,10 @@ class DatabaseTest(object):
         _db = Session.object_session(self)
         DatabaseTest.print_database_class(_db)  # TODO: remove before prod
         """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            return
+
         works = db_connection.query(Work).all()
         identifiers = db_connection.query(Identifier).all()
         license_pools = db_connection.query(LicensePool).all()

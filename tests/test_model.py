@@ -1241,7 +1241,7 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_composite.is_primary_for_work, False)
 
         work.license_pools.append(pool)
-        pool.set_presentation_edition(None)
+        pool.set_presentation_edition()
 
         eq_(edition_mw.is_primary_for_work, False)
         eq_(edition_od.is_primary_for_work, False)
@@ -1836,33 +1836,6 @@ class TestWorkConsolidation(DatabaseTest):
         pool.calculate_work()
 
 
-
-    def test_multiple_licensepools_on_identifier(self):
-        '''
-        Tests that we can have multiple LicensePool records attached to a single Identifier.
-        Note:  As of 2016-04-19, we cannot.  This test is a stub, created as a TODO.
-        '''
-        edition, pool_1 = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        pool_2 = self._licensepool(edition, data_source_name=DataSource.OCLC)
-        work = Work()
-        work.license_pools = [pool_1, pool_2]
-        work.editions = [edition]
-
-        assert pool_1.identifier is not None
-        assert pool_2.identifier is not None
-
-        self._db.commit()
-        #TODO:  Decide if we want to take the 
-        # A Identifier should have at most one LicensePool.
-        # __table_args__ = (
-        # UniqueConstraint('identifier_id'),
-        #) 
-        # constraint off the LicensePool model class, and then change this test to allow 
-        # for pool_1 keeping its identifier.
-        assert pool_1.identifier is None
-        assert pool_2.identifier is not None
-
-
     def test_merge_into(self):
         '''
         Tests that two works can have their contents merged into a single work, and that the decision 
@@ -1998,9 +1971,6 @@ class TestLoans(DatabaseTest):
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
-        # TODO:  determine if using pool.presentation_edition is correct for lending.
-        # Because, while the old pool.edition was tied to something you can lend, the presentation_edition 
-        # is not representing a lendable object, really.  
         patron = self._patron()
         work = self._work(with_license_pool=True)
         pool = work.license_pools[0]
@@ -2015,6 +1985,8 @@ class TestLoans(DatabaseTest):
         # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
+        # Presentation_edition is not representing a lendable object, 
+        # but it is on a license pool, and a pool has lending capacity.  
         eq_(pool.presentation_edition.work, loan.work)
 
         # If that's also None, we're helpless.
