@@ -120,7 +120,7 @@ class DatabaseTest(object):
         self.transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
-        self.counter = 1000
+        self.counter = 2000
 
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
@@ -219,7 +219,6 @@ class DatabaseTest(object):
             with_license_pool = True
         language = language or "eng"
         title = unicode(title or self._str)
-        genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
         if audience == Classifier.AUDIENCE_CHILDREN:
             # TODO: This is necessary because Gutenberg's childrens books
@@ -253,9 +252,10 @@ class DatabaseTest(object):
                 audience=audience,
                 fiction=fiction,
                 quality=quality), id=self._id)
-        if not isinstance(genre, Genre):
-            genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
-        work.genres = [genre]
+        if genre:
+            if not isinstance(genre, Genre):
+                genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
+            work.genres = [genre]
         work.random = 0.5
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True

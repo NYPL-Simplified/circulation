@@ -466,7 +466,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         return id in self.docs
 
     def query_works(self, *args, **kwargs):
-        doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
         if 'offset' in kwargs and 'size' in kwargs:
             offset = kwargs['offset']
             size = kwargs['size']
