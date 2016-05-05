@@ -226,7 +226,7 @@ COMPLAINT_ALREADY_RESOLVED = pd(
 )
 
 GENRE_NOT_FOUND = pd(
-    "http://librarysimplified.org/terms/problem/complaint-already-resolved",
+    "http://librarysimplified.org/terms/problem/genre-not-found",
     status_code=404,
     title="Genre not found.",
     detail="One of the submitted genres does not exist."

@@ -460,11 +460,7 @@ class WorkController(CirculationManagerController):
                 )
 
         # add NONE classification if we aren't keeping any genres
-        staff_classifications = work.classifications_with_genre() \
-            .filter(Classification.data_source_id == staff_data_source.id) \
-            .all()
-
-        if len(staff_classifications) == 0:
+        if len(new_genres) == 0:
             work.primary_edition.primary_identifier.classify(
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_GENRE,
