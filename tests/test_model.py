@@ -1905,7 +1905,6 @@ class TestRepresentation(DatabaseTest):
         eq_(byte_content, representation.content)
         eq_(None, representation.unicode_content)
 
-
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()
         h.queue_response(404)
