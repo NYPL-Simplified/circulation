@@ -3397,11 +3397,40 @@ class Work(Base):
 
 
     def set_primary_edition(self, new_primary_edition):
+        """ Sets primary edition and lets owned pools and editions know.
+            Raises exception if edition to set to is None.
+        """
+        # only bother if something changed, or if were explicitly told to 
+        # set (useful for setting to None)
+        if not new_primary_edition:
+            error_message = "Trying to set primary_edition to None on Work [%s]" % self.id
+            raise ValueError(error_message)
+
         self.primary_edition = new_primary_edition
 
+        # go through the loser pools, and tell them they lost
+        for pool in self.license_pools:
+            if pool.presentation_edition is self.primary_edition:
+                # make sure edition knows it's primary
+                pool.presentation_edition.is_primary_for_work = True
+            else:
+                pool.mark_edition_primarity(primary_for_work_edition=None)
 
 
-    def calculate_primary_edition(self, policy=None, pool_to_not_check=None):
+        # Tell child editions if they match work's primary edition.
+        for edition in self.editions:
+            if edition != self.primary_edition:
+                edition.is_primary_for_work = False
+            else:
+                edition.is_primary_for_work = True
+                # let the edition know it's attached to this work now
+                edition.work = self
+                # let the edition's pool know they have a work
+                if edition.is_presentation_for:
+                    edition.is_presentation_for.work = self
+
+
+    def calculate_primary_edition(self, policy=None):
         """ Which of this Work's Editions should be used as the default?
 
         First, every LicensePool associated with this work must have
@@ -3410,7 +3439,10 @@ class Work(Base):
         Then, we go through the pools, see which has the best presentation edition, 
         and make it our primary.
         """
+        changed = False
         policy = policy or PresentationCalculationPolicy()
+        if not policy.choose_edition:
+            return changed
 
         # For each owned edition, see if its LicensePool was superceded or suppressed
         # if yes, the edition is unlikely to be primary.  
@@ -3431,9 +3463,7 @@ class Work(Base):
 
             # make sure the pool has most up-to-date idea of its presentation edition, 
             # and then ask what it is.
-            pool_edition_changed = False
-            if pool is not pool_to_not_check:
-                pool_edition_changed = pool.set_presentation_edition(policy)
+            pool_edition_changed = pool.set_presentation_edition(policy)
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool_edition_changed   
@@ -3454,34 +3484,12 @@ class Work(Base):
                 # edition is still an option, choose it.
                 new_primary_edition = potential_primary_edition
 
-        # did we find a pool whose presentation edition was better than the work's?
-        if new_primary_edition:
-            self.set_primary_edition(new_primary_edition)
-
-        # go through the loser pools, and tell them they lost
-        for pool in self.license_pools:
-            if pool.presentation_edition is self.primary_edition:
-                # make sure edition knows it's primary
-                pool.presentation_edition.is_primary_for_work = True
-            else:
-                pool.mark_edition_primarity(primary_for_work_edition=None)
-
-
         # Note: policy.choose_edition is true in default PresentationCalculationPolicy.
         # If we don't have a self.primary_edition by now, this will just set all the editions' 
         # is_primary_for_work attributes to False.
-        if policy.choose_edition or not self.primary_edition:
-            # Tell child editions if they match work's primary edition.
-            for edition in self.editions:
-                if edition != self.primary_edition:
-                    edition.is_primary_for_work = False
-                else:
-                    edition.is_primary_for_work = True
-                    # let the edition know it's attached to this work now
-                    edition.work = self
-                    # let the edition's pool know they have a work
-                    if edition.is_presentation_for:
-                        edition.is_presentation_for.work = self
+        if ((self.primary_edition != new_primary_edition) and new_primary_edition != None):
+            # did we find a pool whose presentation edition was better than the work's?
+            self.set_primary_edition(new_primary_edition)
 
         # tell everyone else we tried to set work's primary edition
         WorkCoverageRecord.add_for(

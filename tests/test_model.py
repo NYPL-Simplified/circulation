@@ -1520,6 +1520,20 @@ class TestWork(DatabaseTest):
         eq_(gitenberg2.superceded, False)
 
 
+    def test_work_remains_viable_on_pools_suppressed(self):
+        """ 2 lps, both got suppressed, call w.calc_pres
+        make sure work.title still exists
+        """
+        pass
+
+    def test_work_updates_info_on_pool_suppressed(self):
+        """     2 lps, the prim_ed provider gets suppressed
+        other lp.pres_ed is now w.prim_ed
+        """
+        pass
+
+
+
 
 class TestCirculationEvent(DatabaseTest):
 

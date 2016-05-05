@@ -280,10 +280,11 @@ class DatabaseTest(object):
         if pool != None:
             # make sure the pool's presentation_edition is set, 
             # bc loan tests assume that.
-            pool.set_presentation_edition(None)
-
             if not work.license_pools:
                 work.license_pools.append(pool)
+
+            pool.set_presentation_edition(None)
+
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
@@ -440,6 +441,7 @@ class DatabaseTest(object):
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_instance() before pushing to production.")
             return
 
         DatabaseTest.print_database_class(self._db)
@@ -471,6 +473,7 @@ class DatabaseTest(object):
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_class() before pushing to production.")
             return
 
         works = db_connection.query(Work).all()
