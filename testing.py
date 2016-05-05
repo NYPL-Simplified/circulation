@@ -275,7 +275,7 @@ class DatabaseTest(object):
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
 
-        work.set_primary_edition()
+        work.calculate_primary_edition()
 
         if pool != None:
             # make sure the pool's presentation_edition is set, 
