@@ -191,8 +191,6 @@ class TestWorkController(AdminControllerTest):
 
         # change genres
         with self.app.test_request_context("/"):
-            work_genres = self._db.query(WorkGenre).filter(WorkGenre.work_id == lp.work.id).all()
-            print len(work_genres)
             requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
             form = MultiDict()
             for genre in requested_genres:
