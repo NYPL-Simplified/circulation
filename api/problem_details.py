@@ -229,11 +229,11 @@ GENRE_NOT_FOUND = pd(
     "http://librarysimplified.org/terms/problem/complaint-already-resolved",
     status_code=404,
     title="Genre not found.",
-    detail="The specified work does not have the specified genre."
+    detail="One of the submitted genres does not exist."
 )
 
 INCOMPATIBLE_GENRE = pd(
-    "http://librarysimplified.org/terms/problem/complaint-already-resolved",
+    "http://librarysimplified.org/terms/problem/incompatible-genre",
     status_code=409,
     title="Incompatible genre.",
     detail="The genre is incompatible with the fiction status of the work."

@@ -446,8 +446,7 @@ class WorkController(CirculationManagerController):
 
         # delete existing staff classifications for genres that aren't being kept
         for c in current_staff_classifications:
-            name = c.subject.genre.name
-            if work.fiction != genres[name].is_fiction or name not in new_genres:
+            if c.subject.genre.name not in new_genres:
                 self._db.delete(c)
 
         # add new staff classifications for new genres
@@ -457,20 +456,20 @@ class WorkController(CirculationManagerController):
                     data_source=staff_data_source,
                     subject_type=Subject.SIMPLIFIED_GENRE,
                     subject_identifier=genre,
-                    weight=WorkController.STAFF_WEIGHT * 100
+                    weight=WorkController.STAFF_WEIGHT
                 )
 
         # add NONE classification if we aren't keeping any genres
-        staff_classifications_count = work.classifications_with_genre() \
+        staff_classifications = work.classifications_with_genre() \
             .filter(Classification.data_source_id == staff_data_source.id) \
-            .count()
+            .all()
 
-        if staff_classifications_count == 0:
+        if len(staff_classifications) == 0:
             work.primary_edition.primary_identifier.classify(
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_GENRE,
                 subject_identifier=SimplifiedGenreClassifier.NONE,
-                weight=WorkController.STAFF_WEIGHT * 100
+                weight=WorkController.STAFF_WEIGHT
             )
 
         policy = PresentationCalculationPolicy(

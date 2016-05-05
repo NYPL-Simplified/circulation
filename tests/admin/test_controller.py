@@ -184,22 +184,26 @@ class TestWorkController(AdminControllerTest):
             eq_(INVALID_EDIT.uri, response.uri)
 
     def test_update_genres(self):
-        # start with no genres
+        # start with a couple genres
         [lp] = self.english_1.license_pools
-    
-        # add first few fiction genres
+        genre, ignore = Genre.lookup(self._db, "Occult Horror")
+        lp.work.genres = [genre]
+
+        # change genres
         with self.app.test_request_context("/"):
+            work_genres = self._db.query(WorkGenre).filter(WorkGenre.work_id == lp.work.id).all()
+            print len(work_genres)
             requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
             form = MultiDict()
             for genre in requested_genres:
                 form.add("genres", genre)
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
 
-            eq_(len(new_genre_names), len(requested_genres))
-            for genre in requested_genres:
-                eq_(True, genre in new_genre_names)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(requested_genres))
+        for genre in requested_genres:
+            eq_(True, genre in new_genre_names)
 
         # remove a genre
         with self.app.test_request_context("/"):
@@ -209,11 +213,11 @@ class TestWorkController(AdminControllerTest):
                 form.add("genres", genre)
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
 
-            eq_(len(new_genre_names), len(requested_genres))
-            for genre in requested_genres:
-                eq_(True, genre in new_genre_names)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(requested_genres))
+        for genre in requested_genres:
+            eq_(True, genre in new_genre_names)
 
         previous_genres = requested_genres
 
@@ -225,11 +229,11 @@ class TestWorkController(AdminControllerTest):
                 form.add("genres", genre)
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
 
-            eq_(len(new_genre_names), len(previous_genres))
-            for genre in previous_genres:
-                eq_(True, genre in new_genre_names)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(previous_genres))
+        for genre in previous_genres:
+            eq_(True, genre in new_genre_names)
 
         # try to add a nonexistent genre
         with self.app.test_request_context("/"):
@@ -239,11 +243,11 @@ class TestWorkController(AdminControllerTest):
                 form.add("genres", genre)
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-            new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
 
-            eq_(len(new_genre_names), len(previous_genres))
-            for genre in previous_genres:
-                eq_(True, genre in new_genre_names)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(previous_genres))
+        for genre in previous_genres:
+            eq_(True, genre in new_genre_names)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
