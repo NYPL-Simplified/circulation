@@ -222,7 +222,7 @@ class WorkController(CirculationManagerController):
                 "data_source": data_source,
                 "identifier": identifier
             },
-            "subjects": data
+            "classifications": data
         })
 
     def edit(self, data_source, identifier):

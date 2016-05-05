@@ -400,15 +400,15 @@ class TestWorkController(AdminControllerTest):
             
             eq_(response['book']['data_source'], lp.data_source.name)
             eq_(response['book']['identifier'], lp.identifier.identifier)
-            eq_(len(response['subjects']), 2)
-            eq_(response['subjects'][0]['name'], subject2.identifier)
-            eq_(response['subjects'][0]['type'], subject2.type)
-            eq_(response['subjects'][0]['source'], source.name)
-            eq_(response['subjects'][0]['weight'], classification2.weight)
-            eq_(response['subjects'][1]['name'], subject1.identifier)
-            eq_(response['subjects'][1]['type'], subject1.type)
-            eq_(response['subjects'][1]['source'], source.name)
-            eq_(response['subjects'][1]['weight'], classification1.weight)
+            eq_(len(response['classifications']), 2)
+            eq_(response['classifications'][0]['name'], subject2.identifier)
+            eq_(response['classifications'][0]['type'], subject2.type)
+            eq_(response['classifications'][0]['source'], source.name)
+            eq_(response['classifications'][0]['weight'], classification2.weight)
+            eq_(response['classifications'][1]['name'], subject1.identifier)
+            eq_(response['classifications'][1]['type'], subject1.type)
+            eq_(response['classifications'][1]['source'], source.name)
+            eq_(response['classifications'][1]['weight'], classification1.weight)
 
 
 class TestSignInController(AdminControllerTest):
