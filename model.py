@@ -3670,7 +3670,6 @@ class Work(Base):
         )
         # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
-
     def update_external_index(self, client):
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
@@ -3963,6 +3962,15 @@ class Work(Base):
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
         qu = qu.filter(condition)
         return qu
+
+    def classifications_with_genre(self):
+        _db = Session.object_session(self)
+        identifier = self.primary_edition.primary_identifier
+        return _db.query(Classification) \
+                    .join(Subject) \
+                    .filter(Classification.identifier_id == identifier.id) \
+                    .filter(Subject.genre_id != None) \
+                    .order_by(Classification.weight.desc())
 
 
 # Used for quality filter queries.
@@ -4537,7 +4545,7 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
@@ -5101,6 +5109,10 @@ class LicensePool(Base):
     # A LicensePool that seemingly looks fine may be manually suppressed
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
+
+    # A textual description of a problem with this license pool
+    # that caused us to suppress it.
+    license_exception = Column(Unicode, index=True)
 
     # Index the combination of DataSource and Identifier to make joins easier.
 
