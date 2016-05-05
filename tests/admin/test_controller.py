@@ -228,6 +228,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
 
+        eq_(response, INCOMPATIBLE_GENRE)
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
         eq_(len(new_genre_names), len(previous_genres))
         for genre in previous_genres:
@@ -242,6 +243,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = form
             response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
 
+        eq_(response, GENRE_NOT_FOUND)
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
         eq_(len(new_genre_names), len(previous_genres))
         for genre in previous_genres:
