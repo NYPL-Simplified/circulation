@@ -184,8 +184,9 @@ class S3Uploader(MirrorUploader):
 
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fail=False, *args, **kwargs):
         self.uploaded = []
+        self.fail = fail
 
     @classmethod
     def cover_image_root(cls, data_source, scaled_size=None):
@@ -202,6 +203,10 @@ class DummyS3Uploader(S3Uploader):
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)
         for representation in representations:
-            if not representation.mirror_url:
-                representation.mirror_url = representation.url
-            representation.set_as_mirrored()
+            if self.fail:
+                representation.mirror_exception = "Exception"
+                representation.mirrored_at = None
+            else:
+                if not representation.mirror_url:
+                    representation.mirror_url = representation.url
+                representation.set_as_mirrored()

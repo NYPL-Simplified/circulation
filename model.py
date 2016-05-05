@@ -5110,6 +5110,10 @@ class LicensePool(Base):
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
 
+    # A textual description of a problem with this license pool
+    # that caused us to suppress it.
+    license_exception = Column(Unicode, index=True)
+
     # Index the combination of DataSource and Identifier to make joins easier.
 
     clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
