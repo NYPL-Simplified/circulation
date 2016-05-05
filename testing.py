@@ -120,7 +120,7 @@ class DatabaseTest(object):
         self.transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
-        self.counter = 1000
+        self.counter = 2000
 
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
