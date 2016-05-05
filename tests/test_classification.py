@@ -178,10 +178,10 @@ class TestTargetAge(object):
             v = AgeClassifier.target_age(t, None)
             return v.lower, v.upper
         eq_((9,12), f("Ages 9-12"))
-        eq_((9,11), f("9 and up"))
-        eq_((9,11), f("9 and up."))
-        eq_((9,11), f("9+"))
-        eq_((9,11), f("9+."))
+        eq_((9,13), f("9 and up"))
+        eq_((9,13), f("9 and up."))
+        eq_((9,13), f("9+"))
+        eq_((9,13), f("9+."))
         eq_((None,None), f("900-901"))
         eq_((9,12), f("9-12"))
         eq_((9,9), f("9 years"))
@@ -199,7 +199,7 @@ class TestTargetAge(object):
 
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("K-3", None, True))
         eq_(Classifier.nr(None,None), AgeClassifier.target_age("9-12", None, True))
-        eq_(Classifier.nr(9,11), AgeClassifier.target_age("9 and up", None, True))
+        eq_(Classifier.nr(9,13), AgeClassifier.target_age("9 and up", None, True))
         eq_(Classifier.nr(7,9), AgeClassifier.target_age("7 years and up.", None, True))
 
     def test_age_from_keyword_classifier(self):
@@ -1202,4 +1202,29 @@ class TestWorkClassifier(DatabaseTest):
         eq_(set([1,4]), WorkClassifier.top_tier_values(c))
         c = Counter([1,1,1,2])
         eq_(set([1]), WorkClassifier.top_tier_values(c))
+
+
+    def test_duplicate_classification_ignored(self):
+        """A given classification is only used once from
+        a given data source.
+        """
+        history = self._genre(classifier.History)
+        i = self.identifier
+        source = DataSource.lookup(self._db, DataSource.AMAZON)
+        c1 = i.classify(source, Subject.TAG, u"History", weight=1)
+        eq_([], self.classifier.classifications)
+
+        self.classifier.add(c1)
+        old_weight = self.classifier.genre_weights[history]
+
+        self.classifier.add(c1)
+        # The weights are the same as before.
+        eq_(old_weight, self.classifier.genre_weights[history])
+
+        # The same classification can come in from another data source and
+        # it will be taken into consideration.
+        source2 = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
+        c2 = i.classify(source2, Subject.TAG, u"History", weight=1)
+        self.classifier.add(c2)
+        assert self.classifier.genre_weights[history] > old_weight
 
