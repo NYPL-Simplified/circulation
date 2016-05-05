@@ -115,10 +115,15 @@ class TestDataSource(DatabaseTest):
             self._db, "No such data source " + self._str))
 
     def test_metadata_sources_for(self):
-        [content_cafe] = DataSource.metadata_sources_for(
+        content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+        novelist = DataSource.lookup(self._db, DataSource.NOVELIST)
+        isbn_metadata_sources = DataSource.metadata_sources_for(
             self._db, Identifier.ISBN
         )
-        eq_(DataSource.CONTENT_CAFE, content_cafe.name)
+
+        eq_(2, len(isbn_metadata_sources))
+        assert content_cafe in isbn_metadata_sources
+        assert novelist in isbn_metadata_sources
 
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
