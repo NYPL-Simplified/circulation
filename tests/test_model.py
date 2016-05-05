@@ -1524,39 +1524,8 @@ class TestWork(DatabaseTest):
         """ If a work has all of its pools suppressed, the work's author, title, 
         and subtitle still have the last best-known info in them.
         """
-        # make some authors
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
-        bob.family_name, bob.display_name = bob.default_names()
-        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
-        alice.family_name, alice.display_name = alice.default_names()
-
-        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_std_ebooks.title = u"The Standard Ebooks Title"
-        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
-        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
-
-        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_git.title = u"The GItenberg Title"
-        edition_git.subtitle = u"The GItenberg Subtitle"
-        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
-
-        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_gut.title = u"The GUtenberg Title"
-        edition_gut.subtitle = u"The GUtenberg Subtitle"
-        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
-
-        work = self._work(primary_edition=edition_git)
-
-        for ed in edition_gut, edition_std_ebooks:
-            work.editions.append(ed)
-        for p in pool_gut, pool_std_ebooks:
-            work.license_pools.append(p)
-
-        work.calculate_presentation()
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
         eq_(pool_std_ebooks.suppressed, False)
@@ -1572,11 +1541,11 @@ class TestWork(DatabaseTest):
         eq_(edition_git.is_primary_for_work, False)
         eq_(edition_gut.is_primary_for_work, False)
 
-        # The title of the Work is the title of its primary work record.
+        # The title of the Work is the title of its primary edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary work record.
+        # The author of the Work is the author of its primary edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1597,11 +1566,11 @@ class TestWork(DatabaseTest):
         eq_(edition_git.is_primary_for_work, False)
         eq_(edition_gut.is_primary_for_work, False)
 
-        # The title of the Work is still the title of its last viable primary work record.
+        # The title of the Work is still the title of its last viable primary edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary work record.
+        # The author of the Work is still the author of its last viable primary edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1613,39 +1582,8 @@ class TestWork(DatabaseTest):
         the work will choose another child license pool's presentation edition as 
         its primary edition.
         """
-        # make some authors
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
-        bob.family_name, bob.display_name = bob.default_names()
-        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
-        alice.family_name, alice.display_name = alice.default_names()
-
-        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_std_ebooks.title = u"The Standard Ebooks Title"
-        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
-        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
-
-        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_git.title = u"The GItenberg Title"
-        edition_git.subtitle = u"The GItenberg Subtitle"
-        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
-
-        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
-            with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_gut.title = u"The GUtenberg Title"
-        edition_gut.subtitle = u"The GUtenberg Subtitle"
-        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
-
-        work = self._work(primary_edition=edition_git)
-
-        for ed in edition_gut, edition_std_ebooks:
-            work.editions.append(ed)
-        for p in pool_gut, pool_std_ebooks:
-            work.license_pools.append(p)
-
-        work.calculate_presentation()
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
         eq_(pool_std_ebooks.suppressed, False)
@@ -1661,11 +1599,11 @@ class TestWork(DatabaseTest):
         eq_(edition_git.is_primary_for_work, False)
         eq_(edition_gut.is_primary_for_work, False)
 
-        # The title of the Work is the title of its primary work record.
+        # The title of the Work is the title of its primary edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary work record.
+        # The author of the Work is the author of its primary edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1684,11 +1622,11 @@ class TestWork(DatabaseTest):
         eq_(edition_git.is_primary_for_work, True)
         eq_(edition_gut.is_primary_for_work, False)
 
-        # The title of the Work is still the title of its last viable primary work record.
+        # The title of the Work is still the title of its last viable primary edition.
         eq_("The GItenberg Title", work.title)
         eq_("The GItenberg Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary work record.
+        # The author of the Work is still the author of its last viable primary edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
@@ -1908,11 +1846,11 @@ class TestWorkConsolidation(DatabaseTest):
         edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
             title=self._str, authors=[self._str], with_license_pool=True)
 
-        # This work record is unique to the existing work.
+        # This edition is unique to the existing work.
         preexisting_work = Work()
         preexisting_work.editions = [edition1]
 
-        # This work record is unique to the new LicensePool
+        # This edition is unique to the new LicensePool
         edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
             title=self._str, authors=[self._str], with_license_pool=True)
 
