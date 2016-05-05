@@ -5,7 +5,7 @@ from nose.tools import (
 import flask
 import json
 import feedparser
-from werkzeug import ImmutableMultiDict
+from werkzeug import ImmutableMultiDict, MultiDict
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers
@@ -16,17 +16,21 @@ from api.admin.config import (
 )
 from core.model import (
     Admin,
+    Classification,
     Complaint,
-    create,
-    Identifier,
-    DataSource,
     CoverageRecord,
-    SessionManager
+    create,
+    DataSource,
+    Genre,
+    Identifier,
+    SessionManager,
+    Subject
 )
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
+from core.classifier import genres
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -179,6 +183,72 @@ class TestWorkController(AdminControllerTest):
             eq_(400, response.status_code)
             eq_(INVALID_EDIT.uri, response.uri)
 
+    def test_update_genres(self):
+        # start with a couple genres
+        [lp] = self.english_1.license_pools
+        genre, ignore = Genre.lookup(self._db, "Occult Horror")
+        lp.work.genres = [genre]
+
+        # change genres
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(requested_genres))
+        for genre in requested_genres:
+            eq_(True, genre in new_genre_names)
+
+        # remove a genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(requested_genres))
+        for genre in requested_genres:
+            eq_(True, genre in new_genre_names)
+
+        previous_genres = requested_genres
+
+        # try to add a nonfiction genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction", "Cooking"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+
+        eq_(response, INCOMPATIBLE_GENRE)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(previous_genres))
+        for genre in previous_genres:
+            eq_(True, genre in new_genre_names)
+
+        # try to add a nonexistent genre
+        with self.app.test_request_context("/"):
+            requested_genres = ["Drama", "Women's Fiction", "Epic Military Memoirs"]
+            form = MultiDict()
+            for genre in requested_genres:
+                form.add("genres", genre)
+            flask.request.form = form
+            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+
+        eq_(response, GENRE_NOT_FOUND)
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(previous_genres))
+        for genre in previous_genres:
+            eq_(True, genre in new_genre_names)
+
     def test_suppress(self):
         [lp] = self.english_1.license_pools
 
@@ -301,6 +371,48 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = ImmutableMultiDict([("type", type1)])
             response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
             eq_(response.status_code, 409)
+
+    def test_classifications(self):
+        e, pool = self._edition(with_license_pool=True)
+        work = self._work(primary_edition=e)
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+        classification3 = self._classification(
+            identifier=identifier, subject=subject3, 
+            data_source=source, weight=1.5)
+
+        SessionManager.refresh_materialized_views(self._db)
+        [lp] = work.license_pools
+
+        # first attempt to resolve complaints of the wrong type
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.classifications(
+                lp.data_source.name, lp.identifier.identifier)
+            
+            eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier'], lp.identifier.identifier)
+            eq_(len(response['classifications']), 2)
+            eq_(response['classifications'][0]['name'], subject2.identifier)
+            eq_(response['classifications'][0]['type'], subject2.type)
+            eq_(response['classifications'][0]['source'], source.name)
+            eq_(response['classifications'][0]['weight'], classification2.weight)
+            eq_(response['classifications'][1]['name'], subject1.identifier)
+            eq_(response['classifications'][1]['type'], subject1.type)
+            eq_(response['classifications'][1]['source'], source.name)
+            eq_(response['classifications'][1]['weight'], classification1.weight)
 
 
 class TestSignInController(AdminControllerTest):
@@ -426,3 +538,15 @@ class TestFeedController(AdminControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
             eq_(suppressed_work.title, entries[0]['title'])
+
+    def test_genres(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.genres()
+            
+            for name in genres:
+                top = "Fiction" if genres[name].is_fiction else "Nonfiction"
+                eq_(response[top][name], dict({
+                    "name": name,
+                    "parents": [parent.name for parent in genres[name].parents],
+                    "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
+                }))        

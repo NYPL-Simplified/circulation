@@ -224,3 +224,17 @@ COMPLAINT_ALREADY_RESOLVED = pd(
     title="Complaint already resolved.",
     detail="You can't resolve a complaint that is already resolved."
 )
+
+GENRE_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/genre-not-found",
+    status_code=404,
+    title="Genre not found.",
+    detail="One of the submitted genres does not exist."
+)
+
+INCOMPATIBLE_GENRE = pd(
+    "http://librarysimplified.org/terms/problem/incompatible-genre",
+    status_code=409,
+    title="Incompatible genre.",
+    detail="The genre is incompatible with the fiction status of the work."
+)

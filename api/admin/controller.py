@@ -16,9 +16,11 @@ from core.model import (
     Admin,
     Classification,
     DataSource,
+    Genre,
     Hyperlink,
     PresentationCalculationPolicy,
     Subject,
+    WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
 from api.problem_details import *
@@ -41,6 +43,7 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
+from core.classifier import genres, SimplifiedGenreClassifier
 
 
 def setup_admin_controllers(manager):
@@ -159,6 +162,8 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
+    STAFF_WEIGHT = 100000
+
     def details(self, data_source, identifier):
         """Return an OPDS entry with detailed information for admins.
         
@@ -192,10 +197,36 @@ class WorkController(CirculationManagerController):
         
         return response
 
+    def classifications(self, data_source, identifier):
+        """Return list of this work's classifications that are linked to genres."""
+
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        results = pool.work.classifications_with_genre() \
+            .join(DataSource) \
+            .all()
+        
+        data = []
+        for result in results:
+            data.append(dict({
+                "type": result.subject.type,
+                "name": result.subject.identifier,
+                "source": result.data_source.name,
+                "weight": result.weight
+            }))
+
+        return dict({
+            "book": {
+                "data_source": data_source,
+                "identifier": identifier
+            },
+            "classifications": data
+        })
+
     def edit(self, data_source, identifier):
         """Edit a work's metadata."""
-
-        STAFF_WEIGHT = 100000
 
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
@@ -233,7 +264,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
                 subject_identifier=fiction_term,
-                weight=STAFF_WEIGHT * 100,
+                weight=WorkController.STAFF_WEIGHT * 100,
             )
             classification.subject.fiction = new_fiction
             changed = True
@@ -250,7 +281,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.FREEFORM_AUDIENCE,
                 subject_identifier=new_audience,
-                weight=STAFF_WEIGHT,
+                weight=WorkController.STAFF_WEIGHT,
             )
             changed = True
 
@@ -277,7 +308,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.AGE_RANGE,
                 subject_identifier=age_range_identifier,
-                weight=STAFF_WEIGHT * 100,
+                weight=WorkController.STAFF_WEIGHT * 100,
             )
             changed = True
 
@@ -388,6 +419,64 @@ class WorkController(CirculationManagerController):
             return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
+    def update_genres(self, data_source, identifier):
+        pool = self.load_licensepool(data_source, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work = pool.work
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        new_genres = flask.request.form.getlist("genres")
+
+        current_staff_classifications = work.classifications_with_genre() \
+            .filter(Classification.data_source_id == staff_data_source.id) \
+            .all()
+        current_staff_genres = [
+            c.subject.genre.name 
+            for c in current_staff_classifications 
+            if c.subject.genre
+        ]
+
+        # make sure all new genres are legit
+        for name in new_genres:
+            genre, is_new = Genre.lookup(self._db, name)
+            if not isinstance(genre, Genre):
+                return GENRE_NOT_FOUND
+            if work.fiction != genres[name].is_fiction:
+                return INCOMPATIBLE_GENRE
+
+        # delete existing staff classifications for genres that aren't being kept
+        for c in current_staff_classifications:
+            if c.subject.genre.name not in new_genres:
+                self._db.delete(c)
+
+        # add new staff classifications for new genres
+        for genre in new_genres:
+            if genre not in current_staff_genres:
+                classification = work.primary_edition.primary_identifier.classify(
+                    data_source=staff_data_source,
+                    subject_type=Subject.SIMPLIFIED_GENRE,
+                    subject_identifier=genre,
+                    weight=WorkController.STAFF_WEIGHT
+                )
+
+        # add NONE classification if we aren't keeping any genres
+        if len(new_genres) == 0:
+            work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.SIMPLIFIED_GENRE,
+                subject_identifier=SimplifiedGenreClassifier.NONE,
+                weight=WorkController.STAFF_WEIGHT
+            )
+
+        policy = PresentationCalculationPolicy(
+            classify=True,
+            regenerate_opds_entries=True,
+            update_search_index=True
+        )
+        work.calculate_presentation(policy=policy)
+
+        return Response("", 200)
+
     def _count_complaints_for_licensepool(self, pool):
         complaint_types = [complaint.type for complaint in pool.complaints if complaint.resolved == None]
         return Counter(complaint_types)
@@ -420,3 +509,17 @@ class FeedController(CirculationManagerController):
             pagination=pagination
         )
         return feed_response(opds_feed)
+
+    def genres(self):
+        data = dict({
+            "Fiction": dict({}),
+            "Nonfiction": dict({})
+        })
+        for name in genres:
+            top = "Fiction" if genres[name].is_fiction else "Nonfiction"
+            data[top][name] = dict({
+                "name": name,
+                "parents": [parent.name for parent in genres[name].parents],
+                "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
+            })
+        return data
