@@ -188,22 +188,19 @@ class RunCoverageProvidersScript(Script):
 class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
-    def parse_identifiers(self):
-        potential_identifiers = sys.argv[1:]
-        identifiers = self.parse_identifier_list(
-            self._db, potential_identifiers
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--identifier-type', 
+            help='Process identifiers of this type'
         )
-        if potential_identifiers and not identifiers:
-            self.log.warn("Could not extract any identifiers from command-line arguments, falling back to default behavior.")
-        return identifiers
+        parser.add_argument(
+            'identifiers',
+            help='An identifier to process',
+            metavar='IDENTIFIER', nargs='*'
+        )
+        return parser
 
-    def parse_identifiers_or_data_source(self):
-        """Try to parse the command-line arguments as a list of identifiers.
-        If that fails, try to find a data source.
-        """
-        return self.parse_identifier_list_or_data_source(
-            self._db, sys.argv[1:]
-        )
 
 class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
@@ -240,11 +237,16 @@ class RunCoverageProviderScript(IdentifierInputScript):
             help='Add coverage only for identifiers of the given type.',
             action='append'
         )
+        parser.add_argument(
+            'identifiers',
+            help='Add coverage for this specific identifier',
+            metavar='IDENTIFIER', nargs='*'
+        )
         return parser.parse_args()
 
     def __init__(self, provider):
+        args = self.parse_command_line()
         if callable(provider):
-            args = self.parse_command_line()
             cutoff_time = self.parse_time(args.cutoff_time)
             identifier_types = args.identifier_type or None
             provider = provider(
@@ -253,9 +255,12 @@ class RunCoverageProviderScript(IdentifierInputScript):
             )
         self.provider = provider
         self.name = self.provider.service_name
+        self.identifier_strings = args.identifiers
 
     def do_run(self):
-        identifiers = self.parse_identifiers()
+        identifiers = self.parse_identifier_list(
+            self._db, self.identifier_strings
+        )
         if identifiers:
             self.provider.run_on_identifiers(identifiers)
         else:
