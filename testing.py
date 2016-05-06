@@ -275,15 +275,16 @@ class DatabaseTest(object):
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
 
-        work.set_primary_edition()
+        work.calculate_primary_edition()
 
         if pool != None:
             # make sure the pool's presentation_edition is set, 
             # bc loan tests assume that.
-            pool.set_presentation_edition(None)
-
             if not work.license_pools:
                 work.license_pools.append(pool)
+
+            pool.set_presentation_edition(None)
+
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
@@ -423,6 +424,48 @@ class DatabaseTest(object):
         return complaint
 
 
+    def _sample_ecosystem(self):
+        """ Creates an ecosystem of some sample work, pool, edition, and author 
+        objects that all know each other. 
+        """
+        # make some authors
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        alice.family_name, alice.display_name = alice.default_names()
+
+        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_std_ebooks.title = u"The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
+        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_git.title = u"The GItenberg Title"
+        edition_git.subtitle = u"The GItenberg Subtitle"
+        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_gut.title = u"The GUtenberg Title"
+        edition_gut.subtitle = u"The GUtenberg Subtitle"
+        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        work = self._work(primary_edition=edition_git)
+
+        for ed in edition_gut, edition_std_ebooks:
+            work.editions.append(ed)
+        for p in pool_gut, pool_std_ebooks:
+            work.license_pools.append(p)
+
+        work.calculate_presentation()
+
+        return (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob)
+
+
     def print_database_instance(self):
         """
         Calls the class method that examines the current state of the database model 
@@ -438,6 +481,11 @@ class DatabaseTest(object):
             self.print_database_instance()  # TODO: remove before prod
             [code...]
         """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_instance() before pushing to production.")
+            return
+
         DatabaseTest.print_database_class(self._db)
         return
 
@@ -465,6 +513,11 @@ class DatabaseTest(object):
         _db = Session.object_session(self)
         DatabaseTest.print_database_class(_db)  # TODO: remove before prod
         """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_class() before pushing to production.")
+            return
+
         works = db_connection.query(Work).all()
         identifiers = db_connection.query(Identifier).all()
         license_pools = db_connection.query(LicensePool).all()

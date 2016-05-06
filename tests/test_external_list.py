@@ -217,6 +217,7 @@ class BooksInSeries(MembershipManager):
         """Only books that are part of a series should be in this list."""
         return self._db.query(Edition).filter(Edition.series != None)
 
+
 class TestMembershipManager(DatabaseTest):
 
     def test_update(self):
@@ -234,14 +235,10 @@ class TestMembershipManager(DatabaseTest):
         update_time = datetime.datetime(2015, 1, 1)
 
 
-        '''
-        execution path:
-        calls _customlist
-        which calls _work
-            which calls _edition, which makes an edition and a pool (through _licensepool)
-            then makes work through get_one_or_create
-        '''
-
+        # To create necessary mocked objects, 
+        # _customlist calls _work
+        #    which calls _edition, which makes an edition and a pool (through _licensepool)
+        #    then makes work through get_one_or_create
         custom_list, ignore = self._customlist()
         manager = BooksInSeries(custom_list)
         manager.update(update_time)
