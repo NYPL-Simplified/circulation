@@ -1241,7 +1241,7 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_composite.is_primary_for_work, False)
 
         work.license_pools.append(pool)
-        pool.set_presentation_edition(None)
+        pool.set_presentation_edition()
 
         eq_(edition_mw.is_primary_for_work, False)
         eq_(edition_od.is_primary_for_work, False)
@@ -1520,6 +1520,117 @@ class TestWork(DatabaseTest):
         eq_(gitenberg2.superceded, False)
 
 
+    def test_work_remains_viable_on_pools_suppressed(self):
+        """ If a work has all of its pools suppressed, the work's author, title, 
+        and subtitle still have the last best-known info in them.
+        """
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress all of the license pools
+        pool_std_ebooks.suppressed = True
+        pool_git.suppressed = True
+        pool_gut.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # standard ebooks was last viable pool, and it stayed as work's choice
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+
+
+
+    def test_work_updates_info_on_pool_suppressed(self):
+        """ If the provider of the work's primary edition gets suppressed, 
+        the work will choose another child license pool's presentation edition as 
+        its primary edition.
+        """
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress the primary license pool
+        pool_std_ebooks.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # gitenberg is next best and it got determined to be the best
+        eq_(work.primary_edition, pool_git.presentation_edition)
+        eq_(work.primary_edition, edition_git)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, False)
+        eq_(edition_git.is_primary_for_work, True)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary edition.
+        eq_("The GItenberg Title", work.title)
+        eq_("The GItenberg Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary edition.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
+        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+
 
 class TestCirculationEvent(DatabaseTest):
 
@@ -1735,11 +1846,11 @@ class TestWorkConsolidation(DatabaseTest):
         edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
             title=self._str, authors=[self._str], with_license_pool=True)
 
-        # This work record is unique to the existing work.
+        # This edition is unique to the existing work.
         preexisting_work = Work()
         preexisting_work.editions = [edition1]
 
-        # This work record is unique to the new LicensePool
+        # This edition is unique to the new LicensePool
         edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
             title=self._str, authors=[self._str], with_license_pool=True)
 
@@ -1834,33 +1945,6 @@ class TestWorkConsolidation(DatabaseTest):
         self._db.commit()
 
         pool.calculate_work()
-
-
-
-    def test_multiple_licensepools_on_identifier(self):
-        '''
-        Tests that we can have multiple LicensePool records attached to a single Identifier.
-        Note:  As of 2016-04-19, we cannot.  This test is a stub, created as a TODO.
-        '''
-        edition, pool_1 = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        pool_2 = self._licensepool(edition, data_source_name=DataSource.OCLC)
-        work = Work()
-        work.license_pools = [pool_1, pool_2]
-        work.editions = [edition]
-
-        assert pool_1.identifier is not None
-        assert pool_2.identifier is not None
-
-        self._db.commit()
-        #TODO:  Decide if we want to take the 
-        # A Identifier should have at most one LicensePool.
-        # __table_args__ = (
-        # UniqueConstraint('identifier_id'),
-        #) 
-        # constraint off the LicensePool model class, and then change this test to allow 
-        # for pool_1 keeping its identifier.
-        assert pool_1.identifier is None
-        assert pool_2.identifier is not None
 
 
     def test_merge_into(self):
@@ -1998,9 +2082,6 @@ class TestLoans(DatabaseTest):
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
-        # TODO:  determine if using pool.presentation_edition is correct for lending.
-        # Because, while the old pool.edition was tied to something you can lend, the presentation_edition 
-        # is not representing a lendable object, really.  
         patron = self._patron()
         work = self._work(with_license_pool=True)
         pool = work.license_pools[0]
@@ -2015,6 +2096,8 @@ class TestLoans(DatabaseTest):
         # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
+        # Presentation_edition is not representing a lendable object, 
+        # but it is on a license pool, and a pool has lending capacity.  
         eq_(pool.presentation_edition.work, loan.work)
 
         # If that's also None, we're helpless.
