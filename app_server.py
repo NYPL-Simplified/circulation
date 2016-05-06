@@ -173,9 +173,9 @@ class ErrorHandler(object):
         self.debug = debug
 
     def handle(self, exception):
-        self.app.manager._db.rollback()
         logging.error(
             "Exception in web app: %s", exception, exc_info=exception)
+        self.app.manager._db.rollback()
         tb = traceback.format_exc()
         if self.debug:
             body = tb
