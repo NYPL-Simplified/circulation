@@ -6101,6 +6101,7 @@ class Representation(Base):
             # Set its fetched_at property and return the cached
             # version as though it were new.
             representation.fetched_at = fetched_at
+            representation.status_code = status_code
             return representation, False
 
         if status_code:
