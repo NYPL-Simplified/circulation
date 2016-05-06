@@ -5971,8 +5971,8 @@ class Representation(Base):
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
-            params=None, accept=None, max_age=None, pause_before=0,
-            allow_redirects=True, presumed_media_type=None, debug=True):
+            accept=None, max_age=None, pause_before=0, allow_redirects=True,
+            presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -5990,10 +5990,6 @@ class Representation(Base):
 
         """
         representation = None
-        request_kwargs = {}
-        if params:
-            do_get = do_get or cls.simple_http_post
-            request_kwargs.update({'data' : params})
         do_get = do_get or cls.simple_http_get
 
         # TODO: We allow representations of the same URL in different
@@ -6067,7 +6063,7 @@ class Representation(Base):
             time.sleep(pause_before)
         media_type = None
         try:
-            status_code, headers, content = do_get(url, headers, **request_kwargs)
+            status_code, headers, content = do_get(url, headers)
             exception = None
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
@@ -6151,9 +6147,15 @@ class Representation(Base):
         return representation, False
 
     @classmethod
-    def post(cls, _db, url, params, max_age=None):
+    def cacheable_post(cls, _db, url, params, max_age=None):
+        """Transforms cacheable POST request into a Representation"""
+
+        def do_post(url, headers, **kwargs):
+            kwargs.update({'data' : params})
+            return cls.simple_http_post(url, headers, **kwargs)
+
         return cls.get(
-            _db, url, do_get=cls.simple_http_post, params=params, max_age=max_age
+            _db, url, do_get=do_post, max_age=max_age
         )
 
     def update_image_size(self):
