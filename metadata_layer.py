@@ -349,7 +349,7 @@ class MeasurementData(object):
         )
 
 class FormatData(object):
-    def __init__(self, content_type, drm_scheme, link=None):
+    def __init__(self, content_type, drm_scheme, link=None, rights_uri=None):
         self.content_type = content_type
         self.drm_scheme = drm_scheme
         if link and not isinstance(link, LinkData):
@@ -357,27 +357,96 @@ class FormatData(object):
                 "Expected LinkData object, got %s" % type(link)
             )
         self.link = link
+        self.rights_uri = rights_uri
 
 class CirculationData(object):
-    
+    """Information about actual copies of a book that can be delivered to
+    patrons.
+
+    As distinct from Metadata, which is a container for information
+    about a book.
+
+    Basically,
+
+        Metadata : Edition :: CirculationData : Licensepool
+    """
+
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
 
     def __init__(
-            self, licenses_owned, 
-            licenses_available, 
-            licenses_reserved,
-            patrons_in_hold_queue,
+            self, 
+            data_source,
+            primary_identifier,
+            licenses_owned=None,
+            licenses_available=None,
+            licenses_reserved=None,
+            patrons_in_hold_queue=None,
+            formats=None,
             first_appearance=None,
             last_checked=None,
+            default_rights_uri=None,
     ):
+        if isinstance(data_source, DataSource):
+            self._data_source_obj = data_source
+            self._data_source = data_source.name
+        else:
+            self._data_source = data_source
+        self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
+        self.default_rights_uri = default_rights_uri
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
+
+    def data_source(self, _db):
+        if not self._data_source_obj:
+            if self._data_source:
+                obj = DataSource.lookup(_db, self._data_source)
+                if not obj:
+                    raise ValueError("Data source %s not found!" % self._license_data_source)
+                if not obj.offers_licenses:
+                    raise ValueError("Data source %s does not offer licenses and cannot be used as a LicenseData data source." % self._data_source)
+            else:
+                obj = None
+            self._data_source_obj = obj
+        return self._data_source_obj
+
+    def license_pool(self, _db):
+        """Find or create a LicensePool object for this CirculationData."""
+        if not self.primary_identifier:
+            raise ValueError(
+                "Cannot find license pool: CirculationData has no primary identifier."
+            )
+
+        license_pool = None
+        is_new = False
+
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+        data_source = self.data_source(_db)
+        license_pool = get_one(
+            _db, LicensePool, data_source=data_source,
+            identifier=identifier_obj
+        )
+
+        if not license_pool:
+            rights_status = get_one(
+                _db, RightsStatus, uri=self.default_rights_uri
+            )
+            license_pool, is_new = LicensePool.for_foreign_id(
+                _db, self.license_data_source_obj,
+                self.primary_identifier.type, 
+                self.primary_identifier.identifier,
+                rights_status=rights_status,
+            )
+            if self.has_open_access_link:
+                license_pool.open_access = True
+            if self.rights_uri:
+                license_pool.set_rights_status(self.rights_uri)
+        return license_pool, is_new
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
@@ -461,8 +530,6 @@ class Metadata(object):
             contributors=None,
             measurements=None,
             links=None,
-            formats=None,
-            rights_uri=None,
             last_update_time=None,
             circulation=None,
     ):
@@ -683,19 +750,6 @@ class Metadata(object):
             raise ValueError("Data source %s not found!" % self._data_source)
         return self.data_source_obj
 
-    def license_data_source(self, _db):
-        if not self.license_data_source_obj:
-            if self._license_data_source:
-                obj = DataSource.lookup(_db, self._license_data_source)
-                if not obj:
-                    raise ValueError("Data source %s not found!" % self._license_data_source)
-                if not obj.offers_licenses:
-                    raise ValueError("Data source %s does not offer licenses and cannot be used as a license data source." % self._license_data_Source)
-            else:
-                obj = None
-            self.license_data_source_obj = obj
-        return self.license_data_source_obj
-
     def edition(self, _db, create_if_not_exists=True):
         """ Find or create the edition described by this Metadata object.
         """
@@ -731,69 +785,6 @@ class Metadata(object):
         if self.rights_uri == None:
             # We still haven't determined rights, so it's unknown.
             self.rights_uri = RightsStatus.UNKNOWN
-
-
-    def license_pool(self, _db):
-        if not self.primary_identifier:
-            raise ValueError(
-                "Cannot find license pool: metadata has no primary identifier."
-            )
-
-        license_pool = None
-        is_new = False
-
-        identifier_obj, ignore = self.primary_identifier.load(_db)
-
-        metadata_data_source = self.data_source(_db) 
-        license_data_source = self.license_data_source(_db)
-
-        self.set_default_rights_uri(metadata_data_source)
-        if license_data_source:
-            can_create_new_pool = True
-            check_for_licenses_from = [license_data_source]
-        else:
-            check_for_licenses_from = DataSource.license_sources_for(
-                _db, identifier_obj
-            ).all()
-            if len(check_for_licenses_from) == 1:
-                # Since there is only one source for this kind of book,
-                # we can create a new license pool if necessary.
-                can_create_new_pool = True
-                self.license_data_source_obj = check_for_licenses_from[0]
-            elif metadata_data_source in check_for_licenses_from:
-                # We can assume that the license comes from the same
-                # source as the metadata.
-                self.license_data_source_obj = metadata_data_source
-                can_create_new_pool = True
-            else:
-                # We might be able to find an existing license pool
-                # for this book, but we won't be able to create a new
-                # one, because we don't know who's responsible for the
-                # book.
-                can_create_new_pool = False
-
-        license_data_source = self.license_data_source(_db)
-        for potential_data_source in check_for_licenses_from:
-            license_pool = get_one(
-                _db, LicensePool, data_source=potential_data_source,
-                identifier=identifier_obj
-            )
-            if license_pool:
-                break
-
-        if not license_pool and can_create_new_pool:
-            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
-            license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.license_data_source_obj,
-                self.primary_identifier.type, 
-                self.primary_identifier.identifier,
-                rights_status=rights_status,
-            )
-            if self.has_open_access_link:
-                license_pool.open_access = True
-            if self.rights_uri:
-                license_pool.set_rights_status(self.rights_uri)
-        return license_pool, is_new
 
     def consolidate_identifiers(self):
         by_weight = defaultdict(list)
