@@ -79,6 +79,8 @@ class Classifier(object):
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN])
 
+    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
 
@@ -263,6 +265,9 @@ class Classifier(object):
             # generally intended to cover the entire
             # YA span.
             old = 17
+        elif young >= 8:
+            # "8 and up" means something like "8-12"
+            old = young + 4
         else:
             # Whereas "3 and up" really means more
             # like "3 to 5".
@@ -3370,6 +3375,7 @@ class WorkClassifier(object):
         self.prepared = False
         self.debug = debug
         self.classifications = []
+        self.seen_classifications = set()
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
 
         # Keep track of whether we've seen one of Overdrive's generic
@@ -3378,11 +3384,20 @@ class WorkClassifier(object):
         self.overdrive_juvenile_generic = False
         self.overdrive_juvenile_with_target_age = False
 
+
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        # Make sure the Subject is ready to be used in calculations.
+
+        # We only consider a given classification once from a given
+        # data source.
+        key = (classification.subject, classification.data_source)
+        if key in self.seen_classifications:
+            return
+        self.seen_classifications.add(key)
         if self.debug:
             self.classifications.append(classification)
+
+        # Make sure the Subject is ready to be used in calculations.
         if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
 
@@ -3783,6 +3798,32 @@ class WorkClassifier(object):
         #    print "", genre, weight
         return consolidated
 
+
+class SimplifiedGenreClassifier(Classifier):
+
+    NONE = "NONE"
+
+    @classmethod
+    def genre(cls, identifier, name, fiction=None, audience=None):
+        if fiction == True:
+            all_genres = fiction_genres
+        elif fiction == False:
+            all_genres = nonfiction_genres
+        else:
+            all_genres = fiction_genres + nonfiction_genres
+        return cls._genre_by_name(identifier.original, all_genres)
+
+    @classmethod
+    def _genre_by_name(cls, name, genres):
+        for genre in genres:
+            if genre == name:
+                return globals()["genres"][name]
+            elif isinstance(genre, dict):
+                if name == genre["name"] or name in genre.get("subgenres", []):
+                    return globals()["genres"][name]
+        return None
+
+
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
 Classifier.classifiers[Classifier.LCC] = LCCClassifier
@@ -3798,4 +3839,4 @@ Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifie
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
 Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
-
+Classifier.classifiers[Classifier.SIMPLIFIED_GENRE] = SimplifiedGenreClassifier
