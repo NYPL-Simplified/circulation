@@ -43,7 +43,10 @@ def exception_handler(exception):
 
 @app.teardown_request
 def shutdown_session(exception):
-    if app.manager._db:
+    if (hasattr(app, 'manager') 
+        and hasattr(app.manager, '_db') 
+        and app.manager._db
+    ):
         if exception:
             app.manager._db.rollback()
         else:
