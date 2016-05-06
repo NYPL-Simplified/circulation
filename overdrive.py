@@ -70,7 +70,6 @@ class OverdriveAPI(object):
     EVENT_SOURCE = "Overdrive"
 
     EVENT_DELAY = datetime.timedelta(minutes=120)
-    #EVENT_DELAY = datetime.timedelta(minutes=0)
 
     # The ebook formats we care about.
     FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"

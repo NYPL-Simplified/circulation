@@ -124,6 +124,10 @@ class Configuration(object):
     NYT_INTEGRATION = "New York Times"
     NYT_BEST_SELLERS_API_KEY = "best_sellers_api_key"
 
+    NOVELIST_INTEGRATION = "NoveList Select"
+    NOVELIST_PROFILE = "profile"
+    NOVELIST_PASSWORD = "password"
+
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
     AXIS_INTEGRATION = "Axis 360"
