@@ -63,24 +63,27 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
-    def parse_identifier_list(cls, _db, arguments, autocreate=False):
+    def parse_identifier_list(
+            cls, _db, identifier_type, arguments, autocreate=False
+    ):
         """Turn a list of arguments into a list of identifiers.
 
         This makes it easy to identify specific identifiers on the
         command line. Examples:
 
-        "Gutenberg ID" 1 2
+        1 2
         
-        "Overdrive ID" a b c
+        a b c
 
         Basic but effective.
         """
         current_identifier_type = None
         if len(arguments) == 0:
             return []
-        identifier_type = arguments[0]
+        if not identifier_type:
+            raise ValueError("No identifier type specified!")
         identifiers = []
-        for arg in arguments[1:]:
+        for arg in arguments:
             identifier, ignore = Identifier.for_foreign_id(
                 _db, identifier_type, arg, autocreate=autocreate
             )
@@ -91,22 +94,6 @@ class Script(object):
             if identifier:
                 identifiers.append(identifier)
         return identifiers
-
-    @classmethod
-    def parse_identifier_list_or_data_source(cls, _db, arguments, autocreate=False):
-        """Try to parse `arguments` as a list of identifiers.
-        If that fails, try to interpret it as a data source.
-        """
-        identifiers = cls.parse_identifier_list(_db, arguments, autocreate)
-        if identifiers:
-            return identifiers
-
-        if len(arguments) == 1:
-            # Try treating the sole argument as a data source.
-            restrict_to_source = arguments[0]
-            data_source = DataSource.lookup(_db, restrict_to_source)
-            return data_source
-        return []
 
     @classmethod
     def parse_time(cls, time_string):
@@ -210,17 +197,23 @@ class SubjectInputScript(Script):
     """
 
     @classmethod
-    def parse_command_line(cls):
-        subject_type = None
-        if len(sys.argv) < 2:
-            return None, None
-        subject_type = sys.argv[1]
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--subject-type', 
+            help='Process subjects of this type'
+        )
+        parser.add_argument(
+            '--subject-filter', 
+            help='Process subjects whose names or identifiers match this substring'
+        )
+        return parser
 
-        if len(sys.argv) < 3:
-            subject_filter = None
-        else:
-            subject_filter = sys.argv[2]
-        return subject_type, subject_filter
+    @classmethod
+    def parse_command_line(cls):
+        parser = cls.arg_parser()
+        return parser.parse_args()
+
 
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
@@ -232,25 +225,15 @@ class RunCoverageProviderScript(IdentifierInputScript):
             '--cutoff-time', 
             help='Update existing coverage records if they were originally created after this time.'
         )
-        parser.add_argument(
-            '--identifier-type', 
-            help='Add coverage only for identifiers of the given type.',
-            action='append'
-        )
-        parser.add_argument(
-            'identifiers',
-            help='Add coverage for this specific identifier',
-            metavar='IDENTIFIER', nargs='*'
-        )
         return parser.parse_args()
 
     def __init__(self, provider):
         args = self.parse_command_line()
         if callable(provider):
             cutoff_time = self.parse_time(args.cutoff_time)
-            identifier_types = args.identifier_type or None
+            self.identifier_type = args.identifier_type or None
             provider = provider(
-                self._db, input_identifier_types=identifier_types, 
+                self._db, input_identifier_types=[identifier_type], 
                 cutoff_time=cutoff_time
             )
         self.provider = provider
@@ -259,7 +242,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
 
     def do_run(self):
         identifiers = self.parse_identifier_list(
-            self._db, self.identifier_strings
+            self._db, self.identifier_type, self.identifier_strings
         )
         if identifiers:
             self.provider.run_on_identifiers(identifiers)
@@ -282,7 +265,10 @@ class BibliographicRefreshScript(IdentifierInputScript):
         self.metadata_replacement_policy.presentation_calculation_policy = PresentationCalculationPolicy.recalculate_everything()
 
     def do_run(self):
-        identifiers = self.parse_identifiers()
+        args = self.parse_command_line()
+        identifiers = self.parse_identifier_list(
+            self._db, args.identifiers
+        )
         if not identifiers:
             raise Exception(
                 "You must specify at least one identifier to refresh."
@@ -314,37 +300,38 @@ class WorkProcessingScript(IdentifierInputScript):
     name = "Work processing script"
 
     def __init__(self, force=False, batch_size=10):
-
-        identifiers_or_source = self.parse_identifiers_or_data_source()
+        args = self.arg_parser().parse_args()
+        identifiers = self.parse_identifier_list(
+            self._db, args.identifier_type, args.identifiers
+        )
+        identifier_type = args.identifier_type
         self.batch_size = batch_size
-        self.query = self.make_query(identifiers_or_source)
+        self.query = self.make_query(identifier_type, identifiers)
         self.force = force
 
-    def make_query(self, identifiers):
+    def make_query(self, identifier_type, identifiers):
         query = self._db.query(Work)
-        if not identifiers:
+        if identifiers or identifier_type:
+            query = query.join(Work.license_pools)
+        if identifiers:
+            query = query.join(LicensePool.identifier)
+
+        if identifiers:
             self.log.info(
-                "Processing all %d works.", query.count()
+                'Restricted to %d specific identifiers.' % len(identifiers)
             )
-        elif isinstance(identifiers, DataSource):
-            # Find all works from the given data source.
-            query = query.join(Edition).filter(
-                Edition.data_source==identifiers
+            query = query.filter(
+                LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
+        if identifier_type:
             self.log.info(
-                "Processing %d works from %s", query.count(),
-                identifiers.name
+                'Restricted to identifier type "%s".' % identifier_type
             )
-        else:
-            # Find works with specific identifiers.
-            query = query.join(Edition).filter(
-                    Edition.primary_identifier_id.in_(
-                        [x.id for x in identifiers]
-                    )
-            )
-            self.log.info(
-                "Processing %d specific works." % query.count()
-            )
+            query = query.filter(Identifier.type==identifier_type)
+
+        self.log.info(
+            "Processing %d works.", query.count()
+        )
         return query.order_by(Work.id)
 
     def do_run(self):
@@ -571,7 +558,10 @@ class RefreshMaterializedViewsScript(Script):
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        identifiers = self.parse_identifiers()
+        args = self.arg_parser().parse_args()
+        identifiers = self.parse_identifier_list(
+            self._db, args.identifier_type, args.identifiers
+        )
         identifier_ids = [x.id for x in identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
@@ -675,8 +665,8 @@ class Explain(IdentifierInputScript):
 class SubjectAssignmentScript(SubjectInputScript):
 
     def run(self):
-        subject_type, subject_filter = self.parse_command_line()
+        args = self.parse_command_line()
         monitor = SubjectAssignmentMonitor(
-            self._db, subject_type, subject_filter
+            self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
