@@ -37,7 +37,7 @@ class ExternalSearchIndex(object):
             use_ssl = url and url.startswith('https://')
             self.log.info("Connecting to Elasticsearch cluster at %s", url)
             ExternalSearchIndex.__client = Elasticsearch(
-                url, use_ssl=use_ssl, timeout=20
+                url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
             ExternalSearchIndex.__client.works_index = works_index
             if not url:
