@@ -21,8 +21,8 @@ from opds import (
 )
 from controller import CirculationManager
 
-@app.before_first_request
-def initialize_circulation_manager():
+#@app.before_first_request
+def initialize_circulation_manager(): 
     if os.environ.get('AUTOINITIALIZE') == "False":
         pass
         # It's the responsibility of the importing code to set app.manager

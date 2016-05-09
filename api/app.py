@@ -27,6 +27,7 @@ SessionManager.initialize_data(_db)
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):
     import admin.routes
+routes.initialize_circulation_manager()
 
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)
