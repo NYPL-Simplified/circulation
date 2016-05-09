@@ -36,7 +36,9 @@ class ExternalSearchIndex(object):
             url = integration[Configuration.URL]
             use_ssl = url and url.startswith('https://')
             self.log.info("Connecting to Elasticsearch cluster at %s", url)
-            ExternalSearchIndex.__client = Elasticsearch(url, use_ssl=use_ssl)
+            ExternalSearchIndex.__client = Elasticsearch(
+                url, use_ssl=use_ssl, timeout=20
+            )
             ExternalSearchIndex.__client.works_index = works_index
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
