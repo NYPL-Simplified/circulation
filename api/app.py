@@ -27,6 +27,9 @@ SessionManager.initialize_data(_db)
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):
     import admin.routes
+
+# TODO: See note in routes.py about calling this manually instead of
+# using @app.before_first_request().
 routes.initialize_circulation_manager()
 
 debug = Configuration.logging_policy().get("level") == 'DEBUG'

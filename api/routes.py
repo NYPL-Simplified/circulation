@@ -21,19 +21,25 @@ from opds import (
 )
 from controller import CirculationManager
 
+# TODO: We can't use before_first_request here because Flask continues to
+# process requests while before_first_request is running. Those requests
+# will fail.
+#
+# This is fixed in Flask 0.10.2, which is currently unreleased:
+#  https://github.com/pallets/flask/issues/879
+#
 #@app.before_first_request
 def initialize_circulation_manager(): 
     if os.environ.get('AUTOINITIALIZE') == "False":
-        pass
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
+        pass
     else:
         if getattr(app, 'manager', None) is None:
             app.manager = CirculationManager(_db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
-
 
 
 h = ErrorHandler(app, app.config['DEBUG'])
