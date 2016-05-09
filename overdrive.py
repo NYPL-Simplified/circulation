@@ -745,7 +745,6 @@ class OverdriveRepresentationExtractor(object):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            formats=formats,
             measurements=measurements,
             links=links,
         )

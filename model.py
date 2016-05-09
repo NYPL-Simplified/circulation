@@ -2257,7 +2257,6 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        # TODO: fix foreign key  presentation_edition_id
         "LicensePool", uselist=False, backref="presentation_edition"
     )
 

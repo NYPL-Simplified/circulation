@@ -225,16 +225,14 @@ class TestMetadataImporter(DatabaseTest):
 
 
     def test_open_access_content_mirrored(self):
-        """
-        Make sure that open access material links are translated to our S3 buckets, and that 
-        commercial material links are left as is.
-        """
+        # Make sure that open access material links are translated to our S3 buckets, and that 
+        # commercial material links are left as is.
+
         mirror = DummyS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
-        # Here's a link to the content of the book, which will be
-        # mirrored.
+        # Here's a link to the content of the book, which will be mirrored.
         link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
             media_type=Representation.EPUB_MEDIA_TYPE,
@@ -256,7 +254,14 @@ class TestMetadataImporter(DatabaseTest):
         
 
         # Only the open-access link has been 'mirrored'.
+        # TODO: make sure the refactor is done right, and metadata does not upload
+        #eq_(0, len(mirror.uploaded))
         [book] = mirror.uploaded
+
+        # TODO: make sure the refactor is done right, and circulation does upload 
+        #circulation = CirculationData(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
+        #circulation.apply(pool, replace=policy)
+        #[book] = mirror.uploaded
 
         # It's remained an open-access link.
         eq_(
@@ -307,9 +312,9 @@ class TestMetadataImporter(DatabaseTest):
             drm_scheme=DeliveryMechanism.ADOBE_DRM,
         )
 
-        metadata = Metadata(formats=[drm_format],
+        circulation_data = CirculationData(formats=[drm_format],
                             data_source=edition.data_source)
-        metadata.apply(edition)
+        circulation_data.apply(pool)
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
                              key=lambda x: x.delivery_mechanism.content_type)
@@ -320,11 +325,19 @@ class TestMetadataImporter(DatabaseTest):
 
         # If we tell Metadata to replace the list of formats, we only
         # have the one format we manually created.
-        metadata.apply(edition, replace_formats=True)
+        replace = ReplacementPolicy(
+                formats=True,
+            )
+        circulation_data.apply(pool, replace=replace)
         [pdf] = pool.delivery_mechanisms
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 
+
     def test_implicit_format_for_open_access_link(self):
+        # A format is a delivery mechanism.  We handle delivery on open access 
+        # pools from our mirrored content in S3.  
+        # Tests that when a link is open access, a pool can be delivered.
+        
         edition, pool = self._edition(with_license_pool=True)
 
         # This is the delivery mechanism created by default when you
@@ -339,11 +352,15 @@ class TestMetadataImporter(DatabaseTest):
             media_type=Representation.PDF_MEDIA_TYPE,
             href=self._url
         )
-        metadata = Metadata(
+        circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
             links=[link]
         )
-        metadata.apply(edition, replace_formats=True)
+
+        replace = ReplacementPolicy(
+                formats=True,
+            )
+        circulation_data.apply(pool, replace)
 
         # We destroyed the default delivery format and added a new,
         # open access delivery format.
@@ -351,11 +368,15 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
 
-        metadata = Metadata(
+        circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
             links=[]
         )
-        metadata.apply(edition, replace_links=True, replace_formats=True)
+        replace = ReplacementPolicy(
+                formats=True,
+                links=True,
+            )
+        circulation_data.apply(pool, replace)
 
         # Now we have no formats at all.
         eq_([], pool.delivery_mechanisms)
@@ -394,28 +415,6 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
 
-    def test_links_use_license_data_source(self):
-        edition, pool = self._edition(with_license_pool=True)
-
-        link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
-            media_type=Representation.PDF_MEDIA_TYPE,
-            href=self._url
-        )
-
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        oa_content_server = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        m = Metadata(data_source=oa_content_server,
-                     license_data_source=gutenberg,
-                     links=[link])
-
-        m.apply(edition)
-
-        links = edition.primary_identifier.links
-        eq_(1, len(links))
-        eq_(gutenberg, links[0].data_source)
-        eq_(gutenberg, links[0].resource.data_source)
 
 
 class TestContributorData(DatabaseTest):
@@ -507,7 +506,6 @@ class TestMetadata(DatabaseTest):
 
 
     def test_metadata_can_be_deepcopied(self):
-
         # Check that we didn't put something in the metadata that
         # will prevent it from being copied. (e.g., self.log)
 
@@ -516,8 +514,6 @@ class TestMetadata(DatabaseTest):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
         measurement = MeasurementData(Measurement.RATING, 5)
-        format = FormatData(Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
-        circulation = CirculationData(0, 0, 0, 0)
 
         m = Metadata(
             DataSource.GUTENBERG,
@@ -526,8 +522,6 @@ class TestMetadata(DatabaseTest):
             primary_identifier=identifier,
             links=[link],
             measurements=[measurement],
-            formats=[format],
-            circulation=circulation,
         )
 
         m_copy = deepcopy(m)
