@@ -66,7 +66,11 @@ class Script(object):
     def parse_identifier_list(
             cls, _db, identifier_type, arguments, autocreate=False
     ):
-        """Turn a list of arguments into a list of identifiers.
+        """Turn a list of identifiers into a list of Identifier objects.
+
+        The list of arguments is probably derived from a command-line
+        parser such as the one defined in
+        IdentifierInputScript.arg_parser().
 
         This makes it easy to identify specific identifiers on the
         command line. Examples:
@@ -74,8 +78,6 @@ class Script(object):
         1 2
         
         a b c
-
-        Basic but effective.
         """
         current_identifier_type = None
         if len(arguments) == 0:
