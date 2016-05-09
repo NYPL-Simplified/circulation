@@ -271,7 +271,9 @@ class CirculationManagerController(object):
         try:
             patron = self.authenticated_patron(header.username, header.password)
         except RemoteInitiatedServerError,e:
-            return problem(REMOTE_INTEGRATION_FAILED, e.message, 503)
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                "Error in authentication service"
+            )
         if isinstance(patron, ProblemDetail):
             flask.request.patron = None
             return patron

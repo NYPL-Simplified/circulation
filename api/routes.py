@@ -21,12 +21,19 @@ from opds import (
 )
 from controller import CirculationManager
 
+# TODO: Without the monkeypatch below, Flask continues to process
+# requests while before_first_request is running. Those requests will
+# fail, since the app isn't completely set up yet.
+#
+# This is fixed in Flask 0.10.2, which is currently unreleased:
+#  https://github.com/pallets/flask/issues/879
+#
 @app.before_first_request
-def initialize_circulation_manager():
+def initialize_circulation_manager(): 
     if os.environ.get('AUTOINITIALIZE') == "False":
-        pass
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
+        pass
     else:
         if getattr(app, 'manager', None) is None:
             app.manager = CirculationManager(_db)
@@ -34,7 +41,25 @@ def initialize_circulation_manager():
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
 
+# Monkeypatch in a Flask fix that will be released in 0.10.2
+def monkeypatch_try_trigger_before_first_request_functions(self):
+    """Called before each request and will ensure that it triggers
+    the :attr:`before_first_request_funcs` and only exactly once per
+    application instance (which means process usually).
+    
+    :internal:
+    """
+    if self._got_first_request:
+        return
+    with self._before_request_lock:
+        if self._got_first_request:
+            return
+        for func in self.before_first_request_funcs:
+            func() 
+        self._got_first_request = True
 
+from flask import Flask
+Flask.try_trigger_before_first_request_functions = monkeypatch_try_trigger_before_first_request_functions
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
@@ -43,7 +68,10 @@ def exception_handler(exception):
 
 @app.teardown_request
 def shutdown_session(exception):
-    if app.manager._db:
+    if (hasattr(app, 'manager') 
+        and hasattr(app.manager, '_db') 
+        and app.manager._db
+    ):
         if exception:
             app.manager._db.rollback()
         else:
