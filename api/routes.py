@@ -21,9 +21,9 @@ from opds import (
 )
 from controller import CirculationManager
 
-# TODO: We can't use before_first_request here because Flask continues to
-# process requests while before_first_request is running. Those requests
-# will fail.
+# TODO: Without the monkeypatch below, Flask continues to process
+# requests while before_first_request is running. Those requests will
+# fail, since the app isn't completely set up yet.
 #
 # This is fixed in Flask 0.10.2, which is currently unreleased:
 #  https://github.com/pallets/flask/issues/879
