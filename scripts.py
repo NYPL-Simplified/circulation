@@ -180,11 +180,11 @@ class IdentifierInputScript(Script):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--identifier-type', 
-            help='Process identifiers of this type'
+            help='Type of the identifiers to process'
         )
         parser.add_argument(
             'identifiers',
-            help='An identifier to process',
+            help='A specific identifier to process.',
             metavar='IDENTIFIER', nargs='*'
         )
         return parser
