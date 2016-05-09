@@ -30,7 +30,6 @@ from controller import CirculationManager
 #
 @app.before_first_request
 def initialize_circulation_manager(): 
-    set_trace()
     if os.environ.get('AUTOINITIALIZE') == "False":
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
@@ -56,7 +55,7 @@ def monkeypatch_try_trigger_before_first_request_functions(self):
         if self._got_first_request:
             return
         for func in self.before_first_request_funcs:
-            func()
+            func() 
         self._got_first_request = True
 
 from flask import Flask
