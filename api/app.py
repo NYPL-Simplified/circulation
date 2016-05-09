@@ -30,7 +30,7 @@ if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):
 
 # TODO: See note in routes.py about calling this manually instead of
 # using @app.before_first_request().
-routes.initialize_circulation_manager()
+# routes.initialize_circulation_manager()
 
 debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)

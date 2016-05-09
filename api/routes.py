@@ -28,8 +28,9 @@ from controller import CirculationManager
 # This is fixed in Flask 0.10.2, which is currently unreleased:
 #  https://github.com/pallets/flask/issues/879
 #
-#@app.before_first_request
+@app.before_first_request
 def initialize_circulation_manager(): 
+    set_trace()
     if os.environ.get('AUTOINITIALIZE') == "False":
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
@@ -41,6 +42,25 @@ def initialize_circulation_manager():
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
 
+# Monkeypatch in a Flask fix that will be released in 0.10.2
+def monkeypatch_try_trigger_before_first_request_functions(self):
+    """Called before each request and will ensure that it triggers
+    the :attr:`before_first_request_funcs` and only exactly once per
+    application instance (which means process usually).
+    
+    :internal:
+    """
+    if self._got_first_request:
+        return
+    with self._before_request_lock:
+        if self._got_first_request:
+            return
+        for func in self.before_first_request_funcs:
+            func()
+        self._got_first_request = True
+
+from flask import Flask
+Flask.try_trigger_before_first_request_functions = monkeypatch_try_trigger_before_first_request_functions
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
