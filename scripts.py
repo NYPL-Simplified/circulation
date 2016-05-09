@@ -175,6 +175,7 @@ class RunCoverageProvidersScript(Script):
 class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
+    @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
@@ -219,21 +220,22 @@ class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
     @classmethod
-    def parse_command_line(cls):
-        parser = argparse.ArgumentParser()
+    def arg_parser(cls):
+        parser = IdentifierInputScript.arg_parser()
         parser.add_argument(
             '--cutoff-time', 
             help='Update existing coverage records if they were originally created after this time.'
         )
-        return parser.parse_args()
+        return parser
 
     def __init__(self, provider):
-        args = self.parse_command_line()
+        parser = self.arg_parser()
+        args = parser.parse_args()
         if callable(provider):
             cutoff_time = self.parse_time(args.cutoff_time)
             self.identifier_type = args.identifier_type or None
             provider = provider(
-                self._db, input_identifier_types=[identifier_type], 
+                self._db, input_identifier_types=[self.identifier_type], 
                 cutoff_time=cutoff_time
             )
         self.provider = provider
