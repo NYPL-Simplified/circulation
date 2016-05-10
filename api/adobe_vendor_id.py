@@ -203,12 +203,15 @@ class AdobeVendorIDModel(object):
                  temporary_token_duration=None):
         self._db = _db
         self.authenticator = authenticator
-        self.data_source = DataSource.lookup(_db, DataSource.ADOBE)
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))
         if isinstance(node_value, basestring):
             node_value = int(node_value, 16)
         self.node_value = node_value
+
+    @property
+    def data_source(self):
+        return DataSource.lookup(self._db, DataSource.ADOBE)
 
     def uuid_and_label(self, patron):
         """Create or retrieve a Vendor ID UUID and human-readable Vendor ID
