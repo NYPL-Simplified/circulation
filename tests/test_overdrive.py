@@ -57,6 +57,7 @@ class TestOverdriveAPI(DatabaseTest):
             self._db, DataSource.OVERDRIVE, 
             identifier.type, identifier.identifier
         )
+        
         pool, was_new, changed = api.update_licensepool_with_book_info(
             raw, pool, was_new
         )
@@ -66,7 +67,8 @@ class TestOverdriveAPI(DatabaseTest):
         # The title of the corresponding Edition has been filled
         # in, just to provide some basic human-readable metadata.
         self._db.commit()
-        eq_("Blah blah blah", pool.edition.title)
+
+        eq_("Blah blah blah", pool.presentation_edition.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
