@@ -799,7 +799,9 @@ class TestFeedController(CirculationControllerTest):
 
         with temp_config() as config:
             urn = self.english_2.primary_edition.primary_identifier.urn
-            config[Configuration.POLICIES][Configuration.PRELOADED_CONTENT] = [urn]
+            config[Configuration.POLICIES] = {
+                Configuration.PRELOADED_CONTENT : [urn]
+            }
 
             with self.app.test_request_context("/"):
                 response = self.manager.opds_feeds.preload()
