@@ -3697,7 +3697,6 @@ class Work(Base):
         )
         # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
-
     def update_external_index(self, client):
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
@@ -4009,6 +4008,15 @@ class Work(Base):
                 CustomListEntry.most_recent_appearance >= on_list_as_of)
         qu = qu.filter(condition)
         return qu
+
+    def classifications_with_genre(self):
+        _db = Session.object_session(self)
+        identifier = self.primary_edition.primary_identifier
+        return _db.query(Classification) \
+                    .join(Subject) \
+                    .filter(Classification.identifier_id == identifier.id) \
+                    .filter(Subject.genre_id != None) \
+                    .order_by(Classification.weight.desc())
 
 
 # Used for quality filter queries.
@@ -4549,7 +4557,7 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
@@ -4850,8 +4858,8 @@ class Classification(Base):
         Subject.AXIS_360_AUDIENCE : 0.9,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
         (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.85,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.85,
         
         # Although Overdrive usually reserves Fiction and Nonfiction
         # for books for adults, it's not as reliable an indicator as
@@ -5124,6 +5132,10 @@ class LicensePool(Base):
     # A LicensePool that seemingly looks fine may be manually suppressed
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
+
+    # A textual description of a problem with this license pool
+    # that caused us to suppress it.
+    license_exception = Column(Unicode, index=True)
 
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
@@ -5637,8 +5649,6 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
-        print "LicensePool %s" % self
-        print "my identifier=%s" % self.identifier
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)

@@ -1139,6 +1139,15 @@ class Metadata(object):
         # associated with the resource.
         link_obj.resource.representation = representation
 
+        # If we couldn't fetch this representation, don't mirror it,
+        # and if this was an open access link suppress the license
+        # pool until someone fixes it manually.
+        if representation.fetch_exception:
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            return
+
         # Determine the best URL to use when mirroring this
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
@@ -1160,6 +1169,11 @@ class Metadata(object):
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
+        # If we couldn't mirror an open access link representation, suppress
+        # the license pool until someone fixes it manually.
+        if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            pool.suppressed = True
+            pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 

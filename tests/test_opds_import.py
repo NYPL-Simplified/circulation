@@ -96,7 +96,9 @@ class TestSimplifiedOPDSLookup(object):
             eq_(None, importer.client_secret)
 
             # For other integrations, the details aren't created at all.
-            config['integrations']["Content Server"]["url"] = "http://whatevz"
+            config['integrations']["Content Server"] = dict(
+                url = "http://whatevz"
+            )
             importer = SimplifiedOPDSLookup.from_config("Content Server")
             eq_(False, hasattr(importer, "client_id"))
             eq_(False, hasattr(importer, "client_secret"))

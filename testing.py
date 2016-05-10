@@ -12,6 +12,7 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -19,15 +20,16 @@ from model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Edition,
     Genre,
     Hyperlink,
+    Identifier,
     LicensePool,
     Patron,
     Representation,
     Resource,
-    Identifier,
     SessionManager,
-    Edition,
+    Subject,
     Work,
     WorkCoverageRecord,
     UnresolvedIdentifier,
@@ -120,7 +122,7 @@ class DatabaseTest(object):
         self.transaction = self.connection.begin_nested()
 
         # Start with a high number so it won't interfere with tests that search for an age or grade
-        self.counter = 1000
+        self.counter = 2000
 
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
@@ -233,7 +235,6 @@ class DatabaseTest(object):
             with_license_pool = True
         language = language or "eng"
         title = unicode(title or self._str)
-        genre = genre or self._str
         audience = audience or Classifier.AUDIENCE_ADULT
         if audience == Classifier.AUDIENCE_CHILDREN:
             # TODO: This is necessary because Gutenberg's childrens books
@@ -267,9 +268,10 @@ class DatabaseTest(object):
                 audience=audience,
                 fiction=fiction,
                 quality=quality), id=self._id)
-        if not isinstance(genre, Genre):
-            genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
-        work.genres = [genre]
+        if genre:
+            if not isinstance(genre, Genre):
+                genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
+            work.genres = [genre]
         work.random = 0.5
 
         work.editions = [primary_edition]
@@ -585,7 +587,16 @@ class DatabaseTest(object):
             client_id=u"abc", client_secret=u"def"
         )[0]
 
+    def _subject(self, type, identifier):
+        return get_one_or_create(
+            self._db, Subject, type=type, identifier=identifier
+        )[0]
 
+    def _classification(self, identifier, subject, data_source, weight=1):
+        return get_one_or_create(
+            self._db, Classification, identifier=identifier, subject=subject, 
+            data_source=data_source, weight=weight
+        )[0]
 
 class InstrumentedCoverageProvider(CoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
