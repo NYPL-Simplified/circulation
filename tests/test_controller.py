@@ -324,7 +324,7 @@ class TestLoanController(CirculationControllerTest):
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             None
         )
-        self.edition = self.pool.edition
+        self.edition = self.pool.presentation_edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
@@ -764,11 +764,11 @@ class TestFeedController(CirculationControllerTest):
                 eq_(2, counter['Fiction'])
                 eq_(1, counter['Other Languages'])
 
-    def test_search(self):
 
+    def test_search(self):
         # Put two works into the search index
-        self.english_1.update_external_index(self.manager.external_search)
-        self.english_2.update_external_index(self.manager.external_search)
+        self.english_1.update_external_index(self.manager.external_search)  # english_1 is "Quite British" by John Bull
+        self.english_2.update_external_index(self.manager.external_search)  # english_2 is "Totally American" by Uncle Sam
 
         # Update the materialized view to make sure the works show up.
         SessionManager.refresh_materialized_views(self._db)
@@ -799,7 +799,9 @@ class TestFeedController(CirculationControllerTest):
 
         with temp_config() as config:
             urn = self.english_2.primary_edition.primary_identifier.urn
-            config[Configuration.POLICIES][Configuration.PRELOADED_CONTENT] = [urn]
+            config[Configuration.POLICIES] = {
+                Configuration.PRELOADED_CONTENT : [urn]
+            }
 
             with self.app.test_request_context("/"):
                 response = self.manager.opds_feeds.preload()

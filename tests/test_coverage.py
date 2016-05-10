@@ -64,19 +64,22 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
     def test_items_that_need_coverage(self):
         source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        
         # An item that hasn't been covered by the provider yet
         cr = self._coverage_record(self._edition(), other_source)
+        
         # An item that has been covered by the reaper operation already
         reaper_cr = self._coverage_record(
             self._edition(), source, operation=CoverageRecord.REAP_OPERATION
         )
+        
         # An item that has been covered by the reaper operation, but has
         # had its license repurchased.
-        relicensed, relicensed_lp = self._edition(with_license_pool=True)
-        self._coverage_record(
-            relicensed, source, operation=CoverageRecord.REAP_OPERATION
+        relicensed_edition, relicensed_licensepool = self._edition(with_license_pool=True)
+        relicensed_coverage_record = self._coverage_record(
+            relicensed_edition, source, operation=CoverageRecord.REAP_OPERATION
         )
-        relicensed_lp.update_availability(1, 0, 0, 0)
+        relicensed_licensepool.update_availability(1, 0, 0, 0)
 
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
@@ -90,12 +93,13 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         # But it picks up anything that hasn't been covered at all and anything
         # that's been licensed anew even if its already been reaped.
         eq_(2, len(items))
-        assert relicensed_lp.identifier in items
+        assert relicensed_licensepool.identifier in items
         assert cr.identifier in items
         # The Wrangler Reaper coverage record is removed from the db
         # when it's committed.
+        assert relicensed_coverage_record in relicensed_licensepool.identifier.coverage_records
         self._db.commit()
-        eq_([], relicensed_lp.identifier.coverage_records)
+        assert relicensed_coverage_record not in relicensed_licensepool.identifier.coverage_records
 
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
@@ -114,10 +118,10 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         that have been synced with the Metadata Wrangler.
         """
         # A Wrangler-synced item that doesn't have any owned licenses
-        covered_unlicensed_lp = self._licensepool(None, open_access=False)
+        covered_unlicensed_lp = self._licensepool(None, open_access=False, set_edition_as_presentation=True)
         covered_unlicensed_lp.update_availability(0, 0, 0, 0)
         self._coverage_record(
-            covered_unlicensed_lp.edition, self.source,
+            covered_unlicensed_lp.presentation_edition, self.source,
             operation=CoverageRecord.SYNC_OPERATION
         )
         # An unsynced item that doesn't have any licenses

@@ -557,7 +557,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     @classmethod
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
-        work = loan.license_pool.work or loan.license_pool.edition.work
+        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(circulation, None, 
                         active_loans_by_work={work:loan}, 
                         active_holds_by_work={}, 
@@ -573,7 +573,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     @classmethod
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
-        work = hold.license_pool.work or hold.license_pool.edition.work
+        work = hold.license_pool.work or hold.license_pool.presentation_edition.work
         annotator = cls(circulation, None, active_loans_by_work={}, 
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
@@ -602,7 +602,7 @@ class PreloadFeed(AcquisitionFeed):
             q = q.options(
                 lazyload(MaterializedWork.license_pool, LicensePool.data_source),
                 lazyload(MaterializedWork.license_pool, LicensePool.identifier),
-                lazyload(MaterializedWork.license_pool, LicensePool.edition),
+                lazyload(MaterializedWork.license_pool, LicensePool.presentation_edition),
             )
         else:
             q = _db.query(Work).join(Work.primary_edition)
