@@ -442,7 +442,22 @@ class CirculationData(object):
             )
 
 
+    def __repr__(self):
+        description_string = '<CirculationData primary_identifier="%s" licenses_owned="%s" licenses_available="%s" licenses_reserved=%d' % (
+            self.primary_identifier, self.licenses_owned, self.licenses_available, self.licenses_reserved
+        )
+        description_string += 'patrons_in_hold_queue="%s" default_rights_uri="%s" first_appearance="%s" last_checked="%s" >' % (
+            patrons_in_hold_queue, default_rights_uri, first_appearance, last_checked
+        )
+        description_string += 'links="%r" formats="%r" data_source_obj="%r">' % (
+            links, formats, data_source_obj
+        )
+
+        return description_string
+
+
     def data_source(self, _db):
+        set_trace()
         if not self.data_source_obj:
             if self._data_source:
                 obj = DataSource.lookup(_db, self._data_source)
