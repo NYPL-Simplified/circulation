@@ -198,8 +198,8 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
 
     service_name = "Metadata Wrangler Reaper"
 
-    def __init__(self, _db):
-        super(MetadataWranglerCollectionReaper, self).__init__(_db)
+    def __init__(self, _db, *args, **kwargs):
+        super(MetadataWranglerCollectionReaper, self).__init__(_db, *args, **kwargs)
         self.operation = CoverageRecord.REAP_OPERATION
 
     @property
