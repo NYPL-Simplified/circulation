@@ -159,7 +159,26 @@ class ContributorData(object):
     def __repr__(self):
         return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
 
+    @classmethod
+    def from_contribution(cls, contribution):
+        """Create a ContributorData object from a data-model Contribution
+        object.
+        """
+        c = contribution.contributor
+        return cls(
+            sort_name=c.name,
+            display_name=c.display_name,
+            family_name=c.family_name,
+            wikipedia_name=c.wikipedia_name,
+            lc=c.lc,
+            viaf=c.viaf,
+            biography=c.biography,
+            aliases=c.aliases,
+            roles=[contribution.role]
+        )
+
     def find_sort_name(self, _db, identifiers, metadata_client):
+
         """Try as hard as possible to find this person's sort name.
         """
         log = logging.getLogger("Abstract metadata layer")
@@ -385,7 +404,7 @@ class CirculationData(object):
                    license_pool.licenses_reserved != self.licenses_reserved)
 
         if changed:
-            edition = license_pool.edition
+            edition = license_pool.presentation_edition
             if edition:
                 self.log.info(
                     'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
@@ -530,32 +549,38 @@ class Metadata(object):
         This doesn't contain everything but it contains enough
         information to run guess_license_pools.
         """
+        kwargs = dict()
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published'
+        ):
+            kwargs[field] = getattr(edition, field)
+
         contributors = []
         for contribution in edition.contributions:
-            c = contribution.contributor
-            contributors.append(
-                ContributorData(sort_name=c.name,
-                                display_name=c.display_name,
-                                roles=[contribution.role])
-            )
+            contributor = ContributorData.from_contribution(contribution)
+            contributors.append(contributor)
         else:
+            # This should only happen for low-quality data sources such as
+            # the NYT best-seller API.
             if edition.sort_author:
                 contributors.append(
                     ContributorData(sort_name=edition.sort_author,
                                     display_name=edition.author,
                                     roles=[Contributor.PRIMARY_AUTHOR_ROLE])
                 )
+
         i = edition.primary_identifier
         primary_identifier = IdentifierData(
-            type=i.type, identifier=i.identifier, weight=1)
+            type=i.type, identifier=i.identifier, weight=1
+        )
 
         return Metadata(
             data_source=edition.data_source.name,
-            title=edition.title, 
-            subtitle=edition.subtitle,
-            sort_title=edition.sort_title,
             primary_identifier=primary_identifier,
-            contributors=contributors
+            contributors=contributors,
+            **kwargs
         )
 
     def normalize_contributors(self, metadata_client):
@@ -578,6 +603,23 @@ class Metadata(object):
             if primary_author:
                 break
         return primary_author
+
+
+    def update(self, metadata):
+        """Update this Metadata object with values from the given Metadata
+        object.
+        
+        TODO: We might want to take a policy object as an argument.
+        """
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published', 'contributors'
+        ):
+            new_value = getattr(metadata, field)
+            if new_value:
+                setattr(self, field, new_value)
+
 
     def calculate_permanent_work_id(self, _db, metadata_client):
         """Try to calculate a permanent work ID from this metadata.
@@ -657,12 +699,15 @@ class Metadata(object):
         return self.license_data_source_obj
 
     def edition(self, _db, create_if_not_exists=True):
+        """ Find or create the edition described by this Metadata object.
+        """
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find edition: metadata has no primary identifier."
             )
 
         data_source = self.license_data_source(_db) or self.data_source(_db)
+
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type, 
             self.primary_identifier.identifier, 
@@ -811,6 +856,8 @@ class Metadata(object):
                 success = True
         return success
 
+
+
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
@@ -827,8 +874,12 @@ class Metadata(object):
 
         :param mirror: Open-access books and cover images will be mirrored
         to this MirrorUploader.
+        :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes 
+        answers the question: were any edition core fields harmed in the making of this update?  
+        So, if title changed, return True.  But if contributor changed, ignore and return False. 
         """
         _db = Session.object_session(edition)
+        made_core_changes = False
 
         if replace is None:
             replace = ReplacementPolicy(
@@ -864,7 +915,7 @@ class Metadata(object):
                 last_time = self.last_update_time
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
-                    return
+                    return edition, False
 
         if metadata_client and not self.permanent_work_id:
             self.calculate_permanent_work_id(_db, metadata_client)
@@ -874,35 +925,27 @@ class Metadata(object):
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
-        if self.title:
-            edition.title = self.title
-        if self.subtitle:
-            edition.subtitle = self.subtitle
-        if self.language:
-            edition.language = self.language
-        if self.medium:
-            edition.medium = self.medium
-        if self.series:
-            edition.series = self.series
-        if self.publisher:
-            edition.publisher = self.publisher
-        if self.imprint:
-            edition.imprint = self.imprint
-        if self.issued:
-            edition.issued = self.issued
-        if self.published:
-            edition.published = self.published
-        if self.permanent_work_id:
-            edition.permanent_work_id = self.permanent_work_id
+
+
+        for field in (
+                'title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published', 'permanent_work_id'
+        ):
+            old_edition_value = getattr(edition, field)
+            new_metadata_value = getattr(self, field)
+            if new_metadata_value and (new_metadata_value != old_edition_value):
+                setattr(edition, field, new_metadata_value)
+                made_core_changes = True
+
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-
         self.update_contributions(_db, edition, metadata_client, 
                                   replace.contributions)
 
-        # TODO: remove equivalencies when replace.identifiers is True.
 
+        # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
                 if not identifier_data.identifier:
@@ -964,31 +1007,28 @@ class Metadata(object):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
+
+
+        # TODO:  remove below comment.
+        # now that pool uses a composite edition, we must create that edition before 
+        # calculating any links
+        # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
+        # and it's possible there's a better way.
+        # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
+        # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
+        # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
+        # it's problematic that pool isn't always being set in this method.
         
         link_data_source = self.license_data_source(_db) or data_source
+        link_objects = {}
+
         for link in self.links:
             link_obj, ignore = identifier.add_link(
                 rel=link.rel, href=link.href, data_source=link_data_source, 
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
-            # TODO: We do not properly handle the (unlikely) case
-            # where there is an IMAGE_THUMBNAIL link but no IMAGE
-            # link. In such a case we should treat the IMAGE_THUMBNAIL
-            # link as though it were an IMAGE link.
-            if replace.mirror:
-                # We need to mirror this resource. If it's an image, a
-                # thumbnail may be provided as a side effect.
-                self.mirror_link(
-                    pool, link_data_source, link, link_obj, replace
-                )
-            elif link.thumbnail:
-                # We don't need to mirror this image, but we do need
-                # to make sure that its thumbnail exists locally and
-                # is associated with the original image.
-                self.make_thumbnail(
-                    pool, link_data_source, link, link_obj
-                )
+            link_objects[link] = link_obj
 
         if pool and replace.formats:
             for lpdm in pool.delivery_mechanisms:
@@ -996,32 +1036,6 @@ class Metadata(object):
             pool.delivery_mechanisms = []
 
         self.set_default_rights_uri(data_source)
-
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if not format.content_type:
-                    format.content_type = link.media_type
-                # TODO: I think it's always true that this link
-                # already exists--it was created earlier while we were
-                # iterating over self.links. It would be more
-                # efficient and less error-prone to keep track of the
-                # link objects rather than calling add_link again.
-                link_obj, ignore = identifier.add_link(
-                    rel=link.rel, href=link.href, data_source=link_data_source, 
-                    license_pool=pool, media_type=link.media_type,
-                    content=link.content
-                )
-                resource = link_obj.resource
-            else:
-                resource = None
-            if pool:
-                pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, resource
-                )
-
-        if pool and replace.rights:
-            pool.set_rights_status(self.rights_uri)
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -1055,18 +1069,54 @@ class Metadata(object):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        # obtains a presentation_edition for the title, which will later be used to get a mirror link.
+        for link in self.links:
+            link_obj = link_objects[link]
+            # TODO: We do not properly handle the (unlikely) case
+            # where there is an IMAGE_THUMBNAIL link but no IMAGE
+            # link. In such a case we should treat the IMAGE_THUMBNAIL
+            # link as though it were an IMAGE link.
+            if replace.mirror:
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(pool, data_source, link, link_obj, replace)
+            elif link.thumbnail:
+                # We don't need to mirror this image, but we do need
+                # to make sure that its thumbnail exists locally and
+                # is associated with the original image.
+                self.make_thumbnail(pool, data_source, link, link_obj)
+
+        # follows up on the mirror link, and confirms the delivery mechanism.
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if not format.content_type:
+                    format.content_type = link.media_type
+                link_obj = link_objects[format.link]
+                resource = link_obj.resource
+            else:
+                resource = None
+            if pool:
+                pool.set_delivery_mechanism(
+                    format.content_type, format.drm_scheme, resource
+                )
+
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
             edition, data_source, timestamp=self.last_update_time
         )
-        return edition
+        return edition, made_core_changes
+
+
+
 
     def mirror_link(self, pool, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
         """
+
         if link_obj.rel not in (
                 Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
@@ -1118,8 +1168,8 @@ class Metadata(object):
         # Determine the best URL to use when mirroring this
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            if pool and pool.edition and pool.edition.title:
-                title = pool.edition.title
+            if pool and pool.presentation_edition and pool.presentation_edition.title:
+                title = pool.presentation_edition.title
             else:
                 title = self.title or None
             extension = representation.extension()

@@ -20,6 +20,7 @@ from metadata_layer import (
     IdentifierData,
     ReplacementPolicy,
     SubjectData,
+    ContributorData,
 )
 
 import os
@@ -223,31 +224,38 @@ class TestMetadataImporter(DatabaseTest):
         assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/scaled/300/')
         assert thumbnail.mirror_url.endswith('cover.png')
 
+
     def test_open_access_content_mirrored(self):
+        """
+        Make sure that open access material links are translated to our S3 buckets, and that 
+        commercial material links are left as is.
+        """
         mirror = DummyS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
         # Here's a link to the content of the book, which will be
         # mirrored.
-        l1 = LinkData(
+        link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
             media_type=Representation.EPUB_MEDIA_TYPE,
             content="i am a tiny book"
         )
 
         # This link will not be mirrored.
-        l2 = LinkData(
+        link_unmirrored = LinkData(
             rel=Hyperlink.SAMPLE, href="http://example.com/2",
             media_type=Representation.TEXT_PLAIN,
             content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
         )
 
+
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
-        metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
+        metadata = Metadata(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
         metadata.apply(edition, replace=policy)
         
+
         # Only the open-access link has been 'mirrored'.
         [book] = mirror.uploaded
 
@@ -257,6 +265,7 @@ class TestMetadataImporter(DatabaseTest):
             [x.rel for x in book.resource.links]
         )
 
+
         # It's been 'mirrored' to the appropriate S3 bucket.
         assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
         expect = '/%s/%s.epub' % (
@@ -264,6 +273,16 @@ class TestMetadataImporter(DatabaseTest):
             edition.title
         )
         assert book.mirror_url.endswith(expect)
+
+        # make sure the mirrored link is safely on edition
+        sorted_edition_links = sorted(edition.license_pool.identifier.links, key=lambda x: x.rel)
+        mirrored_representation, unmirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
+        assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+
+        # make sure the unmirrored link is safely on edition
+        eq_('http://example.com/2', unmirrored_representation.url)
+        # make sure the unmirrored link has not been translated to an S3 URL
+        eq_(None, unmirrored_representation.mirror_url)
 
     def test_mirror_open_access_link_fetch_failure(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -366,6 +385,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
 
+
     def test_explicit_formatdata(self):
         # Creating an edition with an open-access download will
         # automatically create a delivery mechanism.
@@ -383,7 +403,7 @@ class TestMetadataImporter(DatabaseTest):
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
                              key=lambda x: x.delivery_mechanism.content_type)
-        eq_(epub.resource, edition.best_open_access_link)
+        eq_(epub.resource, edition.license_pool.best_open_access_link)
 
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
@@ -487,6 +507,95 @@ class TestMetadataImporter(DatabaseTest):
         eq_(gutenberg, links[0].data_source)
         eq_(gutenberg, links[0].resource.data_source)
 
+
+class TestContributorData(DatabaseTest):
+    def test_from_contribution(self):
+        # Makes sure ContributorData.from_contribution copies all the fields over.
+        
+        # make author with that name, add author to list and pass to edition
+        contributors = ["PrimaryAuthor"]
+        edition, pool = self._edition(with_license_pool=True, authors=contributors)
+        
+        contribution = edition.contributions[0]
+        contributor = contribution.contributor
+        contributor.lc = "1234567"
+        contributor.viaf = "ABC123"
+        contributor.aliases = ["Primo"]
+        contributor.display_name = "Test Author For The Win"
+        contributor.family_name = "TestAuttie"
+        contributor.wikipedia_name = "TestWikiAuth"
+        contributor.biography = "He was born on Main Street."
+
+        contributor_data = ContributorData.from_contribution(contribution)
+
+        # make sure contributor fields are still what I expect
+        eq_(contributor_data.lc, contributor.lc)
+        eq_(contributor_data.viaf, contributor.viaf)
+        eq_(contributor_data.aliases, contributor.aliases)
+        eq_(contributor_data.display_name, contributor.display_name)
+        eq_(contributor_data.family_name, contributor.family_name)
+        eq_(contributor_data.wikipedia_name, contributor.wikipedia_name)
+        eq_(contributor_data.biography, contributor.biography)
+
+
+class TestMetadata(DatabaseTest):
+    def test_from_edition(self):
+        # Makes sure Metadata.from_edition copies all the fields over.
+
+        edition, pool = self._edition(with_license_pool=True)
+        metadata = Metadata.from_edition(edition)
+
+        # make sure the metadata and the originating edition match 
+        for field in (
+                'title', 'sort_title', 'subtitle', 'language',
+                'medium', 'series', 'publisher', 'imprint',
+                'issued', 'published'
+        ):
+            eq_(getattr(edition, field), getattr(metadata, field))
+
+
+        e_contribution = edition.contributions[0]
+        m_contributor_data = metadata.contributors[0]
+        eq_(e_contribution.contributor.name, m_contributor_data.sort_name)
+        eq_(e_contribution.role, m_contributor_data.roles[0])
+
+        eq_(edition.data_source, metadata.data_source(self._db))
+        eq_(edition.primary_identifier.identifier, metadata.primary_identifier.identifier)
+
+    def test_update(self):
+        # Tests that Metadata.update correctly prefers new fields to old, unless 
+        # new fields aren't defined.
+
+        edition_old, pool = self._edition(with_license_pool=True)
+        edition_old.publisher = "test_old_publisher"
+        edition_old.subtitle = "old_subtitile"
+        metadata_old = Metadata.from_edition(edition_old)
+
+        edition_new, pool = self._edition(with_license_pool=True)
+        # set more fields on metadatas
+        edition_new.publisher = None
+        edition_new.subtitle = "new_updated_subtitile"
+        metadata_new = Metadata.from_edition(edition_new)
+
+        metadata_old.update(metadata_new)
+
+        eq_(metadata_old.publisher, "test_old_publisher")
+        eq_(metadata_old.subtitle, metadata_new.subtitle)
+
+    def test_apply(self):
+        edition_old, pool = self._edition(with_license_pool=True)
+
+        metadata = Metadata(data_source=DataSource.OVERDRIVE, title=u"Test_Apply_Title")
+
+        edition_new, changed = metadata.apply(edition_old)
+
+        eq_(changed, True)
+        eq_(edition_new.title, "Test_Apply_Title")
+
+        edition_new, changed = metadata.apply(edition_new)
+        eq_(changed, False)
+
+
     def test_metadata_can_be_deepcopied(self):
 
         # Check that we didn't put something in the metadata that
@@ -515,3 +624,4 @@ class TestMetadataImporter(DatabaseTest):
 
         # If deepcopy didn't throw an exception we're ok.
         assert m_copy is not None
+
