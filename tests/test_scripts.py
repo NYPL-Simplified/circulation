@@ -26,35 +26,20 @@ class TestScript(DatabaseTest):
 
         i1 = self._identifier()
         i2 = self._identifier()
-        args = [i1.type, i1.identifier, 'no-such-identifier', i2.identifier]
-        identifiers = Script.parse_identifier_list(self._db, args)
+        args = [i1.identifier, 'no-such-identifier', i2.identifier]
+        identifiers = Script.parse_identifier_list(self._db, i1.type, args)
         eq_([i1, i2], identifiers)
-        eq_([], Script.parse_identifier_list(self._db, []))
+        eq_([], Script.parse_identifier_list(self._db, i1.type, []))
 
     def test_parse_list_as_identifiers_with_autocreate(self):
 
-        args = [Identifier.OVERDRIVE_ID, 'brand-new-identifier']
-        [i] = Script.parse_identifier_list(self._db, args, autocreate=True)
-        eq_(Identifier.OVERDRIVE_ID, i.type)
-        eq_('brand-new-identifier', i.identifier)
-
-    def test_parse_list_as_identifiers_or_data_source(self):
-
-        i1 = self._identifier()
-        i2 = self._identifier()
-        args = [i1.type, i1.identifier, 'no-such-identifier', i2.identifier]
-        identifiers = Script.parse_identifier_list_or_data_source(
-            self._db, args
+        type = Identifier.OVERDRIVE_ID
+        args = ['brand-new-identifier']
+        [i] = Script.parse_identifier_list(
+            self._db, type, args, autocreate=True
         )
-        eq_([i1, i2], identifiers)
-
-        args = [DataSource.OVERDRIVE]
-        data_source = Script.parse_identifier_list_or_data_source(self._db, args)
-        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        eq_(overdrive, data_source)
-
-        eq_([], Script.parse_identifier_list(self._db, []))
-
+        eq_(type, i.type)
+        eq_('brand-new-identifier', i.identifier)
 
     def test_parse_time(self): 
         reference_date = datetime.datetime(2016, 01, 01)
