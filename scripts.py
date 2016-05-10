@@ -155,7 +155,7 @@ class IdentifierInputScript(Script):
     def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        return cls.look_up_identifiers(_db, *args, **kwargs)
+        return cls.look_up_identifiers(_db, parsed, *args, **kwargs)
 
     @classmethod
     def look_up_identifiers(cls, _db, parsed, *args, **kwargs):

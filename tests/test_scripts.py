@@ -69,7 +69,7 @@ class TestIdentifierInputScript(DatabaseTest):
         i2 = self._identifier()
         cmd_args = ["--identifier-type",
                     i1.type, i1.identifier, i2.identifier]
-        parsed = RunCoverageProviderScript.parse_command_line(
+        parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args
         )
         eq_([i1, i2], parsed.identifiers)
@@ -77,7 +77,7 @@ class TestIdentifierInputScript(DatabaseTest):
 
     def test_parse_command_line_no_identifiers(self):
         cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
-        parsed = RunCoverageProviderScript.parse_command_line(
+        parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args
         )
         eq_([], parsed.identifiers)
