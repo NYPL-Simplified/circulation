@@ -523,14 +523,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             license_pool.identifier.identifier)
         edition.title = edition.title or book.get('title')
 
-        # if the pool does not already have a presetation edition, 
+        # If the pool does not already have a presentation edition, 
         # and if this edition is newly made, then associate pool and edition
         # as presentation_edition
         if ((not license_pool.presentation_edition) and is_new_edition): 
-            # NOTE:  I think it might not be guaranteed that edition will be set as 
-            # pool's presentation_edition here.  Also, let's keep an eye on this code 
-            # bit's performance speed.
-            edition_changed = license_pool.set_presentation_edition(None)
+            edition_changed = license_pool.set_presentation_edition(
+                policy=None
+            )
 
         if is_new_pool:
             license_pool.open_access = False
