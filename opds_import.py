@@ -234,16 +234,16 @@ class OPDSImporter(object):
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
 
-        if (cutoff_date 
-            and not is_new_license_pool 
+        if (cutoff_date
+            and not is_new_license_pool
             and not is_new_edition
-            and metadata.circulation 
-            and metadata.circulation.first_appearance < cutoff_date
+            and metadata.last_update_time
+            and metadata.last_update_time < cutoff_date
         ):
             # We've already imported this book, we've been told
-            # not to bother with books that appeared before a
-            # certain date, and this book did in fact appear
-            # before that date. There's no reason to do anything.
+            # not to bother with books that haven't changed since a
+            # certain date, and this book hasn't changed since that
+            # that date. There's no reason to do anything.
             return
 
         policy = ReplacementPolicy(
@@ -251,6 +251,7 @@ class OPDSImporter(object):
             links=True,
             contributions=True,
             rights=True,
+            link_content=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
             http_get=self.http_get,
@@ -279,6 +280,7 @@ class OPDSImporter(object):
                     # information is missing (like language or title),
                     # this will do it.
                     work.set_presentation_ready_based_on_content()
+
         return edition
 
     def extract_metadata(self, feed):
@@ -735,7 +737,7 @@ class OPDSImportMonitor(Monitor):
             # We did not end up importing a single book on this page.
             # There's no need to keep going.
             self.log.info(
-                "Saw a full page with no new books. Stopping."
+                "Saw a full page with no new or updated books. Stopping."
             )
             return []
         else:

@@ -327,8 +327,8 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
-        # None of the books were imported because they all appeared in
-        # the feed after the cutoff.
+        # None of the books were imported because they weren't updated
+        # after the cutoff.
         eq_(0, len(imported))
 
         # And if we change the cutoff...
@@ -569,3 +569,47 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
          ],
             [x.mirror_url for x in s3.uploaded]
         )
+
+        # If we fetch the feed again, and the entries have been updated since the
+        # cutoff, but the content of the open access links hasn't changed, we won't mirror
+        # them again.
+        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
+
+        http.queue_response(
+            304, media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        http.queue_response(
+            304, media_type=Representation.SVG_MEDIA_TYPE
+        )
+
+        http.queue_response(
+            304, media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        imported, messages, next_link = importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+
+        eq_([e1, e2], imported)
+        # Nothing new has been uploaded
+        eq_(4, len(s3.uploaded))
+
+        # If the content has changed, it will be mirrored again.
+        http.queue_response(
+            200, content="I am a new version of 10557.epub.images",
+            media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        http.queue_response(
+            200, content=svg,
+            media_type=Representation.SVG_MEDIA_TYPE
+        )
+
+        http.queue_response(
+            200, content="I am a new version of 10441.epub.images",
+            media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        imported, messages, next_link = importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+
+        eq_([e1, e2], imported)
+        eq_(8, len(s3.uploaded))

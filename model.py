@@ -603,6 +603,7 @@ class DataSource(Base):
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
     MANUAL = "Manual intervention"
+    NOVELIST = "NoveList Select"
     NYT = "New York Times"
     NYPL_SHADOWCAT = "NYPL Shadowcat"
     LIBRARY_STAFF = "Library staff"
@@ -811,6 +812,7 @@ class DataSource(Base):
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
+                (cls.NOVELIST, False, True, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -1221,7 +1223,6 @@ class Identifier(Base):
                 identifier_string)
         return (type, identifier_string)
 
-
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
         type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
@@ -1238,7 +1239,7 @@ class Identifier(Base):
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
-        
+
         `data_source` is the DataSource that believes the two 
         identifiers are equivalent.
         """
@@ -4075,6 +4076,7 @@ class Measurement(Base):
         DataSource.OVERDRIVE : [1, 5],
         DataSource.AMAZON : [1, 5],
         DataSource.UNGLUE_IT: [1, 5],
+        DataSource.NOVELIST: [0, 5]
     }
 
     id = Column(Integer, primary_key=True)
@@ -6196,11 +6198,9 @@ class Representation(Base):
                    'video/'
         ])
 
-
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
-            accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, 
+            accept=None, max_age=None, pause_before=0, allow_redirects=True,
             presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
@@ -6218,9 +6218,8 @@ class Representation(Base):
         :return: A 2-tuple (representation, obtained_from_cache)
 
         """
-        do_get = do_get or cls.simple_http_get
-
         representation = None
+        do_get = do_get or cls.simple_http_get
 
         # TODO: We allow representations of the same URL in different
         # media types, but we don't have a good solution here for
@@ -6320,7 +6319,7 @@ class Representation(Base):
             or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url, media_type=media_type)
+                _db, Representation, url=url, media_type=unicode(media_type))
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
@@ -6330,6 +6329,7 @@ class Representation(Base):
             # Set its fetched_at property and return the cached
             # version as though it were new.
             representation.fetched_at = fetched_at
+            representation.status_code = status_code
             return representation, False
 
         if status_code:
@@ -6376,6 +6376,18 @@ class Representation(Base):
         representation.content = content
         return representation, False
 
+    @classmethod
+    def cacheable_post(cls, _db, url, params, max_age=None):
+        """Transforms cacheable POST request into a Representation"""
+
+        def do_post(url, headers, **kwargs):
+            kwargs.update({'data' : params})
+            return cls.simple_http_post(url, headers, **kwargs)
+
+        return cls.get(
+            _db, url, do_get=do_post, max_age=max_age
+        )
+
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
        
@@ -6385,7 +6397,6 @@ class Representation(Base):
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
             self.image_width, self.image_height = image.size
-            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
         else:
             self.image_width = self.image_height = None
 
@@ -6453,6 +6464,14 @@ class Representation(Base):
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
         response = requests.get(url, headers=headers, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    @classmethod
+    def simple_http_post(cls, url, headers, **kwargs):
+        """The most simple HTTP-based POST."""
+        if not 'timeout' in kwargs:
+            kwargs['timeout'] = 20
+        response = requests.post(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
