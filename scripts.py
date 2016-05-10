@@ -443,8 +443,8 @@ class AvailabilityRefreshScript(IdentifierInputScript):
     license source.
     """
     def do_run(self):
-        identifiers = self.parse_identifiers()
-        if not identifiers:
+        args = self.parse_command_line(self._db)
+        if not args.identifiers:
             raise Exception(
                 "You must specify at least one identifier to refresh."
             )
@@ -453,8 +453,8 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         # always safe.
         start = 0
         size = 10
-        while start < len(identifiers):
-            batch = identifiers[start:start+size]
+        while start < len(args.identifiers):
+            batch = args.identifiers[start:start+size]
             self.refresh_availability(batch)
             self._db.commit()
             start += size
