@@ -3167,6 +3167,12 @@ class Work(Base):
         return self.primary_edition.series
 
     @property
+    def series_position(self):
+        if not self.primary_edition:
+            return None
+        return self.primary_edition.series_position
+
+    @property
     def author(self):
         if self.primary_edition:
             return self.primary_edition.author
