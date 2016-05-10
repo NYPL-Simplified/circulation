@@ -757,30 +757,6 @@ class AcquisitionFeed(OPDSFeed):
         for entry in precomposed_entries:
             self.feed.append(entry)
 
-    def add_breadcrumbs(self, lane, annotator, include_lane=False):
-        """Add list of ancestor links in a breadcrumbs element."""
-        # Ensure that lane isn't top-level before proceeding
-        if annotator.lane_url(lane) != annotator.default_lane_url():
-            breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
-
-            # Add root link
-            breadcrumbs.append(
-                E.link(title=annotator.top_level_title(), href=annotator.default_lane_url())
-            )
-
-            # Add links for all visible ancestors
-            for ancestor in reversed(lane.visible_ancestors()):
-                link = E.link(title=ancestor.display_name, href=annotator.lane_url(ancestor))
-                breadcrumbs.append(link)
-
-            # Include link to lane (for search)
-            if include_lane:
-                breadcrumbs.append(
-                    E.link(title=lane.display_name, href=annotator.lane_url(lane))
-                )
-
-            self.feed.append(breadcrumbs)
-
     def add_entry(self, work, lane_link):
         """Attempt to create an OPDS <entry>. If successful, append it to
         the feed.
@@ -1009,6 +985,32 @@ class AcquisitionFeed(OPDSFeed):
                 entry.extend([issued_tag])
 
         return entry
+
+    def add_breadcrumbs(self, lane, annotator, include_lane=False):
+        """Add list of ancestor links in a breadcrumbs element."""
+        # Ensure that lane isn't top-level before proceeding
+        if annotator.lane_url(lane) != annotator.default_lane_url():
+            breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
+
+            # Add root link
+            breadcrumbs.append(
+                E.link(title=annotator.top_level_title(), href=annotator.default_lane_url())
+            )
+            
+            # Add links for all visible ancestors
+            for ancestor in reversed(lane.visible_ancestors()):
+                link = E.link(title=ancestor.display_name, href=annotator.lane_url(ancestor))
+                breadcrumbs.append(link)
+
+            # Include link to lane (for search)
+            if include_lane:
+                breadcrumbs.append(
+                    E.link(title=lane.display_name, href=annotator.lane_url(lane))
+                )
+
+            print len(breadcrumbs.getchildren())
+
+            self.feed.append(breadcrumbs)
 
     @classmethod
     def minimal_opds_entry(cls, identifier, cover, description, quality):

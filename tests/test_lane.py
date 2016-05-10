@@ -501,6 +501,27 @@ class TestLanes(DatabaseTest):
         eq_(invisible_parent.visible_parent(), visible_grandparent)
         eq_(visible_grandparent.visible_parent(), None)
 
+    def test_visible_ancestors(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+
+        lane = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        visible_parent = Lane(
+            self._db, "Fantasy", genres=fantasy,
+            sublanes=[lane], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        invisible_grandparent = Lane(
+            self._db, "English", invisible=True, sublanes=[visible_parent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        visible_ancestor = Lane(
+            self._db, "Books With Words", sublanes=[invisible_grandparent],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(lane.visible_ancestors(), [visible_parent, visible_ancestor])
+
     def test_has_visible_sublane(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
