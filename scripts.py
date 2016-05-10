@@ -277,7 +277,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
                 self.identifier_types = []
             provider = provider(
                 self._db, input_identifier_types=self.identifier_types, 
-                cutoff_time=cutoff_time
+                cutoff_time=args.cutoff_time
             )
         self.provider = provider
         self.name = self.provider.service_name
