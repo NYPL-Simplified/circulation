@@ -172,7 +172,7 @@ class IdentifierInputScript(Script):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--identifier-type', 
-            help='Type of the identifiers to process'
+            help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. If IDENTIFIER is specified, this argument is required.'
         )
         parser.add_argument(
             'identifier_strings',
