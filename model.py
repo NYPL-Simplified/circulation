@@ -2050,15 +2050,10 @@ class Contributor(Base):
             else:
                 contribution.contributor_id = destination.id
             contribution.contributor_id = destination.id
-        # print "Commit before deletion."
+
         _db.commit()
-        # print "Final deletion."
         _db.delete(self)
-        # print "Committing after deletion."
         _db.commit()
-        # _db.query(Contributor).filter(Contributor.id==self.id).delete()
-        #_db.commit()
-        #print "All done."
 
     # Regular expressions used by default_names().
     PARENTHETICAL = re.compile("\([^)]*\)")
@@ -2152,10 +2147,7 @@ class Contributor(Base):
             # Since there's no comma, this is probably a corporate name.
             family_name = None
             display_name = name
-        #print " Default names for %s" % original_name
-        #print "  Family name: %s" % family_name
-        #print "  Display name: %s" % display_name
-        #print
+
         return family_name, display_name
 
 
@@ -2223,6 +2215,7 @@ class Edition(Base):
     sort_title = Column(Unicode, index=True)
     subtitle = Column(Unicode, index=True)
     series = Column(Unicode, index=True)
+    series_position = Column(Integer)
 
     # This is not a foreign key per se; it's a calculated UUID-like
     # identifier for this work based on its title and author, used to
