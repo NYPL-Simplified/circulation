@@ -63,48 +63,13 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
-    def parse_command_line(cls):
+    def parse_command_line(cls, _db=None):
         parser = cls.arg_parser()
         return parser.parse_args()
 
     @classmethod
     def arg_parser(cls):
         raise NotImplementedError()
-
-    @classmethod
-    def parse_identifier_list(
-            cls, _db, identifier_type, arguments, autocreate=False
-    ):
-        """Turn a list of identifiers into a list of Identifier objects.
-
-        The list of arguments is probably derived from a command-line
-        parser such as the one defined in
-        IdentifierInputScript.arg_parser().
-
-        This makes it easy to identify specific identifiers on the
-        command line. Examples:
-
-        1 2
-        
-        a b c
-        """
-        current_identifier_type = None
-        if len(arguments) == 0:
-            return []
-        if not identifier_type:
-            raise ValueError("No identifier type specified!")
-        identifiers = []
-        for arg in arguments:
-            identifier, ignore = Identifier.for_foreign_id(
-                _db, identifier_type, arg, autocreate=autocreate
-            )
-            if not identifier:
-                logging.warn(
-                    "Could not load identifier %s/%s", identifier_type, arg
-                )
-            if identifier:
-                identifiers.append(identifier)
-        return identifiers
 
     @classmethod
     def parse_time(cls, time_string):
@@ -187,6 +152,22 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
+    def parse_command_line(cls, _db=None, *args, **kwargs):
+        parser = cls.arg_parser()
+        cmd_args = parser.parse_args()
+        if _db and cmd_args.identifier_type:
+            # We can also call parse_identifier_list.
+            cmd_args.identifiers = cls.parse_identifier_list(
+                _db, cmd_args.identifier_type, cmd_args.identifier_strings,
+                *args, **kwargs
+            )
+        else:
+            # The script can call parse_identifier_list later if it
+            # wants to.
+            cmd_args.identifiers = None
+        return cmd_args
+
+    @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
@@ -194,11 +175,46 @@ class IdentifierInputScript(Script):
             help='Type of the identifiers to process'
         )
         parser.add_argument(
-            'identifiers',
+            'identifier_strings',
             help='A specific identifier to process.',
             metavar='IDENTIFIER', nargs='*'
         )
         return parser
+
+    @classmethod
+    def parse_identifier_list(
+            cls, _db, identifier_type, arguments, autocreate=False
+    ):
+        """Turn a list of identifiers into a list of Identifier objects.
+
+        The list of arguments is probably derived from a command-line
+        parser such as the one defined in
+        IdentifierInputScript.arg_parser().
+
+        This makes it easy to identify specific identifiers on the
+        command line. Examples:
+
+        1 2
+        
+        a b c
+        """
+        current_identifier_type = None
+        if len(arguments) == 0:
+            return []
+        if not identifier_type:
+            raise ValueError("No identifier type specified!")
+        identifiers = []
+        for arg in arguments:
+            identifier, ignore = Identifier.for_foreign_id(
+                _db, identifier_type, arg, autocreate=autocreate
+            )
+            if not identifier:
+                logging.warn(
+                    "Could not load identifier %s/%s", identifier_type, arg
+                )
+            if identifier:
+                identifiers.append(identifier)
+        return identifiers
 
 
 class SubjectInputScript(Script):
@@ -235,7 +251,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parser
 
     def __init__(self, provider):
-        args = self.parse_command_line()
+        args = self.parse_command_line(self._db)
         if callable(provider):
             cutoff_time = self.parse_time(args.cutoff_time)
             self.identifier_type = args.identifier_type or None
@@ -245,14 +261,11 @@ class RunCoverageProviderScript(IdentifierInputScript):
             )
         self.provider = provider
         self.name = self.provider.service_name
-        self.identifier_strings = args.identifiers
+        self.identifiers = args.identifiers
 
     def do_run(self):
-        identifiers = self.parse_identifier_list(
-            self._db, self.identifier_type, self.identifier_strings
-        )
-        if identifiers:
-            self.provider.run_on_identifiers(identifiers)
+        if self.identifiers:
+            self.provider.run_on_identifiers(self.identifiers)
         else:
             self.provider.run()
 
@@ -272,15 +285,12 @@ class BibliographicRefreshScript(IdentifierInputScript):
         self.metadata_replacement_policy.presentation_calculation_policy = PresentationCalculationPolicy.recalculate_everything()
 
     def do_run(self):
-        args = self.parse_command_line()
-        identifiers = self.parse_identifier_list(
-            self._db, args.identifier_type, args.identifiers
-        )
-        if not identifiers:
+        args = self.parse_command_line(self._db)
+        if not args.identifiers:
             raise Exception(
                 "You must specify at least one identifier to refresh."
             )
-        for identifier in identifiers:
+        for identifier in args.identifiers:
             self.refresh_metadata(identifier)
         self._db.commit()
 
@@ -307,13 +317,10 @@ class WorkProcessingScript(IdentifierInputScript):
     name = "Work processing script"
 
     def __init__(self, force=False, batch_size=10):
-        args = self.parse_command_line()
-        identifiers = self.parse_identifier_list(
-            self._db, args.identifier_type, args.identifiers
-        )
+        args = self.parse_command_line(self._db)
         identifier_type = args.identifier_type
         self.batch_size = batch_size
-        self.query = self.make_query(identifier_type, identifiers)
+        self.query = self.make_query(identifier_type, args.identifiers)
         self.force = force
 
     def make_query(self, identifier_type, identifiers):
@@ -565,11 +572,8 @@ class RefreshMaterializedViewsScript(Script):
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        args = self.parse_command_line()
-        identifiers = self.parse_identifier_list(
-            self._db, args.identifier_type, args.identifiers
-        )
-        identifier_ids = [x.id for x in identifiers]
+        args = self.parse_command_line(self._db)
+        identifier_ids = [x.id for x in args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
@@ -672,7 +676,7 @@ class Explain(IdentifierInputScript):
 class SubjectAssignmentScript(SubjectInputScript):
 
     def run(self):
-        args = self.parse_command_line()
+        args = self.parse_command_line(self._db)
         monitor = SubjectAssignmentMonitor(
             self._db, args.subject_type, args.subject_filter
         )
