@@ -126,7 +126,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 mapping[identifier] = identifier
         return mapping
 
-    def import_feed_response(self, response):
+    def import_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and imports feed"""
 
         if response.status_code != 200:
@@ -149,7 +149,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         id_mapping = self.create_id_mapping(batch)
         batch = id_mapping.keys()
         response = self.lookup.lookup(batch)
-        imported, messages_by_id, next_links = self.import_feed_response(response)
+        imported, messages_by_id, next_links = self.import_feed_response(
+            response, id_mapping
+        )
 
         results = []
         for edition in imported:
