@@ -20,6 +20,7 @@ from scripts import (
     CustomListManagementScript,
     IdentifierInputScript,
     RunCoverageProviderScript,
+    WorkProcessingScript,
 )
 
 class TestScript(DatabaseTest):
@@ -98,3 +99,29 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(identifier.type, parsed.identifier_type)
 
         
+class TestWorkProcessingScript(DatabaseTest):
+
+    def test_make_query(self):
+        # Create two Gutenberg works and one Overdrive work
+        g1 = self._work(with_license_pool=True, with_open_access_download=True)
+        g2 = self._work(with_license_pool=True, with_open_access_download=True)
+
+        overdrive_edition, overdrive_pool = self._edition(
+            data_source_name=DataSource.OVERDRIVE, 
+            identifier_type=Identifier.OVERDRIVE_ID,
+            with_license_pool=True
+        )
+        overdrive_work = self._work(primary_edition=overdrive_edition)
+
+        everything = WorkProcessingScript.make_query(self._db, None, None)
+        eq_(set([g1, g2, overdrive_work]), set(everything.all()))
+
+        all_gutenberg = WorkProcessingScript.make_query(
+            self._db, Identifier.GUTENBERG_ID, []
+        )
+        eq_(set([g1, g2]), set(all_gutenberg.all()))
+
+        one_gutenberg = WorkProcessingScript.make_query(
+            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
+        )
+        eq_([g1], one_gutenberg.all())

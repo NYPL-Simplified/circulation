@@ -340,32 +340,38 @@ class WorkProcessingScript(IdentifierInputScript):
         args = self.parse_command_line(self._db)
         identifier_type = args.identifier_type
         self.batch_size = batch_size
-        self.query = self.make_query(identifier_type, args.identifiers)
+        self.query = self.make_query(
+            self._db, identifier_type, args.identifiers, self.log
+        )
         self.force = force
 
-    def make_query(self, identifier_type, identifiers):
-        query = self._db.query(Work)
+    @classmethod
+    def make_query(self, _db, identifier_type, identifiers, log=None):
+        query = _db.query(Work)
         if identifiers or identifier_type:
-            query = query.join(Work.license_pools)
-        if identifiers:
-            query = query.join(LicensePool.identifier)
+            query = query.join(Work.license_pools).join(
+                LicensePool.identifier
+            )
 
         if identifiers:
-            self.log.info(
-                'Restricted to %d specific identifiers.' % len(identifiers)
-            )
+            if log:
+                log.info(
+                    'Restricted to %d specific identifiers.' % len(identifiers)
+                )
             query = query.filter(
                 LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
         if identifier_type:
-            self.log.info(
-                'Restricted to identifier type "%s".' % identifier_type
-            )
+            if log:
+                log.info(
+                    'Restricted to identifier type "%s".' % identifier_type
+                )
             query = query.filter(Identifier.type==identifier_type)
 
-        self.log.info(
-            "Processing %d works.", query.count()
-        )
+        if log:
+            log.info(
+                "Processing %d works.", query.count()
+            )
         return query.order_by(Work.id)
 
     def do_run(self):
