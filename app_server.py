@@ -173,9 +173,11 @@ class ErrorHandler(object):
         self.debug = debug
 
     def handle(self, exception):
-        self.app.manager._db.rollback()
         logging.error(
             "Exception in web app: %s", exception, exc_info=exception)
+        if hasattr(self.app, 'manager') and hasattr(self.app.manager, '_db'):
+            # There is an active database session. Roll it back.
+            self.app.manager._db.rollback()
         tb = traceback.format_exc()
         if self.debug:
             body = tb
