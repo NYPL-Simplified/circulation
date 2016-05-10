@@ -1248,6 +1248,14 @@ class Lane(object):
         else:
             return self.parent.visible_parent()
 
+    def visible_ancestors(self):
+        """Returns a list of visible ancestors in ascending order."""
+        visible_parent = self.visible_parent()
+        if visible_parent == None:
+            return []
+        else:
+            return [visible_parent] + visible_parent.visible_ancestors()
+
     def has_visible_sublane(self):
         return len([lane for lane in self.sublanes if not lane.invisible]) > 0
 

@@ -497,8 +497,8 @@ class AcquisitionFeed(OPDSFeed):
             annotator=annotator,
             force_refresh=force_refresh
         )
-        if usable:
-            return cached
+        # if usable:
+        #     return cached
 
         feed_size = Configuration.featured_lane_size()
        
@@ -582,8 +582,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # Render a 'start' link and an 'up' link.
         top_level_title = annotator.top_level_title() or "Collection Home"
-        start_uri = annotator.groups_url(None)
-        feed.add_link(href=start_uri, rel="start", title=top_level_title)
+        feed.add_link(href=annotator.default_lane_url(), rel="start", title=top_level_title)
 
         if isinstance(lane, Lane):
             visible_parent = lane.visible_parent()
@@ -593,6 +592,7 @@ class AcquisitionFeed(OPDSFeed):
                 title = top_level_title
             up_uri = annotator.groups_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
+            feed.add_breadcrumbs(lane, annotator)
         
         annotator.annotate_feed(feed, lane)
 
@@ -620,8 +620,8 @@ class AcquisitionFeed(OPDSFeed):
             annotator=annotator,
             force_refresh=force_refresh
         )
-        if usable:
-            return cached
+        # if usable:
+        #     return cached
 
         if use_materialized_works:
             works_q = lane.materialized_works(facets, pagination)
@@ -646,7 +646,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        # Add "up" link
+        # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
         visible_parent = lane.visible_parent()
         if isinstance(visible_parent, Lane):
@@ -656,6 +656,7 @@ class AcquisitionFeed(OPDSFeed):
         if visible_parent:
             up_uri = annotator.lane_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
+        feed.add_breadcrumbs(lane, annotator)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
@@ -690,8 +691,9 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
-        # Add "up" link
+        # Add "up" link and breadcrumbs
         opds_feed.add_link(rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
+        opds_feed.add_breadcrumbs(search_lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
@@ -754,6 +756,30 @@ class AcquisitionFeed(OPDSFeed):
         # Add the precomposed entries.
         for entry in precomposed_entries:
             self.feed.append(entry)
+
+    def add_breadcrumbs(self, lane, annotator, include_lane=False):
+        """Add list of ancestor links in a breadcrumbs element."""
+        # Ensure that lane isn't top-level before proceeding
+        if annotator.lane_url(lane) != annotator.default_lane_url():
+            breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
+
+            # Add root link
+            breadcrumbs.append(
+                E.link(title=annotator.top_level_title(), href=annotator.default_lane_url())
+            )
+
+            # Add links for all visible ancestors
+            for ancestor in reversed(lane.visible_ancestors()):
+                link = E.link(title=ancestor.display_name, href=annotator.lane_url(ancestor))
+                breadcrumbs.append(link)
+
+            # Include link to lane (for search)
+            if include_lane:
+                breadcrumbs.append(
+                    E.link(title=lane.display_name, href=annotator.lane_url(lane))
+                )
+
+            self.feed.append(breadcrumbs)
 
     def add_entry(self, work, lane_link):
         """Attempt to create an OPDS <entry>. If successful, append it to
