@@ -63,9 +63,9 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
-    def parse_command_line(cls, _db=None):
+    def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser()
-        return parser.parse_args()
+        return parser.parse_args(cmd_args)
 
     @classmethod
     def arg_parser(cls):
@@ -152,20 +152,27 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
         parser = cls.arg_parser()
-        cmd_args = parser.parse_args()
-        if _db and cmd_args.identifier_type:
+        parsed = parser.parse_args(cmd_args)
+        return cls.look_up_identifiers(_db, *args, **kwargs)
+
+    @classmethod
+    def look_up_identifiers(cls, _db, parsed, *args, **kwargs):
+        """Turn identifiers as specified on the command line into
+        real database Identifier objects.
+        """
+        if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
-            cmd_args.identifiers = cls.parse_identifier_list(
-                _db, cmd_args.identifier_type, cmd_args.identifier_strings,
+            parsed.identifiers = cls.parse_identifier_list(
+                _db, parsed.identifier_type, parsed.identifier_strings,
                 *args, **kwargs
             )
         else:
             # The script can call parse_identifier_list later if it
             # wants to.
-            cmd_args.identifiers = None
-        return cmd_args
+            parsed.identifiers = None
+        return parsed
 
     @classmethod
     def arg_parser(cls):
@@ -250,10 +257,18 @@ class RunCoverageProviderScript(IdentifierInputScript):
         )
         return parser
 
+    @classmethod
+    def parse_command_line(cls, _db, cmd_args=None, *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        parsed = cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+        if parsed.cutoff_time:
+            parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
+        return parsed
+
     def __init__(self, provider):
         args = self.parse_command_line(self._db)
         if callable(provider):
-            cutoff_time = self.parse_time(args.cutoff_time)
             if args.identifier_type:
                 self.identifier_type = args.identifier_type
                 self.identifier_types = [self.identifier_type]
