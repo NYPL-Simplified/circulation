@@ -146,7 +146,6 @@ class TestFacets(object):
         def compare(a, b):
             assert(len(a) == len(b))
             for i in range(0, len(a)):
-                print "Trying field #%s" % i
                 assert(a[i].compare(b[i]))
 
         expect = [Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]

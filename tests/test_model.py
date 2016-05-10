@@ -9,6 +9,7 @@ import tempfile
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
+    assert_not_equal,
     eq_,
     set_trace,
 )
@@ -840,6 +841,8 @@ class TestEdition(DatabaseTest):
         eq_(overdrive_resource, champ4)
 
         # Even an empty string wins if it's from the most privileged data source.
+        # This is not a silly example.  The librarian may choose to set the description 
+        # to an empty string in the admin inteface, to override a bad overdrive/etc. description.
         staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
         staff_resource = l3.resource
@@ -856,60 +859,6 @@ class TestEdition(DatabaseTest):
         # TODO: Verify that a nearby cover takes precedence over a
         # faraway cover.
         pass
-
-    def test_better_primary_edition_than(self):
-
-        generic, p1 = self._edition(with_license_pool=True)
-        generic2, p2 = self._edition(with_license_pool=True)
-
-        def better(x,y):
-            return x.better_primary_edition_than(y)
-
-        # Something is better than nothing.
-        eq_(True, better(generic, None))
-
-        # A license pool beats no license pool.
-        no_license_pool = self._edition(with_license_pool=False)
-        eq_(True, better(generic, no_license_pool))
-        eq_(False, better(no_license_pool, generic))
-
-        # An open access pool beats non-open access.
-        open_access, ignore = self._edition(with_open_access_download=True)
-        eq_(True, better(open_access, generic))
-
-        # TODO: An open access book from a high-quality source beats one
-        # from a low-quality source.
-
-        # A high Gutenberg number beats a low Gutenberg number.
-        open_access2, ignore = self._edition(with_open_access_download=True)
-        eq_(True, better(open_access2, open_access))
-
-        # More licenses beats fewer licenses
-        p1.open_access = False
-        p2.open_access = False
-        p1.licenses_owned = 1
-        p2.licenses_owned = 2
-        eq_(True, better(generic2, generic))
-
-        p1.licenses_owned = 3
-        eq_(False, better(generic2, generic))
-
-        # More licenses available beats fewer
-        p1.licenses_owned = p2.licenses_owned = 5
-        p1.licenses_available = 2
-        p2.licenses_available = 1
-        eq_(True, better(generic, generic2))
-        p2.licenses_available = 3
-        eq_(False, better(generic, generic2))
-
-        # Fewer people on hold beats more
-        p1.licenses_available = 0
-        p1.patrons_in_hold_queue = 1
-        p2.licenses_available = 0
-        p2.patrons_in_hold_queue = 2
-        eq_(True, better(generic, generic2))
-        p1.patrons_in_hold_queue = 3
-        eq_(False, better(generic, generic2))
 
     def test_calculate_presentation_registers_coverage_records(self):
         edition = self._edition()
@@ -995,6 +944,7 @@ class TestLicensePool(DatabaseTest):
     def test_update_availability(self):
         work = self._work(with_license_pool=True)
         work.last_update_time = None
+
         [pool] = work.license_pools
         pool.update_availability(30, 20, 2, 0)
         eq_(30, pool.licenses_owned)
@@ -1048,6 +998,71 @@ class TestLicensePool(DatabaseTest):
 
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
+
+
+
+    def test_better_open_access_pool_than(self):
+        # TODO:  update with extra tests that will come out of fixing test_merge_into
+
+        gutenberg_1 = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG,
+            with_open_access_download=True,
+        )
+
+        gutenberg_2 = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG,
+            with_open_access_download=True,
+        )
+        
+        assert int(gutenberg_1.identifier.identifier) < int(gutenberg_2.identifier.identifier)
+
+        standard_ebooks = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.STANDARD_EBOOKS,
+            with_open_access_download=True
+        )
+
+        overdrive = self._licensepool(
+            None, open_access=False, data_source_name=DataSource.OVERDRIVE
+        )
+
+        suppressed = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.GUTENBERG
+        )
+        suppressed.suppressed = True
+
+        def better(x,y):
+            return x.better_open_access_pool_than(y)
+
+        # We would rather have nothing at all than a suppressed
+        # LicensePool.
+        eq_(False, better(suppressed, None))
+
+        # A non-open-access LicensePool is not considered at all.
+        eq_(False, better(overdrive, None))
+
+        # Something is better than nothing.
+        eq_(True, better(gutenberg_1, None))
+
+        # An open access book from a high-quality source beats one
+        # from a low-quality source.
+        eq_(True, better(standard_ebooks, gutenberg_1))
+        eq_(False, better(gutenberg_1, standard_ebooks))
+
+        # A high Gutenberg number beats a low Gutenberg number.
+        eq_(True, better(gutenberg_2, gutenberg_1))
+        eq_(False, better(gutenberg_1, gutenberg_2))
+
+        # If a supposedly open-access LicensePool doesn't have an
+        # open-access download resource, it will only be considered if
+        # there is no other alternative.
+        no_resource = self._licensepool(
+            None, open_access=True, 
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            with_open_access_download=False,
+        )
+        eq_(True, better(no_resource, None))
+        eq_(False, better(no_resource, gutenberg_1))
+        
 
     def test_with_complaint(self):
         type = iter(Complaint.VALID_TYPES)
@@ -1150,23 +1165,122 @@ class TestLicensePool(DatabaseTest):
         eq_(counts, set([1]))
 
 
+    def test_editions_in_priority_order(self):
+        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+        # do not set edition_no_data_source's data source
+        edition_no_data_source = self._edition(with_license_pool=False)
+
+
+        edition_admin.primary_identifier = pool.identifier
+        edition_mw.primary_identifier = pool.identifier
+        edition_no_data_source.primary_identifier = pool.identifier
+
+        editions_correct = (edition_no_data_source, edition_od, edition_mw, edition_admin)
+        editions_contender = pool.editions_in_priority_order()
+
+        #eq_(editions_correct, editions_contender)
+        eq_(len(editions_correct), len(editions_contender))
+
+        for index, edition in enumerate(editions_correct):
+            eq_(editions_contender[index].title, editions_correct[index].title)
+
+
+    def test_set_presentation_edition(self):
+        """
+        Make sure composite edition creation makes good choices when combining 
+        field data from provider, metadata wrangler, admin interface, etc. editions.
+        """
+        # create different types of editions, all with the same identifier
+        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+ 
+        edition_mw.primary_identifier = pool.identifier
+        edition_admin.primary_identifier = pool.identifier
+
+        # set overlapping fields on editions
+        edition_od.title = u"OverdriveTitle1"
+        [joe], ignore = Contributor.lookup(self._db, u"Sloppy, Joe")
+        joe.family_name, joe.display_name = joe.default_names()
+        edition_od.add_contributor(joe, Contributor.AUTHOR_ROLE)
+
+        edition_mw.title = u"MetadataWranglerTitle1"
+        edition_mw.subtitle = u"MetadataWranglerSubTitle1"
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        edition_mw.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        edition_admin.title = u"AdminInterfaceTitle1"
+        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
+        jane.family_name, jane.display_name = jane.default_names()
+        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
+
+        pool.set_presentation_edition(None)
+
+        edition_composite = pool.presentation_edition
+
+        assert_not_equal(edition_mw, edition_od)
+        assert_not_equal(edition_od, edition_admin)
+        assert_not_equal(edition_admin, edition_composite)
+        assert_not_equal(edition_od, edition_composite)
+
+        # make sure admin pool data had precedence
+        eq_(edition_composite.title, u"AdminInterfaceTitle1")
+
+        # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
+        eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
+        license_pool = edition_composite.is_presentation_for
+        eq_(license_pool, pool)
+        
+        # is_primary_for_work can only happen if the pool has a work associated with it.
+        # add a work, and re-call set_presentation_edition, and test the primarity.
+        work = self._work()
+        # default testing work object creates and sets a primary edition, and we want an clean slate
+        work.primary_edition = None
+
+        # we haven't set a primary yet
+        eq_(edition_mw.is_primary_for_work, False)
+        eq_(edition_od.is_primary_for_work, False)
+        eq_(edition_admin.is_primary_for_work, False)
+        eq_(edition_composite.is_primary_for_work, False)
+
+        work.license_pools.append(pool)
+        pool.set_presentation_edition()
+
+        eq_(edition_mw.is_primary_for_work, False)
+        eq_(edition_od.is_primary_for_work, False)
+        eq_(edition_admin.is_primary_for_work, False)
+        eq_(edition_composite.is_primary_for_work, True)
+
+
+
 class TestWork(DatabaseTest):
 
     def test_calculate_presentation(self):
-
+        """ Test that:
+        - work coverage records are made on work creation and primary edition selection.
+        - work's presentation information (author, title, etc. fields) does a proper job 
+          of combining fields from underlying editions.
+        - work's presentation information keeps in sync with work's primary edition.
+        - there can be only one edition that thinks it's the primary edition for this work.
+        - time stamps are stamped.
+        """
         gutenberg_source = DataSource.GUTENBERG
+        gitenberg_source = DataSource.PROJECT_GITENBERG
 
         [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
-        edition1, pool1 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition1.title = u"The 1st Title"
-        edition1.title = u"The 1st Subtitle"
+        edition1.subtitle = u"The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
-        edition2, pool2 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition2.title = u"The 2nd Title"
         edition2.subtitle = u"The 2nd Subtitle"
         edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
@@ -1174,36 +1288,58 @@ class TestWork(DatabaseTest):
         alice.family_name, alice.display_name = alice.default_names()
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        edition3, pool3 = self._edition(
-            gutenberg_source, Identifier.GUTENBERG_ID, True, authors=[])
+        edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
         edition3.title = u"The 2nd Title"
         edition3.subtitle = u"The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         work = self._work(primary_edition=edition2)
-        for i in edition1, edition3:
+        # add in 3, 2, 1 order to make sure the selection of edition1 as primary
+        # in the second half of the test is based on business logic, not list order.
+        for i in edition3, edition1:
             work.editions.append(i)
-        for p in pool1, pool2, pool3:
+        for p in pool3, pool1:
             work.license_pools.append(p)
 
         # This Work starts out with a single CoverageRecord reflecting the
-        # work done to generate its initial OPDS entry.
-        [record] = work.coverage_records
-        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, record.operation)
+        # work done to generate its initial OPDS entry, and then it adds choose-edition 
+        # as a primary edition is set.
+        [choose_edition, generate_opds] = sorted(work.coverage_records, key=lambda x: x.operation)
+        assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
+        assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
+
+        # pools aren't yet aware of each other
+        eq_(pool1.superceded, False)
+        eq_(pool2.superceded, False)
+        eq_(pool3.superceded, False)
 
         work.last_update_time = None
         work.presentation_ready = True
         index = DummyExternalSearchIndex()
+
         work.calculate_presentation(search_index_client=index)
 
-        # The title of the Work is the title of its primary work
-        # record.
+        # one and only one license pool should be un-superceded
+        eq_(pool1.superceded, True)
+        eq_(pool2.superceded, False)
+        eq_(pool3.superceded, True)
+
+        # sanity check
+        eq_(work.primary_edition, pool2.presentation_edition)
+        eq_(work.primary_edition, edition2)
+
+        # editions know who's primary
+        eq_(edition1.is_primary_for_work, False)
+        eq_(edition2.is_primary_for_work, True)
+        eq_(edition3.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary work record.
         eq_("The 2nd Title", work.title)
         eq_("The 2nd Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary work
-        # record.
+        # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
@@ -1228,6 +1364,41 @@ class TestWork(DatabaseTest):
             WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
         ])
         eq_(expect, set([x.operation for x in records]))
+        
+        # Now mark the pool with the presentation edition as suppressed.
+        # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
+        # which will mark the suppressed pool as superceded and take its edition out of the running.
+        # Make sure that work's presentation edition and work's author, etc. 
+        # fields are updated accordingly, and that the superceded pool's edition 
+        # knows it's no longer the champ.
+        #for pool in work.license_pools:
+        #    if pool.presentation_edition is work.primary_edition:
+        pool2.suppressed = True
+        
+        work.calculate_presentation(search_index_client=index)
+
+        # The title of the Work is the title of its primary work record.
+        eq_("The 1st Title", work.title)
+        eq_("The 1st Subtitle", work.subtitle)
+
+        # author of composite edition is still Alice and Bob combined
+        eq_("Bob Bitshifter", work.author)
+        eq_("Bitshifter, Bob", work.sort_author)
+
+        # sanity check
+        eq_(work.primary_edition, pool1.presentation_edition)
+        eq_(work.primary_edition, edition1)
+
+        # editions know who's primary
+        eq_(edition1.is_primary_for_work, True)
+        eq_(edition2.is_primary_for_work, False)
+        eq_(edition3.is_primary_for_work, False)
+
+        # The last update time has been set.
+        # Updating availability also modified work.last_update_time.
+        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        
+
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
@@ -1294,6 +1465,199 @@ class TestWork(DatabaseTest):
         results = work.classifications_with_genre().all()
         
         eq_([classification2, classification1], results)
+
+
+    def test_mark_licensepools_as_superceded(self):
+        # A commercial LP that somehow got superceded will be
+        # un-superceded.
+        commercial = self._licensepool(
+            None, data_source_name=DataSource.OVERDRIVE
+        )
+        work, is_new = commercial.calculate_work()
+        commercial.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(False, commercial.superceded)
+
+        # An open-access LP that was superceded will be un-superceded if
+        # chosen.
+        gutenberg = self._licensepool(
+            None, data_source_name=DataSource.GUTENBERG,
+            open_access=True, with_open_access_download=True
+        )
+        work, is_new = gutenberg.calculate_work()
+        gutenberg.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(False, gutenberg.superceded)
+
+        # Of two open-access LPs, the one from the higher-quality data
+        # source will be un-superceded, and the one from the
+        # lower-quality data source will be superceded.
+        standard_ebooks = self._licensepool(
+            None, data_source_name=DataSource.STANDARD_EBOOKS,
+            open_access=True, with_open_access_download=True
+        )
+        work.license_pools.append(standard_ebooks)
+        gutenberg.superceded = False
+        standard_ebooks.superceded = True
+        work.mark_licensepools_as_superceded()
+        eq_(True, gutenberg.superceded)
+        eq_(False, standard_ebooks.superceded)
+
+        # Of three open-access pools, 1 and only 1 will be chosen as non-superceded.
+        gitenberg1 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
+        )
+
+        gitenberg2 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
+        )
+
+        gutenberg1 = self._licensepool(edition=None, open_access=True, 
+            data_source_name=DataSource.GUTENBERG, with_open_access_download=True
+        )
+
+        work_multipool = self._work(primary_edition=None)
+        work_multipool.license_pools.append(gutenberg1)
+        work_multipool.license_pools.append(gitenberg2)
+        work_multipool.license_pools.append(gitenberg1)
+
+        # pools aren't yet aware of each other
+        eq_(gutenberg1.superceded, False)
+        eq_(gitenberg1.superceded, False)
+        eq_(gitenberg2.superceded, False)
+
+        # make pools figure out who's best
+        work_multipool.mark_licensepools_as_superceded()
+
+        eq_(gutenberg1.superceded, True)
+        # There's no way to choose between the two gitenberg pools, 
+        # so making sure only one has been chosen is enough. 
+        chosen_count = 0
+        for chosen_pool in gutenberg1, gitenberg1, gitenberg2:
+            if chosen_pool.superceded is False:
+                chosen_count += 1;
+        eq_(chosen_count, 1)
+
+        # throw wrench in
+        gitenberg1.suppressed = True
+
+        # recalculate bests
+        work_multipool.mark_licensepools_as_superceded()
+        eq_(gutenberg1.superceded, True)
+        eq_(gitenberg1.superceded, True)
+        eq_(gitenberg2.superceded, False)
+
+
+    def test_work_remains_viable_on_pools_suppressed(self):
+        """ If a work has all of its pools suppressed, the work's author, title, 
+        and subtitle still have the last best-known info in them.
+        """
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress all of the license pools
+        pool_std_ebooks.suppressed = True
+        pool_git.suppressed = True
+        pool_gut.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # standard ebooks was last viable pool, and it stayed as work's choice
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+
+
+
+    def test_work_updates_info_on_pool_suppressed(self):
+        """ If the provider of the work's primary edition gets suppressed, 
+        the work will choose another child license pool's presentation edition as 
+        its primary edition.
+        """
+        (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
+
+        # make sure the setup is what we expect
+        eq_(pool_std_ebooks.suppressed, False)
+        eq_(pool_git.suppressed, False)
+        eq_(pool_gut.suppressed, False)
+
+        # sanity check - we like standard ebooks and it got determined to be the best
+        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.primary_edition, edition_std_ebooks)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, True)
+        eq_(edition_git.is_primary_for_work, False)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is the title of its primary edition.
+        eq_("The Standard Ebooks Title", work.title)
+        eq_("The Standard Ebooks Subtitle", work.subtitle)
+
+        # The author of the Work is the author of its primary edition.
+        eq_("Alice Adder", work.author)
+        eq_("Adder, Alice", work.sort_author)
+
+        # now suppress the primary license pool
+        pool_std_ebooks.suppressed = True
+
+        # and let work know
+        work.calculate_presentation()
+
+        # gitenberg is next best and it got determined to be the best
+        eq_(work.primary_edition, pool_git.presentation_edition)
+        eq_(work.primary_edition, edition_git)
+
+        # editions know who's primary
+        eq_(edition_std_ebooks.is_primary_for_work, False)
+        eq_(edition_git.is_primary_for_work, True)
+        eq_(edition_gut.is_primary_for_work, False)
+
+        # The title of the Work is still the title of its last viable primary edition.
+        eq_("The GItenberg Title", work.title)
+        eq_("The GItenberg Subtitle", work.subtitle)
+
+        # The author of the Work is still the author of its last viable primary edition.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
+        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -1455,6 +1819,8 @@ class TestWorkSimilarity(DatabaseTest):
         wr = self._edition()
         eq_(1, wr.similarity_to(wr))
 
+
+
 class TestWorkConsolidation(DatabaseTest):
 
     # Versions of Work and Edition instrumented to bypass the
@@ -1503,29 +1869,25 @@ class TestWorkConsolidation(DatabaseTest):
         # Note that this works even though the Edition somehow got a
         # Work without having a title or author.
 
-    def test_calculate_work_for_licensepool_creates_new_work(self):
 
-        # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
-        edition1.title = self._str
-        edition1.author = self._str
+    def test_calculate_work_for_licensepool_creates_new_work(self):
+        edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+            title=self._str, authors=[self._str], with_license_pool=True)
+
+        # This edition is unique to the existing work.
         preexisting_work = Work()
         preexisting_work.editions = [edition1]
 
-        # This work record is unique to the new LicensePool
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-        edition2.title = self._str
-        edition2.author = self._str
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+        # This edition is unique to the new LicensePool
+        edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+            title=self._str, authors=[self._str], with_license_pool=True)
 
         # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
         eq_(True, created)
         assert work != preexisting_work
-        eq_(edition2, pool.edition)
+
+
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
         edition, ignore = Edition.for_foreign_id(
@@ -1545,7 +1907,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, created)
 
         # Even before the forthcoming commit, the edition is clearly
-        # the primary for the work.
+        # associated with the work.
         eq_(work, edition.work)
         eq_(True, edition.is_primary_for_work)
         eq_(edition, work.primary_edition)
@@ -1612,33 +1974,35 @@ class TestWorkConsolidation(DatabaseTest):
 
         pool.calculate_work()
 
+
     def test_merge_into(self):
+        '''
+        Tests that two works can have their contents merged into a single work, and that the decision 
+        to perform the merge is conditional on the works' mutual similarity score.
+        '''
 
         # Here's a work with a license pool and two work records.
-        edition_1a, pool_1a = self._edition(
-            DataSource.OCLC, Identifier.OCLC_WORK, True)
-        edition_1b, ignore = Edition.for_foreign_id(
-            self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
+        edition_1a, pool_1a = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
+        edition_1b, ignore = Edition.for_foreign_id(self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
 
         work1 = Work()
         work1.license_pools = [pool_1a]
         work1.editions = [edition_1a, edition_1b]
-        work1.set_primary_edition()
+        work1.calculate_presentation()
 
         # Here's a work with two license pools and one work record
-        edition_2a, pool_2a = self._edition(
-            DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        edition_2a.title = "The only title in this whole test."
-        pool_2b = self._licensepool(edition_2a, 
-                                    data_source_name=DataSource.OCLC)
+        edition_2a, pool_2a = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
+        edition_2b, pool_2b = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
+
+        edition_2a.title = u"The only title in this whole test."
 
         work2 = Work()
         work2.license_pools = [pool_2a, pool_2b]
         work2.editions = [edition_2a]
-        work2.set_primary_edition()
+        work2.calculate_presentation()
 
         self._db.commit()
-
+        
         # This attempt to merge the two work records will fail because
         # they don't meet the similarity threshold.
         work2.merge_into(work1, similarity_threshold=1)
@@ -1646,6 +2010,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This attempt will succeed because we lower the similarity
         # threshold.
+
         work2.merge_into(work1, similarity_threshold=0)
         eq_(work1, work2.was_merged_into)
 
@@ -1661,6 +2026,8 @@ class TestWorkConsolidation(DatabaseTest):
         # It has all three work records.
         for w in edition_1a, edition_1b, edition_2a:
             assert w in work1.editions
+        
+
 
     def test_open_access_pools_grouped_together(self):
 
@@ -1740,6 +2107,7 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
         patron = self._patron()
@@ -1753,14 +2121,15 @@ class TestLoans(DatabaseTest):
         loan.license_pool = None
         eq_(None, loan.work)
 
-        # If pool.work is None but pool.edition.work is valid, we 
-        # use that.
+        # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
-        eq_(pool.edition.work, loan.work)
+        # Presentation_edition is not representing a lendable object, 
+        # but it is on a license pool, and a pool has lending capacity.  
+        eq_(pool.presentation_edition.work, loan.work)
 
         # If that's also None, we're helpless.
-        pool.edition.work = None
+        pool.presentation_edition.work = None
         eq_(None, loan.work)
 
 
