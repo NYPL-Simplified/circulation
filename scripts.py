@@ -254,9 +254,14 @@ class RunCoverageProviderScript(IdentifierInputScript):
         args = self.parse_command_line(self._db)
         if callable(provider):
             cutoff_time = self.parse_time(args.cutoff_time)
-            self.identifier_type = args.identifier_type or None
+            if args.identifier_type:
+                self.identifier_type = args.identifier_type
+                self.identifier_types = [self.identifier_type]
+            else:
+                self.identifier_type = None
+                self.identifier_types = []
             provider = provider(
-                self._db, input_identifier_types=[self.identifier_type], 
+                self._db, input_identifier_types=self.identifier_types, 
                 cutoff_time=cutoff_time
             )
         self.provider = provider
