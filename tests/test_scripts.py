@@ -25,7 +25,7 @@ from scripts import (
 class TestScript(DatabaseTest):
 
     def test_parse_time(self): 
-        reference_date = datetime.datetime(2016, 01, 01)
+        reference_date = datetime.datetime(2016, 1, 1)
 
         eq_(Script.parse_time("2016-01-01"), reference_date)
 
