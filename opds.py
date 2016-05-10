@@ -497,8 +497,8 @@ class AcquisitionFeed(OPDSFeed):
             annotator=annotator,
             force_refresh=force_refresh
         )
-        # if usable:
-        #     return cached
+        if usable:
+            return cached
 
         feed_size = Configuration.featured_lane_size()
        
@@ -620,8 +620,8 @@ class AcquisitionFeed(OPDSFeed):
             annotator=annotator,
             force_refresh=force_refresh
         )
-        # if usable:
-        #     return cached
+        if usable:
+            return cached
 
         if use_materialized_works:
             works_q = lane.materialized_works(facets, pagination)
