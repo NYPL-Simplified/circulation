@@ -63,6 +63,15 @@ class Script(object):
         return Configuration.data_directory()
 
     @classmethod
+    def parse_command_line(cls):
+        parser = cls.arg_parser()
+        return parser.parse_args()
+
+    @classmethod
+    def arg_parser(cls):
+        raise NotImplementedError()
+
+    @classmethod
     def parse_identifier_list(
             cls, _db, identifier_type, arguments, autocreate=False
     ):
@@ -212,11 +221,6 @@ class SubjectInputScript(Script):
         )
         return parser
 
-    @classmethod
-    def parse_command_line(cls):
-        parser = cls.arg_parser()
-        return parser.parse_args()
-
 
 class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
@@ -231,8 +235,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parser
 
     def __init__(self, provider):
-        parser = self.arg_parser()
-        args = parser.parse_args()
+        args = self.parse_command_line()
         if callable(provider):
             cutoff_time = self.parse_time(args.cutoff_time)
             self.identifier_type = args.identifier_type or None
@@ -271,7 +274,7 @@ class BibliographicRefreshScript(IdentifierInputScript):
     def do_run(self):
         args = self.parse_command_line()
         identifiers = self.parse_identifier_list(
-            self._db, args.identifiers
+            self._db, args.identifier_type, args.identifiers
         )
         if not identifiers:
             raise Exception(
@@ -304,7 +307,7 @@ class WorkProcessingScript(IdentifierInputScript):
     name = "Work processing script"
 
     def __init__(self, force=False, batch_size=10):
-        args = self.arg_parser().parse_args()
+        args = self.parse_command_line()
         identifiers = self.parse_identifier_list(
             self._db, args.identifier_type, args.identifiers
         )
@@ -562,7 +565,7 @@ class RefreshMaterializedViewsScript(Script):
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        args = self.arg_parser().parse_args()
+        args = self.parse_command_line()
         identifiers = self.parse_identifier_list(
             self._db, args.identifier_type, args.identifiers
         )
