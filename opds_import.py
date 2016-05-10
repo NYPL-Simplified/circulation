@@ -729,7 +729,7 @@ class OPDSImportMonitor(Monitor):
         response = requests.get(link)
 
         if response.status_code / 100 not in [2, 3]:
-            self.log.error("Fetching next link failed with status %i" % response.status_code)
+            self.log.error("Fetching next link %s failed with status %i" % (link, response.status_code))
             return []
 
         imported, messages, next_links = self.importer.import_from_feed(
