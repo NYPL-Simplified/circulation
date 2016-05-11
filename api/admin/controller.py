@@ -425,49 +425,121 @@ class WorkController(CirculationManagerController):
             return pool
         work = pool.work
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        new_genres = flask.request.form.getlist("genres")
 
-        current_staff_classifications = work.classifications_with_genre() \
-            .filter(Classification.data_source_id == staff_data_source.id) \
-            .all()
-        current_staff_genres = [
+        # Previous staff classifications
+        identifier = work.primary_edition.primary_identifier
+        old_classifications = self._db \
+            .query(Classification) \
+            .join(Subhect) \
+            .filter(
+                Classification.identifier == identifier,
+                Classification.data_source == staff_data_source
+            )
+        old_genre_classifications = old_classifications \
+            .filter(Subject.genre_id != None)
+        old_genres = [
             c.subject.genre.name 
-            for c in current_staff_classifications 
+            for c in old_genre_classifications 
             if c.subject.genre
         ]
+        
+        # Update fiction status
+        new_fiction = True if flask.request.form.get("fiction") == "fiction" else False
+        if new_fiction != work.fiction:
+            # Delete previous staff fiction classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
+                    self._db.delete(c)
 
+            # Create a new classification with a high weight (higher than genre)
+            fiction_term = "Fiction" if new_fiction else "Nonfiction"
+            classification = work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
+                subject_identifier=fiction_term,
+                weight=WorkController.STAFF_WEIGHT * 100,
+            )
+            classification.subject.fiction = new_fiction
+
+        # Update genres
+        new_genres = flask.request.form.getlist("genres")
         # make sure all new genres are legit
         for name in new_genres:
             genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
-            if work.fiction != genres[name].is_fiction:
+            if genres[name].is_fiction != new_fiction:
                 return INCOMPATIBLE_GENRE
 
-        # delete existing staff classifications for genres that aren't being kept
-        for c in current_staff_classifications:
-            if c.subject.genre.name not in new_genres:
-                self._db.delete(c)
+        if sorted(new_genres) != sorted(old_genres):
+            # delete existing staff classifications for genres that aren't being kept
+            for c in old_genre_classifications:
+                if c.subject.genre.name not in new_genres:
+                    self._db.delete(c)
 
-        # add new staff classifications for new genres
-        for genre in new_genres:
-            if genre not in current_staff_genres:
-                classification = work.primary_edition.primary_identifier.classify(
+            # add new staff classifications for new genres
+            for genre in new_genres:
+                if genre not in old_genres:
+                    classification = work.primary_edition.primary_identifier.classify(
+                        data_source=staff_data_source,
+                        subject_type=Subject.SIMPLIFIED_GENRE,
+                        subject_identifier=genre,
+                        weight=WorkController.STAFF_WEIGHT
+                    )
+
+            # add NONE genre classification if we aren't keeping any genres
+            if len(new_genres) == 0:
+                work.primary_edition.primary_identifier.classify(
                     data_source=staff_data_source,
                     subject_type=Subject.SIMPLIFIED_GENRE,
-                    subject_identifier=genre,
+                    subject_identifier=SimplifiedGenreClassifier.NONE,
                     weight=WorkController.STAFF_WEIGHT
                 )
 
-        # add NONE classification if we aren't keeping any genres
-        if len(new_genres) == 0:
+        # Update audience
+        new_audience = flask.request.form.get("audience")
+        if new_audience != work.audience:
+            # Delete all previous staff audience classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.FREEFORM_AUDIENCE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight
             work.primary_edition.primary_identifier.classify(
                 data_source=staff_data_source,
-                subject_type=Subject.SIMPLIFIED_GENRE,
-                subject_identifier=SimplifiedGenreClassifier.NONE,
-                weight=WorkController.STAFF_WEIGHT
+                subject_type=Subject.FREEFORM_AUDIENCE,
+                subject_identifier=new_audience,
+                weight=WorkController.STAFF_WEIGHT,
             )
 
+        # Update target age
+        new_target_age_min = flask.request.form.get("target_age_min")
+        new_target_age_max = flask.request.form.get("target_age_max")
+        if new_target_age_max < new_target_age_min:
+            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
+
+        if work.target_age:
+            old_target_age_min = work.target_age.lower
+            old_target_age_max = work.target_age.upper
+        else:
+            old_target_age_min = None
+            old_target_age_max = None
+        if new_target_age_min != old_target_age_min or new_target_age_max != old_target_age_max:
+            # Delete all previous staff target age classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.AGE_RANGE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight - higher than audience
+            age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
+            work.primary_edition.primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.AGE_RANGE,
+                subject_identifier=age_range_identifier,
+                weight=WorkController.STAFF_WEIGHT * 100,
+            )
+
+        # Update presentation
         policy = PresentationCalculationPolicy(
             classify=True,
             regenerate_opds_entries=True,
