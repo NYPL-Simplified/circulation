@@ -617,7 +617,6 @@ class InstrumentedCoverageProvider(CoverageProvider):
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
-
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
@@ -631,6 +630,11 @@ class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(self, item, "Oops!", True)
+
+class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
+    """A coverage provider that ignores all work given to it."""
+    def process_batch(self, batch):
+        return []
 
 class DummyCanonicalizeLookupResponse(object):
 

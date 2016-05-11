@@ -9,6 +9,7 @@ from . import (
 from testing import (
     AlwaysSuccessfulCoverageProvider,
     DummyHTTPClient,
+    TaskIgnoringCoverageProvider,
     NeverSuccessfulCoverageProvider,
     TransientFailureCoverageProvider,
 )
@@ -361,6 +362,19 @@ class TestCoverageProvider(DatabaseTest):
 
         # Because the failures were transient, no new coverage records
         # were added.
+        eq_(['success', 'success'], operations())
+
+        task_ignoring_provider = TaskIgnoringCoverageProvider(
+            "Ignores all tasks", self.input_identifier_types,
+            self.output_source, operation="ignore"
+        )
+        results = task_ignoring_provider.process_batch_and_handle_results(batch)
+
+        # When a provider ignores a task given to it, it's treated as
+        # a transient error.
+        eq_((0, 2, 0), results)
+
+        # Again, no new coverage records
         eq_(['success', 'success'], operations())
 
         persistent_failure_provider = NeverSuccessfulCoverageProvider(
