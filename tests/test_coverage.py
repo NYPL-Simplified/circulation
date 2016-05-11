@@ -62,19 +62,40 @@ class TestCoverageProvider(DatabaseTest):
         eq_(self.edition.primary_identifier, record.identifier)
         eq_(self.output_source, self.output_source)
         eq_(None, record.exception)
-        eq_(record, result)
+        eq_((1, 0, 0), result)
 
         # The coverage provider's timestamp was not updated, because
         # we're using ensure_coverage.
         eq_([], self._db.query(Timestamp).all())
+
+    def test_ensure_coverage_respects_operation(self):
+        # Two providers with the same output source but different operations.
+        provider1 = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, operation="foo"
+        )
+        provider2 = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, operation="bar"
+        )
+
+        # Ensure coverage of both providers.
+        result1 = provider1.ensure_coverage(self.edition)
+        result2 = provider2.ensure_coverage(self.edition)
+
+        # There are now two CoverageRecords, one for each operation.
+        eq_(["foo", "bar"],
+            [x.operation for x in self._db.query(CoverageRecord)])
 
     def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful", self.input_identifier_types, self.output_source
         )
-        record = provider.ensure_coverage(self.edition)
+        result = provider.ensure_coverage(self.edition)
+        eq_((0, 0, 1), result)
 
+        [record] = _db.query(CoverageRecord).all()
         assert isinstance(record, CoverageRecord)
         eq_(self.edition.primary_identifier, record.identifier)
         eq_("What did you expect?", record.exception)
@@ -115,7 +136,7 @@ class TestCoverageProvider(DatabaseTest):
             "Transient failure", self.input_identifier_types, self.output_source
         )
         result = provider.ensure_coverage(self.edition)
-        eq_(True, isinstance(result, CoverageFailure))
+        eq_((0, 1, 0), result)
 
         # Because the error is transient we have no coverage record.
         eq_([], self._db.query(CoverageRecord).all())
