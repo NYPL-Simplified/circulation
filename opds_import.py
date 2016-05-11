@@ -727,6 +727,11 @@ class OPDSImportMonitor(Monitor):
     def follow_one_link(self, link, start):
         self.log.info("Following next link: %s, cutoff=%s", link, start)
         response = requests.get(link)
+
+        if response.status_code / 100 not in [2, 3]:
+            self.log.error("Fetching next link %s failed with status %i" % (link, response.status_code))
+            return []
+
         imported, messages, next_links = self.importer.import_from_feed(
             response.content, even_if_no_author=True, cutoff_date=start,
             immediately_presentation_ready = self.immediately_presentation_ready
