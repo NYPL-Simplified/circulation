@@ -217,11 +217,8 @@ class CoverageProvider(object):
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
-        :return: The same (counts, records) 2-tuple as
-            process_batch_and_handle_results. `records` will either be
-            empty (indicating that coverage was already present) or it
-            will contain a single item (either a CoverageRecord or a
-            CoverageFailure).
+        :return: If coverage was already present, None. Otherwise,
+            either a CoverageRecord or a CoverageFailure.
         """
         if isinstance(item, Identifier):
             identifier = item
@@ -235,8 +232,15 @@ class CoverageProvider(object):
             on_multiple='interchangeable',
         )
         if force or coverage_record is None:
-            return self.process_batch_and_handle_results([identifier])
-        return ((0, 0, 0), [])
+            counts, records = self.process_batch_and_handle_results(
+                [identifier]
+            )
+            if records:
+                record = records[0]
+            else:
+                record = None
+            return record
+        return None
 
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""

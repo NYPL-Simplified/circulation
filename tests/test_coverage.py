@@ -55,8 +55,7 @@ class TestCoverageProvider(DatabaseTest):
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_identifier_types, self.output_source
         )
-        counts, [record] = provider.ensure_coverage(self.edition)
-        eq_((1, 0, 0), counts)
+        record = provider.ensure_coverage(self.edition)
         assert isinstance(record, CoverageRecord)
         eq_(self.edition.primary_identifier, record.identifier)
         eq_(self.output_source, record.data_source)
@@ -83,29 +82,25 @@ class TestCoverageProvider(DatabaseTest):
         )
 
         # Ensure coverage of both providers.
-        counts, [coverage1] = provider1.ensure_coverage(self.edition)
-        eq_((1,0,0), counts)
+        coverage1 = provider1.ensure_coverage(self.edition)
         eq_("foo", coverage1.operation)
 
-        counts, [coverage2]  = provider2.ensure_coverage(self.edition)
-        eq_((1,0,0), counts)
+        coverage2  = provider2.ensure_coverage(self.edition)
         eq_("bar", coverage2.operation)
 
         # There are now two CoverageRecords, one for each operation.
         eq_(set([coverage1, coverage2]), set(self._db.query(CoverageRecord)))
 
         # If we try to ensure coverage again, nothing happens.
-        counts, records = provider1.ensure_coverage(self.edition)
-        eq_((0,0,0), counts)
-        eq_([], records)
+        coverage = provider1.ensure_coverage(self.edition)
+        eq_(None, coverage)
 
     def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful", self.input_identifier_types, self.output_source
         )
-        counts, [failure] = provider.ensure_coverage(self.edition)
-        eq_((0, 0, 1), counts)
+        failure = provider.ensure_coverage(self.edition)
 
         # A CoverageRecord has been created to memorialize the
         # persistent failure.
@@ -151,8 +146,7 @@ class TestCoverageProvider(DatabaseTest):
         provider = TransientFailureCoverageProvider(
             "Transient failure", self.input_identifier_types, self.output_source
         )
-        counts, [failure] = provider.ensure_coverage(self.edition)
-        eq_((0, 1, 0), counts)
+        failure = provider.ensure_coverage(self.edition)
         eq_(True, failure.transient)
         eq_("Oops!", failure.exception)
 
