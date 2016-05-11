@@ -192,7 +192,7 @@ class CoverageProvider(object):
         """Do what it takes to give CoverageRecords to a batch of
         items.
 
-        :return: A mixed list of Identifiers, Editions, and CoverageFailures.
+        :return: A mixed list of CoverageRecords and CoverageFailures.
         """
         results = []
         for item in batch:
@@ -204,7 +204,11 @@ class CoverageProvider(object):
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
-        :return: A CoverageRecord if one was created, a CoverageFailure if not.
+        :return: The same (counts, records) 2-tuple as
+            process_batch_and_handle_results. `records` will either be
+            empty (indicating that coverage was already present) or it
+            will contain a single item (either a CoverageRecord or a
+            CoverageFailure).
         """
         if isinstance(item, Identifier):
             identifier = item
