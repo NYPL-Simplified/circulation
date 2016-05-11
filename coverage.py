@@ -122,36 +122,50 @@ class CoverageProvider(object):
         if not batch.count():
             # The batch is empty. We're done.
             return None
-        (successes, transient_failures, 
-         permanent_failures) = self.process_batch_and_handle_results(batch)
+        (successes, transient_failures, permanent_failures), results = (
+            self.process_batch_and_handle_results(batch)
+        )
 
         # Ignore transient failures.
         return offset + transient_failures
 
     def process_batch_and_handle_results(self, batch):
+        """:return: A 2-tuple (counts, records). 
+
+        `counts` is a 3-tuple (successes, transient failures,
+        persistent_failures).
+
+        `records` is a mixed list of CoverageRecord objects (for
+        successes and persistent failures) and CoverageFailure objects
+        (for transient failures).
+        """
+
         offset_increment = 0
         results = self.process_batch(batch)
         successes = 0
         transient_failures = 0
         permanent_failures = 0
+        records = []
         for item in results:
             if isinstance(item, CoverageFailure):
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
                     transient_failures += 1
+                    record = item
                 else:
                     # Create a CoverageRecord memorializing this
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
                     permanent_failures += 1
-                    item.to_coverage_record(operation=self.operation)
+                    record = item.to_coverage_record(operation=self.operation)
             else:
                 # Count this as a success and add a CoverageRecord for
                 # it. It won't show up anymore, on this run or
                 # subsequent runs.
                 successes += 1
-                self.add_coverage_record_for(item)
+                record, ignore = self.add_coverage_record_for(item)
+            records.append(record)
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Ignore them on this run and try them again later.
@@ -172,7 +186,7 @@ class CoverageProvider(object):
         # For all purposes outside this method, treat an ignored identifier
         # as a transient failure.
         transient_failures += num_ignored
-        return successes, transient_failures, permanent_failures
+        return (successes, transient_failures, permanent_failures), records
 
     def process_batch(self, batch):
         """Do what it takes to give CoverageRecords to a batch of
@@ -205,7 +219,7 @@ class CoverageProvider(object):
         )
         if force or coverage_record is None:
             return self.process_batch_and_handle_results([identifier])
-        return (0, 0, 0)
+        return ((0, 0, 0), [])
 
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""
