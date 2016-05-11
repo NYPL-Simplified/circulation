@@ -166,11 +166,18 @@ class TestCoverageProvider(DatabaseTest):
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_identifier_types, self.output_source
         )
-        provider.workset_size = 6
-        
+        provider.workset_size = 3
         to_be_tested = [self._identifier() for i in range(6)]
         not_to_be_tested = [self._identifier() for i in range(6)]
-        provider.run_on_identifiers(to_be_tested)
+        counts, records = provider.run_on_identifiers(to_be_tested)
+
+        # Six identifiers were covered in two batches.
+        eq_((6,0,0), counts)
+        eq_(6, len(records))
+
+        # Only the identifiers in to_be_tested were covered.
+        assert all(isinstance(x, CoverageRecord) for x in records)
+        eq_(set(to_be_tested), set([x.identifier for x in records]))
         for i in to_be_tested:
             assert i in provider.attempts
         for i in not_to_be_tested:

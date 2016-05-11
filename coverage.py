@@ -106,14 +106,27 @@ class CoverageProvider(object):
         return offset
 
     def run_on_identifiers(self, identifiers):
-        # Split a specific set of identifiers into batches and
-        # process one batch at a time.
+        """Split a specific set of identifiers into batches and
+        process one batch at a time.
+
+        :return: The same (counts, records) 2-tuple as
+            process_batch_and_handle_results.
+        """
         index = 0
+        successes = 0
+        transient_failures = 0
+        persistent_failures = 0
+        records = []
         while index < len(identifiers):
             batch = identifiers[index:index+self.workset_size]
-            ignore = self.process_batch_and_handle_results(batch)
+            (s, t, p), r = self.process_batch_and_handle_results(batch)
+            successes += s
+            transient_failures += t
+            persistent_failures += p
+            records += r
             self._db.commit()
             index += self.workset_size
+        return (successes, transient_failures, persistent_failures), records
 
     def run_once(self, offset):
         batch = self.items_that_need_coverage.limit(
