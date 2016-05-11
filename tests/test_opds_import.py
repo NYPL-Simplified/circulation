@@ -308,23 +308,50 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(imported2, imported)
 
 
+    # TODO
+    def test_import_with_wrangler_data_source(self):
+        # will create editions, but not license pools or works, because the 
+        # metadata wrangler data source is not lendable
+
+        importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
+        imported_editions_mw, imported_pools_mw, imported_works_mw, messages_meta_mw, messages_circ_mw, next_links_mw = (
+            importer_mw.import_from_feed(feed, cutoff_date=cutoff)
+        )
+        # Despite the cutoff, both books were imported, because they were new.
+        eq_(2, len(imported_editions_mw))
+
+        # but pools and works weren't, because we passed the wrong data source
+        eq_(0, len(imported_pools_mw))
+        eq_(0, len(imported_works_mw))
+
+        # try again, with a license pool-acceptable data source
+        importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
+        imported_editions_g, imported_pools_g, imported_works_g, messages_meta_g, messages_circ_g, next_links_g = (
+            importer_g.import_from_feed(feed, cutoff_date=cutoff)
+        )
+        # now pools and works are in
+        eq_(2, len(imported_pools_g))
+        eq_(2, len(imported_works_g))        
+        # but not editions, because they were already there
+        eq_(2, len(imported_editions_g))
+
+
     def test_import_with_cutoff(self):
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        importer = OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE)
-        imported_editions, imported_pools, imported_works, messages, next_links = (
+        importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
+        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
-        # Despite the cutoff, both books were imported, because they
-        # were new.
+        # Despite the cutoff, both books were imported, because they were new.
         eq_(2, len(imported_editions))
         eq_(2, len(imported_pools))
-        eq_(2, len(imported_works))
+        eq_(2, len(imported_works))        
 
         # But if we try it again...
-        imported_editions, imported_pools, imported_works, messages, next_links = (
+        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -337,15 +364,18 @@ class TestOPDSImporter(OPDSImporterTest):
         # And if we change the cutoff...
         # TODO:  we've messed with the cutoff date in import_editions_from_metadata, 
         # and need to fix it before re-activating the assert.
-        #cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        #imported_editions, imported_pools, imported_works, messages, next_links = (
-        #    importer.import_from_feed(feed, cutoff_date=cutoff)
-        #)
+        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
+        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
+            importer.import_from_feed(feed, cutoff_date=cutoff)
+        )
 
         # Both books were imported again.
-        #eq_(2, len(imported_editions))
-        #eq_(2, len(imported_pools))
-        #eq_(2, len(imported_works))
+        eq_(2, len(imported_editions))
+        eq_(2, len(imported_pools))
+        eq_(2, len(imported_works))
+
+        # TODO: last_checked isn't getting set.  correct behavior or should fix?
+        #assert (datetime.datetime.utcnow() - imported_pools[0].last_checked) < datetime.timedelta(seconds=10)
 
 
     def test_import_updates_metadata(self):

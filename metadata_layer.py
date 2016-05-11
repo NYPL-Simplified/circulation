@@ -389,12 +389,14 @@ class CirculationData(object):
             default_rights_uri=None,
             links=None,
     ):
-        # data_source is where the lending licenses are coming from.
+        # data_source is where the lending licenses (our ability to actually access the book) are coming from.
         self._data_source = data_source
+
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
         else:
             self.data_source_obj = None
+
         '''
         if isinstance(data_source, DataSource):
             self._data_source_obj = data_source
@@ -412,6 +414,7 @@ class CirculationData(object):
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
 
+        # TODO:  if got passed all links, undiscriminately, filter out to only those relevant 
         self.links = links or []
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -441,7 +444,7 @@ class CirculationData(object):
                     )
             )
 
-
+    '''
     def __repr__(self):
         description_string = '<CirculationData primary_identifier="%s" licenses_owned="%s" licenses_available="%s" licenses_reserved=%d' % (
             self.primary_identifier, self.licenses_owned, self.licenses_available, self.licenses_reserved
@@ -454,10 +457,9 @@ class CirculationData(object):
         )
 
         return description_string
-
+    '''
 
     def data_source(self, _db):
-        set_trace()
         if not self.data_source_obj:
             if self._data_source:
                 obj = DataSource.lookup(_db, self._data_source)
@@ -492,15 +494,15 @@ class CirculationData(object):
                 _db, RightsStatus, uri=self.default_rights_uri
             )
             license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.license_data_source_obj,
+                _db, self.data_source_obj,
                 self.primary_identifier.type, 
                 self.primary_identifier.identifier,
                 rights_status=rights_status,
             )
             if self.has_open_access_link:
                 license_pool.open_access = True
-            if self.rights_uri:
-                license_pool.set_rights_status(self.rights_uri)
+            if self.default_rights_uri:
+                license_pool.set_rights_status(self.default_rights_uri)
         return license_pool, is_new
 
     def update(self, license_pool, license_pool_is_new):
@@ -571,24 +573,24 @@ class CirculationData(object):
         """ TODO: default_rights_uri will be slightly different than old rights_uri, 
         so decide on logic and then fix method.
         """
-        if self.rights_uri == None and data_source:
+        if self.default_rights_uri == None and data_source:
             # We haven't been able to determine rights from the metadata, so use the default rights
             # for the data source if any.
             default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
             if default:
-                self.rights_uri = default
+                self.default_rights_uri = default
 
         for format in self.formats:
             if format.link:
                 link = format.link
-                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                if self.default_rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                     # We haven't determined rights from the metadata or the data source, but there's an
                     # open access download link, so we'll consider it generic open access.
-                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
+                    self.default_rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
 
-        if self.rights_uri == None:
+        if self.default_rights_uri == None:
             # We still haven't determined rights, so it's unknown.
-            self.rights_uri = RightsStatus.UNKNOWN
+            self.default_rights_uri = RightsStatus.UNKNOWN
 
 
     def apply(self, pool, replace=None):
@@ -754,7 +756,6 @@ class Metadata(object):
     def __init__(
             self, 
             data_source,
-            #license_data_source=None,
             title=None,
             subtitle=None,
             sort_title=None,
@@ -782,15 +783,6 @@ class Metadata(object):
         else:
             self.data_source_obj = None
 
-        # TODO: moving to circulation data
-        # license_data_source is where our ability to actually access the
-        # book comes from.
-        #self._license_data_source = license_data_source
-        #if isinstance(self._license_data_source, DataSource):
-        #    self.license_data_source_obj = self._license_data_source
-        #else:
-        #    self.license_data_source_obj = None
-
         self.title = title
         self.sort_title = sort_title
         self.subtitle = subtitle
@@ -813,6 +805,7 @@ class Metadata(object):
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects or []
         self.contributors = contributors or []
+        # TODO:  if got passed all links, undiscriminately, filter out to only those relevant 
         self.links = links or []
         self.measurements = measurements or []
         # TODO: formats has moved to circulation.formats
