@@ -144,6 +144,57 @@ class TestCoverageProvider(DatabaseTest):
         )
         eq_([], provider.items_that_need_coverage.all())
 
+    def test_items_that_need_coverage_respects_operation(self):
+
+        record1 = CoverageRecord.add_for(
+            self.identifier, self.output_source
+        )
+
+        # Here's a provider that carries out the 'foo' operation.
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, operation='foo'
+        )
+
+        # It is missing coverage for self.identifier, because the
+        # CoverageRecord we created at the start of this test has no
+        # operation.
+        eq_([self.identifier], provider.items_that_need_coverage.all())
+
+        # Here's a provider that has no operation set.
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source
+        )
+
+        # It is not missing coverage for self.identifier, because the
+        # CoverageRecord we created at the start of the test takes
+        # care of it.
+        eq_([], provider.items_that_need_coverage.all())
+
+    def test_should_update(self):
+        cutoff = datetime.datetime(2016, 1, 1)
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types, 
+            self.output_source, cutoff_time = cutoff
+        )
+
+        # If coverage is missing, we should update.
+        eq_(True, provider.should_update(None))
+
+        # If coverage is outdated, we should update.
+        record, ignore = CoverageRecord.add_for(
+            self.identifier, self.output_source
+        )
+        record.timestamp = datetime.datetime(2015, 1, 1)
+        eq_(True, provider.should_update(record))
+
+        # If coverage is up-to-date, we should not update.
+        record.timestamp = cutoff
+        eq_(False, provider.should_update(record))
+
+
+
     def test_ensure_coverage_transient_coverage_failure(self):
 
         provider = TransientFailureCoverageProvider(
@@ -179,6 +230,50 @@ class TestCoverageProvider(DatabaseTest):
             assert i in provider.attempts
         for i in not_to_be_tested:
             assert i not in provider.attempts
+
+    def test_run_on_identifiers_respects_cutoff_time(self):
+
+        last_run = datetime.datetime(2016, 1, 1)
+
+        # Once upon a time we successfully added coverage for
+        # self.identifier.
+        record, ignore = CoverageRecord.add_for(
+            self.identifier, self.output_source
+        )
+        record.timestamp = last_run
+
+        # But now something has gone wrong, and if we ever run the
+        # coverage provider again we will get a persistent failure.
+        provider = NeverSuccessfulCoverageProvider(
+            "Persistent failure", self.input_identifier_types,
+            self.output_source, cutoff_time=last_run
+        )
+
+        # You might think this would result in a persistent failure...
+        (success, transient_failure, persistent_failure), records = (
+            provider.run_on_identifiers([self.identifier])
+        )
+
+        # ...but we get an automatic success. We didn't even try to 
+        # run the coverage provider on self.identifier because the
+        # coverage record was up-to-date.
+        eq_(1, success)
+        eq_(0, persistent_failure)
+        eq_([], records)
+
+        # But if we move the cutoff time forward, the provider will run
+        # on self.identifier and fail.
+        provider.cutoff_time = datetime.datetime(2016, 2, 1)
+        (success, transient_failure, persistent_failure), records = (
+            provider.run_on_identifiers([self.identifier])
+        )
+        eq_(0, success)
+        eq_(1, persistent_failure)
+
+        # The formerly successful CoverageRecord will be updated to
+        # reflect the failure.
+        eq_(records[0], record)
+        eq_("What did you expect?", record.exception)
 
     def test_always_successful(self):
 
