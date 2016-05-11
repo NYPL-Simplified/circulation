@@ -95,8 +95,7 @@ class TestCoverageProvider(DatabaseTest):
         result = provider.ensure_coverage(self.edition)
         eq_((0, 0, 1), result)
 
-        [record] = _db.query(CoverageRecord).all()
-        assert isinstance(record, CoverageRecord)
+        [record] = self._db.query(CoverageRecord).all()
         eq_(self.edition.primary_identifier, record.identifier)
         eq_("What did you expect?", record.exception)
 
