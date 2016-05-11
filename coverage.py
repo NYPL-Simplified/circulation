@@ -111,7 +111,7 @@ class CoverageProvider(object):
         index = 0
         while index < len(identifiers):
             batch = identifiers[index:index+self.workset_size]
-            self.process_batch(batch)
+            ignore = self.process_batch_and_handle_results(batch)
             self._db.commit()
             index += self.workset_size
 
@@ -122,22 +122,29 @@ class CoverageProvider(object):
         if not batch.count():
             # The batch is empty. We're done.
             return None
+        (successes, transient_failures, 
+         permanent_failures) = self.process_batch_and_handle_results(batch)
 
+        # Ignore transient failures.
+        return offset + transient_failures
+
+    def process_batch_and_handle_results(self, batch):
+        offset_increment = 0
         results = self.process_batch(batch)
         successes = 0
-        failures = 0
-
+        transient_failures = 0
+        permanent_failures = 0
         for item in results:
             if isinstance(item, CoverageFailure):
-                failures += 1
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
-                    offset += 1
+                    transient_failures += 1
                 else:
                     # Create a CoverageRecord memorializing this
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
+                    permanent_failures += 1
                     item.to_coverage_record(operation=self.operation)
             else:
                 # Count this as a success and add a CoverageRecord for
@@ -148,17 +155,24 @@ class CoverageProvider(object):
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Ignore them on this run and try them again later.
-        num_ignored = max(0, batch.count() - len(results))
-        offset += num_ignored
+        if isinstance(batch, list):
+            batch_size = len(batch)
+        else:
+            batch_size = batch.count()
+        num_ignored = max(0, batch_size - len(results))
+
+        self.log.info(
+            "Batch processed with %d successes, %d transient failures, %d ignored, %d permanent failures.",
+            successes, transient_failures, permanent_failures, num_ignored
+        )
 
         # Finalize this batch before moving on to the next one.
         self.finalize_batch()
 
-        self.log.info(
-            "Batch processed with %d successes, %d failures, %d ignored.",
-            successes, failures, num_ignored
-        )
-        return offset
+        # For all purposes outside this method, treat an ignored identifier
+        # as a transient failure.
+        transient_failures += num_ignored
+        return successes, transient_failures, permanent_failures
 
     def process_batch(self, batch):
         """Do what it takes to give CoverageRecords to a batch of
@@ -186,22 +200,11 @@ class CoverageProvider(object):
             self._db, CoverageRecord,
             identifier=identifier,
             data_source=self.output_source,
+            operation=self.operation,
             on_multiple='interchangeable',
         )
         if force or coverage_record is None:
-            result = self.process_item(identifier)
-            if isinstance(result, CoverageFailure):
-                coverage_record = result.to_coverage_record(operation=self.operation)
-                if coverage_record:
-                    return coverage_record
-                # Returns a CoverageFailure if the CoverageRecord
-                # can't be created.
-                return result
-            else:
-                coverage_record, ignore = self.add_coverage_record_for(
-                    identifier
-                )
-                return coverage_record
+            return self.process_batch_and_handle_results([identifier])
 
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""
