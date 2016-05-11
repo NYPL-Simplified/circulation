@@ -443,6 +443,12 @@ class Metadata(object):
 
     log = logging.getLogger("Abstract metadata layer")
 
+    BASIC_EDITION_FIELDS = [
+        'title', 'sort_title', 'subtitle', 'language', 'medium',
+        'series', 'series_position', 'publisher', 'imprint',
+        'issued', 'published'
+    ]
+
     def __init__(
             self,
             data_source,
@@ -545,18 +551,14 @@ class Metadata(object):
         )
 
     @classmethod
-    def from_edition(self, edition):
+    def from_edition(cls, edition):
         """Create a basic Metadata object for the given Edition.
 
         This doesn't contain everything but it contains enough
         information to run guess_license_pools.
         """
         kwargs = dict()
-        for field in (
-                'title', 'sort_title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint', 
-                'issued', 'published'
-        ):
+        for field in cls.BASIC_EDITION_FIELDS:
             kwargs[field] = getattr(edition, field)
 
         contributors = []
@@ -613,11 +615,9 @@ class Metadata(object):
         
         TODO: We might want to take a policy object as an argument.
         """
-        for field in (
-                'title', 'sort_title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published', 'contributors'
-        ):
+
+        fields = self.BASIC_EDITION_FIELDS+['contributors']
+        for field in fields:
             new_value = getattr(metadata, field)
             if new_value:
                 setattr(self, field, new_value)
@@ -928,11 +928,8 @@ class Metadata(object):
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
 
-        for field in (
-                'title', 'subtitle', 'language', 'medium',
-                'series', 'series_position', 'publisher', 'imprint',
-                'issued', 'published', 'permanent_work_id'
-        ):
+        fields = self.BASIC_EDITION_FIELDS+['permanent_work_id']
+        for field in fields:
             old_edition_value = getattr(edition, field)
             new_metadata_value = getattr(self, field)
             if new_metadata_value and (new_metadata_value != old_edition_value):
