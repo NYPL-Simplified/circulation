@@ -155,9 +155,9 @@ class IdentifierResolutionMonitor(Monitor):
         for provider in self.required_coverage_providers:
             if not identifier.type in provider.input_identifier_types:
                 continue
-            counts, records = provider.ensure_coverage(identifier, force=True)
-            if records and records[0].exception:
-                raise ResolutionFailed(500, records[0].exception)
+            record = provider.ensure_coverage(identifier, force=True)
+            if record.exception:
+                raise ResolutionFailed(500, record.exception)
 
         # Now go through the optional providers. It's the same deal,
         # but a CoverageFailure doesn't cause the entire identifier
@@ -165,7 +165,7 @@ class IdentifierResolutionMonitor(Monitor):
         for provider in self.optional_coverage_providers:
             if not identifier.type in provider.input_identifier_types:
                 continue
-            counts, records = provider.ensure_coverage(identifier, force=True)
+            record = provider.ensure_coverage(identifier, force=True)
 
         # We're not out of the woods yet. If finalize() raises an
         # exception the process could still fail and need to be
@@ -507,12 +507,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         failures = []
         for provider in self.coverage_providers:
             if identifier.type in provider.input_identifier_types:
-                counts, records = provider.ensure_coverage(identifier)
-                if records:
-                    coverage_record = records[0]
-                    if (not isinstance(coverage_record, CoverageRecord) 
-                        or coverage_record.exception is not None):
-                        failures.append(provider)
+                coverage_record = provider.ensure_coverage(identifier)
+                if (not isinstance(coverage_record, CoverageRecord) 
+                    or coverage_record.exception is not None):
+                    failures.append(provider)
         return failures
 
     def finalize_batch(self):

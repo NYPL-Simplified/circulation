@@ -217,8 +217,10 @@ class CoverageProvider(object):
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
-        :return: If coverage was already present, None. Otherwise,
-            either a CoverageRecord or a CoverageFailure.
+        :param force: Run the coverage code even if a CoverageRecord already
+        exists for this item.
+
+        :return: Either a CoverageRecord or a CoverageFailure.
         """
         if isinstance(item, Identifier):
             identifier = item
@@ -240,7 +242,7 @@ class CoverageProvider(object):
             else:
                 record = None
             return record
-        return None
+        return coverage_record
 
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""
