@@ -326,6 +326,55 @@ class TestCoverageProvider(DatabaseTest):
         [record] = self._db.query(CoverageRecord).all()
         eq_(record.operation, CoverageRecord.REAP_OPERATION)
 
+    def test_process_batch_and_handle_results(self):
+
+        e1, p1 = self._edition(with_license_pool=True)
+        i1 = e1.primary_identifier
+
+        e2, p2 = self._edition(with_license_pool=True)
+        i2 = e2.primary_identifier
+
+        success_provider = AlwaysSuccessfulCoverageProvider(
+            "Success", self.input_identifier_types,
+            self.output_source, operation="success"
+        )
+
+        batch = [i1, i2]
+        results = success_provider.process_batch_and_handle_results(batch)
+
+        # Two successes.
+        eq_((2, 0, 0), results)
+
+        def operations():
+            coverage_records = self._db.query(CoverageRecord)
+            return sorted([x.operation for x in coverage_records 
+                           if x.data_source==self.output_source])
+        eq_(['success', 'success'], operations())
+
+        transient_failure_provider = TransientFailureCoverageProvider(
+            "Transient failure", self.input_identifier_types,
+            self.output_source, operation="transient failure"
+        )
+        results = transient_failure_provider.process_batch_and_handle_results(batch)
+        # Two transient failures.
+        eq_((0, 2, 0), results)
+
+        # Because the failures were transient, no new coverage records
+        # were added.
+        eq_(['success', 'success'], operations())
+
+        persistent_failure_provider = NeverSuccessfulCoverageProvider(
+            "Persistent failure", self.input_identifier_types,
+            self.output_source, operation="persistent failure"
+        )
+        results = persistent_failure_provider.process_batch_and_handle_results(batch)
+
+        # Two persistent failures.
+        eq_((0, 0, 2), results)
+        eq_(
+            ['persistent failure', 'persistent failure', 'success', 'success'],
+            operations()
+        )
 
 class TestBibliographicCoverageProvider(DatabaseTest):
 
