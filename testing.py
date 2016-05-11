@@ -44,6 +44,8 @@ from coverage import (
 from external_search import DummyExternalSearchIndex
 import mock
 import model
+import inspect
+
 
 def package_setup():
     """Make sure the database schema is initialized and initial
@@ -127,6 +129,15 @@ class DatabaseTest(object):
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
 
+        # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
+        # which pops an isbn off the list and messes tests up.  so exclude 
+        # _ functions from participating.
+        # also attempt to stop nosetest showing docstrings instead of function names.
+        #for name, obj in inspect.getmembers(self):
+        #    if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
+        #        obj.__doc__ = None
+
+
     def teardown(self):
         # Close the session.
         self._db.close()
@@ -136,6 +147,9 @@ class DatabaseTest(object):
         # other session.
         self.transaction.rollback()
         self.search_mock.stop()
+
+    def shortDescription(self):
+        return None # Stop nosetests displaying docstrings instead of class names when verbosity level >= 2.
 
     @property
     def _id(self):
@@ -202,11 +216,13 @@ class DatabaseTest(object):
             wr.add_contributor(unicode(authors[0]), Contributor.PRIMARY_AUTHOR_ROLE)
             wr.author = unicode(authors[0])
         for author in authors[1:]:
-            wr.add_contributor(unicode(authors[0]), Contributor.AUTHOR_ROLE)
+            wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(wr, data_source_name=data_source_name,
-                                     with_open_access_download=with_open_access_download)                
+                                     with_open_access_download=with_open_access_download)  
+
+            pool.set_presentation_edition(None)              
             return wr, pool
         return wr
 
@@ -257,11 +273,20 @@ class DatabaseTest(object):
                 genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
             work.genres = [genre]
         work.random = 0.5
+
         work.editions = [primary_edition]
         primary_edition.is_primary_for_work = True
-        work.primary_edition = primary_edition
+
+        work.calculate_primary_edition()
+
         if pool != None:
-            work.license_pools.append(pool)
+            # make sure the pool's presentation_edition is set, 
+            # bc loan tests assume that.
+            if not work.license_pools:
+                work.license_pools.append(pool)
+
+            pool.set_presentation_edition(None)
+
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
@@ -288,7 +313,8 @@ class DatabaseTest(object):
 
     def _licensepool(self, edition, open_access=True, 
                      data_source_name=DataSource.GUTENBERG,
-                     with_open_access_download=False):
+                     with_open_access_download=False, 
+                     set_edition_as_presentation=False):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
@@ -300,6 +326,9 @@ class DatabaseTest(object):
             identifier=edition.primary_identifier, data_source=source,
             availability_time=datetime.utcnow()
         )
+
+        if set_edition_as_presentation:
+            pool.presentation_edition = edition
 
         if with_open_access_download:
             pool.open_access = True
@@ -328,7 +357,9 @@ class DatabaseTest(object):
                 None
             )
             pool.licenses_owned = pool.licenses_available = 1
+
         return pool
+
 
     def _representation(self, url=None, media_type=None, content=None,
                         mirrored=False):
@@ -369,6 +400,7 @@ class DatabaseTest(object):
             data_source=data_source,
             foreign_identifier=foreign_identifier
         )
+
         editions = []
         for i in range(num_entries):
             if entries_exist_as_works:
@@ -392,6 +424,161 @@ class DatabaseTest(object):
             resolved
         )
         return complaint
+
+
+    def _sample_ecosystem(self):
+        """ Creates an ecosystem of some sample work, pool, edition, and author 
+        objects that all know each other. 
+        """
+        # make some authors
+        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        alice.family_name, alice.display_name = alice.default_names()
+
+        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_std_ebooks.title = u"The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
+        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_git.title = u"The GItenberg Title"
+        edition_git.subtitle = u"The GItenberg Subtitle"
+        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_gut.title = u"The GUtenberg Title"
+        edition_gut.subtitle = u"The GUtenberg Subtitle"
+        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        work = self._work(primary_edition=edition_git)
+
+        for ed in edition_gut, edition_std_ebooks:
+            work.editions.append(ed)
+        for p in pool_gut, pool_std_ebooks:
+            work.license_pools.append(p)
+
+        work.calculate_presentation()
+
+        return (work, pool_std_ebooks, pool_git, pool_gut, 
+            edition_std_ebooks, edition_git, edition_gut, alice, bob)
+
+
+    def print_database_instance(self):
+        """
+        Calls the class method that examines the current state of the database model 
+        (whether it's been committed or not).
+
+        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right 
+        away, without waiting for the whole test to run and the standard output section to display.
+        You can also use nosetest --nocapture.
+        I use:
+        def test_name(self):
+            [code...]
+            set_trace()
+            self.print_database_instance()  # TODO: remove before prod
+            [code...]
+        """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_instance() before pushing to production.")
+            return
+
+        DatabaseTest.print_database_class(self._db)
+        return
+
+
+    @classmethod
+    def print_database_class(cls, db_connection):
+        """
+        Prints to the console the entire contents of the database, as the unit test sees it. 
+        Exists because unit tests don't persist db information, they create a memory 
+        representation of the db state, and then roll the unit test-derived transactions back.
+        So we cannot see what's going on by going into postgres and running selects.
+        This is the in-test alternative to going into postgres.
+
+        Can be called from model and metadata classes as well as tests.
+
+        NOTE: The purpose of this method is for debugging.  
+        Be careful of leaving it in code and potentially outputting 
+        vast tracts of data into your output stream on production.
+
+        Call like this:
+        set_trace()
+        from testing import (
+            DatabaseTest, 
+        )
+        _db = Session.object_session(self)
+        DatabaseTest.print_database_class(_db)  # TODO: remove before prod
+        """
+        if not 'TESTING' in os.environ:
+            # we are on production, abort, abort!
+            logging.warn("Forgot to remove call to testing.py:DatabaseTest.print_database_class() before pushing to production.")
+            return
+
+        works = db_connection.query(Work).all()
+        identifiers = db_connection.query(Identifier).all()
+        license_pools = db_connection.query(LicensePool).all()
+        editions = db_connection.query(Edition).all()
+
+        if (not works):
+            print "NO Work found"
+        for wCount, work in enumerate(works):
+            # pipe character at end of line helps see whitespace issues
+            print "Work[%s]=%s|" % (wCount, work)
+
+            if (not work.editions):
+                print "    NO Work.Edition found"
+            for weCount, edition in enumerate(work.editions):
+                print "    Work.Edition[%s]=%s|" % (weCount, edition)
+
+            if (not work.license_pools):
+                print "    NO Work.LicensePool found"
+            for lpCount, license_pool in enumerate(work.license_pools):
+                print "    Work.LicensePool[%s]=%s|" % (lpCount, license_pool)
+
+            print "    Work.primary_edition=%s|" % work.primary_edition
+
+        if (not identifiers):
+            print "NO Identifier found"
+        for iCount, identifier in enumerate(identifiers):
+            print "Identifier[%s]=%s|" % (iCount, identifier)
+            print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
+
+        if (not license_pools):
+            print "NO LicensePool found"
+        for index, license_pool in enumerate(license_pools):
+            print "LicensePool[%s]=%s|" % (index, license_pool)
+            print "    LicensePool.work_id=%s|" % license_pool.work_id
+            print "    LicensePool.data_source_id=%s|" % license_pool.data_source_id
+            print "    LicensePool.identifier_id=%s|" % license_pool.identifier_id
+            print "    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id            
+            print "    LicensePool.superceded=%s|" % license_pool.superceded
+            print "    LicensePool.suppressed=%s|" % license_pool.suppressed
+
+        if (not editions):
+            print "NO Edition found"
+        for index, edition in enumerate(editions):
+            # pipe character at end of line helps see whitespace issues
+            print "Edition[%s]=%s|" % (index, edition)
+            print "    Edition.work_id=%s|" % edition.work_id
+            print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
+            print "    Edition.is_primary_for_work=%s|" % edition.is_primary_for_work
+            print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
+            print "    Edition.author=%s|" % edition.author
+            print "    Edition.title=%s|" % edition.title
+
+            if (not edition.author_contributors):
+                print "    NO Edition.author_contributor found"
+            for acCount, author_contributor in enumerate(edition.author_contributors):
+                print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
+
+        return
+
 
     def _collection(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
@@ -430,7 +617,6 @@ class InstrumentedCoverageProvider(CoverageProvider):
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
-
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
@@ -444,6 +630,11 @@ class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(self, item, "Oops!", True)
+
+class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
+    """A coverage provider that ignores all work given to it."""
+    def process_batch(self, batch):
+        return []
 
 class DummyCanonicalizeLookupResponse(object):
 

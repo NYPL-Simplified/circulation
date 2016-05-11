@@ -43,6 +43,7 @@ from opds import (
      AcquisitionFeed,
      Annotator,
      VerboseAnnotator,
+     simplified_ns,
 )
 
 from classifier import (
@@ -54,6 +55,7 @@ from classifier import (
     Mystery,
 )
 from external_search import DummyExternalSearchIndex
+import xml.etree.ElementTree as ET
 
 class TestAnnotator(Annotator):
 
@@ -732,6 +734,17 @@ class TestOPDS(DatabaseTest):
         eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
+        # The feed has breadcrumb links
+        ancestors = fantasy_lane.visible_ancestors()
+        root = ET.fromstring(cached_works.content)
+        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        links = breadcrumbs.getchildren()
+        eq_(len(ancestors) + 1, len(links))
+        eq_(TestAnnotator.top_level_title(), links[0].get("title"))
+        eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
+        for i, lane in enumerate(reversed(ancestors)):
+            eq_(lane.display_name, links[i+1].get("title"))
+            eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
 
     def test_groups_feed(self):
         """Test the ability to create a grouped feed of recommended works for
@@ -790,6 +803,18 @@ class TestOPDS(DatabaseTest):
             [start_link] = self.links(parsed['feed'], 'start')
             eq_("http://groups/", start_link['href'])
             eq_(annotator.top_level_title(), start_link['title'])
+
+            # The feed has breadcrumb links
+            ancestors = fantasy_lane.visible_ancestors()
+            root = ET.fromstring(cached_groups.content)
+            breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+            links = breadcrumbs.getchildren()
+            eq_(len(ancestors) + 1, len(links))
+            eq_(annotator.top_level_title(), links[0].get("title"))
+            eq_(annotator.default_lane_url(), links[0].get("href"))
+            for i, lane in enumerate(reversed(ancestors)):
+                eq_(lane.display_name, links[i+1].get("title"))
+                eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         """Test that a page feed is returned when the requested groups
@@ -878,6 +903,19 @@ class TestOPDS(DatabaseTest):
         eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
+        # The feed has breadcrumb links
+        ancestors = fantasy_lane.visible_ancestors()
+        root = ET.fromstring(feed)
+        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        links = breadcrumbs.getchildren()
+        eq_(len(ancestors) + 2, len(links))
+        eq_(TestAnnotator.top_level_title(), links[0].get("title"))
+        eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
+        for i, lane in enumerate(reversed(ancestors)):
+            eq_(lane.display_name, links[i+1].get("title"))
+            eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
+        eq_(fantasy_lane.display_name, links[-1].get("title"))
+        eq_(TestAnnotator.lane_url(fantasy_lane), links[-1].get("href"))
 
     def test_cache(self):
         work1 = self._work(title="The Original Title",

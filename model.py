@@ -122,6 +122,8 @@ from sqlalchemy.dialects.postgresql import (
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
 
+
+
 DEBUG = False
 
 def production_session():
@@ -442,8 +444,8 @@ class LoanAndHoldMixin(object):
             return None
         if license_pool.work:
             return license_pool.work
-        if license_pool.edition and license_pool.edition.work:
-            return license_pool.edition.work
+        if license_pool.presentation_edition and license_pool.presentation_edition.work:
+            return license_pool.presentation_edition.work
         return None        
 
 
@@ -608,6 +610,38 @@ class DataSource(Base):
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
+    PRESENTATION_EDITION = "Presentation edition generator"
+
+    # Some sources of open-access ebooks are better than others. This
+    # list shows which sources we prefer, in ascending order of
+    # priority. unglue.it is lowest priority because it tends to
+    # aggregate books from other sources. We prefer books from their
+    # original sources.
+    OPEN_ACCESS_SOURCE_PRIORITY = [
+        UNGLUE_IT,
+        GUTENBERG,
+        GUTENBERG_EPUB_GENERATOR,
+        PROJECT_GITENBERG,
+        PLYMPTON,
+        STANDARD_EBOOKS,
+    ]
+
+    # When we're generating the presentation edition for a
+    # LicensePool, editions are processed based on their data source,
+    # in the following order:
+    #
+    # [all other sources] < [source of the license pool] < [metadata
+    # wrangler] < [library staff] < [manual intervention]
+    #
+    # This list keeps track of the high-priority portion of that
+    # ordering.
+    # 
+    # "LIBRARY_STAFF" comes from the Admin Interface.
+    # "MANUAL" is not currently used, but will give the option of putting in 
+    # software engineer-created system overrides.
+    PRESENTATION_EDITION_PRIORITY = [
+        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL
+    ]
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -778,6 +812,7 @@ class DataSource(Base):
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
+                (cls.PRESENTATION_EDITION, False, False, None, None),
         ):
 
             extra = dict()
@@ -1528,7 +1563,9 @@ class Identifier(Base):
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
         if data_source:
-            resources = resources.filter(Hyperlink.data_source==data_source)
+            if isinstance(data_source, DataSource):
+                data_source = [data_source]
+            resources = resources.filter(Hyperlink.data_source_id.in_([d.id for d in data_source]))
         if rel:
             if isinstance(rel, list):
                 resources = resources.filter(Hyperlink.rel.in_(rel))
@@ -2204,13 +2241,19 @@ class Edition(Base):
 
     # A Edition may be associated with a single Work.
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
-
-    # A Edition may be the primary identifier associated with its
+ 
+    # An Edition may be the primary edition associated with its
     # Work, or it may not be.
     is_primary_for_work = Column(Boolean, index=True, default=False)
 
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
+
+    # An Edition may be the presentation edition for many LicensePools.
+    is_presentation_for = relationship(
+        # TODO: fix foreign key  presentation_edition_id
+        "LicensePool", uselist=False, backref="presentation_edition"
+    )
 
     title = Column(Unicode, index=True)
     sort_title = Column(Unicode, index=True)
@@ -2493,11 +2536,12 @@ class Edition(Base):
         return dict(type=type, value=content)
 
     def set_open_access_link(self):
-        resource = self.best_open_access_link
-        if resource and resource.representation:
-            url = resource.representation.mirror_url
-        else:
-            url = None
+        url = None
+        pool = self.license_pool
+        if pool:
+            resource = pool.best_open_access_link
+            if resource and resource.representation:
+                url = resource.representation.mirror_url
         self.open_access_download_url = url
 
     def set_cover(self, resource):
@@ -2629,44 +2673,6 @@ class Edition(Base):
                 if similarity >= threshold:
                     yield candidate
 
-    @property
-    def best_open_access_link(self):
-        """Find the best open-access Resource for this Edition."""
-        pool = self.license_pool
-        if not pool:
-            return None
-
-        best = None
-        for resource in pool.open_access_links:
-            if not any(
-                    [resource.representation and
-                     resource.representation.media_type and
-                     resource.representation.media_type.startswith(x) 
-                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
-                # This representation is not in a media type we 
-                # support. We can't serve it, so we won't consider it.
-                continue
-                
-            data_source_priority = resource.open_access_source_priority
-            if not best or data_source_priority > best_priority:
-                # Something is better than nothing.
-                best = resource
-                best_priority = data_source_priority
-                continue
-
-            if (best.data_source.name==DataSource.GUTENBERG
-                and resource.data_source.name==DataSource.GUTENBERG
-                and 'noimages' in best.representation.mirror_url
-                and not 'noimages' in resource.representation.mirror_url):
-                # A Project Gutenberg-ism: an epub without 'noimages'
-                # in the filename is better than an epub with
-                # 'noimages' in the filename.
-                best = resource
-                best_priority = data_source_priority
-                continue
-
-        return best
-
     def best_cover_within_distance(self, distance, threshold=0.5):
         _db = Session.object_session(self)
         flattened_data = [self.primary_identifier.id]
@@ -2739,92 +2745,9 @@ class Edition(Base):
         return WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
 
-    def better_primary_edition_than(self, champion):
-        # Something is better than nothing.
-        if not champion:
-            return True
-
-        # A edition with no license pool will only be chosen above,
-        # under the 'something is better than nothing' rule.
-        pool = self.license_pool
-        if not pool:
-            return False
-
-        if not champion.license_pool:
-            # An edition with a license pool beats a previous
-            # champion-by-default without one.
-            return True
-
-        if pool.open_access:
-            # Keep track of where the best open-access link for
-            # this license pool comes from. It may affect which
-            # license pool to use.
-            open_access_resource = self.best_open_access_link
-            if not open_access_resource:
-                # An open-access edition with no usable download link will
-                # only be chosen if there is no alternative.
-                return False
-
-            if not champion.license_pool.open_access:
-                # Open access is better than not.
-                return True
-
-            # Both this pool and the champion are open access. But
-            # open-access with a high-quality text beats open
-            # access with a low-quality text.
-            champion_resource = champion.best_open_access_link
-            if not champion.best_open_access_link:
-                champion_book_source_priority = -100
-            else:
-                champion_book_source_priority = champion_resource.open_access_source_priority
-            book_source_priority = open_access_resource.open_access_source_priority
-            if book_source_priority > champion_book_source_priority:
-                if champion_resource:
-                    champion_resource_url = champion_resource.url
-                else:
-                    champion_resource_url = 'None'
-                logging.info(
-                    "%s beats %s",
-                    open_access_resource.url, champion_resource_url
-                )
-                return True
-            elif book_source_priority < champion_book_source_priority:
-                return False
-            elif (self.data_source.name == DataSource.GUTENBERG
-                  and champion.data_source.name == DataSource.GUTENBERG):
-                # Higher Gutenberg numbers beat lower Gutenberg numbers.
-                champion_id = int(
-                    champion.primary_identifier.identifier)
-                competitor_id = int(
-                    self.primary_identifier.identifier)
-
-                if competitor_id > champion_id:
-                    champion = self
-                    champion_book_source_priority = book_source_priority
-                    logging.info(
-                        "Gutenberg %d beats Gutenberg %d",
-                        competitor_id, champion_id
-                    )
-                    return True
-
-        # More licenses is better than fewer.
-        if (self.license_pool.licenses_owned
-            > champion.license_pool.licenses_owned):
-            return True
-
-        # More available licenses is better than fewer.
-        if (self.license_pool.licenses_available
-            > champion.license_pool.licenses_available):
-            return True
-
-        # Fewer patrons in the hold queue is better than more.
-        if (self.license_pool.patrons_in_hold_queue
-            < champion.license_pool.patrons_in_hold_queue):
-            return True
-
-        return False
-
     UNKNOWN_AUTHOR = u"[Unknown]"
+
+
 
     def calculate_presentation(self, policy=None):
         """Make sure the presentation of this Edition is up-to-date."""
@@ -2832,6 +2755,17 @@ class Edition(Base):
         changed = False
         if policy is None:
             policy = PresentationCalculationPolicy()
+
+        """
+        TODO: 
+        # first presentation edition of a non-suppressed, non-superceded licensepool
+        # but edition already has a work_id?
+        parent_work_license_pools = self.license_pool.work.license_pools
+
+        for (work in parent_works)
+        see if license pool is active,
+        if yes, set its work to mine and continue
+        """
 
         # Gather information up front that will be used to determine
         # whether this method actually did anything.
@@ -2866,11 +2800,6 @@ class Edition(Base):
         ):
             changed = True
 
-        if changed:
-            # last_update_time tracks the last time the data 
-            # actually changed.
-            self.last_update_time = datetime.datetime.utcnow()
-
         # Now that everything's calculated, log it.
         if policy.verbose:
             if changed:
@@ -2896,6 +2825,7 @@ class Edition(Base):
         """Turn the list of Contributors into string values for .author
         and .sort_author.
         """
+
         sort_names = []
         display_names = []
         for author in self.author_contributors:
@@ -3061,12 +2991,12 @@ class Work(Base):
     # A single Work may claim many Editions.
     editions = relationship("Edition", backref="work")
 
-    # But for consistency's sake, a Work takes its presentation
-    # metadata from a single Edition.
-
+    # A Work takes its presentation metadata from a single Edition.  
+    # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
     clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
     primary_edition = relationship(
-        "Edition", primaryjoin=clause, uselist=False, lazy='joined')
+        "Edition", primaryjoin=clause, uselist=False, lazy='joined'
+    )
 
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
@@ -3415,6 +3345,10 @@ class Work(Base):
         All of this work's Editions will be assigned to target_work,
         and it will be marked as merged into target_work.
         """
+        # TODO: clean off
+        # for pool in self.pools
+
+
         _db = Session.object_session(self)
         similarity = self.similarity_to(target_work)
         if similarity < similarity_threshold:
@@ -3462,32 +3396,122 @@ class Work(Base):
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 
-    def set_primary_edition(self):
-        """Which of this Work's Editions should be used as the default?
+
+    def set_primary_edition(self, new_primary_edition):
+        """ Sets primary edition and lets owned pools and editions know.
+            Raises exception if edition to set to is None.
         """
-        old_primary = self.primary_edition
-        champion = None
-        old_champion = None
-        champion_book_source_priority = None
-        best_text_source = None
+        # only bother if something changed, or if were explicitly told to 
+        # set (useful for setting to None)
+        if not new_primary_edition:
+            error_message = "Trying to set primary_edition to None on Work [%s]" % self.id
+            raise ValueError(error_message)
 
-        for edition in self.editions:
-            if edition.better_primary_edition_than(champion):
-                champion = edition
+        self.primary_edition = new_primary_edition
 
+        # go through the loser pools, and tell them they lost
+        for pool in self.license_pools:
+            if pool.presentation_edition is self.primary_edition:
+                # make sure edition knows it's primary
+                pool.presentation_edition.is_primary_for_work = True
+            else:
+                pool.mark_edition_primarity(primary_for_work_edition=None)
+
+
+        # Tell child editions if they match work's primary edition.
         for edition in self.editions:
-            # There can be only one.
-            if edition != champion:
+            if edition != self.primary_edition:
                 edition.is_primary_for_work = False
             else:
                 edition.is_primary_for_work = True
-                self.primary_edition = edition
+                # let the edition know it's attached to this work now
+                edition.work = self
+                # let the edition's pool know they have a work
+                if edition.is_presentation_for:
+                    edition.is_presentation_for.work = self
+
+
+    def calculate_primary_edition(self, policy=None):
+        """ Which of this Work's Editions should be used as the default?
+
+        First, every LicensePool associated with this work must have
+        its presentation edition set.
+
+        Then, we go through the pools, see which has the best presentation edition, 
+        and make it our primary.
+        """
+        changed = False
+        policy = policy or PresentationCalculationPolicy()
+        if not policy.choose_edition:
+            return changed
+
+        # For each owned edition, see if its LicensePool was superceded or suppressed
+        # if yes, the edition is unlikely to be primary.  
+        # An open access pool may be "superceded", if there's a better-quality 
+        # open-access pool available.
+        self.mark_licensepools_as_superceded()
+
+        edition_metadata_changed = False
+        old_primary_edition = self.primary_edition
+        new_primary_edition = None
+
+        for pool in self.license_pools:
+            # a superceded pool's composite edition is not good enough
+            # Note:  making the assumption here that we won't have a situation 
+            # where we marked all of the work's pools as superceded or suppressed. 
+            if pool.superceded or pool.suppressed:
+                continue
+
+            # make sure the pool has most up-to-date idea of its presentation edition, 
+            # and then ask what it is.
+            pool_edition_changed = pool.set_presentation_edition(policy)
+            edition_metadata_changed = (
+                edition_metadata_changed or
+                pool_edition_changed   
+            )
+            potential_primary_edition = pool.presentation_edition
+
+            # We currently have no real way to choose between
+            # competing primary editions. But it doesn't matter much
+            # because in the current system there should never be more
+            # than one non-superceded license pool per Work.
+            #
+            # So basically we pick the first available edition and
+            # make it the primary.
+            if (not new_primary_edition
+                or (potential_primary_edition is old_primary_edition and old_primary_edition)):
+                # We would prefer not to change the Work's primary
+                # edition unnecessarily, so if the current primary
+                # edition is still an option, choose it.
+                new_primary_edition = potential_primary_edition
+
+        # Note: policy.choose_edition is true in default PresentationCalculationPolicy.
+        # If we don't have a self.primary_edition by now, this will just set all the editions' 
+        # is_primary_for_work attributes to False.
+        if ((self.primary_edition != new_primary_edition) and new_primary_edition != None):
+            # did we find a pool whose presentation edition was better than the work's?
+            self.set_primary_edition(new_primary_edition)
+
+        # tell everyone else we tried to set work's primary edition
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+        )
+
+        changed = (
+            edition_metadata_changed or
+            old_primary_edition != self.primary_edition 
+        )
+        return changed
+
+
 
     def calculate_presentation(self, policy=None, search_index_client=None):
-        """Determine the following information:
-        
-        * Which Edition is the 'primary'. The default view of the
-        Work will be taken from the primary Edition.
+        """Make a Work ready to show to patrons.
+
+        Call set_primary_edition() to find the best-quality presentation edition 
+        that could represent this work.
+
+        Then determine the following information, global to the work:
 
         * Subject-matter classifications for the work.
         * Whether or not the work is fiction.
@@ -3495,45 +3519,37 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-        policy = policy or PresentationCalculationPolicy()
 
         # Gather information up front so we can see if anything
         # actually changed.
         changed = False
-        edition_metadata_changed = False
+        edition_changed = False
         classification_changed = False
 
-        primary_edition = self.primary_edition
+        policy = policy or PresentationCalculationPolicy()
+
+        edition_changed = self.calculate_primary_edition(policy)
+
         summary = self.summary
         summary_text = self.summary_text
         quality = self.quality
 
-        if policy.choose_edition or not self.primary_edition:
-            self.set_primary_edition()
-            WorkCoverageRecord.add_for(
-                self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
-            )
-
-
-        # The privileged data source may short-circuit the process of
-        # finding a good cover or description.
-        privileged_data_source = None
-        if self.primary_edition:
-            privileged_data_source = self.primary_edition.data_source
-            # Descriptions from Gutenberg are useless, so it can't
-            # be a privileged data source.
-            if privileged_data_source.name == DataSource.GUTENBERG:
-                privileged_data_source = None
-
-        if self.primary_edition:
-            edition_metadata_changed = self.primary_edition.calculate_presentation(
-                policy
-            )
+        # If we find a cover or description that comes direct from a
+        # license source, it may short-circuit the process of finding
+        # a good cover or description.
+        licensed_data_sources = set()
+        for pool in self.license_pools:
+            # Descriptions from Gutenberg are useless, so we
+            # specifically exclude it from being a privileged data
+            # source.
+            if pool.data_source.name != DataSource.GUTENBERG:
+                licensed_data_sources.add(pool.data_source)
 
         if policy.classify or policy.choose_summary or policy.calculate_quality:
             # Find all related IDs that might have associated descriptions,
             # classifications, or measurements.
             _db = Session.object_session(self)
+
             primary_identifier_ids = [
                 x.primary_identifier.id for x in self.editions
             ]
@@ -3553,18 +3569,28 @@ class Work(Base):
         if policy.choose_summary:
             staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, [staff_data_source, privileged_data_source]
+                _db, flattened_data, [staff_data_source, licensed_data_sources]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
 
         if policy.calculate_quality:
-            default_quality = 0
-            if self.primary_edition:
-                data_source_name = self.primary_edition.data_source.name
-                default_quality = self.default_quality_by_data_source.get(
-                    data_source_name, 0
+            # In the absense of other data, we will make a rough
+            # judgement as to the quality of a book based on the
+            # license source. Commercial data sources have higher
+            # default quality, because it's presumed that a librarian
+            # put some work into deciding which books to buy.
+            default_quality = None
+            for source in licensed_data_sources:
+                q = self.default_quality_by_data_source.get(
+                    source.name, None
                 )
+                if q is None:
+                    continue
+                if default_quality is None or q > default_quality:
+                    default_quality = q
+            else:
+                default_quality = 0
             self.calculate_quality(flattened_data, default_quality)
 
         if self.summary_text:
@@ -3576,9 +3602,8 @@ class Work(Base):
             new_summary_text = self.summary_text
 
         changed = (
-            edition_metadata_changed or
+            edition_changed or
             classification_changed or
-            primary_edition != self.primary_edition or
             summary != self.summary or
             summary_text != new_summary_text or
             float(quality) != float(self.quality)
@@ -3607,6 +3632,8 @@ class Work(Base):
                 changed = "unchanged"
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
+
+
 
     @property
     def detailed_representation(self):
@@ -3931,6 +3958,25 @@ class Work(Base):
 
         return doc
 
+    def mark_licensepools_as_superceded(self):
+        """Make sure that all but the single best open-access LicensePool for
+        this Work are superceded. A non-open-access LicensePool should
+        never be superceded, and this method will mark them as
+        un-superceded.
+        """
+        champion_open_access_license_pool = None
+        for pool in self.license_pools:
+            if not pool.open_access:
+                pool.superceded = False
+                continue
+            if pool.better_open_access_pool_than(champion_open_access_license_pool):
+                if champion_open_access_license_pool:
+                    champion_open_access_license_pool.superceded = True
+                champion_open_access_license_pool = pool
+                pool.superceded = False
+            else:
+                pool.superceded = True
+    
     @classmethod
     def restrict_to_custom_lists_from_data_source(
             cls, _db, base_query, data_source, on_list_as_of=None):
@@ -4342,21 +4388,6 @@ class Resource(Base):
         UniqueConstraint('url'),
     )
 
-
-    # Some sources of open-access ebooks are better than others. This
-    # list shows which sources we prefer, in ascending order of
-    # priority. unglue.it is lowest priority because it tends to
-    # aggregate books from other sources. We prefer books from their
-    # original sources.
-    OPEN_ACCESS_SOURCE_PRIORITY = [
-        DataSource.UNGLUE_IT,
-        DataSource.GUTENBERG,
-        DataSource.GUTENBERG_EPUB_GENERATOR,
-        DataSource.PROJECT_GITENBERG,
-        DataSource.PLYMPTON,
-        DataSource.STANDARD_EBOOKS,
-    ]
-
     @property
     def final_url(self):        
         """URL to the final, mirrored version of this resource, suitable
@@ -4414,25 +4445,6 @@ class Resource(Base):
         self.votes_for_quality += weight
         self.voted_quality = total_quality / float(self.votes_for_quality)
         self.update_quality()
-
-    @property
-    def open_access_source_priority(self):
-        """What priority does this resource's source have in
-        our list of open-access content sources?
-        
-        e.g. GITenberg books are prefered over Gutenberg books,
-        because there's a defined process for fixing errors and they
-        are more likely to have good cover art.
-        """
-        try:
-            priority = self.OPEN_ACCESS_SOURCE_PRIORITY.index(
-                self.data_source.name)
-        except ValueError, e:
-            # The source of this download is not mentioned in our
-            # priority list. Treat it as the lowest priority.
-            priority = -1
-        return priority
-
 
     def update_quality(self):
         """Combine `estimated_quality` with `voted_quality` to form `quality`.
@@ -5058,8 +5070,9 @@ Index(
     CachedFeed.facets, CachedFeed.pagination
 )
 
-class LicensePool(Base):
 
+
+class LicensePool(Base):
     """A pool of undifferentiated licenses for a work from a given source.
     """
 
@@ -5071,9 +5084,13 @@ class LicensePool(Base):
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
 
     # Each LicensePool is associated with one DataSource and one
-    # Identifier, and therefore with one original Edition.
+    # Identifier.
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+
+    # Each LicensePool has an Edition which contains the metadata used
+    # to describe this book.
+    presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
     # One LicensePool may be associated with one RightsStatus.
     rightsstatus_id = Column(
@@ -5108,6 +5125,12 @@ class LicensePool(Base):
         "LicensePoolDeliveryMechanism", backref="license_pool"
     )
 
+    # A LicensePool may be superceded by some other LicensePool
+    # associated with the same Work. This may happen if it's an
+    # open-access LicensePool and a better-quality version of the same
+    # book is available from another Open-Access source.
+    superceded = Column(Boolean, default=False)
+
     # A LicensePool that seemingly looks fine may be manually suppressed
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
@@ -5115,13 +5138,6 @@ class LicensePool(Base):
     # A textual description of a problem with this license pool
     # that caused us to suppress it.
     license_exception = Column(Unicode, index=True)
-
-    # Index the combination of DataSource and Identifier to make joins easier.
-
-    clause = "and_(Edition.data_source_id==LicensePool.data_source_id, Edition.primary_identifier_id==LicensePool.identifier_id)"
-    edition = relationship(
-        "Edition", primaryjoin=clause, uselist=False, lazy='joined',
-        foreign_keys=[Edition.data_source_id, Edition.primary_identifier_id])
 
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
@@ -5224,11 +5240,181 @@ class LicensePool(Base):
             order_by(subquery.c.complaint_count.desc()).\
             add_columns(subquery.c.complaint_count)
 
+    @property
+    def open_access_source_priority(self):
+        """What priority does this LicensePool's DataSource have in
+        our list of open-access content sources?
+        
+        e.g. GITenberg books are prefered over Gutenberg books,
+        because there's a defined process for fixing errors and they
+        are more likely to have good cover art.
+        """
+        try:
+            priority = DataSource.OPEN_ACCESS_SOURCE_PRIORITY.index(
+                self.data_source.name
+            )
+        except ValueError, e:
+            # The source of this download is not mentioned in our
+            # priority list. Treat it as the lowest priority.
+            priority = -1
+        return priority
+
+    def better_open_access_pool_than(self, champion):
+        """ Is this open-access pool generally known for better-quality
+        download files than the passed-in pool?
+        """
+        # A suppressed license pool should never be used, even if there is
+        # no alternative.
+        if self.suppressed:
+            return False
+
+        # A non-open-access license pool is not eligible for consideration.
+        if not self.open_access:
+            return False
+
+        # At this point we have a LicensePool that is at least
+        # better than nothing.
+        if not champion:
+            return True
+
+        challenger_resource = self.best_open_access_link
+        if not challenger_resource:
+            # This LicensePool is supposedly open-access but we don't
+            # actually know where the book is. It will be chosen only
+            # if there is no alternative.
+            return False
+
+        champion_priority = champion.open_access_source_priority
+        challenger_priority = self.open_access_source_priority
+
+        if challenger_priority > champion_priority:
+            return True
+
+        if challenger_priority < champion_priority:
+            return False
+
+        if (self.data_source.name == DataSource.GUTENBERG
+            and champion.data_source == self.data_source):
+            # These two LicensePools are both from Gutenberg, and
+            # normally this wouldn't matter, but higher Gutenberg
+            # numbers beat lower Gutenberg numbers.
+            champion_id = int(champion.identifier.identifier)
+            challenger_id = int(self.identifier.identifier)
+
+            if challenger_id > champion_id:
+                logging.info(
+                    "Gutenberg %d beats Gutenberg %d",
+                    challenger_id, champion_id
+                )
+                return True
+        return False
+
+
+    def editions_in_priority_order(self):
+        """Return all Editions that describe the Identifier associated with
+        this LicensePool, in the order they should be used to create a
+        presentation Edition for the LicensePool.
+        """
+        def sort_key(edition):
+            """Return a numeric ordering of this edition."""
+            source = edition.data_source
+            if not source:
+                # This shouldn't happen. Give this edition the
+                # lowest priority.
+                return -100
+
+            if source == self.data_source:
+                # This Edition contains information from the same data
+                # source as the LicensePool itself. Put it below any
+                # Edition from one of the data sources in
+                # PRESENTATION_EDITION_PRIORITY, but above all other
+                # Editions.
+                return -1
+            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
+                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
+            else:
+                return -2
+
+        return sorted(self.identifier.primarily_identifies, key=sort_key)
+
+
+    # TODO:  policy is not used in this method.  Removing argument
+    # breaks many-many tests, and needs own branch.
+    def set_presentation_edition(self, policy=None):
+        """Create or update the presentation Edition for this LicensePool.
+
+        The presentation Edition is made of metadata from all Editions
+        associated with the LicensePool's identifier.
+
+        :return: A boolean explaining whether any of the presentation
+        information associated with this LicensePool actually changed.
+        """
+        _db = Session.object_session(self)
+        old_presentation_edition = self.presentation_edition
+        all_editions = list(self.editions_in_priority_order())
+        changed = False
+
+        # Note: We can do a cleaner solution, if we refactor to not use metadata's 
+        # methods to update editions.  For now, we're choosing to go with the below approach.
+        from metadata_layer import (
+            Metadata, IdentifierData, 
+        )
+
+        if len(all_editions) == 1:
+            # There's only one edition associated with this
+            # LicensePool. Use it as the presentation edition rather
+            # than creating an identical composite.
+            self.presentation_edition = all_editions[0]
+        else:
+            edition_identifier = IdentifierData(self.identifier.type, self.identifier.identifier)
+            metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
+
+            for edition in all_editions:
+                if (edition.data_source.name != DataSource.PRESENTATION_EDITION):
+                    metadata.update(Metadata.from_edition(edition))
+
+            # Note: Since this is a presentation edition it does not have a
+            # license data source, even if one of the editions it was
+            # created from does have a license data source.
+            metadata._license_data_source = None
+            metadata.license_data_source_obj = None
+            edition, is_new = metadata.edition(_db)
+
+            self.presentation_edition, edition_core_changed = metadata.apply(edition)
+
+        self.presentation_edition.work = self.work
+        changed = changed or self.presentation_edition.calculate_presentation()
+
+        # if the license pool is associated with a work, and the work currently has no presentation edition, 
+        # then do a courtesy call to the presentation edition and the work, and tell them about each other. 
+        if self.work and not self.work.primary_edition:
+            self.presentation_edition.is_primary_for_work = True
+            # tell work it has a primary edition now
+            self.work.set_primary_edition(self.presentation_edition)
+
+        return (
+            self.presentation_edition != old_presentation_edition 
+            or changed
+        )
+
+
+    def mark_edition_primarity(self, primary_for_work_edition=None):
+        """Go through this pool's editions, and explicitly tell them  
+        whether they're primary for the pool's work.
+        """
+        all_editions = list(self.editions_in_priority_order())
+        for edition in all_editions:
+            if (primary_for_work_edition != None and (edition is primary_for_work_edition)):
+                edition.is_primary_for_work = True
+            else:
+                edition.is_primary_for_work = False
+
+
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
         """Add a link between this LicensePool and a Resource.
 
-        :param rel: The relationship between this LicensePooland the resource
+        :param rel: The relationship between this LicensePool and the resource
                on the other end of the link.
         :param href: The URI of the resource on the other end of the link.
         :param media_type: Media type of the representation associated
@@ -5354,6 +5540,8 @@ class LicensePool(Base):
             if a and not a % 100:
                 _db.commit()
 
+
+
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Try to find an existing Work for this LicensePool.
 
@@ -5369,14 +5557,17 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
+        self.set_presentation_edition(None)
 
-        primary_edition = known_edition or self.edition
+        primary_edition = known_edition or self.presentation_edition
 
         if self.work:
-            if known_edition:
-                known_edition.work = self.work
+            if primary_edition:
+                primary_edition.work = self.work
+            
             # The work has already been done.
             return self.work, False
+
 
         logging.info("Calculating work for %r", primary_edition)
         if not primary_edition:
@@ -5470,9 +5661,47 @@ class LicensePool(Base):
             yield resource
 
     @property
+    def best_open_access_link(self):
+        """Find the best open-access Resource provided by this LicensePool."""
+        best = None
+        best_priority = -1
+        for resource in self.open_access_links:
+            if not any(
+                    [resource.representation and
+                     resource.representation.media_type and
+                     resource.representation.media_type.startswith(x) 
+                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
+                # This representation is not in a media type we 
+                # support. We can't serve it, so we won't consider it.
+                continue
+                
+            data_source_priority = self.open_access_source_priority
+            if not best or data_source_priority > best_priority:
+                # Something is better than nothing.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
+            if (best.data_source.name==DataSource.GUTENBERG
+                and resource.data_source.name==DataSource.GUTENBERG
+                and 'noimages' in best.representation.mirror_url
+                and not 'noimages' in resource.representation.mirror_url):
+                # A Project Gutenberg-ism: an epub without 'noimages'
+                # in the filename is better than an epub with
+                # 'noimages' in the filename.
+                best = resource
+                best_priority = data_source_priority
+                continue
+
+        return best
+
+
+    @property
     def best_license_link(self):
         """Find the best available licensing link for the work associated
         with this LicensePool.
+
+        # TODO: This needs work and may not be necessary anymore.
         """
         edition = self.edition
         if not edition:

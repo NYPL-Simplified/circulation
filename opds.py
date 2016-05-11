@@ -306,7 +306,7 @@ class Annotator(object):
             # associated with a loan, were a loan to be issued right
             # now.
             for p in work.license_pools:
-                edition = p.edition
+                edition = p.presentation_edition
                 if p.open_access:
                     # Make sure there's a usable link--it might be
                     # audio-only or something.
@@ -582,8 +582,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # Render a 'start' link and an 'up' link.
         top_level_title = annotator.top_level_title() or "Collection Home"
-        start_uri = annotator.groups_url(None)
-        feed.add_link(href=start_uri, rel="start", title=top_level_title)
+        feed.add_link(href=annotator.default_lane_url(), rel="start", title=top_level_title)
 
         if isinstance(lane, Lane):
             visible_parent = lane.visible_parent()
@@ -593,6 +592,7 @@ class AcquisitionFeed(OPDSFeed):
                 title = top_level_title
             up_uri = annotator.groups_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
+            feed.add_breadcrumbs(lane, annotator)
         
         annotator.annotate_feed(feed, lane)
 
@@ -646,7 +646,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        # Add "up" link
+        # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
         visible_parent = lane.visible_parent()
         if isinstance(visible_parent, Lane):
@@ -656,6 +656,7 @@ class AcquisitionFeed(OPDSFeed):
         if visible_parent:
             up_uri = annotator.lane_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
+        feed.add_breadcrumbs(lane, annotator)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
@@ -690,8 +691,9 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
 
-        # Add "up" link
+        # Add "up" link and breadcrumbs
         opds_feed.add_link(rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
+        opds_feed.add_breadcrumbs(search_lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
@@ -784,7 +786,7 @@ class AcquisitionFeed(OPDSFeed):
                 active_edition = None
             elif active_license_pool:        
                 identifier = active_license_pool.identifier
-                active_edition = active_license_pool.edition
+                active_edition = active_license_pool.presentation_edition
             else:
                 active_edition = work.primary_edition
                 identifier = active_edition.primary_identifier
@@ -984,6 +986,35 @@ class AcquisitionFeed(OPDSFeed):
 
         return entry
 
+    def add_breadcrumbs(self, lane, annotator, include_lane=False):
+        """Add list of ancestor links in a breadcrumbs element."""
+        # Ensure that lane isn't top-level before proceeding
+        if annotator.lane_url(lane) != annotator.default_lane_url():
+            breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
+
+            # Add root link
+            root_url = annotator.default_lane_url()
+            breadcrumbs.append(
+                E.link(title=annotator.top_level_title(), href=root_url)
+            )
+            
+            # Add links for all visible ancestors that aren't root
+            for ancestor in reversed(lane.visible_ancestors()):
+                lane_url = annotator.lane_url(ancestor)
+                if lane_url != root_url:
+                    breadcrumbs.append(
+                        E.link(title=ancestor.display_name, href=lane_url)
+                    )
+
+            # Include link to lane
+            # For search, breadcrumbs include the searched lane
+            if include_lane:
+                breadcrumbs.append(
+                    E.link(title=lane.display_name, href=annotator.lane_url(lane))
+                )
+
+            self.feed.append(breadcrumbs)
+
     @classmethod
     def minimal_opds_entry(cls, identifier, cover, description, quality):
         elements = []
@@ -1165,7 +1196,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         if not active_license_pool:
             return None
 
-        active_edition = active_license_pool.edition
+        active_edition = active_license_pool.presentation_edition
         return self._create_entry(
             work, active_license_pool, work.primary_edition, 
             identifier, lane_link)

@@ -157,7 +157,7 @@ class IdentifierResolutionMonitor(Monitor):
                 continue
             record = provider.ensure_coverage(identifier, force=True)
             if record.exception:
-                raise ResolutionFailed(500, record.exception)                
+                raise ResolutionFailed(500, record.exception)
 
         # Now go through the optional providers. It's the same deal,
         # but a CoverageFailure doesn't cause the entire identifier

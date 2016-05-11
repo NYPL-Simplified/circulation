@@ -96,7 +96,9 @@ class TestSimplifiedOPDSLookup(object):
             eq_(None, importer.client_secret)
 
             # For other integrations, the details aren't created at all.
-            config['integrations']["Content Server"]["url"] = "http://whatevz"
+            config['integrations']["Content Server"] = dict(
+                url = "http://whatevz"
+            )
             importer = SimplifiedOPDSLookup.from_config("Content Server")
             eq_(False, hasattr(importer, "client_id"))
             eq_(False, hasattr(importer, "client_secret"))
@@ -561,9 +563,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # The first resource has no bibframe provider in OPDS so it uses the importer's data source.
         eq_(
             ['http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images',
-             'http://s3.amazonaws.com/test.cover.bucket/Gutenberg/Gutenberg%20ID/10441/cover_10441_9.png', 
-             'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Gutenberg/Gutenberg%20ID/10441/cover_10441_9.png', 
-             'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+             'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png', 
+             'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png', 
+             'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
          ],
             [x.mirror_url for x in s3.uploaded]
         )
