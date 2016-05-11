@@ -5565,7 +5565,9 @@ class LicensePool(Base):
             if primary_edition:
                 primary_edition.work = self.work
             
-            # The work has already been done.
+            # The work has already been done. Make sure the work's
+            # display is up to date.
+            self.work.calculate_presentation()
             return self.work, False
 
 
@@ -5577,7 +5579,7 @@ class LicensePool(Base):
                      self.identifier)
             
             return None, False
-        if primary_edition.license_pool != self:
+        if primary_edition.is_presentation_for != self:
             raise ValueError(
                 "Primary edition's license pool is not the license pool for which work is being calculated!")
 
