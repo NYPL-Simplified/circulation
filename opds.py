@@ -993,22 +993,25 @@ class AcquisitionFeed(OPDSFeed):
             breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
 
             # Add root link
+            root_url = annotator.default_lane_url()
             breadcrumbs.append(
-                E.link(title=annotator.top_level_title(), href=annotator.default_lane_url())
+                E.link(title=annotator.top_level_title(), href=root_url)
             )
             
-            # Add links for all visible ancestors
+            # Add links for all visible ancestors that aren't root
             for ancestor in reversed(lane.visible_ancestors()):
-                link = E.link(title=ancestor.display_name, href=annotator.lane_url(ancestor))
-                breadcrumbs.append(link)
+                lane_url = annotator.lane_url(ancestor)
+                if lane_url != root_url:
+                    breadcrumbs.append(
+                        E.link(title=ancestor.display_name, href=lane_url)
+                    )
 
-            # Include link to lane (for search)
+            # Include link to lane
+            # For search, breadcrumbs include the searched lane
             if include_lane:
                 breadcrumbs.append(
                     E.link(title=lane.display_name, href=annotator.lane_url(lane))
                 )
-
-            print len(breadcrumbs.getchildren())
 
             self.feed.append(breadcrumbs)
 
