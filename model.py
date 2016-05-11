@@ -777,7 +777,7 @@ class DataSource(Base):
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
-                (cls.NOVELIST, False, True, Identifier.ISBN, None),
+                (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
         ):
 
             extra = dict()
@@ -1015,6 +1015,7 @@ class Identifier(Base):
     AXIS_360_ID = "Axis 360 ID"
     ASIN = "ASIN"
     ISBN = "ISBN"
+    NOVELIST_ID = "NoveList ID"
     OCLC_WORK = "OCLC Work ID"
     OCLC_NUMBER = "OCLC Number"
     OPEN_LIBRARY_ID = "OLID"
