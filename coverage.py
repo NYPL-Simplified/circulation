@@ -205,6 +205,7 @@ class CoverageProvider(object):
         )
         if force or coverage_record is None:
             return self.process_batch_and_handle_results([identifier])
+        return (0, 0, 0)
 
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""

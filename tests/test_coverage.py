@@ -83,10 +83,16 @@ class TestCoverageProvider(DatabaseTest):
         # Ensure coverage of both providers.
         result1 = provider1.ensure_coverage(self.edition)
         result2 = provider2.ensure_coverage(self.edition)
+        eq_((1,0,0), result1)
+        eq_((1,0,0), result2)
 
         # There are now two CoverageRecords, one for each operation.
         eq_(["foo", "bar"],
             [x.operation for x in self._db.query(CoverageRecord)])
+
+        # If we try to ensure coverage again, nothing happens.
+        result3 = provider1.ensure_coverage(self.edition)
+        eq_((0,0,0), result3)
 
     def test_ensure_coverage_persistent_coverage_failure(self):
 
