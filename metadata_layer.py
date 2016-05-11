@@ -909,7 +909,8 @@ class Metadata(object):
 
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
-                if not identifier_data.identifier:
+                if (identifier==identifier_data or
+                    not identifier_data.identifier):
                     continue
                 new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
