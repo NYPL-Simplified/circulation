@@ -95,7 +95,7 @@ class TestCoverageProvider(DatabaseTest):
         # If we try to ensure coverage again, no work is done and we
         # get the old coverage record back.
         new_coverage = provider1.ensure_coverage(self.edition)
-        eq_(new_coverage, coverage)
+        eq_(new_coverage, coverage1)
         new_coverage.timestamp = old_timestamp
 
     def test_ensure_coverage_persistent_coverage_failure(self):
