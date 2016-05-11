@@ -32,7 +32,7 @@ class CoverageFailure(object):
 
     def to_coverage_record(self, operation=None):
         if not self.transient:
-            # This is a permanent error. Turn it into a CoverageRecord
+            # This is a persistent error. Turn it into a CoverageRecord
             # so we don't keep trying to provide coverage that isn't
             # gonna happen.
             record, ignore = CoverageRecord.add_for(
@@ -135,7 +135,7 @@ class CoverageProvider(object):
         if not batch.count():
             # The batch is empty. We're done.
             return None
-        (successes, transient_failures, permanent_failures), results = (
+        (successes, transient_failures, persistent_failures), results = (
             self.process_batch_and_handle_results(batch)
         )
 
@@ -157,7 +157,7 @@ class CoverageProvider(object):
         results = self.process_batch(batch)
         successes = 0
         transient_failures = 0
-        permanent_failures = 0
+        persistent_failures = 0
         records = []
         for item in results:
             if isinstance(item, CoverageFailure):
@@ -170,7 +170,7 @@ class CoverageProvider(object):
                     # Create a CoverageRecord memorializing this
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
-                    permanent_failures += 1
+                    persistent_failures += 1
                     record = item.to_coverage_record(operation=self.operation)
             else:
                 # Count this as a success and add a CoverageRecord for
@@ -189,8 +189,8 @@ class CoverageProvider(object):
         num_ignored = max(0, batch_size - len(results))
 
         self.log.info(
-            "Batch processed with %d successes, %d transient failures, %d ignored, %d permanent failures.",
-            successes, transient_failures, permanent_failures, num_ignored
+            "Batch processed with %d successes, %d transient failures, %d ignored, %d persistent failures.",
+            successes, transient_failures, persistent_failures, num_ignored
         )
 
         # Finalize this batch before moving on to the next one.
@@ -199,7 +199,7 @@ class CoverageProvider(object):
         # For all purposes outside this method, treat an ignored identifier
         # as a transient failure.
         transient_failures += num_ignored
-        return (successes, transient_failures, permanent_failures), records
+        return (successes, transient_failures, persistent_failures), records
 
     def process_batch(self, batch):
         """Do what it takes to give CoverageRecords to a batch of
