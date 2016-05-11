@@ -359,6 +359,25 @@ class TestTitleProcessor(object):
         eq_("Unexpected Journey, An", p("An Unexpected Journey"))
         eq_("Then This Happened", p("Then This Happened"))
 
+    def test_extract_subtitle(self):
+        p = TitleProcessor.extract_subtitle
+
+        core_title = 'Vampire kisses'
+        full_title = 'Vampire kisses: blood relatives. Volume 1'
+        eq_('blood relatives. Volume 1', p(core_title, full_title))
+
+        core_title = 'Manufacturing Consent'
+        full_title = 'Manufacturing Consent. The Political Economy of the Mass Media'
+        eq_('The Political Economy of the Mass Media', p(core_title, full_title))
+
+        core_title = 'Harry Potter and the Chamber of Secrets'
+        full_title = 'Harry Potter and the Chamber of Secrets'
+        eq_(None, p(core_title, full_title))
+
+        core_title = 'Pluto: A Wonder Story'
+        full_title = 'Pluto: A Wonder Story: '
+        eq_(None, p(core_title, full_title))
+
 
 class TestEnglishDetector(object):
 

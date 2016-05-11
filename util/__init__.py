@@ -8,6 +8,7 @@ from collections import (
 import pkgutil
 import os
 import re
+import string
 
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""
@@ -770,6 +771,24 @@ class TitleProcessor(object):
                 title = title[len(stopword):] + ", " + stopword.strip()
                 break
         return title
+
+    @classmethod
+    def extract_subtitle(cls, main_title, subtitled_title):
+        """Extracts a subtitle given a shorter and longer title version
+
+        :return: subtitle or None
+        """
+        if not subtitled_title:
+            return None
+        subtitle = subtitled_title.replace(main_title, '')
+        while (subtitle and
+                (subtitle[0] in string.whitespace+':.')):
+            # Trim any leading whitespace or colons
+            subtitle = subtitle[1:]
+        if not subtitle:
+            # The main title and the full title were the same.
+            return None
+        return subtitle
 
 
 class Bigrams(object):
