@@ -24,13 +24,15 @@ from core.model import (
     Genre,
     Identifier,
     SessionManager,
-    Subject
+    Subject,
+    WorkGenre
 )
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
 from core.classifier import genres
+from psycopg2.extras import NumericRange
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -183,71 +185,120 @@ class TestWorkController(AdminControllerTest):
             eq_(400, response.status_code)
             eq_(INVALID_EDIT.uri, response.uri)
 
-    def test_update_genres(self):
+    def test_edit_classifications(self):
         # start with a couple genres
-        [lp] = self.english_1.license_pools
+        work = self.english_1
+        [lp] = work.license_pools
+        work.audience = "Adult"
+        work.fiction = True
         genre, ignore = Genre.lookup(self._db, "Occult Horror")
-        lp.work.genres = [genre]
+        work.genres = [genre]
 
         # change genres
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Drama"),
+                ("genres", "Urban Fantasy"),
+                ("genres", "Women's Fiction")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+            
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(len(new_genre_names), len(requested_genres))
         for genre in requested_genres:
             eq_(True, genre in new_genre_names)
+        eq_("Adult", work.audience)
+        eq_(True, work.fiction)
 
-        # remove a genre
+        # remove some genres and change audience and target age
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Urban Fantasy")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+            
+        # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(len(new_genre_names), len(requested_genres))
         for genre in requested_genres:
             eq_(True, genre in new_genre_names)
+        eq_("Young Adult", work.audience)
+        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(True, work.fiction)
 
-        previous_genres = requested_genres
+        previous_genres = new_genre_names
 
         # try to add a nonfiction genre
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction", "Cooking"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Cooking"),
+                ("genres", "Urban Fantasy")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
 
         eq_(response, INCOMPATIBLE_GENRE)
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(len(new_genre_names), len(previous_genres))
         for genre in previous_genres:
             eq_(True, genre in new_genre_names)
+        eq_("Young Adult", work.audience)
+        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(True, work.fiction)
 
-        # try to add a nonexistent genre
+        # try to add Erotica
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction", "Epic Military Memoirs"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
-
-        eq_(response, GENRE_NOT_FOUND)
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Erotica"),
+                ("genres", "Urban Fantasy")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response, EROTICA_FOR_ADULTS_ONLY)
+            
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(len(new_genre_names), len(previous_genres))
         for genre in previous_genres:
             eq_(True, genre in new_genre_names)
+        eq_("Young Adult", work.audience)
+        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(True, work.fiction)
+
+        # change to nonfiction with nonfiction genres and new target age
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 15),
+                ("target_age_max", 17),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+
+        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
+        eq_(len(new_genre_names), len(requested_genres))
+        for genre in requested_genres:
+            eq_(True, genre in new_genre_names)
+        eq_("Young Adult", work.audience)
+        eq_(NumericRange(15, 18, '[)'), work.target_age)
+        eq_(False, work.fiction)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -389,30 +440,29 @@ class TestWorkController(AdminControllerTest):
             data_source=source, weight=1)
         classification2 = self._classification(
             identifier=identifier, subject=subject2, 
-            data_source=source, weight=2)
+            data_source=source, weight=3)
         classification3 = self._classification(
             identifier=identifier, subject=subject3, 
-            data_source=source, weight=1.5)
+            data_source=source, weight=2)
 
         SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
-        # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.classifications(
                 lp.data_source.name, lp.identifier.identifier)
-            
             eq_(response['book']['data_source'], lp.data_source.name)
             eq_(response['book']['identifier'], lp.identifier.identifier)
-            eq_(len(response['classifications']), 2)
-            eq_(response['classifications'][0]['name'], subject2.identifier)
-            eq_(response['classifications'][0]['type'], subject2.type)
-            eq_(response['classifications'][0]['source'], source.name)
-            eq_(response['classifications'][0]['weight'], classification2.weight)
-            eq_(response['classifications'][1]['name'], subject1.identifier)
-            eq_(response['classifications'][1]['type'], subject1.type)
-            eq_(response['classifications'][1]['source'], source.name)
-            eq_(response['classifications'][1]['weight'], classification1.weight)
+
+            expected_results = [classification2, classification3, classification1]
+            eq_(len(response['classifications']), len(expected_results))            
+            for i, classification in enumerate(expected_results):
+                subject = classification.subject
+                source = classification.data_source
+                eq_(response['classifications'][i]['name'], subject.identifier)
+                eq_(response['classifications'][i]['type'], subject.type)
+                eq_(response['classifications'][i]['source'], source.name)
+                eq_(response['classifications'][i]['weight'], classification.weight)
 
 
 class TestSignInController(AdminControllerTest):
