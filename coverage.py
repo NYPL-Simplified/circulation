@@ -88,7 +88,7 @@ class CoverageProvider(object):
         """
         return Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.output_source,
-            count_as_missing_before=self.cutoff_time
+            count_as_missing_before=self.cutoff_time, operation=self.operation
         )
 
     def run(self):
@@ -117,8 +117,27 @@ class CoverageProvider(object):
         transient_failures = 0
         persistent_failures = 0
         records = []
-        while index < len(identifiers):
-            batch = identifiers[index:index+self.workset_size]
+
+        original_ids = [x.id for x in identifiers]
+        need_coverage = self.items_that_need_coverage.filter(
+            Identifier.id.in_(original_ids)
+        ).all()
+
+        # Treat any identifiers with up-to-date coverage records as
+        # automatic successes.
+        #
+        # NOTE: We won't actually be returning those coverage records
+        # in `records`, since items_that_need_coverage() filters them
+        # out, but nobody who calls this method really needs those
+        # records.
+        automatic_successes = len(identifiers) - len(need_coverage)
+        successes += automatic_successes
+        self.log.info("%d automatic successes.", successes)
+
+        # Iterate over any identifiers that were not automatic
+        # successes.
+        while index < len(need_coverage):
+            batch = need_coverage[index:index+self.workset_size]
             (s, t, p), r = self.process_batch_and_handle_results(batch)
             successes += s
             transient_failures += t
@@ -214,13 +233,31 @@ class CoverageProvider(object):
                 results.append(result)
         return results
 
+    def should_update(self, coverage_record):
+        """Should we do the work to update the given CoverageRecord?"""
+        if coverage_record is None:
+            # An easy decision -- there is no existing CoverageRecord,
+            # so we need to do the work.
+            return True
+
+        if self.cutoff_time is None:
+            # An easy decision -- without a cutoff_time, once we
+            # create a CoverageRecord we never update it.
+            return False
+
+        # We update a CoverageRecord if it was last updated before
+        # cutoff_time.
+        return coverage_record.timestamp < self.cutoff_time
+
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
-        :param force: Run the coverage code even if a CoverageRecord already
-        exists for this item.
+        :param force: Run the coverage code even if an existing
+           CoverageRecord for this item was created after
+           `self.cutoff_time`.
 
         :return: Either a CoverageRecord or a CoverageFailure.
+
         """
         if isinstance(item, Identifier):
             identifier = item
@@ -233,15 +270,16 @@ class CoverageProvider(object):
             operation=self.operation,
             on_multiple='interchangeable',
         )
-        if force or coverage_record is None:
-            counts, records = self.process_batch_and_handle_results(
-                [identifier]
-            )
-            if records:
-                record = records[0]
-            else:
-                record = None
-            return record
+        if not force and not self.should_update(coverage_record):
+            return coverage_record
+
+        counts, records = self.process_batch_and_handle_results(
+            [identifier]
+        )
+        if records:
+            coverage_record = records[0]
+        else:
+            coverage_record = None
         return coverage_record
 
     def license_pool(self, identifier):
