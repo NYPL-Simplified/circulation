@@ -945,8 +945,11 @@ class Metadata(object):
         # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
-                if (identifier==identifier_data or
-                    not identifier_data.identifier):
+                if not identifier_data.identifier:
+                    continue
+                if (identifier_data.identifier==identifier.identifier and
+                    identifier_data.type==identifier.type):
+                    # These are the same identifier.
                     continue
                 new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)

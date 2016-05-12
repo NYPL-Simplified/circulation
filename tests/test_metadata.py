@@ -543,14 +543,12 @@ class TestMetadata(DatabaseTest):
         # Makes sure Metadata.from_edition copies all the fields over.
 
         edition, pool = self._edition(with_license_pool=True)
+        edition.series = "Harry Otter and the Mollusk of Infamy"
+        edition.series_position = "14"
         metadata = Metadata.from_edition(edition)
 
         # make sure the metadata and the originating edition match 
-        for field in (
-                'title', 'sort_title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published'
-        ):
+        for field in Metadata.BASIC_EDITION_FIELDS:
             eq_(getattr(edition, field), getattr(metadata, field))
 
 
@@ -585,16 +583,67 @@ class TestMetadata(DatabaseTest):
     def test_apply(self):
         edition_old, pool = self._edition(with_license_pool=True)
 
-        metadata = Metadata(data_source=DataSource.OVERDRIVE, title=u"Test_Apply_Title")
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            title=u"The Harry Otter and the Seaweed of Ages",
+            sort_title=u"Harry Otter and the Seaweed of Ages, The",
+            subtitle=u"Kelp At It",
+            series=u"The Harry Otter Sagas",
+            series_position=u"4",
+            language=u"eng",
+            medium=u"Audio",
+            publisher=u"Scholastic Inc",
+            imprint=u"Follywood",
+            published=datetime.date(1987, 5, 4),
+            issued=datetime.date(1989, 4, 5)
+        )
 
         edition_new, changed = metadata.apply(edition_old)
 
         eq_(changed, True)
-        eq_(edition_new.title, "Test_Apply_Title")
+        eq_(edition_new.title, u"The Harry Otter and the Seaweed of Ages")
+        eq_(edition_new.sort_title, u"Harry Otter and the Seaweed of Ages, The")
+        eq_(edition_new.subtitle, u"Kelp At It")
+        eq_(edition_new.series, u"The Harry Otter Sagas")
+        eq_(edition_new.series_position, u"4")
+        eq_(edition_new.language, u"eng")
+        eq_(edition_new.medium, u"Audio")
+        eq_(edition_new.publisher, u"Scholastic Inc")
+        eq_(edition_new.imprint, u"Follywood")
+        eq_(edition_new.published, datetime.date(1987, 5, 4))
+        eq_(edition_new.issued, datetime.date(1989, 4, 5))
 
         edition_new, changed = metadata.apply(edition_new)
         eq_(changed, False)
 
+    def test_apply_identifier_equivalency(self):
+
+        # Set up primary identifier with matching & new IdentifierData objects
+        edition, pool = self._edition(with_license_pool=True)
+        primary = edition.primary_identifier
+        primary_as_data = IdentifierData(
+            type=primary.type, identifier=primary.identifier
+        )
+        other_data = IdentifierData(type=u"abc", identifier=u"def")
+
+        # Prep Metadata object.
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary,
+            identifiers=[primary_as_data, other_data]
+        )
+
+        # The primary identifier is put into the identifiers array after init
+        eq_(3, len(metadata.identifiers))
+        assert primary in metadata.identifiers
+
+        metadata.apply(edition)
+        # Neither the primary edition nor the identifier data that represents
+        # it have become equivalencies.
+        eq_(1, len(primary.equivalencies))
+        [equivalency] = primary.equivalencies
+        eq_(equivalency.output.type, u"abc")
+        eq_(equivalency.output.identifier, u"def")
 
     def test_metadata_can_be_deepcopied(self):
 
@@ -624,4 +673,3 @@ class TestMetadata(DatabaseTest):
 
         # If deepcopy didn't throw an exception we're ok.
         assert m_copy is not None
-
