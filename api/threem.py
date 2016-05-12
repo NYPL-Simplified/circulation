@@ -585,9 +585,9 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     self._db, pool, CirculationEvent.TITLE_ADD,
                     None, None, start=now)
 
-            if pool.edition:
-                self.log.info("Updating %s (%s)", pool.edition.title,
-                              pool.edition.author)
+            if pool.presentation_edition:
+                e = pool.presentation_edition
+                self.log.info("Updating %s (%s)", e.title, e.author)
             else:
                 self.log.info(
                     "Updating unknown work %s", identifier.identifier
