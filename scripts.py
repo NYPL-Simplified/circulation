@@ -404,7 +404,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         LicensePool.consolidate_works(self._db)
 
         logging.info("Deleting works with no editions.")
-        for i in self.db.query(Work).filter(Work.primary_edition==None):
+        for i in self._db.query(Work).filter(Work.primary_edition==None):
             self._db.delete(i)            
         self._db.commit()
 

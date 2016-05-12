@@ -273,7 +273,6 @@ class OPDSImporter(object):
                 even_if_no_author=even_if_no_author,
             )
             if work:
-                work.calculate_presentation()
                 if immediately_presentation_ready:
                     # We want this book to be presentation-ready
                     # immediately upon import. As long as no crucial
