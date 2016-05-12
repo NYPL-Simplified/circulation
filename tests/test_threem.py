@@ -7,7 +7,9 @@ from nose.tools import (
 
 from api.threem import (
     ThreeMAPI,
+    ThreeMParser,
     DummyThreeMAPI,
+    EventParser,
     PatronCirculationParser,
     CheckoutResponseParser,
     ErrorParser,
@@ -39,6 +41,31 @@ class TestThreeMAPI(DatabaseTest):
         path = os.path.join(self.resource_path, filename)
         data = open(path).read()
         return data
+
+class TestThreeMParser(TestThreeMAPI):
+
+    def test_parse_date(self):
+        parser = ThreeMParser()
+        v = parser.parse_date("2016-01-02T12:34:56")
+        eq_(datetime.datetime(2016, 1, 2, 12, 34, 56), v)
+
+        eq_(None, parser.parse_date(None))
+        eq_(None, parser.parse_date("Some weird value"))
+
+
+class TestEventParser(TestThreeMAPI):
+
+    def test_parse_empty_end_date_event(self):
+        data = self.sample_data("empty_end_date_event.xml")
+        [event] = list(EventParser().process_all(data))
+        (threem_id, isbn, patron_id, start_time, end_time,
+         internal_event_type) = event
+        eq_('d5rf89', threem_id)
+        eq_(u'9781101190623', isbn)
+        eq_(None, patron_id)
+        eq_(datetime.datetime(2016, 4, 28, 11, 4, 6), start_time)
+        eq_(None, end_time)
+        eq_('license_add', internal_event_type)
 
 
 class TestPatronCirculationParser(TestThreeMAPI):

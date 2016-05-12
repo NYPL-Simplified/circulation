@@ -253,7 +253,36 @@ class DummyThreeMAPI(ThreeMAPI):
             return DummyThreeMAPIResponse(response_code, headers, content)
 
 
-class CirculationParser(XMLParser):
+class ThreeMParser(XMLParser):
+
+    INPUT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+    def parse_date(self, value):
+        """Parse the string 3M sends as a date.
+
+        Usually this is a string in INPUT_TIME_FORMAT, but it might be None.
+        """
+        if not value:
+            value = None
+        else:
+            try:
+                value = datetime.datetime.strptime(
+                    value, self.INPUT_TIME_FORMAT
+                )
+            except ValueError, e:
+                logging.error(
+                    'Unable to parse 3M date: "%s"', value,
+                    exc_info=e
+                )
+                value = None
+        return value
+
+    def date_from_subtag(self, tag, key):
+        value = self.text_of_subtag(tag, key)
+        return self.parse_date(value)
+
+
+class CirculationParser(ThreeMParser):
 
     """Parse 3M's circulation XML dialect into something we can apply to a LicensePool."""
 
@@ -303,6 +332,7 @@ class CirculationParser(XMLParser):
                              identifiers[Identifier.THREEM_ID], threem_key)
         return item
 
+
 class ThreeMException(Exception):
     pass
 
@@ -315,7 +345,7 @@ class WorkflowException(ThreeMException):
         return "Book status is %s, must be: %s" % (
             self.actual_status, ", ".join(self.statuses_that_would_work))
 
-class ErrorParser(XMLParser):
+class ErrorParser(ThreeMParser):
     """Turn an error document from the 3M web service into a CheckoutException"""
 
     wrong_status = re.compile(
@@ -376,7 +406,7 @@ class ErrorParser(XMLParser):
 
         return ThreeMException(message)
 
-class PatronCirculationParser(XMLParser):
+class PatronCirculationParser(ThreeMParser):
 
     """Parse 3M's patron circulation status document into a list of
     LoanInfo and HoldInfo objects.
@@ -432,7 +462,7 @@ class PatronCirculationParser(XMLParser):
             a.append(None)
         return source_class(*a)
 
-class DateResponseParser(XMLParser):
+class DateResponseParser(ThreeMParser):
     """Extract a date from a response."""
     RESULT_TAG_NAME = None
     DATE_TAG_NAME = None
@@ -464,12 +494,11 @@ class HoldResponseParser(DateResponseParser):
     DATE_TAG_NAME = "AvailabilityDateInUTC"
 
 
-class EventParser(XMLParser):
+class EventParser(ThreeMParser):
 
     """Parse 3M's event file format into our native event objects."""
 
     EVENT_SOURCE = "3M"
-    INPUT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
@@ -493,12 +522,8 @@ class EventParser(XMLParser):
         threem_id = self.text_of_subtag(tag, "ItemId")
         patron_id = self.text_of_subtag(tag, "PatronId")
 
-        start_time = self.text_of_subtag(tag, "EventStartDateTimeInUTC")
-        start_time = datetime.datetime.strptime(
-                start_time, self.INPUT_TIME_FORMAT)
-        end_time = self.text_of_subtag(tag, "EventEndDateTimeInUTC")
-        end_time = datetime.datetime.strptime(
-            end_time, self.INPUT_TIME_FORMAT)
+        start_time = self.date_from_subtag(tag, "EventStartDateTimeInUTC")
+        end_time = self.date_from_subtag(tag, "EventEndDateTimeInUTC")
 
         threem_event_type = self.text_of_subtag(tag, "EventType")
         internal_event_type = self.EVENT_NAMES[threem_event_type]
