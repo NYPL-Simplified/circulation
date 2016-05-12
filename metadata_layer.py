@@ -51,6 +51,7 @@ class ReplacementPolicy(object):
             links=False,
             formats=False,
             rights=False,
+            link_content=False,
             mirror=None,
             http_get=None,
             even_if_not_apparently_updated=False,
@@ -62,6 +63,7 @@ class ReplacementPolicy(object):
         self.links = links
         self.rights = rights
         self.formats = formats
+        self.link_content = link_content
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
         self.http_get = http_get
@@ -1251,14 +1253,9 @@ class Metadata(object):
             )
 
         # Make sure the work we just did shows up.
-        if edition.work:
-            edition.work.calculate_presentation(
-                policy=replace.presentation_calculation_policy
-            )
-        else:
-            edition.calculate_presentation(
-                policy=replace.presentation_calculation_policy
-            )
+        edition.calculate_presentation(
+            policy=replace.presentation_calculation_policy
+        )
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where
@@ -1321,16 +1318,40 @@ class Metadata(object):
 
         self.log.debug("About to mirror %s" % original_url)
 
+        if policy.link_content:
+            # We want to fetch the representation again, even if we 
+            # already have a recent usable copy. If we fetch it and it 
+            # hasn't changed, we'll keep using the one we have.
+            max_age = 0
+        else:
+            max_age = None
+
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(
             _db, link.href, do_get=http_get,
             presumed_media_type=link.media_type,
+            max_age=max_age,
         )
 
         # Make sure the (potentially newly-fetched) representation is
         # associated with the resource.
         link_obj.resource.representation = representation
+
+        # If we couldn't fetch this representation, don't mirror it,
+        # and if this was an open access link suppress the license
+        # pool until someone fixes it manually.
+        if representation.fetch_exception:
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            return
+
+        # If we fetched the representation and it hasn't changed,
+        # the previously mirrored version is fine. Don't mirror it
+        # again.
+        if representation.status_code == 304:
+            return
 
         # Determine the best URL to use when mirroring this
         # representation.
@@ -1353,6 +1374,11 @@ class Metadata(object):
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
+        # If we couldn't mirror an open access link representation, suppress
+        # the license pool until someone fixes it manually.
+        if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            pool.suppressed = True
+            pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 

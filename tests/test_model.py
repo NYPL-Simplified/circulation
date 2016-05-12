@@ -26,6 +26,7 @@ from config import (
 
 from model import (
     CirculationEvent,
+    Classification,
     Collection,
     Complaint,
     Contributor,
@@ -116,10 +117,15 @@ class TestDataSource(DatabaseTest):
             self._db, "No such data source " + self._str))
 
     def test_metadata_sources_for(self):
-        [content_cafe] = DataSource.metadata_sources_for(
+        content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+        novelist = DataSource.lookup(self._db, DataSource.NOVELIST)
+        isbn_metadata_sources = DataSource.metadata_sources_for(
             self._db, Identifier.ISBN
         )
-        eq_(DataSource.CONTENT_CAFE, content_cafe.name)
+
+        eq_(2, len(isbn_metadata_sources))
+        assert content_cafe in isbn_metadata_sources
+        assert novelist in isbn_metadata_sources
 
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
@@ -440,7 +446,7 @@ class TestSubject(DatabaseTest):
         eq_(NumericRange(None, None, '[]'), subject.target_age)
         eq_(None, subject.genre)
         eq_(None, subject.fiction)
-        
+
 
 class TestContributor(DatabaseTest):
 
@@ -1438,6 +1444,28 @@ class TestWork(DatabaseTest):
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
+    def test_classifications_with_genre(self):
+        work = self._work()
+        identifier = work.primary_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genres[0]
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genres[1]
+        subject3 = self._subject(type="type2", identifier="subject3")
+        subject3.genre = None
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
+        classification1 = self._classification(
+            identifier=identifier, subject=subject1, 
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=identifier, subject=subject2, 
+            data_source=source, weight=2)
+                
+        results = work.classifications_with_genre().all()
+        
+        eq_([classification2, classification1], results)
+
 
     def test_mark_licensepools_as_superceded(self):
         # A commercial LP that somehow got superceded will be
@@ -2273,7 +2301,6 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(byte_content)
         eq_(byte_content, representation.content)
         eq_(None, representation.unicode_content)
-
 
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()

@@ -603,6 +603,7 @@ class DataSource(Base):
     GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
     METADATA_WRANGLER = "Library Simplified metadata wrangler"
     MANUAL = "Manual intervention"
+    NOVELIST = "NoveList Select"
     NYT = "New York Times"
     NYPL_SHADOWCAT = "NYPL Shadowcat"
     LIBRARY_STAFF = "Library staff"
@@ -811,6 +812,7 @@ class DataSource(Base):
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
+                (cls.NOVELIST, False, True, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -1221,7 +1223,6 @@ class Identifier(Base):
                 identifier_string)
         return (type, identifier_string)
 
-
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
         type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
@@ -1238,7 +1239,7 @@ class Identifier(Base):
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
-        
+
         `data_source` is the DataSource that believes the two 
         identifiers are equivalent.
         """
@@ -3696,7 +3697,6 @@ class Work(Base):
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
-        # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
 
     def update_external_index(self, client):
@@ -4011,6 +4011,15 @@ class Work(Base):
         qu = qu.filter(condition)
         return qu
 
+    def classifications_with_genre(self):
+        _db = Session.object_session(self)
+        identifier = self.primary_edition.primary_identifier
+        return _db.query(Classification) \
+                    .join(Subject) \
+                    .filter(Classification.identifier_id == identifier.id) \
+                    .filter(Subject.genre_id != None) \
+                    .order_by(Classification.weight.desc())
+
 
 # Used for quality filter queries.
 Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
@@ -4068,6 +4077,7 @@ class Measurement(Base):
         DataSource.OVERDRIVE : [1, 5],
         DataSource.AMAZON : [1, 5],
         DataSource.UNGLUE_IT: [1, 5],
+        DataSource.NOVELIST: [0, 5]
     }
 
     id = Column(Integer, primary_key=True)
@@ -4550,7 +4560,7 @@ class Subject(Base):
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
-    SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     by_uri = {
@@ -4851,8 +4861,8 @@ class Classification(Base):
         Subject.AXIS_360_AUDIENCE : 0.9,
         (DataSource.OVERDRIVE, Subject.INTEREST_LEVEL) : 0.9,
         (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
-        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.9,
-        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.9,
+        (DataSource.AMAZON, Subject.AGE_RANGE) : 0.85,
+        (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.85,
         
         # Although Overdrive usually reserves Fiction and Nonfiction
         # for books for adults, it's not as reliable an indicator as
@@ -5126,6 +5136,10 @@ class LicensePool(Base):
     # to be temporarily or permanently removed from the collection.
     suppressed = Column(Boolean, default=False, index=True)
 
+    # A textual description of a problem with this license pool
+    # that caused us to suppress it.
+    license_exception = Column(Unicode, index=True)
+
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer,default=0)
@@ -5353,8 +5367,8 @@ class LicensePool(Base):
             # than creating an identical composite.
             self.presentation_edition = all_editions[0]
             #self.presentation_edition.license_pool = self
-            print "edition.data_source=%r" % self.presentation_edition.data_source
-            print "edition.identifier=%r" % self.presentation_edition.primary_identifier
+            print "set_presentation_edition: edition.data_source=%r" % self.presentation_edition.data_source
+            print "set_presentation_edition: edition.identifier=%r" % self.presentation_edition.primary_identifier
         else:
             edition_identifier = IdentifierData(self.identifier.type, self.identifier.identifier)
             metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
@@ -5560,7 +5574,9 @@ class LicensePool(Base):
             if primary_edition:
                 primary_edition.work = self.work
             
-            # The work has already been done.
+            # The work has already been done. Make sure the work's
+            # display is up to date.
+            self.work.calculate_presentation()
             return self.work, False
 
 
@@ -5643,8 +5659,6 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
-        print "LicensePool %s" % self
-        print "my identifier=%s" % self.identifier
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
@@ -6192,11 +6206,9 @@ class Representation(Base):
                    'video/'
         ])
 
-
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
-            accept=None,
-            max_age=None, pause_before=0, allow_redirects=True, 
+            accept=None, max_age=None, pause_before=0, allow_redirects=True,
             presumed_media_type=None, debug=True):
         """Retrieve a representation from the cache if possible.
         
@@ -6214,9 +6226,8 @@ class Representation(Base):
         :return: A 2-tuple (representation, obtained_from_cache)
 
         """
-        do_get = do_get or cls.simple_http_get
-
         representation = None
+        do_get = do_get or cls.simple_http_get
 
         # TODO: We allow representations of the same URL in different
         # media types, but we don't have a good solution here for
@@ -6316,7 +6327,7 @@ class Representation(Base):
             or media_type != representation.media_type
             or url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url, media_type=media_type)
+                _db, Representation, url=url, media_type=unicode(media_type))
 
         representation.fetch_exception = exception
         representation.fetched_at = fetched_at
@@ -6326,6 +6337,7 @@ class Representation(Base):
             # Set its fetched_at property and return the cached
             # version as though it were new.
             representation.fetched_at = fetched_at
+            representation.status_code = status_code
             return representation, False
 
         if status_code:
@@ -6372,6 +6384,18 @@ class Representation(Base):
         representation.content = content
         return representation, False
 
+    @classmethod
+    def cacheable_post(cls, _db, url, params, max_age=None):
+        """Transforms cacheable POST request into a Representation"""
+
+        def do_post(url, headers, **kwargs):
+            kwargs.update({'data' : params})
+            return cls.simple_http_post(url, headers, **kwargs)
+
+        return cls.get(
+            _db, url, do_get=do_post, max_age=max_age
+        )
+
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
        
@@ -6381,7 +6405,6 @@ class Representation(Base):
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
             self.image_width, self.image_height = image.size
-            # print "%s is %dx%d" % (self.url, self.image_width, self.image_height)
         else:
             self.image_width = self.image_height = None
 
@@ -6449,6 +6472,14 @@ class Representation(Base):
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
         response = requests.get(url, headers=headers, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    @classmethod
+    def simple_http_post(cls, url, headers, **kwargs):
+        """The most simple HTTP-based POST."""
+        if not 'timeout' in kwargs:
+            kwargs['timeout'] = 20
+        response = requests.post(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod

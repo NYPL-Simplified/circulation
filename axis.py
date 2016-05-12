@@ -62,7 +62,6 @@ class Axis360API(object):
             self.base_url = self.PRODUCTION_BASE_URL
         print self.base_url
         self.token = None
-        self.source = DataSource.lookup(self._db, DataSource.AXIS_360)
 
     @classmethod
     def environment_values(cls):
@@ -91,6 +90,10 @@ class Axis360API(object):
             )
             return None
         return cls(_db)
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.AXIS_360)
 
     @property
     def authorization_headers(self):
@@ -169,7 +172,6 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        # self.log.debug("Making Axis 360 request to %s params=%r", url, params)
         return requests.request(
             url=url, method=method, headers=headers, data=data,
             params=params)

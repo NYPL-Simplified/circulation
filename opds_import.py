@@ -280,9 +280,9 @@ class OPDSImporter(object):
             and metadata.last_update_time < cutoff_date
         ):
             # We've already imported this book, we've been told
-            # not to bother with books that appeared before a
-            # certain date, and this book did in fact appear
-            # before that date. There's no reason to do anything.
+            # not to bother with books that haven't changed since a
+            # certain date, and this book hasn't changed since that
+            # that date. There's no reason to do anything.
             return
 
         policy = ReplacementPolicy(
@@ -290,6 +290,7 @@ class OPDSImporter(object):
             links=True,
             contributions=True,
             rights=True,
+            link_content=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
             http_get=self.http_get,
@@ -352,6 +353,7 @@ class OPDSImporter(object):
             # if pool.calculate_work made a new work, it already called calculate_presentation
             if (work and not is_new_work):
                 work.calculate_presentation()
+            if (work):
                 if immediately_presentation_ready:
                     # We want this book to be presentation-ready
                     # immediately upon import. As long as no crucial
@@ -842,6 +844,11 @@ class OPDSImportMonitor(Monitor):
     def follow_one_link(self, link, start):
         self.log.info("Following next link: %s, cutoff=%s", link, start)
         response = requests.get(link)
+
+        if response.status_code / 100 not in [2, 3]:
+            self.log.error("Fetching next link %s failed with status %i" % (link, response.status_code))
+            return []
+
         imported, messages, next_links = self.importer.import_from_feed(
             response.content, even_if_no_author=True, cutoff_date=start,
             immediately_presentation_ready = self.immediately_presentation_ready
@@ -852,7 +859,7 @@ class OPDSImportMonitor(Monitor):
             # We did not end up importing a single book on this page.
             # There's no need to keep going.
             self.log.info(
-                "Saw a full page with no new books. Stopping."
+                "Saw a full page with no new or updated books. Stopping."
             )
             return []
         else:

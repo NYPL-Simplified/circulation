@@ -38,6 +38,7 @@ from model import (
 
 from . import (
     DatabaseTest,
+    DummyHTTPClient,
 )
 
 from s3 import DummyS3Uploader
@@ -288,6 +289,95 @@ class TestMetadataImporter(DatabaseTest):
         # make sure the unmirrored link has not been translated to an S3 URL
         eq_(None, unmirrored_representation.mirror_url)
 
+    def test_mirror_open_access_link_fetch_failure(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror = DummyS3Uploader()
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url,
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            license_pool=pool, media_type=link.media_type,
+            content=link.content,
+        )
+        h.queue_response(403)
+        
+        m.mirror_link(pool, data_source, link, link_obj, policy)
+
+        representation = link_obj.resource.representation
+
+        # Fetch failed, so we should have a fetch exception but no mirror url.
+        assert representation.fetch_exception != None
+        eq_(None, representation.mirror_exception)
+        eq_(None, representation.mirror_url)
+        eq_(link.href, representation.url)
+        assert representation.fetched_at != None
+        eq_(None, representation.mirrored_at)
+
+        # The license pool is suppressed when fetch fails.
+        eq_(True, pool.suppressed)
+        assert representation.fetch_exception in pool.license_exception
+
+    def test_mirror_open_access_link_mirror_failure(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror = DummyS3Uploader(fail=True)
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url,
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            license_pool=pool, media_type=link.media_type,
+            content=link.content,
+        )
+
+        h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
+        
+        m.mirror_link(pool, data_source, link, link_obj, policy)
+
+        representation = link_obj.resource.representation
+
+        # The representation was fetched successfully.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at != None
+
+        # But mirroing failed.
+        assert representation.mirror_exception != None
+        eq_(None, representation.mirrored_at)
+        eq_(link.media_type, representation.media_type)
+        eq_(link.href, representation.url)
+
+        # The mirror url should still be set.
+        assert "Gutenberg" in representation.mirror_url
+        assert representation.mirror_url.endswith("%s.epub" % edition.title)
+
+        # Book content is still there since it wasn't mirrored.
+        assert representation.content != None
+
+        # The license pool is suppressed when mirroring fails.
+        eq_(True, pool.suppressed)
+        assert representation.mirror_exception in pool.license_exception
 
     def test_measurements(self):
         edition = self._edition()

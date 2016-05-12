@@ -60,7 +60,6 @@ class ThreeMAPI(object):
         self._db = _db
         self.version = version
         self.base_url = base_url
-        self.source = DataSource.lookup(self._db, DataSource.THREEM)
         self.item_list_parser = ItemListParser()
 
         if testing:
@@ -99,6 +98,10 @@ class ThreeMAPI(object):
             )
             return None
         return cls(_db)
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.THREEM)
 
     def now(self):
         """Return the current GMT time in the format 3M expects."""

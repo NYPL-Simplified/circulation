@@ -36,7 +36,9 @@ class ExternalSearchIndex(object):
             url = integration[Configuration.URL]
             use_ssl = url and url.startswith('https://')
             self.log.info("Connecting to Elasticsearch cluster at %s", url)
-            ExternalSearchIndex.__client = Elasticsearch(url, use_ssl=use_ssl)
+            ExternalSearchIndex.__client = Elasticsearch(
+                url, use_ssl=use_ssl, timeout=20, maxsize=25
+            )
             ExternalSearchIndex.__client.works_index = works_index
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
@@ -466,7 +468,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         return id in self.docs
 
     def query_works(self, *args, **kwargs):
-        doc_ids = [dict(_id=key[2]) for key in self.docs.keys()]
+        doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
         if 'offset' in kwargs and 'size' in kwargs:
             offset = kwargs['offset']
             size = kwargs['size']
