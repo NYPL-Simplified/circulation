@@ -6377,11 +6377,18 @@ class Representation(Base):
         return representation, False
 
     @classmethod
-    def cacheable_post(cls, _db, url, params, max_age=None):
+    def cacheable_post(cls, _db, url, params, max_age=None,
+                       response_reviewer=None):
         """Transforms cacheable POST request into a Representation"""
 
         def do_post(url, headers, **kwargs):
             kwargs.update({'data' : params})
+            if response_reviewer:
+                # An optional function passed to raise errors if the
+                # post response isn't worth caching.
+                return response_reviewer(
+                    cls.simple_http_post(url, headers, **kwargs)
+                )
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
