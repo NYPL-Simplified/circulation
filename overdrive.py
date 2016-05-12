@@ -75,10 +75,10 @@ class OverdriveAPI(object):
     FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-    
+
+   
     def __init__(self, _db, testing=False):
         self._db = _db
-        self.source = DataSource.lookup(_db, DataSource.OVERDRIVE)
 
         # Set some stuff from environment variables
         if not testing:
@@ -121,6 +121,10 @@ class OverdriveAPI(object):
             return cls(_db)
         except CannotLoadConfiguration, e:
             return None
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
