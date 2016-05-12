@@ -138,28 +138,28 @@ def account():
 def active_loans():
     return app.manager.loans.sync()
 
-@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
-@app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
+@app.route('/works/<data_source>/<path:identifier>/borrow', methods=['GET', 'PUT'])
+@app.route('/works/<data_source>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
 @requires_auth
 @returns_problem_detail
 def borrow(data_source, identifier, mechanism_id=None):
     return app.manager.loans.borrow(data_source, identifier, mechanism_id)
 
-@app.route('/works/<data_source>/<identifier>/fulfill/')
-@app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
+@app.route('/works/<data_source>/<path:identifier>/fulfill/')
+@app.route('/works/<data_source>/<path:identifier>/fulfill/<mechanism_id>')
 @requires_auth
 @returns_problem_detail
 def fulfill(data_source, identifier, mechanism_id=None):
     return app.manager.loans.fulfill(data_source, identifier, mechanism_id)
 
-@app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
+@app.route('/loans/<data_source>/<path:identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 @returns_problem_detail
 def revoke_loan_or_hold(data_source, identifier):
     return app.manager.loans.revoke(data_source, identifier)
 
-@app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
+@app.route('/loans/<data_source>/<path:identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 @returns_problem_detail
 def loan_or_hold_detail(data_source, identifier):
@@ -171,12 +171,12 @@ def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
-@app.route('/works/<data_source>/<identifier>')
+@app.route('/works/<data_source>/<path:identifier>')
 @returns_problem_detail
 def permalink(data_source, identifier):
     return app.manager.work_controller.permalink(data_source, identifier)
     
-@app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
+@app.route('/works/<data_source>/<path:identifier>/report', methods=['GET', 'POST'])
 @returns_problem_detail
 def report(data_source, identifier):
     return app.manager.work_controller.report(data_source, identifier)
