@@ -277,8 +277,11 @@ class ThreeMParser(XMLParser):
                 value = None
         return value
 
-    def date_from_subtag(self, tag, key):
-        value = self.text_of_subtag(tag, key)
+    def date_from_subtag(self, tag, key, required=True):
+        if required:
+            value = self.text_of_subtag(tag, key)
+        else:
+            value = self.text_of_optional_subtag(tag, key)
         return self.parse_date(value)
 
 
@@ -520,10 +523,12 @@ class EventParser(ThreeMParser):
     def process_one(self, tag, namespaces):
         isbn = self.text_of_subtag(tag, "ISBN")
         threem_id = self.text_of_subtag(tag, "ItemId")
-        patron_id = self.text_of_subtag(tag, "PatronId")
+        patron_id = self.text_of_optional_subtag(tag, "PatronId")
 
         start_time = self.date_from_subtag(tag, "EventStartDateTimeInUTC")
-        end_time = self.date_from_subtag(tag, "EventEndDateTimeInUTC")
+        end_time = self.date_from_subtag(
+            tag, "EventEndDateTimeInUTC", required=False
+        )
 
         threem_event_type = self.text_of_subtag(tag, "EventType")
         internal_event_type = self.EVENT_NAMES[threem_event_type]
