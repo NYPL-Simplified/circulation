@@ -63,12 +63,15 @@ class NYTBestSellerAPI(NYTAPI):
             Configuration.NYT_BEST_SELLERS_API_KEY
         ]
         self.do_get = do_get or Representation.simple_http_get
-        self.source = DataSource.lookup(_db, DataSource.NYT)
         if not metadata_client:
             metadata_url = Configuration.integration_url(
                 Configuration.METADATA_WRANGLER_INTEGRATION)
             metadata_client = SimplifiedOPDSLookup(metadata_url)
         self.metadata_client = metadata_client
+
+    @property
+    def source(self):
+        return DataSource.lookup(_db, DataSource.NYT)
 
     def request(self, path, identifier=None, max_age=LIST_MAX_AGE):
         if not path.startswith(self.BASE_URL):
