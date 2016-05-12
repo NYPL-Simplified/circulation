@@ -567,9 +567,18 @@ class DatabaseTest(object):
             print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
             print "    Edition.is_primary_for_work=%s|" % edition.is_primary_for_work
             print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
-            print "    Edition.author=%s|" % edition.author
-            print "    Edition.title=%s|" % edition.title
+            if (edition.data_source):
+                print "    Edition.data_source.id=%s|" % edition.data_source.id
+                print "    Edition.data_source.name=%s|" % edition.data_source.name
+            else:
+                print "    No Edition.data_source."
+            if (edition.license_pool):
+                print "    Edition.license_pool.id=%s|" % edition.license_pool.id
+            else:
+                print "    No Edition.license_pool."
 
+            print "    Edition.title=%s|" % edition.title
+            print "    Edition.author=%s|" % edition.author
             if (not edition.author_contributors):
                 print "    NO Edition.author_contributor found"
             for acCount, author_contributor in enumerate(edition.author_contributors):

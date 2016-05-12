@@ -462,6 +462,7 @@ class CirculationData(object):
     def data_source(self, _db):
         if not self.data_source_obj:
             if self._data_source:
+                print "CirculationData.data_source(): self._data_source=%s" % self._data_source
                 obj = DataSource.lookup(_db, self._data_source)
                 if not obj:
                     raise ValueError("Data source %s not found!" % self._data_source)

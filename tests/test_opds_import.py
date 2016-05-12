@@ -308,32 +308,56 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(imported2, imported)
 
 
-    # TODO
+
     def test_import_with_wrangler_data_source(self):
         # will create editions, but not license pools or works, because the 
         # metadata wrangler data source is not lendable
+        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
+        path = os.path.join(self.resource_path, "content_server_mini.opds")
+        feed = open(path).read()
 
+        set_trace()
+        print "DOING MW"
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
         imported_editions_mw, imported_pools_mw, imported_works_mw, messages_meta_mw, messages_circ_mw, next_links_mw = (
             importer_mw.import_from_feed(feed, cutoff_date=cutoff)
         )
+
+        # TODO: if the test feed sites Gutenberg as data source, should 
+        # use MW or Gutenberg?  Ex: 
+        # <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
+        # <title>The Green Mouse</title>
+
         # Despite the cutoff, both books were imported, because they were new.
         eq_(2, len(imported_editions_mw))
 
         # but pools and works weren't, because we passed the wrong data source
-        eq_(0, len(imported_pools_mw))
-        eq_(0, len(imported_works_mw))
+        # and we have no error messages, because correctly didn't even get to trying to create pools.
+        #eq_(0, len(messages_meta_mw))
+        #eq_(0, len(imported_pools_mw))
+        #eq_(0, len(imported_works_mw))
+        # TODO: when do have error, have 3 error messages, when should have 2.
 
+        set_trace()
+        print "DOING G"
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
         imported_editions_g, imported_pools_g, imported_works_g, messages_meta_g, messages_circ_g, next_links_g = (
             importer_g.import_from_feed(feed, cutoff_date=cutoff)
         )
-        # now pools and works are in
+
+        set_trace()
+        # we made new editions -- one for each data source
+        eq_(2, len(imported_editions_g))
+        # TODO: and we also created presentation editions, with author and title set
+
+        # now pools and works are in, too
+        #eq_(0, len(messages_meta_g))
         eq_(2, len(imported_pools_g))
         eq_(2, len(imported_works_g))        
-        # but not editions, because they were already there
+        # editions are also in, because we're now creating edition per data source, not overwriting
         eq_(2, len(imported_editions_g))
+
 
 
     def test_import_with_cutoff(self):

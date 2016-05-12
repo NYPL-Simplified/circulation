@@ -3540,6 +3540,7 @@ class Work(Base):
             # Descriptions from Gutenberg are useless, so we
             # specifically exclude it from being a privileged data
             # source.
+            print "calculate_presentation: pool.data_source.name=%s" % pool.data_source.name
             if pool.data_source.name != DataSource.GUTENBERG:
                 licensed_data_sources.add(pool.data_source)
 
@@ -3627,6 +3628,7 @@ class Work(Base):
                 changed = "changed"
                 representation = self.detailed_representation
             else:
+                # TODO: maybe change changed to a boolean, and return it as method result
                 changed = "unchanged"
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
@@ -5350,6 +5352,9 @@ class LicensePool(Base):
             # LicensePool. Use it as the presentation edition rather
             # than creating an identical composite.
             self.presentation_edition = all_editions[0]
+            #self.presentation_edition.license_pool = self
+            print "edition.data_source=%r" % self.presentation_edition.data_source
+            print "edition.identifier=%r" % self.presentation_edition.primary_identifier
         else:
             edition_identifier = IdentifierData(self.identifier.type, self.identifier.identifier)
             metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
@@ -5368,6 +5373,7 @@ class LicensePool(Base):
             self.presentation_edition, edition_core_changed = metadata.apply(edition)
 
         self.presentation_edition.work = self.work
+        #self.presentation_edition.license_pool = self
         changed = changed or self.presentation_edition.calculate_presentation()
 
         # if the license pool is associated with a work, and the work currently has no presentation edition, 
@@ -5542,6 +5548,10 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
+        if (known_edition and known_edition.license_pool != self):
+            raise ValueError(
+                "Primary edition's license pool is not the license pool for which work is being calculated!")
+
         self.set_presentation_edition(None)
 
         primary_edition = known_edition or self.presentation_edition
@@ -5562,9 +5572,6 @@ class LicensePool(Base):
                      self.identifier)
             
             return None, False
-        if primary_edition.license_pool != self:
-            raise ValueError(
-                "Primary edition's license pool is not the license pool for which work is being calculated!")
 
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()

@@ -218,6 +218,7 @@ class OPDSImporter(object):
         messages_meta = status_messages
         messages_circ = status_messages
 
+        # TODO: return one dictionary of messages, which combines info from status_messages, meta and circ in one entry
         for metadata in metadata_objs:
             try:
                 edition = self.import_editions_from_metadata(
@@ -232,21 +233,28 @@ class OPDSImporter(object):
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                 messages_meta[identifier.urn] = message
 
+
         for circulationdata in circulation_objs:
-            try:
-                pool, work = self.import_pools_works_from_circulationdata(
-                    circulationdata, even_if_no_author, cutoff_date, immediately_presentation_ready
-                )
-                if pool:
-                    imported_pools.append(pool)
-                if work:
-                    imported_works.append(work)
-            except Exception, e:
-                # Rather than scratch the whole import, treat this as a failure that only applies
-                # to this item.
-                identifier, ignore = circulationdata.primary_identifier.load(self._db)
-                message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-                messages_circ[identifier.urn] = message
+            obj = DataSource.lookup(self._db, circulationdata._data_source)
+            if obj.offers_licenses:
+
+                try:
+                    print "before self.import_pools_works_from_circulationdata"
+                    pool, work = self.import_pools_works_from_circulationdata(
+                        circulationdata, even_if_no_author, cutoff_date, immediately_presentation_ready
+                    )
+                    print "after self.import_pools_works_from_circulationdata"
+                    if pool:
+                        imported_pools.append(pool)
+                    if work:
+                        imported_works.append(work)
+                except Exception, e:
+                    # Rather than scratch the whole import, treat this as a failure that only applies
+                    # to this item.
+                    identifier, ignore = circulationdata.primary_identifier.load(self._db)
+                    message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
+                    print "exception while self.import_pools_works_from_circulationdata, %s" % message
+                    messages_circ[identifier.urn] = message
 
         return imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links
 
@@ -261,7 +269,6 @@ class OPDSImporter(object):
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
 
-        #set_trace()
         # TODO: now that metadata/edition pairs are no longer associated with circulation/pool
         # pairs, it's more difficult to implement a cutoff_date.
         # Figure out how to bring back the commented-out functionality.
@@ -340,10 +347,10 @@ class OPDSImporter(object):
             # pool.calculate_work will call self.set_presentation_edition(), which will find editions 
             # attached to same Identifier.
             # TODO:  what if the pool has no edition, should we still allow the work to be created?
-            work, is_new_work = license_pool.calculate_work(
-                even_if_no_author=even_if_no_author,
-            )
-            if work:
+            set_trace()
+            work, is_new_work = license_pool.calculate_work(even_if_no_author=even_if_no_author,)
+            # if pool.calculate_work made a new work, it already called calculate_presentation
+            if (work and not is_new_work):
                 work.calculate_presentation()
                 if immediately_presentation_ready:
                     # We want this book to be presentation-ready
