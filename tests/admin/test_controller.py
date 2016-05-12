@@ -32,7 +32,6 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
 )
 from core.classifier import genres
-from psycopg2.extras import NumericRange
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -83,53 +82,21 @@ class TestWorkController(AdminControllerTest):
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Adults Only"),
-                ("summary", "<p>New summary</p>"),
-                ("fiction", "nonfiction"),
+                ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
 
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
-            eq_("Adults Only", self.english_1.audience)
-            assert 'Adults Only' in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
-            eq_(False, self.english_1.fiction)
-            assert "Nonfiction" in self.english_1.simple_opds_entry
-
-        with self.app.test_request_context("/"):
-            # Change the audience and fiction status again, and add a target age
-            flask.request.form = ImmutableMultiDict([
-                ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", "<p>New summary</p>"),
-                ("fiction", "fiction"),
-                ("target_age_min", 13),
-                ("target_age_max", 15),
-            ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
-            eq_(200, response.status_code)
-            eq_("Young Adult", self.english_1.audience)
-            assert 'Young Adult' in self.english_1.simple_opds_entry
-            assert 'Adults Only' not in self.english_1.simple_opds_entry
-            eq_(True, self.english_1.fiction)
-            assert "Fiction" in self.english_1.simple_opds_entry
-            assert "Nonfiction" not in self.english_1.simple_opds_entry
-            eq_(13, self.english_1.target_age.lower)
-            eq_(15, self.english_1.target_age.upper)
-            assert "13-15" in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
             # Change the summary again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", "abcd"),
-                ("fiction", "fiction"),
-                ("target_age_min", 13),
-                ("target_age_max", 15),
+                ("summary", "abcd")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
@@ -137,53 +104,15 @@ class TestWorkController(AdminControllerTest):
             assert 'New summary' not in self.english_1.simple_opds_entry
 
         with self.app.test_request_context("/"):
-            # Now delete the summary entirely and change the target age again
+            # Now delete the summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", ""),
-                ("fiction", "fiction"),
-                ("target_age_min", 11),
-                ("target_age_max", 14),
+                ("summary", "")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_("", self.english_1.summary_text)
             assert 'abcd' not in self.english_1.simple_opds_entry
-            eq_(11, self.english_1.target_age.lower)
-            eq_(14, self.english_1.target_age.upper)
-            assert "11-14" in self.english_1.simple_opds_entry
-            assert "13-15" not in self.english_1.simple_opds_entry
-
-        with self.app.test_request_context("/"):
-            # Change audience and remove target age, so computed target age is based on audience
-            flask.request.form = ImmutableMultiDict([
-                ("title", "New title"),
-                ("audience", "Adult"),
-                ("summary", ""),
-                ("fiction", "fiction"),
-            ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
-            eq_(200, response.status_code)
-            eq_("Adult", self.english_1.audience)
-            assert 'Adult' in self.english_1.simple_opds_entry
-            assert 'Young Adult' not in self.english_1.simple_opds_entry
-            eq_(18, self.english_1.target_age.lower)
-            eq_(None, self.english_1.target_age.upper)
-            assert "11-14" not in self.english_1.simple_opds_entry
-            assert "18" in self.english_1.simple_opds_entry
-
-    def test_edit_invalid_input(self):
-        [lp] = self.english_1.license_pools
-        with self.app.test_request_context("/"):
-            # target age min greater than target age max
-            flask.request.form = ImmutableMultiDict([
-                ("target_age_min", 10),
-                ("target_age_max", 5),
-            ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
-            eq_(400, response.status_code)
-            eq_(INVALID_EDIT.uri, response.uri)
 
     def test_edit_classifications(self):
         # start with a couple genres
@@ -208,10 +137,10 @@ class TestWorkController(AdminControllerTest):
             eq_(response.status_code, 200)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(len(new_genre_names), len(requested_genres))
-        for genre in requested_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
         eq_(True, work.fiction)
 
         # remove some genres and change audience and target age
@@ -229,11 +158,10 @@ class TestWorkController(AdminControllerTest):
             
         # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(len(new_genre_names), len(requested_genres))
-        for genre in requested_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Young Adult", work.audience)
-        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
         eq_(True, work.fiction)
 
         previous_genres = new_genre_names
@@ -252,11 +180,10 @@ class TestWorkController(AdminControllerTest):
 
         eq_(response, INCOMPATIBLE_GENRE)
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(len(new_genre_names), len(previous_genres))
-        for genre in previous_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(previous_genres))
         eq_("Young Adult", work.audience)
-        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
         eq_(True, work.fiction)
 
         # try to add Erotica
@@ -273,12 +200,29 @@ class TestWorkController(AdminControllerTest):
             eq_(response, EROTICA_FOR_ADULTS_ONLY)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(len(new_genre_names), len(previous_genres))
-        for genre in previous_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(previous_genres))
         eq_("Young Adult", work.audience)
-        eq_(NumericRange(16, 19, '[)'), work.target_age)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
         eq_(True, work.fiction)
+        
+        # try to set min target age greater than max target age
+        # othe edits should not go through
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 14),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)        
+            eq_(400, response.status_code)
+            eq_(INVALID_EDIT.uri, response.uri)
+
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(previous_genres))
+        eq_(True, work.fiction)        
 
         # change to nonfiction with nonfiction genres and new target age
         with self.app.test_request_context("/"):
@@ -293,12 +237,25 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
 
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(len(new_genre_names), len(requested_genres))
-        for genre in requested_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Young Adult", work.audience)
-        eq_(NumericRange(15, 18, '[)'), work.target_age)
+        eq_(15, work.target_age.lower)
+        eq_(18, work.target_age.upper)
         eq_(False, work.fiction)
+
+        # set to Adult and make sure that target ages is set automatically
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools

@@ -213,77 +213,6 @@ class WorkController(CirculationManagerController):
             work.primary_edition.title = unicode(new_title)
             changed = True
 
-        # Previous staff classifications
-        old_classifications = self._db.query(Classification).filter(
-            Classification.identifier==work.primary_edition.primary_identifier,
-            Classification.data_source==staff_data_source,
-        )
-
-        new_fiction = False
-        if flask.request.form.get("fiction") == "fiction":
-            new_fiction = True
-        if new_fiction != work.fiction:
-            # Delete previous staff fiction classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight (higher than genre)
-            fiction_term = "Fiction"
-            if not new_fiction:
-                fiction_term = "Nonfiction"
-            classification = work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
-                subject_identifier=fiction_term,
-                weight=WorkController.STAFF_WEIGHT * 100,
-            )
-            classification.subject.fiction = new_fiction
-            changed = True
-
-        new_audience = flask.request.form.get("audience")
-        if new_audience != work.audience:
-            # Delete all previous staff audience classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.FREEFORM_AUDIENCE:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight
-            work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.FREEFORM_AUDIENCE,
-                subject_identifier=new_audience,
-                weight=WorkController.STAFF_WEIGHT,
-            )
-            changed = True
-
-        new_target_age_min = flask.request.form.get("target_age_min")
-        new_target_age_max = flask.request.form.get("target_age_max")
-        if new_target_age_max < new_target_age_min:
-            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
-
-        if work.target_age:
-            old_target_age_min = work.target_age.lower
-            old_target_age_max = work.target_age.upper
-        else:
-            old_target_age_min = None
-            old_target_age_max = None
-        if new_target_age_min != old_target_age_min or new_target_age_max != old_target_age_max:
-            # Delete all previous staff target age classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.AGE_RANGE:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight - higher than audience
-            age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
-            work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.AGE_RANGE,
-                subject_identifier=age_range_identifier,
-                weight=WorkController.STAFF_WEIGHT * 100,
-            )
-            changed = True
-
         new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
             old_summary = None
@@ -425,6 +354,8 @@ class WorkController(CirculationManagerController):
         })
 
     def edit_classifications(self, data_source, identifier):
+        """Edit a work's audience, target age, fiction status, and genres."""
+        
         pool = self.load_licensepool(data_source, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
