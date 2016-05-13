@@ -5615,8 +5615,7 @@ class LicensePool(Base):
             #print msg.encode("utf8")
             return None, False
 
-        if not primary_edition.permanent_work_id:
-            primary_edition.calculate_permanent_work_id()
+        primary_edition.calculate_permanent_work_id()
 
         if primary_edition.work:
             # This pool's primary edition is already associated with
