@@ -405,7 +405,7 @@ class BibliographicCoverageProvider(CoverageProvider):
     CAN_CREATE_LICENSE_POOLS = True
 
     def __init__(self, _db, api, datasource, workset_size=10,
-                 metadata_replacement_policy=None
+                 metadata_replacement_policy=None, cutoff_time=None
     ):
         self._db = _db
         self.api = api
@@ -420,6 +420,7 @@ class BibliographicCoverageProvider(CoverageProvider):
             service_name,
             input_identifier_types, output_source,
             workset_size=workset_size,
+            cutoff_time=cutoff_time
         )
 
     def process_batch(self):
