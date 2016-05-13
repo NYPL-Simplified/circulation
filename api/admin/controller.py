@@ -437,7 +437,7 @@ class WorkController(CirculationManagerController):
                 data_source=staff_data_source,
                 subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
                 subject_identifier=fiction_term,
-                weight=WorkController.STAFF_WEIGHT * 100,
+                weight=WorkController.STAFF_WEIGHT,
             )
             classification.subject.fiction = new_fiction
 
