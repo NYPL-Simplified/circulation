@@ -39,9 +39,10 @@ from lane import (
 
 from opds import (    
      AtomFeed,
-     OPDSFeed,
      AcquisitionFeed,
      Annotator,
+     LookupAcquisitionFeed,
+     OPDSFeed,
      VerboseAnnotator,
      simplified_ns,
 )
@@ -957,3 +958,20 @@ class TestOPDS(DatabaseTest):
             assert work2.title in cached3.content
 
 
+class TestLookupAcquisitionFeed(DatabaseTest):
+
+    def test_lookup_feed_ignores_licensepool_activeness(self):
+        """It doesn't matter whether a work has a licensepool or not in lookup
+        feeds.
+        """
+        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+        feed = LookupAcquisitionFeed(
+            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
+            annotator=VerboseAnnotator
+        )
+        feed = feedparser.parse(unicode(feed))
+        eq_(1, len(feed.entries))
+        [entry] = feed.entries
+        eq_("Hello, World!", entry.title)
+        eq_(identifier.urn, entry.id)

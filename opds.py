@@ -297,7 +297,8 @@ class Annotator(object):
             # the work's primary edition.
             edition = work.primary_edition
 
-            if edition and edition.license_pool and edition.open_access_download_url and edition.title:
+            if (edition and edition.license_pool and
+                edition.open_access_download_url and edition.title):
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -312,9 +313,7 @@ class Annotator(object):
                     # audio-only or something.
                     if edition and edition.open_access_download_url:
                         open_access_license_pool = p
-                elif edition and edition.title:
-                    # TODO: It's OK to have a non-open-access license pool,
-                    # but the pool needs to have copies available.
+                elif edition and edition.title and p.licenses_owned > 0:
                     active_license_pool = p
                     break
         if not active_license_pool:
@@ -1191,12 +1190,13 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
-        active_license_pool = self.annotator.active_licensepool_for(work)
-        # There's no reason to present a book that has no active license pool.
-        if not active_license_pool:
-            return None
 
-        active_edition = active_license_pool.presentation_edition
+        active_license_pool = self.annotator.active_licensepool_for(work)
+        if active_license_pool:
+            edition = active_license_pool.presentation_edition
+        if not edition:
+            edition = work.primary_edition
+
         return self._create_entry(
-            work, active_license_pool, work.primary_edition, 
-            identifier, lane_link)
+            work, active_license_pool, edition, identifier, lane_link
+        )
