@@ -383,6 +383,12 @@ class URNLookupController(object):
             if code:
                 messages_by_urn[urn] = (code, message)
 
+        missing_urns = set(urns).difference(set(messages_by_urn.keys()))
+        if missing_urns:
+            # One or more urns have disappeared in the process.
+            for urn in missing_urns:
+                messages_by_urn[urn] = (400, self.UNRESOLVABLE_URN)
+
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
         self._db.commit()
