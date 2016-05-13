@@ -581,6 +581,9 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                 pool, ignore = LicensePool.for_foreign_id(
                     self._db, self.data_source, identifier.type,
                     identifier.identifier)
+
+                # 3M books are never open-access.
+                pool.open_access = False
                 CirculationEvent.log(
                     self._db, pool, CirculationEvent.TITLE_ADD,
                     None, None, start=now)
@@ -608,14 +611,15 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             pool = identifier.licensed_through
             if not pool:
                 continue
-            if pool.edition:
-                self.log.warn("Removing %s (%s) from circulation",
-                              pool.edition.title, pool.edition.author)
-            else:
-                self.log.warn(
-                    "Removing unknown work %s from circulation.",
-                    identifier.identifier
-                )
+            if pool.licenses_owned > 0:
+                if pool.edition:
+                    self.log.warn("Removing %s (%s) from circulation",
+                                  pool.edition.title, pool.edition.author)
+                else:
+                    self.log.warn(
+                        "Removing unknown work %s from circulation.",
+                        identifier.identifier
+                    )
             pool.licenses_owned = 0
             pool.licenses_available = 0
             pool.licenses_reserved = 0
