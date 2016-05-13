@@ -5596,7 +5596,7 @@ class LicensePool(Base):
                 logging.warn(
                     "Edition %r has no title but has a Work assigned. This is troubling.", primary_edition
                 )
-                return primary_Edition.work, False
+                return primary_edition.work, False
             else:
                 logging.info("Edition %r has no title, will not assign it a Work.", primary_edition)
                 return None, False
