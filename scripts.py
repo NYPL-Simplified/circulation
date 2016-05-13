@@ -290,9 +290,11 @@ class RunCoverageProviderScript(IdentifierInputScript):
         else:
             self.provider.run()
 
-class BibliographicRefreshScript(IdentifierInputScript):
+class BibliographicRefreshScript(RunCoverageProviderScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
+
+    This covers all known sources of licensed content.
     """
     def __init__(self, **metadata_replacement_args):
         
@@ -300,19 +302,37 @@ class BibliographicRefreshScript(IdentifierInputScript):
             **metadata_replacement_args
         )
 
-        # This script is generally invoked when there's a problem, so
-        # make sure to always recalculate OPDS feeds and reindex the
-        # work.
-        self.metadata_replacement_policy.presentation_calculation_policy = PresentationCalculationPolicy.recalculate_everything()
-
     def do_run(self):
         args = self.parse_command_line(self._db)
-        if not args.identifiers:
-            raise Exception(
-                "You must specify at least one identifier to refresh."
+        if args.identifiers:
+            # This script is being invoked to fix a problem.
+            # Make sure to always recalculate OPDS feeds and reindex the
+            # work.
+            self.metadata_replacement_policy.presentation_calculation_policy = (
+                PresentationCalculationPolicy.recalculate_everything()
             )
-        for identifier in args.identifiers:
-            self.refresh_metadata(identifier)
+            for identifier in args.identifiers:
+                self.refresh_metadata(identifier)
+        else:
+            # This script is being invoked to provide general coverage,
+            # so we'll only recalculate OPDS feeds and reindex the work
+            # if something actually changes.
+            for provider_class in (
+                    ThreeMBibliographicCoverageProvider,
+                    OverdriveBibliographicCoverageProvider,
+                    Axis360BibliographicCoverageProvider
+            ):
+                provider = provider_class(
+                    self._db, 
+                    cutoff_time=args.cutoff_time
+                )
+                try:
+                    provider.run()
+                except Exception, e:
+                    self.log.error(
+                        "Error in %r, moving on to next source.",
+                        provider, exc_info=e
+                    )
         self._db.commit()
 
     def refresh_metadata(self, identifier):
