@@ -5592,13 +5592,18 @@ class LicensePool(Base):
             primary_edition.calculate_presentation()
 
         if not primary_edition.title:
-            logging.warn("Edition %r has no title, will not assign it a Work.")
-            return None, False
+            if primary_edition.work:
+                logging.warn(
+                    "Edition %r has no title but has a Work assigned. This is troubling.", primary_edition
+                )
+                return primary_Edition.work, False
+            else:
+                logging.info("Edition %r has no title, will not assign it a Work.", primary_edition)
+                return None, False
 
-        if not primary_edition.work and (
-                not primary_edition.title or (
-                    (primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
-                     and not even_if_no_author))
+        if (not primary_edition.work 
+            and primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
+            and not even_if_no_author
         ):
             logging.warn(
                 "Edition %r has no author or title, not assigning Work to Edition.", 
