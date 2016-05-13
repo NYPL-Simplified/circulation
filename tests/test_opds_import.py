@@ -321,7 +321,7 @@ class TestOPDSImporter(OPDSImporterTest):
         set_trace()
         print "DOING MW"
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
-        imported_editions_mw, imported_pools_mw, imported_works_mw, messages_meta_mw, messages_circ_mw, next_links_mw = (
+        imported_editions_mw, imported_pools_mw, imported_works_mw, error_messages_mw, next_links_mw = (
             importer_mw.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -336,20 +336,30 @@ class TestOPDSImporter(OPDSImporterTest):
         # but pools and works weren't, because we passed the wrong data source
         # and we have no error messages, because correctly didn't even get to trying to create pools.
         #eq_(0, len(messages_meta_mw))
-        #eq_(0, len(imported_pools_mw))
-        #eq_(0, len(imported_works_mw))
+        eq_(0, len(imported_pools_mw))
+        eq_(0, len(imported_works_mw))
         # TODO: when do have error, have 3 error messages, when should have 2.
+
+        '''
+        import testing
+        testing.DatabaseTest.print_database_class(Session.object_session(self))
+        or
+        testing.DatabaseTest.print_database_class(Session.object_session(self))
+        '''
+        # TODO: assert that bibframe datasource from feed was correctly overwritten
+        # with data source I passed into the importer.
+
 
         set_trace()
         print "DOING G"
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions_g, imported_pools_g, imported_works_g, messages_meta_g, messages_circ_g, next_links_g = (
+        imported_editions_g, imported_pools_g, imported_works_g, error_messages_g, next_links_g = (
             importer_g.import_from_feed(feed, cutoff_date=cutoff)
         )
 
-        set_trace()
         # we made new editions -- one for each data source
+        set_trace()
         eq_(2, len(imported_editions_g))
         # TODO: and we also created presentation editions, with author and title set
 
@@ -367,7 +377,7 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -376,8 +386,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(imported_pools))
         eq_(2, len(imported_works))        
 
+        set_trace()
         # But if we try it again...
-        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -391,7 +402,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # TODO:  we've messed with the cutoff date in import_editions_from_metadata, 
         # and need to fix it before re-activating the assert.
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 

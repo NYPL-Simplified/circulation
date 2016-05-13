@@ -215,12 +215,15 @@ class OPDSImporter(object):
         imported_editions = []
         imported_pools = []
         imported_works = []
-        messages_meta = status_messages
-        messages_circ = status_messages
+
+        # status_messages is expected to be a dictionary
+        if not status_messages:
+            status_messages = {}
 
         # TODO: return one dictionary of messages, which combines info from status_messages, meta and circ in one entry
         for metadata in metadata_objs:
             try:
+                set_trace()
                 edition = self.import_editions_from_metadata(
                     metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
                 )
@@ -236,8 +239,9 @@ class OPDSImporter(object):
 
         for circulationdata in circulation_objs:
             obj = DataSource.lookup(self._db, circulationdata._data_source)
+            # Note: is data_source is not lendable, don't make an error message, 
+            # not creating a pool is expected response.
             if obj.offers_licenses:
-
                 try:
                     print "before self.import_pools_works_from_circulationdata"
                     pool, work = self.import_pools_works_from_circulationdata(
@@ -255,8 +259,14 @@ class OPDSImporter(object):
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                     print "exception while self.import_pools_works_from_circulationdata, %s" % message
                     messages_circ[identifier.urn] = message
+            else:
+                self.log.debug(
+                    "DataSource does not offer licenses.  No LicensePool created for CirculationData %r, not attempting to create Work.", 
+                    circulationdata
+                )
 
-        return imported_editions, imported_pools, imported_works, messages_meta, messages_circ, next_links
+
+        return imported_editions, imported_pools, imported_works, status_messages, next_links
 
 
     def import_editions_from_metadata(
@@ -315,15 +325,21 @@ class OPDSImporter(object):
         license_pool, is_new_license_pool = circulationdata.license_pool(self._db)
         work = None
 
+        print "cutoff_date=%s" % cutoff_date
+        print "is_new_license_pool=%s" % is_new_license_pool
+        print "circulationdata.last_checked=%s" % circulationdata.last_checked
+        print "circulationdata.first_appearance=%s" % circulationdata.first_appearance
         if (cutoff_date 
             and not is_new_license_pool 
-            and circulationdata.first_appearance < cutoff_date
+            # TODO:  I changed this from first_appearance (which I set to a date from the feed), 
+            # to last_checked (which I set to system now)
+            and circulationdata.last_checked < cutoff_date
         ):
             # We've already imported this book, we've been told
             # not to bother with books that appeared before a
             # certain date, and this book did in fact appear
             # before that date. There's no reason to do anything.
-            return
+            return None, None
 
         policy = ReplacementPolicy(
             subjects=True,
@@ -348,7 +364,6 @@ class OPDSImporter(object):
             # pool.calculate_work will call self.set_presentation_edition(), which will find editions 
             # attached to same Identifier.
             # TODO:  what if the pool has no edition, should we still allow the work to be created?
-            set_trace()
             work, is_new_work = license_pool.calculate_work(even_if_no_author=even_if_no_author,)
             # if pool.calculate_work made a new work, it already called calculate_presentation
             if (work and not is_new_work):
@@ -368,7 +383,7 @@ class OPDSImporter(object):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
-        fp_data_meta, fp_data_circ, status_messages, next_links = self.extract_data_from_feedparser(feed)
+        fp_data_meta, fp_data_circ, status_messages, next_links = self.extract_data_from_feedparser(feed=feed, data_source=self.data_source_name)
         # gets: medium, identifiers, links, contributors.
         xml_data_meta = self.extract_metadata_from_elementtree(feed)
         # TODO: should we use xml_data_meta to get CirculationData.formats field?
@@ -430,13 +445,13 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_data_from_feedparser(cls, feed):
+    def extract_data_from_feedparser(cls, feed, data_source):
         feedparser_parsed = feedparser.parse(feed)
         values_meta = {}
         values_circ = {}
         status_messages = {}
         for entry in feedparser_parsed['entries']:
-            identifier, detail_meta, detail_circ, status_message = cls.data_detail_for_feedparser_entry(entry)
+            identifier, detail_meta, detail_circ, status_message = cls.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
 
             if identifier:
                 if detail_meta:
@@ -489,7 +504,7 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def data_detail_for_feedparser_entry(cls, entry):
+    def data_detail_for_feedparser_entry(cls, entry, data_source):
         """Turn an entry dictionary created by feedparser into dictionaries of data
         that can be used as keyword arguments to the Metadata and CirculationData constructors.
 
@@ -512,13 +527,14 @@ class OPDSImporter(object):
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
 
-        # If bibframe_distribution is present, it means that the entry also includes
+        # Was: If bibframe_distribution is present, it means that the entry also includes
         # information about an active distributor of this book. Any LicensePool 
         # created should use the distributor of the book as its data source.
-        distribution_tag = entry.get('bibframe_distribution', None)
-        license_data_source = None
-        if distribution_tag:
-            license_data_source = distribution_tag.get('bibframe:providername')
+        # New: will ignore bibframe_distribution from feed, and use data source passed into the importer.
+        #distribution_tag = entry.get('bibframe_distribution', None)
+        #license_data_source = None
+        #if distribution_tag:
+        #    license_data_source = distribution_tag.get('bibframe:providername')
 
         title = entry.get('title', None)
         if title == OPDSFeed.NO_TITLE:
@@ -584,10 +600,14 @@ class OPDSImporter(object):
         # Note: CirculationData.default_rights_uri is not same as the old 
         # Metadata.rights_uri, but we're treating it same for now.
         kwargs_circ = dict(
-            data_source=license_data_source,
+            # Note: later on, we'll check to make sure data_source is lendable, and if not, abort creating a pool and a work.
+            data_source=data_source,
             links=links,
             default_rights_uri=rights_uri,
-            last_checked=datetime.datetime.utcnow(), 
+            last_checked=last_update_time, 
+            # TODO: this should come from published xml field, I think.
+            # or maybe some logic about setting it to the first last_checked value that was ever set down in 
+            # our database.
             first_appearance=last_update_time, 
         )
 
