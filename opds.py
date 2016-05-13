@@ -1190,8 +1190,9 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
-
         active_license_pool = self.annotator.active_licensepool_for(work)
+
+        edition = None
         if active_license_pool:
             edition = active_license_pool.presentation_edition
         if not edition:
