@@ -360,9 +360,10 @@ class WorkProcessingScript(IdentifierInputScript):
     def __init__(self, force=False, batch_size=10):
         args = self.parse_command_line(self._db)
         identifier_type = args.identifier_type
+        self.identifiers = args.identifiers
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, identifier_type, args.identifiers, self.log
+            self._db, identifier_type, self.identifiers, self.log
         )
         self.force = force
 
@@ -419,14 +420,24 @@ class WorkConsolidationScript(WorkProcessingScript):
 
         if self.force:
             self.clear_existing_works()                  
+        if self.identifiers:
+            for i in self.identifiers:
+                pool = i.licensed_through
+                if not pool:
+                    logging.warn(
+                        "No LicensePool for %r, cannot create work.", i
+                    )
+                    continue
+                pool.calculate_work(even_if_no_author=True)
+                self._db.commit()
+        else:
+            logging.info("Consolidating all works.")
+            LicensePool.consolidate_works(self._db)
 
-        logging.info("Consolidating works.")
-        LicensePool.consolidate_works(self._db)
-
-        logging.info("Deleting works with no editions.")
-        for i in self._db.query(Work).filter(Work.primary_edition==None):
-            self._db.delete(i)            
-        self._db.commit()
+            logging.info("Deleting works with no editions.")
+            for i in self._db.query(Work).filter(Work.primary_edition==None):
+                self._db.delete(i)            
+            self._db.commit()
 
     def clear_existing_works(self):
         # Locate works we want to consolidate.

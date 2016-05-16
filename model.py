@@ -3256,7 +3256,9 @@ class Work(Base):
     def all_identifier_ids(self, recursion_level=5):
         _db = Session.object_session(self)
         primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions]
+            x.primary_identifier.id for x in self.editions
+            if x.primary_identifier
+        ]
         identifier_ids = Identifier.recursively_equivalent_identifier_ids_flat(
             _db, primary_identifier_ids, recursion_level)
         return identifier_ids
@@ -3557,6 +3559,7 @@ class Work(Base):
 
             primary_identifier_ids = [
                 x.primary_identifier.id for x in self.editions
+                if x.primary_identifier
             ]
             data = Identifier.recursively_equivalent_identifier_ids(
                 _db, primary_identifier_ids, 5, threshold=0.5
@@ -5532,7 +5535,11 @@ class LicensePool(Base):
     def consolidate_works(cls, _db, calculate_work_even_if_no_author=False):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
-        for unassigned in cls.with_no_work(_db):
+        lps = cls.with_no_work(_db)
+        logging.info(
+            "Assigning Works to %d LicensePools with no Work.", len(lps)
+        )
+        for unassigned in lps:
             etext, new = unassigned.calculate_work(
                 even_if_no_author=calculate_work_even_if_no_author)
             if not etext:
@@ -5542,7 +5549,7 @@ class LicensePool(Base):
                 continue
             a += 1
             logging.info("When consolidating works, created %r", etext)
-            if a and not a % 100:
+            if a and not a % 10:
                 _db.commit()
 
 
@@ -5606,7 +5613,7 @@ class LicensePool(Base):
             and not even_if_no_author
         ):
             logging.warn(
-                "Edition %r has no author or title, not assigning Work to Edition.", 
+                "Edition %r has no author, not assigning Work to Edition.", 
                 primary_edition
             )
             # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
