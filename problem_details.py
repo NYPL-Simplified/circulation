@@ -27,3 +27,10 @@ INVALID_URN = pd(
       "Invalid URN",
       "Could not parse identifier.",
 )
+
+INTERNAL_SERVER_ERROR = pd(
+      "http://librarysimplified.org/terms/problem/internal-server-error",
+      500,
+      "Internal server error.",
+      "Internal server error"
+)

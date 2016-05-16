@@ -388,7 +388,10 @@ class URNLookupController(object):
         if missing_urns:
             # One or more urns have disappeared in the process.
             for urn in missing_urns:
-                messages_by_urn[urn] = (400, self.UNRESOLVABLE_URN)
+                messages_by_urn[urn] = (
+                    INTERNAL_SERVER_ERROR.status_code,
+                    INTERNAL_SERVER_ERROR.detail
+                )
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
