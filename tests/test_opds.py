@@ -208,7 +208,7 @@ class TestOPDS(DatabaseTest):
         w1 = self._work(with_open_access_download=True)
         w2 = self._work(with_open_access_download=True)
         w2.license_pools[0].open_access = False
-        w2.licenses_available = 10
+        w2.license_pools[0].licenses_owned = 1
         self._db.commit()
 
         works = self._db.query(Work)
