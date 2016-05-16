@@ -3071,10 +3071,6 @@ class Work(Base):
     # will be made to make the Work presentation ready.
     presentation_ready_exception = Column(Unicode, default=None, index=True)
 
-    # A Work may be merged into one other Work.
-    was_merged_into_id = Column(Integer, ForeignKey('works.id'), index=True)
-    was_merged_into = relationship("Work", remote_side = [id])
-
     # A precalculated OPDS entry containing all metadata about this
     # work that would be relevant to display to a library patron.
     simple_opds_entry = Column(Unicode, default=None)
@@ -3214,7 +3210,6 @@ class Work(Base):
         q = q.filter(or_clause)
         q = q.filter(
             Edition.language.in_(languages),
-            Work.was_merged_into == None,
             Work.presentation_ready == True,
             Edition.medium == Edition.BOOK_MEDIUM,
         )
@@ -3270,110 +3265,6 @@ class Work(Base):
         if language in LanguageCodes.three_to_two:
             language = LanguageCodes.three_to_two[language]
         return language
-
-    def similarity_to(self, other_work):
-        """How likely is it that this Work describes the same book as the
-        given Work (or Edition)?
-
-        This is more accurate than Edition.similarity_to because we
-        (hopefully) have a lot of Editions associated with each
-        Work. If their metadata has a lot of overlap, the two Works
-        are probably the same.
-        """
-        my_languages = Counter()
-        my_authors = Counter()
-        total_my_languages = 0
-        total_my_authors = 0
-        my_titles = []
-        other_languages = Counter()
-        total_other_languages = 0
-        other_titles = []
-        other_authors = Counter()
-        total_other_authors = 0
-        for record in self.editions:
-            if record.language:
-                my_languages[record.language] += 1
-                total_my_languages += 1
-            my_titles.append(record.title)
-            for author in record.author_contributors:
-                my_authors[author] += 1
-                total_my_authors += 1
-
-        if isinstance(other_work, Work):
-            other_editions = other_work.editions
-        else:
-            other_editions = [other_work]
-
-        for record in other_editions:
-            if record.language:
-                other_languages[record.language] += 1
-                total_other_languages += 1
-            other_titles.append(record.title)
-            for author in record.author_contributors:
-                other_authors[author] += 1
-                total_other_authors += 1
-
-        title_distance = MetadataSimilarity.histogram_distance(
-            my_titles, other_titles)
-
-        my_authors = MetadataSimilarity.normalize_histogram(
-            my_authors, total_my_authors)
-        other_authors = MetadataSimilarity.normalize_histogram(
-            other_authors, total_other_authors)
-
-        author_distance = MetadataSimilarity.counter_distance(
-            my_authors, other_authors)
-
-        my_languages = MetadataSimilarity.normalize_histogram(
-            my_languages, total_my_languages)
-        other_languages = MetadataSimilarity.normalize_histogram(
-            other_languages, total_other_languages)
-
-        if not other_languages or not my_languages:
-            language_factor = 1
-        else:
-            language_distance = MetadataSimilarity.counter_distance(
-                my_languages, other_languages)
-            language_factor = 1-language_distance
-        title_quotient = 1-title_distance
-        author_quotient = 1-author_distance
-
-        return language_factor * (
-            (title_quotient * 0.80) + (author_quotient * 0.20))
-
-    def merge_into(self, target_work, similarity_threshold=0.5):
-        """This Work is replaced by target_work.
-
-        The two works must be similar to within similarity_threshold,
-        or nothing will happen.
-
-        All of this work's Editions will be assigned to target_work,
-        and it will be marked as merged into target_work.
-        """
-        # TODO: clean off
-        # for pool in self.pools
-
-
-        _db = Session.object_session(self)
-        similarity = self.similarity_to(target_work)
-        if similarity < similarity_threshold:
-            logging.info(
-                "NOT MERGING %r into %r, similarity is only %.3f.",
-                self, target_work, similarity
-            )
-        else:
-            logging.info(
-                "MERGING %r into %r, similarity is %.3f.",
-                self, target_work, similarity
-            )
-            target_work.license_pools.extend(list(self.license_pools))
-            target_work.editions.extend(list(self.editions))
-            target_work.calculate_presentation()
-            logging.info(
-                "The resulting work from merge: %r", target_work)
-            self.was_merged_into = target_work
-            self.license_pools = []
-            self.editions = []
 
     def all_cover_images(self):
         _db = Session.object_session(self)
@@ -3897,7 +3788,6 @@ class Work(Base):
                    quality = self.quality,
                    rating = self.rating,
                    popularity = self.popularity,
-                   was_merged_into_id = self.was_merged_into_id,
                )
 
         contribution_desc = []
