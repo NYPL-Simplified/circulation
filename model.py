@@ -5532,7 +5532,8 @@ class LicensePool(Base):
         return hold, new
 
     @classmethod
-    def consolidate_works(cls, _db, calculate_work_even_if_no_author=False):
+    def consolidate_works(cls, _db, calculate_work_even_if_no_author=False,
+                          batch_size=10):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         lps = cls.with_no_work(_db)
@@ -5549,9 +5550,9 @@ class LicensePool(Base):
                 continue
             a += 1
             logging.info("When consolidating works, created %r", etext)
-            if a and not a % 10:
+            if a and not a % batch_size:
                 _db.commit()
-
+        _db.commit()
 
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):

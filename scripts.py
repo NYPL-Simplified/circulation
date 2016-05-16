@@ -418,8 +418,6 @@ class WorkConsolidationScript(WorkProcessingScript):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
 
-        if self.force:
-            self.clear_existing_works()                  
         if self.identifiers:
             for i in self.identifiers:
                 pool = i.licensed_through
@@ -428,14 +426,15 @@ class WorkConsolidationScript(WorkProcessingScript):
                         "No LicensePool for %r, cannot create work.", i
                     )
                     continue
-                pool.calculate_work(even_if_no_author=True)
+                pool.calculate_work()
                 self._db.commit()
         else:
             logging.info("Consolidating all works.")
-            LicensePool.consolidate_works(self._db)
+            LicensePool.consolidate_works(self._db, batch_size=self.batch_size)
 
-            logging.info("Deleting works with no editions.")
-            for i in self._db.query(Work).filter(Work.primary_edition==None):
+            qu = self._db.query(Work).filter(Work.primary_edition==None)
+            logging.info("Deleting %d Works that lack Editions." % qu.count())
+            for i in qu:
                 self._db.delete(i)            
             self._db.commit()
 
@@ -484,6 +483,7 @@ class WorkConsolidationScript(WorkProcessingScript):
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
             self._db.commit()
+
 
 
 class WorkPresentationScript(WorkProcessingScript):
