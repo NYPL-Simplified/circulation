@@ -46,7 +46,7 @@ class ReplacementPolicy(object):
     def __init__(
             self,
             identifiers=False,
-            subjects=False, 
+            subjects=False,
             contributions=False,
             links=False,
             formats=False,
@@ -80,10 +80,10 @@ class ReplacementPolicy(object):
         the list of available formats.
         """
         return ReplacementPolicy(
-            identifiers=True, 
-            subjects=True, 
-            contributions=True, 
-            links=True, 
+            identifiers=True,
+            subjects=True,
+            contributions=True,
+            links=True,
             rights=True,
             formats=True,
             **args
@@ -97,10 +97,10 @@ class ReplacementPolicy(object):
         and formats, and metadata sources have no say in the matter.
         """
         return ReplacementPolicy(
-            identifiers=True, 
-            subjects=True, 
-            contributions=True, 
-            links=True, 
+            identifiers=True,
+            subjects=True,
+            contributions=True,
+            links=True,
             rights=False,
             formats=False,
             **args
@@ -113,10 +113,10 @@ class ReplacementPolicy(object):
         This should probably never be used.
         """
         return ReplacementPolicy(
-            identifiers=False, 
-            subjects=False, 
-            contributions=False, 
-            links=False, 
+            identifiers=False,
+            subjects=False,
+            contributions=False,
+            links=False,
             rights=False,
             formats=False,
             **args
@@ -140,7 +140,7 @@ class SubjectData(object):
 
 
 class ContributorData(object):
-    def __init__(self, sort_name=None, display_name=None, 
+    def __init__(self, sort_name=None, display_name=None,
                  family_name=None, wikipedia_name=None, roles=None,
                  lc=None, viaf=None, biography=None, aliases=None):
         self.sort_name = sort_name
@@ -184,7 +184,7 @@ class ContributorData(object):
         log = logging.getLogger("Abstract metadata layer")
         if self.sort_name:
             # log.debug(
-            #     "%s already has a sort name: %s", 
+            #     "%s already has a sort name: %s",
             #     self.display_name,
             #     self.sort_name
             # )
@@ -216,7 +216,7 @@ class ContributorData(object):
 
         'Easy' means we already have an established sort name for a
         Contributor with this exact display name.
-        
+
         If it's not easy, this will be taken care of later with a call to
         the metadata wrangler's author canonicalization service.
 
@@ -230,7 +230,7 @@ class ContributorData(object):
         if contributors:
             log = logging.getLogger("Abstract metadata layer")
             log.debug(
-                "Determined that sort name of %s is %s based on previously existing contributor", 
+                "Determined that sort name of %s is %s based on previously existing contributor",
                 display_name,
                 contributors[0].name
             )
@@ -244,12 +244,12 @@ class ContributorData(object):
             identifier_obj, self.display_name)
         sort_name = None
         log = logging.getLogger("Abstract metadata layer")
-        if (response.status_code == 200 
+        if (response.status_code == 200
             and response.headers['Content-Type'].startswith('text/plain')):
             sort_name = response.content.decode("utf8")
             log.info(
                 "Canonicalizer found sort name for %r: %s => %s",
-                identifier_obj, 
+                identifier_obj,
                 self.display_name,
                 sort_name
             )
@@ -278,7 +278,7 @@ class ContributorData(object):
             sort_name = self._display_name_to_sort_name(
                 _db, metadata_client, None
             )
-        return sort_name        
+        return sort_name
 
 
 class IdentifierData(object):
@@ -329,7 +329,7 @@ class LinkData(object):
         )
 
 class MeasurementData(object):
-    def __init__(self, 
+    def __init__(self,
                  quantity_measured,
                  value,
                  weight=1,
@@ -361,14 +361,14 @@ class FormatData(object):
         self.link = link
 
 class CirculationData(object):
-    
+
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
 
     def __init__(
-            self, licenses_owned, 
-            licenses_available, 
+            self, licenses_owned,
+            licenses_available,
             licenses_reserved,
             patrons_in_hold_queue,
             first_appearance=None,
@@ -408,9 +408,9 @@ class CirculationData(object):
             if edition:
                 self.log.info(
                     'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    edition.medium, 
+                    edition.medium,
                     edition.title or "[NO TITLE]",
-                    edition.author or "", 
+                    edition.author or "",
                     edition.primary_identifier.identifier,
                     license_pool.licenses_owned, self.licenses_owned,
                     license_pool.licenses_available, self.licenses_available,
@@ -419,7 +419,7 @@ class CirculationData(object):
             else:
                 self.log.info(
                     'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    license_pool.identifier, 
+                    license_pool.identifier,
                     license_pool.licenses_owned, self.licenses_owned,
                     license_pool.licenses_available, self.licenses_available,
                     license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
@@ -443,8 +443,14 @@ class Metadata(object):
 
     log = logging.getLogger("Abstract metadata layer")
 
+    BASIC_EDITION_FIELDS = [
+        'title', 'sort_title', 'subtitle', 'language', 'medium',
+        'series', 'series_position', 'publisher', 'imprint',
+        'issued', 'published'
+    ]
+
     def __init__(
-            self, 
+            self,
             data_source,
             license_data_source=None,
             title=None,
@@ -453,10 +459,11 @@ class Metadata(object):
             language=None,
             medium=Edition.BOOK_MEDIUM,
             series=None,
+            series_position=None,
             publisher=None,
             imprint=None,
             issued=None,
-            published=None,            
+            published=None,
             primary_identifier=None,
             identifiers=None,
             subjects=None,
@@ -491,6 +498,7 @@ class Metadata(object):
         self.language = language
         self.medium = medium
         self.series = series
+        self.series_position = series_position
         self.publisher = publisher
         self.imprint = imprint
         self.issued = issued
@@ -499,7 +507,7 @@ class Metadata(object):
         self.primary_identifier=primary_identifier
         self.identifiers = identifiers or []
         self.permanent_work_id = None
-        if (self.primary_identifier 
+        if (self.primary_identifier
             and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects or []
@@ -512,7 +520,7 @@ class Metadata(object):
 
         self.last_update_time = last_update_time
         for link in self.links:
-            # If a link has a rights_uri, make that the overall rights_uri. 
+            # If a link has a rights_uri, make that the overall rights_uri.
             # If there are multiple links with a rights_uri, they should be
             # split into separate metadata objects.
             if link.rights_uri:
@@ -521,10 +529,10 @@ class Metadata(object):
             # An open-access link or open-access rights implies a FormatData object.
             open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
                                 and link.href)
-            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
+            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES
                                        and link.href
                                        and self.rights_uri in RightsStatus.OPEN_ACCESS)
-            
+
             if open_access_link or open_access_rights_link:
                 self.formats.append(
                     FormatData(
@@ -538,23 +546,19 @@ class Metadata(object):
     def has_open_access_link(self):
         """Does this Metadata object have an associated open-access link?"""
         return any(
-            [x for x in self.links 
+            [x for x in self.links
              if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
         )
 
     @classmethod
-    def from_edition(self, edition):
+    def from_edition(cls, edition):
         """Create a basic Metadata object for the given Edition.
 
         This doesn't contain everything but it contains enough
         information to run guess_license_pools.
         """
         kwargs = dict()
-        for field in (
-                'title', 'sort_title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published'
-        ):
+        for field in cls.BASIC_EDITION_FIELDS:
             kwargs[field] = getattr(edition, field)
 
         contributors = []
@@ -611,11 +615,9 @@ class Metadata(object):
         
         TODO: We might want to take a policy object as an argument.
         """
-        for field in (
-                'title', 'sort_title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published', 'contributors'
-        ):
+
+        fields = self.BASIC_EDITION_FIELDS+['contributors']
+        for field in fields:
             new_value = getattr(metadata, field)
             if new_value:
                 setattr(self, field, new_value)
@@ -709,8 +711,8 @@ class Metadata(object):
         data_source = self.license_data_source(_db) or self.data_source(_db)
 
         return Edition.for_foreign_id(
-            _db, data_source, self.primary_identifier.type, 
-            self.primary_identifier.identifier, 
+            _db, data_source, self.primary_identifier.type,
+            self.primary_identifier.identifier,
             create_if_not_exists=create_if_not_exists
         )
 
@@ -746,7 +748,7 @@ class Metadata(object):
 
         identifier_obj, ignore = self.primary_identifier.load(_db)
 
-        metadata_data_source = self.data_source(_db) 
+        metadata_data_source = self.data_source(_db)
         license_data_source = self.license_data_source(_db)
 
         self.set_default_rights_uri(metadata_data_source)
@@ -787,7 +789,7 @@ class Metadata(object):
             rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, self.license_data_source_obj,
-                self.primary_identifier.type, 
+                self.primary_identifier.type,
                 self.primary_identifier.identifier,
                 rights_status=rights_status,
             )
@@ -814,8 +816,8 @@ class Metadata(object):
         potentials = {}
         for contributor in self.contributors:
             if not any(
-                    x in contributor.roles for x in 
-                    (Contributor.AUTHOR_ROLE, 
+                    x in contributor.roles for x in
+                    (Contributor.AUTHOR_ROLE,
                      Contributor.PRIMARY_AUTHOR_ROLE)
             ):
                 continue
@@ -863,7 +865,7 @@ class Metadata(object):
     # we can get rid of the `replace` arguments.
     def apply(self, edition, metadata_client=None, replace=None,
               replace_identifiers=False,
-              replace_subjects=False, 
+              replace_subjects=False,
               replace_contributions=False,
               replace_links=False,
               replace_formats=False,
@@ -926,12 +928,8 @@ class Metadata(object):
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
 
-
-        for field in (
-                'title', 'subtitle', 'language',
-                'medium', 'series', 'publisher', 'imprint',
-                'issued', 'published', 'permanent_work_id'
-        ):
+        fields = self.BASIC_EDITION_FIELDS+['permanent_work_id']
+        for field in fields:
             old_edition_value = getattr(edition, field)
             new_metadata_value = getattr(self, field)
             if new_metadata_value and (new_metadata_value != old_edition_value):
@@ -944,11 +942,14 @@ class Metadata(object):
         self.update_contributions(_db, edition, metadata_client, 
                                   replace.contributions)
 
-
         # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
             for identifier_data in self.identifiers:
                 if not identifier_data.identifier:
+                    continue
+                if (identifier_data.identifier==identifier.identifier and
+                    identifier_data.type==identifier.type):
+                    # These are the same identifier.
                     continue
                 new_identifier, ignore = Identifier.for_foreign_id(
                     _db, identifier_data.type, identifier_data.identifier)
@@ -958,7 +959,7 @@ class Metadata(object):
         new_subjects = {}
         if self.subjects:
             new_subjects = dict(
-                (subject.key, subject) 
+                (subject.key, subject)
                 for subject in self.subjects
             )
         if replace.subjects:
@@ -992,7 +993,7 @@ class Metadata(object):
         # Apply all new subjects to the identifier.
         for subject in new_subjects.values():
             identifier.classify(
-                data_source, subject.type, subject.identifier, 
+                data_source, subject.type, subject.identifier,
                 subject.name, weight=subject.weight)
 
         # Associate all links with the primary identifier.
@@ -1008,7 +1009,6 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
-
         # TODO:  remove below comment.
         # now that pool uses a composite edition, we must create that edition before 
         # calculating any links
@@ -1018,13 +1018,13 @@ class Metadata(object):
         # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
         # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
         # it's problematic that pool isn't always being set in this method.
-        
+
         link_data_source = self.license_data_source(_db) or data_source
         link_objects = {}
 
         for link in self.links:
             link_obj, ignore = identifier.add_link(
-                rel=link.rel, href=link.href, data_source=link_data_source, 
+                rel=link.rel, href=link.href, data_source=link_data_source,
                 license_pool=pool, media_type=link.media_type,
                 content=link.content
             )
@@ -1126,14 +1126,14 @@ class Metadata(object):
         self.log.debug("About to mirror %s" % original_url)
 
         if policy.link_content:
-            # We want to fetch the representation again, even if we 
-            # already have a recent usable copy. If we fetch it and it 
+            # We want to fetch the representation again, even if we
+            # already have a recent usable copy. If we fetch it and it
             # hasn't changed, we'll keep using the one we have.
             max_age = 0
         else:
             max_age = None
 
-        # This will fetch a representation of the original and 
+        # This will fetch a representation of the original and
         # store it in the database.
         representation, is_new = Representation.get(
             _db, link.href, do_get=http_get,
@@ -1188,7 +1188,7 @@ class Metadata(object):
             pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
 
         # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
+        # LinkObject, but the media type we actually just saw takes
         # precedence.
         if representation.media_type:
             link.media_type = representation.media_type
@@ -1221,7 +1221,7 @@ class Metadata(object):
             if representation.mirrored_at and not representation.mirror_exception:
                 representation.content = None
 
-        
+
     def make_thumbnail(self, pool, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
@@ -1241,8 +1241,8 @@ class Metadata(object):
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
         thumbnail_obj, ignore = link_obj.identifier.add_link(
-            rel=thumbnail.rel, href=thumbnail.href, 
-            data_source=data_source, 
+            rel=thumbnail.rel, href=thumbnail.href,
+            data_source=data_source,
             license_pool=pool, media_type=thumbnail.media_type,
             content=thumbnail.content
         )
@@ -1252,7 +1252,7 @@ class Metadata(object):
             thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
         return thumbnail_obj
 
-    def update_contributions(self, _db, edition, metadata_client=None, 
+    def update_contributions(self, _db, edition, metadata_client=None,
                              replace=True):
         if replace and self.contributors:
             dirty = False
@@ -1269,12 +1269,12 @@ class Metadata(object):
                 _db, self.identifiers, metadata_client
             )
             if (contributor_data.sort_name
-                or contributor_data.lc 
+                or contributor_data.lc
                 or contributor_data.viaf):
                 contributor = edition.add_contributor(
-                    name=contributor_data.sort_name, 
+                    name=contributor_data.sort_name,
                     roles=contributor_data.roles,
-                    lc=contributor_data.lc, 
+                    lc=contributor_data.lc,
                     viaf=contributor_data.viaf
                 )
                 if contributor_data.display_name:
@@ -1288,7 +1288,7 @@ class Metadata(object):
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
-        
+
 
 class CSVFormatError(csv.Error):
     pass
@@ -1312,7 +1312,7 @@ class CSVMetadataImporter(object):
         Identifier.AXIS_360_ID : ("axis 360 id", 0.75),
         Identifier.ISBN : ("isbn", 0.75),
     }
-   
+
     DEFAULT_SUBJECT_FIELD_NAMES = {
         'tags': (Subject.TAG, 100),
         'age' : (Subject.AGE_RANGE, 100),
@@ -1320,8 +1320,8 @@ class CSVMetadataImporter(object):
     }
 
     def __init__(
-            self, 
-            data_source_name, 
+            self,
+            data_source_name,
             title_field='title',
             language_field='language',
             default_language='eng',
@@ -1429,18 +1429,18 @@ class CSVMetadataImporter(object):
                         weight=weight
                     )
                 )
-        
+
         contributors = []
         sort_author = self._field(row, self.sort_author_field)
         display_author = self._field(row, self.display_author_field)
         if sort_author or display_author:
             contributors.append(
                 ContributorData(
-                    sort_name=sort_author, display_name=display_author, 
+                    sort_name=sort_author, display_name=display_author,
                     roles=[Contributor.AUTHOR_ROLE]
                 )
             )
-        
+
         metadata = Metadata(
             data_source=self.data_source_name,
             title=title,

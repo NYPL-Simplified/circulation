@@ -811,8 +811,8 @@ class DataSource(Base):
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
                 (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
-                (cls.NOVELIST, False, True, Identifier.ISBN, None),
         ):
 
             extra = dict()
@@ -1050,6 +1050,7 @@ class Identifier(Base):
     AXIS_360_ID = "Axis 360 ID"
     ASIN = "ASIN"
     ISBN = "ISBN"
+    NOVELIST_ID = "NoveList ID"
     OCLC_WORK = "OCLC Work ID"
     OCLC_NUMBER = "OCLC Number"
     OPEN_LIBRARY_ID = "OLID"
@@ -2087,15 +2088,10 @@ class Contributor(Base):
             else:
                 contribution.contributor_id = destination.id
             contribution.contributor_id = destination.id
-        # print "Commit before deletion."
+
         _db.commit()
-        # print "Final deletion."
         _db.delete(self)
-        # print "Committing after deletion."
         _db.commit()
-        # _db.query(Contributor).filter(Contributor.id==self.id).delete()
-        #_db.commit()
-        #print "All done."
 
     # Regular expressions used by default_names().
     PARENTHETICAL = re.compile("\([^)]*\)")
@@ -2189,10 +2185,7 @@ class Contributor(Base):
             # Since there's no comma, this is probably a corporate name.
             family_name = None
             display_name = name
-        #print " Default names for %s" % original_name
-        #print "  Family name: %s" % family_name
-        #print "  Display name: %s" % display_name
-        #print
+
         return family_name, display_name
 
 
@@ -2266,6 +2259,7 @@ class Edition(Base):
     sort_title = Column(Unicode, index=True)
     subtitle = Column(Unicode, index=True)
     series = Column(Unicode, index=True)
+    series_position = Column(Integer)
 
     # This is not a foreign key per se; it's a calculated UUID-like
     # identifier for this work based on its title and author, used to
@@ -3103,6 +3097,12 @@ class Work(Base):
         if not self.primary_edition:
             return None
         return self.primary_edition.series
+
+    @property
+    def series_position(self):
+        if not self.primary_edition:
+            return None
+        return self.primary_edition.series_position
 
     @property
     def author(self):
@@ -6106,7 +6106,7 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None, max_age=None, pause_before=0, allow_redirects=True,
-            presumed_media_type=None, debug=True):
+            presumed_media_type=None, debug=True, response_reviewer=None):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6198,6 +6198,10 @@ class Representation(Base):
         media_type = None
         try:
             status_code, headers, content = do_get(url, headers)
+            if response_reviewer:
+                # An optional function passed to raise errors if the
+                # post response isn't worth caching.
+                response_reviewer((status_code, headers, content))
             exception = None
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
@@ -6282,7 +6286,8 @@ class Representation(Base):
         return representation, False
 
     @classmethod
-    def cacheable_post(cls, _db, url, params, max_age=None):
+    def cacheable_post(cls, _db, url, params, max_age=None,
+                       response_reviewer=None):
         """Transforms cacheable POST request into a Representation"""
 
         def do_post(url, headers, **kwargs):
@@ -6290,7 +6295,8 @@ class Representation(Base):
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
-            _db, url, do_get=do_post, max_age=max_age
+            _db, url, do_get=do_post, max_age=max_age,
+            response_reviewer=response_reviewer
         )
 
     def update_image_size(self):

@@ -73,40 +73,6 @@ from . import (
 
 class TestDataSource(DatabaseTest):
 
-    # Commented out this test because the result kept changing and not
-    # providing any value.
-    #
-    # def test_initial_data_sources(self):
-    #     sources = [
-    #         (x.name, x.offers_licenses, x.primary_identifier_type)
-    #         for x in DataSource.well_known_sources(self._db)
-    #     ]
-
-    #     expect = [
-    #         (DataSource.GUTENBERG, True, Identifier.GUTENBERG_ID),
-    #         (DataSource.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID),
-    #         (DataSource.OVERDRIVE, True, Identifier.OVERDRIVE_ID),
-    #         (DataSource.THREEM, True, Identifier.THREEM_ID),
-    #         (DataSource.AXIS_360, True, Identifier.AXIS_360_ID),
-
-    #         (DataSource.OCLC, False, Identifier.OCLC_NUMBER),
-    #         (DataSource.OCLC_LINKED_DATA, False, Identifier.OCLC_NUMBER),
-    #         (DataSource.OPEN_LIBRARY, False, Identifier.OPEN_LIBRARY_ID),
-    #         (DataSource.WEB, True, Identifier.URI),
-    #         (DataSource.AMAZON, False, Identifier.ASIN),
-    #         (DataSource.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID),
-    #         (DataSource.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID),
-    #         (DataSource.CONTENT_CAFE, True, None),
-    #         (DataSource.MANUAL, False, None),
-    #         (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
-    #         (DataSource.NYT, False, Identifier.ISBN),
-    #         (DataSource.LIBRARY_STAFF, False, Identifier.ISBN),
-    #         (DataSource.METADATA_WRANGLER, False, Identifier.URI),
-    #         (DataSource.VIAF, False, None),
-    #         (DataSource.ADOBE, False, None),
-    #     ]
-    #     eq_(set(sources), set(expect))
-
     def test_lookup(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(DataSource.GUTENBERG, gutenberg.name)
@@ -118,14 +84,12 @@ class TestDataSource(DatabaseTest):
 
     def test_metadata_sources_for(self):
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
-        novelist = DataSource.lookup(self._db, DataSource.NOVELIST)
         isbn_metadata_sources = DataSource.metadata_sources_for(
             self._db, Identifier.ISBN
         )
 
-        eq_(2, len(isbn_metadata_sources))
-        assert content_cafe in isbn_metadata_sources
-        assert novelist in isbn_metadata_sources
+        eq_(1, len(isbn_metadata_sources))
+        eq_([content_cafe], isbn_metadata_sources)
 
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
@@ -2293,6 +2257,21 @@ class TestRepresentation(DatabaseTest):
         h.queue_response(500)
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+    def test_response_reviewer_impacts_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(200, media_type='text/html')
+
+        def reviewer(response):
+            status, headers, content = response
+            if 'html' in headers['content-type']:
+                raise Exception("No. Just no.")
+
+        representation, cached = Representation.get(
+            self._db, self._url, do_get=h.do_get, response_reviewer=reviewer
+        )
+        assert "No. Just no." in representation.fetch_exception
         eq_(False, cached)
 
     def test_url_extension(self):
