@@ -960,7 +960,7 @@ class TestOPDS(DatabaseTest):
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
-    def test_lookup_feed_ignores_licensepool_activeness(self):
+    def test_lookup_feed_checks_licensepool_activeness(self):
         """It doesn't matter whether a work has a licensepool or not in lookup
         feeds.
         """
@@ -970,6 +970,18 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
             annotator=VerboseAnnotator
         )
+        # By default, the work is ignored because its licensepool is inactive.
+        feed = feedparser.parse(unicode(feed))
+        eq_(1, len(feed.entries))
+        [entry] = feed.entries
+        eq_('404', entry['simplified_status_code'])
+        eq_('Identifier not found in collection', entry['simplified_message'])
+
+        feed = LookupAcquisitionFeed(
+            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
+            annotator=VerboseAnnotator, require_active_licensepool=False
+        )
+        # When an active licensepool isn't required, the work is returned.
         feed = feedparser.parse(unicode(feed))
         eq_(1, len(feed.entries))
         [entry] = feed.entries

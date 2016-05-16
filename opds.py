@@ -1187,17 +1187,28 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     from the identifier we should use in the feed.
     """
 
+    def __init__(self, _db, title, url, works, annotator=None,
+                 messages_by_urn={}, precomposed_entries=[],
+                 require_active_licensepool=True):
+        self.require_active_licensepool=require_active_licensepool
+
+        super(LookupAcquisitionFeed, self).__init__(
+            _db, title, url, works, annotator,
+            messages_by_urn, precomposed_entries
+        )
+
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
         active_license_pool = self.annotator.active_licensepool_for(work)
 
-        edition = None
-        if active_license_pool:
-            edition = active_license_pool.presentation_edition
-        if not edition:
-            edition = work.primary_edition
+        if self.require_active_licensepool and not active_license_pool:
+            message = { identifier.urn : (404, "Identifier not found in collection")}
+            entry = list(self.render_messages(message))[0]
+            self.feed.append(entry)
+            return None
 
+        edition = work.primary_edition
         return self._create_entry(
             work, active_license_pool, edition, identifier, lane_link
         )
