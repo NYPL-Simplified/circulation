@@ -426,9 +426,20 @@ class WorkConsolidationScript(WorkProcessingScript):
                         "No LicensePool for %r, cannot create work.", i
                     )
                     continue
+
                 if pool.work:
+                    # We're about to delete a preexisting work. If the
+                    # problem is that this LicensePool is incorrectly
+                    # grouped together with some other LicensePool,
+                    # then that LicensePool must also have
+                    # calculate_work() called on it, so that we can
+                    # create two Works where there used to be one.
+                    all_pools = pool.work.license_pools
                     self.clear_works(pool.work.id)
-                pool.calculate_work()
+                else:
+                    all_pools = [pool]
+                for pool in all_pools:
+                    pool.calculate_work()
                 self._db.commit()
         else:
             logging.info("Consolidating all works.")
