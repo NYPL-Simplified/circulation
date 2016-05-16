@@ -6201,7 +6201,7 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None, max_age=None, pause_before=0, allow_redirects=True,
-            presumed_media_type=None, debug=True):
+            presumed_media_type=None, debug=True, response_reviewer=None):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6293,6 +6293,10 @@ class Representation(Base):
         media_type = None
         try:
             status_code, headers, content = do_get(url, headers)
+            if response_reviewer:
+                # An optional function passed to raise errors if the
+                # post response isn't worth caching.
+                response_reviewer((status_code, headers, content))
             exception = None
             if 'content-type' in headers:
                 media_type = headers['content-type'].lower()
@@ -6383,16 +6387,11 @@ class Representation(Base):
 
         def do_post(url, headers, **kwargs):
             kwargs.update({'data' : params})
-            if response_reviewer:
-                # An optional function passed to raise errors if the
-                # post response isn't worth caching.
-                return response_reviewer(
-                    cls.simple_http_post(url, headers, **kwargs)
-                )
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
-            _db, url, do_get=do_post, max_age=max_age
+            _db, url, do_get=do_post, max_age=max_age,
+            response_reviewer=response_reviewer
         )
 
     def update_image_size(self):

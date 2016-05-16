@@ -2307,6 +2307,21 @@ class TestRepresentation(DatabaseTest):
             self._db, url, do_get=h.do_get)
         eq_(False, cached)
 
+    def test_response_reviewer_impacts_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(200, media_type='text/html')
+
+        def reviewer(response):
+            status, headers, content = response
+            if 'html' in headers['content-type']:
+                raise Exception("No. Just no.")
+
+        representation, cached = Representation.get(
+            self._db, self._url, do_get=h.do_get, response_reviewer=reviewer
+        )
+        assert "No. Just no." in representation.fetch_exception
+        eq_(False, cached)
+
     def test_url_extension(self):
         epub, ignore = self._representation("test.epub")
         eq_(".epub", epub.url_extension)
