@@ -1036,19 +1036,18 @@ class Lane(object):
     def only_show_ready_deliverable_works(
             cls, query, work_model, show_suppressed=False
     ):
-        """Restrict a query to show only unmerged presentation-ready
+        """Restrict a query to show only presentation-ready
         works which the default client can fulfill.
 
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        # Only find unmerged presentation-ready works.
+        # Only find presentation-ready works.
         #
         # Such works are automatically filtered out of 
         # the materialized view.
         if work_model == Work:
             query = query.filter(
-                work_model.was_merged_into == None,
                 work_model.presentation_ready == True,
             )
 

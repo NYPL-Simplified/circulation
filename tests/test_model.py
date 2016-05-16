@@ -1013,7 +1013,6 @@ class TestLicensePool(DatabaseTest):
 
 
     def test_better_open_access_pool_than(self):
-        # TODO:  update with extra tests that will come out of fixing test_merge_into
 
         gutenberg_1 = self._licensepool(
             None, open_access=True, data_source_name=DataSource.GUTENBERG,
@@ -1824,37 +1823,8 @@ class TestCirculationEvent(DatabaseTest):
 
 #         assert work1.quality > work2.quality
 
-class TestWorkSimilarity(DatabaseTest):
-
-    def test_work_is_similar_to_itself(self):
-        wr = self._edition()
-        eq_(1, wr.similarity_to(wr))
-
-
 
 class TestWorkConsolidation(DatabaseTest):
-
-    # Versions of Work and Edition instrumented to bypass the
-    # normal similarity comparison process.
-
-    def setup(self):
-        super(TestWorkConsolidation, self).setup()
-        # Replace the complex implementations of similarity_to with 
-        # much simpler versions that let us simply say which objects 
-        # are to be considered similar.
-        def similarity_to(self, other):
-            if other in getattr(self, 'similar', []):
-                return 1
-            return 0
-        self.old_w = Work.similarity_to
-        self.old_wr = Edition.similarity_to
-        Work.similarity_to = similarity_to
-        Edition.similarity_to = similarity_to
-
-    def teardown(self):
-        Work.similarity_to = self.old_w
-        Edition.similarity_to = self.old_wr
-        super(TestWorkConsolidation, self).teardown()
 
     def test_calculate_work_success(self):
         e, p = self._edition(with_license_pool=True)
@@ -2010,61 +1980,6 @@ class TestWorkConsolidation(DatabaseTest):
         self._db.commit()
 
         pool.calculate_work()
-
-
-    def test_merge_into(self):
-        '''
-        Tests that two works can have their contents merged into a single work, and that the decision 
-        to perform the merge is conditional on the works' mutual similarity score.
-        '''
-
-        # Here's a work with a license pool and two work records.
-        edition_1a, pool_1a = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
-        edition_1b, ignore = Edition.for_foreign_id(self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
-
-        work1 = Work()
-        work1.license_pools = [pool_1a]
-        work1.editions = [edition_1a, edition_1b]
-        work1.calculate_presentation()
-
-        # Here's a work with two license pools and one work record
-        edition_2a, pool_2a = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        edition_2b, pool_2b = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
-
-        edition_2a.title = u"The only title in this whole test."
-
-        work2 = Work()
-        work2.license_pools = [pool_2a, pool_2b]
-        work2.editions = [edition_2a]
-        work2.calculate_presentation()
-
-        self._db.commit()
-        
-        # This attempt to merge the two work records will fail because
-        # they don't meet the similarity threshold.
-        work2.merge_into(work1, similarity_threshold=1)
-        eq_(None, work2.was_merged_into)
-
-        # This attempt will succeed because we lower the similarity
-        # threshold.
-
-        work2.merge_into(work1, similarity_threshold=0)
-        eq_(work1, work2.was_merged_into)
-
-        # The merged Work no longer has any work records or license
-        # pools.
-        eq_([], work2.editions)
-        eq_([], work2.license_pools)
-
-        # The remaining Work has all three license pools.
-        for p in pool_1a, pool_2a, pool_2b:
-            assert p in work1.license_pools
-
-        # It has all three work records.
-        for w in edition_1a, edition_1b, edition_2a:
-            assert w in work1.editions
-        
-
 
     def test_open_access_pools_grouped_together(self):
 
