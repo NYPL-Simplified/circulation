@@ -426,6 +426,8 @@ class WorkConsolidationScript(WorkProcessingScript):
                         "No LicensePool for %r, cannot create work.", i
                     )
                     continue
+                if pool.work:
+                    self.clear_works(pool.work.id)
                 pool.calculate_work()
                 self._db.commit()
         else:
@@ -439,11 +441,14 @@ class WorkConsolidationScript(WorkProcessingScript):
             self._db.commit()
 
     def clear_existing_works(self):
-        # Locate works we want to consolidate.
-        unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
         for wr in self.query:
             work_ids_to_delete.add(wr.id)
+        self.clear_works(self, *work_ids_to_delete)
+
+    def clear_works(self, *work_ids_to_delete):
+        # Locate works we want to consolidate.
+        unset_work_id = { Edition.work_id : None }
         editions = self._db.query(Edition).filter(
             Edition.work_id.in_(work_ids_to_delete))
 
