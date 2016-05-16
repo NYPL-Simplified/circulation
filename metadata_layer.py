@@ -1046,14 +1046,9 @@ class Metadata(object):
             )
 
         # Make sure the work we just did shows up.
-        if edition.work:
-            edition.work.calculate_presentation(
-                policy=replace.presentation_calculation_policy
-            )
-        else:
-            edition.calculate_presentation(
-                policy=replace.presentation_calculation_policy
-            )
+        edition.calculate_presentation(
+            policy=replace.presentation_calculation_policy
+        )
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where

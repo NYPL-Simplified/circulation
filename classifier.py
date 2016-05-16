@@ -3814,6 +3814,12 @@ class SimplifiedGenreClassifier(Classifier):
         return cls._genre_by_name(identifier.original, all_genres)
 
     @classmethod
+    def is_fiction(cls, identifier, name):
+        if not globals()["genres"][identifier.original]:
+            return None
+        return globals()["genres"][identifier.original].is_fiction
+
+    @classmethod
     def _genre_by_name(cls, name, genres):
         for genre in genres:
             if genre == name:

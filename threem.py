@@ -60,7 +60,6 @@ class ThreeMAPI(object):
         self._db = _db
         self.version = version
         self.base_url = base_url
-        self.source = DataSource.lookup(self._db, DataSource.THREEM)
         self.item_list_parser = ItemListParser()
 
         if testing:
@@ -99,6 +98,10 @@ class ThreeMAPI(object):
             )
             return None
         return cls(_db)
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.THREEM)
 
     def now(self):
         """Return the current GMT time in the format 3M expects."""
@@ -322,10 +325,14 @@ class ItemListParser(XMLParser):
 class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for 3M records."""
 
-    def __init__(self, _db, metadata_replacement_policy=None):
+    def __init__(self, _db, input_identifier_types=None,
+                 metadata_replacement_policy=None, **kwargs):
+        # We ignore the value of input_identifier_types, but it's
+        # passed in by RunCoverageProviderScript, so we accept it as
+        # part of the signature.
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, ThreeMAPI(_db), DataSource.THREEM,
-            workset_size=25, metadata_replacement_policy=metadata_replacement_policy
+            workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_batch(self, identifiers):

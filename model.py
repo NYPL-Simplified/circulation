@@ -2705,6 +2705,11 @@ class Edition(Base):
 
     def calculate_permanent_work_id(self, debug=False):
         title = self.title_for_permanent_work_id
+        if not title:
+            # If a book has no title, it has no permanent work ID.
+            self.permanent_work_id = None
+            return
+
         author = self.author_for_permanent_work_id
 
         if self.medium == Edition.BOOK_MEDIUM:
@@ -5565,7 +5570,9 @@ class LicensePool(Base):
             if primary_edition:
                 primary_edition.work = self.work
             
-            # The work has already been done.
+            # The work has already been done. Make sure the work's
+            # display is up to date.
+            self.work.calculate_presentation()
             return self.work, False
 
 
@@ -5577,17 +5584,26 @@ class LicensePool(Base):
                      self.identifier)
             
             return None, False
-        if primary_edition.license_pool != self:
+        if primary_edition.is_presentation_for != self:
             raise ValueError(
                 "Primary edition's license pool is not the license pool for which work is being calculated!")
 
         if not primary_edition.title or not primary_edition.author:
             primary_edition.calculate_presentation()
 
-        if not primary_edition.work and (
-                not primary_edition.title or (
-                    (primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
-                     and not even_if_no_author))
+        if not primary_edition.title:
+            if primary_edition.work:
+                logging.warn(
+                    "Edition %r has no title but has a Work assigned. This is troubling.", primary_edition
+                )
+                return primary_edition.work, False
+            else:
+                logging.info("Edition %r has no title, will not assign it a Work.", primary_edition)
+                return None, False
+
+        if (not primary_edition.work 
+            and primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
+            and not even_if_no_author
         ):
             logging.warn(
                 "Edition %r has no author or title, not assigning Work to Edition.", 
@@ -5599,8 +5615,7 @@ class LicensePool(Base):
             #print msg.encode("utf8")
             return None, False
 
-        if not primary_edition.permanent_work_id:
-            primary_edition.calculate_permanent_work_id()
+        primary_edition.calculate_permanent_work_id()
 
         if primary_edition.work:
             # This pool's primary edition is already associated with
@@ -5610,7 +5625,7 @@ class LicensePool(Base):
         else:
             _db = Session.object_session(self)
             work = None
-            if self.open_access:
+            if self.open_access and primary_edition.permanent_work_id:
                 # Is there already an open-access Work which includes editions
                 # with this edition's permanent work ID?
                 q = _db.query(Edition).filter(

@@ -854,6 +854,17 @@ class TestEdition(DatabaseTest):
             [x.data_source for x in records]
         )
 
+    def test_no_permanent_work_id_for_edition_with_no_title(self):
+        """An edition with no title is not assigned a permanent work ID."""
+        edition = self._edition()
+        edition.title = ''
+        eq_(None, edition.permanent_work_id)
+        edition.calculate_permanent_work_id()
+        eq_(None, edition.permanent_work_id)
+        edition.title = u'something'
+        edition.calculate_permanent_work_id()
+        assert_not_equal(None, edition.permanent_work_id)
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -1808,6 +1819,32 @@ class TestWorkConsolidation(DatabaseTest):
         Work.similarity_to = self.old_w
         Edition.similarity_to = self.old_wr
         super(TestWorkConsolidation, self).teardown()
+
+    def test_calculate_work_success(self):
+        e, p = self._edition(with_license_pool=True)
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(p.presentation_edition, work.primary_edition)
+        eq_(True, new)
+
+    def test_calculate_work_bails_out_if_no_title(self):
+        e, p = self._edition(with_license_pool=True)
+        e.title=None
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(None, work)
+        eq_(False, new)
+
+    def test_calculate_work_bails_out_if_no_author(self):
+        e, p = self._edition(with_license_pool=True, authors=[])
+        work, new = p.calculate_work(even_if_no_author=False)
+        eq_(None, work)
+        eq_(False, new)
+
+        # If we know that there simply is no author for this work,
+        # we can pass in even_if_no_author=True
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(p.presentation_edition, work.primary_edition)
+        eq_(True, new)
+
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
         # Here are two Editions with the same permanent work ID, 

@@ -75,10 +75,10 @@ class OverdriveAPI(object):
     FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-    
+
+   
     def __init__(self, _db, testing=False):
         self._db = _db
-        self.source = DataSource.lookup(_db, DataSource.OVERDRIVE)
 
         # Set some stuff from environment variables
         if not testing:
@@ -121,6 +121,10 @@ class OverdriveAPI(object):
             return cls(_db)
         except CannotLoadConfiguration, e:
             return None
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
@@ -753,10 +757,14 @@ class OverdriveRepresentationExtractor(object):
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
-    def __init__(self, _db, metadata_replacement_policy=None):
+    def __init__(self, _db, input_identifier_types=None,
+                 metadata_replacement_policy=None, **kwargs):
+        # We ignore the value of input_identifier_types, but it's
+        # passed in by RunCoverageProviderScript, so we accept it as
+        # part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, OverdriveAPI(_db), DataSource.OVERDRIVE,
-            workset_size=10, metadata_replacement_policy=metadata_replacement_policy
+            workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_batch(self, identifiers):
