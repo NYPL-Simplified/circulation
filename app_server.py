@@ -372,16 +372,26 @@ class URNLookupController(object):
         # We made it!
         return entry
 
-    def work_lookup(self, annotator, controller_name='lookup', collection=None):
+    def work_lookup(self, annotator, route_name='lookup',
+                    require_active_licensepool=True, collection=None):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         messages_by_urn = dict()
-        this_url = cdn_url_for(controller_name, _external=True, urn=urns)
+        this_url = cdn_url_for(route_name, _external=True, urn=urns)
         for urn in urns:
             code, message = self.process_urn(urn, collection=collection)
             if code:
                 messages_by_urn[urn] = (code, message)
+
+        missing_urns = set(urns).difference(set(messages_by_urn.keys()))
+        if missing_urns:
+            # One or more urns have disappeared in the process.
+            for urn in missing_urns:
+                messages_by_urn[urn] = (
+                    INTERNAL_SERVER_ERROR.status_code,
+                    INTERNAL_SERVER_ERROR.detail
+                )
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
@@ -390,8 +400,9 @@ class URNLookupController(object):
         opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, self.works, annotator,
             messages_by_urn=messages_by_urn, 
-            precomposed_entries=self.precomposed_entries)
-
+            precomposed_entries=self.precomposed_entries,
+            require_active_licensepool=require_active_licensepool
+        )
         return feed_response(opds_feed)
 
     def permalink(self, urn, annotator):
