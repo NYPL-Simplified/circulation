@@ -222,6 +222,18 @@ class Annotator(object):
         return [E.author(E.name(edition.author or ""))]
 
     @classmethod
+    def series(cls, series_name, series_position):
+        """Generate a schema:Series tag for the given name and position."""
+        if not series_name:
+            return None
+        series_details = dict()
+        series_details['name'] = series_name
+        if series_position:
+            series_details['{%s}position' % schema_ns] = unicode(series_position)
+        series_tag = E._makeelement("{%s}Series" % schema_ns, **series_details)
+        return series_tag
+
+    @classmethod
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
@@ -904,6 +916,9 @@ class AcquisitionFeed(OPDSFeed):
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
+
+        if edition.series:
+            entry.extend([self.annotator.series(edition.series, edition.series_position)])
 
         if content:
             entry.extend([E.summary(content, type=content_type)])
