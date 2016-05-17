@@ -1616,7 +1616,7 @@ class Identifier(Base):
 
             # If the size of the image is known, that might affect
             # the quality.
-            quality = quality * Representation.image_size_quality_penalty(
+            quality = quality * Representation.cover_size_quality_penalty(
                 rep.image_width, rep.image_height
             )
 
