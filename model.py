@@ -1589,6 +1589,57 @@ class Identifier(Base):
     MINIMUM_IMAGE_QUALITY = 0.25
 
     @classmethod
+    def aspect_ratio_quality_quotient(cls, width, height):
+        """Measure an image's deviation from the ideal aspect ratio, and by
+        its deviation (in the "too small" direction only) from the
+        ideal thumbnail resolution.
+        """
+
+        quotient = 1
+
+        if not width or not height:
+            # In the absence of any information, assume the cover is
+            # just dandy.
+            #
+            # This is obviously less than ideal, but this code is used
+            # pretty rarely now that we no longer have hundreds of
+            # covers competing for the privilege of representing a
+            # public domain book, so I'm not too concerned about it.
+            #
+            # Look at it this way: this escape hatch only causes a
+            # problem if we compare an image whose size we know
+            # against an image whose size we don't know.
+            #
+            # In the circulation manager, we never know what size an
+            # image is, and we must always trust that the cover
+            # (e.g. Overdrive and the metadata wrangler) give us
+            # "thumbnail" images that are approximately the right
+            # size. So we always use this escape hatch.
+            #
+            # In the metadata wrangler and content server, we always
+            # have access to the covers themselves, so we always have
+            # size information and we never use this escape hatch.
+            return quotient
+
+        # Penalize an image for deviation from the ideal aspect ratio.
+        aspect_ratio = rep.image_width / float(rep.image_height)
+        aspect_difference = abs(aspect_ratio-cls.IDEAL_COVER_ASPECT_RATIO)
+        quotient -= aspect_difference
+
+        # Penalize an image for not being wide enough.
+        width_shortfall = (
+            float(rep.image_width - cls.IDEAL_IMAGE_WIDTH) / cls.IDEAL_IMAGE_WIDTH)
+        if width_shortfall < 0:
+            quotient -= (1+width_shortfall)
+
+        # Penalize an image for not being tall enough.
+        height_shortfall = (
+            float(rep.image_height - cls.IDEAL_IMAGE_HEIGHT) / cls.IDEAL_IMAGE_HEIGHT)
+        if height_shortfall < 0:
+            quotient -= (1+height_shortfall)
+        return quotient
+
+    @classmethod
     def best_cover_for(cls, _db, identifier_ids):
         # Find all image resources associated with any of
         # these identifiers.
@@ -1602,22 +1653,8 @@ class Identifier(Base):
         champion = None
         champions = []
         champion_score = None
-        # Judge the image resource by its deviation from the ideal
-        # aspect ratio, and by its deviation (in the "too small"
-        # direction only) from the ideal resolution.
+
         for r in images:
-            for link in r.links:
-                if link.license_pool and not link.license_pool.open_access:
-                    # For licensed works, always present the cover
-                    # provided by the licensing authority.
-                    r.quality = 1
-                    champion = r
-                    break
-
-            if champion and champion.quality == 1:
-                # No need to look further
-                break
-
             rep = r.representation
             if not rep:
                 continue
@@ -1626,21 +1663,13 @@ class Identifier(Base):
                 champion = r
                 continue
 
-            if not rep.image_width or not rep.image_height:
-                continue
-            aspect_ratio = rep.image_width / float(rep.image_height)
-            aspect_difference = abs(aspect_ratio-cls.IDEAL_COVER_ASPECT_RATIO)
-            quality = 1 - aspect_difference
-            width_difference = (
-                float(rep.image_width - cls.IDEAL_IMAGE_WIDTH) / cls.IDEAL_IMAGE_WIDTH)
-            if width_difference < 0:
-                # Image is not wide enough.
-                quality = quality * (1+width_difference)
-            height_difference = (
-                float(rep.image_height - cls.IDEAL_IMAGE_HEIGHT) / cls.IDEAL_IMAGE_HEIGHT)
-            if height_difference < 0:
-                # Image is not tall enough.
-                quality = quality * (1+height_difference)
+            quality = 1
+
+            # If the size of the image is known, that might affect
+            # the quality.
+            quality = quality * cls.aspect_ratio_quality_quotient(
+                rep.image_width, rep.image_height
+            )
 
             # Scale the estimated quality by the source of the image.
             source_name = r.data_source.name
@@ -1650,7 +1679,14 @@ class Identifier(Base):
                 quality = quality * 0.50
             elif source_name==DataSource.OPEN_LIBRARY:
                 quality = quality * 0.25
-
+            elif source_name in DataSource.PRESENTATION_EDITION_PRIORITY:
+                # Covers from the data sources listed in
+                # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler 
+                # and the administrative interface) are given priority
+                # over all others, relative to their position in 
+                # PRESENTATION_EDITION_PRIORITY.
+                i = DataSource.PRESENTATION_EDITION_PRIORITY.index(source_name)
+                quality = quality * (i+2)
             r.set_estimated_quality(quality)
 
             # TODO: that says how good the image is as an image. But
@@ -1667,6 +1703,7 @@ class Identifier(Base):
                 champion_score = r.quality
             elif r.quality == champion_score:
                 champions.append(r)
+
         if champions and not champion:
             champion = random.choice(champions)
             

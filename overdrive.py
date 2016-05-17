@@ -790,4 +790,4 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         if not isinstance(result, CoverageFailure):
             # Success!
             result = self.set_presentation_ready(result)
-
+        return result

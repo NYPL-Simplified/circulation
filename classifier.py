@@ -3804,6 +3804,16 @@ class SimplifiedGenreClassifier(Classifier):
     NONE = "NONE"
 
     @classmethod
+    def scrub_identifier(cls, identifier):
+        # If the identifier is a URI identifying a Simplified genre,
+        # strip off the first part of the URI to get the genre name.
+        if not identifier:
+            return identifier
+        if identifier.startswith(cls.SIMPLIFIED_GENRE):
+            identifier = identifier[len(cls.SIMPLIFIED_GENRE):]
+        return Lowercased(identifier)
+
+    @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         if fiction == True:
             all_genres = fiction_genres
