@@ -41,6 +41,7 @@ from model import (
     Measurement,
     Patron,
     Representation,
+    Resource,
     SessionManager,
     Subject,
     Timestamp,
@@ -2166,6 +2167,7 @@ class TestHyperlink(DatabaseTest):
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
+
 class TestRepresentation(DatabaseTest):
 
     def test_normalized_content_path(self):
@@ -2384,6 +2386,17 @@ class TestRepresentation(DatabaseTest):
 
 class TestCoverResource(DatabaseTest):
 
+    def sample_cover_path(self, name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        sample_cover_path = self.sample_cover_path(name)
+        return self._representation(
+            media_type="image/png", content=open(sample_cover_path).read())[0]
+
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
         original = self._url
@@ -2425,17 +2438,6 @@ class TestCoverResource(DatabaseTest):
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
-
-    def sample_cover_path(self, name):
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files", "covers")
-        sample_cover_path = os.path.join(resource_path, name)
-        return sample_cover_path
-
-    def sample_cover_representation(self, name):
-        sample_cover_path = self.sample_cover_path(name)
-        return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
@@ -2518,6 +2520,77 @@ class TestCoverResource(DatabaseTest):
         eq_([], cover.thumbnails)
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
+
+    def test_best_covers_among(self):
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_no_representation = hyperlink.resource
+
+        link1, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_no_representation = link1.resource
+
+        # A resource with no representation is not considered even if
+        # it's the only option.
+        eq_([], Resource.best_covers_among([resource_with_no_representation]))
+
+        # Here's an abysmally bad cover.
+        lousy_cover = self.sample_cover_representation("tiny-image-cover.png")
+        lousy_cover.image_height=1
+        lousy_cover.image_width=10000 
+        link2, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_lousy_cover = link2.resource
+        resource_with_lousy_cover.representation = lousy_cover
+
+        # This cover is so bad that it's not even considered if it's
+        # the only option.
+        eq_([], Resource.best_covers_among([resource_with_lousy_cover]))
+
+        # Here's a decent cover.
+        decent_cover = self.sample_cover_representation("test-book-cover.png")
+        link3, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover = link3.resource
+        resource_with_decent_cover.representation = decent_cover
+
+        # This cover is at least good enough to pass muster if there
+        # is no other option.
+        eq_(
+            [resource_with_decent_cover], 
+            Resource.best_covers_among([resource_with_decent_cover])
+        )
+
+        # Let's create another cover image with identical
+        # characteristics.
+        link4, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover_2 = link4.resource
+        resource_with_decent_cover_2.representation = decent_cover
+        l = [resource_with_decent_cover, resource_with_decent_cover_2]
+
+        # best_covers_among() can't decide between the two -- they have
+        # the same score.
+        eq_(set(l), set(Resource.best_covers_among(l)))
+
+        # But if we give one of them a bump by saying it's the one the
+        # metadata wrangler said to use...
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+        resource_with_decent_cover.data_source = metadata_wrangler
+
+        # ...the decision becomes easy.
+        eq_([resource_with_decent_cover], Resource.best_covers_among(l))
+
 
     def test_quality_as_thumbnail_image(self):
 

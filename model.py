@@ -4295,24 +4295,21 @@ class Resource(Base):
     @classmethod
     def best_covers_among(cls, resources):
         """Choose the best covers from a list of Resources."""
-        champion = None
         champions = []
         champion_score = None
 
         for r in resources:
-            rep = self.representation
+            rep = r.representation
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
 
-            if not champion:
-                champion = r
-                continue
-
             quality = r.quality_as_thumbnail_image
             if not quality >= cls.MINIMUM_IMAGE_QUALITY:
+                # A Resource below the minimum quality threshold is not
+                # usable, period.
                 continue
-            if quality > champion_score:
+            if not champions or quality > champion_score:
                 champions = [r]
                 champion_score = r.quality
             elif quality == champion_score:
