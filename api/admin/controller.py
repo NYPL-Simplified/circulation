@@ -373,10 +373,14 @@ class WorkController(CirculationManagerController):
             )
         old_genre_classifications = old_classifications \
             .filter(Subject.genre_id != None)
-        old_genres = [
+        old_staff_genres = [
             c.subject.genre.name 
             for c in old_genre_classifications 
             if c.subject.genre
+        ]
+        old_computed_genres = [
+            work_genre.genre.name
+            for work_genre in work.work_genres
         ]
         
         # Update audience
@@ -454,7 +458,7 @@ class WorkController(CirculationManagerController):
             if name == "Erotica" and new_audience != "Adults Only":
                 return EROTICA_FOR_ADULTS_ONLY
 
-        if sorted(new_genres) != sorted(old_genres):
+        if sorted(new_genres) != sorted(old_computed_genres):
             # delete existing staff classifications for genres that aren't being kept
             for c in old_genre_classifications:
                 if c.subject.genre.name not in new_genres:
@@ -462,7 +466,7 @@ class WorkController(CirculationManagerController):
 
             # add new staff classifications for new genres
             for genre in new_genres:
-                if genre not in old_genres:
+                if genre not in old_staff_genres:
                     classification = primary_identifier.classify(
                         data_source=staff_data_source,
                         subject_type=Subject.SIMPLIFIED_GENRE,
