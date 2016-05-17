@@ -2381,43 +2381,8 @@ class TestRepresentation(DatabaseTest):
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
-    def test_cover_size_quality_penalty(self):
-        """Verify that Representation.cover_size_quality_penalty penalizes
-        images that are the wrong aspect ratio, or too small.
-        """
 
-        ideal_ratio = Identifier.IDEAL_COVER_ASPECT_RATIO
-        ideal_height = IDEAL_IMAGE_HEIGHT = 240
-        ideal_width = IDEAL_IMAGE_WIDTH = 160
-
-        def f(width, height):
-            return Representation.cover_size_quality_penalty(width, height)
-
-        # In the absence of any size information we assume
-        # everything's fine.
-        eq_(1, f(None, None))
-
-        # The perfect image has no penalty.
-        eq_(1, f(ideal_width, ideal_height))
-
-        # An image that is the perfect aspect ratio, but too large,
-        # has no penalty.
-        eq_(1, f(ideal_width*2, ideal_height*2))
-        
-        # An image that is the perfect aspect ratio, but is too small,
-        # is penalised.
-        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
-        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
-
-        # An image that deviates from the perfect aspect ratio is
-        # penalized in proportion.
-        eq_(1/2.0, f(ideal_width*2, ideal_height))
-        eq_(1/2.0, f(ideal_width, ideal_height*2))
-        eq_(1/4.0, f(ideal_width*4, ideal_height))
-        eq_(1/4.0, f(ideal_width, ideal_height*4))
-
-
-class TestScaleRepresentation(DatabaseTest):
+class TestCoverResource(DatabaseTest):
 
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -2553,6 +2518,94 @@ class TestScaleRepresentation(DatabaseTest):
         eq_([], cover.thumbnails)
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
+
+    def test_quality_as_thumbnail_image(self):
+
+        # Get some data sources ready, since a big part of image
+        # quality comes from data source.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg_cover_generator = DataSource.lookup(
+            self._db, DataSource.GUTENBERG_COVER_GENERATOR
+        )
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, overdrive
+        )
+        resource = hyperlink.resource
+        
+        # Without a representation, the thumbnail image is useless.
+        eq_(0, resource.quality_as_thumbnail_image)
+
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        cover = self.sample_cover_representation("tiny-image-cover.png")
+        resource.representation = cover
+        eq_(1.0, resource.quality_as_thumbnail_image)
+
+        # Changing the image aspect ratio affects the quality as per
+        # thumbnail_size_quality_penalty.
+        cover.image_height = ideal_height * 2
+        cover.image_width = ideal_width
+        eq_(0.5, resource.quality_as_thumbnail_image)
+        
+        # Changing the data source also affects the quality. Gutenberg
+        # covers are penalized heavily...
+        cover.image_height = ideal_height
+        cover.image_width = ideal_width
+        resource.data_source = gutenberg
+        eq_(0.5, resource.quality_as_thumbnail_image)
+
+        # The Gutenberg cover generator is penalized less heavily.
+        resource.data_source = gutenberg_cover_generator
+        eq_(0.6, resource.quality_as_thumbnail_image)
+
+        # The metadata wrangler actually gets a _bonus_, to encourage the
+        # use of its covers over those provided by license sources.
+        resource.data_source = metadata_wrangler
+        eq_(2, resource.quality_as_thumbnail_image)
+        
+
+    def test_thumbnail_size_quality_penalty(self):
+        """Verify that Representation._cover_size_quality_penalty penalizes
+        images that are the wrong aspect ratio, or too small.
+        """
+
+        ideal_ratio = Identifier.IDEAL_COVER_ASPECT_RATIO
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        def f(width, height):
+            return Representation._thumbnail_size_quality_penalty(width, height)
+
+        # In the absence of any size information we assume
+        # everything's fine.
+        eq_(1, f(None, None))
+
+        # The perfect image has no penalty.
+        eq_(1, f(ideal_width, ideal_height))
+
+        # An image that is the perfect aspect ratio, but too large,
+        # has no penalty.
+        eq_(1, f(ideal_width*2, ideal_height*2))
+        
+        # An image that is the perfect aspect ratio, but is too small,
+        # is penalised.
+        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
+        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
+
+        # An image that deviates from the perfect aspect ratio is
+        # penalized in proportion.
+        eq_(1/2.0, f(ideal_width*2, ideal_height))
+        eq_(1/2.0, f(ideal_width, ideal_height*2))
+        eq_(1/4.0, f(ideal_width*4, ideal_height))
+        eq_(1/4.0, f(ideal_width, ideal_height*4))
 
 
 class TestDeliveryMechanism(DatabaseTest):

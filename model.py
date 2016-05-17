@@ -1584,10 +1584,6 @@ class Identifier(Base):
     IDEAL_IMAGE_HEIGHT = 240
     IDEAL_IMAGE_WIDTH = 160
 
-    # The point at which a generic geometric image is better
-    # than some other image.
-    MINIMUM_IMAGE_QUALITY = 0.25
-
     @classmethod
     def best_cover_for(cls, _db, identifier_ids):
         # Find all image resources associated with any of
@@ -1599,61 +1595,12 @@ class Identifier(Base):
             Representation.mirror_url != None)
         images = images.all()
 
-        champion = None
-        champions = []
-        champion_score = None
-
-        for r in images:
-            rep = r.representation
-            if not rep:
-                continue
-
-            if not champion:
-                champion = r
-                continue
-
-            quality = 1
-
-            # If the size of the image is known, that might affect
-            # the quality.
-            quality = quality * Representation.cover_size_quality_penalty(
-                rep.image_width, rep.image_height
-            )
-
-            # Scale the estimated quality by the source of the image.
-            source_name = r.data_source.name
-            if source_name==DataSource.GUTENBERG_COVER_GENERATOR:
-                quality = quality * 0.60
-            elif source_name==DataSource.GUTENBERG:
-                quality = quality * 0.50
-            elif source_name==DataSource.OPEN_LIBRARY:
-                quality = quality * 0.25
-            elif source_name in DataSource.PRESENTATION_EDITION_PRIORITY:
-                # Covers from the data sources listed in
-                # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler 
-                # and the administrative interface) are given priority
-                # over all others, relative to their position in 
-                # PRESENTATION_EDITION_PRIORITY.
-                i = DataSource.PRESENTATION_EDITION_PRIORITY.index(source_name)
-                quality = quality * (i+2)
-            r.set_estimated_quality(quality)
-
-            # TODO: that says how good the image is as an image. But
-            # how good is it as an image for this particular book?
-            # Determining this requires measuring the conceptual
-            # distance from the image to a Edition, and then from
-            # the Edition to the Work in question. This is much
-            # too big a project to work on right now.
-
-            if not r.quality >= cls.MINIMUM_IMAGE_QUALITY:
-                continue
-            if r.quality > champion_score:
-                champions = [r]
-                champion_score = r.quality
-            elif r.quality == champion_score:
-                champions.append(r)
-
-        if champions and not champion:
+        champions = Resource.best_covers_among(images)
+        if not champions:
+            champion = None
+        elif len(champions) == 1:
+            [champion] = champions
+        else:
             champion = random.choice(champions)
             
         return champion, images
@@ -4219,6 +4166,10 @@ class Resource(Base):
     # How many votes is the initial quality estimate worth?
     ESTIMATED_QUALITY_WEIGHT = 5
 
+    # The point at which a generic geometric image is better
+    # than a lousy cover we got from the Internet.
+    MINIMUM_IMAGE_QUALITY = 1.0/8
+
     id = Column(Integer, primary_key=True)
 
     # A URI that uniquely identifies this resource. Most of the time
@@ -4341,16 +4292,65 @@ class Resource(Base):
                          ((self.voted_quality or 0) * votes_for_quality))
         self.quality = total_quality / float(total_weight)
 
-    def set_representation(self, media_type, content, uri=None,
-                           content_path=None):
+    @classmethod
+    def best_covers_among(cls, resources):
+        """Choose the best covers from a list of Resources."""
+        champion = None
+        champions = []
+        champion_score = None
 
-        if not uri:
-            uri = self.generic_uri
-        representation, ignore = get_one_or_create(
-            _db, Representation, url=uri, media_type=media_type)
-        representation.set_fetched_content(content, content_path)
-        self.representation = representation
-        
+        for r in resources:
+            rep = self.representation
+            if not rep:
+                # A Resource with no Representation is not usable, period
+                continue
+
+            if not champion:
+                champion = r
+                continue
+
+            quality = r.quality_as_thumbnail_image
+            if not quality >= cls.MINIMUM_IMAGE_QUALITY:
+                continue
+            if quality > champion_score:
+                champions = [r]
+                champion_score = r.quality
+            elif quality == champion_score:
+                champions.append(r)
+        return champions
+
+    @property
+    def quality_as_thumbnail_image(self):
+        """Determine this image's suitability for use as a thumbnail image.
+        """
+        rep = self.representation
+        if not rep:
+            return 0
+
+        quality = 1
+        # If the size of the image is known, that might affect
+        # the quality.
+        quality = quality * rep.thumbnail_size_quality_penalty
+
+        # Scale the estimated quality by the source of the image.
+        source_name = self.data_source.name
+        if source_name==DataSource.GUTENBERG_COVER_GENERATOR:
+            quality = quality * 0.60
+        elif source_name==DataSource.GUTENBERG:
+            quality = quality * 0.50
+        elif source_name==DataSource.OPEN_LIBRARY:
+            quality = quality * 0.25
+        elif source_name in DataSource.PRESENTATION_EDITION_PRIORITY:
+            # Covers from the data sources listed in
+            # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler 
+            # and the administrative interface) are given priority
+            # over all others, relative to their position in 
+            # PRESENTATION_EDITION_PRIORITY.
+            i = DataSource.PRESENTATION_EDITION_PRIORITY.index(source_name)
+            quality = quality * (i+2)
+        self.set_estimated_quality(quality)
+        return quality
+
 
 class Genre(Base):
     """A subject-matter classification for a book.
@@ -6625,10 +6625,16 @@ class Representation(Base):
         output.close()
         thumbnail.scale_exception = None
         thumbnail.scaled_at = now
-        return thumbnail, True
+        return thumbnail, True      
+
+    @property
+    def thumbnail_size_quality_penalty(self):
+        return self._thumbnail_size_quality_penalty(
+            self.image_width, self.image_height
+        )
 
     @classmethod
-    def cover_size_quality_penalty(cls, width, height):
+    def _thumbnail_size_quality_penalty(cls, width, height):
         """Measure a cover image's deviation from the ideal aspect ratio, and
         by its deviation (in the "too small" direction only) from the
         ideal thumbnail resolution.
