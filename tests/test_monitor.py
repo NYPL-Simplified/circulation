@@ -133,7 +133,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
         eq_([], result)
 
         # The monitor that takes Gutenberg identifiers as input ran.
-        eq_([self.work.primary_edition.primary_identifier], gutenberg_monitor.attempts)
+        eq_([self.work.presentation_edition.primary_identifier], gutenberg_monitor.attempts)
 
         # The monitor that takes OCLC editions as input did not.
         # (If it had, it would have failed.)

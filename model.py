@@ -2239,13 +2239,9 @@ class Edition(Base):
     primary_identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
 
-    # A Edition may be associated with a single Work.
-    work_id = Column(Integer, ForeignKey('works.id'), index=True)
+    # An Edition may be the presentation edition for a single Work.
+    work = relationship("Work", uselist=False, backref="presentation_edition")
  
-    # An Edition may be the primary edition associated with its
-    # Work, or it may not be.
-    is_primary_for_work = Column(Boolean, index=True, default=False)
-
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
 
@@ -2761,17 +2757,6 @@ class Edition(Base):
         if policy is None:
             policy = PresentationCalculationPolicy()
 
-        """
-        TODO: 
-        # first presentation edition of a non-suppressed, non-superceded licensepool
-        # but edition already has a work_id?
-        parent_work_license_pools = self.license_pool.work.license_pools
-
-        for (work in parent_works)
-        see if license pool is active,
-        if yes, set its work to mine and continue
-        """
-
         # Gather information up front that will be used to determine
         # whether this method actually did anything.
         old_author = self.author
@@ -2883,7 +2868,6 @@ class Edition(Base):
 
 
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
-Index("ix_editions_work_id_is_primary_for_work_id", Edition.work_id, Edition.is_primary_for_work)
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -2993,15 +2977,9 @@ class Work(Base):
     # One Work may have copies scattered across many LicensePools.
     license_pools = relationship("LicensePool", backref="work", lazy='joined')
 
-    # A single Work may claim many Editions.
-    editions = relationship("Edition", backref="work")
-
-    # A Work takes its presentation metadata from a single Edition.  
+    # A Work takes its presentation metadata from a single Edition.
     # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
-    clause = "and_(Edition.work_id==Work.id, Edition.is_primary_for_work==True)"
-    primary_edition = relationship(
-        "Edition", primaryjoin=clause, uselist=False, lazy='joined'
-    )
+    presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
@@ -3076,81 +3054,81 @@ class Work(Base):
 
     @property
     def title(self):
-        if self.primary_edition:
-            return self.primary_edition.title
+        if self.presentation_edition:
+            return self.presentation_edition.title
         return None
 
     @property
     def sort_title(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.sort_title or self.primary_edition.title
+        return self.presentation_edition.sort_title or self.presentation_edition.title
 
     @property
     def subtitle(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.subtitle
+        return self.presentation_edition.subtitle
 
     @property
     def series(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.series
+        return self.presentation_edition.series
 
     @property
     def series_position(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.series_position
+        return self.presentation_edition.series_position
 
     @property
     def author(self):
-        if self.primary_edition:
-            return self.primary_edition.author
+        if self.presentation_edition:
+            return self.presentation_edition.author
         return None
 
     @property
     def sort_author(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.sort_author or self.primary_edition.author
+        return self.presentation_edition.sort_author or self.presentation_edition.author
 
     @property
     def language(self):
-        if self.primary_edition:
-            return self.primary_edition.language
+        if self.presentation_edition:
+            return self.presentation_edition.language
         return None
 
     @property
     def language_code(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.language_code
+        return self.presentation_edition.language_code
 
     @property
     def publisher(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.publisher
+        return self.presentation_edition.publisher
 
     @property
     def imprint(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.imprint
+        return self.presentation_edition.imprint
 
     @property
     def cover_full_url(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.cover_full_url
+        return self.presentation_edition.cover_full_url
 
     @property
     def cover_thumbnail_url(self):
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
-        return self.primary_edition.cover_thumbnail_url
+        return self.presentation_edition.cover_thumbnail_url
 
     @property
     def target_age_string(self):
@@ -3169,9 +3147,9 @@ class Work(Base):
         return any(x.open_access for x in self.license_pools)
 
     def __repr__(self):
-        return (u'%s "%s" (%s) %s %s (%s wr, %s lp)' % (
+        return (u'%s "%s" (%s) %s %s (%s lp)' % (
                 self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
-                len(self.editions), len(self.license_pools))).encode("utf8")
+                len(self.license_pools))).encode("utf8")
 
     def set_summary(self, resource):
         self.summary = resource
@@ -3187,16 +3165,16 @@ class Work(Base):
     @classmethod
     def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
         """Return a query against Work suitable for using in OPDS feeds."""
-        q = _db.query(Work).join(Work.primary_edition)
+        q = _db.query(Work).join(Work.presentation_edition)
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
             contains_eager(Work.license_pools),
-            contains_eager(Work.primary_edition),
+            contains_eager(Work.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
             defer(Work.verbose_opds_entry),
-            defer(Work.primary_edition, Edition.extra),
+            defer(Work.presentation_edition, Edition.extra),
             defer(Work.license_pools, LicensePool.edition, Edition.extra),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
@@ -3237,7 +3215,7 @@ class Work(Base):
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by a Identifier equivalent to 
-        any of the primary identifiers of this Work's Editions.
+        the primary identifiers of this Work's presentation edition.
 
         `recursion_level` controls how far to go when looking for equivalent
         Identifiers.
@@ -3250,12 +3228,9 @@ class Work(Base):
 
     def all_identifier_ids(self, recursion_level=5):
         _db = Session.object_session(self)
-        primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions
-            if x.primary_identifier
-        ]
+        primary_identifier_id = self.presentation_edition.primary_identifier.id
         identifier_ids = Identifier.recursively_equivalent_identifier_ids_flat(
-            _db, primary_identifier_ids, recursion_level)
+            _db, [primary_identifier_id], recursion_level)
         return identifier_ids
 
     @property
@@ -3270,10 +3245,9 @@ class Work(Base):
 
     def all_cover_images(self):
         _db = Session.object_session(self)
-        primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions]
+        primary_identifier_id = self.presentation_edition.primary_identifier.id
         data = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, 5, threshold=0.5)
+            _db, [primary_identifier_id], 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
             _db, flattened_data, Hyperlink.IMAGE).join(
@@ -3284,10 +3258,9 @@ class Work(Base):
 
     def all_descriptions(self):
         _db = Session.object_session(self)
-        primary_identifier_ids = [
-            x.primary_identifier.id for x in self.editions]
+        primary_identifier_id = self.presentation_edition.primary_identifier.id
         data = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, 5, threshold=0.5)
+            _db, [primary_identifier_id], 5, threshold=0.5)
         flattened_data = Identifier.flatten_identifier_ids(data)
         return Identifier.resources_for_identifier_ids(
             _db, flattened_data, Hyperlink.DESCRIPTION).filter(
@@ -3295,48 +3268,30 @@ class Work(Base):
                 Resource.quality.desc())
 
 
-    def set_primary_edition(self, new_primary_edition):
-        """ Sets primary edition and lets owned pools and editions know.
+    def set_presentation_edition(self, new_presentation_edition):
+        """ Sets presentation edition and lets owned pools and editions know.
             Raises exception if edition to set to is None.
         """
         # only bother if something changed, or if were explicitly told to 
         # set (useful for setting to None)
-        if not new_primary_edition:
-            error_message = "Trying to set primary_edition to None on Work [%s]" % self.id
+        if not new_presentation_edition:
+            error_message = "Trying to set presentation_edition to None on Work [%s]" % self.id
             raise ValueError(error_message)
 
-        self.primary_edition = new_primary_edition
+        self.presentation_edition = new_presentation_edition
 
-        # go through the loser pools, and tell them they lost
-        for pool in self.license_pools:
-            if pool.presentation_edition is self.primary_edition:
-                # make sure edition knows it's primary
-                pool.presentation_edition.is_primary_for_work = True
-            else:
-                pool.mark_edition_primarity(primary_for_work_edition=None)
+        # Let the edition's license pool know it has a work.
+        if self.presentation_edition.is_presentation_for:
+            self.presentation_edition.is_presentation_for.work = self
 
-
-        # Tell child editions if they match work's primary edition.
-        for edition in self.editions:
-            if edition != self.primary_edition:
-                edition.is_primary_for_work = False
-            else:
-                edition.is_primary_for_work = True
-                # let the edition know it's attached to this work now
-                edition.work = self
-                # let the edition's pool know they have a work
-                if edition.is_presentation_for:
-                    edition.is_presentation_for.work = self
-
-
-    def calculate_primary_edition(self, policy=None):
+    def calculate_presentation_edition(self, policy=None):
         """ Which of this Work's Editions should be used as the default?
 
         First, every LicensePool associated with this work must have
         its presentation edition set.
 
         Then, we go through the pools, see which has the best presentation edition, 
-        and make it our primary.
+        and make it our presentation edition.
         """
         changed = False
         policy = policy or PresentationCalculationPolicy()
@@ -3344,14 +3299,14 @@ class Work(Base):
             return changed
 
         # For each owned edition, see if its LicensePool was superceded or suppressed
-        # if yes, the edition is unlikely to be primary.  
+        # if yes, the edition is unlikely to be the best.
         # An open access pool may be "superceded", if there's a better-quality 
         # open-access pool available.
         self.mark_licensepools_as_superceded()
 
         edition_metadata_changed = False
-        old_primary_edition = self.primary_edition
-        new_primary_edition = None
+        old_presentation_edition = self.presentation_edition
+        new_presentation_edition = None
 
         for pool in self.license_pools:
             # a superceded pool's composite edition is not good enough
@@ -3367,37 +3322,35 @@ class Work(Base):
                 edition_metadata_changed or
                 pool_edition_changed   
             )
-            potential_primary_edition = pool.presentation_edition
+            potential_presentation_edition = pool.presentation_edition
 
             # We currently have no real way to choose between
-            # competing primary editions. But it doesn't matter much
+            # competing presentation editions. But it doesn't matter much
             # because in the current system there should never be more
             # than one non-superceded license pool per Work.
             #
             # So basically we pick the first available edition and
-            # make it the primary.
-            if (not new_primary_edition
-                or (potential_primary_edition is old_primary_edition and old_primary_edition)):
-                # We would prefer not to change the Work's primary
-                # edition unnecessarily, so if the current primary
+            # make it the presentation edition.
+            if (not new_presentation_edition
+                or (potential_presentation_edition is old_presentation_edition and old_presentation_edition)):
+                # We would prefer not to change the Work's presentation
+                # edition unnecessarily, so if the current presentation
                 # edition is still an option, choose it.
-                new_primary_edition = potential_primary_edition
+                new_presentation_edition = potential_presentation_edition
 
         # Note: policy.choose_edition is true in default PresentationCalculationPolicy.
-        # If we don't have a self.primary_edition by now, this will just set all the editions' 
-        # is_primary_for_work attributes to False.
-        if ((self.primary_edition != new_primary_edition) and new_primary_edition != None):
+        if ((self.presentation_edition != new_presentation_edition) and new_presentation_edition != None):
             # did we find a pool whose presentation edition was better than the work's?
-            self.set_primary_edition(new_primary_edition)
+            self.set_presentation_edition(new_presentation_edition)
 
-        # tell everyone else we tried to set work's primary edition
+        # tell everyone else we tried to set work's presentation edition
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.CHOOSE_EDITION_OPERATION
         )
 
         changed = (
             edition_metadata_changed or
-            old_primary_edition != self.primary_edition 
+            old_presentation_edition != self.presentation_edition
         )
         return changed
 
@@ -3406,7 +3359,7 @@ class Work(Base):
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
-        Call set_primary_edition() to find the best-quality presentation edition 
+        Call calculate_presentation_edition() to find the best-quality presentation edition 
         that could represent this work.
 
         Then determine the following information, global to the work:
@@ -3417,7 +3370,6 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-
         # Gather information up front so we can see if anything
         # actually changed.
         changed = False
@@ -3426,7 +3378,7 @@ class Work(Base):
 
         policy = policy or PresentationCalculationPolicy()
 
-        edition_changed = self.calculate_primary_edition(policy)
+        edition_changed = self.calculate_presentation_edition(policy)
 
         summary = self.summary
         summary_text = self.summary_text
@@ -3448,12 +3400,9 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            primary_identifier_ids = [
-                x.primary_identifier.id for x in self.editions
-                if x.primary_identifier
-            ]
+            primary_identifier_id = self.presentation_edition.primary_identifier.id
             data = Identifier.recursively_equivalent_identifier_ids(
-                _db, primary_identifier_ids, 5, threshold=0.5
+                _db, [primary_identifier_id], 5, threshold=0.5
             )
             flattened_data = Identifier.flatten_identifier_ids(data)
         else:
@@ -3541,8 +3490,8 @@ class Work(Base):
         l.append(" language=%s" % self.language)
         l.append(" quality=%s" % self.quality)
 
-        if self.primary_edition and self.primary_edition.primary_identifier:
-            primary_identifier = self.primary_edition.primary_identifier
+        if self.presentation_edition and self.presentation_edition.primary_identifier:
+            primary_identifier = self.presentation_edition.primary_identifier
         else:
             primary_identifier=None
         l.append(" primary id=%s" % primary_identifier)
@@ -3646,7 +3595,7 @@ class Work(Base):
         and a fiction/nonfiction status. We don't need a cover or an
         author -- we can fill in that info later if it exists.
         """
-        if (not self.primary_edition
+        if (not self.presentation_edition
             or not self.license_pools
             or not self.title
             or not self.language
@@ -3771,7 +3720,7 @@ class Work(Base):
         """Generate a search document for this Work."""
 
         _db = Session.object_session(self)
-        if not self.primary_edition:
+        if not self.presentation_edition:
             return None
         doc = dict(_id=self.id,
                    title=self.title,
@@ -3781,10 +3730,10 @@ class Work(Base):
                    sort_title=self.sort_title, 
                    author=self.author,
                    sort_author=self.sort_author,
-                   medium=self.primary_edition.medium,
+                   medium=self.presentation_edition.medium,
                    publisher=self.publisher,
                    imprint=self.imprint,
-                   permanent_work_id=self.primary_edition.permanent_work_id,
+                   permanent_work_id=self.presentation_edition.permanent_work_id,
                    fiction= "Fiction" if self.fiction else "Nonfiction",
                    audience=self.audience.replace(" ", ""),
                    summary = self.summary_text,
@@ -3795,7 +3744,7 @@ class Work(Base):
 
         contribution_desc = []
         doc['contributors'] = contribution_desc
-        for contribution in self.primary_edition.contributions:
+        for contribution in self.presentation_edition.contributions:
             contributor = contribution.contributor
             contribution_desc.append(
                 dict(name=contributor.name, family_name=contributor.family_name,
@@ -3910,7 +3859,7 @@ class Work(Base):
 
     def classifications_with_genre(self):
         _db = Session.object_session(self)
-        identifier = self.primary_edition.primary_identifier
+        identifier = self.presentation_edition.primary_identifier
         return _db.query(Classification) \
                     .join(Subject) \
                     .filter(Classification.identifier_id == identifier.id) \
@@ -5280,33 +5229,17 @@ class LicensePool(Base):
 
             self.presentation_edition, edition_core_changed = metadata.apply(edition)
 
-        self.presentation_edition.work = self.work
         changed = changed or self.presentation_edition.calculate_presentation()
 
         # if the license pool is associated with a work, and the work currently has no presentation edition, 
-        # then do a courtesy call to the presentation edition and the work, and tell them about each other. 
-        if self.work and not self.work.primary_edition:
-            self.presentation_edition.is_primary_for_work = True
-            # tell work it has a primary edition now
-            self.work.set_primary_edition(self.presentation_edition)
+        # then do a courtesy call to the work, and tell it about the presentation edition.
+        if self.work and not self.work.presentation_edition:
+            self.work.set_presentation_edition(self.presentation_edition)
 
         return (
             self.presentation_edition != old_presentation_edition 
             or changed
         )
-
-
-    def mark_edition_primarity(self, primary_for_work_edition=None):
-        """Go through this pool's editions, and explicitly tell them  
-        whether they're primary for the pool's work.
-        """
-        all_editions = list(self.editions_in_priority_order())
-        for edition in all_editions:
-            if (primary_for_work_edition != None and (edition is primary_for_work_edition)):
-                edition.is_primary_for_work = True
-            else:
-                edition.is_primary_for_work = False
-
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
@@ -5449,7 +5382,7 @@ class LicensePool(Base):
         """Try to find an existing Work for this LicensePool.
 
         If there are no Works for the permanent work ID associated
-        with this LicensePool's primary edition, create a new Work.
+        with this LicensePool's presentation edition, create a new Work.
 
         Pools that are not open-access will always have a new Work
         created for them.
@@ -5462,75 +5395,68 @@ class LicensePool(Base):
         """
         self.set_presentation_edition(None)
 
-        primary_edition = known_edition or self.presentation_edition
+        presentation_edition = known_edition or self.presentation_edition
 
         if self.work:
-            if primary_edition:
-                primary_edition.work = self.work
-            
             # The work has already been done. Make sure the work's
             # display is up to date.
             self.work.calculate_presentation()
             return self.work, False
 
 
-        logging.info("Calculating work for %r", primary_edition)
-        if not primary_edition:
+        logging.info("Calculating work for %r", presentation_edition)
+        if not presentation_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
             logging.warn("NO EDITION for %s, cowardly refusing to create work.",
                      self.identifier)
             
             return None, False
-        if primary_edition.is_presentation_for != self:
+        if presentation_edition.is_presentation_for != self:
             raise ValueError(
-                "Primary edition's license pool is not the license pool for which work is being calculated!")
+                "Presentation edition's license pool is not the license pool for which work is being calculated!")
 
-        if not primary_edition.title or not primary_edition.author:
-            primary_edition.calculate_presentation()
+        if not presentation_edition.title or not presentation_edition.author:
+            presentation_edition.calculate_presentation()
 
-        if not primary_edition.title:
-            if primary_edition.work:
+        if not presentation_edition.title:
+            if presentation_edition.work:
                 logging.warn(
-                    "Edition %r has no title but has a Work assigned. This is troubling.", primary_edition
+                    "Edition %r has no title but has a Work assigned. This is troubling.", presentation_edition
                 )
-                return primary_edition.work, False
+                return presentation_edition.work, False
             else:
-                logging.info("Edition %r has no title, will not assign it a Work.", primary_edition)
+                logging.info("Edition %r has no title, will not assign it a Work.", presentation_edition)
                 return None, False
 
-        if (not primary_edition.work 
-            and primary_edition.author in (None, Edition.UNKNOWN_AUTHOR)
+        if (not presentation_edition.work
+            and presentation_edition.author in (None, Edition.UNKNOWN_AUTHOR)
             and not even_if_no_author
         ):
             logging.warn(
                 "Edition %r has no author, not assigning Work to Edition.", 
-                primary_edition
+                presentation_edition
             )
-            # msg = u"WARN: NO TITLE/AUTHOR for %s/%s/%s/%s, cowardly refusing to create work." % (
-            #    self.identifier.type, self.identifier.identifier,
-            #    primary_edition.title, primary_edition.author)
-            #print msg.encode("utf8")
             return None, False
 
-        primary_edition.calculate_permanent_work_id()
+        presentation_edition.calculate_permanent_work_id()
 
-        if primary_edition.work:
-            # This pool's primary edition is already associated with
+        if presentation_edition.work:
+            # This pool's presentation edition is already associated with
             # a Work. Use that Work.
-            work = primary_edition.work
+            work = presentation_edition.work
 
         else:
             _db = Session.object_session(self)
             work = None
-            if self.open_access and primary_edition.permanent_work_id:
+            if self.open_access and presentation_edition.permanent_work_id:
                 # Is there already an open-access Work which includes editions
                 # with this edition's permanent work ID?
                 q = _db.query(Edition).filter(
                     Edition.permanent_work_id
-                    ==primary_edition.permanent_work_id).filter(
+                    ==presentation_edition.permanent_work_id).filter(
                         Edition.work != None).filter(
-                            Edition.id != primary_edition.id)
+                            Edition.id != presentation_edition.id)
                 for edition in q:
                     if edition.work.has_open_access_license:
                         work = edition.work
@@ -5541,7 +5467,7 @@ class LicensePool(Base):
         else:
             # There is no better choice than creating a brand new Work.
             created = True
-            logging.info("NEW WORK for %s" % primary_edition.title)
+            logging.info("NEW WORK for %s" % presentation_edition.title)
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
@@ -5550,7 +5476,6 @@ class LicensePool(Base):
         # Associate this LicensePool and its Edition with the work we
         # chose or created.
         work.license_pools.append(self)
-        primary_edition.work = work
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.

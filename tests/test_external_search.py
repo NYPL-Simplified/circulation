@@ -51,17 +51,17 @@ class TestExternalSearch(DatabaseTest):
 
         if self.search:
             self.moby_dick = self._work(title="Moby Dick", authors="Herman Melville", fiction=True)
-            self.moby_dick.primary_edition.subtitle = "Or, the Whale"
-            self.moby_dick.primary_edition.series = "Classics"
+            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
+            self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
-            self.moby_dick.primary_edition.publisher = "Project Gutenberg"
+            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
             self.moby_dick.set_presentation_ready()
             self.moby_dick.update_external_index(self.search)
 
             self.moby_duck = self._work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
-            self.moby_duck.primary_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
+            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
-            self.moby_duck.primary_edition.publisher = "Penguin"
+            self.moby_duck.presentation_edition.publisher = "Penguin"
             self.moby_duck.set_presentation_ready()
             self.moby_duck.update_external_index(self.search)
 
@@ -70,7 +70,7 @@ class TestExternalSearch(DatabaseTest):
             self.title_match.update_external_index(self.search)
 
             self.subtitle_match = self._work()
-            self.subtitle_match.primary_edition.subtitle = "Match"
+            self.subtitle_match.presentation_edition.subtitle = "Match"
             self.subtitle_match.set_presentation_ready()
             self.subtitle_match.update_external_index(self.search)
 
@@ -80,7 +80,7 @@ class TestExternalSearch(DatabaseTest):
             self.summary_match.update_external_index(self.search)
         
             self.publisher_match = self._work()
-            self.publisher_match.primary_edition.publisher = "Match"
+            self.publisher_match.presentation_edition.publisher = "Match"
             self.publisher_match.set_presentation_ready()
             self.publisher_match.update_external_index(self.search)
 
@@ -93,7 +93,7 @@ class TestExternalSearch(DatabaseTest):
             self.tiffany.update_external_index(self.search)
             
             self.les_mis = self._work()
-            self.les_mis.primary_edition.title = u"Les Mis\u00E9rables"
+            self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
             self.les_mis.set_presentation_ready()
             self.les_mis.update_external_index(self.search)
 
@@ -165,22 +165,22 @@ class TestExternalSearch(DatabaseTest):
             self.age_2_10.update_external_index(self.search)
 
             self.pride = self._work(title="Pride and Prejudice")
-            self.pride.primary_edition_medium = Edition.BOOK_MEDIUM
+            self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
             self.pride.set_presentation_ready()
             self.pride.update_external_index(self.search)
 
             self.pride_audio = self._work(title="Pride and Prejudice")
-            self.pride_audio.primary_edition.medium = Edition.AUDIO_MEDIUM
+            self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
             self.pride_audio.set_presentation_ready()
             self.pride_audio.update_external_index(self.search)
 
             self.sherlock = self._work(title="The Adventures of Sherlock Holmes")
-            self.sherlock.primary_edition.language = "en"
+            self.sherlock.presentation_edition.language = "en"
             self.sherlock.set_presentation_ready()
             self.sherlock.update_external_index(self.search)
 
             self.sherlock_spanish = self._work(title="Las Aventuras de Sherlock Holmes")
-            self.sherlock_spanish.primary_edition.language = "es"
+            self.sherlock_spanish.presentation_edition.language = "es"
             self.sherlock_spanish.set_presentation_ready()
             self.sherlock_spanish.update_external_index(self.search)
 

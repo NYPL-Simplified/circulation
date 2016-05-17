@@ -139,8 +139,8 @@ class TestAnnotatorWithGroup(TestAnnotator):
 class TestAnnotators(DatabaseTest):
 
     def test_all_subjects(self):
-        work = self._work(genre="Fiction")
-        edition = work.primary_edition
+        work = self._work(genre="Fiction", with_open_access_download=True)
+        edition = work.presentation_edition
         identifier = edition.primary_identifier
         source1 = DataSource.lookup(self._db, DataSource.GUTENBERG)
         source2 = DataSource.lookup(self._db, DataSource.OCLC)
@@ -216,24 +216,24 @@ class TestAnnotators(DatabaseTest):
         assert "<schema:sameas>http://id.loc.gov/authorities/names/n100</"
 
         work = self._work(authors=[], with_license_pool=True)
-        work.primary_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
+        work.presentation_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
         [same_tag] = VerboseAnnotator.authors(
-            work, work.license_pools[0], work.primary_edition,
-            work.primary_edition.primary_identifier)
+            work, work.license_pools[0], work.presentation_edition,
+            work.presentation_edition.primary_identifier)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_verbose_annotator_mentions_every_author(self):
         work = self._work(authors=[], with_license_pool=True)
-        work.primary_edition.add_contributor(
+        work.presentation_edition.add_contributor(
             self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
-        work.primary_edition.add_contributor(
+        work.presentation_edition.add_contributor(
             self._contributor()[0], Contributor.AUTHOR_ROLE)
-        work.primary_edition.add_contributor(
+        work.presentation_edition.add_contributor(
             self._contributor()[0], "Illustrator")
         eq_(2, len(VerboseAnnotator.authors(
-            work, work.license_pools[0], work.primary_edition,
-            work.primary_edition.primary_identifier)))
+            work, work.license_pools[0], work.presentation_edition,
+            work.presentation_edition.primary_identifier)))
 
     def test_ratings(self):
         work = self._work(
@@ -369,7 +369,7 @@ class TestOPDS(DatabaseTest):
         u = unicode(feed)
         parsed = feedparser.parse(u)
         entry = parsed['entries'][0]
-        eq_(work.primary_edition.permanent_work_id, 
+        eq_(work.presentation_edition.permanent_work_id, 
             entry['simplified_pwid'])
 
     def test_lane_feed_contains_facet_links(self):
@@ -435,14 +435,14 @@ class TestOPDS(DatabaseTest):
         # This work has both issued and published. issued will be used
         # for the dc:created tag.
         work1 = self._work(with_open_access_download=True)
-        work1.primary_edition.issued = today
-        work1.primary_edition.published = the_past
+        work1.presentation_edition.issued = today
+        work1.presentation_edition.published = the_past
         work1.license_pools[0].availability_time = the_distant_past
 
         # This work only has published. published will be used for the
         # dc:created tag.
         work2 = self._work(with_open_access_download=True)
-        work2.primary_edition.published = the_past
+        work2.presentation_edition.published = the_past
         work2.license_pools[0].availability_time = the_distant_past
 
         # This work has neither published nor issued. There will be no
@@ -453,8 +453,8 @@ class TestOPDS(DatabaseTest):
         # This work is issued in the future. Since this makes no
         # sense, there will be no dc:issued tag.
         work4 = self._work(with_open_access_download=True)
-        work4.primary_edition.issued = the_future
-        work4.primary_edition.published = the_future
+        work4.presentation_edition.issued = the_future
+        work4.presentation_edition.published = the_future
         work4.license_pools[0].availability_time = None
 
         for w in work1, work2, work3, work4:
@@ -483,9 +483,9 @@ class TestOPDS(DatabaseTest):
 
     def test_acquisition_feed_includes_language_tag(self):
         work = self._work(with_open_access_download=True)
-        work.primary_edition.publisher = "The Publisher"
+        work.presentation_edition.publisher = "The Publisher"
         work2 = self._work(with_open_access_download=True)
-        work2.primary_edition.publisher = None
+        work2.presentation_edition.publisher = None
 
         self._db.commit()
         for w in work, work2:
@@ -648,8 +648,8 @@ class TestOPDS(DatabaseTest):
         lane=self.lanes.by_languages['']['Fantasy']
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
-        work.primary_edition.cover_full_url = "http://full/a"
+        work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
+        work.presentation_edition.cover_full_url = "http://full/a"
 
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
@@ -662,8 +662,8 @@ class TestOPDS(DatabaseTest):
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.primary_edition.cover_thumbnail_url = "http://thumbnail/b"
-        work.primary_edition.cover_full_url = "http://full/a"
+        work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
+        work.presentation_edition.cover_full_url = "http://full/a"
 
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}

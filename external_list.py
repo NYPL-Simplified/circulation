@@ -102,7 +102,7 @@ class CustomListFromCSV(CSVMetadataImporter):
             # couldn't find a useful Identifier.
             self.log.info("Could not create edition for %s", metadata.title)
         else:
-            q = _db.query(Work).join(Work.primary_edition).filter(
+            q = _db.query(Work).join(Work.presentation_edition).filter(
                 Edition.permanent_work_id==e.permanent_work_id)
             if q.count() > 0:
                 self.log.info("Found matching work in collection for %s", 

@@ -206,7 +206,6 @@ class OPDSImporter(object):
                          cutoff_date=None, 
                          immediately_presentation_ready=False):
         metadata_objs, messages, next_links = self.extract_metadata(feed)
-
         imported = []
         for metadata in metadata_objs:
             try:

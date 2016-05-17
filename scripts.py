@@ -450,7 +450,7 @@ class WorkConsolidationScript(WorkProcessingScript):
                 self.clear_existing_works()
             LicensePool.consolidate_works(self._db, batch_size=self.batch_size)
 
-            qu = self._db.query(Work).filter(Work.primary_edition==None)
+            qu = self._db.query(Work).filter(Work.presentation_edition==None)
             self.log.info("Deleting %d Works that lack Editions." % qu.count())
             for i in qu:
                 self._db.delete(i)            

@@ -139,7 +139,6 @@ class TestCustomListFromCSV(DatabaseTest):
         row = self.create_row(display_author="Octavia Butler")
         work = self._work(title=row[self.l.title_field],
                           authors=['Butler, Octavia'])
-        work.editions[0].contributors[0].display_name
         self._db.commit()
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
