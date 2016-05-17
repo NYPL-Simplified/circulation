@@ -1,5 +1,4 @@
 FROM nypl/circ-base
-ENV LIBSIMPLE_DIR=/var/www/circulation
 ENV TZ=US/Eastern
 
 MAINTAINER Library Simplified <info@librarysimplified.org>
