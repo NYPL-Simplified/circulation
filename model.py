@@ -4168,7 +4168,7 @@ class Resource(Base):
 
     # The point at which a generic geometric image is better
     # than a lousy cover we got from the Internet.
-    MINIMUM_IMAGE_QUALITY = 1.0/8
+    MINIMUM_IMAGE_QUALITY = 0.25
 
     id = Column(Integer, primary_key=True)
 
