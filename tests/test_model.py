@@ -2391,7 +2391,7 @@ class TestRepresentation(DatabaseTest):
         ideal_width = IDEAL_IMAGE_WIDTH = 160
 
         def f(width, height):
-            return Identifier.cover_size_quality_penalty(width, height)
+            return Representation.cover_size_quality_penalty(width, height)
 
         # In the absence of any size information we assume
         # everything's fine.
