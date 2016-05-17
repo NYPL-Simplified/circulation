@@ -987,3 +987,25 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         [entry] = feed.entries
         eq_("Hello, World!", entry.title)
         eq_(identifier.urn, entry.id)
+
+
+class TestAcquisitionFeed(DatabaseTest):
+
+    def test_single_entry(self):
+
+        work = self._work(with_open_access_download=True)
+        pool = work.license_pools[0]
+
+        # Create an <entry> tag for this work and its LicensePool.
+        feed1 = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator, pool
+        )
+
+        # If we don't pass in the license pool, it makes a guess to
+        # figure out which license pool we're talking about.
+        feed2 = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator, None
+        )
+
+        # Both entries are identical.
+        eq_(etree.tostring(feed1), etree.tostring(feed2))
