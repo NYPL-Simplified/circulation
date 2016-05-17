@@ -2525,11 +2525,6 @@ class TestCoverResource(DatabaseTest):
         # Here's a book with a thumbnail image.
         edition, pool = self._edition(with_license_pool=True)
 
-        hyperlink, ignore = pool.add_link(
-            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
-        )
-        resource_with_no_representation = hyperlink.resource
-
         link1, ignore = pool.add_link(
             Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
         )
