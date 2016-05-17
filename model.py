@@ -1589,57 +1589,6 @@ class Identifier(Base):
     MINIMUM_IMAGE_QUALITY = 0.25
 
     @classmethod
-    def aspect_ratio_quality_quotient(cls, width, height):
-        """Measure an image's deviation from the ideal aspect ratio, and by
-        its deviation (in the "too small" direction only) from the
-        ideal thumbnail resolution.
-        """
-
-        quotient = 1
-
-        if not width or not height:
-            # In the absence of any information, assume the cover is
-            # just dandy.
-            #
-            # This is obviously less than ideal, but this code is used
-            # pretty rarely now that we no longer have hundreds of
-            # covers competing for the privilege of representing a
-            # public domain book, so I'm not too concerned about it.
-            #
-            # Look at it this way: this escape hatch only causes a
-            # problem if we compare an image whose size we know
-            # against an image whose size we don't know.
-            #
-            # In the circulation manager, we never know what size an
-            # image is, and we must always trust that the cover
-            # (e.g. Overdrive and the metadata wrangler) give us
-            # "thumbnail" images that are approximately the right
-            # size. So we always use this escape hatch.
-            #
-            # In the metadata wrangler and content server, we always
-            # have access to the covers themselves, so we always have
-            # size information and we never use this escape hatch.
-            return quotient
-
-        # Penalize an image for deviation from the ideal aspect ratio.
-        aspect_ratio = rep.image_width / float(rep.image_height)
-        aspect_difference = abs(aspect_ratio-cls.IDEAL_COVER_ASPECT_RATIO)
-        quotient -= aspect_difference
-
-        # Penalize an image for not being wide enough.
-        width_shortfall = (
-            float(rep.image_width - cls.IDEAL_IMAGE_WIDTH) / cls.IDEAL_IMAGE_WIDTH)
-        if width_shortfall < 0:
-            quotient -= (1+width_shortfall)
-
-        # Penalize an image for not being tall enough.
-        height_shortfall = (
-            float(rep.image_height - cls.IDEAL_IMAGE_HEIGHT) / cls.IDEAL_IMAGE_HEIGHT)
-        if height_shortfall < 0:
-            quotient -= (1+height_shortfall)
-        return quotient
-
-    @classmethod
     def best_cover_for(cls, _db, identifier_ids):
         # Find all image resources associated with any of
         # these identifiers.
@@ -1667,7 +1616,7 @@ class Identifier(Base):
 
             # If the size of the image is known, that might affect
             # the quality.
-            quality = quality * cls.aspect_ratio_quality_quotient(
+            quality = quality * cls.image_size_quality_penalty(
                 rep.image_width, rep.image_height
             )
 
@@ -6677,6 +6626,62 @@ class Representation(Base):
         thumbnail.scale_exception = None
         thumbnail.scaled_at = now
         return thumbnail, True
+
+    @classmethod
+    def cover_size_quality_penalty(cls, width, height):
+        """Measure a cover image's deviation from the ideal aspect ratio, and
+        by its deviation (in the "too small" direction only) from the
+        ideal thumbnail resolution.
+        """
+
+        quotient = 1
+
+        if not width or not height:
+            # In the absence of any information, assume the cover is
+            # just dandy.
+            #
+            # This is obviously less than ideal, but this code is used
+            # pretty rarely now that we no longer have hundreds of
+            # covers competing for the privilege of representing a
+            # public domain book, so I'm not too concerned about it.
+            #
+            # Look at it this way: this escape hatch only causes a
+            # problem if we compare an image whose size we know
+            # against an image whose size we don't know.
+            #
+            # In the circulation manager, we never know what size an
+            # image is, and we must always trust that the cover
+            # (e.g. Overdrive and the metadata wrangler) give us
+            # "thumbnail" images that are approximately the right
+            # size. So we always use this escape hatch.
+            #
+            # In the metadata wrangler and content server, we always
+            # have access to the covers themselves, so we always have
+            # size information and we never use this escape hatch.
+            return quotient
+
+        # Penalize an image for deviation from the ideal aspect ratio.
+        aspect_ratio = width / float(height)
+        ideal = Identifier.IDEAL_COVER_ASPECT_RATIO
+        if aspect_ratio > ideal:
+            deviation = ideal / aspect_ratio
+        else:
+            deviation = aspect_ratio/ideal
+        if deviation != 1:
+            quotient *= deviation
+
+        # Penalize an image for not being wide enough.
+        width_shortfall = (
+            float(width - Identifier.IDEAL_IMAGE_WIDTH) / Identifier.IDEAL_IMAGE_WIDTH)
+        if width_shortfall < 0:
+            quotient *= (1+width_shortfall)
+
+        # Penalize an image for not being tall enough.
+        height_shortfall = (
+            float(height - Identifier.IDEAL_IMAGE_HEIGHT) / Identifier.IDEAL_IMAGE_HEIGHT)
+        if height_shortfall < 0:
+            quotient *= (1+height_shortfall)
+        return quotient
 
 
 class DeliveryMechanism(Base):

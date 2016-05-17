@@ -2381,6 +2381,42 @@ class TestRepresentation(DatabaseTest):
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
+    def test_cover_size_quality_penalty(self):
+        """Verify that Representation.cover_size_quality_penalty penalizes
+        images that are the wrong aspect ratio, or too small.
+        """
+
+        ideal_ratio = Identifier.IDEAL_COVER_ASPECT_RATIO
+        ideal_height = IDEAL_IMAGE_HEIGHT = 240
+        ideal_width = IDEAL_IMAGE_WIDTH = 160
+
+        def f(width, height):
+            return Identifier.cover_size_quality_penalty(width, height)
+
+        # In the absence of any size information we assume
+        # everything's fine.
+        eq_(1, f(None, None))
+
+        # The perfect image has no penalty.
+        eq_(1, f(ideal_width, ideal_height))
+
+        # An image that is the perfect aspect ratio, but too large,
+        # has no penalty.
+        eq_(1, f(ideal_width*2, ideal_height*2))
+        
+        # An image that is the perfect aspect ratio, but is too small,
+        # is penalised.
+        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
+        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
+
+        # An image that deviates from the perfect aspect ratio is
+        # penalized in proportion.
+        eq_(1/2.0, f(ideal_width*2, ideal_height))
+        eq_(1/2.0, f(ideal_width, ideal_height*2))
+        eq_(1/4.0, f(ideal_width*4, ideal_height))
+        eq_(1/4.0, f(ideal_width, ideal_height*4))
+
+
 class TestScaleRepresentation(DatabaseTest):
 
     def test_set_cover(self):
