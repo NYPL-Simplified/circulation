@@ -55,6 +55,10 @@ class AccessNotAuthenticated(Exception):
     """No authentication is configured for this service"""
     pass
 
+class DBImportException(Exception):
+    """Problem creating SQLAlchemy object."""
+    pass
+
 class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
@@ -210,55 +214,69 @@ class OPDSImporter(object):
     def import_from_feed(self, feed, even_if_no_author=False, 
                          cutoff_date=None, 
                          immediately_presentation_ready=False):
+
         metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
 
-        imported_editions = []
-        imported_pools = []
-        imported_works = []
+        imported_editions = {}
+        imported_pools = {}
+        imported_works = {}
 
-        # status_messages is expected to be a dictionary
+        # status_messages notes business logic errors and non-success download statuses
         if not status_messages:
             status_messages = {}
 
-        # TODO: return one dictionary of messages, which combines info from status_messages, meta and circ in one entry
-        for metadata in metadata_objs:
+        # make editions.  if have problem, make sure associated pool and work aren't created.
+        for key, metadata in metadata_objs.iteritems():
+            # key is identifier.urn here
             try:
-                set_trace()
                 edition = self.import_editions_from_metadata(
                     metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
                 )
                 if edition:
-                    imported_editions.append(edition)
+                    imported_editions[key] = edition
             except Exception, e:
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
-                identifier, ignore = metadata.primary_identifier.load(self._db)
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-                messages_meta[identifier.urn] = message
+                status_messages[key] = message
+                # go into circulation_obs, and remove any on the same identifier, 
+                # so we don't try to make pools and works from it
+                del circulation_objs[key]
+                # clean up any edition might have created
+                if imported_editions[key]:
+                    del imported_editions[key]
+                # stop the import, something went terribly wrong
+                return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages.values(), next_links
 
 
-        for circulationdata in circulation_objs:
+
+        for key, circulationdata in circulation_objs.iteritems():
+            pool = None
+            work = None
             obj = DataSource.lookup(self._db, circulationdata._data_source)
             # Note: is data_source is not lendable, don't make an error message, 
             # not creating a pool is expected response.
             if obj.offers_licenses:
                 try:
-                    print "before self.import_pools_works_from_circulationdata"
                     pool, work = self.import_pools_works_from_circulationdata(
                         circulationdata, even_if_no_author, cutoff_date, immediately_presentation_ready
                     )
-                    print "after self.import_pools_works_from_circulationdata"
+
+                    # if error or cutoff making license pool, don't make work
+                    # if error or cutoff making work, do make license pool
+                    # always make editions
                     if pool:
-                        imported_pools.append(pool)
-                    if work:
-                        imported_works.append(work)
+                        imported_pools[key] = pool
+                        if work:
+                            imported_works[key] = work
                 except Exception, e:
-                    # Rather than scratch the whole import, treat this as a failure that only applies
-                    # to this item.
-                    identifier, ignore = circulationdata.primary_identifier.load(self._db)
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-                    print "exception while self.import_pools_works_from_circulationdata, %s" % message
-                    messages_circ[identifier.urn] = message
+                    status_messages[key] = message
+                    # If problem importing a Work, then rather than scratch the whole import, 
+                    # treat this as a failure that only applies to this item.
+                    # But if problem importing a pool, something is very wrong, and should stop the import.
+                    if not pool:
+                        return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages.values(), next_links
             else:
                 self.log.debug(
                     "DataSource does not offer licenses.  No LicensePool created for CirculationData %r, not attempting to create Work.", 
@@ -266,7 +284,7 @@ class OPDSImporter(object):
                 )
 
 
-        return imported_editions, imported_pools, imported_works, status_messages, next_links
+        return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages.values(), next_links
 
 
     def import_editions_from_metadata(
@@ -279,14 +297,8 @@ class OPDSImporter(object):
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
 
-        # TODO: now that metadata/edition pairs are no longer associated with circulation/pool
-        # pairs, it's more difficult to implement a cutoff_date.
-        # Figure out how to bring back the commented-out functionality.
         if (cutoff_date 
-            #and not is_new_license_pool 
             and not is_new_edition
-            #and metadata.circulation 
-            #and metadata.circulation.first_appearance < cutoff_date
             and metadata.last_update_time < cutoff_date
         ):
             # We've already imported this book, we've been told
@@ -325,34 +337,25 @@ class OPDSImporter(object):
         license_pool, is_new_license_pool = circulationdata.license_pool(self._db)
         work = None
 
-        print "cutoff_date=%s" % cutoff_date
-        print "is_new_license_pool=%s" % is_new_license_pool
-        print "circulationdata.last_checked=%s" % circulationdata.last_checked
-        print "circulationdata.first_appearance=%s" % circulationdata.first_appearance
-        if (cutoff_date 
+        if (not (cutoff_date 
             and not is_new_license_pool 
-            # TODO:  I changed this from first_appearance (which I set to a date from the feed), 
-            # to last_checked (which I set to system now)
-            and circulationdata.last_checked < cutoff_date
-        ):
+            and license_pool.last_checked < cutoff_date)):
             # We've already imported this book, we've been told
             # not to bother with books that appeared before a
             # certain date, and this book did in fact appear
             # before that date. There's no reason to do anything.
-            return None, None
-
-        policy = ReplacementPolicy(
-            subjects=True,
-            links=True,
-            contributions=True,
-            rights=True,
-            even_if_not_apparently_updated=True,
-            mirror=self.mirror,
-            http_get=self.http_get,
-        )
-        circulationdata.apply(
-            license_pool, replace=policy
-        )
+            policy = ReplacementPolicy(
+                subjects=True,
+                links=True,
+                contributions=True,
+                rights=True,
+                even_if_not_apparently_updated=True,
+                mirror=self.mirror,
+                http_get=self.http_get,
+            )
+            circulationdata.apply(
+                license_pool, replace=policy
+            )
 
         if license_pool is None:
             # Without a LicensePool, we can't create a Work.
@@ -360,10 +363,14 @@ class OPDSImporter(object):
                 "No LicensePool created for CirculationData %r, not attempting to create Work.", 
                 circulationdata
             )
+            raise DBImportException("No LicensePool created for CirculationData %r, not attempting to create Work.", circulationdata)
         else: 
-            # pool.calculate_work will call self.set_presentation_edition(), which will find editions 
-            # attached to same Identifier.
-            # TODO:  what if the pool has no edition, should we still allow the work to be created?
+            # Making work is not based on pool's cutoff logic, but based on whether have a pool and and edition, period.
+            # Don't mind if they're new or not.
+
+            # Note: pool.calculate_work will call self.set_presentation_edition(), 
+            # which will find editions attached to same Identifier.
+            # If the pool has no edition, pool.calculate_work is responsible for not allowing the work to be created.
             work, is_new_work = license_pool.calculate_work(even_if_no_author=even_if_no_author,)
             # if pool.calculate_work made a new work, it already called calculate_presentation
             if (work and not is_new_work):
@@ -388,14 +395,21 @@ class OPDSImporter(object):
         xml_data_meta = self.extract_metadata_from_elementtree(feed)
         # TODO: should we use xml_data_meta to get CirculationData.formats field?
 
-        # TODO: factor out common code in for loops
-        metadata = []
-        for id, fp_data_dict in fp_data_meta.items():
-            xml_data_dict = xml_data_meta.get(id, {})
-            combined = self.combine(fp_data_dict, xml_data_dict)
-            if combined.get('data_source') is None:
-                combined['data_source'] = self.data_source_name
+        # translate the id in status_messages to identifier.urn
+        identified_messages = {}
+        for id, message_data in status_messages.items():
+            external_identifier, ignore = Identifier.parse_urn(self._db, id)
+            if self.identifier_mapping:
+                internal_identifier = self.identifier_mapping.get(
+                    external_identifier, external_identifier)
+            else:
+                internal_identifier = external_identifier
+            identified_messages[internal_identifier.urn] = message_data
 
+        # Use one loop for both, since the id will be the same for both dictionaries.
+        metadata = {}
+        circulationdata = {}
+        for id, m_data_dict in fp_data_meta.items():
             external_identifier, ignore = Identifier.parse_urn(self._db, id)
             if self.identifier_mapping:
                 internal_identifier = self.identifier_mapping.get(
@@ -403,29 +417,36 @@ class OPDSImporter(object):
             else:
                 internal_identifier = external_identifier
 
+            # form the Metadata object
+            xml_data_dict = xml_data_meta.get(id, {})
+            combined = self.combine(m_data_dict, xml_data_dict)
+            if combined.get('data_source') is None:
+                combined['data_source'] = self.data_source_name
+            
             combined['primary_identifier'] = IdentifierData(
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
-            metadata.append(Metadata(**combined))
 
-        circulationdata = []
-        for id, fp_data_dict in fp_data_circ.items():
-            if fp_data_dict.get('data_source') is None:
-                fp_data_dict['data_source'] = self.data_source_name
+            metadata[internal_identifier.urn] = Metadata(**combined)
 
-            external_identifier, ignore = Identifier.parse_urn(self._db, id)
-            if self.identifier_mapping:
-                internal_identifier = self.identifier_mapping.get(
-                    external_identifier, external_identifier)
-            else:
-                internal_identifier = external_identifier
+            # form the CirculationData that would correspond to this Metadata
+            c_data_dict = fp_data_circ[id]
+            if c_data_dict.get('data_source') is None:
+                c_data_dict['data_source'] = self.data_source_name
 
-            fp_data_dict['primary_identifier'] = IdentifierData(
+            c_data_dict['primary_identifier'] = IdentifierData(
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
-            circulationdata.append(CirculationData(**fp_data_dict))
+            circulationdata[internal_identifier.urn] = CirculationData(**c_data_dict)
+            del fp_data_circ[id]
+
+        for id, fp_data_dict in fp_data_circ.items():
+            # These are pool-generating data for which there were no edition data.
+            # There should be none of these, so if we have some, put them onto the error message pile.
+            message = "Cannot make CirculationData for id=[" + id + "].  Have no accompanying Metadata."
+            status_messages[id] = StatusMessage(status_code=None, message=message)
 
         return metadata, circulationdata, status_messages, next_links
 
@@ -454,12 +475,17 @@ class OPDSImporter(object):
             identifier, detail_meta, detail_circ, status_message = cls.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
 
             if identifier:
-                if detail_meta:
-                    values_meta[identifier] = detail_meta
-                if detail_circ:
-                    values_circ[identifier] = detail_circ
                 if status_message:
                     status_messages[identifier] = status_message
+                else:
+                    if detail_meta:
+                        values_meta[identifier] = detail_meta
+                    if detail_circ:
+                        values_circ[identifier] = detail_circ
+            else:
+                # That's bad. Can't make an item-specific error message, but write to 
+                # log that something very wrong happened.
+                logging.error("Tried to parse an element without a valid identifier.")
 
         feed = feedparser_parsed['feed']
         next_links = []
@@ -515,6 +541,8 @@ class OPDSImporter(object):
         if not identifier:
             return None, None, None, None
 
+        # identifier, ignore = metadata.primary_identifier.load(self._db)
+
         status_message = None
         status_code = entry.get('simplified_status_code', None)
         message = entry.get('simplified_message', None)
@@ -527,14 +555,8 @@ class OPDSImporter(object):
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
 
-        # Was: If bibframe_distribution is present, it means that the entry also includes
-        # information about an active distributor of this book. Any LicensePool 
-        # created should use the distributor of the book as its data source.
-        # New: will ignore bibframe_distribution from feed, and use data source passed into the importer.
-        #distribution_tag = entry.get('bibframe_distribution', None)
-        #license_data_source = None
-        #if distribution_tag:
-        #    license_data_source = distribution_tag.get('bibframe:providername')
+        # Note: will ignore bibframe_distribution from feed, and use data source passed into the 
+        # importer as license_data_source, too.
 
         title = entry.get('title', None)
         if title == OPDSFeed.NO_TITLE:
@@ -558,7 +580,6 @@ class OPDSImporter(object):
         if not language:
             language = entry.get('dcterms_language', None)
 
-        # TODO: might want to filter links to only metadata-relevant ones
         links = []
 
         def summary_to_linkdata(detail):
@@ -597,18 +618,17 @@ class OPDSImporter(object):
             last_update_time=last_update_time,
         )
 
-        # Note: CirculationData.default_rights_uri is not same as the old 
-        # Metadata.rights_uri, but we're treating it same for now.
         kwargs_circ = dict(
             # Note: later on, we'll check to make sure data_source is lendable, and if not, abort creating a pool and a work.
             data_source=data_source,
             links=links,
+            # Note: CirculationData.default_rights_uri is not same as the old 
+            # Metadata.rights_uri, but we're treating it same for now.
             default_rights_uri=rights_uri,
             last_checked=last_update_time, 
-            # TODO: this should come from published xml field, I think.
-            # or maybe some logic about setting it to the first last_checked value that was ever set down in 
-            # our database.
-            first_appearance=last_update_time, 
+            # first appearance in our databases, 
+            # gets assigned to pool, if have to make new pool. 
+            first_appearance = datetime.datetime.utcnow()
         )
 
         return identifier, kwargs_meta, kwargs_circ, status_message

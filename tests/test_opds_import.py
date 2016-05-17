@@ -312,33 +312,35 @@ class TestOPDSImporter(OPDSImporterTest):
 
 
     def test_import_with_wrangler_data_source(self):
+        # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
+        # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
+        # editions, but not pools or works.  On a lendable data source, should create 
+        # pools and works as well as editions.
+        # Tests that the number and contents of error messages are appropriate to the task.
+
         # will create editions, but not license pools or works, because the 
         # metadata wrangler data source is not lendable
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
-        set_trace()
         print "DOING MW"
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
         imported_editions_mw, imported_pools_mw, imported_works_mw, error_messages_mw, next_links_mw = (
             importer_mw.import_from_feed(feed, cutoff_date=cutoff)
         )
 
-        # TODO: if the test feed sites Gutenberg as data source, should 
-        # use MW or Gutenberg?  Ex: 
-        # <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
-        # <title>The Green Mouse</title>
-
         # Despite the cutoff, both books were imported, because they were new.
+        #set_trace()
         eq_(2, len(imported_editions_mw))
 
         # but pools and works weren't, because we passed the wrong data source
-        # and we have no error messages, because correctly didn't even get to trying to create pools.
-        #eq_(0, len(messages_meta_mw))
+        # 1 error message, because correctly didn't even get to trying to create pools, 
+        # so no messages there, but do have that entry stub at end of sample xml file, 
+        # which should fail with a message.
+        eq_(1, len(error_messages_mw))
         eq_(0, len(imported_pools_mw))
         eq_(0, len(imported_works_mw))
-        # TODO: when do have error, have 3 error messages, when should have 2.
 
         '''
         import testing
@@ -346,11 +348,7 @@ class TestOPDSImporter(OPDSImporterTest):
         or
         testing.DatabaseTest.print_database_class(Session.object_session(self))
         '''
-        # TODO: assert that bibframe datasource from feed was correctly overwritten
-        # with data source I passed into the importer.
 
-
-        set_trace()
         print "DOING G"
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
@@ -358,17 +356,20 @@ class TestOPDSImporter(OPDSImporterTest):
             importer_g.import_from_feed(feed, cutoff_date=cutoff)
         )
 
-        # we made new editions -- one for each data source
-        set_trace()
+        # we made new editions, because we're now creating edition per data source, not overwriting
+        # set_trace()
         eq_(2, len(imported_editions_g))
         # TODO: and we also created presentation editions, with author and title set
 
         # now pools and works are in, too
-        #eq_(0, len(messages_meta_g))
+        eq_(1, len(error_messages_g))
         eq_(2, len(imported_pools_g))
         eq_(2, len(imported_works_g))        
-        # editions are also in, because we're now creating edition per data source, not overwriting
-        eq_(2, len(imported_editions_g))
+
+        # assert that bibframe datasource from feed was correctly overwritten
+        # with data source I passed into the importer.
+        for pool in imported_pools_g:
+            eq_(pool.data_source.name, DataSource.GUTENBERG)
 
 
 

@@ -412,54 +412,74 @@ class CirculationData(object):
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
-        self.default_rights_uri = default_rights_uri
-        self.first_appearance = first_appearance
-        self.last_checked = last_checked or datetime.datetime.utcnow()
 
-        # TODO:  if got passed all links, undiscriminately, filter out to only those relevant 
-        self.links = links or []
         # format contains pdf/epub, drm, link
         self.formats = formats or []
 
-        for link in self.links:
-            # If a link has a rights_uri, make that the overall rights_uri. 
-            # If there are multiple links with a rights_uri, they should have gotten 
-            # split into separate metadata objects in the content server or whatever code called this. 
-            #if link.rights_uri:
-            #    self.rights_uri = link.rights_uri
+        self.default_rights_uri = None
+        self.set_default_rights_uri(data_source=self.data_source, default_rights_uri=default_rights_uri)
+        self.first_appearance = first_appearance
+        self.last_checked = last_checked or datetime.datetime.utcnow()
 
-            # An open-access link or open-access rights implies a FormatData object.
-            open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                                and link.href)
-            '''
-            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
-                                       and link.href
-                                       and self.rights_uri in RightsStatus.OPEN_ACCESS)
-            '''
-            #if open_access_link or open_access_rights_link:
-            if open_access_link:
-                self.formats.append(
-                    FormatData(
-                        content_type=link.media_type,
-                        drm_scheme=DeliveryMechanism.NO_DRM,
-                        link=link
-                    )
-            )
+        self.__links = None
+        self.links = links
+        
+    @property
+    def links(self):
+        return self.__links
 
-    '''
+    @links.setter
+    def links(self, arg_links):
+        """ If got passed all links, undiscriminately, filter out to only those relevant to pools. """
+        # start by deleting any old links
+        self.__links = []
+
+        if not arg_links:
+            return
+
+        for link in arg_links:
+            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+                # only accept the types of links relevant to pools
+                self.__links.append(link)
+
+                # If a link has a rights_uri, make that the overall rights_uri. 
+                # If there are multiple links with a rights_uri, they should have gotten 
+                # split into separate metadata objects in the content server or whatever code called this. 
+                if link.rights_uri:
+                    self.set_default_rights_uri(data_source=self.data_source, default_rights_uri=link.rights_uri)
+
+                # An open-access link or open-access rights implies a FormatData object.
+                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+                                    and link.href)
+                
+                open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
+                                           and link.href
+                                           and self.default_rights_uri in RightsStatus.OPEN_ACCESS)
+                
+                #if open_access_link or open_access_rights_link:
+                if open_access_link:
+                    self.formats.append(
+                        FormatData(
+                            content_type=link.media_type,
+                            drm_scheme=DeliveryMechanism.NO_DRM,
+                            link=link
+                        )
+                )
+
+
     def __repr__(self):
-        description_string = '<CirculationData primary_identifier="%s" licenses_owned="%s" licenses_available="%s" licenses_reserved=%d' % (
+        description_string = '<CirculationData primary_identifier="%r" licenses_owned="%s" licenses_available="%s" licenses_reserved=%s' % (
             self.primary_identifier, self.licenses_owned, self.licenses_available, self.licenses_reserved
         )
         description_string += 'patrons_in_hold_queue="%s" default_rights_uri="%s" first_appearance="%s" last_checked="%s" >' % (
-            patrons_in_hold_queue, default_rights_uri, first_appearance, last_checked
+            self.patrons_in_hold_queue, self.default_rights_uri, self.first_appearance, self.last_checked
         )
         description_string += 'links="%r" formats="%r" data_source_obj="%r">' % (
-            links, formats, data_source_obj
+            self.links, self.formats, self.data_source_obj
         )
 
         return description_string
-    '''
+    
 
     def data_source(self, _db):
         if not self.data_source_obj:
@@ -502,11 +522,16 @@ class CirculationData(object):
                 self.primary_identifier.identifier,
                 rights_status=rights_status,
             )
+            if is_new:
+                license_pool.first_appearance = self.first_appearance
+
+            license_pool.last_checked = datetime.datetime.utcnow()
             if self.has_open_access_link:
                 license_pool.open_access = True
             if self.default_rights_uri:
                 license_pool.set_rights_status(self.default_rights_uri)
         return license_pool, is_new
+
 
     def update(self, license_pool, license_pool_is_new):
         _db = Session.object_session(license_pool)
@@ -572,13 +597,13 @@ class CirculationData(object):
              if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
         )
 
-    def set_default_rights_uri(self, data_source):
+
+    def set_default_rights_uri(self, data_source, default_rights_uri=None):
         """ TODO: default_rights_uri will be slightly different than old rights_uri, 
         so decide on logic and then fix method.
         """
-        if self.default_rights_uri == None and data_source:
-            # We haven't been able to determine rights from the metadata, so use the default rights
-            # for the data source if any.
+        if default_rights_uri == None and data_source:
+            # We didn't get rights passed in, so use the default rights for the data source if any.
             default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
             if default:
                 self.default_rights_uri = default
@@ -587,7 +612,7 @@ class CirculationData(object):
             if format.link:
                 link = format.link
                 if self.default_rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # We haven't determined rights in the constructor or the data source, but there's an
                     # open access download link, so we'll consider it generic open access.
                     self.default_rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
 
@@ -630,7 +655,6 @@ class CirculationData(object):
         # TODO: bring back
         #self.set_default_rights_uri(data_source)
 
-        # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj = link_objects[link]
@@ -658,6 +682,7 @@ class CirculationData(object):
                     format.content_type, format.drm_scheme, resource
                 )
 
+        pool.last_checked = datetime.datetime.utcnow()
         return pool, made_changes
 
 

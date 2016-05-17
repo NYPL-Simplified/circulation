@@ -619,3 +619,60 @@ class TestMetadata(DatabaseTest):
         # If deepcopy didn't throw an exception we're ok.
         assert m_copy is not None
 
+    def test_links_filtered(self):
+        # TODO:
+        # TODO: might want to filter links to only metadata-relevant ones
+        pass
+
+
+class TestCirculationData(DatabaseTest):
+
+    def test_links_filtered(self):
+        # TODO: might want to filter links to only circulation-relevant ones
+
+        # TODO:
+        links = []
+        def summary_to_linkdata(detail):
+            if not detail:
+                return None
+            if not 'value' in detail or not detail['value']:
+                return None
+
+            content = detail['value']
+            media_type = detail.get('type', 'text/plain')
+            return LinkData(
+                rel=Hyperlink.DESCRIPTION,
+                media_type=media_type,
+                content=content
+            )
+
+        summary_detail = entry.get('summary_detail', None)
+        link = summary_to_linkdata(summary_detail)
+        if link:
+            links.append(link)
+
+        for content_detail in entry.get('content', []):
+            link = summary_to_linkdata(content_detail)
+            if link:
+                links.append(link)
+
+        kwargs_circ = dict(
+            # Note: later on, we'll check to make sure data_source is lendable, and if not, abort creating a pool and a work.
+            data_source=data_source,
+            links=links,
+            # Note: CirculationData.default_rights_uri is not same as the old 
+            # Metadata.rights_uri, but we're treating it same for now.
+            default_rights_uri=rights_uri,
+            last_checked=last_update_time, 
+            # first appearance in our databases, 
+            # gets assigned to pool, if have to make new pool. 
+            first_appearance = datetime.datetime.utcnow()
+        )
+        circulation_data = CirculationData(**kwargs_circ)
+        pass
+
+
+
+
+
+
