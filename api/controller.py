@@ -136,7 +136,6 @@ class CirculationManager(object):
         )
 
         self.setup_controllers()
-        self.urn_lookup_controller = URNLookupController(self._db)
         self.setup_adobe_vendor_id()
 
         if self.testing:

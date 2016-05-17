@@ -206,6 +206,8 @@ class CirculationManagerAnnotator(Annotator):
             identifier_identifier = work.identifier
             data_source_name = work.name
         else:
+            if not active_license_pool:
+                active_license_pool = identifier.licensed_through
             identifier_identifier = identifier.identifier
             data_source_name = active_license_pool.data_source.name
 
