@@ -1,4 +1,4 @@
-nosefrom nose.tools import (
+from nose.tools import (
     assert_raises_regexp,
     eq_,
     set_trace,
