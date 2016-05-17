@@ -41,6 +41,7 @@ from model import (
     Measurement,
     Patron,
     Representation,
+    Resource,
     SessionManager,
     Subject,
     Timestamp,
@@ -2166,6 +2167,7 @@ class TestHyperlink(DatabaseTest):
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
+
 class TestRepresentation(DatabaseTest):
 
     def test_normalized_content_path(self):
@@ -2381,7 +2383,19 @@ class TestRepresentation(DatabaseTest):
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
-class TestScaleRepresentation(DatabaseTest):
+
+class TestCoverResource(DatabaseTest):
+
+    def sample_cover_path(self, name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        sample_cover_path = self.sample_cover_path(name)
+        return self._representation(
+            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -2424,17 +2438,6 @@ class TestScaleRepresentation(DatabaseTest):
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
-
-    def sample_cover_path(self, name):
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files", "covers")
-        sample_cover_path = os.path.join(resource_path, name)
-        return sample_cover_path
-
-    def sample_cover_representation(self, name):
-        sample_cover_path = self.sample_cover_path(name)
-        return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
@@ -2517,6 +2520,160 @@ class TestScaleRepresentation(DatabaseTest):
         eq_([], cover.thumbnails)
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
+
+    def test_best_covers_among(self):
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+
+        link1, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_no_representation = link1.resource
+
+        # A resource with no representation is not considered even if
+        # it's the only option.
+        eq_([], Resource.best_covers_among([resource_with_no_representation]))
+
+        # Here's an abysmally bad cover.
+        lousy_cover = self.sample_cover_representation("tiny-image-cover.png")
+        lousy_cover.image_height=1
+        lousy_cover.image_width=10000 
+        link2, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_lousy_cover = link2.resource
+        resource_with_lousy_cover.representation = lousy_cover
+
+        # This cover is so bad that it's not even considered if it's
+        # the only option.
+        eq_([], Resource.best_covers_among([resource_with_lousy_cover]))
+
+        # Here's a decent cover.
+        decent_cover = self.sample_cover_representation("test-book-cover.png")
+        link3, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover = link3.resource
+        resource_with_decent_cover.representation = decent_cover
+
+        # This cover is at least good enough to pass muster if there
+        # is no other option.
+        eq_(
+            [resource_with_decent_cover], 
+            Resource.best_covers_among([resource_with_decent_cover])
+        )
+
+        # Let's create another cover image with identical
+        # characteristics.
+        link4, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover_2 = link4.resource
+        resource_with_decent_cover_2.representation = decent_cover
+        l = [resource_with_decent_cover, resource_with_decent_cover_2]
+
+        # best_covers_among() can't decide between the two -- they have
+        # the same score.
+        eq_(set(l), set(Resource.best_covers_among(l)))
+
+        # But if we give one of them a bump by saying it's the one the
+        # metadata wrangler said to use...
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+        resource_with_decent_cover.data_source = metadata_wrangler
+
+        # ...the decision becomes easy.
+        eq_([resource_with_decent_cover], Resource.best_covers_among(l))
+
+
+    def test_quality_as_thumbnail_image(self):
+
+        # Get some data sources ready, since a big part of image
+        # quality comes from data source.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg_cover_generator = DataSource.lookup(
+            self._db, DataSource.GUTENBERG_COVER_GENERATOR
+        )
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, overdrive
+        )
+        resource = hyperlink.resource
+        
+        # Without a representation, the thumbnail image is useless.
+        eq_(0, resource.quality_as_thumbnail_image)
+
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        cover = self.sample_cover_representation("tiny-image-cover.png")
+        resource.representation = cover
+        eq_(1.0, resource.quality_as_thumbnail_image)
+
+        # Changing the image aspect ratio affects the quality as per
+        # thumbnail_size_quality_penalty.
+        cover.image_height = ideal_height * 2
+        cover.image_width = ideal_width
+        eq_(0.5, resource.quality_as_thumbnail_image)
+        
+        # Changing the data source also affects the quality. Gutenberg
+        # covers are penalized heavily...
+        cover.image_height = ideal_height
+        cover.image_width = ideal_width
+        resource.data_source = gutenberg
+        eq_(0.5, resource.quality_as_thumbnail_image)
+
+        # The Gutenberg cover generator is penalized less heavily.
+        resource.data_source = gutenberg_cover_generator
+        eq_(0.6, resource.quality_as_thumbnail_image)
+
+        # The metadata wrangler actually gets a _bonus_, to encourage the
+        # use of its covers over those provided by license sources.
+        resource.data_source = metadata_wrangler
+        eq_(2, resource.quality_as_thumbnail_image)
+        
+
+    def test_thumbnail_size_quality_penalty(self):
+        """Verify that Representation._cover_size_quality_penalty penalizes
+        images that are the wrong aspect ratio, or too small.
+        """
+
+        ideal_ratio = Identifier.IDEAL_COVER_ASPECT_RATIO
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        def f(width, height):
+            return Representation._thumbnail_size_quality_penalty(width, height)
+
+        # In the absence of any size information we assume
+        # everything's fine.
+        eq_(1, f(None, None))
+
+        # The perfect image has no penalty.
+        eq_(1, f(ideal_width, ideal_height))
+
+        # An image that is the perfect aspect ratio, but too large,
+        # has no penalty.
+        eq_(1, f(ideal_width*2, ideal_height*2))
+        
+        # An image that is the perfect aspect ratio, but is too small,
+        # is penalised.
+        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
+        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
+
+        # An image that deviates from the perfect aspect ratio is
+        # penalized in proportion.
+        eq_(1/2.0, f(ideal_width*2, ideal_height))
+        eq_(1/2.0, f(ideal_width, ideal_height*2))
+        eq_(1/4.0, f(ideal_width*4, ideal_height))
+        eq_(1/4.0, f(ideal_width, ideal_height*4))
 
 
 class TestDeliveryMechanism(DatabaseTest):

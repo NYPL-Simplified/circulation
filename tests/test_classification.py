@@ -20,6 +20,7 @@ from classifier import (
     OverdriveClassifier as Overdrive,
     FASTClassifier as FAST,
     KeywordBasedClassifier as Keyword,
+    SimplifiedGenreClassifier,
     GradeLevelClassifier,
     AgeClassifier,
     AgeOrGradeClassifier,
@@ -702,6 +703,20 @@ class TestOverdriveClassifier(object):
         eq_(Classifier.AUDIENCE_CHILDREN, a("Juvenile Nonfiction"))
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, a("Young Adult Nonfiction"))
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, a("Erotic Literature"))
+
+class TestSimplifiedGenreClassifier(object):
+
+    def test_scrub_identifier(self):
+        """The URI for a Library Simplified genre is treated the same as
+        the genre itself.
+        """
+        sf1 = SimplifiedGenreClassifier.scrub_identifier(
+            SimplifiedGenreClassifier.SIMPLIFIED_GENRE + "Science%20Fiction"
+        )
+        sf2 = SimplifiedGenreClassifier.scrub_identifier("Science Fiction")
+        eq_(sf1, sf2)
+        eq_("Science Fiction", sf1.original)
+
 
 class TestWorkClassifier(DatabaseTest):
 
