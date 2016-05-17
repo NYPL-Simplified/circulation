@@ -400,7 +400,7 @@ class TestLoanController(CirculationControllerTest):
              with_license_pool=True,
          )
          threem_book = self._work(
-             primary_edition=threem_edition,
+             presentation_edition=threem_edition,
          )
          pool.licenses_available = 0
          pool.open_access = False
@@ -432,7 +432,7 @@ class TestLoanController(CirculationControllerTest):
              with_license_pool=True,
          )
          threem_book = self._work(
-             primary_edition=threem_edition,
+             presentation_edition=threem_edition,
          )
          pool.licenses_available = 1
          pool.open_access = False
@@ -478,7 +478,7 @@ class TestLoanController(CirculationControllerTest):
             with_license_pool=True,
         )
         threem_book = self._work(
-            primary_edition=threem_edition,
+            presentation_edition=threem_edition,
         )
         pool.open_access = False
 
@@ -528,7 +528,7 @@ class TestLoanController(CirculationControllerTest):
              with_license_pool=True,
          )
          threem_book = self._work(
-             primary_edition=threem_edition,
+             presentation_edition=threem_edition,
          )
          pool.open_access = False
 
@@ -556,7 +556,7 @@ class TestLoanController(CirculationControllerTest):
             with_license_pool=True,
         )
         overdrive_book = self._work(
-            primary_edition=overdrive_edition,
+            presentation_edition=overdrive_edition,
         )
         overdrive_pool.open_access = False
 
@@ -567,7 +567,7 @@ class TestLoanController(CirculationControllerTest):
             with_license_pool=True,
         )
         threem_book = self._work(
-            primary_edition=threem_edition,
+            presentation_edition=threem_edition,
         )
         threem_pool.licenses_available = 0
         threem_pool.open_access = False
@@ -798,7 +798,7 @@ class TestFeedController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
 
         with temp_config() as config:
-            urn = self.english_2.primary_edition.primary_identifier.urn
+            urn = self.english_2.presentation_edition.primary_identifier.urn
             config[Configuration.POLICIES] = {
                 Configuration.PRELOADED_CONTENT : [urn]
             }

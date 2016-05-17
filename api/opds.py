@@ -607,7 +607,7 @@ class PreloadFeed(AcquisitionFeed):
                 lazyload(MaterializedWork.license_pool, LicensePool.presentation_edition),
             )
         else:
-            q = _db.query(Work).join(Work.primary_edition)
+            q = _db.query(Work).join(Work.presentation_edition)
             q = q.filter(Edition.primary_identifier_id.in_(identifier_ids))
 
         works = q.all()

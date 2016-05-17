@@ -382,8 +382,8 @@ class TestWorkController(AdminControllerTest):
 
     def test_classifications(self):
         e, pool = self._edition(with_license_pool=True)
-        work = self._work(primary_edition=e)
-        identifier = work.primary_edition.primary_identifier
+        work = self._work(presentation_edition=e)
+        identifier = work.presentation_edition.primary_identifier
         genres = self._db.query(Genre).all()
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genres[0]
