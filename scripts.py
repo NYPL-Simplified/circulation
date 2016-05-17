@@ -360,9 +360,10 @@ class WorkProcessingScript(IdentifierInputScript):
     def __init__(self, force=False, batch_size=10):
         args = self.parse_command_line(self._db)
         identifier_type = args.identifier_type
+        self.identifiers = args.identifiers
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, identifier_type, args.identifiers, self.log
+            self._db, identifier_type, self.identifiers, self.log
         )
         self.force = force
 
@@ -417,23 +418,53 @@ class WorkConsolidationScript(WorkProcessingScript):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
 
-        if self.force:
-            self.clear_existing_works()                  
+        if self.identifiers:
+            for i in self.identifiers:
+                pool = i.licensed_through
+                if not pool:
+                    self.log.warn(
+                        "No LicensePool for %r, cannot create work.", i
+                    )
+                    continue
 
-        logging.info("Consolidating works.")
-        LicensePool.consolidate_works(self._db)
+                if pool.work:
+                    # We're about to delete a preexisting work. If the
+                    # problem is that this LicensePool is incorrectly
+                    # grouped together with some other LicensePool,
+                    # then that LicensePool must also have
+                    # calculate_work() called on it, so that we can
+                    # create two Works where there used to be one.
+                    all_pools = pool.work.license_pools
+                    self.clear_works(pool.work.id)
+                else:
+                    all_pools = [pool]
+                for pool in all_pools:
+                    pool.calculate_work()
+                self._db.commit()
+        else:
+            self.log.info("Consolidating all works.")
+            if self.force:
+                self.log.warn(
+                    "Clearing all works! This will probably take a long time, so now is a good time to evaluate if you really want to do this."
+                )
+                self.clear_existing_works()
+            LicensePool.consolidate_works(self._db, batch_size=self.batch_size)
 
-        logging.info("Deleting works with no editions.")
-        for i in self._db.query(Work).filter(Work.primary_edition==None):
-            self._db.delete(i)            
-        self._db.commit()
+            qu = self._db.query(Work).filter(Work.primary_edition==None)
+            self.log.info("Deleting %d Works that lack Editions." % qu.count())
+            for i in qu:
+                self._db.delete(i)            
+            self._db.commit()
 
     def clear_existing_works(self):
-        # Locate works we want to consolidate.
-        unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
         for wr in self.query:
             work_ids_to_delete.add(wr.id)
+        self.clear_works(self, *work_ids_to_delete)
+
+    def clear_works(self, *work_ids_to_delete):
+        # Locate works we want to consolidate.
+        unset_work_id = { Edition.work_id : None }
         editions = self._db.query(Edition).filter(
             Edition.work_id.in_(work_ids_to_delete))
 
@@ -473,6 +504,7 @@ class WorkConsolidationScript(WorkProcessingScript):
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
             self._db.commit()
+
 
 
 class WorkPresentationScript(WorkProcessingScript):
