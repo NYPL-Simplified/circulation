@@ -1,4 +1,4 @@
-from nose.tools import (
+nosefrom nose.tools import (
     assert_raises_regexp,
     eq_,
     set_trace,
@@ -42,7 +42,7 @@ class TestEquivalency(DatabaseTest):
 
         eq_([eq], record.primary_identifier.equivalencies)
 
-        eq_([record, record2], record.equivalent_editions().all())
+        eq_(set([record, record2]), set(record.equivalent_editions().all()))
 
     def test_recursively_equivalent_identifiers(self):
 
