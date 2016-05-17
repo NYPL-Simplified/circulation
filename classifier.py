@@ -17,6 +17,7 @@ import json
 import os
 import pkgutil
 import re
+import urllib
 from collections import (
     Counter,
     defaultdict,
@@ -3811,6 +3812,7 @@ class SimplifiedGenreClassifier(Classifier):
             return identifier
         if identifier.startswith(cls.SIMPLIFIED_GENRE):
             identifier = identifier[len(cls.SIMPLIFIED_GENRE):]
+            identifier = urllib.unquote(identifier)
         return Lowercased(identifier)
 
     @classmethod

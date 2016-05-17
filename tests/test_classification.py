@@ -711,7 +711,7 @@ class TestSimplifiedGenreClassifier(object):
         the genre itself.
         """
         sf1 = SimplifiedGenreClassifier.scrub_identifier(
-            SimplifiedGenreClassifier.SIMPLIFIED_GENRE + "Science Fiction"
+            SimplifiedGenreClassifier.SIMPLIFIED_GENRE + "Science%20Fiction"
         )
         sf2 = SimplifiedGenreClassifier.scrub_identifier("Science Fiction")
         eq_(sf1, sf2)
