@@ -422,7 +422,7 @@ class WorkConsolidationScript(WorkProcessingScript):
             for i in self.identifiers:
                 pool = i.licensed_through
                 if not pool:
-                    logging.warn(
+                    self.log.warn(
                         "No LicensePool for %r, cannot create work.", i
                     )
                     continue
@@ -442,11 +442,16 @@ class WorkConsolidationScript(WorkProcessingScript):
                     pool.calculate_work()
                 self._db.commit()
         else:
-            logging.info("Consolidating all works.")
+            self.log.info("Consolidating all works.")
+            if self.force:
+                self.log.warn(
+                    "Clearing all works! This will probably take a long time, so now is a good time to evaluate if you really want to do this."
+                )
+                self.clear_existing_works()
             LicensePool.consolidate_works(self._db, batch_size=self.batch_size)
 
             qu = self._db.query(Work).filter(Work.primary_edition==None)
-            logging.info("Deleting %d Works that lack Editions." % qu.count())
+            self.log.info("Deleting %d Works that lack Editions." % qu.count())
             for i in qu:
                 self._db.delete(i)            
             self._db.commit()
