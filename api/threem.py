@@ -39,7 +39,7 @@ from core.monitor import (
 from core.util.xmlparser import XMLParser
 from core.threem import (
     ThreeMAPI as BaseThreeMAPI,
-    ThreeMBibliographicCoverageProvider as BaseThreeMBibliographicCoverageProvider
+    ThreeMBibliographicCoverageProvider
 )
 
 from circulation_exceptions import *
@@ -631,11 +631,17 @@ class ThreeMEventMonitor(Monitor):
 
     """Register CirculationEvents for 3M titles.
 
-    When a new book comes on the scene, we find out about it here and
-    we create a LicensePool.  But the bibliographic data isn't
-    inserted into those LicensePools until the
-    ThreeMBibliographicMonitor runs. And the circulation data isn't
-    associated with it until the ThreeMCirculationMonitor runs.
+    Most of the time we will just be finding out that someone checked
+    in or checked out a copy of a book we already knew about.
+
+    But when a new book comes on the scene, this is where we first
+    find out about it. When this happens, we create a LicensePool and
+    immediately ensure that we get coverage from the
+    ThreeMBibliographicCoverageProvider. 
+
+    But getting up-to-date circulation data for that new book requires
+    either that we process further events, or that we encounter it in
+    the ThreeMCirculationSweep.
     """
 
     TWO_YEARS_AGO = datetime.timedelta(365*2)
@@ -649,6 +655,9 @@ class ThreeMEventMonitor(Monitor):
         super(ThreeMEventMonitor, self).__init__(
             _db, self.service_name, default_start_time=default_start_time)
         self.api = ThreeMAPI(self._db, testing=testing)
+        self.bibliographic_coverage_provider = ThreeMBibliographicCoverageProvider(
+            self._db
+        )
 
     def create_default_start_time(self, _db, cli_date):
         """Sets the default start time if it's passed as an argument.
@@ -727,22 +736,13 @@ class ThreeMEventMonitor(Monitor):
             self._db, self.api.source, Identifier.THREEM_ID, threem_id)
 
         if is_new:
-            # Add a DistributionMechanism. For the time being, assume
-            # that everything is EPUB.
-
-            metadata = self.api.bibliographic_lookup(
-                license_pool.identifier
+            # Immediately acquire bibliographic coverage for this book.
+            # This will set the DistributionMechanisms and make the
+            # book presentation-ready. However, its circulation information
+            # might not be up to date until we process some more events.
+            record = self.bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier, force=True
             )
-            for format in metadata.formats:
-                mech = license_pool.set_delivery_mechanism(
-                    format.content_type,
-                    format.drm_scheme,
-                    format.link
-                )
-
-        # Force the ThreeMCirculationMonitor to check on this book the
-        # next time it runs.
-        license_pool.last_checked = None
 
         threem_identifier = license_pool.identifier
         isbn, ignore = Identifier.for_foreign_id(
@@ -778,69 +778,3 @@ class ThreeMEventMonitor(Monitor):
         title = edition.title or "[no title]"
         self.log.info("%r %s: %s", start_time, title, internal_event_type)
         return start_time
-
-
-class ThreeMCirculationMonitor(Monitor):
-
-    MAX_STALE_TIME = datetime.timedelta(seconds=3600 * 24 * 30)
-
-    def __init__(self, _db, account_id=None, library_id=None, account_key=None):
-        super(ThreeMCirculationMonitor, self).__init__("3M Circulation Monitor")
-        self._db = _db
-        self.api = ThreeMAPI(_db, account_id, library_id, account_key)
-
-    def run_once(self, _db, start, cutoff):
-        stale_at = start - self.MAX_STALE_TIME
-        clause = or_(LicensePool.last_checked==None,
-                    LicensePool.last_checked <= stale_at)
-        q = _db.query(LicensePool).filter(clause).filter(
-            LicensePool.data_source==self.api.source)
-        current_batch = []
-        most_recent_timestamp = None
-        for pool in q:
-            current_batch.append(pool)
-            if len(current_batch) == 25:
-                most_recent_timestamp = self.process_batch(_db, current_batch)
-                current_batch = []
-        if current_batch:
-            most_recent_timestamp = self.process_batch(_db, current_batch)
-        return most_recent_timestamp
-
-    def process_batch(self, _db, pools):
-        identifiers = []
-        pool_for_identifier = dict()
-        for p in pools:
-            pool_for_identifier[p.identifier.identifier] = p
-            identifiers.append(p.identifier.identifier)
-        for item in self.api.get_circulation_for(identifiers):
-            identifier = item[Identifier][Identifier.THREEM_ID]
-            pool = pool_for_identifier[identifier]
-            self.process_pool(_db, pool, item)
-        _db.commit()
-        return most_recent_timestamp
-        
-    def process_pool(self, _db, pool, item):
-        pool.update_availability(
-            item[LicensePool.licenses_owned],
-            item[LicensePool.licenses_available],
-            item[LicensePool.licenses_reserved],
-            item[LicensePool.patrons_in_hold_queue])
-        self.log.info("%r: %d owned, %d available, %d reserved, %d queued", pool.edition(), pool.licenses_owned, pool.licenses_available, pool.licenses_reserved, pool.patrons_in_hold_queue)
-
-class ThreeMBibliographicCoverageProvider(BaseThreeMBibliographicCoverageProvider):
-    """Fill in bibliographic metadata for 3M records.
-    
-    Then mark the works as presentation-ready.
-    """
-    def process_batch(self, identifiers):
-        results = []
-        for result in super(ThreeMBibliographicCoverageProvider, self).process_batch(identifiers):
-            # Mark every successful result as presentation-ready.
-            if isinstance(result, Identifier):
-                result = self.set_presentation_ready(result)
-            results.append(result)
-        return results
-
-    def process_item(self, identifier):
-        results = self.process_batch([identifier])
-        return results[0]

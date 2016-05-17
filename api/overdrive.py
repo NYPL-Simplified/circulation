@@ -14,7 +14,7 @@ from circulation import (
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
-    OverdriveBibliographicCoverageProvider as BaseOverdriveBibliographicCoverageProvider,
+    OverdriveBibliographicCoverageProvider
 )
 
 from core.model import (
@@ -59,6 +59,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # TODO: This is a terrible choice but this URL should never be
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
+
+    def __init__(self, *args, **kwargs):
+        super(OverdriveAPI, self).__init__(*args, **kwargs)
+        self.overdrive_bibliographic_coverage_provider = OverdriveBibliographicCoverageProvider(
+            self._db
+        )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
@@ -468,7 +474,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         will be created for the book.
 
         The book's LicensePool will be updated with current
-        circulation information.
+        circulation information. Bibliographic coverage will be
+        ensured for the Overdrive Identifier, and a Work will be
+        created for the LicensePool and set as presentation-ready.
         """
         # Retrieve current circulation information about this book
         orig_book = book
@@ -501,6 +509,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         book.update(json.loads(content))
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+        if is_new:
+            # This is the first time we've seen this book. Make sure its
+            # identifier has bibliographic coverage.
+            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier
+            )
+
         return self.update_licensepool_with_book_info(
             book, license_pool, is_new
         )
@@ -509,9 +524,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
-        Also creates an Edition and gives it very basic bibliographic
-        information (the title), if possible.  If the new Edition is the only 
-        candidate for the pool's presentation_edition, promote it to presentation status.
+        Then, create an Edition and make sure it has bibliographic
+        coverage. If the new Edition is the only candidate for the
+        pool's presentation_edition, promote it to presentation
+        status.
         """
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
@@ -521,7 +537,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,
             license_pool.identifier.identifier)
-        edition.title = edition.title or book.get('title')
 
         # If the pool does not already have a presentation edition, 
         # and if this edition is newly made, then associate pool and edition
@@ -720,20 +735,3 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         super(RecentOverdriveCollectionMonitor, self).__init__(
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
-
-
-class OverdriveBibliographicCoverageProvider(BaseOverdriveBibliographicCoverageProvider):
-
-    """Fill in bibliographic metadata for Overdrive records.
-    
-    Then mark the works as presentation-ready.
-    """
-    def process_batch(self, identifiers):
-        results = []
-        for result in super(OverdriveBibliographicCoverageProvider, self).process_batch(identifiers):
-            # Mark every successful result as presentation-ready.
-            if isinstance(result, Identifier):
-                result = self.set_presentation_ready(result)
-            results.append(result)
-        return results
-
