@@ -60,24 +60,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
-    @property
-    def overdrive_bibliographic_coverage_provider(self):
-        """Create a BibliographicCoverageProvider for use the
-        first time we learn about a book.
-
-        TODO: Out of an excess of caution, this is generated every
-        time rather than being stored in the constructor. That's
-        because CoverageProvider stores a DataSource object, which is
-        a no-no in a multithreaded environment like the circulation
-        manager web app. The web app includes a CirculationManager
-        which contains a CirculationAPI which can generate this
-        CoverageProvider. This code should never be called inside the
-        web app, but just to be safe, we generate a new
-        BibliographicCoverageProvider every time. We can fix this by
-        changing CoverageProvider to look up its DataSource object as
-        necessary.
-        """
-        return OverdriveBibliographicCoverageProvider(self._db)
+    def __init__(self, *args, **kwargs):
+        super(OverdriveAPI, self).__init__(*args, **kwargs)
+        self.overdrive_bibliographic_coverage_provider = (
+            OverdriveBibliographicCoverageProvider(
+                self._db, overdrive_api=self
+                )
+        )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
@@ -620,10 +609,6 @@ class DummyOverdriveAPI(OverdriveAPI):
             *args, testing=True, **kwargs
         )
         self.responses = []
-        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        self._coverage_provider = OverdriveBibliographicCoverageProvider(
-            self._db, overdrive_api=self
-        )
 
     def queue_response(self, response_code=200, media_type="application/json",
                        other_headers=None, content=''):
@@ -649,10 +634,6 @@ class DummyOverdriveAPI(OverdriveAPI):
     def patron_request(self, *args, **kwargs):
         value = self.responses.pop()
         return DummyOverdriveResponse(*value)
-
-    @property
-    def overdrive_bibliographic_coverage_provider(self):
-        return self._coverage_provider
 
 
 class OverdriveCirculationMonitor(Monitor):
