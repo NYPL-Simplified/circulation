@@ -78,11 +78,7 @@ Format a date the way Atom likes it (RFC3339?)
     return d.strftime(AtomFeed.TIME_FORMAT)
 
 default_typemap = {datetime: lambda e, v: _strftime(v)}
-
 E = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap)
-SCHEMA = builder.ElementMaker(
-    typemap=default_typemap, nsmap=nsmap, namespace="http://schema.org/")
-
 
 class Annotator(object):
     """The Annotator knows how to present an OPDS feed in a specific
@@ -222,6 +218,18 @@ class Annotator(object):
         return [E.author(E.name(edition.author or ""))]
 
     @classmethod
+    def series(cls, series_name, series_position):
+        """Generate a schema:Series tag for the given name and position."""
+        if not series_name:
+            return None
+        series_details = dict()
+        series_details['name'] = series_name
+        if series_position:
+            series_details['{%s}position' % schema_ns] = unicode(series_position)
+        series_tag = E._makeelement("{%s}Series" % schema_ns, **series_details)
+        return series_tag
+
+    @classmethod
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
@@ -236,7 +244,6 @@ class Annotator(object):
     @classmethod
     def lane_id(cls, lane):
         return cls.featured_feed_url(lane)
-        # return "tag:%s" % (lane.name)
 
     @classmethod
     def work_id(cls, work):
@@ -783,7 +790,7 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(work, BaseMaterializedWork):
                 identifier = work.identifier
                 active_edition = None
-            elif active_license_pool:        
+            elif active_license_pool:
                 identifier = active_license_pool.identifier
                 active_edition = active_license_pool.presentation_edition
             else:
@@ -800,8 +807,7 @@ class AcquisitionFeed(OPDSFeed):
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier,
-                                  lane_link, force_create)
+                                  identifier, lane_link, force_create)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False):
@@ -835,10 +841,6 @@ class AcquisitionFeed(OPDSFeed):
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=group_title)
 
-        if edition:
-            title = (edition.title or "") + " "
-        else:
-            title = ""
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
@@ -904,6 +906,9 @@ class AcquisitionFeed(OPDSFeed):
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
+
+        if edition.series:
+            entry.extend([self.annotator.series(edition.series, edition.series_position)])
 
         if content:
             entry.extend([E.summary(content, type=content_type)])

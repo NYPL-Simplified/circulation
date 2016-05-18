@@ -259,6 +259,36 @@ class TestAnnotators(DatabaseTest):
         ]
         eq_(set(expected), set(ratings))
 
+    def test_series(self):
+        work = self._work(with_license_pool=True, with_open_access_download=True)
+        work.primary_edition.series = "Harry Otter and the Lifetime of Despair"
+        work.primary_edition.series_position = 4
+        work.calculate_opds_entries()
+
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+        assert "schema:Series" in raw_feed
+        assert work.primary_edition.series in raw_feed
+
+        feed = feedparser.parse(unicode(raw_feed))
+        schema_entry = feed['entries'][0]['schema_series']
+        eq_(work.primary_edition.series, schema_entry['name'])
+        eq_(str(work.primary_edition.series_position), schema_entry['schema:position'])
+
+        # If there's no series title, the series tag isn't included.
+        work.primary_edition.series = None
+        work.calculate_opds_entries()
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+
+        assert "schema:Series" not in raw_feed
+        assert "Lifetime of Despair" not in raw_feed
+        [entry] = feedparser.parse(unicode(raw_feed))['entries']
+        assert 'schema_series' not in entry.items()
+
+
 class TestOPDS(DatabaseTest):
 
     def links(self, entry, rel=None):
