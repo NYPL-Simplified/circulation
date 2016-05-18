@@ -404,71 +404,71 @@ class TestLoanController(CirculationControllerTest):
             eq_(BAD_DELIVERY_MECHANISM, response) 
 
     def test_borrow_creates_hold_when_no_available_copies(self):
-         threem_edition, pool = self._edition(
-             with_open_access_download=False,
-             data_source_name=DataSource.THREEM,
-             identifier_type=Identifier.THREEM_ID,
-             with_license_pool=True,
-         )
-         threem_book = self._work(
-             presentation_edition=threem_edition,
-         )
-         pool.licenses_available = 0
-         pool.open_access = False
+        threem_edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            presentation_edition=threem_edition,
+        )
+        pool.licenses_available = 0
+        pool.open_access = False
 
-         with self.app.test_request_context(
-                 "/", headers=dict(Authorization=self.valid_auth)):
-             self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(NoAvailableCopies())
-             self.manager.circulation.queue_hold(HoldInfo(
-                 pool.identifier.type,
-                 pool.identifier.identifier,
-                 datetime.datetime.utcnow(),
-                 datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                 1,
-             ))
-             response = self.manager.loans.borrow(
-                 DataSource.THREEM, pool.identifier.identifier)
-             eq_(201, response.status_code)
-
-             # A hold has been created for this license pool.
-             hold = get_one(self._db, Hold, license_pool=pool)
-             assert hold != None
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(NoAvailableCopies())
+            self.manager.circulation.queue_hold(HoldInfo(
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                1,
+            ))
+            response = self.manager.loans.borrow(
+                DataSource.THREEM, pool.identifier.identifier)
+            eq_(201, response.status_code)
+            
+            # A hold has been created for this license pool.
+            hold = get_one(self._db, Hold, license_pool=pool)
+            assert hold != None
 
     def test_borrow_creates_local_hold_if_remote_hold_exists(self):
         """We try to check out a book, but turns out we already have it 
         on hold.
         """
-         threem_edition, pool = self._edition(
-             with_open_access_download=False,
-             data_source_name=DataSource.THREEM,
-             identifier_type=Identifier.THREEM_ID,
-             with_license_pool=True,
-         )
-         threem_book = self._work(
-             primary_edition=threem_edition,
-         )
-         pool.licenses_available = 0
-         pool.open_access = False
+        threem_edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            primary_edition=threem_edition,
+        )
+        pool.licenses_available = 0
+        pool.open_access = False
 
-         with self.app.test_request_context(
-                 "/", headers=dict(Authorization=self.valid_auth)):
-             self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(AlreadyOnHold())
-             self.manager.circulation.queue_hold(HoldInfo(
-                 pool.identifier.type,
-                 pool.identifier.identifier,
-                 datetime.datetime.utcnow(),
-                 datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                 1,
-             ))
-             response = self.manager.loans.borrow(
-                 DataSource.THREEM, pool.identifier.identifier)
-             eq_(201, response.status_code)
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(AlreadyOnHold())
+            self.manager.circulation.queue_hold(HoldInfo(
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                1,
+            ))
+            response = self.manager.loans.borrow(
+                DataSource.THREEM, pool.identifier.identifier)
+            eq_(201, response.status_code)
 
-             # A hold has been created for this license pool.
-             hold = get_one(self._db, Hold, license_pool=pool)
-             assert hold != None
+            # A hold has been created for this license pool.
+            hold = get_one(self._db, Hold, license_pool=pool)
+            assert hold != None
 
     def test_borrow_fails_when_work_not_present_on_remote(self):
          threem_edition, pool = self._edition(
