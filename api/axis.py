@@ -8,6 +8,7 @@ from core.axis import (
     Axis360API as BaseAxis360API,
     Axis360Parser,
     BibliographicParser,
+    Axis360BibliographicCoverageProvider
 )
 
 from core.metadata_layer import (
@@ -216,6 +217,9 @@ class Axis360CirculationMonitor(Monitor):
         else:
             # This should only happen during a test.
             self.metadata_wrangler = None
+        self.bibliographic_coverage_provider = (
+            Axis360BibliographicCoverageProvider(self._db)
+        )
 
     def run(self):
         self.api = Axis360API(self._db)
@@ -251,6 +255,15 @@ class Axis360CirculationMonitor(Monitor):
                 replace_contributions=True,
                 replace_formats=True,
             )
+            # At this point we have done work equivalent to that done by 
+            # the Axis360BibliographicCoverageProvider. Register that the
+            # work has been done so we don't have to do it again.
+            identifier = edition.primary_identifier
+            self.bibliographic_coverage_provider.handle_success(identifier)
+            self.bibliographic_coverage_provider.add_coverage_record_for(
+                identifier
+            )
+            
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
 

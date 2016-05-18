@@ -70,9 +70,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 Identifier.GUTENBERG_ID, 
                 Identifier.AXIS_360_ID,
             ]
-        self.output_source = DataSource.lookup(
-            self._db, DataSource.METADATA_WRANGLER
-        )
+        self.output_source_name = DataSource.METADATA_WRANGLER
 
         if not metadata_lookup:
             metadata_lookup = SimplifiedOPDSLookup.from_config()

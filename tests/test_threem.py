@@ -23,6 +23,7 @@ from api.circulation import (
 
 from . import (
     DatabaseTest,
+    sample_data
 )
 
 from core.model import (
@@ -33,14 +34,10 @@ from core.model import (
 
 class TestThreeMAPI(DatabaseTest):
 
-    base_path = os.path.split(__file__)[0]
-    resource_path = os.path.join(base_path, "files", "threem")
-
     @classmethod
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'threem')
+
 
 class TestThreeMParser(TestThreeMAPI):
 

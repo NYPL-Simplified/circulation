@@ -210,7 +210,7 @@ class WorkController(CirculationManagerController):
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            work.primary_edition.title = unicode(new_title)
+            work.presentation_edition.title = unicode(new_title)
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""
@@ -219,7 +219,7 @@ class WorkController(CirculationManagerController):
             if work.summary and work.summary.data_source == staff_data_source:
                 old_summary = work.summary
 
-            (link, is_new) =  work.primary_edition.primary_identifier.add_link(
+            (link, is_new) =  work.presentation_edition.primary_identifier.add_link(
                 Hyperlink.DESCRIPTION, None, 
                 staff_data_source, content=new_summary)
             work.set_summary(link.resource)
@@ -327,7 +327,7 @@ class WorkController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
 
-        identifier_id = pool.work.primary_edition.primary_identifier.id
+        identifier_id = pool.work.presentation_edition.primary_identifier.id
         results = self._db \
             .query(Classification) \
             .join(Subject) \
@@ -363,7 +363,7 @@ class WorkController(CirculationManagerController):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         # Previous staff classifications
-        primary_identifier = work.primary_edition.primary_identifier
+        primary_identifier = work.presentation_edition.primary_identifier
         old_classifications = self._db \
             .query(Classification) \
             .join(Subject) \
