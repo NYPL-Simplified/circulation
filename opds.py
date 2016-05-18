@@ -655,7 +655,7 @@ class AcquisitionFeed(OPDSFeed):
         if visible_parent:
             up_uri = annotator.lane_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
-        feed.add_breadcrumbs(lane, annotator)
+            feed.add_breadcrumbs(lane, annotator)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
