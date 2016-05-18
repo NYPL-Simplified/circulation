@@ -656,7 +656,7 @@ class ThreeMEventMonitor(Monitor):
             _db, self.service_name, default_start_time=default_start_time)
         self.api = ThreeMAPI(self._db, testing=testing)
         self.bibliographic_coverage_provider = ThreeMBibliographicCoverageProvider(
-            self._db
+            self._db, threem_api=self.api
         )
 
     def create_default_start_time(self, _db, cli_date):
