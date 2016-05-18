@@ -571,7 +571,7 @@ class LoanController(CirculationManagerController):
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(pool, mechanism_id)
-            if isinstance(mechanism, Response):
+            if isinstance(mechanism, ProblemDetail):
                 return mechanism
 
         if not pool:
@@ -712,7 +712,7 @@ class LoanController(CirculationManagerController):
     def revoke(self, data_source, identifier):
         patron = flask.request.patron
         pool = self.load_licensepool(data_source, identifier)
-        if isinstance(pool, Response):
+        if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
         if loan:
