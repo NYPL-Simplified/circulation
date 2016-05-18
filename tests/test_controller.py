@@ -446,7 +446,7 @@ class TestLoanController(CirculationControllerTest):
             with_license_pool=True,
         )
         threem_book = self._work(
-            primary_edition=threem_edition,
+            presentation_edition=threem_edition,
         )
         pool.licenses_available = 0
         pool.open_access = False
