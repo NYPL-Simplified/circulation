@@ -455,7 +455,6 @@ class WorkController(CirculationManagerController):
             classification.subject.fiction = new_fiction
 
         # Update genres
-
         # make sure all new genres are legit
         for name in new_genres:
             genre, is_new = Genre.lookup(self._db, name)
