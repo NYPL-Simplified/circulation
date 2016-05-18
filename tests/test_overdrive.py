@@ -3,7 +3,6 @@ from nose.tools import (
     set_trace, eq_,
     assert_raises,
 )
-import os
 import pkgutil
 import json
 from api.overdrive import (
@@ -16,6 +15,7 @@ from api.circulation import (
 
 from . import (
     DatabaseTest,
+    sample_data
 )
 
 from core.model import (
@@ -26,14 +26,9 @@ from core.model import (
 
 class TestOverdriveAPI(DatabaseTest):
 
-    base_path = os.path.split(__file__)[0]
-    resource_path = os.path.join(base_path, "files", "overdrive")
-
     @classmethod
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'overdrive')
 
     @classmethod
     def sample_json(self, filename):
