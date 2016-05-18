@@ -1855,16 +1855,8 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(True, created)
 
-        # Even before the forthcoming commit, the edition is the
-        # work's presentation edition.
+        # The edition is the work's presentation edition.
         eq_(work, edition.work)
-        eq_(edition, work.presentation_edition)
-
-        # But without this commit, the join for the .presentation_edition
-        # won't succeed and work.title won't work.
-        self._db.commit()
-
-        # Ta-da!
         eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
         eq_(u"bar", work.author)
