@@ -2172,7 +2172,8 @@ class Edition(Base):
     primary_identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
 
-    # An Edition may be the presentation edition for a single Work.
+    # An Edition may be the presentation edition for a single Work. If it's not
+    # a presentation edition for a work, work will be None.
     work = relationship("Work", uselist=False, backref="presentation_edition")
  
     # An Edition may show up in many CustomListEntries.
