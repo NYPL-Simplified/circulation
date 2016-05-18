@@ -629,20 +629,21 @@ class TestEdition(DatabaseTest):
 
     def test_recursive_edition_equivalence(self):
 
-        gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        open_library_source = DataSource.lookup(self._db, DataSource.OPEN_LIBRARY)
-        web_source = DataSource.lookup(self._db, DataSource.WEB)
-
         # Here's a Edition for a Project Gutenberg text.
-        gutenberg, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "1")
-        gutenberg.title = "Original Gutenberg text"
+        gutenberg, gutenberg_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="1",
+            with_open_access_download=True,
+            title="Original Gutenberg text")
 
         # Here's a Edition for an Open Library text.
-        open_library, ignore = Edition.for_foreign_id(
-            self._db, open_library_source, Identifier.OPEN_LIBRARY_ID,
-            "W1111")
-        open_library.title = "Open Library record"
+        open_library, open_library_pool = self._edition(
+            data_source_name=DataSource.OPEN_LIBRARY,
+            identifier_type=Identifier.OPEN_LIBRARY_ID,
+            identifier_id="W1111",
+            with_open_access_download=True,
+            title="Open Library record")
 
         # We've learned from OCLC Classify that the Gutenberg text is
         # equivalent to a certain OCLC Number. We've learned from OCLC
@@ -659,6 +660,7 @@ class TestEdition(DatabaseTest):
             oclc_linked_data, oclc_number, 1)
        
         # Here's a Edition for a Recovering the Classics cover.
+        web_source = DataSource.lookup(self._db, DataSource.WEB)
         recovering, ignore = Edition.for_foreign_id(
             self._db, web_source, Identifier.URI, 
             "http://recoveringtheclassics.com/pride-and-prejudice.jpg")
@@ -672,9 +674,12 @@ class TestEdition(DatabaseTest):
 
         # Finally, here's a completely unrelated Edition, which
         # will not be showing up.
-        gutenberg2, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "2")
-        gutenberg2.title = "Unrelated Gutenberg record."
+        gutenberg2, gutenberg2_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="2",
+            with_open_access_download=True,
+            title="Unrelated Gutenberg record.")
 
         # When we call equivalent_editions on the Project Gutenberg
         # Edition, we get three Editions: the Gutenberg record
@@ -693,16 +698,16 @@ class TestEdition(DatabaseTest):
 
         # Here's a Work that incorporates one of the Gutenberg records.
         work = Work()
-        work.set_presentation_edition(gutenberg2)
+        work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
         eq_(1, work.all_editions().count())
 
-        # If we change to the other Gutenberg record, then its
-        # set-of-all-editions is that record, *plus* all the 
-        # Editions equivalent to that record.
-        work.set_presentation_edition(gutenberg)
-        eq_(3, work.all_editions().count())
+        # If we add the other Gutenberg record to it, then its
+        # set-of-all-editions is extended by that record, *plus*
+        # all the Editions equivalent to that record.
+        work.license_pools.extend([gutenberg_pool])
+        eq_(4, work.all_editions().count())
 
     def test_calculate_presentation_title(self):
         wr = self._edition(title="The Foo")

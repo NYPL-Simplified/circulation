@@ -3148,8 +3148,8 @@ class Work(Base):
         return q
 
     def all_editions(self, recursion_level=5):
-        """All Editions identified by a Identifier equivalent to 
-        the primary identifiers of this Work's presentation edition.
+        """All Editions identified by an Identifier equivalent to 
+        the identifiers of this Work's license pools.
 
         `recursion_level` controls how far to go when looking for equivalent
         Identifiers.
@@ -3162,9 +3162,12 @@ class Work(Base):
 
     def all_identifier_ids(self, recursion_level=5):
         _db = Session.object_session(self)
-        primary_identifier_id = self.presentation_edition.primary_identifier.id
+        primary_identifier_ids = [
+            lp.identifier.id for lp in self.license_pools
+            if lp.identifier
+        ]
         identifier_ids = Identifier.recursively_equivalent_identifier_ids_flat(
-            _db, [primary_identifier_id], recursion_level)
+            _db, primary_identifier_ids, recursion_level)
         return identifier_ids
 
     @property
@@ -3178,26 +3181,18 @@ class Work(Base):
         return language
 
     def all_cover_images(self):
-        _db = Session.object_session(self)
-        primary_identifier_id = self.presentation_edition.primary_identifier.id
-        data = Identifier.recursively_equivalent_identifier_ids(
-            _db, [primary_identifier_id], 5, threshold=0.5)
-        flattened_data = Identifier.flatten_identifier_ids(data)
+        identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Hyperlink.IMAGE).join(
+            _db, identifier_ids, Hyperlink.IMAGE).join(
             Resource.representation).filter(
                 Representation.mirrored_at!=None).filter(
                 Representation.scaled_at!=None).order_by(
                 Resource.quality.desc())
 
     def all_descriptions(self):
-        _db = Session.object_session(self)
-        primary_identifier_id = self.presentation_edition.primary_identifier.id
-        data = Identifier.recursively_equivalent_identifier_ids(
-            _db, [primary_identifier_id], 5, threshold=0.5)
-        flattened_data = Identifier.flatten_identifier_ids(data)
+        identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, flattened_data, Hyperlink.DESCRIPTION).filter(
+            _db, identifier_ids, Hyperlink.DESCRIPTION).filter(
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 
@@ -3334,16 +3329,12 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            primary_identifier_id = self.presentation_edition.primary_identifier.id
-            data = Identifier.recursively_equivalent_identifier_ids(
-                _db, [primary_identifier_id], 5, threshold=0.5
-            )
-            flattened_data = Identifier.flatten_identifier_ids(data)
+            identifier_ids = self.all_identifier_ids()
         else:
-            flattened_data = []
+            identifier_ids = []
 
         if policy.classify:
-            classification_changed = self.assign_genres(flattened_data)
+            classification_changed = self.assign_genres(identifier_ids)
             WorkCoverageRecord.add_for(
                 self, operation=WorkCoverageRecord.CLASSIFY_OPERATION
             )
@@ -3351,7 +3342,7 @@ class Work(Base):
         if policy.choose_summary:
             staff_data_source = DataSource.lookup(_db, DataSource.LIBRARY_STAFF)
             summary, summaries = Identifier.evaluate_summary_quality(
-                _db, flattened_data, [staff_data_source, licensed_data_sources]
+                _db, identifier_ids, [staff_data_source, licensed_data_sources]
             )
             # TODO: clean up the content
             self.set_summary(summary)      
@@ -3373,7 +3364,7 @@ class Work(Base):
                     default_quality = q
             else:
                 default_quality = 0
-            self.calculate_quality(flattened_data, default_quality)
+            self.calculate_quality(identifier_ids, default_quality)
 
         if self.summary_text:
             if isinstance(self.summary_text, unicode):
