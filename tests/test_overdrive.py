@@ -81,6 +81,15 @@ class TestOverdriveAPI(DatabaseTest):
             'http://images.contentreserve.com/'
         )
 
+        # The book has been run through the bibliographic coverage
+        # provider.
+        coverage = [
+            x for x in identifier.coverage_records 
+            if x.operation is None
+            and x.data_source.name == DataSource.OVERDRIVE
+        ]
+        eq_(1, len(coverage))
+
     def test_update_new_licensepool(self):
         data, raw = self.sample_json("overdrive_availability_information.json")
 
