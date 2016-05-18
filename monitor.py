@@ -499,7 +499,7 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         return max_id
 
     def prepare(self, work):
-        edition = work.primary_edition
+        edition = work.presentation_edition
         if not edition:
             work = work.calculate_presentation()
         identifier = edition.primary_identifier

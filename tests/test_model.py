@@ -629,20 +629,21 @@ class TestEdition(DatabaseTest):
 
     def test_recursive_edition_equivalence(self):
 
-        gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        open_library_source = DataSource.lookup(self._db, DataSource.OPEN_LIBRARY)
-        web_source = DataSource.lookup(self._db, DataSource.WEB)
-
         # Here's a Edition for a Project Gutenberg text.
-        gutenberg, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "1")
-        gutenberg.title = "Original Gutenberg text"
+        gutenberg, gutenberg_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="1",
+            with_open_access_download=True,
+            title="Original Gutenberg text")
 
         # Here's a Edition for an Open Library text.
-        open_library, ignore = Edition.for_foreign_id(
-            self._db, open_library_source, Identifier.OPEN_LIBRARY_ID,
-            "W1111")
-        open_library.title = "Open Library record"
+        open_library, open_library_pool = self._edition(
+            data_source_name=DataSource.OPEN_LIBRARY,
+            identifier_type=Identifier.OPEN_LIBRARY_ID,
+            identifier_id="W1111",
+            with_open_access_download=True,
+            title="Open Library record")
 
         # We've learned from OCLC Classify that the Gutenberg text is
         # equivalent to a certain OCLC Number. We've learned from OCLC
@@ -659,6 +660,7 @@ class TestEdition(DatabaseTest):
             oclc_linked_data, oclc_number, 1)
        
         # Here's a Edition for a Recovering the Classics cover.
+        web_source = DataSource.lookup(self._db, DataSource.WEB)
         recovering, ignore = Edition.for_foreign_id(
             self._db, web_source, Identifier.URI, 
             "http://recoveringtheclassics.com/pride-and-prejudice.jpg")
@@ -672,9 +674,12 @@ class TestEdition(DatabaseTest):
 
         # Finally, here's a completely unrelated Edition, which
         # will not be showing up.
-        gutenberg2, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "2")
-        gutenberg2.title = "Unrelated Gutenberg record."
+        gutenberg2, gutenberg2_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="2",
+            with_open_access_download=True,
+            title="Unrelated Gutenberg record.")
 
         # When we call equivalent_editions on the Project Gutenberg
         # Edition, we get three Editions: the Gutenberg record
@@ -693,7 +698,7 @@ class TestEdition(DatabaseTest):
 
         # Here's a Work that incorporates one of the Gutenberg records.
         work = Work()
-        work.editions.extend([gutenberg2])
+        work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
         eq_(1, work.all_editions().count())
@@ -701,7 +706,7 @@ class TestEdition(DatabaseTest):
         # If we add the other Gutenberg record to it, then its
         # set-of-all-editions is extended by that record, *plus*
         # all the Editions equivalent to that record.
-        work.editions.extend([gutenberg])
+        work.license_pools.extend([gutenberg_pool])
         eq_(4, work.all_editions().count())
 
     def test_calculate_presentation_title(self):
@@ -741,7 +746,7 @@ class TestEdition(DatabaseTest):
 
     def test_set_summary(self):
         e, pool = self._edition(with_license_pool=True)
-        work = self._work(primary_edition=e)
+        work = self._work(presentation_edition=e)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
         # Set the work's summmary.
@@ -1208,27 +1213,6 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
-        
-        # is_primary_for_work can only happen if the pool has a work associated with it.
-        # add a work, and re-call set_presentation_edition, and test the primarity.
-        work = self._work()
-        # default testing work object creates and sets a primary edition, and we want an clean slate
-        work.primary_edition = None
-
-        # we haven't set a primary yet
-        eq_(edition_mw.is_primary_for_work, False)
-        eq_(edition_od.is_primary_for_work, False)
-        eq_(edition_admin.is_primary_for_work, False)
-        eq_(edition_composite.is_primary_for_work, False)
-
-        work.license_pools.append(pool)
-        pool.set_presentation_edition()
-
-        eq_(edition_mw.is_primary_for_work, False)
-        eq_(edition_od.is_primary_for_work, False)
-        eq_(edition_admin.is_primary_for_work, False)
-        eq_(edition_composite.is_primary_for_work, True)
-
 
 
 class TestWork(DatabaseTest):
@@ -1238,8 +1222,8 @@ class TestWork(DatabaseTest):
         - work coverage records are made on work creation and primary edition selection.
         - work's presentation information (author, title, etc. fields) does a proper job 
           of combining fields from underlying editions.
-        - work's presentation information keeps in sync with work's primary edition.
-        - there can be only one edition that thinks it's the primary edition for this work.
+        - work's presentation information keeps in sync with work's presentation edition.
+        - there can be only one edition that thinks it's the presentation edition for this work.
         - time stamps are stamped.
         """
         gutenberg_source = DataSource.GUTENBERG
@@ -1270,11 +1254,9 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        work = self._work(primary_edition=edition2)
-        # add in 3, 2, 1 order to make sure the selection of edition1 as primary
+        work = self._work(presentation_edition=edition2)
+        # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
-        for i in edition3, edition1:
-            work.editions.append(i)
         for p in pool3, pool1:
             work.license_pools.append(p)
 
@@ -1302,13 +1284,13 @@ class TestWork(DatabaseTest):
         eq_(pool3.superceded, True)
 
         # sanity check
-        eq_(work.primary_edition, pool2.presentation_edition)
-        eq_(work.primary_edition, edition2)
+        eq_(work.presentation_edition, pool2.presentation_edition)
+        eq_(work.presentation_edition, edition2)
 
-        # editions know who's primary
-        eq_(edition1.is_primary_for_work, False)
-        eq_(edition2.is_primary_for_work, True)
-        eq_(edition3.is_primary_for_work, False)
+        # editions that aren't the presentation edition have no work
+        eq_(edition1.work, None)
+        eq_(edition2.work, work)
+        eq_(edition3.work, None)
 
         # The title of the Work is the title of its primary work record.
         eq_("The 2nd Title", work.title)
@@ -1346,8 +1328,6 @@ class TestWork(DatabaseTest):
         # Make sure that work's presentation edition and work's author, etc. 
         # fields are updated accordingly, and that the superceded pool's edition 
         # knows it's no longer the champ.
-        #for pool in work.license_pools:
-        #    if pool.presentation_edition is work.primary_edition:
         pool2.suppressed = True
         
         work.calculate_presentation(search_index_client=index)
@@ -1361,13 +1341,13 @@ class TestWork(DatabaseTest):
         eq_("Bitshifter, Bob", work.sort_author)
 
         # sanity check
-        eq_(work.primary_edition, pool1.presentation_edition)
-        eq_(work.primary_edition, edition1)
+        eq_(work.presentation_edition, pool1.presentation_edition)
+        eq_(work.presentation_edition, edition1)
 
-        # editions know who's primary
-        eq_(edition1.is_primary_for_work, True)
-        eq_(edition2.is_primary_for_work, False)
-        eq_(edition3.is_primary_for_work, False)
+        # editions that aren't the presentation edition have no work
+        eq_(edition1.work, work)
+        eq_(edition2.work, None)
+        eq_(edition3.work, None)
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -1377,7 +1357,7 @@ class TestWork(DatabaseTest):
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
-        primary = work.primary_edition
+        presentation = work.presentation_edition
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)
         
@@ -1386,11 +1366,11 @@ class TestWork(DatabaseTest):
 
         # Remove the title, and the work stops being presentation
         # ready.
-        primary.title = None
+        presentation.title = None
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
 
-        primary.title = u"foo"
+        presentation.title = u"foo"
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
@@ -1420,8 +1400,8 @@ class TestWork(DatabaseTest):
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
     def test_classifications_with_genre(self):
-        work = self._work()
-        identifier = work.primary_edition.primary_identifier
+        work = self._work(with_open_access_download=True)
+        identifier = work.presentation_edition.primary_identifier
         genres = self._db.query(Genre).all()
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genres[0]
@@ -1491,7 +1471,7 @@ class TestWork(DatabaseTest):
             data_source_name=DataSource.GUTENBERG, with_open_access_download=True
         )
 
-        work_multipool = self._work(primary_edition=None)
+        work_multipool = self._work(presentation_edition=None)
         work_multipool.license_pools.append(gutenberg1)
         work_multipool.license_pools.append(gitenberg2)
         work_multipool.license_pools.append(gitenberg1)
@@ -1536,19 +1516,19 @@ class TestWork(DatabaseTest):
         eq_(pool_gut.suppressed, False)
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is the title of its primary edition.
+        # The title of the Work is the title of its presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary edition.
+        # The author of the Work is the author of its presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1561,19 +1541,19 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # standard ebooks was last viable pool, and it stayed as work's choice
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is still the title of its last viable primary edition.
+        # The title of the Work is still the title of its last viable presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary edition.
+        # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1581,9 +1561,9 @@ class TestWork(DatabaseTest):
 
 
     def test_work_updates_info_on_pool_suppressed(self):
-        """ If the provider of the work's primary edition gets suppressed, 
+        """ If the provider of the work's presentation edition gets suppressed, 
         the work will choose another child license pool's presentation edition as 
-        its primary edition.
+        its presentation edition.
         """
         (work, pool_std_ebooks, pool_git, pool_gut, 
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
@@ -1594,19 +1574,19 @@ class TestWork(DatabaseTest):
         eq_(pool_gut.suppressed, False)
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is the title of its primary edition.
+        # The title of the Work is the title of its presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary edition.
+        # The author of the Work is the author of its presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1617,19 +1597,19 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # gitenberg is next best and it got determined to be the best
-        eq_(work.primary_edition, pool_git.presentation_edition)
-        eq_(work.primary_edition, edition_git)
+        eq_(work.presentation_edition, pool_git.presentation_edition)
+        eq_(work.presentation_edition, edition_git)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, False)
-        eq_(edition_git.is_primary_for_work, True)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, None)
+        eq_(edition_git.work, work)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is still the title of its last viable primary edition.
+        # The title of the Work is still the title of its last viable presentation edition.
         eq_("The GItenberg Title", work.title)
         eq_("The GItenberg Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary edition.
+        # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
@@ -1794,7 +1774,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_calculate_work_success(self):
         e, p = self._edition(with_license_pool=True)
         work, new = p.calculate_work(even_if_no_author=True)
-        eq_(p.presentation_edition, work.primary_edition)
+        eq_(p.presentation_edition, work.presentation_edition)
         eq_(True, new)
 
     def test_calculate_work_bails_out_if_no_title(self):
@@ -1813,7 +1793,7 @@ class TestWorkConsolidation(DatabaseTest):
         # If we know that there simply is no author for this work,
         # we can pass in even_if_no_author=True
         work, new = p.calculate_work(even_if_no_author=True)
-        eq_(p.presentation_edition, work.primary_edition)
+        eq_(p.presentation_edition, work.presentation_edition)
         eq_(True, new)
 
 
@@ -1830,16 +1810,13 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(created, True)
 
         # Calling calculate_work() on the second edition associated
-        # the second edition with the first work.
+        # the second edition's pool with the first work.
         work2, created = edition2.license_pool.calculate_work()
         eq_(created, False)
 
         eq_(work1, work2)
 
-        eq_(set([edition1, edition2]), set(work1.editions))
-
-        # Note that this works even though the Edition somehow got a
-        # Work without having a title or author.
+        eq_(set([edition1.license_pool, edition2.license_pool]), set(work1.license_pools))
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
@@ -1848,7 +1825,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This edition is unique to the existing work.
         preexisting_work = Work()
-        preexisting_work.editions = [edition1]
+        preexisting_work.set_presentation_edition(edition1)
 
         # This edition is unique to the new LicensePool
         edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
@@ -1878,18 +1855,9 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(True, created)
 
-        # Even before the forthcoming commit, the edition is clearly
-        # associated with the work.
+        # The edition is the work's presentation edition.
         eq_(work, edition.work)
-        eq_(True, edition.is_primary_for_work)
-        eq_(edition, work.primary_edition)
-
-        # But without this commit, the join for the .primary_edition
-        # won't succeed and work.title won't work.
-        self._db.commit()
-
-        # Ta-da!
-        eq_(edition, work.primary_edition)
+        eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
         eq_(u"bar", work.author)
 
@@ -1905,7 +1873,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work(even_if_no_author=True)
         eq_(True, created)
         self._db.commit()
-        eq_(edition, work.primary_edition)
+        eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
         eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
@@ -1937,8 +1905,7 @@ class TestWorkConsolidation(DatabaseTest):
         for make_equivalent in edition3, edition1:
             edition4.primary_identifier.equivalent_to(
                 data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(primary_edition=edition1)
-        preexisting_work.editions.append(edition2)
+        preexisting_work = self._work(presentation_edition=edition1)
 
         pool, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
@@ -1956,10 +1923,10 @@ class TestWorkConsolidation(DatabaseTest):
         ed2, open2 = self._edition(title=title, authors=author, with_license_pool=True)
         ed3, restricted3 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
-        with_license_pool=True)
+            with_license_pool=True)
         ed4, restricted4 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
-        with_license_pool=True)
+            with_license_pool=True)
 
         restricted3.open_access = False
         restricted4.open_access = False

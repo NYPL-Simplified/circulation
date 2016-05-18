@@ -75,7 +75,7 @@ class TestURNLookupController(DatabaseTest):
         code, message = self.controller.process_urn(identifier.urn)
         eq_(None, code)
         eq_(None, message)
-        eq_([(work.primary_edition.primary_identifier, work)], self.controller.works)
+        eq_([(work.presentation_edition.primary_identifier, work)], self.controller.works)
 
     def test_process_urn_work_is_not_presentation_ready(self):
         work = self._work(with_license_pool=True)

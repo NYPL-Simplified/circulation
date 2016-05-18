@@ -193,7 +193,7 @@ class TestFacetsApply(DatabaseTest):
         (licensed_e1, licensed_p1) = self._edition(
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True)
-        licensed_high = self._work(primary_edition=licensed_e1)
+        licensed_high = self._work(presentation_edition=licensed_e1)
         licensed_high.license_pools.append(licensed_p1)
         licensed_high.quality = 0.8
         licensed_p1.open_access = False
@@ -206,14 +206,14 @@ class TestFacetsApply(DatabaseTest):
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True)
         licensed_p2.open_access = False
-        licensed_low = self._work(primary_edition=licensed_e2)
+        licensed_low = self._work(presentation_edition=licensed_e2)
         licensed_low.license_pools.append(licensed_p2)
         licensed_low.quality = 0.2
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
 
-        qu = self._db.query(Work).join(Work.primary_edition).join(
+        qu = self._db.query(Work).join(Work.presentation_edition).join(
             Work.license_pools
         )
         def facetify(collection=Facets.COLLECTION_FULL, 
@@ -594,7 +594,7 @@ class TestLanesQuery(DatabaseTest):
                 audience=Lane.AUDIENCE_YOUNG_ADULT,
                 fiction=fiction,
                 with_license_pool=True,
-                primary_edition=ya_edition,
+                presentation_edition=ya_edition,
                 genre=genre,
             )
             self.ya_works[genre] = ya_work
@@ -608,7 +608,7 @@ class TestLanesQuery(DatabaseTest):
                 audience=Lane.AUDIENCE_CHILDREN,
                 fiction=fiction,
                 with_license_pool=True,
-                primary_edition=childrens_edition,
+                presentation_edition=childrens_edition,
                 genre=genre,
             )
             if genre == self.epic_fantasy:
@@ -639,7 +639,7 @@ class TestLanesQuery(DatabaseTest):
             audience=Lane.AUDIENCE_ADULT,
             with_license_pool=True,
         )
-        self.music.primary_edition.medium=Edition.MUSIC_MEDIUM
+        self.music.presentation_edition.medium=Edition.MUSIC_MEDIUM
         self.music.simple_opds_entry = '<entry>'
 
         # Create a Spanish book.
@@ -695,7 +695,7 @@ class TestLanesQuery(DatabaseTest):
         lane = Lane(self._db, "Music", media=Edition.MUSIC_MEDIUM)
         w, mw = _assert_expectations(
             lane, 1, 
-            lambda x: x.primary_edition.medium==Edition.MUSIC_MEDIUM,
+            lambda x: x.presentation_edition.medium==Edition.MUSIC_MEDIUM,
             lambda x: x.medium==Edition.MUSIC_MEDIUM
         )
         
@@ -710,7 +710,7 @@ class TestLanesQuery(DatabaseTest):
         lane = Lane(self._db, "Nonfiction", fiction=False)
         w, mw = _assert_expectations(
             lane, 7, 
-            lambda x: x.primary_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
+            lambda x: x.presentation_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
             lambda x: x.medium==Edition.BOOK_MEDIUM and not x.fiction
         )
 
@@ -828,7 +828,7 @@ class TestLanesQuery(DatabaseTest):
             num_entries=0
         )
         best_seller_list_1.add_entry(
-            self.fiction.primary_edition, first_appearance=one_day_ago
+            self.fiction.presentation_edition, first_appearance=one_day_ago
         )
         
         nonfic_name = "Best Sellers - Nonfiction"
@@ -836,7 +836,7 @@ class TestLanesQuery(DatabaseTest):
             foreign_identifier=nonfic_name, name=nonfic_name, num_entries=0
         )
         best_seller_list_2.add_entry(
-            self.nonfiction.primary_edition, first_appearance=one_year_ago
+            self.nonfiction.presentation_edition, first_appearance=one_year_ago
         )
 
         # Create a lane for one specific list

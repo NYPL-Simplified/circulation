@@ -247,7 +247,7 @@ class Annotator(object):
 
     @classmethod
     def work_id(cls, work):
-        return work.primary_edition.primary_identifier.urn
+        return work.presentation_edition.primary_identifier.urn
 
     @classmethod
     def permalink_for(cls, work, license_pool, identifier):
@@ -301,8 +301,8 @@ class Annotator(object):
             
         if work.has_open_access_license:
             # All licenses are issued from the license pool associated with
-            # the work's primary edition.
-            edition = work.primary_edition
+            # the work's presentation edition.
+            edition = work.presentation_edition
 
             if (edition and edition.license_pool and
                 edition.open_access_download_url and edition.title):
@@ -708,7 +708,7 @@ class AcquisitionFeed(OPDSFeed):
     def single_entry(cls, _db, work, annotator, force_create=False):
         """Create a single-entry feed for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)
-        if not isinstance(work, Edition) and not work.primary_edition:
+        if not isinstance(work, Edition) and not work.presentation_edition:
             return None
         return feed.create_entry(work, None, even_if_no_license_pool=True,
                                  force_create=force_create)
@@ -793,8 +793,8 @@ class AcquisitionFeed(OPDSFeed):
             elif active_license_pool:
                 identifier = active_license_pool.identifier
                 active_edition = active_license_pool.presentation_edition
-            else:
-                active_edition = work.primary_edition
+            elif work.presentation_edition:
+                active_edition = work.presentation_edition
                 identifier = active_edition.primary_identifier
 
         # There's no reason to present a book that has no active license pool.
@@ -1213,7 +1213,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             self.feed.append(entry)
             return None
 
-        edition = work.primary_edition
+        edition = work.presentation_edition
         return self._create_entry(
             work, active_license_pool, edition, identifier, lane_link
         )

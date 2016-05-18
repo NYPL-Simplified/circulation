@@ -111,7 +111,7 @@ class TestWorkProcessingScript(DatabaseTest):
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
-        overdrive_work = self._work(primary_edition=overdrive_edition)
+        overdrive_work = self._work(presentation_edition=overdrive_edition)
 
         everything = WorkProcessingScript.make_query(self._db, None, None)
         eq_(set([g1, g2, overdrive_work]), set(everything.all()))

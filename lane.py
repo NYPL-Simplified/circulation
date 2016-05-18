@@ -872,17 +872,17 @@ class Lane(object):
         * Have an unsuppressed license pool.
         """
 
-        q = self._db.query(Work).join(Work.primary_edition)
+        q = self._db.query(Work).join(Work.presentation_edition)
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(
             LicensePool.identifier
         )
         q = q.options(
             contains_eager(Work.license_pools),
-            contains_eager(Work.primary_edition),
+            contains_eager(Work.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.primary_edition, Edition.extra),
+            defer(Work.presentation_edition, Edition.extra),
             defer(Work.license_pools, LicensePool.presentation_edition, Edition.extra),
         )
         q = self._defer_unused_opds_entry(q)

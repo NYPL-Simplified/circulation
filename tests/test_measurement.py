@@ -186,10 +186,10 @@ class TestMeasurement(DatabaseTest):
         eq_(0, Measurement.overall_quality([irrelevant]))
 
     def test_calculate_quality(self):
-        w = self._work()
+        w = self._work(with_open_access_download=True)
 
         # This book used to be incredibly popular.
-        identifier = w.primary_edition.primary_identifier
+        identifier = w.presentation_edition.primary_identifier
         old_popularity = identifier.add_measurement(
             self.source, Measurement.POPULARITY, 6000)
 
