@@ -1,4 +1,5 @@
 ALTER TABLE works ADD COLUMN presentation_edition_id integer;
+CREATE INDEX ix_works_presentation_edition_id on works USING btree (presentation_edition_id);
 UPDATE works as w SET presentation_edition_id = e.id from editions as e where e.work_id = w.id and e.is_primary_for_work = true;
 ALTER TABLE editions DROP COLUMN work_id CASCADE;
 ALTER TABLE editions DROP COLUMN is_primary_for_work CASCADE;
