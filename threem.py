@@ -323,15 +323,21 @@ class ItemListParser(XMLParser):
 
 
 class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for 3M records."""
+    """Fill in bibliographic metadata for 3M records.
+
+    Then mark the works as presentation-ready.
+    """
 
     def __init__(self, _db, input_identifier_types=None,
-                 metadata_replacement_policy=None, **kwargs):
+                 metadata_replacement_policy=None, threem_api=None,
+                 **kwargs
+    ):
         # We ignore the value of input_identifier_types, but it's
         # passed in by RunCoverageProviderScript, so we accept it as
         # part of the signature.
+        threem_api = threem_api or ThreeMAPI(_db)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
-            _db, ThreeMAPI(_db), DataSource.THREEM,
+            _db, threem_api, DataSource.THREEM,
             workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
@@ -340,6 +346,9 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         for identifier in identifiers:
             metadata = self.api.bibliographic_lookup(identifier)
             result = self.set_metadata(identifier, metadata)
+            if not isinstance(result, CoverageFailure):
+                # Success!
+                result = self.set_presentation_ready(result)
             batch_results.append(result)
         return batch_results
 
