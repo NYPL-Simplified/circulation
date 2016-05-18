@@ -19,10 +19,11 @@ pidfile=$piddir/$SCRIPT
 logdir=/var/log/libsimple
 logfile=$logdir/$SCRIPT
 
-# Assume the path to the Library Simplified directory is
-# /var/www/circulation unless it's been set as an environment variable
+# Assume this run file is the Library Simplified directory/core/bin
+# unless the Library Simplified directory has been set as an environment
+# variable $LIBSIMPLE_DIR
 if [ -z "$LIBSIMPLE_DIR" ]; then
-  LIBSIMPLE_DIR=/var/www/circulation
+  LIBSIMPLE_DIR=$(dirname $(dirname $(dirname $0)))
 fi
 
 create_dir () {
