@@ -238,3 +238,10 @@ INCOMPATIBLE_GENRE = pd(
     title="Incompatible genre.",
     detail="The genre is incompatible with the fiction status of the work."
 )
+
+EROTICA_FOR_ADULTS_ONLY = pd(
+    "http://librarysimplified.org/terms/problem/erotica-for-adults-only",
+    status_code=409,
+    title="Erotica is for Adults Only.",
+    detail="The Erotica genre is incompatible with the submitted Audience."
+)

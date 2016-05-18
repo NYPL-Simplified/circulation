@@ -119,6 +119,24 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
 
+    def test_single_entry_no_active_license_pool(self):
+        work = self._work(with_open_access_download=True)
+        pool = work.license_pools[0]
+
+        # Create an <entry> tag for this work and its LicensePool.
+        feed1 = AcquisitionFeed.single_entry(
+            self._db, work, self.annotator, pool
+        )
+
+        # If we don't pass in the license pool, it makes a guess to
+        # figure out which license pool we're talking about.
+        feed2 = AcquisitionFeed.single_entry(
+            self._db, work, self.annotator, None
+        )
+
+        # Both entries are identical.
+        eq_(etree.tostring(feed1), etree.tostring(feed2))
+
 
 class TestOPDS(DatabaseTest):
 
@@ -208,7 +226,7 @@ class TestOPDS(DatabaseTest):
         w1 = self._work(with_open_access_download=True)
         w2 = self._work(with_open_access_download=True)
         w2.license_pools[0].open_access = False
-        w2.licenses_available = 10
+        w2.license_pools[0].licenses_owned = 1
         self._db.commit()
 
         works = self._db.query(Work)
@@ -335,4 +353,3 @@ class TestOPDS(DatabaseTest):
 
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
-
