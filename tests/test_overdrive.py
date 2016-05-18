@@ -40,6 +40,47 @@ class TestOverdriveAPI(DatabaseTest):
         data = self.sample_data(filename)
         return data, json.loads(data)
 
+    def test_update_licensepool_provides_bibliographic_coverage(self):
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+
+        # Prepare bibliographic and availability information 
+        # for this identifier.
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the newly created Identifier.
+        availability['id'] = identifier.identifier
+        bibliographic['id'] = identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+        api.queue_response(content=availability)
+
+        # Now we're ready. When we call update_licensepool, the
+        # OverdriveAPI will retrieve the availability information,
+        # then the bibliographic information. It will then trigger the
+        # OverdriveBibliographicCoverageProvider, which will
+        # create an Edition and a presentation-ready Work.
+        pool, was_new, changed = api.update_licensepool(identifier.identifier)
+        eq_(True, was_new)        
+        eq_(availability['copiesOwned'], pool.licenses_owned)
+
+        edition = pool.presentation_edition
+        eq_("Ancillary Justice", edition.title)
+
+        eq_(True, pool.work.presentation_ready)
+        assert pool.work.cover_thumbnail_url.startswith(
+            'http://images.contentreserve.com/'
+        )
+
     def test_update_new_licensepool(self):
         data, raw = self.sample_json("overdrive_availability_information.json")
 
@@ -64,11 +105,8 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(True, was_new)
         eq_(True, changed)
 
-        # The title of the corresponding Edition has been filled
-        # in, just to provide some basic human-readable metadata.
         self._db.commit()
 
-        eq_("Blah blah blah", pool.presentation_edition.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
