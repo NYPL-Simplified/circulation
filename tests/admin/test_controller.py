@@ -31,7 +31,11 @@ from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
-from core.classifier import genres
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier
+)
+
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -144,15 +148,41 @@ class TestWorkController(AdminControllerTest):
             .join(Subject) \
             .filter(
                 Classification.identifier == primary_identifier,
-                Classification.data_source == staff_data_source
-            ) \
-            .filter(Subject.genre_id != None)        
+                Classification.data_source == staff_data_source,
+                Subject.genre_id != None
+            )
         staff_genres = [
             c.subject.genre.name 
             for c in genre_classifications 
             if c.subject.genre
         ]
         eq_(sorted(staff_genres), sorted(requested_genres))
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # remove all genres
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        none_classification_count = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source,
+                Subject.name == SimplifiedGenreClassifier.NONE
+            ) \
+            .count()
+        eq_(0, none_classification_count)
         eq_("Adult", work.audience)
         eq_(18, work.target_age.lower)
         eq_(None, work.target_age.upper)

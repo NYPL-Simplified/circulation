@@ -43,7 +43,10 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
-from core.classifier import genres, SimplifiedGenreClassifier
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier
+)
 
 
 def setup_admin_controllers(manager):
@@ -382,7 +385,11 @@ class WorkController(CirculationManagerController):
             work_genre.genre.name
             for work_genre in work.work_genres
         ]
-        
+
+        # New genres should be compared to previously computed genres
+        new_genres = flask.request.form.getlist("genres")
+        genres_changed = sorted(new_genres) != sorted(old_computed_genres)
+
         # Update audience
         new_audience = flask.request.form.get("audience")
         if new_audience != work.audience:
@@ -428,8 +435,10 @@ class WorkController(CirculationManagerController):
                 )
 
         # Update fiction status
+        # If fiction status hasn't changed but genres have changed,
+        # we still want to ensure that there's a staff classification
         new_fiction = True if flask.request.form.get("fiction") == "fiction" else False
-        if new_fiction != work.fiction:
+        if new_fiction != work.fiction or genres_changed:
             # Delete previous staff fiction classifications
             for c in old_classifications:
                 if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
@@ -446,7 +455,6 @@ class WorkController(CirculationManagerController):
             classification.subject.fiction = new_fiction
 
         # Update genres
-        new_genres = flask.request.form.getlist("genres")
 
         # make sure all new genres are legit
         for name in new_genres:
@@ -458,7 +466,7 @@ class WorkController(CirculationManagerController):
             if name == "Erotica" and new_audience != "Adults Only":
                 return EROTICA_FOR_ADULTS_ONLY
 
-        if sorted(new_genres) != sorted(old_computed_genres):
+        if genres_changed:
             # delete existing staff classifications for genres that aren't being kept
             for c in old_genre_classifications:
                 if c.subject.genre.name not in new_genres:
