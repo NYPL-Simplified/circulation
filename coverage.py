@@ -63,10 +63,22 @@ class CoverageProvider(object):
         if not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
-        self.output_source = output_source
+        self.output_source_name = output_source.name
         self.workset_size = workset_size
         self.cutoff_time = cutoff_time
         self.operation = operation
+
+    @property
+    def output_source(self):
+        """Look up the DataSource object corresponding to the
+        service we're running this data through.
+
+        Out of an excess of caution, we look up the DataSource every
+        time, rather than storing it, in case a CoverageProvider is
+        ever used in an environment where the database session is
+        scoped (e.g. the circulation manager).
+        """
+        return DataSource.lookup(self._db, self.output_source_name)
 
     @property
     def log(self):
