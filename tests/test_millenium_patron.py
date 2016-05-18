@@ -1,5 +1,4 @@
 import pkgutil
-import os
 from datetime import date
 from nose.tools import (
     eq_,
@@ -7,7 +6,7 @@ from nose.tools import (
 )
 
 from api.millenium_patron import MilleniumPatronAPI
-from . import DatabaseTest
+from . import DatabaseTest, sample_data
 
 class DummyResponse(object):
     def __init__(self, content):
@@ -19,14 +18,9 @@ class DummyAPI(MilleniumPatronAPI):
     def __init__(self):
         super(DummyAPI, self).__init__("")
         self.queue = []
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(
-            base_path, "files", "millenium_patron")
 
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'millenium_patron')
 
     def enqueue(self, filename):
         data = self.sample_data(filename)

@@ -4,7 +4,6 @@ from nose.tools import (
     assert_raises,
     set_trace,
 )
-import os
 
 from core.model import (
     DataSource,
@@ -34,6 +33,7 @@ from api.axis import (
 
 from . import (
     DatabaseTest,
+    sample_data
 )
 
 from api.circulation import (
@@ -127,14 +127,9 @@ class TestCirculationMonitor(DatabaseTest):
 
 class TestResponseParser(object):
 
-    base_path = os.path.split(__file__)[0]
-    resource_path = os.path.join(base_path, "files", "axis")
-
     @classmethod
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'axis')
 
 class TestCheckoutResponseParser(TestResponseParser):
 
