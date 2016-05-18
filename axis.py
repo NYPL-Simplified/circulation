@@ -206,7 +206,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
             seen_identifiers.add(identifier.identifier)
             result = self.set_metadata(identifier, metadata)
             if not isinstance(result, CoverageFailure):
-                result = self.set_presentation_ready(identifier)
+                result = self.handle_success(identifier)
             batch_results.append(result)
 
         # Create a CoverageFailure object for each original identifier
@@ -221,6 +221,9 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
                 )
                 batch_results.append(result)
         return batch_results
+
+    def handle_success(self, identifier):
+        return self.set_presentation_ready(identifier)
 
     def process_item(self, identifier):
         results = self.process_batch([identifier])
