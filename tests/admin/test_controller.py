@@ -120,10 +120,45 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
         work.audience = "Adult"
         work.fiction = True
-        genre, ignore = Genre.lookup(self._db, "Occult Horror")
-        work.genres = [genre]
+        initial_genres = ["Occult Horror", "Mystery"]
+        for genre_name in initial_genres:
+            genre, ignore = Genre.lookup(self._db, genre_name)
+            work.genres = [genre]
 
-        # change genres
+        # make no changes
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Occult Horror"),
+                ("genres", "Mystery")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        genre_classifications = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source
+            ) \
+            .filter(Subject.genre_id != None)        
+        staff_genres = [
+            c.subject.genre.name 
+            for c in genre_classifications 
+            if c.subject.genre
+        ]
+        eq_(sorted(staff_genres), sorted(requested_genres))
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # completely change genres
         with self.app.test_request_context("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
