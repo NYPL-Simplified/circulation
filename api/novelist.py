@@ -69,7 +69,7 @@ class NoveListAPI(object):
         # Look up strong ISBN equivalents.
         lookup_metadata =  [self.lookup(eq.output)
                 for eq in identifier.equivalencies
-                if (eq.data_source==source and eq.strength==1
+                if (eq.data_source==license_source and eq.strength==1
                     and eq.output.type==Identifier.ISBN)]
 
         if not lookup_metadata:
