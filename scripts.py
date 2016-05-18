@@ -9,7 +9,7 @@ from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
 
-from config import Configuration
+from config import Configuration, CannotLoadConfiguration
 import log # This sets the appropriate log format and level.
 import random
 from metadata_layer import ReplacementPolicy
@@ -322,12 +322,20 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
                     OverdriveBibliographicCoverageProvider,
                     Axis360BibliographicCoverageProvider
             ):
-                provider = provider_class(
-                    self._db, 
-                    cutoff_time=args.cutoff_time
-                )
                 try:
-                    provider.run()
+                    provider = provider_class(
+                        self._db, 
+                        cutoff_time=args.cutoff_time
+                    )
+                except CannotLoadConfiguration, e:
+                    self.log.info(
+                        'Cannot create provider: "%s" Assuming this is intentional and proceeding.',
+                        str(e)
+                    )
+                    provider = None
+                try:
+                    if provider:
+                        provider.run()
                 except Exception, e:
                     self.log.error(
                         "Error in %r, moving on to next source.",
