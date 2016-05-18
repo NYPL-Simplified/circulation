@@ -81,6 +81,7 @@ class OverdriveAPI(object):
         self._db = _db
 
         # Set some stuff from environment variables
+        self.testing = testing
         if not testing:
             values = self.environment_values()
             if len([x for x in values if not x]):
@@ -758,12 +759,15 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
     def __init__(self, _db, input_identifier_types=None,
-                 metadata_replacement_policy=None, **kwargs):
+                 metadata_replacement_policy=None, overdrive_api=None,
+                 **kwargs
+    ):
+        overdrive_api = overdrive_api or OverdriveAPI(_db)
         # We ignore the value of input_identifier_types, but it's
         # passed in by RunCoverageProviderScript, so we accept it as
         # part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
-            _db, OverdriveAPI(_db), DataSource.OVERDRIVE,
+            _db, overdrive_api, DataSource.OVERDRIVE,
             workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
