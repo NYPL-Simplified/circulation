@@ -125,6 +125,20 @@ class TestCirculationMonitor(DatabaseTest):
         for e in events:
             eq_(e.start, license_pool.last_checked)
 
+        # A presentation-ready work has been created for the LicensePool.
+        work = license_pool.work
+        eq_(True, work.presentation_ready)
+        eq_("Faith of My Fathers : A Family Memoir", work.title)
+
+        # A CoverageRecord has been provided for this book in the Axis
+        # 360 bibliographic coverage provider, so that in the future
+        # it doesn't have to make a separate API request to ask about
+        # this book.
+        records = [x for x in license_pool.identifier.coverage_records
+                   if x.data_source.name == DataSource.AXIS_360
+                   and x.operation is None]
+        eq_(1, len(records))
+
 class TestResponseParser(object):
 
     base_path = os.path.split(__file__)[0]
