@@ -3612,6 +3612,10 @@ class Work(Base):
         for wg in by_genre.values():
             _db.delete(wg)
             changed = True
+
+        # ensure that work_genres is up to date without having to read from database again
+        self.work_genres = workgenres
+
         return workgenres, changed
 
 

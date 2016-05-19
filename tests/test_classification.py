@@ -1153,6 +1153,47 @@ class TestWorkClassifier(DatabaseTest):
         # [genre] = self.classifier.genres(True).items()
         # eq_((historical_romance.genredata, 105), genre)
 
+    def test_staff_genre_overrides_others(self):
+        genre1 = self._db.query(Genre).filter(Genre.name == "Poetry").first()
+        genre2 = self._db.query(Genre).filter(Genre.name == "Cooking").first()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genre1
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genre2
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_([genre2.name], [genre.name for genre in genre_weights.keys()])
+
+    def test_staff_none_genre_overrides_others(self):
+        genre1 = self._db.query(Genre).filter(Genre.name == "Poetry").first()
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genre1
+        subject2 = self._subject(
+            type=Subject.SIMPLIFIED_GENRE,
+            identifier=SimplifiedGenreClassifier.NONE
+        )
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=1)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(0, len(genre_weights.keys()))
+
     def test_overdrive_juvenile_implicit_target_age(self):
         # An Overdrive book that is classified under "Juvenile" but
         # not under any more specific category is believed to have a

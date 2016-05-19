@@ -3378,6 +3378,7 @@ class WorkClassifier(object):
         self.classifications = []
         self.seen_classifications = set()
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
+        self.using_staff_genres = False
 
         # Keep track of whether we've seen one of Overdrive's generic
         # "Juvenile" classifications, as well as its more specific
@@ -3401,6 +3402,19 @@ class WorkClassifier(object):
         # Make sure the Subject is ready to be used in calculations.
         if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
+
+        # if classification is genre or NONE from staff, ignore all non-staff genres
+        from model import DataSource
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        from_staff = classification.data_source == staff_data_source
+        is_genre = classification.subject.genre != None
+        is_none = from_staff and classification.subject.identifier == SimplifiedGenreClassifier.NONE
+        if is_genre or is_none:
+            if not from_staff and self.using_staff_genres:
+                return
+            if from_staff and not self.using_staff_genres:
+                self.using_staff_genres = True
+                self.genre_weights = Counter()
 
         if classification.comes_from_license_source:
             self.direct_from_license_source.add(classification)
