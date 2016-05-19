@@ -1,3 +1,8 @@
+from core.problem_details import (
+    INTEGRATION_ERROR,
+    INTERNAL_SERVER_ERROR,
+)
+
 class CirculationException(Exception):
     """An exception occured when carrying out a circulation operation.
 
@@ -8,14 +13,24 @@ class CirculationException(Exception):
 class InternalServerError(Exception):
     status_code = 500
 
+    @property
+    def as_problem_detail_document(self):
+        """Return a suitable problem detail document."""
+        return INTERNAL_SERVER_ERROR
+
 class RemoteInitiatedServerError(InternalServerError):
     """One of the servers we communicate with had an internal error."""
+    status_code = 502
 
     def __init__(self, message, service_name):
         super(RemoteInitiatedServerError, self).__init__(message)
         self.service_name = service_name
 
-    status_code = 502
+    @property
+    def as_problem_detail_document(self):
+        """Return a suitable problem detail document."""
+        msg = "Integration error communicating with %s" % self.service_name
+        return INTEGRATION_ERROR.detailed(msg)
 
 class NoOpenAccessDownload(CirculationException):
     """We expected a book to have an open-access download, but it didn't."""

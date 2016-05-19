@@ -125,7 +125,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
         :return: a LoanInfo object
         """
-
         threem_id = licensepool.identifier.identifier
         patron_identifier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
@@ -368,11 +367,6 @@ class ErrorParser(ThreeMParser):
     }
 
     def process_all(self, string):
-        if string.startswith("The server has encountered an error"):
-            # The app server can't even send us an XML error message.
-            return RemoteInitiatedServerError(
-                string, ThreeMAPI.SERVICE_NAME
-            )
         try:
             for i in super(ErrorParser, self).process_all(
                     string, "//Error"):
@@ -383,6 +377,12 @@ class ErrorParser(ThreeMParser):
             return RemoteInitiatedServerError(
                 string, ThreeMAPI.SERVICE_NAME
             )
+
+        # We were not able to interpret the result as an error.
+        # The most likely cause is that the 3M app server is down.
+        return RemoteInitiatedServerError(
+            "Unknown error", ThreeMAPI.SERVICE_NAME,
+        )
 
     def process_one(self, error_tag, namespaces):
         message = self.text_of_optional_subtag(error_tag, "Message")

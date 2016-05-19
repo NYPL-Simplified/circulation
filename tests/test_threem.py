@@ -162,11 +162,11 @@ class TestErrorParser(TestThreeMAPI):
         eq_(msg, error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
-        msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">This error doesn't follow the formula.</Error>"""
+        msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
-        eq_(msg, error.message)
+        eq_("Unknown error", error.message)
 
     def test_blank_error_message_becomes_remote_initiated_server_error(self):
         msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Message/></Error>"""
