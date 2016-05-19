@@ -17,6 +17,7 @@ import json
 import os
 import pkgutil
 import re
+import urllib
 from collections import (
     Counter,
     defaultdict,
@@ -3804,6 +3805,17 @@ class SimplifiedGenreClassifier(Classifier):
     NONE = "NONE"
 
     @classmethod
+    def scrub_identifier(cls, identifier):
+        # If the identifier is a URI identifying a Simplified genre,
+        # strip off the first part of the URI to get the genre name.
+        if not identifier:
+            return identifier
+        if identifier.startswith(cls.SIMPLIFIED_GENRE):
+            identifier = identifier[len(cls.SIMPLIFIED_GENRE):]
+            identifier = urllib.unquote(identifier)
+        return Lowercased(identifier)
+
+    @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         if fiction == True:
             all_genres = fiction_genres
@@ -3812,6 +3824,12 @@ class SimplifiedGenreClassifier(Classifier):
         else:
             all_genres = fiction_genres + nonfiction_genres
         return cls._genre_by_name(identifier.original, all_genres)
+
+    @classmethod
+    def is_fiction(cls, identifier, name):
+        if not globals()["genres"].get(identifier.original):
+            return None
+        return globals()["genres"][identifier.original].is_fiction
 
     @classmethod
     def _genre_by_name(cls, name, genres):

@@ -20,13 +20,20 @@ from classifier import (
     OverdriveClassifier as Overdrive,
     FASTClassifier as FAST,
     KeywordBasedClassifier as Keyword,
+    SimplifiedGenreClassifier,
     GradeLevelClassifier,
     AgeClassifier,
     AgeOrGradeClassifier,
     InterestLevelClassifier,
     Axis360AudienceClassifier,
     WorkClassifier,
+    fiction_genres,
+    nonfiction_genres,
+    GenreData
     )
+
+genres = dict()
+GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 
 class TestClassifier(object):
 
@@ -703,12 +710,55 @@ class TestOverdriveClassifier(object):
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, a("Young Adult Nonfiction"))
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, a("Erotic Literature"))
 
+class TestSimplifiedGenreClassifier(object):
+
+    def test_scrub_identifier(self):
+        """The URI for a Library Simplified genre is treated the same as
+        the genre itself.
+        """
+        sf1 = SimplifiedGenreClassifier.scrub_identifier(
+            SimplifiedGenreClassifier.SIMPLIFIED_GENRE + "Science%20Fiction"
+        )
+        sf2 = SimplifiedGenreClassifier.scrub_identifier("Science Fiction")
+        eq_(sf1, sf2)
+        eq_("Science Fiction", sf1.original)
+
+    def test_genre(self):
+        genre_name = "Space Opera"
+        scrubbed = SimplifiedGenreClassifier.scrub_identifier(genre_name)
+
+        genre = SimplifiedGenreClassifier.genre(scrubbed, genre_name, fiction=True)
+        eq_(genre.name, globals()["genres"][genre_name].name)
+
+        genre = SimplifiedGenreClassifier.genre(scrubbed, genre_name)
+        eq_(genre.name, globals()["genres"][genre_name].name)
+
+        genre = SimplifiedGenreClassifier.genre(scrubbed, genre_name, fiction=False)
+        eq_(genre, None)
+
+    def test_is_fiction(self):
+        genre_name = "Space Opera"
+        scrubbed = SimplifiedGenreClassifier.scrub_identifier(genre_name)
+        is_fiction = SimplifiedGenreClassifier.is_fiction(scrubbed, genre_name)
+        eq_(is_fiction, True)
+
+        genre_name = "Cooking"
+        scrubbed = SimplifiedGenreClassifier.scrub_identifier(genre_name)
+        is_fiction = SimplifiedGenreClassifier.is_fiction(scrubbed, genre_name)
+        eq_(is_fiction, False)
+
+        genre_name = "Fake Genre"
+        scrubbed = SimplifiedGenreClassifier.scrub_identifier(genre_name)
+        is_fiction = SimplifiedGenreClassifier.is_fiction(scrubbed, genre_name)
+        eq_(is_fiction, None)
+
+
 class TestWorkClassifier(DatabaseTest):
 
     def setup(self):
         super(TestWorkClassifier, self).setup()
         self.work = self._work(with_license_pool=True)
-        self.identifier = self.work.primary_edition.primary_identifier
+        self.identifier = self.work.presentation_edition.primary_identifier
         self.classifier = WorkClassifier(self.work, test_session=self._db)
 
     def _genre(self, genre_data):
@@ -716,22 +766,22 @@ class TestWorkClassifier(DatabaseTest):
         return expected_genre
 
     def test_weight_metadata_title(self):
-        self.work.primary_edition.title = u"Star Trek: The Book"
+        self.work.presentation_edition.title = u"Star Trek: The Book"
         expected_genre = self._genre(classifier.Media_Tie_in_SF)
         self.classifier.weigh_metadata()
         eq_(100, self.classifier.genre_weights[expected_genre])
 
     def test_weight_metadata_publisher(self):
         # Genre publisher and imprint
-        self.work.primary_edition.publisher = u"Harlequin"
+        self.work.presentation_edition.publisher = u"Harlequin"
         expected_genre = self._genre(classifier.Romance)
         self.classifier.weigh_metadata()
         eq_(100, self.classifier.genre_weights[expected_genre])
 
     def test_weight_metadata_imprint(self):
         # Imprint is more specific than publisher, so it takes precedence.
-        self.work.primary_edition.publisher = u"Harlequin"
-        self.work.primary_edition.imprint = u"Harlequin Intrigue"
+        self.work.presentation_edition.publisher = u"Harlequin"
+        self.work.presentation_edition.imprint = u"Harlequin Intrigue"
         expected_genre = self._genre(classifier.Romantic_Suspense)
         general_romance = self._genre(classifier.Romance)
 
@@ -741,8 +791,8 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_metadata_implies_audience_and_genre(self):
         # Genre and audience publisher 
-        self.work.primary_edition.publisher = u"Harlequin"
-        self.work.primary_edition.imprint = u"Harlequin Teen"
+        self.work.presentation_edition.publisher = u"Harlequin"
+        self.work.presentation_edition.imprint = u"Harlequin Teen"
         expected_genre = self._genre(classifier.Romance)
 
         self.classifier.weigh_metadata()
@@ -750,8 +800,8 @@ class TestWorkClassifier(DatabaseTest):
         eq_(100, self.classifier.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT])
 
     def test_metadata_implies_fiction_status(self):
-        self.work.primary_edition.publisher = u"Harlequin"
-        self.work.primary_edition.imprint = u"Harlequin Nonfiction"
+        self.work.presentation_edition.publisher = u"Harlequin"
+        self.work.presentation_edition.imprint = u"Harlequin Nonfiction"
         self.classifier.weigh_metadata()
 
         eq_(100, self.classifier.fiction_weights[False])
@@ -760,14 +810,14 @@ class TestWorkClassifier(DatabaseTest):
     def test_publisher_excludes_adult_audience(self):
         # We don't know if this is a children's book or a young adult
         # book, but we're confident it's not a book for adults.
-        self.work.primary_edition.publisher = u"Scholastic Inc."
+        self.work.presentation_edition.publisher = u"Scholastic Inc."
 
         self.classifier.weigh_metadata()
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULTS_ONLY])
 
     def test_imprint_excludes_adult_audience(self):
-        self.work.primary_edition.imprint = u"Delacorte Books for Young Readers"
+        self.work.presentation_edition.imprint = u"Delacorte Books for Young Readers"
 
         self.classifier.weigh_metadata()
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
@@ -1045,7 +1095,7 @@ class TestWorkClassifier(DatabaseTest):
             data_source_name=source.name, with_license_pool=True,
             identifier_id=i.identifier
         )
-        self.classifier.work = self._work(primary_edition=overdrive_edition)
+        self.classifier.work = self._work(presentation_edition=overdrive_edition)
         for classification in i.classifications:
             self.classifier.add(classification)
         genres, fiction, audience, target_age = self.classifier.classify
@@ -1170,7 +1220,7 @@ class TestWorkClassifier(DatabaseTest):
         # do an overall test to verify that classify() returns a 4-tuple
         # (genres, fiction, audience, target_age)
 
-        self.work.primary_edition.title = u"Science Fiction: A Comprehensive History"
+        self.work.presentation_edition.title = u"Science Fiction: A Comprehensive History"
         i = self.identifier
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c1 = i.classify(source, Subject.OVERDRIVE, u"History", weight=10)

@@ -30,12 +30,11 @@ as
     licensepools.availability_time
 
    FROM works
-     JOIN editions ON editions.work_id = works.id AND editions.is_primary_for_work = true
+     JOIN editions ON editions.id = works.presentation_edition_id
      JOIN licensepools ON editions.data_source_id = licensepools.data_source_id AND editions.primary_identifier_id = licensepools.identifier_id
      JOIN datasources ON editions.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
-  WHERE works.was_merged_into_id IS NULL
-    AND works.presentation_ready = true
+  WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL
   
   ORDER BY editions.sort_title, editions.sort_author, licensepools.availability_time;

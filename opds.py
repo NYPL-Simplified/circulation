@@ -78,11 +78,7 @@ Format a date the way Atom likes it (RFC3339?)
     return d.strftime(AtomFeed.TIME_FORMAT)
 
 default_typemap = {datetime: lambda e, v: _strftime(v)}
-
 E = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap)
-SCHEMA = builder.ElementMaker(
-    typemap=default_typemap, nsmap=nsmap, namespace="http://schema.org/")
-
 
 class Annotator(object):
     """The Annotator knows how to present an OPDS feed in a specific
@@ -222,6 +218,18 @@ class Annotator(object):
         return [E.author(E.name(edition.author or ""))]
 
     @classmethod
+    def series(cls, series_name, series_position):
+        """Generate a schema:Series tag for the given name and position."""
+        if not series_name:
+            return None
+        series_details = dict()
+        series_details['name'] = series_name
+        if series_position:
+            series_details['{%s}position' % schema_ns] = unicode(series_position)
+        series_tag = E._makeelement("{%s}Series" % schema_ns, **series_details)
+        return series_tag
+
+    @classmethod
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
@@ -236,11 +244,10 @@ class Annotator(object):
     @classmethod
     def lane_id(cls, lane):
         return cls.featured_feed_url(lane)
-        # return "tag:%s" % (lane.name)
 
     @classmethod
     def work_id(cls, work):
-        return work.primary_edition.primary_identifier.urn
+        return work.presentation_edition.primary_identifier.urn
 
     @classmethod
     def permalink_for(cls, work, license_pool, identifier):
@@ -294,10 +301,11 @@ class Annotator(object):
             
         if work.has_open_access_license:
             # All licenses are issued from the license pool associated with
-            # the work's primary edition.
-            edition = work.primary_edition
+            # the work's presentation edition.
+            edition = work.presentation_edition
 
-            if edition and edition.license_pool and edition.open_access_download_url and edition.title:
+            if (edition and edition.license_pool and
+                edition.open_access_download_url and edition.title):
                 # Looks good.
                 open_access_license_pool = edition.license_pool
 
@@ -312,9 +320,7 @@ class Annotator(object):
                     # audio-only or something.
                     if edition and edition.open_access_download_url:
                         open_access_license_pool = p
-                elif edition and edition.title:
-                    # TODO: It's OK to have a non-open-access license pool,
-                    # but the pool needs to have copies available.
+                elif edition and edition.title and p.licenses_owned > 0:
                     active_license_pool = p
                     break
         if not active_license_pool:
@@ -656,7 +662,7 @@ class AcquisitionFeed(OPDSFeed):
         if visible_parent:
             up_uri = annotator.lane_url(visible_parent)
             feed.add_link(href=up_uri, rel="up", title=title)
-        feed.add_breadcrumbs(lane, annotator)
+            feed.add_breadcrumbs(lane, annotator)
 
         feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
@@ -702,7 +708,7 @@ class AcquisitionFeed(OPDSFeed):
     def single_entry(cls, _db, work, annotator, force_create=False):
         """Create a single-entry feed for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)
-        if not isinstance(work, Edition) and not work.primary_edition:
+        if not isinstance(work, Edition) and not work.presentation_edition:
             return None
         return feed.create_entry(work, None, even_if_no_license_pool=True,
                                  force_create=force_create)
@@ -784,11 +790,11 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(work, BaseMaterializedWork):
                 identifier = work.identifier
                 active_edition = None
-            elif active_license_pool:        
+            elif active_license_pool:
                 identifier = active_license_pool.identifier
                 active_edition = active_license_pool.presentation_edition
-            else:
-                active_edition = work.primary_edition
+            elif work.presentation_edition:
+                active_edition = work.presentation_edition
                 identifier = active_edition.primary_identifier
 
         # There's no reason to present a book that has no active license pool.
@@ -801,8 +807,7 @@ class AcquisitionFeed(OPDSFeed):
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier,
-                                  lane_link, force_create)
+                                  identifier, lane_link, force_create)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False):
@@ -836,10 +841,6 @@ class AcquisitionFeed(OPDSFeed):
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=group_title)
 
-        if edition:
-            title = (edition.title or "") + " "
-        else:
-            title = ""
         return xml
 
     def _make_entry_xml(self, work, license_pool, edition, identifier,
@@ -905,6 +906,9 @@ class AcquisitionFeed(OPDSFeed):
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
+
+        if edition.series:
+            entry.extend([self.annotator.series(edition.series, edition.series_position)])
 
         if content:
             entry.extend([E.summary(content, type=content_type)])
@@ -1188,15 +1192,28 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     from the identifier we should use in the feed.
     """
 
+    def __init__(self, _db, title, url, works, annotator=None,
+                 messages_by_urn={}, precomposed_entries=[],
+                 require_active_licensepool=True):
+        self.require_active_licensepool=require_active_licensepool
+
+        super(LookupAcquisitionFeed, self).__init__(
+            _db, title, url, works, annotator,
+            messages_by_urn, precomposed_entries
+        )
+
     def create_entry(self, work, lane_link):
         """Turn a work into an entry for an acquisition feed."""
         identifier, work = work
         active_license_pool = self.annotator.active_licensepool_for(work)
-        # There's no reason to present a book that has no active license pool.
-        if not active_license_pool:
+
+        if self.require_active_licensepool and not active_license_pool:
+            message = { identifier.urn : (404, "Identifier not found in collection")}
+            entry = list(self.render_messages(message))[0]
+            self.feed.append(entry)
             return None
 
-        active_edition = active_license_pool.presentation_edition
+        edition = work.presentation_edition
         return self._create_entry(
-            work, active_license_pool, work.primary_edition, 
-            identifier, lane_link)
+            work, active_license_pool, edition, identifier, lane_link
+        )

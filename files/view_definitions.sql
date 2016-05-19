@@ -33,5 +33,5 @@ as
      JOIN datasources ON editions.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
      JOIN workgenres ON works.id = workgenres.work_id
-  WHERE works.was_merged_into_id IS NULL AND works.presentation_ready = true AND editions.medium = 'Book'::medium AND works.simple_opds_entry IS NOT NULL
+  WHERE works.presentation_ready = true AND editions.medium = 'Book'::medium AND works.simple_opds_entry IS NOT NULL
   ORDER BY editions.sort_title, editions.sort_author;

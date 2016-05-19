@@ -229,7 +229,7 @@ class DatabaseTest(object):
     def _work(self, title=None, authors=None, genre=None, language=None,
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5,
-              primary_edition=None):
+              presentation_edition=None):
         pool = None
         if with_open_access_download:
             with_license_pool = True
@@ -245,9 +245,9 @@ class DatabaseTest(object):
         if fiction is None:
             fiction = True
         new_edition = False
-        if not primary_edition:
+        if not presentation_edition:
             new_edition = True
-            primary_edition = self._edition(
+            presentation_edition = self._edition(
                 title=title, language=language,
                 authors=authors,
                 with_license_pool=with_license_pool,
@@ -255,14 +255,14 @@ class DatabaseTest(object):
                 data_source_name=data_source_name
             )
             if with_license_pool:
-                primary_edition, pool = primary_edition
+                presentation_edition, pool = presentation_edition
         else:
-            pool = primary_edition.license_pool
+            pool = presentation_edition.license_pool
         if with_open_access_download:
             pool.open_access = True
-            primary_edition.set_open_access_link()
+            presentation_edition.set_open_access_link()
         if new_edition:
-            primary_edition.calculate_presentation()
+            presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
             self._db, Work, create_method_kwargs=dict(
                 audience=audience,
@@ -274,10 +274,8 @@ class DatabaseTest(object):
             work.genres = [genre]
         work.random = 0.5
 
-        work.editions = [primary_edition]
-        primary_edition.is_primary_for_work = True
-
-        work.calculate_primary_edition()
+        work.set_presentation_edition(presentation_edition)
+        work.calculate_presentation_edition()
 
         if pool != None:
             # make sure the pool's presentation_edition is set, 
@@ -405,7 +403,7 @@ class DatabaseTest(object):
         for i in range(num_entries):
             if entries_exist_as_works:
                 work = self._work(with_open_access_download=True)
-                edition = work.editions[0]
+                edition = work.presentation_edition
             else:
                 edition = self._edition(
                     data_source_name, title="Item %s" % i)
@@ -455,10 +453,8 @@ class DatabaseTest(object):
         edition_gut.subtitle = u"The GUtenberg Subtitle"
         edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
-        work = self._work(primary_edition=edition_git)
+        work = self._work(presentation_edition=edition_git)
 
-        for ed in edition_gut, edition_std_ebooks:
-            work.editions.append(ed)
         for p in pool_gut, pool_std_ebooks:
             work.license_pools.append(p)
 
@@ -531,17 +527,12 @@ class DatabaseTest(object):
             # pipe character at end of line helps see whitespace issues
             print "Work[%s]=%s|" % (wCount, work)
 
-            if (not work.editions):
-                print "    NO Work.Edition found"
-            for weCount, edition in enumerate(work.editions):
-                print "    Work.Edition[%s]=%s|" % (weCount, edition)
-
             if (not work.license_pools):
                 print "    NO Work.LicensePool found"
             for lpCount, license_pool in enumerate(work.license_pools):
                 print "    Work.LicensePool[%s]=%s|" % (lpCount, license_pool)
 
-            print "    Work.primary_edition=%s|" % work.primary_edition
+            print "    Work.presentation_edition=%s|" % work.presentation_edition
 
         if (not identifiers):
             print "NO Identifier found"
@@ -567,7 +558,6 @@ class DatabaseTest(object):
             print "Edition[%s]=%s|" % (index, edition)
             print "    Edition.work_id=%s|" % edition.work_id
             print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
-            print "    Edition.is_primary_for_work=%s|" % edition.is_primary_for_work
             print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
             if (edition.data_source):
                 print "    Edition.data_source.id=%s|" % edition.data_source.id

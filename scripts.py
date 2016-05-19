@@ -9,7 +9,7 @@ from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
 import time
 
-from config import Configuration
+from config import Configuration, CannotLoadConfiguration
 import log # This sets the appropriate log format and level.
 import random
 from metadata_layer import ReplacementPolicy
@@ -290,9 +290,11 @@ class RunCoverageProviderScript(IdentifierInputScript):
         else:
             self.provider.run()
 
-class BibliographicRefreshScript(IdentifierInputScript):
+class BibliographicRefreshScript(RunCoverageProviderScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
+
+    This covers all known sources of licensed content.
     """
     def __init__(self, **metadata_replacement_args):
         
@@ -300,19 +302,45 @@ class BibliographicRefreshScript(IdentifierInputScript):
             **metadata_replacement_args
         )
 
-        # This script is generally invoked when there's a problem, so
-        # make sure to always recalculate OPDS feeds and reindex the
-        # work.
-        self.metadata_replacement_policy.presentation_calculation_policy = PresentationCalculationPolicy.recalculate_everything()
-
     def do_run(self):
         args = self.parse_command_line(self._db)
-        if not args.identifiers:
-            raise Exception(
-                "You must specify at least one identifier to refresh."
+        if args.identifiers:
+            # This script is being invoked to fix a problem.
+            # Make sure to always recalculate OPDS feeds and reindex the
+            # work.
+            self.metadata_replacement_policy.presentation_calculation_policy = (
+                PresentationCalculationPolicy.recalculate_everything()
             )
-        for identifier in args.identifiers:
-            self.refresh_metadata(identifier)
+            for identifier in args.identifiers:
+                self.refresh_metadata(identifier)
+        else:
+            # This script is being invoked to provide general coverage,
+            # so we'll only recalculate OPDS feeds and reindex the work
+            # if something actually changes.
+            for provider_class in (
+                    ThreeMBibliographicCoverageProvider,
+                    OverdriveBibliographicCoverageProvider,
+                    Axis360BibliographicCoverageProvider
+            ):
+                try:
+                    provider = provider_class(
+                        self._db, 
+                        cutoff_time=args.cutoff_time
+                    )
+                except CannotLoadConfiguration, e:
+                    self.log.info(
+                        'Cannot create provider: "%s" Assuming this is intentional and proceeding.',
+                        str(e)
+                    )
+                    provider = None
+                try:
+                    if provider:
+                        provider.run()
+                except Exception, e:
+                    self.log.error(
+                        "Error in %r, moving on to next source.",
+                        provider, exc_info=e
+                    )
         self._db.commit()
 
     def refresh_metadata(self, identifier):
@@ -340,9 +368,10 @@ class WorkProcessingScript(IdentifierInputScript):
     def __init__(self, force=False, batch_size=10):
         args = self.parse_command_line(self._db)
         identifier_type = args.identifier_type
+        self.identifiers = args.identifiers
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, identifier_type, args.identifiers, self.log
+            self._db, identifier_type, self.identifiers, self.log
         )
         self.force = force
 
@@ -397,23 +426,53 @@ class WorkConsolidationScript(WorkProcessingScript):
         work_ids_to_delete = set()
         unset_work_id = dict(work_id=None)
 
-        if self.force:
-            self.clear_existing_works()                  
+        if self.identifiers:
+            for i in self.identifiers:
+                pool = i.licensed_through
+                if not pool:
+                    self.log.warn(
+                        "No LicensePool for %r, cannot create work.", i
+                    )
+                    continue
 
-        logging.info("Consolidating works.")
-        LicensePool.consolidate_works(self._db)
+                if pool.work:
+                    # We're about to delete a preexisting work. If the
+                    # problem is that this LicensePool is incorrectly
+                    # grouped together with some other LicensePool,
+                    # then that LicensePool must also have
+                    # calculate_work() called on it, so that we can
+                    # create two Works where there used to be one.
+                    all_pools = pool.work.license_pools
+                    self.clear_works(pool.work.id)
+                else:
+                    all_pools = [pool]
+                for pool in all_pools:
+                    pool.calculate_work()
+                self._db.commit()
+        else:
+            self.log.info("Consolidating all works.")
+            if self.force:
+                self.log.warn(
+                    "Clearing all works! This will probably take a long time, so now is a good time to evaluate if you really want to do this."
+                )
+                self.clear_existing_works()
+            LicensePool.consolidate_works(self._db, batch_size=self.batch_size)
 
-        logging.info("Deleting works with no editions.")
-        for i in self._db.query(Work).filter(Work.primary_edition==None):
-            self._db.delete(i)            
-        self._db.commit()
+            qu = self._db.query(Work).filter(Work.presentation_edition==None)
+            self.log.info("Deleting %d Works that lack Editions." % qu.count())
+            for i in qu:
+                self._db.delete(i)            
+            self._db.commit()
 
     def clear_existing_works(self):
-        # Locate works we want to consolidate.
-        unset_work_id = { Edition.work_id : None }
         work_ids_to_delete = set()
         for wr in self.query:
             work_ids_to_delete.add(wr.id)
+        self.clear_works(self, *work_ids_to_delete)
+
+    def clear_works(self, *work_ids_to_delete):
+        # Locate works we want to consolidate.
+        unset_work_id = { Edition.work_id : None }
         editions = self._db.query(Edition).filter(
             Edition.work_id.in_(work_ids_to_delete))
 
@@ -453,6 +512,7 @@ class WorkConsolidationScript(WorkProcessingScript):
             works = works.filter(Work.id.in_(work_ids_to_delete))
             works.delete(synchronize_session='fetch')
             self._db.commit()
+
 
 
 class WorkPresentationScript(WorkProcessingScript):

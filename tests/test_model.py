@@ -41,6 +41,7 @@ from model import (
     Measurement,
     Patron,
     Representation,
+    Resource,
     SessionManager,
     Subject,
     Timestamp,
@@ -73,40 +74,6 @@ from . import (
 
 class TestDataSource(DatabaseTest):
 
-    # Commented out this test because the result kept changing and not
-    # providing any value.
-    #
-    # def test_initial_data_sources(self):
-    #     sources = [
-    #         (x.name, x.offers_licenses, x.primary_identifier_type)
-    #         for x in DataSource.well_known_sources(self._db)
-    #     ]
-
-    #     expect = [
-    #         (DataSource.GUTENBERG, True, Identifier.GUTENBERG_ID),
-    #         (DataSource.PROJECT_GITENBERG, True, Identifier.GUTENBERG_ID),
-    #         (DataSource.OVERDRIVE, True, Identifier.OVERDRIVE_ID),
-    #         (DataSource.THREEM, True, Identifier.THREEM_ID),
-    #         (DataSource.AXIS_360, True, Identifier.AXIS_360_ID),
-
-    #         (DataSource.OCLC, False, Identifier.OCLC_NUMBER),
-    #         (DataSource.OCLC_LINKED_DATA, False, Identifier.OCLC_NUMBER),
-    #         (DataSource.OPEN_LIBRARY, False, Identifier.OPEN_LIBRARY_ID),
-    #         (DataSource.WEB, True, Identifier.URI),
-    #         (DataSource.AMAZON, False, Identifier.ASIN),
-    #         (DataSource.GUTENBERG_COVER_GENERATOR, False, Identifier.GUTENBERG_ID),
-    #         (DataSource.GUTENBERG_EPUB_GENERATOR, False, Identifier.GUTENBERG_ID),
-    #         (DataSource.CONTENT_CAFE, True, None),
-    #         (DataSource.MANUAL, False, None),
-    #         (DataSource.BIBLIOCOMMONS, False, Identifier.BIBLIOCOMMONS_ID),
-    #         (DataSource.NYT, False, Identifier.ISBN),
-    #         (DataSource.LIBRARY_STAFF, False, Identifier.ISBN),
-    #         (DataSource.METADATA_WRANGLER, False, Identifier.URI),
-    #         (DataSource.VIAF, False, None),
-    #         (DataSource.ADOBE, False, None),
-    #     ]
-    #     eq_(set(sources), set(expect))
-
     def test_lookup(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(DataSource.GUTENBERG, gutenberg.name)
@@ -118,14 +85,12 @@ class TestDataSource(DatabaseTest):
 
     def test_metadata_sources_for(self):
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
-        novelist = DataSource.lookup(self._db, DataSource.NOVELIST)
         isbn_metadata_sources = DataSource.metadata_sources_for(
             self._db, Identifier.ISBN
         )
 
-        eq_(2, len(isbn_metadata_sources))
-        assert content_cafe in isbn_metadata_sources
-        assert novelist in isbn_metadata_sources
+        eq_(1, len(isbn_metadata_sources))
+        eq_([content_cafe], isbn_metadata_sources)
 
     def test_license_source_for(self):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
@@ -664,20 +629,21 @@ class TestEdition(DatabaseTest):
 
     def test_recursive_edition_equivalence(self):
 
-        gutenberg_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        open_library_source = DataSource.lookup(self._db, DataSource.OPEN_LIBRARY)
-        web_source = DataSource.lookup(self._db, DataSource.WEB)
-
         # Here's a Edition for a Project Gutenberg text.
-        gutenberg, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "1")
-        gutenberg.title = "Original Gutenberg text"
+        gutenberg, gutenberg_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="1",
+            with_open_access_download=True,
+            title="Original Gutenberg text")
 
         # Here's a Edition for an Open Library text.
-        open_library, ignore = Edition.for_foreign_id(
-            self._db, open_library_source, Identifier.OPEN_LIBRARY_ID,
-            "W1111")
-        open_library.title = "Open Library record"
+        open_library, open_library_pool = self._edition(
+            data_source_name=DataSource.OPEN_LIBRARY,
+            identifier_type=Identifier.OPEN_LIBRARY_ID,
+            identifier_id="W1111",
+            with_open_access_download=True,
+            title="Open Library record")
 
         # We've learned from OCLC Classify that the Gutenberg text is
         # equivalent to a certain OCLC Number. We've learned from OCLC
@@ -694,6 +660,7 @@ class TestEdition(DatabaseTest):
             oclc_linked_data, oclc_number, 1)
        
         # Here's a Edition for a Recovering the Classics cover.
+        web_source = DataSource.lookup(self._db, DataSource.WEB)
         recovering, ignore = Edition.for_foreign_id(
             self._db, web_source, Identifier.URI, 
             "http://recoveringtheclassics.com/pride-and-prejudice.jpg")
@@ -707,9 +674,12 @@ class TestEdition(DatabaseTest):
 
         # Finally, here's a completely unrelated Edition, which
         # will not be showing up.
-        gutenberg2, ignore = Edition.for_foreign_id(
-            self._db, gutenberg_source, Identifier.GUTENBERG_ID, "2")
-        gutenberg2.title = "Unrelated Gutenberg record."
+        gutenberg2, gutenberg2_pool = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="2",
+            with_open_access_download=True,
+            title="Unrelated Gutenberg record.")
 
         # When we call equivalent_editions on the Project Gutenberg
         # Edition, we get three Editions: the Gutenberg record
@@ -728,7 +698,7 @@ class TestEdition(DatabaseTest):
 
         # Here's a Work that incorporates one of the Gutenberg records.
         work = Work()
-        work.editions.extend([gutenberg2])
+        work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
         eq_(1, work.all_editions().count())
@@ -736,7 +706,7 @@ class TestEdition(DatabaseTest):
         # If we add the other Gutenberg record to it, then its
         # set-of-all-editions is extended by that record, *plus*
         # all the Editions equivalent to that record.
-        work.editions.extend([gutenberg])
+        work.license_pools.extend([gutenberg_pool])
         eq_(4, work.all_editions().count())
 
     def test_calculate_presentation_title(self):
@@ -776,7 +746,7 @@ class TestEdition(DatabaseTest):
 
     def test_set_summary(self):
         e, pool = self._edition(with_license_pool=True)
-        work = self._work(primary_edition=e)
+        work = self._work(presentation_edition=e)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
         # Set the work's summmary.
@@ -890,6 +860,17 @@ class TestEdition(DatabaseTest):
             [x.data_source for x in records]
         )
 
+    def test_no_permanent_work_id_for_edition_with_no_title(self):
+        """An edition with no title is not assigned a permanent work ID."""
+        edition = self._edition()
+        edition.title = ''
+        eq_(None, edition.permanent_work_id)
+        edition.calculate_permanent_work_id()
+        eq_(None, edition.permanent_work_id)
+        edition.title = u'something'
+        edition.calculate_permanent_work_id()
+        assert_not_equal(None, edition.permanent_work_id)
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -1002,7 +983,6 @@ class TestLicensePool(DatabaseTest):
 
 
     def test_better_open_access_pool_than(self):
-        # TODO:  update with extra tests that will come out of fixing test_merge_into
 
         gutenberg_1 = self._licensepool(
             None, open_access=True, data_source_name=DataSource.GUTENBERG,
@@ -1233,27 +1213,6 @@ class TestLicensePool(DatabaseTest):
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
-        
-        # is_primary_for_work can only happen if the pool has a work associated with it.
-        # add a work, and re-call set_presentation_edition, and test the primarity.
-        work = self._work()
-        # default testing work object creates and sets a primary edition, and we want an clean slate
-        work.primary_edition = None
-
-        # we haven't set a primary yet
-        eq_(edition_mw.is_primary_for_work, False)
-        eq_(edition_od.is_primary_for_work, False)
-        eq_(edition_admin.is_primary_for_work, False)
-        eq_(edition_composite.is_primary_for_work, False)
-
-        work.license_pools.append(pool)
-        pool.set_presentation_edition()
-
-        eq_(edition_mw.is_primary_for_work, False)
-        eq_(edition_od.is_primary_for_work, False)
-        eq_(edition_admin.is_primary_for_work, False)
-        eq_(edition_composite.is_primary_for_work, True)
-
 
 
 class TestWork(DatabaseTest):
@@ -1263,8 +1222,8 @@ class TestWork(DatabaseTest):
         - work coverage records are made on work creation and primary edition selection.
         - work's presentation information (author, title, etc. fields) does a proper job 
           of combining fields from underlying editions.
-        - work's presentation information keeps in sync with work's primary edition.
-        - there can be only one edition that thinks it's the primary edition for this work.
+        - work's presentation information keeps in sync with work's presentation edition.
+        - there can be only one edition that thinks it's the presentation edition for this work.
         - time stamps are stamped.
         """
         gutenberg_source = DataSource.GUTENBERG
@@ -1295,11 +1254,9 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        work = self._work(primary_edition=edition2)
-        # add in 3, 2, 1 order to make sure the selection of edition1 as primary
+        work = self._work(presentation_edition=edition2)
+        # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
-        for i in edition3, edition1:
-            work.editions.append(i)
         for p in pool3, pool1:
             work.license_pools.append(p)
 
@@ -1327,13 +1284,13 @@ class TestWork(DatabaseTest):
         eq_(pool3.superceded, True)
 
         # sanity check
-        eq_(work.primary_edition, pool2.presentation_edition)
-        eq_(work.primary_edition, edition2)
+        eq_(work.presentation_edition, pool2.presentation_edition)
+        eq_(work.presentation_edition, edition2)
 
-        # editions know who's primary
-        eq_(edition1.is_primary_for_work, False)
-        eq_(edition2.is_primary_for_work, True)
-        eq_(edition3.is_primary_for_work, False)
+        # editions that aren't the presentation edition have no work
+        eq_(edition1.work, None)
+        eq_(edition2.work, work)
+        eq_(edition3.work, None)
 
         # The title of the Work is the title of its primary work record.
         eq_("The 2nd Title", work.title)
@@ -1371,8 +1328,6 @@ class TestWork(DatabaseTest):
         # Make sure that work's presentation edition and work's author, etc. 
         # fields are updated accordingly, and that the superceded pool's edition 
         # knows it's no longer the champ.
-        #for pool in work.license_pools:
-        #    if pool.presentation_edition is work.primary_edition:
         pool2.suppressed = True
         
         work.calculate_presentation(search_index_client=index)
@@ -1386,13 +1341,13 @@ class TestWork(DatabaseTest):
         eq_("Bitshifter, Bob", work.sort_author)
 
         # sanity check
-        eq_(work.primary_edition, pool1.presentation_edition)
-        eq_(work.primary_edition, edition1)
+        eq_(work.presentation_edition, pool1.presentation_edition)
+        eq_(work.presentation_edition, edition1)
 
-        # editions know who's primary
-        eq_(edition1.is_primary_for_work, True)
-        eq_(edition2.is_primary_for_work, False)
-        eq_(edition3.is_primary_for_work, False)
+        # editions that aren't the presentation edition have no work
+        eq_(edition1.work, work)
+        eq_(edition2.work, None)
+        eq_(edition3.work, None)
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -1402,7 +1357,7 @@ class TestWork(DatabaseTest):
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
-        primary = work.primary_edition
+        presentation = work.presentation_edition
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)
         
@@ -1411,11 +1366,11 @@ class TestWork(DatabaseTest):
 
         # Remove the title, and the work stops being presentation
         # ready.
-        primary.title = None
+        presentation.title = None
         work.set_presentation_ready_based_on_content()
         eq_(False, work.presentation_ready)        
 
-        primary.title = u"foo"
+        presentation.title = u"foo"
         work.set_presentation_ready_based_on_content()
         eq_(True, work.presentation_ready)        
 
@@ -1445,8 +1400,8 @@ class TestWork(DatabaseTest):
         eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
 
     def test_classifications_with_genre(self):
-        work = self._work()
-        identifier = work.primary_edition.primary_identifier
+        work = self._work(with_open_access_download=True)
+        identifier = work.presentation_edition.primary_identifier
         genres = self._db.query(Genre).all()
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genres[0]
@@ -1516,7 +1471,7 @@ class TestWork(DatabaseTest):
             data_source_name=DataSource.GUTENBERG, with_open_access_download=True
         )
 
-        work_multipool = self._work(primary_edition=None)
+        work_multipool = self._work(presentation_edition=None)
         work_multipool.license_pools.append(gutenberg1)
         work_multipool.license_pools.append(gitenberg2)
         work_multipool.license_pools.append(gitenberg1)
@@ -1561,19 +1516,19 @@ class TestWork(DatabaseTest):
         eq_(pool_gut.suppressed, False)
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is the title of its primary edition.
+        # The title of the Work is the title of its presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary edition.
+        # The author of the Work is the author of its presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1586,19 +1541,19 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # standard ebooks was last viable pool, and it stayed as work's choice
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is still the title of its last viable primary edition.
+        # The title of the Work is still the title of its last viable presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary edition.
+        # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1606,9 +1561,9 @@ class TestWork(DatabaseTest):
 
 
     def test_work_updates_info_on_pool_suppressed(self):
-        """ If the provider of the work's primary edition gets suppressed, 
+        """ If the provider of the work's presentation edition gets suppressed, 
         the work will choose another child license pool's presentation edition as 
-        its primary edition.
+        its presentation edition.
         """
         (work, pool_std_ebooks, pool_git, pool_gut, 
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
@@ -1619,19 +1574,19 @@ class TestWork(DatabaseTest):
         eq_(pool_gut.suppressed, False)
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.primary_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.primary_edition, edition_std_ebooks)
+        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
+        eq_(work.presentation_edition, edition_std_ebooks)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, True)
-        eq_(edition_git.is_primary_for_work, False)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, work)
+        eq_(edition_git.work, None)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is the title of its primary edition.
+        # The title of the Work is the title of its presentation edition.
         eq_("The Standard Ebooks Title", work.title)
         eq_("The Standard Ebooks Subtitle", work.subtitle)
 
-        # The author of the Work is the author of its primary edition.
+        # The author of the Work is the author of its presentation edition.
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
@@ -1642,19 +1597,19 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # gitenberg is next best and it got determined to be the best
-        eq_(work.primary_edition, pool_git.presentation_edition)
-        eq_(work.primary_edition, edition_git)
+        eq_(work.presentation_edition, pool_git.presentation_edition)
+        eq_(work.presentation_edition, edition_git)
 
-        # editions know who's primary
-        eq_(edition_std_ebooks.is_primary_for_work, False)
-        eq_(edition_git.is_primary_for_work, True)
-        eq_(edition_gut.is_primary_for_work, False)
+        # editions know who's the presentation edition
+        eq_(edition_std_ebooks.work, None)
+        eq_(edition_git.work, work)
+        eq_(edition_gut.work, None)
 
-        # The title of the Work is still the title of its last viable primary edition.
+        # The title of the Work is still the title of its last viable presentation edition.
         eq_("The GItenberg Title", work.title)
         eq_("The GItenberg Subtitle", work.subtitle)
 
-        # The author of the Work is still the author of its last viable primary edition.
+        # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
@@ -1813,37 +1768,34 @@ class TestCirculationEvent(DatabaseTest):
 
 #         assert work1.quality > work2.quality
 
-class TestWorkSimilarity(DatabaseTest):
-
-    def test_work_is_similar_to_itself(self):
-        wr = self._edition()
-        eq_(1, wr.similarity_to(wr))
-
-
 
 class TestWorkConsolidation(DatabaseTest):
 
-    # Versions of Work and Edition instrumented to bypass the
-    # normal similarity comparison process.
+    def test_calculate_work_success(self):
+        e, p = self._edition(with_license_pool=True)
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(p.presentation_edition, work.presentation_edition)
+        eq_(True, new)
 
-    def setup(self):
-        super(TestWorkConsolidation, self).setup()
-        # Replace the complex implementations of similarity_to with 
-        # much simpler versions that let us simply say which objects 
-        # are to be considered similar.
-        def similarity_to(self, other):
-            if other in getattr(self, 'similar', []):
-                return 1
-            return 0
-        self.old_w = Work.similarity_to
-        self.old_wr = Edition.similarity_to
-        Work.similarity_to = similarity_to
-        Edition.similarity_to = similarity_to
+    def test_calculate_work_bails_out_if_no_title(self):
+        e, p = self._edition(with_license_pool=True)
+        e.title=None
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(None, work)
+        eq_(False, new)
 
-    def teardown(self):
-        Work.similarity_to = self.old_w
-        Edition.similarity_to = self.old_wr
-        super(TestWorkConsolidation, self).teardown()
+    def test_calculate_work_bails_out_if_no_author(self):
+        e, p = self._edition(with_license_pool=True, authors=[])
+        work, new = p.calculate_work(even_if_no_author=False)
+        eq_(None, work)
+        eq_(False, new)
+
+        # If we know that there simply is no author for this work,
+        # we can pass in even_if_no_author=True
+        work, new = p.calculate_work(even_if_no_author=True)
+        eq_(p.presentation_edition, work.presentation_edition)
+        eq_(True, new)
+
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
         # Here are two Editions with the same permanent work ID, 
@@ -1858,16 +1810,13 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(created, True)
 
         # Calling calculate_work() on the second edition associated
-        # the second edition with the first work.
+        # the second edition's pool with the first work.
         work2, created = edition2.license_pool.calculate_work()
         eq_(created, False)
 
         eq_(work1, work2)
 
-        eq_(set([edition1, edition2]), set(work1.editions))
-
-        # Note that this works even though the Edition somehow got a
-        # Work without having a title or author.
+        eq_(set([edition1.license_pool, edition2.license_pool]), set(work1.license_pools))
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
@@ -1876,7 +1825,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This edition is unique to the existing work.
         preexisting_work = Work()
-        preexisting_work.editions = [edition1]
+        preexisting_work.set_presentation_edition(edition1)
 
         # This edition is unique to the new LicensePool
         edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
@@ -1906,18 +1855,9 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(True, created)
 
-        # Even before the forthcoming commit, the edition is clearly
-        # associated with the work.
+        # The edition is the work's presentation edition.
         eq_(work, edition.work)
-        eq_(True, edition.is_primary_for_work)
-        eq_(edition, work.primary_edition)
-
-        # But without this commit, the join for the .primary_edition
-        # won't succeed and work.title won't work.
-        self._db.commit()
-
-        # Ta-da!
-        eq_(edition, work.primary_edition)
+        eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
         eq_(u"bar", work.author)
 
@@ -1933,7 +1873,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work(even_if_no_author=True)
         eq_(True, created)
         self._db.commit()
-        eq_(edition, work.primary_edition)
+        eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
         eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
@@ -1965,69 +1905,13 @@ class TestWorkConsolidation(DatabaseTest):
         for make_equivalent in edition3, edition1:
             edition4.primary_identifier.equivalent_to(
                 data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(primary_edition=edition1)
-        preexisting_work.editions.append(edition2)
+        preexisting_work = self._work(presentation_edition=edition1)
 
         pool, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
         self._db.commit()
 
         pool.calculate_work()
-
-
-    def test_merge_into(self):
-        '''
-        Tests that two works can have their contents merged into a single work, and that the decision 
-        to perform the merge is conditional on the works' mutual similarity score.
-        '''
-
-        # Here's a work with a license pool and two work records.
-        edition_1a, pool_1a = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
-        edition_1b, ignore = Edition.for_foreign_id(self._db, DataSource.OCLC, Identifier.OCLC_WORK, "W2")
-
-        work1 = Work()
-        work1.license_pools = [pool_1a]
-        work1.editions = [edition_1a, edition_1b]
-        work1.calculate_presentation()
-
-        # Here's a work with two license pools and one work record
-        edition_2a, pool_2a = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, True)
-        edition_2b, pool_2b = self._edition(DataSource.OCLC, Identifier.OCLC_WORK, True)
-
-        edition_2a.title = u"The only title in this whole test."
-
-        work2 = Work()
-        work2.license_pools = [pool_2a, pool_2b]
-        work2.editions = [edition_2a]
-        work2.calculate_presentation()
-
-        self._db.commit()
-        
-        # This attempt to merge the two work records will fail because
-        # they don't meet the similarity threshold.
-        work2.merge_into(work1, similarity_threshold=1)
-        eq_(None, work2.was_merged_into)
-
-        # This attempt will succeed because we lower the similarity
-        # threshold.
-
-        work2.merge_into(work1, similarity_threshold=0)
-        eq_(work1, work2.was_merged_into)
-
-        # The merged Work no longer has any work records or license
-        # pools.
-        eq_([], work2.editions)
-        eq_([], work2.license_pools)
-
-        # The remaining Work has all three license pools.
-        for p in pool_1a, pool_2a, pool_2b:
-            assert p in work1.license_pools
-
-        # It has all three work records.
-        for w in edition_1a, edition_1b, edition_2a:
-            assert w in work1.editions
-        
-
 
     def test_open_access_pools_grouped_together(self):
 
@@ -2039,10 +1923,10 @@ class TestWorkConsolidation(DatabaseTest):
         ed2, open2 = self._edition(title=title, authors=author, with_license_pool=True)
         ed3, restricted3 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
-        with_license_pool=True)
+            with_license_pool=True)
         ed4, restricted4 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
-        with_license_pool=True)
+            with_license_pool=True)
 
         restricted3.open_access = False
         restricted4.open_access = False
@@ -2250,6 +2134,7 @@ class TestHyperlink(DatabaseTest):
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
+
 class TestRepresentation(DatabaseTest):
 
     def test_normalized_content_path(self):
@@ -2341,6 +2226,21 @@ class TestRepresentation(DatabaseTest):
         h.queue_response(500)
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
+        eq_(False, cached)
+
+    def test_response_reviewer_impacts_representation(self):
+        h = DummyHTTPClient()
+        h.queue_response(200, media_type='text/html')
+
+        def reviewer(response):
+            status, headers, content = response
+            if 'html' in headers['content-type']:
+                raise Exception("No. Just no.")
+
+        representation, cached = Representation.get(
+            self._db, self._url, do_get=h.do_get, response_reviewer=reviewer
+        )
+        assert "No. Just no." in representation.fetch_exception
         eq_(False, cached)
 
     def test_url_extension(self):
@@ -2450,7 +2350,19 @@ class TestRepresentation(DatabaseTest):
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
-class TestScaleRepresentation(DatabaseTest):
+
+class TestCoverResource(DatabaseTest):
+
+    def sample_cover_path(self, name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        sample_cover_path = self.sample_cover_path(name)
+        return self._representation(
+            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -2493,17 +2405,6 @@ class TestScaleRepresentation(DatabaseTest):
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
-
-    def sample_cover_path(self, name):
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files", "covers")
-        sample_cover_path = os.path.join(resource_path, name)
-        return sample_cover_path
-
-    def sample_cover_representation(self, name):
-        sample_cover_path = self.sample_cover_path(name)
-        return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
@@ -2586,6 +2487,160 @@ class TestScaleRepresentation(DatabaseTest):
         eq_([], cover.thumbnails)
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
+
+    def test_best_covers_among(self):
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+
+        link1, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_no_representation = link1.resource
+
+        # A resource with no representation is not considered even if
+        # it's the only option.
+        eq_([], Resource.best_covers_among([resource_with_no_representation]))
+
+        # Here's an abysmally bad cover.
+        lousy_cover = self.sample_cover_representation("tiny-image-cover.png")
+        lousy_cover.image_height=1
+        lousy_cover.image_width=10000 
+        link2, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_lousy_cover = link2.resource
+        resource_with_lousy_cover.representation = lousy_cover
+
+        # This cover is so bad that it's not even considered if it's
+        # the only option.
+        eq_([], Resource.best_covers_among([resource_with_lousy_cover]))
+
+        # Here's a decent cover.
+        decent_cover = self.sample_cover_representation("test-book-cover.png")
+        link3, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover = link3.resource
+        resource_with_decent_cover.representation = decent_cover
+
+        # This cover is at least good enough to pass muster if there
+        # is no other option.
+        eq_(
+            [resource_with_decent_cover], 
+            Resource.best_covers_among([resource_with_decent_cover])
+        )
+
+        # Let's create another cover image with identical
+        # characteristics.
+        link4, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
+        )
+        resource_with_decent_cover_2 = link4.resource
+        resource_with_decent_cover_2.representation = decent_cover
+        l = [resource_with_decent_cover, resource_with_decent_cover_2]
+
+        # best_covers_among() can't decide between the two -- they have
+        # the same score.
+        eq_(set(l), set(Resource.best_covers_among(l)))
+
+        # But if we give one of them a bump by saying it's the one the
+        # metadata wrangler said to use...
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+        resource_with_decent_cover.data_source = metadata_wrangler
+
+        # ...the decision becomes easy.
+        eq_([resource_with_decent_cover], Resource.best_covers_among(l))
+
+
+    def test_quality_as_thumbnail_image(self):
+
+        # Get some data sources ready, since a big part of image
+        # quality comes from data source.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg_cover_generator = DataSource.lookup(
+            self._db, DataSource.GUTENBERG_COVER_GENERATOR
+        )
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        metadata_wrangler = DataSource.lookup(
+            self._db, DataSource.METADATA_WRANGLER
+        )
+
+        # Here's a book with a thumbnail image.
+        edition, pool = self._edition(with_license_pool=True)
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url, overdrive
+        )
+        resource = hyperlink.resource
+        
+        # Without a representation, the thumbnail image is useless.
+        eq_(0, resource.quality_as_thumbnail_image)
+
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        cover = self.sample_cover_representation("tiny-image-cover.png")
+        resource.representation = cover
+        eq_(1.0, resource.quality_as_thumbnail_image)
+
+        # Changing the image aspect ratio affects the quality as per
+        # thumbnail_size_quality_penalty.
+        cover.image_height = ideal_height * 2
+        cover.image_width = ideal_width
+        eq_(0.5, resource.quality_as_thumbnail_image)
+        
+        # Changing the data source also affects the quality. Gutenberg
+        # covers are penalized heavily...
+        cover.image_height = ideal_height
+        cover.image_width = ideal_width
+        resource.data_source = gutenberg
+        eq_(0.5, resource.quality_as_thumbnail_image)
+
+        # The Gutenberg cover generator is penalized less heavily.
+        resource.data_source = gutenberg_cover_generator
+        eq_(0.6, resource.quality_as_thumbnail_image)
+
+        # The metadata wrangler actually gets a _bonus_, to encourage the
+        # use of its covers over those provided by license sources.
+        resource.data_source = metadata_wrangler
+        eq_(2, resource.quality_as_thumbnail_image)
+        
+
+    def test_thumbnail_size_quality_penalty(self):
+        """Verify that Representation._cover_size_quality_penalty penalizes
+        images that are the wrong aspect ratio, or too small.
+        """
+
+        ideal_ratio = Identifier.IDEAL_COVER_ASPECT_RATIO
+        ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
+        ideal_width = Identifier.IDEAL_IMAGE_WIDTH
+
+        def f(width, height):
+            return Representation._thumbnail_size_quality_penalty(width, height)
+
+        # In the absence of any size information we assume
+        # everything's fine.
+        eq_(1, f(None, None))
+
+        # The perfect image has no penalty.
+        eq_(1, f(ideal_width, ideal_height))
+
+        # An image that is the perfect aspect ratio, but too large,
+        # has no penalty.
+        eq_(1, f(ideal_width*2, ideal_height*2))
+        
+        # An image that is the perfect aspect ratio, but is too small,
+        # is penalised.
+        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
+        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
+
+        # An image that deviates from the perfect aspect ratio is
+        # penalized in proportion.
+        eq_(1/2.0, f(ideal_width*2, ideal_height))
+        eq_(1/2.0, f(ideal_width, ideal_height*2))
+        eq_(1/4.0, f(ideal_width*4, ideal_height))
+        eq_(1/4.0, f(ideal_width, ideal_height*4))
 
 
 class TestDeliveryMechanism(DatabaseTest):

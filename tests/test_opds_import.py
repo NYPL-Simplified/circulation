@@ -249,7 +249,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # But the 'mouse' book is known to come from Project Gutenberg,
         # so a Work has been created for that book.
-        assert mouse.work is not None
+        assert mouse.license_pool.work is not None
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
         popularity, quality, rating = sorted(
@@ -289,7 +289,7 @@ class TestOPDSImporter(OPDSImporterTest):
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
 
-        work = mouse.work
+        work = mouse.license_pool.work
         work.calculate_presentation()
         eq_(0.4142, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
@@ -417,7 +417,7 @@ class TestOPDSImporter(OPDSImporterTest):
             with_license_pool=True
         )
         edition.license_pool.calculate_work()
-        old_work = edition.work
+        work = edition.license_pool.work
 
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
@@ -430,9 +430,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(imported_editions[0], edition)
         eq_("The Green Mouse", imported_editions[0].title)
 
-        # But the work and license pools have not changed.
+        # But the license pools have not changed.
         eq_(edition.license_pool, old_license_pool)
-        eq_(edition.work.license_pools, [old_license_pool])
+        eq_(work.license_pools, [old_license_pool])
 
 
     def test_import_from_license_source(self):
@@ -452,11 +452,10 @@ class TestOPDSImporter(OPDSImporterTest):
         [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
 
         # Because the content server actually tells you how to get a
-        # copy of the 'mouse' book, a work and licensepool has been
+        # copy of the 'mouse' book, a work and licensepool have been
         # created for it.
-        set_trace()
-        assert mouse.work != None
         assert mouse.license_pool != None
+        assert mouse.license_pool.work != None
 
         # The OPDS importer knows that the content server aggregates
         # books from elsewhere, so the data source for the 'mouse'
@@ -473,7 +472,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # The 'mouse' work has not been marked presentation-ready,
         # because the OPDS importer was not told to make works
         # presentation-ready as they're imported.
-        eq_(False, mouse.work.presentation_ready)
+        eq_(False, mouse.license_pool.work.presentation_ready)
 
         # The OPDS feed didn't actually say where the 'crow' book
         # comes from, so no Work or LicensePool have been created for
@@ -505,7 +504,7 @@ class TestOPDSImporter(OPDSImporterTest):
         
         # But the 'mouse' book has had a presentation-ready work
         # created for it.
-        eq_(True, mouse.work.presentation_ready)
+        eq_(True, mouse.license_pool.work.presentation_ready)
 
 
     def test_status_and_message(self):
