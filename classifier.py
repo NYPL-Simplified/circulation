@@ -3827,7 +3827,7 @@ class SimplifiedGenreClassifier(Classifier):
 
     @classmethod
     def is_fiction(cls, identifier, name):
-        if not globals()["genres"][identifier.original]:
+        if not globals()["genres"].get(identifier.original):
             return None
         return globals()["genres"][identifier.original].is_fiction
 
