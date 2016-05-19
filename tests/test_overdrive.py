@@ -321,3 +321,4 @@ class TestOverdriveAPI(DatabaseTest):
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert threem_hold in patron.holds
+

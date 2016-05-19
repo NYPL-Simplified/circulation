@@ -202,6 +202,7 @@ class CirculationAPI(object):
 
         # First, try to check out the book.
         loan_info = None
+        hold_info = None
         try:
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
@@ -215,6 +216,12 @@ class CirculationAPI(object):
                 identifier,
                 start_date=None, 
                 end_date=now + datetime.timedelta(hours=1)
+            )
+        except AlreadyOnHold:
+            # We're trying to check out a book that we already have on hold.
+            hold_info = HoldInfo(
+                licensepool.identifier.type, licensepool.identifier.identifier,
+                None, None, None
             )
         except NoAvailableCopies:
             # That's fine, we'll just (try to) place a hold.
@@ -241,18 +248,22 @@ class CirculationAPI(object):
             __transaction.commit()
             return loan, None, is_new
 
+        # At this point we know that we neither successfully
+        # transacted a loan, nor discovered a preexisting loan.
+
         # Checking out a book didn't work, so let's try putting
         # the book on hold.
-        try:
-            hold_info = api.place_hold(
-                patron, pin, licensepool,
-                hold_notification_email
-            )
-        except AlreadyOnHold, e:
-            hold_info = HoldInfo(
-                licensepool.identifier.type, licensepool.identifier.identifier,
-                None, None, None
-            )
+        if not hold_info:
+            try:
+                hold_info = api.place_hold(
+                    patron, pin, licensepool,
+                    hold_notification_email
+                )
+            except AlreadyOnHold, e:
+                hold_info = HoldInfo(
+                    licensepool.identifier.type, licensepool.identifier.identifier,
+                    None, None, None
+                )
 
         # It's pretty rare that we'd go from having a loan for a book
         # to needing to put it on hold, but we do check for that case.

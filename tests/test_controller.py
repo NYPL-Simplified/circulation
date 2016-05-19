@@ -44,6 +44,8 @@ from core.lane import (
     Facets,
     Pagination,
 )
+from core.problem_details import *
+from core.util.problem_detail import ProblemDetail
 
 from api.problem_details import *
 from api.circulation_exceptions import *
@@ -392,37 +394,81 @@ class TestLoanController(CirculationControllerTest):
             eq_(409, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
 
+    def test_borrow_nonexistent_delivery_mechanism(self):
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.loans.borrow(
+                self.data_source.name, self.identifier.identifier,
+                -100
+            )
+            eq_(BAD_DELIVERY_MECHANISM, response) 
+
     def test_borrow_creates_hold_when_no_available_copies(self):
-         threem_edition, pool = self._edition(
-             with_open_access_download=False,
-             data_source_name=DataSource.THREEM,
-             identifier_type=Identifier.THREEM_ID,
-             with_license_pool=True,
-         )
-         threem_book = self._work(
-             presentation_edition=threem_edition,
-         )
-         pool.licenses_available = 0
-         pool.open_access = False
+        threem_edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            presentation_edition=threem_edition,
+        )
+        pool.licenses_available = 0
+        pool.open_access = False
 
-         with self.app.test_request_context(
-                 "/", headers=dict(Authorization=self.valid_auth)):
-             self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(NoAvailableCopies())
-             self.manager.circulation.queue_hold(HoldInfo(
-                 pool.identifier.type,
-                 pool.identifier.identifier,
-                 datetime.datetime.utcnow(),
-                 datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                 1,
-             ))
-             response = self.manager.loans.borrow(
-                 DataSource.THREEM, pool.identifier.identifier)
-             eq_(201, response.status_code)
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(NoAvailableCopies())
+            self.manager.circulation.queue_hold(HoldInfo(
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                1,
+            ))
+            response = self.manager.loans.borrow(
+                DataSource.THREEM, pool.identifier.identifier)
+            eq_(201, response.status_code)
+            
+            # A hold has been created for this license pool.
+            hold = get_one(self._db, Hold, license_pool=pool)
+            assert hold != None
 
-             # A hold has been created for this license pool.
-             hold = get_one(self._db, Hold, license_pool=pool)
-             assert hold != None
+    def test_borrow_creates_local_hold_if_remote_hold_exists(self):
+        """We try to check out a book, but turns out we already have it 
+        on hold.
+        """
+        threem_edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.THREEM,
+            identifier_type=Identifier.THREEM_ID,
+            with_license_pool=True,
+        )
+        threem_book = self._work(
+            presentation_edition=threem_edition,
+        )
+        pool.licenses_available = 0
+        pool.open_access = False
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(AlreadyOnHold())
+            self.manager.circulation.queue_hold(HoldInfo(
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                1,
+            ))
+            response = self.manager.loans.borrow(
+                DataSource.THREEM, pool.identifier.identifier)
+            eq_(201, response.status_code)
+
+            # A hold has been created for this license pool.
+            hold = get_one(self._db, Hold, license_pool=pool)
+            assert hold != None
 
     def test_borrow_fails_when_work_not_present_on_remote(self):
          threem_edition, pool = self._edition(
@@ -469,6 +515,16 @@ class TestLoanController(CirculationControllerTest):
              response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
 
              eq_(200, response.status_code)
+
+    def test_revoke_hold_nonexistent_licensepool(self):
+         with self.app.test_request_context(
+                 "/", headers=dict(Authorization=self.valid_auth)):
+             patron = self.manager.loans.authenticated_patron_from_request()
+             response = self.manager.loans.revoke(
+                 "No such data source", "No such identifier"
+             )
+             assert isinstance(response, ProblemDetail)
+             eq_(INVALID_INPUT.uri, response.uri)
 
     def test_borrow_fails_with_outstanding_fines(self):
         threem_edition, pool = self._edition(
