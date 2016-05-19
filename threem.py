@@ -14,7 +14,10 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from coverage import BibliographicCoverageProvider
+from coverage import (
+    BibliographicCoverageProvider,
+    CoverageFailure,
+)
 from model import (
     Contributor,
     DataSource,
