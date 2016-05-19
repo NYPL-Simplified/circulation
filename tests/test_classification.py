@@ -1154,8 +1154,8 @@ class TestWorkClassifier(DatabaseTest):
         # eq_((historical_romance.genredata, 105), genre)
 
     def test_staff_genre_overrides_others(self):
-        genre1 = self._db.query(Genre).filter(Genre.name == "Poetry").first()
-        genre2 = self._db.query(Genre).filter(Genre.name == "Cooking").first()
+        genre1 = Genre.lookup(self._db, "Poetry")
+        genre2 = Genre.lookup(self._db, "Cooking")
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genre1
         subject2 = self._subject(type="type2", identifier="subject2")
@@ -1174,7 +1174,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_([genre2.name], [genre.name for genre in genre_weights.keys()])
 
     def test_staff_none_genre_overrides_others(self):
-        genre1 = self._db.query(Genre).filter(Genre.name == "Poetry").first()
+        genre1 = Genre.lookup(self._db, "Poetry")
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genre1
         subject2 = self._subject(

@@ -3379,6 +3379,9 @@ class WorkClassifier(object):
         self.seen_classifications = set()
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
         self.using_staff_genres = False
+        self.using_staff_fiction_status = False
+        self.using_staff_audience = False
+        self.using_staff_target_age = False
 
         # Keep track of whether we've seen one of Overdrive's generic
         # "Juvenile" classifications, as well as its more specific
@@ -3403,18 +3406,49 @@ class WorkClassifier(object):
         if not classification.subject.checked: # or self.debug
             classification.subject.assign_to_genre()
 
+        # Put the weight of the classification behind various
+        # considerations.
+        weight = classification.scaled_weight
+        subject = classification.subject
+
+        # first we ensure that staff classifications override all others 
+
         # if classification is genre or NONE from staff, ignore all non-staff genres
         from model import DataSource
-        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        from_staff = classification.data_source == staff_data_source
-        is_genre = classification.subject.genre != None
-        is_none = from_staff and classification.subject.identifier == SimplifiedGenreClassifier.NONE
+        from_staff = classification.data_source.name == DataSource.LIBRARY_STAFF
+        is_genre = subject.genre != None
+        is_none = from_staff and subject.identifier == SimplifiedGenreClassifier.NONE
         if is_genre or is_none:
             if not from_staff and self.using_staff_genres:
                 return
             if from_staff and not self.using_staff_genres:
+                # first encounter with staff genre, so throw out existing genre weights
                 self.using_staff_genres = True
                 self.genre_weights = Counter()
+                if is_genre:
+                    self.weigh_genre(subject.genre, weight)
+                return
+
+        # if classification is fiction or nonfiction from staff, ignore all other fictions
+        if not self.using_staff_fiction_status:
+            if from_staff and subject.identifier == SIMPLIFIED_FICTION_STATUS 
+                # encountering first staff fiction status, 
+                # so throw out existing fiction weights
+                self.using_staff_fiction_status = True
+                self.fiction_weights = Counter()
+                self.fiction_weights[subject.fiction] += weight
+                return
+            else:
+                self.fiction_weights[subject.fiction] += weight
+
+        # # if classification is about audience, ignore all other audience classifications
+        # if from_staff and subject.type == Subject.FREEFORM_AUDIENCE:
+        #     self.using_staff_audience = True
+        #     self.audience_weights = Counter()
+        #     self.audience_weights[subject.audience] += weight
+        #     return
+
+        # proceed if not short circuited by staff classifications
 
         if classification.comes_from_license_source:
             self.direct_from_license_source.add(classification)
@@ -3430,11 +3464,6 @@ class WorkClassifier(object):
                 # original book is classified as a graphic novel.
                 return
 
-        # Put the weight of the classification behind various
-        # considerations.
-        weight = classification.scaled_weight
-        subject = classification.subject
-        self.fiction_weights[subject.fiction] += weight
         if subject.genre:
             self.weigh_genre(subject.genre, weight)
 
