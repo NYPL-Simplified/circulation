@@ -50,6 +50,8 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
     SET_DELIVERY_MECHANISM_AT = None
 
+    SERVICE_NAME = "3M"
+
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     adobe_drm = DeliveryMechanism.ADOBE_DRM
@@ -140,7 +142,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             # Error condition.
             error = ErrorParser().process_all(response.content)
             if error.message == 'Unknown error':
-                raise RemoteInitiatedServerError(response.content)
+                raise RemoteInitiatedServerError(
+                    response.content, ThreeMAPI.SERVICE_NAME
+                )
             if isinstance(error, AlreadyCheckedOut):
                 # It's already checked out. No problem.
                 pass
@@ -366,7 +370,9 @@ class ErrorParser(ThreeMParser):
     def process_all(self, string):
         if string.startswith("The server has encountered an error"):
             # The app server can't even send us an XML error message.
-            return RemoteInitiatedServerError(string)
+            return RemoteInitiatedServerError(
+                string, ThreeMAPI.SERVICE_NAME
+            )
         try:
             for i in super(ErrorParser, self).process_all(
                     string, "//Error"):
@@ -374,12 +380,16 @@ class ErrorParser(ThreeMParser):
         except Exception, e:
             # The server sent us an error with an incorrect or
             # nonstandard syntax.
-            return RemoteInitiatedServerError(string)
+            return RemoteInitiatedServerError(
+                string, ThreeMAPI.SERVICE_NAME
+            )
 
     def process_one(self, error_tag, namespaces):
         message = self.text_of_optional_subtag(error_tag, "Message")
         if not message:
-            return RemoteInitiatedServerError("Unknown error")
+            return RemoteInitiatedServerError(
+                "Unknown error", ThreeMAPI.SERVICE_NAME,
+            )
 
         if message in self.error_mapping:
             return self.error_mapping[message](message)

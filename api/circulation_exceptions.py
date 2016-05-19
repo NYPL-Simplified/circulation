@@ -10,6 +10,11 @@ class InternalServerError(Exception):
 
 class RemoteInitiatedServerError(InternalServerError):
     """One of the servers we communicate with had an internal error."""
+
+    def __init__(self, message, service_name):
+        super(RemoteInitiatedServerError, self).__init__(message)
+        self.service_name = service_name
+
     status_code = 502
 
 class NoOpenAccessDownload(CirculationException):

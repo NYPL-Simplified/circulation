@@ -157,6 +157,7 @@ class TestErrorParser(TestThreeMAPI):
         msg = "The server has encountered an error"
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
+        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
         eq_(502, error.status_code)
         eq_(msg, error.message)
 
@@ -164,10 +165,12 @@ class TestErrorParser(TestThreeMAPI):
         msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">This error doesn't follow the formula.</Error>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
+        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
         eq_(msg, error.message)
 
     def test_blank_error_message_becomes_remote_initiated_server_error(self):
         msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Message/></Error>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
+        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
