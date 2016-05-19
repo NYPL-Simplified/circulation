@@ -10,6 +10,7 @@ class InternalServerError(Exception):
 
 class RemoteInitiatedServerError(InternalServerError):
     """One of the servers we communicate with had an internal error."""
+    status_code = 502
 
 class NoOpenAccessDownload(CirculationException):
     """We expected a book to have an open-access download, but it didn't."""

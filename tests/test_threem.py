@@ -20,6 +20,7 @@ from api.circulation import (
     HoldInfo,
     LoanInfo,
 )
+from api.circulation_exceptions import *
 
 from . import (
     DatabaseTest,
@@ -138,3 +139,35 @@ class TestSyncBookshelf(TestThreeMAPI):
         eq_(datetime.datetime(2015, 5, 25, 17, 5, 34), h2.start)
         eq_(datetime.datetime(2015, 5, 27, 17, 5, 34), h2.end)
         eq_(0, h2.position)
+
+
+class TestErrorParser(TestThreeMAPI):
+
+    def test_exceeded_limit(self):
+        """The normal case--we get a helpful error message which we turn into
+        an appropriate circulation exception.
+        """
+        msg=self.sample_data("error_exceeded_limit.xml")
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, PatronLoanLimitReached)
+        eq_(u'Patron cannot loan more than 12 documents', error.message)
+
+    def test_internal_server_error_beomces_remote_initiated_server_error(self):
+        """Simulate the message we get when the server goes down."""
+        msg = "The server has encountered an error"
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, RemoteInitiatedServerError)
+        eq_(502, error.status_code)
+        eq_(msg, error.message)
+
+    def test_malformed_error_message_becomes_remote_initiated_server_error(self):
+        msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">This error doesn't follow the formula.</Error>"""
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, RemoteInitiatedServerError)
+        eq_(msg, error.message)
+
+    def test_blank_error_message_becomes_remote_initiated_server_error(self):
+        msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Message/></Error>"""
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, RemoteInitiatedServerError)
+        eq_("Unknown error", error.message)

@@ -955,3 +955,12 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
+
+
+class TestRemoteErrorHandling(ControllerTest):
+    """Ensure that errors on the remote side are handled as 502 errors
+    so they don't look like internal server errors.
+    """
+
+    def test_threem_remote_error(self):
+

@@ -137,10 +137,10 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             # Old loan -- we don't know the start date
             start_date = None
         else:
-            # Error condition
+            # Error condition.
             error = ErrorParser().process_all(response.content)
             if error.message == 'Unknown error':
-                raise ThreeMException(response.content)
+                raise RemoteInitiatedServerError(response.content)
             if isinstance(error, AlreadyCheckedOut):
                 # It's already checked out. No problem.
                 pass
@@ -364,14 +364,22 @@ class ErrorParser(ThreeMParser):
     }
 
     def process_all(self, string):
-        for i in super(ErrorParser, self).process_all(
-                string, "//Error"):
-            return i
+        if string.startswith("The server has encountered an error"):
+            # The app server can't even send us an XML error message.
+            return RemoteInitiatedServerError(string)
+        try:
+            for i in super(ErrorParser, self).process_all(
+                    string, "//Error"):
+                return i
+        except Exception, e:
+            # The server sent us an error with an incorrect or
+            # nonstandard syntax.
+            return RemoteInitiatedServerError(string)
 
     def process_one(self, error_tag, namespaces):
-        message = self.text_of_subtag(error_tag, "Message")
+        message = self.text_of_optional_subtag(error_tag, "Message")
         if not message:
-            return ThreeMException("Unknown error")
+            return RemoteInitiatedServerError("Unknown error")
 
         if message in self.error_mapping:
             return self.error_mapping[message](message)
