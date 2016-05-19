@@ -23,6 +23,7 @@ from lane import (
 
 from app_server import (
     URNLookupController,
+    ErrorHandler,
     ComplaintController,
     load_facets_from_request,
     load_pagination_from_request,
@@ -215,3 +216,69 @@ class TestLoadMethods(object):
             pagination = load_pagination_from_request()
             eq_(100, pagination.size)
 
+
+class TestErrorHandler(object):
+
+    def setup(self):
+        self.app = Flask(__name__)
+
+    def raise_exception(self, cls=Exception):
+        """Simulate an exception that happens deep within the stack."""
+        raise cls()
+
+    def test_unhandled_error(self):
+        handler = ErrorHandler(self.app, debug=False)
+        with self.app.test_request_context('/'):
+            response = None
+            try:
+                self.raise_exception()
+            except Exception, exception:
+                response = handler.handle(exception)
+            eq_(500, response.status_code)
+            eq_("An internal error occured", response.data)
+
+        # Try it again with debug=True to get a stack trace instead of
+        # a generic error message.
+        handler = ErrorHandler(self.app, debug=True)
+        with self.app.test_request_context('/'):
+            response = None
+            try:
+                self.raise_exception()
+            except Exception, exception:
+                response = handler.handle(exception)
+            eq_(500, response.status_code)
+            assert response.data.startswith('Traceback (most recent call last)')
+
+
+    def test_handle_error_as_problem_detail_document(self):
+        class CanBeProblemDetailDocument(Exception):
+
+            @property
+            def as_problem_detail_document(self):
+                return INVALID_URN
+
+        handler = ErrorHandler(self.app, debug=False)
+        with self.app.test_request_context('/'):
+            try:
+                self.raise_exception(CanBeProblemDetailDocument)
+            except Exception, exception:
+                response = handler.handle(exception)
+
+            eq_(400, response.status_code)
+            data = json.loads(response.data)
+            eq_(INVALID_URN.title, data['title'])
+            assert 'debug_message' not in data
+
+        # Now try it with debug=True and see that a stack trace is
+        # included in debug_message.
+        handler = ErrorHandler(self.app, debug=True)
+        with self.app.test_request_context('/'):
+            try:
+                self.raise_exception(CanBeProblemDetailDocument)
+            except Exception, exception:
+                response = handler.handle(exception)
+
+            eq_(400, response.status_code)
+            data = json.loads(response.data)
+            eq_(INVALID_URN.title, data['title'])
+            assert data['debug_message'].startswith(u'Traceback (most recent call last)')
