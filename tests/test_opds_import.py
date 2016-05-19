@@ -120,7 +120,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
-        data, status_messages, next_link = importer.extract_metadata(
+        data, status_messages, next_link = importer.extract_feed_data(
             self.content_server_mini_feed
         )
         m1, m2 = sorted(data, key=lambda x:x.title)
@@ -138,7 +138,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata_from_feedparser(self):
 
-        data, status_messages, next_link = OPDSImporter.extract_metadata_from_feedparser(
+        data, status_messages, next_link = OPDSImporter.extract_data_from_feedparser(
             self.content_server_mini_feed
         )        
 
@@ -232,7 +232,10 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        imported, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
+        #imported, messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            OPDSImporter(self._db).import_from_feed(feed)
+        )
 
         [crow, mouse] = sorted(imported, key=lambda x: x.title)
 
@@ -324,14 +327,12 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
-        print "DOING MW"
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
         imported_editions_mw, imported_pools_mw, imported_works_mw, error_messages_mw, next_links_mw = (
             importer_mw.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # Despite the cutoff, both books were imported, because they were new.
-        #set_trace()
         eq_(2, len(imported_editions_mw))
 
         # but pools and works weren't, because we passed the wrong data source
@@ -342,14 +343,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0, len(imported_pools_mw))
         eq_(0, len(imported_works_mw))
 
-        '''
-        import testing
-        testing.DatabaseTest.print_database_class(Session.object_session(self))
-        or
-        testing.DatabaseTest.print_database_class(Session.object_session(self))
-        '''
-
-        print "DOING G"
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
         imported_editions_g, imported_pools_g, imported_works_g, error_messages_g, next_links_g = (
@@ -357,7 +350,6 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # we made new editions, because we're now creating edition per data source, not overwriting
-        # set_trace()
         eq_(2, len(imported_editions_g))
         # TODO: and we also created presentation editions, with author and title set
 
@@ -387,7 +379,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(imported_pools))
         eq_(2, len(imported_works))        
 
-        set_trace()
         # But if we try it again...
         imported_editions, imported_pools, imported_works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
@@ -430,15 +421,19 @@ class TestOPDSImporter(OPDSImporterTest):
 
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
-        [imported], messages, next_links = OPDSImporter(self._db).import_from_feed(feed)
-        
+
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE).import_from_feed(feed)
+        )
+
         # The edition we created has had its metadata updated.
-        eq_(imported, edition)
-        eq_("The Green Mouse", imported.title)
+        eq_(imported_editions[0], edition)
+        eq_("The Green Mouse", imported_editions[0].title)
 
         # But the work and license pools have not changed.
         eq_(edition.license_pool, old_license_pool)
         eq_(edition.work.license_pools, [old_license_pool])
+
 
     def test_import_from_license_source(self):
         # Instead of importing this data as though it came from the
@@ -449,13 +444,17 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        imported, messages, next_links = importer.import_from_feed(feed)
 
-        [crow, mouse] = sorted(imported, key=lambda x: x.title)
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            importer.import_from_feed(feed)
+        )
+
+        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
 
         # Because the content server actually tells you how to get a
         # copy of the 'mouse' book, a work and licensepool has been
         # created for it.
+        set_trace()
         assert mouse.work != None
         assert mouse.license_pool != None
 
@@ -492,11 +491,14 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        imported, messages, next_links = importer.import_from_feed(
-            feed, immediately_presentation_ready=True
+        #imported, messages, next_links = importer.import_from_feed(
+        #    feed, immediately_presentation_ready=True
+        #)
+        imported_editions, imported_pools, imported_works, error_messages, next_link = (
+            importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
-        [crow, mouse] = sorted(imported, key=lambda x: x.title)
+        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
 
         # Nothing happens for the 'crow' book.
         eq_(None, crow.work)
@@ -505,36 +507,47 @@ class TestOPDSImporter(OPDSImporterTest):
         # created for it.
         eq_(True, mouse.work.presentation_ready)
 
+
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
-        [message] = messages.values()
+        #imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            OPDSImporter(self._db).import_from_feed(feed)
+        )
+
+        [message] = error_messages.values()
         eq_(404, message.status_code)
         eq_("I've never heard of this work.", message.message)
 
+
     def test_import_failure_becomes_status_message(self):
+        # Make sure that an exception during import stops the import process, 
+        # and generates a meaningful error message.
 
         class DoomedOPDSImporter(OPDSImporter):
-            def import_from_metadata(self, metadata, *args):
+            def import_edition_from_metadata(self, metadata, *args):
                 if metadata.title == "Johnny Crow's Party":
                     # This import succeeds.
-                    return super(DoomedOPDSImporter, self).import_from_metadata(metadata, *args)
+                    return super(DoomedOPDSImporter, self).import_edition_from_metadata(metadata, *args)
                 else:
                     # Any other import fails.
                     raise Exception("Utter failure!")
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        imported, messages, next_links = DoomedOPDSImporter(self._db).import_from_feed(feed)
-        
-        # One book was imported successfully.
-        [success] = imported
-        eq_("Johnny Crow's Party", success.title)
+        #imported, messages, next_links = DoomedOPDSImporter(self._db).import_from_feed(feed)
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            DoomedOPDSImporter(self._db).import_from_feed(feed)
+        )
+
+        # No books were imported.
+        eq_(0, len(imported_editions))
 
         # The other failed to import, and became a StatusMessage
-        message = messages['http://www.gutenberg.org/ebooks/10441']
+        message = error_messages['http://www.gutenberg.org/ebooks/10441']
         eq_(500, message.status_code)
         assert "Utter failure!" in message.message
+
 
     def test_consolidate_links(self):
 
@@ -607,7 +620,13 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER,
             mirror=s3, http_get=http.do_get
         )
-        [e1, e2], messages, next_link = importer.import_from_feed(self.content_server_mini_feed)
+
+        #[e1, e2], messages, next_link = importer.import_from_feed(self.content_server_mini_feed)
+        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+            importer.import_from_feed(self.content_server_mini_feed)
+        )
+        e1 = imported_editions[0]
+        e2 = imported_editions[1]
 
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail

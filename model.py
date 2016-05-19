@@ -2281,11 +2281,11 @@ class Edition(Base):
     publisher = Column(Unicode, index=True)
     imprint = Column(Unicode, index=True)
 
-    # `published is the original publication date of the
-    # text. `issued` is when made available in this ebook edition. A
-    # Project Gutenberg text was likely `published` long before being
-    # `issued`.
+    # `issued` is the date the ebook edition was sent to the distributor by the publisher, 
+    # i.e. the date it became available for librarians to buy for their libraries
     issued = Column(Date)
+    # `published is the original publication date of the text.
+    # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
     BOOK_MEDIUM = u"Book"
@@ -5117,7 +5117,8 @@ class LicensePool(Base):
     # One LicensePool can be associated with many Complaints.
     complaints = relationship('Complaint', backref='license_pool')
 
-    # The date this LicensePool first became available.
+    # The date this LicensePool was first created in our db
+    # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
 
     # One LicensePool may have multiple DeliveryMechanisms, and vice
@@ -7248,3 +7249,10 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
+
+
+
+
+
+
+

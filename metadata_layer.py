@@ -361,6 +361,8 @@ class FormatData(object):
         self.link = link
         self.rights_uri = rights_uri
 
+
+
 class CirculationData(object):
     """Information about actual copies of a book that can be delivered to
     patrons.
@@ -396,16 +398,10 @@ class CirculationData(object):
 
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
+            self.data_source_name = self.data_source_obj.name
         else:
             self.data_source_obj = None
-
-        '''
-        if isinstance(data_source, DataSource):
-            self._data_source_obj = data_source
-            self._data_source = data_source.name
-        else:
-            self._data_source = data_source
-        '''
+            self.data_source_name = data_source
 
         self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
@@ -417,25 +413,30 @@ class CirculationData(object):
         self.formats = formats or []
 
         self.default_rights_uri = None
-        self.set_default_rights_uri(data_source=self.data_source, default_rights_uri=default_rights_uri)
+        self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=default_rights_uri)
         self.first_appearance = first_appearance
         self.last_checked = last_checked or datetime.datetime.utcnow()
 
         self.__links = None
         self.links = links
-        
+
+
     @property
     def links(self):
         return self.__links
 
     @links.setter
     def links(self, arg_links):
-        """ If got passed all links, undiscriminately, filter out to only those relevant to pools. """
+        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+            pools (the rights-related links).
+        """
         # start by deleting any old links
         self.__links = []
 
         if not arg_links:
             return
+
+        self.set_default_rights_uri(data_source_name=self.data_source_name)
 
         for link in arg_links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
@@ -443,21 +444,20 @@ class CirculationData(object):
                 self.__links.append(link)
 
                 # If a link has a rights_uri, make that the overall rights_uri. 
-                # If there are multiple links with a rights_uri, they should have gotten 
-                # split into separate metadata objects in the content server or whatever code called this. 
-                if link.rights_uri:
-                    self.set_default_rights_uri(data_source=self.data_source, default_rights_uri=link.rights_uri)
+                # TODO: If there are multiple links with a rights_uri, make them go into individual delivery mechanisms 
+                # (first need to move rights_uri onto delivery mechanisms). 
+                if link.rights_uri and not self.default_rights_uri:
+                    self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=link.rights_uri)
 
                 # An open-access link or open-access rights implies a FormatData object.
                 open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
                                     and link.href)
-                
+                # try to deduce if the link is open-access, even if it doesn't explicitly say it is
                 open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
                                            and link.href
                                            and self.default_rights_uri in RightsStatus.OPEN_ACCESS)
                 
-                #if open_access_link or open_access_rights_link:
-                if open_access_link:
+                if open_access_link or open_access_rights_link:
                     self.formats.append(
                         FormatData(
                             content_type=link.media_type,
@@ -468,17 +468,21 @@ class CirculationData(object):
 
 
     def __repr__(self):
-        description_string = '<CirculationData primary_identifier="%r" licenses_owned="%s" licenses_available="%s" licenses_reserved=%s' % (
-            self.primary_identifier, self.licenses_owned, self.licenses_available, self.licenses_reserved
-        )
-        description_string += 'patrons_in_hold_queue="%s" default_rights_uri="%s" first_appearance="%s" last_checked="%s" >' % (
-            self.patrons_in_hold_queue, self.default_rights_uri, self.first_appearance, self.last_checked
-        )
-        description_string += 'links="%r" formats="%r" data_source_obj="%r">' % (
-            self.links, self.formats, self.data_source_obj
-        )
+        description_string = '<CirculationData primary_identifier=%(primary_identifier)r| licenses_owned=%(licenses_owned)s|'
+        description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|' 
+        description_string += ' first_appearance=%(first_appearance)s| last_checked=%(last_checked)s|' 
+        description_string += ' links=%(links)r| formats=%(formats)r| data_source=%(data_source)s|>'
 
-        return description_string
+        description_data = {'primary_identifier':self.primary_identifier, 'licenses_owned':self.licenses_owned}
+        description_data['licenses_available'] = self.licenses_available
+        description_data['default_rights_uri'] = self.default_rights_uri
+        description_data['first_appearance'] = self.first_appearance
+        description_data['last_checked'] = self.last_checked
+        description_data['links'] = self.links
+        description_data['formats'] = self.formats
+        description_data['data_source'] = self.data_source_name
+            
+        return description_string % description_data
     
 
     def data_source(self, _db):
@@ -504,7 +508,7 @@ class CirculationData(object):
 
         license_pool = None
         is_new = False
-
+        
         identifier_obj, ignore = self.primary_identifier.load(_db)
         data_source = self.data_source(_db)
         license_pool = get_one(
@@ -523,7 +527,10 @@ class CirculationData(object):
                 rights_status=rights_status,
             )
             if is_new:
-                license_pool.first_appearance = self.first_appearance
+                if self.first_appearance:
+                    license_pool.availability_time = self.first_appearance
+                else:
+                    license_pool.availability_time = datetime.datetime.utcnow()
 
             license_pool.last_checked = datetime.datetime.utcnow()
             if self.has_open_access_link:
@@ -598,13 +605,12 @@ class CirculationData(object):
         )
 
 
-    def set_default_rights_uri(self, data_source, default_rights_uri=None):
-        """ TODO: default_rights_uri will be slightly different than old rights_uri, 
-        so decide on logic and then fix method.
+    def set_default_rights_uri(self, data_source_name, default_rights_uri=None):
+        """ TODO: should there be a way to delete default_rights_uri?
         """
-        if default_rights_uri == None and data_source:
+        if default_rights_uri == None and data_source_name:
             # We didn't get rights passed in, so use the default rights for the data source if any.
-            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source_name, None)
             if default:
                 self.default_rights_uri = default
 
@@ -637,7 +643,15 @@ class CirculationData(object):
 
         identifier = pool.identifier
 
+        # TODO:  had following comment in metadata.apply.  need to figure out if still relevant.
+        # now that pool uses a composite edition, we must create that edition before 
+        # calculating any links
+        # TODO:  if we do call pool.set_presentation_edition from here, watch out for circular logic.
+
+        self.set_default_rights_uri(data_source)
+        # TODO: be able to handle the case where the URL to a link changes or a link disappears.
         link_objects = {}
+
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj, ignore = identifier.add_link(
@@ -652,16 +666,9 @@ class CirculationData(object):
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
 
-        # TODO: bring back
-        #self.set_default_rights_uri(data_source)
-
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj = link_objects[link]
-                # TODO: We do not properly handle the (unlikely) case
-                # where there is an IMAGE_THUMBNAIL link but no IMAGE
-                # link. In such a case we should treat the IMAGE_THUMBNAIL
-                # link as though it were an IMAGE link.
                 if replace.mirror:
                     # We need to mirror this resource. If it's an image, a
                     # thumbnail may be provided as a side effect.
@@ -682,7 +689,7 @@ class CirculationData(object):
                     format.content_type, format.drm_scheme, resource
                 )
 
-        pool.last_checked = datetime.datetime.utcnow()
+        pool.last_checked = self.last_checked
         return pool, made_changes
 
 
@@ -800,11 +807,11 @@ class Metadata(object):
             contributors=None,
             measurements=None,
             links=None,
-            last_update_time=None,
+            opds_entry_updated=None,
             #circulation=None,
     ):
         # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface), 
-        # and not where the lending licenses are coming from.
+        # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
@@ -833,46 +840,36 @@ class Metadata(object):
             self.identifiers.append(self.primary_identifier)
         self.subjects = subjects or []
         self.contributors = contributors or []
-        # TODO:  if got passed all links, undiscriminately, filter out to only those relevant 
-        self.links = links or []
         self.measurements = measurements or []
-        # TODO: formats has moved to circulation.formats
-        # format contains pdf/epub, drm, link
-        #self.formats = formats or []
-        # TODO: rights_uri has moved to circulation.default_rights_uri (?)
-        #self.rights_uri = rights_uri
-        # circulation-metadata connection is moving to being owned by same creator
+
+        # circulation-metadata connection has been removed, but might come back
         #self.circulation = circulation
 
-        self.last_update_time = last_update_time
-        '''
-        metadata and circulation are both to have complete sets of links
-        metadata will only pay attention to the image/cover/etc links
-        circulation will only pay attention to rights-related links
+        self.opds_entry_updated = opds_entry_updated
 
-        for link in self.links:
-            # If a link has a rights_uri, make that the overall rights_uri. 
-            # If there are multiple links with a rights_uri, they should have gotten 
-            # split into separate metadata objects in the content server or whatever code called this. 
-            if link.rights_uri:
-                self.rights_uri = link.rights_uri
+        self.__links = None
+        self.links = links
+        
+    @property
+    def links(self):
+        return self.__links
 
-            # An open-access link or open-access rights implies a FormatData object.
-            open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                                and link.href)
-            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
-                                       and link.href
-                                       and self.rights_uri in RightsStatus.OPEN_ACCESS)
-            
-            if open_access_link or open_access_rights_link:
-                self.formats.append(
-                    FormatData(
-                        content_type=link.media_type,
-                        drm_scheme=DeliveryMechanism.NO_DRM,
-                        link=link
-                    )
-            )
-        '''
+    @links.setter
+    def links(self, arg_links):
+        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+            editions (the image/cover/etc links).
+        """
+        # start by deleting any old links
+        self.__links = []
+
+        if not arg_links:
+            return
+
+        for link in arg_links:
+            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+                # only accept the types of links relevant to editions
+                self.__links.append(link)
+                
 
     @classmethod
     def from_edition(self, edition):
@@ -1146,11 +1143,11 @@ class Metadata(object):
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
 
-        if self.last_update_time and not replace.even_if_not_apparently_updated:
+        if self.opds_entry_updated and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_time = coverage_record.timestamp
-                last_time = self.last_update_time
+                last_time = self.opds_entry_updated
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return edition, False
@@ -1159,7 +1156,7 @@ class Metadata(object):
             self.calculate_permanent_work_id(_db, metadata_client)
 
         identifier = edition.primary_identifier
-        #pool = identifier.licensed_through
+        
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
@@ -1246,28 +1243,22 @@ class Metadata(object):
             if dirty:
                 identifier.links = surviving_hyperlinks
 
-
-        # TODO:  remove below comment.
-        # now that pool uses a composite edition, we must create that edition before 
-        # calculating any links
-        # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
-        # and it's possible there's a better way.
+        
         # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
         # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
         # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
         # it's problematic that pool isn't always being set in this method.
         
-        #link_data_source = self.license_data_source(_db) or data_source
         link_objects = {}
 
         for link in self.links:
-            #if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
-            link_obj, ignore = identifier.add_link(
-                rel=link.rel, href=link.href, data_source=data_source, 
-                license_pool=None, media_type=link.media_type,
-                content=link.content
-            )
-            link_objects[link] = link_obj
+            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+                link_obj, ignore = identifier.add_link(
+                    rel=link.rel, href=link.href, data_source=data_source, 
+                    license_pool=None, media_type=link.media_type,
+                    content=link.content
+                )
+                link_objects[link] = link_obj
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -1317,7 +1308,7 @@ class Metadata(object):
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.last_update_time
+            edition, data_source, timestamp=self.opds_entry_updated
         )
         return edition, made_core_changes
 
@@ -1366,10 +1357,14 @@ class Metadata(object):
         # If we couldn't fetch this representation, don't mirror it,
         # and if this was an open access link suppress the license
         # pool until someone fixes it manually.
+        # TODO: don't have pools anymore, nor open_access, but might want 
+        # to find edition's pool and suppress it
         if representation.fetch_exception:
+            '''
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            '''
             return
 
         # If we fetched the representation and it hasn't changed,
@@ -1401,9 +1396,13 @@ class Metadata(object):
 
         # If we couldn't mirror an open access link representation, suppress
         # the license pool until someone fixes it manually.
+        # TODO: don't have pools anymore, nor open_access, but might want 
+        # to find edition's pool and suppress it
+        '''
         if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
             pool.suppressed = True
             pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
+        '''
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
