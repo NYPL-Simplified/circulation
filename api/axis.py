@@ -57,6 +57,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
+    SERVICE_NAME = "Axis 360"
+
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -82,7 +84,9 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         try:
             return CheckoutResponseParser().process_all(response.content)
         except etree.XMLSyntaxError, e:
-            raise InternalServerError(response.content)
+            raise RemoteInitiatedServerError(
+                response.content, self.SERVICE_NAME
+            )
 
     def fulfill(self, patron, pin, licensepool, format_type):
         """Fulfill a patron's request for a specific book.
