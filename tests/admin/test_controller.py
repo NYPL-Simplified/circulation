@@ -31,7 +31,11 @@ from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
-from core.classifier import genres
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier
+)
+
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -115,15 +119,88 @@ class TestWorkController(AdminControllerTest):
             assert 'abcd' not in self.english_1.simple_opds_entry
 
     def test_edit_classifications(self):
-        # start with a couple genres
+        # start with a couple genres based on BISAC classifications from Axis 360
         work = self.english_1
         [lp] = work.license_pools
+        primary_identifier = work.presentation_edition.primary_identifier
         work.audience = "Adult"
         work.fiction = True
-        genre, ignore = Genre.lookup(self._db, "Occult Horror")
-        work.genres = [genre]
+        axis_360 = DataSource.lookup(self._db, DataSource.AXIS_360)
+        classification1 = primary_identifier.classify(
+            data_source=axis_360,
+            subject_type=Subject.BISAC,
+            subject_identifier="FICTION / Horror",
+            weight=1
+        )
+        classification2 = primary_identifier.classify(
+            data_source=axis_360,
+            subject_type=Subject.BISAC,
+            subject_identifier="FICTION / Science Fiction / Time Travel",
+            weight=1
+        )
+        genre1, ignore = Genre.lookup(self._db, "Horror")
+        genre2, ignore = Genre.lookup(self._db, "Science Fiction")
+        work.genres = [genre1, genre2]
 
-        # change genres
+        # make no changes
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Horror"),
+                ("genres", "Science Fiction")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        genre_classifications = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source,
+                Subject.genre_id != None
+            )
+        staff_genres = [
+            c.subject.genre.name 
+            for c in genre_classifications 
+            if c.subject.genre
+        ]
+        eq_(staff_genres, [])
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # remove all genres
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        none_classification_count = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source,
+                Subject.identifier == SimplifiedGenreClassifier.NONE
+            ) \
+            .all()
+        eq_(1, len(none_classification_count))
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # completely change genres
         with self.app.test_request_context("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
@@ -155,7 +232,7 @@ class TestWorkController(AdminControllerTest):
             requested_genres = flask.request.form.getlist("genres")
             response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
             eq_(response.status_code, 200)
-            
+
         # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(sorted(new_genre_names), sorted(requested_genres))
@@ -198,14 +275,14 @@ class TestWorkController(AdminControllerTest):
             ])
             response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.identifier)
             eq_(response, EROTICA_FOR_ADULTS_ONLY)
-            
+
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(sorted(new_genre_names), sorted(previous_genres))
         eq_("Young Adult", work.audience)
         eq_(16, work.target_age.lower)
         eq_(19, work.target_age.upper)
         eq_(True, work.fiction)
-        
+
         # try to set min target age greater than max target age
         # othe edits should not go through
         with self.app.test_request_context("/"):
