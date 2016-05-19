@@ -612,9 +612,9 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             if not pool:
                 continue
             if pool.licenses_owned > 0:
-                if pool.edition:
+                if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
-                                  pool.edition.title, pool.edition.author)
+                                  pool.presentation_edition.title, pool.presentation_edition.author)
                 else:
                     self.log.warn(
                         "Removing unknown work %s from circulation.",
