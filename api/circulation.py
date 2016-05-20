@@ -200,7 +200,28 @@ class CirculationAPI(object):
                 if parse_fines(patron.fines) >= parse_fines(max_fines):
                     raise OutstandingFines()
 
-        # First, try to check out the book.
+        # Do we (think we) already have this book out on loan?
+        existing_loan = get_one(
+             self._db, Loan, patron=patron, license_pool=licensepool,
+             on_multiple='interchangeable'
+        )
+        
+        loan_info = None
+        hold_info = None
+        if existing_loan:
+            # Sync with the API to see if the loan still exists.  If
+            # it does, we still want to perform a 'checkout' operation
+            # on the API, because that's how loans are renewed, but
+            # certain error conditions (like NoAvailableCopies) mean
+            # something different if you already have a confirmed
+            # active loan.
+            self.sync_bookshelf(patron, pin)
+            existing_loan = get_one(
+                self._db, Loan, patron=patron, license_pool=licensepool,
+                on_multiple='interchangeable'
+            )
+
+        # There is no existing loan. Try to check out the book.
         loan_info = None
         hold_info = None
         try:
@@ -223,10 +244,15 @@ class CirculationAPI(object):
                 licensepool.identifier.type, licensepool.identifier.identifier,
                 None, None, None
             )
-        except NoAvailableCopies:
-            # That's fine, we'll just (try to) place a hold.
-            pass
-        
+        except (NoAvailableCopies, CannotRenew):
+            if existing_loan:
+                # That's fine, we already have an active loan so we'll
+                # just use that.
+                return existing_loan, None, False
+            else:
+                # That's fine, we'll just (try to) place a hold.
+                pass
+
         if loan_info:
             # We successfuly secured a loan.  Now create it in our
             # database.
@@ -267,11 +293,6 @@ class CirculationAPI(object):
 
         # It's pretty rare that we'd go from having a loan for a book
         # to needing to put it on hold, but we do check for that case.
-        existing_loan = get_one(
-             self._db, Loan, patron=patron, license_pool=licensepool,
-             on_multiple='interchangeable'
-        )
-
         __transaction = self._db.begin_nested()
         hold, is_new = licensepool.on_hold_to(
             patron,
