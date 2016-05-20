@@ -94,8 +94,8 @@ from threem import (
 )
 from circulation import (
     CirculationAPI,
-    DummyCirculationAPI,
 )
+from testing import MockCirculationAPI
 from services import ServiceStatus
 
 class CirculationManager(object):
@@ -175,7 +175,7 @@ class CirculationManager(object):
     def setup_circulation(self):
         """Set up distributor APIs and a the Circulation object."""
         if self.testing:
-            self.circulation = DummyCirculationAPI(self._db)
+            self.circulation = MockCirculationAPI(self._db)
         else:
             overdrive = OverdriveAPI.from_environment(self._db)
             threem = ThreeMAPI.from_environment(self._db)
