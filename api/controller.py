@@ -337,7 +337,7 @@ class CirculationManagerController(object):
             )
         return lanes[name]
 
-    def load_licensepool(self, data_source, identifier):
+    def load_licensepool(self, data_source, identifier_type, identifier):
         """Turn user input into a LicensePool object."""
         if isinstance(data_source, DataSource):
             source = data_source
@@ -346,12 +346,8 @@ class CirculationManagerController(object):
         if source is None:
             return INVALID_INPUT.detailed("No such data source: %s" % data_source)
 
-        if isinstance(identifier, Identifier):
-            id_obj = identifier
-        else:
-            identifier_type = source.primary_identifier_type
-            id_obj, ignore = Identifier.for_foreign_id(
-                self._db, identifier_type, identifier, autocreate=False)
+        id_obj, ignore = Identifier.for_foreign_id(
+            self._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
             return NO_LICENSES.detailed("I've never heard of this work.")
         pool = id_obj.licensed_through
@@ -553,7 +549,7 @@ class LoanController(CirculationManagerController):
             self.circulation, patron)
         return feed_response(feed, cache_for=None)
 
-    def borrow(self, data_source, identifier, mechanism_id=None):
+    def borrow(self, data_source, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
 
         Return an OPDS Acquisition feed that includes a link of rel
@@ -562,7 +558,7 @@ class LoanController(CirculationManagerController):
         """
 
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -647,7 +643,7 @@ class LoanController(CirculationManagerController):
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(content, status_code, headers)
 
-    def fulfill(self, data_source, identifier, mechanism_id=None):
+    def fulfill(self, data_source, identifier_type, identifier, mechanism_id=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -660,7 +656,7 @@ class LoanController(CirculationManagerController):
         pin = header.password
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
     
@@ -709,9 +705,9 @@ class LoanController(CirculationManagerController):
             headers['Content-Type'] = fulfillment.content_type
         return Response(fulfillment.content, status_code, headers)
 
-    def revoke(self, data_source, identifier):
+    def revoke(self, data_source, identifier_type, identifier):
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
@@ -756,12 +752,12 @@ class LoanController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def detail(self, data_source, identifier):
+    def detail(self, data_source, identifier_type, identifier):
         if flask.request.method=='DELETE':
-            return self.revoke_loan_or_hold(data_source, identifier)
+            return self.revoke_loan_or_hold(data_source, identifier_type, identifier)
 
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
@@ -789,7 +785,7 @@ class LoanController(CirculationManagerController):
 
 class WorkController(CirculationManagerController):
 
-    def permalink(self, data_source, identifier):
+    def permalink(self, data_source, identifier_type, identifier):
         """Serve an entry for a single book.
 
         This does not include any loan or hold-specific information for
@@ -800,7 +796,7 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -809,11 +805,11 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def report(self, data_source, identifier):
+    def report(self, data_source, identifier_type, identifier):
         """Report a problem with a book."""
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
