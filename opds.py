@@ -788,7 +788,7 @@ class AcquisitionFeed(OPDSFeed):
                 return None
 
             if isinstance(work, BaseMaterializedWork):
-                identifier = work.identifier
+                identifier = work.license_pool.identifier
                 active_edition = None
             elif active_license_pool:
                 identifier = active_license_pool.identifier
