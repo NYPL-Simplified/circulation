@@ -215,7 +215,6 @@ class CirculationAPI(object):
             # certain error conditions (like NoAvailableCopies) mean
             # something different if you already have a confirmed
             # active loan.
-            set_trace()
             self.sync_bookshelf(patron, pin)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
