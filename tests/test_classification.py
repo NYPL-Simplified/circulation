@@ -1289,7 +1289,7 @@ class TestWorkClassifier(DatabaseTest):
         staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         classification1 = self._classification(
             identifier=self.identifier, subject=subject1,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification2 = self._classification(
             identifier=self.identifier, subject=subject2,
             data_source=staff_source, weight=1)
@@ -1310,7 +1310,7 @@ class TestWorkClassifier(DatabaseTest):
         )
         classification1 = self._classification(
             identifier=self.identifier, subject=subject1,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification2 = self._classification(
             identifier=self.identifier, subject=subject2,
             data_source=staff_source, weight=1)
@@ -1332,10 +1332,10 @@ class TestWorkClassifier(DatabaseTest):
         )
         classification1 = self._classification(
             identifier=self.identifier, subject=subject1,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification2 = self._classification(
             identifier=self.identifier, subject=subject2,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification3 = self._classification(
             identifier=self.identifier, subject=subject3,
             data_source=staff_source, weight=1)
@@ -1358,10 +1358,10 @@ class TestWorkClassifier(DatabaseTest):
         )
         classification1 = self._classification(
             identifier=self.identifier, subject=subject1,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification2 = self._classification(
             identifier=self.identifier, subject=subject2,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification3 = self._classification(
             identifier=self.identifier, subject=subject3,
             data_source=staff_source, weight=1)
@@ -1386,10 +1386,10 @@ class TestWorkClassifier(DatabaseTest):
         )
         classification1 = self._classification(
             identifier=self.identifier, subject=subject1,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification2 = self._classification(
             identifier=self.identifier, subject=subject2,
-            data_source=source, weight=1)
+            data_source=source, weight=10)
         classification3 = self._classification(
             identifier=self.identifier, subject=subject3,
             data_source=staff_source, weight=1)

@@ -3429,7 +3429,7 @@ class WorkClassifier(object):
 
         # if classification is genre or NONE from staff, ignore all non-staff genres
         is_genre = subject.genre != None
-        is_none = (from_staff and subject.identifier == SimplifiedGenreClassifier.NONE)
+        is_none = (from_staff and subject.type == Subject.SIMPLIFIED_GENRE and subject.identifier == SimplifiedGenreClassifier.NONE)
         if is_genre or is_none:
             if not from_staff and self.using_staff_genres:
                 return
