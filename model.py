@@ -3612,6 +3612,10 @@ class Work(Base):
         for wg in by_genre.values():
             _db.delete(wg)
             changed = True
+
+        # ensure that work_genres is up to date without having to read from database again
+        self.work_genres = workgenres
+
         return workgenres, changed
 
 
@@ -4382,7 +4386,7 @@ class Subject(Base):
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
     SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
-    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
+    SIMPLIFIED_FICTION_STATUS = Classifier.SIMPLIFIED_FICTION_STATUS
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,

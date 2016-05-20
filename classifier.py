@@ -81,6 +81,7 @@ class Classifier(object):
                      AUDIENCE_CHILDREN])
 
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
+    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
 
     # TODO: This is currently set in model.py in the Subject class.
     classifiers = dict()
@@ -3378,6 +3379,10 @@ class WorkClassifier(object):
         self.classifications = []
         self.seen_classifications = set()
         self.log = logging.getLogger("Classifier (workid=%d)" % self.work.id)
+        self.using_staff_genres = False
+        self.using_staff_fiction_status = False
+        self.using_staff_audience = False
+        self.using_staff_target_age = False
 
         # Keep track of whether we've seen one of Overdrive's generic
         # "Juvenile" classifications, as well as its more specific
@@ -3385,9 +3390,9 @@ class WorkClassifier(object):
         self.overdrive_juvenile_generic = False
         self.overdrive_juvenile_with_target_age = False
 
-
     def add(self, classification):
         """Prepare a single Classification for consideration."""
+        from model import DataSource, Subject
 
         # We only consider a given classification once from a given
         # data source.
@@ -3420,55 +3425,88 @@ class WorkClassifier(object):
         # considerations.
         weight = classification.scaled_weight
         subject = classification.subject
-        self.fiction_weights[subject.fiction] += weight
-        if subject.genre:
-            self.weigh_genre(subject.genre, weight)
+        from_staff = classification.data_source.name == DataSource.LIBRARY_STAFF
 
-        if classification.generic_juvenile_audience:
-            # We have a generic 'juvenile' classification. The
-            # audience might say 'Children' or it might say 'Young
-            # Adult' but we don't actually know which it is.
-            #
-            # We're going to split the difference, with a slight
-            # preference for YA, to bias against showing
-            # age-inappropriate material to children. To
-            # counterbalance the fact that we're splitting up the
-            # weight this way, we're also going to treat this
-            # classification as evidence _against_ an 'adult'
-            # classification.
-            self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
-            self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
-            for audience in Classifier.AUDIENCES_ADULT:
-                self.audience_weights[audience] -= weight * 0.5
-        else:
-            self.audience_weights[subject.audience] += weight
+        # if classification is genre or NONE from staff, ignore all non-staff genres
+        is_genre = subject.genre != None
+        is_none = (from_staff and subject.type == Subject.SIMPLIFIED_GENRE and subject.identifier == SimplifiedGenreClassifier.NONE)
+        if is_genre or is_none:
+            if not from_staff and self.using_staff_genres:
+                return
+            if from_staff and not self.using_staff_genres:
+                # first encounter with staff genre, so throw out existing genre weights
+                self.using_staff_genres = True
+                self.genre_weights = Counter()
+            if is_genre:
+                self.weigh_genre(subject.genre, weight)
 
-        if subject.target_age:
-            # Figure out how reliable this classification really is as
-            # an indicator of a target age.
-            scaled_weight = classification.weight_as_indicator_of_target_age
-            target_min = subject.target_age.lower
-            target_max = subject.target_age.upper
-            if target_min is not None:
-                if not subject.target_age.lower_inc:
-                    target_min += 1
-                self.target_age_lower_weights[target_min] += scaled_weight
-            if target_max is not None:
-                if not subject.target_age.upper_inc:
-                    target_max += 1
-                self.target_age_upper_weights[target_max] += scaled_weight
+        # if staff classification is fiction or nonfiction, ignore all other fictions
+        if not self.using_staff_fiction_status:
+            if from_staff and subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
+                # encountering first staff fiction status, 
+                # so throw out existing fiction weights
+                self.using_staff_fiction_status = True
+                self.fiction_weights = Counter()
+            self.fiction_weights[subject.fiction] += weight
 
-        if subject.type=='Overdrive' and subject.audience==Classifier.AUDIENCE_CHILDREN:
-            if subject.target_age and (
-                    subject.target_age.lower or subject.target_age.upper
-            ):
-                # This is a juvenile classification like "Picture
-                # Books" which implies a target age.
-                self.overdrive_juvenile_with_target_age = classification
+        # if staff classification is about audience, ignore all other audience classifications
+        if not self.using_staff_audience:
+            if from_staff and subject.type == Subject.FREEFORM_AUDIENCE:
+                self.using_staff_audience = True
+                self.audience_weights = Counter()
+                self.audience_weights[subject.audience] += weight
             else:
-                # This is a generic juvenile classification like
-                # "Juvenile Fiction".
-                self.overdrive_juvenile_generic = classification
+                if classification.generic_juvenile_audience:
+                    # We have a generic 'juvenile' classification. The
+                    # audience might say 'Children' or it might say 'Young
+                    # Adult' but we don't actually know which it is.
+                    #
+                    # We're going to split the difference, with a slight
+                    # preference for YA, to bias against showing
+                    # age-inappropriate material to children. To
+                    # counterbalance the fact that we're splitting up the
+                    # weight this way, we're also going to treat this
+                    # classification as evidence _against_ an 'adult'
+                    # classification.
+                    self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
+                    self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
+                    for audience in Classifier.AUDIENCES_ADULT:
+                        self.audience_weights[audience] -= weight * 0.5
+                else:
+                    self.audience_weights[subject.audience] += weight
+
+        if not self.using_staff_target_age:
+            if from_staff and subject.type == Subject.AGE_RANGE:
+                self.using_staff_target_age = True
+                self.target_age_lower_weights = Counter()
+                self.target_age_upper_weights = Counter()
+            if subject.target_age:
+                # Figure out how reliable this classification really is as
+                # an indicator of a target age.
+                scaled_weight = classification.weight_as_indicator_of_target_age
+                target_min = subject.target_age.lower
+                target_max = subject.target_age.upper
+                if target_min is not None:
+                    if not subject.target_age.lower_inc:
+                        target_min += 1
+                    self.target_age_lower_weights[target_min] += scaled_weight
+                if target_max is not None:
+                    if not subject.target_age.upper_inc:
+                        target_max += 1
+                    self.target_age_upper_weights[target_max] += scaled_weight
+
+        if not self.using_staff_audience and not self.using_staff_target_age:
+            if subject.type=='Overdrive' and subject.audience==Classifier.AUDIENCE_CHILDREN:
+                if subject.target_age and (
+                        subject.target_age.lower or subject.target_age.upper
+                ):
+                    # This is a juvenile classification like "Picture
+                    # Books" which implies a target age.
+                    self.overdrive_juvenile_with_target_age = classification
+                else:
+                    # This is a generic juvenile classification like
+                    # "Juvenile Fiction".
+                    self.overdrive_juvenile_generic = classification
 
     def weigh_metadata(self):
         """Modify the weights according to the given Work's metadata.
@@ -3842,6 +3880,29 @@ class SimplifiedGenreClassifier(Classifier):
         return None
 
 
+class SimplifiedFictionClassifier(Classifier):
+
+    @classmethod
+    def scrub_identifier(cls, identifier):
+        # If the identifier is a URI identifying a Simplified genre,
+        # strip off the first part of the URI to get the genre name.
+        if not identifier:
+            return identifier
+        if identifier.startswith(cls.SIMPLIFIED_FICTION_STATUS):
+            identifier = identifier[len(cls.SIMPLIFIED_FICTION_STATUS):]
+            identifier = urllib.unquote(identifier)
+        return Lowercased(identifier)
+
+    @classmethod
+    def is_fiction(cls, identifier, name):
+        if identifier == "fiction":
+            return True
+        elif identifier == "nonfiction":
+            return False
+        else:
+            return None
+
+
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
 Classifier.classifiers[Classifier.LCC] = LCCClassifier
@@ -3858,3 +3919,4 @@ Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClass
 Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
 Classifier.classifiers[Classifier.SIMPLIFIED_GENRE] = SimplifiedGenreClassifier
+Classifier.classifiers[Classifier.SIMPLIFIED_FICTION_STATUS] = SimplifiedFictionClassifier
