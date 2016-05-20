@@ -50,6 +50,8 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
     SET_DELIVERY_MECHANISM_AT = None
 
+    SERVICE_NAME = "3M"
+
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     adobe_drm = DeliveryMechanism.ADOBE_DRM
@@ -123,7 +125,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
         :return: a LoanInfo object
         """
-
         threem_id = licensepool.identifier.identifier
         patron_identifier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
@@ -137,10 +138,12 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             # Old loan -- we don't know the start date
             start_date = None
         else:
-            # Error condition
+            # Error condition.
             error = ErrorParser().process_all(response.content)
             if error.message == 'Unknown error':
-                raise ThreeMException(response.content)
+                raise RemoteInitiatedServerError(
+                    response.content, ThreeMAPI.SERVICE_NAME
+                )
             if isinstance(error, AlreadyCheckedOut):
                 # It's already checked out. No problem.
                 pass
@@ -364,14 +367,29 @@ class ErrorParser(ThreeMParser):
     }
 
     def process_all(self, string):
-        for i in super(ErrorParser, self).process_all(
-                string, "//Error"):
-            return i
+        try:
+            for i in super(ErrorParser, self).process_all(
+                    string, "//Error"):
+                return i
+        except Exception, e:
+            # The server sent us an error with an incorrect or
+            # nonstandard syntax.
+            return RemoteInitiatedServerError(
+                string, ThreeMAPI.SERVICE_NAME
+            )
+
+        # We were not able to interpret the result as an error.
+        # The most likely cause is that the 3M app server is down.
+        return RemoteInitiatedServerError(
+            "Unknown error", ThreeMAPI.SERVICE_NAME,
+        )
 
     def process_one(self, error_tag, namespaces):
-        message = self.text_of_subtag(error_tag, "Message")
+        message = self.text_of_optional_subtag(error_tag, "Message")
         if not message:
-            return ThreeMException("Unknown error")
+            return RemoteInitiatedServerError(
+                "Unknown error", ThreeMAPI.SERVICE_NAME,
+            )
 
         if message in self.error_mapping:
             return self.error_mapping[message](message)
