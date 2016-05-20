@@ -179,10 +179,7 @@ class ErrorHandler(object):
             # There is an active database session. Roll it back.
             self.app.manager._db.rollback()
         tb = traceback.format_exc()
-        if self.debug:
-            body = tb
-        else:
-            body = "An internal error occured."
+
         if isinstance(exception, DatabaseError):
             # The database session may have become tainted. For now
             # the simplest thing to do is to kill the entire process
@@ -193,6 +190,21 @@ class ErrorHandler(object):
                 shutdown()
             else:
                 sys.exit()
+
+        # Okay, it's not a database error. Turn it into a useful HTTP error
+        # response.
+        if hasattr(exception, 'as_problem_detail_document'):
+            # This exception can be turned directly into a problem
+            # detail document.
+            document = exception.as_problem_detail_document
+            if self.debug:
+                document.debug_message = tb
+            return make_response(document.response)
+
+        if self.debug:
+            body = tb
+        else:
+            body = 'An internal error occured'
         return make_response(body, 500, {"Content-Type": "text/plain"})
 
 
