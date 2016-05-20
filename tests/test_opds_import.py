@@ -589,6 +589,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(t1, i1.thumbnail)
         eq_(None, i2.thumbnail)
 
+
+
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
     def test_resources_are_mirrored_on_import(self):
@@ -624,17 +626,17 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         imported_editions, imported_pools, imported_works, error_messages, next_links = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
-        e1 = imported_editions[0]
-        e2 = imported_editions[1]
+        e1 = imported_editions[1]
+        e2 = imported_editions[0]
 
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
         # image was not requested, since we were going to make our own
         # thumbnail anyway.
         eq_(http.requests, [
-            'http://www.gutenberg.org/ebooks/10557.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10441.epub.images',
+            'http://www.gutenberg.org/ebooks/10557.epub.images',
         ])
 
         [e1_oa_link] = e1.primary_identifier.links
@@ -644,6 +646,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         # The two open-access links were mirrored to S3, as was the
         # original SVG image and its PNG thumbnail.
+        set_trace()
         eq_(
             [e1_oa_link.resource.representation,
              e2_image_link.resource.representation,

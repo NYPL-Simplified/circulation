@@ -217,6 +217,7 @@ class OPDSImporter(object):
 
         metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
 
+        #set_trace()
         imported_editions = {}
         imported_pools = {}
         imported_works = {}
@@ -430,10 +431,19 @@ class OPDSImporter(object):
             else:
                 internal_identifier = external_identifier
 
+            #set_trace()
             identifier_obj = IdentifierData(
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
+            '''
+            (Pdb) xml_data_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']['links']
+            [<LinkData: rel="http://opds-spec.org/acquisition/open-access" href="http://www.gutenberg.org/ebooks/10557.epub.images" media_type='application/epub+zip'>]
+
+            (Pdb) xml_data_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']['links']
+            [<LinkData: rel="http://opds-spec.org/image" href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" media_type=None, has thumbnail>, 
+             <LinkData: rel="http://opds-spec.org/acquisition/open-access" href="http://www.gutenberg.org/ebooks/10441.epub.images" media_type='application/epub+zip'>]            
+            '''
 
             # form the Metadata object
             xml_data_dict = xml_data_meta.get(id, {})

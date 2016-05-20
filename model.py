@@ -792,9 +792,9 @@ class DataSource(Base):
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
-                (cls.OCLC, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.OCLC_LINKED_DATA, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.AMAZON, False, False, Identifier.ASIN, None),
+                (cls.OCLC, False, False, None, None),
+                (cls.OCLC_LINKED_DATA, False, False, None, None),
+                (cls.AMAZON, False, False, None, None),
                 (cls.OPEN_LIBRARY, False, False, Identifier.OPEN_LIBRARY_ID, None),
                 (cls.GUTENBERG_COVER_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
                 (cls.GUTENBERG_EPUB_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
@@ -803,14 +803,14 @@ class DataSource(Base):
                 (cls.CONTENT_CAFE, True, True, Identifier.ISBN, None),
                 (cls.MANUAL, False, False, None, None),
                 (cls.NYT, False, False, Identifier.ISBN, None),
-                (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
-                (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
+                (cls.LIBRARY_STAFF, False, False, None, None),
+                (cls.METADATA_WRANGLER, False, False, None, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
-                (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
         ):
@@ -4997,7 +4997,9 @@ class LicensePool(Base):
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
-        if foreign_id_type != data_source.primary_identifier_type:
+        if (data_source.primary_identifier_type and 
+            foreign_id_type != data_source.primary_identifier_type):
+            set_trace()
             raise ValueError(
                 "License pools for data source '%s' are keyed to "
                 "identifier type '%s' (not '%s', which was provided)" % (
@@ -6133,6 +6135,7 @@ class Representation(Base):
             # request, not that the HTTP request returned an error
             # condition.
             logging.error("Error making HTTP request to %s", url, exc_info=e)
+            # TODO: exception doesn't seem to be used
             exception = traceback.format_exc()
             status_code = None
             headers = None

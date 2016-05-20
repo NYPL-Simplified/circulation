@@ -488,7 +488,6 @@ class CirculationData(object):
     def data_source(self, _db):
         if not self.data_source_obj:
             if self._data_source:
-                print "CirculationData.data_source(): self._data_source=%s" % self._data_source
                 obj = DataSource.lookup(_db, self._data_source)
                 if not obj:
                     raise ValueError("Data source %s not found!" % self._data_source)
@@ -498,6 +497,7 @@ class CirculationData(object):
                 obj = None
             self.data_source_obj = obj
         return self.data_source_obj
+
 
     def license_pool(self, _db):
         """Find or create a LicensePool object for this CirculationData."""
@@ -520,10 +520,11 @@ class CirculationData(object):
             rights_status = get_one(
                 _db, RightsStatus, uri=self.default_rights_uri
             )
+
             license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.data_source_obj,
-                self.primary_identifier.type, 
-                self.primary_identifier.identifier,
+                _db, data_source=self.data_source_obj,
+                foreign_id_type=self.primary_identifier.type, 
+                foreign_id=self.primary_identifier.identifier,
                 rights_status=rights_status,
             )
             if is_new:
@@ -666,6 +667,7 @@ class CirculationData(object):
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
 
+        set_trace()
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj = link_objects[link]
@@ -698,7 +700,7 @@ class CirculationData(object):
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
         """
-
+        #set_trace()
         if link_obj.rel not in (
                 Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
@@ -726,13 +728,15 @@ class CirculationData(object):
         # Determine the best URL to use when mirroring this
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            if edition and edition.title:
-                title = edition.title
+            '''
+            if pool and pool.presentation_edition and pool.presentation_edition.title:
+                title = pool.presentation_edition.title
             else:
                 title = self.title or None
+            '''
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=title,
+                identifier, data_source=data_source, title=None,
                 extension=extension
             )
         else:
@@ -875,6 +879,7 @@ class Metadata(object):
             return
 
         for link in arg_links:
+            #set_trace()
             if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 # only accept the types of links relevant to editions
                 self.__links.append(link)
@@ -1190,6 +1195,16 @@ class Metadata(object):
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
+    '''
+    def apply(self, edition, metadata_client=None, replace=None,
+              replace_identifiers=False,
+              replace_subjects=False,
+              replace_contributions=False,
+              replace_links=False,
+              replace_formats=False,
+              replace_rights=False,
+              force=False,
+    '''
     def apply(self, edition, metadata_client=None, replace=None,
               replace_identifiers=False,
               replace_subjects=False,
@@ -1210,6 +1225,7 @@ class Metadata(object):
         _db = Session.object_session(edition)
         made_core_changes = False
 
+        #set_trace()
         if replace is None:
             replace = ReplacementPolicy(
                 identifiers=replace_identifiers,
@@ -1352,7 +1368,7 @@ class Metadata(object):
                     license_pool=None, media_type=link.media_type,
                     content=link.content
                 )
-                link_objects[link] = link_obj
+            link_objects[link] = link_obj
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -1382,6 +1398,7 @@ class Metadata(object):
                 edition.display_author = primary_author.display_name
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
+        set_trace()
         for link in self.links:
             #if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
             link_obj = link_objects[link]
@@ -1520,6 +1537,7 @@ class Metadata(object):
                 destination_media_type=Representation.PNG_MEDIA_TYPE,
                 force=True
             )
+            set_trace()
             if is_new:
                 # A thumbnail was created distinct from the original
                 # image. Mirror it as well.
@@ -1537,7 +1555,7 @@ class Metadata(object):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
         """
-
+        set_trace()
         thumbnail = link.thumbnail
         if not thumbnail:
             return None
@@ -1562,6 +1580,7 @@ class Metadata(object):
         if thumbnail_obj.resource.representation:
             thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
         return thumbnail_obj
+
 
     def update_contributions(self, _db, edition, metadata_client=None,
                              replace=True):

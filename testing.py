@@ -520,6 +520,7 @@ class DatabaseTest(object):
         identifiers = db_connection.query(Identifier).all()
         license_pools = db_connection.query(LicensePool).all()
         editions = db_connection.query(Edition).all()
+        data_sources = db_connection.query(DataSource).all()
 
         if (not works):
             print "NO Work found"
@@ -556,7 +557,6 @@ class DatabaseTest(object):
         for index, edition in enumerate(editions):
             # pipe character at end of line helps see whitespace issues
             print "Edition[%s]=%s|" % (index, edition)
-            print "    Edition.work_id=%s|" % edition.work_id
             print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
             print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
             if (edition.data_source):
@@ -575,6 +575,17 @@ class DatabaseTest(object):
                 print "    NO Edition.author_contributor found"
             for acCount, author_contributor in enumerate(edition.author_contributors):
                 print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
+
+        if (not data_sources):
+            print "NO DataSource found"
+        for index, data_source in enumerate(data_sources):
+            print "DataSource[%s]=%s|" % (index, data_source)
+            print "    DataSource.id=%s|" % data_source.id
+            print "    DataSource.name=%s|" % data_source.name
+            print "    DataSource.offers_licenses=%s|" % data_source.offers_licenses
+            print "    DataSource.editions=%s|" % data_source.editions            
+            print "    DataSource.license_pools=%s|" % data_source.license_pools
+            print "    DataSource.links=%s|" % data_source.links
 
         return
 
