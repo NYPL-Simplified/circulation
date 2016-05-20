@@ -167,13 +167,13 @@ class WorkController(CirculationManagerController):
 
     STAFF_WEIGHT = 100000
 
-    def details(self, data_source, identifier):
+    def details(self, data_source, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
         
         This includes relevant links for editing the book.
         """
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -183,16 +183,17 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
         
-    def complaints(self, data_source, identifier):
+    def complaints(self, data_source, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         counter = self._count_complaints_for_licensepool(pool)
         response = dict({
             "book": { 
                 "data_source": data_source,
+                "identifier_type": identifier_type,
                 "identifier": identifier
             },
             "complaints": counter
@@ -200,10 +201,10 @@ class WorkController(CirculationManagerController):
         
         return response
 
-    def edit(self, data_source, identifier):
+    def edit(self, data_source, identifier_type, identifier):
         """Edit a work's metadata."""
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -248,11 +249,11 @@ class WorkController(CirculationManagerController):
             work.calculate_presentation(policy=policy)
         return Response("", 200)
 
-    def suppress(self, data_source, identifier):
+    def suppress(self, data_source, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -260,11 +261,11 @@ class WorkController(CirculationManagerController):
         pool.suppressed = True
         return Response("", 200)
 
-    def unsuppress(self, data_source, identifier):
+    def unsuppress(self, data_source, identifier_type, identifier):
         """Unsuppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -272,12 +273,12 @@ class WorkController(CirculationManagerController):
         pool.suppressed = False
         return Response("", 200)
 
-    def refresh_metadata(self, data_source, identifier, provider=None):
+    def refresh_metadata(self, data_source, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         try:
@@ -298,10 +299,10 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def resolve_complaints(self, data_source, identifier):
+    def resolve_complaints(self, data_source, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -323,10 +324,10 @@ class WorkController(CirculationManagerController):
             return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
-    def classifications(self, data_source, identifier):
+    def classifications(self, data_source, identifier_type, identifier):
         """Return list of this work's classifications."""
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
 
@@ -351,15 +352,16 @@ class WorkController(CirculationManagerController):
         return dict({
             "book": {
                 "data_source": data_source,
+                "identifier_type": identifier_type,
                 "identifier": identifier
             },
             "classifications": data
         })
 
-    def edit_classifications(self, data_source, identifier):
+    def edit_classifications(self, data_source, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
         
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
