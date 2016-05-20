@@ -162,7 +162,7 @@ class TestCirculationAPI(DatabaseTest):
         )
 
         # This is the expected behavior in most cases--you tried to
-        # renew the loan and failed.
+        # renew the loan and failed because it's not time yet.
         self.remote.queue_response(CannotRenew())
         new_loan, hold, is_new = self.borrow()
 
@@ -171,8 +171,8 @@ class TestCirculationAPI(DatabaseTest):
         eq_(None, hold)
         eq_(False, is_new)
 
-        # This is what Overdrive does when you fail to renew the loan
-        # and there are no available copies.
+        # NoAvailableCopies can happen if renewals are prohibited when
+        # there are already people waiting in line for the book.
         self.remote.queue_response(NoAvailableCopies())
         new_loan, hold, is_new = self.borrow()
 
