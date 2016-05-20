@@ -34,3 +34,10 @@ INTERNAL_SERVER_ERROR = pd(
       "Internal server error.",
       "Internal server error"
 )
+
+INTEGRATION_ERROR = pd(
+      "http://librarysimplified.org/terms/problem/integration-error",
+      502,
+      "Integration error.",
+      "Integration error"
+)
