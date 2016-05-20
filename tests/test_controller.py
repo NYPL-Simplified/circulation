@@ -67,6 +67,7 @@ from api.admin.oauth import DummyGoogleClient
 from lxml import etree
 import random
 import json
+import urllib
 
 class TestCirculationManager(CirculationManager):
 
@@ -192,14 +193,17 @@ class TestBaseController(CirculationControllerTest):
     def test_load_licensepool(self):
         licensepool = self._licensepool(edition=None)
         loaded_licensepool = self.controller.load_licensepool(
-            licensepool.data_source.name, licensepool.identifier.identifier
+            licensepool.data_source.name, licensepool.identifier.type, licensepool.identifier.identifier
         )
         eq_(licensepool, loaded_licensepool)
 
-        problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.identifier)
+        problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.type, licensepool.identifier.identifier)
         eq_(INVALID_INPUT.uri, problem_detail.uri)
+
+        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier type", licensepool.identifier.identifier)
+        eq_(NO_LICENSES.uri, problem_detail.uri)
         
-        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier")
+        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, licensepool.identifier.type, "bad identifier")
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
     def test_load_licensepooldelivery(self):
@@ -335,7 +339,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
-                self.data_source.name, self.identifier.identifier)
+                self.data_source.name, self.identifier.type, self.identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=self.pool)
@@ -358,14 +362,15 @@ class TestLoanController(CirculationControllerTest):
             fulfillable_mechanism = mech2
 
             expects = [url_for('fulfill', data_source=self.data_source.name,
-                              identifier=self.identifier.identifier, 
-                              mechanism_id=mech.delivery_mechanism.id,
+                               identifier_type=self.identifier.type,
+                               identifier=self.identifier.identifier, 
+                               mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
 
             # Now let's try to fulfill the loan.
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.identifier,
+                self.data_source.name, self.identifier.type, self.identifier.identifier,
                 fulfillable_mechanism.delivery_mechanism.id
             )
             eq_(302, response.status_code)
@@ -378,7 +383,7 @@ class TestLoanController(CirculationControllerTest):
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.identifier
+                self.data_source.name, self.identifier.type, self.identifier.identifier
             )
             eq_(302, response.status_code)
             eq_(fulfillable_mechanism.resource.url,
@@ -387,7 +392,7 @@ class TestLoanController(CirculationControllerTest):
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.identifier,
+                self.data_source.name, self.identifier.type, self.identifier.identifier,
                 mech1.delivery_mechanism.id
             )
 
@@ -398,7 +403,7 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.loans.borrow(
-                self.data_source.name, self.identifier.identifier,
+                self.data_source.name, self.identifier.type, self.identifier.identifier,
                 -100
             )
             eq_(BAD_DELIVERY_MECHANISM, response) 
@@ -428,7 +433,7 @@ class TestLoanController(CirculationControllerTest):
                 1,
             ))
             response = self.manager.loans.borrow(
-                DataSource.THREEM, pool.identifier.identifier)
+                DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
             
             # A hold has been created for this license pool.
@@ -463,7 +468,7 @@ class TestLoanController(CirculationControllerTest):
                 1,
             ))
             response = self.manager.loans.borrow(
-                DataSource.THREEM, pool.identifier.identifier)
+                DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
 
             # A hold has been created for this license pool.
@@ -488,7 +493,7 @@ class TestLoanController(CirculationControllerTest):
              self.manager.loans.authenticated_patron_from_request()
              self.manager.circulation.queue_checkout(NotFoundOnRemote())
              response = self.manager.loans.borrow(
-                 DataSource.THREEM, pool.identifier.identifier)
+                 DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
              eq_(404, response.status_code)
              eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
 
@@ -500,7 +505,7 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_checkin(True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
 
              eq_(200, response.status_code)
              
@@ -512,7 +517,7 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_release_hold(True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
 
              eq_(200, response.status_code)
 
@@ -521,7 +526,7 @@ class TestLoanController(CirculationControllerTest):
                  "/", headers=dict(Authorization=self.valid_auth)):
              patron = self.manager.loans.authenticated_patron_from_request()
              response = self.manager.loans.revoke(
-                 "No such data source", "No such identifier"
+                 "No such data source", "No such identifier type", "No such identifier"
              )
              assert isinstance(response, ProblemDetail)
              eq_(INVALID_INPUT.uri, response.uri)
@@ -550,7 +555,7 @@ class TestLoanController(CirculationControllerTest):
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
                 response = self.manager.loans.borrow(
-                    DataSource.THREEM, pool.identifier.identifier)
+                    DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
                 
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
@@ -572,7 +577,7 @@ class TestLoanController(CirculationControllerTest):
                     datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 ))
                 response = self.manager.loans.borrow(
-                    DataSource.THREEM, pool.identifier.identifier)
+                    DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
                 
                 eq_(201, response.status_code)
 
@@ -592,7 +597,7 @@ class TestLoanController(CirculationControllerTest):
                  "/", headers=dict(Authorization=self.valid_auth)):
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = pool.on_hold_to(patron, position=0)
-             response = self.manager.loans.revoke(pool.data_source.name, pool.identifier.identifier)
+             response = self.manager.loans.revoke(pool.data_source.name, pool.identifier.type, pool.identifier.identifier)
              eq_(400, response.status_code)
              eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
              eq_("Cannot release a hold once it enters reserved state.", response.detail)
@@ -664,9 +669,9 @@ class TestLoanController(CirculationControllerTest):
             borrow_link = [x for x in threem_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
             threem_revoke_links = [x for x in threem_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert "%s/%s/fulfill" % (overdrive_pool.data_source.name, overdrive_pool.identifier.identifier) in fulfill_link
-            assert "%s/%s/revoke" % (overdrive_pool.data_source.name, overdrive_pool.identifier.identifier) in revoke_link
-            assert "%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.identifier) in borrow_link
+            assert urllib.quote("%s/%s/%s/fulfill" % (overdrive_pool.data_source.name, overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
+            assert urllib.quote("%s/%s/%s/revoke" % (overdrive_pool.data_source.name, overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
+            assert urllib.quote("%s/%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
             eq_(0, len(threem_revoke_links))
 
             links = feed['feed']['links']
@@ -679,11 +684,11 @@ class TestWorkController(CirculationControllerTest):
         super(TestWorkController, self).setup()
         [self.lp] = self.english_1.license_pools
         self.datasource = self.lp.data_source.name
-        self.identifier = self.lp.identifier.identifier
+        self.identifier = self.lp.identifier
 
     def test_permalink(self):
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.permalink(self.datasource, self.identifier)
+            response = self.manager.work_controller.permalink(self.datasource, self.identifier.type, self.identifier.identifier)
             annotator = CirculationManagerAnnotator(None, None)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
@@ -696,7 +701,7 @@ class TestWorkController(CirculationControllerTest):
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.report(self.datasource, self.identifier)
+            response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
         for i in Complaint.VALID_TYPES:
@@ -709,7 +714,7 @@ class TestWorkController(CirculationControllerTest):
                             "detail": "bar"}
         )
         with self.app.test_request_context("/", method="POST", data=data):
-            response = self.manager.work_controller.report(self.datasource, self.identifier)
+            response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
         eq_(201, response.status_code)
         [complaint] = self.lp.complaints
         eq_(error_type, complaint.type)
