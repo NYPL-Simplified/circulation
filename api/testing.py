@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from core.testing import DatabaseTest
 from core.model import (
     DataSource,
     Identifier,
