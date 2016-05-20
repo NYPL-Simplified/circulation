@@ -24,7 +24,7 @@ from core.model import (
 )
 
 from . import DatabaseTest
-from testing import MockCirculationAPI
+from api.testing import MockCirculationAPI
 
 
 class TestCirculationAPI(DatabaseTest):
