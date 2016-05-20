@@ -3492,7 +3492,7 @@ class WorkClassifier(object):
                     self.target_age_lower_weights[target_min] += scaled_weight
                 if target_max is not None:
                     if not subject.target_age.upper_inc:
-                        target_max += 1
+                        target_max -= 1
                     self.target_age_upper_weights[target_max] += scaled_weight
 
         if not self.using_staff_audience and not self.using_staff_target_age:
@@ -3698,7 +3698,6 @@ class WorkClassifier(object):
 
     def target_age(self, audience):
         """Derive a target age from the gathered data."""
-
         if audience not in (
                 Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
         ):
