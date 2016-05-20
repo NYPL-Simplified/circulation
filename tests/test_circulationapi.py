@@ -1,5 +1,6 @@
 """Test the CirculationAPI."""
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -17,7 +18,107 @@ from api.circulation import (
     HoldInfo,
 )
 
+from core.model import (
+    DataSource,
+    Identifier,
+    Loan,
+    Hold,
+)
+
 from . import DatabaseTest
+
+class MockRemoteAPI(object):
+    def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved, dummy):
+        self.SET_DELIVERY_MECHANISM_AT = set_delivery_mechanism_at
+        self.CAN_REVOKE_HOLD_WHEN_RESERVED = can_revoke_hold_when_reserved
+        self.dummy = dummy
+
+    def checkout(
+            self, patron_obj, patron_password, licensepool, 
+            delivery_mechanism
+    ):
+        # Should be a LoanInfo.
+        return self.dummy._return_or_raise('checkout')
+                
+    def place_hold(self, patron, pin, licensepool, 
+                   hold_notification_email=None):
+        # Should be a HoldInfo.
+        return self.dummy._return_or_raise('hold')
+
+    def fulfill(self, patron, password, pool, delivery_mechanism):
+        # Should be a FulfillmentInfo.
+        return self.dummy._return_or_raise('fulfill')
+
+    def checkin(self, patron, pin, licensepool):
+        # Return value is not checked.
+        return self.dummy._return_or_raise('checkin')
+
+    def release_hold(self, patron, pin, licensepool):
+        # Return value is not checked.
+        return self.dummy._return_or_raise('release_hold')
+
+    def internal_format(self, delivery_mechanism):
+        return delivery_mechanism
+
+class MockCirculationAPI(CirculationAPI):
+
+    def __init__(self, db):
+        super(MockCirculationAPI, self).__init__(db)
+        self.responses = defaultdict(list)
+        self.active_loans = []
+        self.active_holds = []
+        self.identifier_type_to_data_source_name = {
+            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
+            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
+            Identifier.THREEM_ID: DataSource.THREEM,
+            Identifier.AXIS_360_ID: DataSource.AXIS_360,
+        }
+
+    def queue_checkout(self, response):
+        self._queue('checkout', response)
+
+    def queue_hold(self, response):
+        self._queue('hold', response)
+
+    def queue_fulfill(self, response):
+        self._queue('fulfill', response)
+
+    def queue_checkin(self, response):
+        self._queue('checkin', response)
+
+    def queue_release_hold(self, response):
+        self._queue('release_hold', response)
+
+    def _queue(self, k, v):
+        self.responses[k].append(v)
+
+    def set_patron_activity(self, loans, holds):
+        self.active_loans = loans
+        self.active_holds = holds
+
+    def patron_activity(self, patron, pin):
+        # Should be a 2-tuple containing a list of LoanInfo and a
+        # list of HoldInfo.
+        return self.active_loans, self.active_holds
+
+    def _return_or_raise(self, k):
+        logging.debug(k)
+        l = self.responses[k]
+        v = l.pop()
+        if isinstance(v, Exception):
+            raise v
+        return v
+
+    def api_for_license_pool(self, licensepool):
+        set_delivery_mechanism_at = BaseCirculationAPI.FULFILL_STEP
+        can_revoke_hold_when_reserved = True
+        if licensepool.data_source.name == DataSource.AXIS_360:
+            set_delivery_mechanism_at = BaseCirculationAPI.BORROW_STEP
+        if licensepool.data_source.name == DataSource.THREEM:
+            can_revoke_hold_when_reserved = False
+        
+        return MockRemoteAPI(set_delivery_mechanism_at, can_revoke_hold_when_reserved, self)
+
 
 class DummyRemoteAPI(object):
 
@@ -36,7 +137,11 @@ class DummyRemoteAPI(object):
     def queue_response(self, response):
         self.responses.insert(0, response)
 
+    def patron_activity(self, patron, pin):
+        return self.loans + self.holds
+
     def respond(self, *args, **kwargs):
+        set_trace()
         response = self.responses.pop()
         if isinstance(response, Exception):
             raise response
@@ -44,7 +149,8 @@ class DummyRemoteAPI(object):
             return response
 
     checkout = respond
-        
+    place_hold = respond
+
 
 class DummyCirculationAPI(CirculationAPI):
 
@@ -56,6 +162,7 @@ class DummyCirculationAPI(CirculationAPI):
         super(DummyCirculationAPI, self).__init__(_db)
         self.remote = DummyRemoteAPI()
         self.apis = [self.remote]
+        self.data_source_ids_for_sync = [x.id for x in _db.query(DataSource)]
 
     def api_for_license_pool(self, licensepool):
         return self.remote
@@ -67,6 +174,12 @@ class DummyCirculationAPI(CirculationAPI):
     def add_remote_hold(self, *args, **kwargs):
         loaninfo = HoldInfo(*args, **kwargs)
         self.remote.holds.append(loaninfo)
+
+    def local_loans(self, patron):
+        return self._db.query(Loan).filter(Loan.patron==patron)
+
+    def local_holds(self, patron):
+        return self._db.query(Hold).filter(Hold.patron==patron)
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -148,7 +261,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_(None, hold.end)
         eq_(None, hold.position)
         
-    def test_attempt_renew_with_local_loan(self):
+    def test_attempt_premature_renew_with_local_loan(self):
         """We have a local loan and a remote loan but the patron tried to
         borrow again -- probably to renew their loan.
         """
@@ -164,21 +277,50 @@ class TestCirculationAPI(DatabaseTest):
         # This is the expected behavior in most cases--you tried to
         # renew the loan and failed because it's not time yet.
         self.remote.queue_response(CannotRenew())
-        new_loan, hold, is_new = self.borrow()
+        assert_raises_regexp(CannotRenew, '^$', self.borrow)
 
-        # We get our preexisting local loan back.
-        eq_(loan, new_loan)
-        eq_(None, hold)
-        eq_(False, is_new)
+    def test_attempt_renew_with_local_loan_and_no_available_copies(self):
+        """We have a local loan and a remote loan but the patron tried to
+        borrow again -- probably to renew their loan.
+        """
+        # Local loan.
+        loan, ignore = self.pool.loan_to(self.patron)        
 
-        # NoAvailableCopies can happen if renewals are prohibited when
-        # there are already people waiting in line for the book.
+        # Remote loan.
+        self.circulation.add_remote_loan(
+            self.identifier.type, self.identifier.identifier, self.YESTERDAY,
+            self.IN_TWO_WEEKS
+        )
+
+        # NoAvailableCopies can happen if there are already people
+        # waiting in line for the book. This case gives a more
+        # specific error message.
+        #
+        # Contrast with the way NoAvailableCopies is handled in 
+        # test_loan_becomes_hold_if_no_available_copies.
         self.remote.queue_response(NoAvailableCopies())
-        new_loan, hold, is_new = self.borrow()
+        assert_raises_regexp(
+            CannotRenew, 
+            "You cannot renew a loan if other patrons have the work on hold.",
+            self.borrow
+        )
 
-        # Again, we get our preexisting local loan back.
-        eq_(loan, new_loan)
-        eq_(None, hold)
-        eq_(False, is_new)
+    def test_loan_becomes_hold_if_no_available_copies(self):
+        # Once upon a time, we had a loan for this book.
+        loan, ignore = self.pool.loan_to(self.patron)        
 
+        # But no longer! What's more, other patrons have taken all the
+        # copies!
+        self.remote.queue_response(NoAvailableCopies())
+        self.remote.queue_response(
+            HoldInfo(self.identifier.type, self.identifier.identifier,
+                     None, None, 10)
+        )
 
+        # As such, an attempt to renew our loan results in us actually
+        # placing a hold on the book.
+        loan, hold, is_new = self.borrow()
+        eq_(None, loan)
+        eq_(True, is_new)
+        eq_(self.pool, hold.license_pool)
+        eq_(self.patron, hold.patron)
