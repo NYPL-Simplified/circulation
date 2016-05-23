@@ -3,6 +3,10 @@ from nose.tools import (
     eq_, 
     set_trace,
 )
+from config import (
+    Configuration, 
+    temp_config,
+)
 
 import datetime
 import os
@@ -30,7 +34,14 @@ from testing import MockRequestsResponse
 class MockAxis360API(Axis360API):
 
     def __init__(self, _db, *args, **kwargs):        
-        super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['Axis 360'] = {
+                'library_id' : 'a',
+                'username' : 'b',
+                'password' : 'c',
+                'server' : 'http://axis.test/',
+            }
+            super(MockAxis360API, self).__init__(_db, *args, **kwargs)
         self.responses = []
 
     def queue_response(self, status_code, headers={}, content=None):
@@ -53,7 +64,7 @@ class TestAxis360API(DatabaseTest):
         api = MockAxis360API(self._db)
         api.queue_response(412)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing https://.*: Status code 412 while acquiring bearer token.", 
+            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
             api.refresh_bearer_token
         )
 
