@@ -153,11 +153,10 @@ class ThreeMAPI(object):
             content = representation.content
             return content
         else:
-            HTTP.request_with_timeout(
+            return HTTP.request_with_timeout(
                 method, url, data=body, headers=headers, 
                 allow_redirects=False
             )
-            return response
         
     def get_bibliographic_info_for(self, editions, max_age=None):
         results = dict()

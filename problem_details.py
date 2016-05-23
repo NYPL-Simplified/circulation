@@ -1,4 +1,5 @@
 from util.problem_detail import ProblemDetail as pd
+from util.http import INTEGRATION_ERROR
 
 INVALID_INPUT = pd(
       "http://librarysimplified.org/terms/problem/invalid-input",
@@ -33,11 +34,4 @@ INTERNAL_SERVER_ERROR = pd(
       500,
       "Internal server error.",
       "Internal server error"
-)
-
-INTEGRATION_ERROR = pd(
-      "http://librarysimplified.org/terms/problem/integration-error",
-      502,
-      "Integration error.",
-      "Integration error"
 )
