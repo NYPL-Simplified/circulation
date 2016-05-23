@@ -3,7 +3,7 @@ from core.problem_details import *
 
 REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
-      500,
+      502,
       "Third-party service failed.",
       "The library could not complete your request because a third-party service has failed.",
 )
@@ -73,21 +73,21 @@ OUTSTANDING_FINES = pd(
 
 CHECKOUT_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-issue-loan",
-      500,
+      502,
       "Could not issue loan.",
       "Could not issue loan (reason unknown).",
 )
 
 HOLD_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-place-hold",
-      500,
+      502,
       "Could not place hold.",
       "Could not place hold (reason unknown).",
 )
 
 RENEW_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-renew-loan",
-      500,
+      400,
       "Could not renew loan.",
       "Could not renew loan (reason unknown).",
 )
@@ -122,7 +122,7 @@ NO_ACTIVE_LOAN_OR_HOLD = pd(
 
 COULD_NOT_MIRROR_TO_REMOTE = pd(
       "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
-      500,
+      502,
       "Could not mirror local state to remote.",
       "Could not convince a third party to accept the change you made. It's likely to show up again soon.",
 )

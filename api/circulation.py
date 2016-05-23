@@ -200,9 +200,27 @@ class CirculationAPI(object):
                 if parse_fines(patron.fines) >= parse_fines(max_fines):
                     raise OutstandingFines()
 
-        # First, try to check out the book.
+        # Do we (think we) already have this book out on loan?
+        existing_loan = get_one(
+             self._db, Loan, patron=patron, license_pool=licensepool,
+             on_multiple='interchangeable'
+        )
+        
         loan_info = None
         hold_info = None
+        if existing_loan:
+            # Sync with the API to see if the loan still exists.  If
+            # it does, we still want to perform a 'checkout' operation
+            # on the API, because that's how loans are renewed, but
+            # certain error conditions (like NoAvailableCopies) mean
+            # something different if you already have a confirmed
+            # active loan.
+            self.sync_bookshelf(patron, pin)
+            existing_loan = get_one(
+                self._db, Loan, patron=patron, license_pool=licensepool,
+                on_multiple='interchangeable'
+            )
+
         try:
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
@@ -224,9 +242,17 @@ class CirculationAPI(object):
                 None, None, None
             )
         except NoAvailableCopies:
-            # That's fine, we'll just (try to) place a hold.
-            pass
-        
+            if existing_loan:
+                # The patron tried to renew a loan but there are
+                # people waiting in line for them to return the book,
+                # so renewals are not allowed.
+                raise CannotRenew(
+                    "You cannot renew a loan if other patrons have the work on hold."
+                )
+            else:
+                # That's fine, we'll just (try to) place a hold.
+                pass
+
         if loan_info:
             # We successfuly secured a loan.  Now create it in our
             # database.
@@ -267,11 +293,6 @@ class CirculationAPI(object):
 
         # It's pretty rare that we'd go from having a loan for a book
         # to needing to put it on hold, but we do check for that case.
-        existing_loan = get_one(
-             self._db, Loan, patron=patron, license_pool=licensepool,
-             on_multiple='interchangeable'
-        )
-
         __transaction = self._db.begin_nested()
         hold, is_new = licensepool.on_hold_to(
             patron,
@@ -486,6 +507,20 @@ class CirculationAPI(object):
         self.log.debug("Full sync took %.2f sec", after-before)
         return loans, holds
 
+    def local_loans(self, patron):
+        return self._db.query(Loan).join(Loan.license_pool).filter(
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Loan.patron==patron
+        )
+
+    def local_holds(self, patron):
+        return self._db.query(Hold).join(Hold.license_pool).filter(
+            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+        ).filter(
+            Hold.patron==patron
+        )
+
     def sync_bookshelf(self, patron, pin):
 
         # Get the external view of the patron's current state.
@@ -493,16 +528,8 @@ class CirculationAPI(object):
 
         # Get our internal view of the patron's current state.
         __transaction = self._db.begin_nested()
-        local_loans = self._db.query(Loan).join(Loan.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
-        ).filter(
-            Loan.patron==patron
-        )
-        local_holds = self._db.query(Hold).join(Hold.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
-        ).filter(
-            Hold.patron==patron
-        )
+        local_loans = self.local_loans(patron)
+        local_holds = self.local_holds(patron)
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
@@ -578,98 +605,6 @@ class CirculationAPI(object):
         __transaction.commit()
         return active_loans, active_holds
 
-
-class DummyCirculationAPI(CirculationAPI):
-
-    def __init__(self, db):
-        super(DummyCirculationAPI, self).__init__(db)
-        self.responses = defaultdict(list)
-        self.active_loans = []
-        self.active_holds = []
-        self.identifier_type_to_data_source_name = {
-            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
-            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
-            Identifier.THREEM_ID: DataSource.THREEM,
-            Identifier.AXIS_360_ID: DataSource.AXIS_360,
-        }
-
-    def queue_checkout(self, response):
-        self._queue('checkout', response)
-
-    def queue_hold(self, response):
-        self._queue('hold', response)
-
-    def queue_fulfill(self, response):
-        self._queue('fulfill', response)
-
-    def queue_checkin(self, response):
-        self._queue('checkin', response)
-
-    def queue_release_hold(self, response):
-        self._queue('release_hold', response)
-
-    def _queue(self, k, v):
-        self.responses[k].append(v)
-
-    def set_patron_activity(self, loans, holds):
-        self.active_loans = loans
-        self.active_holds = holds
-
-    def patron_activity(self, patron, pin):
-        # Should be a 2-tuple containing a list of LoanInfo and a
-        # list of HoldInfo.
-        return self.active_loans, self.active_holds
-
-    def _return_or_raise(self, k):
-        logging.debug(k)
-        l = self.responses[k]
-        v = l.pop()
-        if isinstance(v, Exception):
-            raise v
-        return v
-
-    class FakeAPI(object):
-        def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved, dummy):
-            self.SET_DELIVERY_MECHANISM_AT = set_delivery_mechanism_at
-            self.CAN_REVOKE_HOLD_WHEN_RESERVED = can_revoke_hold_when_reserved
-            self.dummy = dummy
-
-        def checkout(
-                self, patron_obj, patron_password, licensepool, 
-                delivery_mechanism
-        ):
-            # Should be a LoanInfo.
-            return self.dummy._return_or_raise('checkout')
-                
-        def place_hold(self, patron, pin, licensepool, 
-                       hold_notification_email=None):
-            # Should be a HoldInfo.
-            return self.dummy._return_or_raise('hold')
-
-        def fulfill(self, patron, password, pool, delivery_mechanism):
-            # Should be a FulfillmentInfo.
-            return self.dummy._return_or_raise('fulfill')
-
-        def checkin(self, patron, pin, licensepool):
-            # Return value is not checked.
-            return self.dummy._return_or_raise('checkin')
-
-        def release_hold(self, patron, pin, licensepool):
-            # Return value is not checked.
-            return self.dummy._return_or_raise('release_hold')
-
-        def internal_format(self, delivery_mechanism):
-            return delivery_mechanism
-
-    def api_for_license_pool(self, licensepool):
-        set_delivery_mechanism_at = BaseCirculationAPI.FULFILL_STEP
-        can_revoke_hold_when_reserved = True
-        if licensepool.data_source.name == DataSource.AXIS_360:
-            set_delivery_mechanism_at = BaseCirculationAPI.BORROW_STEP
-        if licensepool.data_source.name == DataSource.THREEM:
-            can_revoke_hold_when_reserved = False
-        
-        return self.FakeAPI(set_delivery_mechanism_at, can_revoke_hold_when_reserved, self)
 
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
