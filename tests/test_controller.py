@@ -424,14 +424,19 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(NoAvailableCopies())
-            self.manager.circulation.queue_hold(HoldInfo(
-                pool.identifier.type,
-                pool.identifier.identifier,
-                datetime.datetime.utcnow(),
-                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                1,
-            ))
+            self.manager.circulation.queue_checkout(
+                pool, NoAvailableCopies()
+            )
+            self.manager.circulation.queue_hold(
+                pool,
+                HoldInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    1,
+                )
+            )
             response = self.manager.loans.borrow(
                 DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
@@ -459,14 +464,18 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(AlreadyOnHold())
-            self.manager.circulation.queue_hold(HoldInfo(
-                pool.identifier.type,
-                pool.identifier.identifier,
-                datetime.datetime.utcnow(),
-                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                1,
-            ))
+            self.manager.circulation.queue_checkout(
+                pool, AlreadyOnHold()
+            )
+            self.manager.circulation.queue_hold(
+                pool, HoldInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    1,
+                )
+            )
             response = self.manager.loans.borrow(
                 DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
@@ -491,7 +500,9 @@ class TestLoanController(CirculationControllerTest):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
              self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(NotFoundOnRemote())
+             self.manager.circulation.queue_checkout(
+                 pool, NotFoundOnRemote()
+             )
              response = self.manager.loans.borrow(
                  DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
              eq_(404, response.status_code)
@@ -503,7 +514,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              loan, newly_created = self.pool.loan_to(patron)
 
-             self.manager.circulation.queue_checkin(True)
+             self.manager.circulation.queue_checkin(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
 
@@ -515,7 +526,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = self.pool.on_hold_to(patron, position=0)
 
-             self.manager.circulation.queue_release_hold(True)
+             self.manager.circulation.queue_release_hold(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
 
@@ -570,12 +581,16 @@ class TestLoanController(CirculationControllerTest):
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
-                self.manager.circulation.queue_checkout(LoanInfo(
-                    pool.identifier.type,
-                    pool.identifier.identifier,
-                    datetime.datetime.utcnow(),
-                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                ))
+
+                self.manager.circulation.queue_checkout(
+                    pool,
+                    LoanInfo(
+                        pool.identifier.type,
+                        pool.identifier.identifier,
+                        datetime.datetime.utcnow(),
+                        datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    )
+                )
                 response = self.manager.loans.borrow(
                     DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
                 
@@ -633,20 +648,19 @@ class TestLoanController(CirculationControllerTest):
         threem_pool.licenses_available = 0
         threem_pool.open_access = False
         
-        loan = LoanInfo(
+        self.manager.circulation.add_remote_loan(
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
             datetime.datetime.utcnow(),
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
-        hold = HoldInfo(
+        self.manager.circulation.add_remote_hold(
             threem_pool.identifier.type,
             threem_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
             0,
         )
-        self.manager.circulation.set_patron_activity([loan], [hold])
 
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
