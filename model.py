@@ -108,6 +108,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from util.http import HTTP
 from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
 
@@ -6281,20 +6282,15 @@ class Representation(Base):
     @classmethod
     def simple_http_get(cls, url, headers, **kwargs):
         """The most simple HTTP-based GET."""
-        if not 'timeout' in kwargs:
-            kwargs['timeout'] = 20
-        
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
-        response = requests.get(url, headers=headers, **kwargs)
+        response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        if not 'timeout' in kwargs:
-            kwargs['timeout'] = 20
-        response = requests.post(url, headers=headers, **kwargs)
+        response = HTTP.post_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod

@@ -196,9 +196,14 @@ class ErrorHandler(object):
         if hasattr(exception, 'as_problem_detail_document'):
             # This exception can be turned directly into a problem
             # detail document.
-            document = exception.as_problem_detail_document
-            if self.debug:
-                document.debug_message = tb
+            document = exception.as_problem_detail_document(self.debug)
+            if not self.debug:
+                document.debug_message = None
+            else:
+                if document.debug_message:
+                    document.debug_message += "\n\n" + tb
+                else:
+                    document.debug_message = tb
             return make_response(document.response)
 
         if self.debug:

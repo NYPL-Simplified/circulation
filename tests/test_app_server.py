@@ -253,9 +253,11 @@ class TestErrorHandler(object):
     def test_handle_error_as_problem_detail_document(self):
         class CanBeProblemDetailDocument(Exception):
 
-            @property
-            def as_problem_detail_document(self):
-                return INVALID_URN
+            def as_problem_detail_document(self, debug):
+                return INVALID_URN.detailed(
+                    "detail info",
+                    debug_message="A debug_message which should only appear in debug mode."
+                )
 
         handler = ErrorHandler(self.app, debug=False)
         with self.app.test_request_context('/'):
@@ -267,10 +269,13 @@ class TestErrorHandler(object):
             eq_(400, response.status_code)
             data = json.loads(response.data)
             eq_(INVALID_URN.title, data['title'])
+
+            # Since we are not in debug mode, the debug_message is
+            # destroyed.
             assert 'debug_message' not in data
 
-        # Now try it with debug=True and see that a stack trace is
-        # included in debug_message.
+        # Now try it with debug=True and see that the debug_message is
+        # preserved and a stack trace is append it to it.
         handler = ErrorHandler(self.app, debug=True)
         with self.app.test_request_context('/'):
             try:
@@ -281,4 +286,7 @@ class TestErrorHandler(object):
             eq_(400, response.status_code)
             data = json.loads(response.data)
             eq_(INVALID_URN.title, data['title'])
-            assert data['debug_message'].startswith(u'Traceback (most recent call last)')
+            assert data['debug_message'].startswith(
+                u"A debug_message which should only appear in debug mode.\n\n"
+                u'Traceback (most recent call last)'
+            )
