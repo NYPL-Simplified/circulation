@@ -1279,7 +1279,7 @@ class TestWorkClassifier(DatabaseTest):
         assert self.classifier.genre_weights[history] > old_weight
 
     def test_staff_genre_overrides_others(self):
-        genre1, is_new = Genre.lookup(self._db, "Poetry")
+        genre1, is_new = Genre.lookup(self._db, "Psychology")
         genre2, is_new = Genre.lookup(self._db, "Cooking")
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genre1
@@ -1324,7 +1324,7 @@ class TestWorkClassifier(DatabaseTest):
         staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         subject1 = self._subject(type="type1", identifier="Cooking")
         subject1.fiction = False
-        subject2 = self._subject(type="type2", identifier="Poetry")
+        subject2 = self._subject(type="type2", identifier="Psychology")
         subject2.fiction = False
         subject3 = self._subject(
             type=Subject.SIMPLIFIED_FICTION_STATUS,
@@ -1398,3 +1398,17 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification3)
         (genre_weights, fiction, audience, target_age) = self.classifier.classify
         eq_(NumericRange(10, 13, "[]"), target_age)
+
+    def test_not_inclusive_target_age(self):
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        subject = self._subject(
+            type=Subject.AGE_RANGE,
+            identifier="10-12"
+        )
+        subject.target_age = NumericRange(9, 13, "()")
+        classification = self._classification(
+            identifier=self.identifier, subject=subject,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(NumericRange(10, 12, "[]"), target_age)
