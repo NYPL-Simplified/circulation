@@ -1,12 +1,13 @@
+from nose.tools import set_trace
 import requests
 import urlparse
-
 from problem_detail import ProblemDetail as pd
+
 INTEGRATION_ERROR = pd(
-      "http://librarysimplified.org/terms/problem/integration-error",
+      "http://librarysimplified.org/terms/problem/remote-integration-failed",
       502,
-      "Integration error.",
-      "Integration error"
+      "Third-party service failed.",
+      "A third-party service has failed.",
 )
 
 class RequestNetworkException(requests.exceptions.RequestException):
@@ -32,7 +33,7 @@ class RequestNetworkException(requests.exceptions.RequestException):
         else:
             message = self.detail % self.hostname
         return INTEGRATION_ERROR.detailed(
-            detail=message, title=title
+            detail=message, title=self.title
         )
 
 class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):

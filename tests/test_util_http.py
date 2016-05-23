@@ -52,12 +52,12 @@ class TestRequestTimedOut(object):
 
         debug_detail = exception.as_problem_detail_document(debug=True)
         eq_("Timeout", debug_detail.title)
-        eq_('Request timed out while accessing http://url/', debug_detail.detail)
+        eq_('The server made a request to http://url/, and that request timed out.', debug_detail.detail)
 
         # If we're not in debug mode, we hide the URL we accessed and just
         # show the hostname.
         standard_detail = exception.as_problem_detail_document(debug=False)
-        eq_("Request timed out while accessing url", standard_detail.detail)
+        eq_("The server made a request to url, and that request timed out.", standard_detail.detail)
 
         # The status code corresponding to an upstream timeout is 502.
         document, status_code, headers = standard_detail.response
@@ -71,12 +71,12 @@ class TestRequestNetworkException(object):
 
         debug_detail = exception.as_problem_detail_document(debug=True)
         eq_("Network failure contacting external service", debug_detail.title)
-        eq_('The server experienced a network error while accessing http://url/', debug_detail.detail)
+        eq_('The server experienced a network error while accessing http://url/.', debug_detail.detail)
 
         # If we're not in debug mode, we hide the URL we accessed and just
         # show the hostname.
         standard_detail = exception.as_problem_detail_document(debug=False)
-        eq_("The server experienced a network error while accessing url", standard_detail.detail)
+        eq_("The server experienced a network error while accessing url.", standard_detail.detail)
 
         # The status code corresponding to an upstream timeout is 502.
         document, status_code, headers = standard_detail.response
