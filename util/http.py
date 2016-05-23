@@ -1,4 +1,6 @@
 import requests
+import urlparse
+
 from ..problem_details import INTEGRATION_ERROR
 
 class RequestTimedOut(Exception):
@@ -11,7 +13,7 @@ class RequestTimedOut(Exception):
         self.hostname = urlparse.urlparse(url).netloc
 
     def as_problem_detail_document(self, debug):
-        template = "Connection timed out while accessing %s"
+        template = "Request timed out while accessing %s"
         if debug:
             message = template % self.url
         else:
@@ -20,7 +22,7 @@ class RequestTimedOut(Exception):
             instance = self.url
         else:
             instance = None
-        return INTEGRATION_ERROR.detail(
+        return INTEGRATION_ERROR.detailed(
             detail=message, title="Timeout", instance=instance
         )
 
@@ -28,6 +30,7 @@ class RequestTimedOut(Exception):
 class HTTP(object):
     """A helper for the `requests` module."""
 
+    @classmethod
     def request_with_timeout(cls, http_method, url, *args, **kwargs):
         """Call requests.request and turn a timeout into a RequestTimedOut
         exception.
@@ -43,8 +46,10 @@ class HTTP(object):
             raise RequestTimedOut(url, e.message)
         return response
 
+    @classmethod
     def get_with_timeout(cls, url, *args, **kwargs):
-        return request_with_timeout("POST", url, *args, **kwargs)
+        return cls.request_with_timeout("POST", url, *args, **kwargs)
 
+    @classmethod
     def post_with_timeout(cls, url, *args, **kwargs):
-        return request_with_timeout("POST", url, *args, **kwargs)
+        return cls.request_with_timeout("POST", url, *args, **kwargs)
