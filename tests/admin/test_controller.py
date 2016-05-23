@@ -85,6 +85,7 @@ class TestWorkController(AdminControllerTest):
     def test_edit(self):
         [lp] = self.english_1.license_pools
 
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         def staff_edition_count():
             return self._db.query(Edition) \
                 .filter(
@@ -99,7 +100,6 @@ class TestWorkController(AdminControllerTest):
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-            staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
