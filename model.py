@@ -135,7 +135,7 @@ def production_session():
     return SessionManager.session(url)
 
 class PolicyException(Exception):
-    pass    
+    pass
 
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
