@@ -43,7 +43,6 @@ class HTTP(object):
         """Call requests.request and turn a timeout into a RequestTimedOut
         exception.
         """
-        m = requests.request
         return cls._request_with_timeout(
             url, requests.request, http_method, url, *args, **kwargs
         )
