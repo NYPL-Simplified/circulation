@@ -521,6 +521,7 @@ class DatabaseTest(object):
         license_pools = db_connection.query(LicensePool).all()
         editions = db_connection.query(Edition).all()
         data_sources = db_connection.query(DataSource).all()
+        representations = db_connection.query(Representation).all()
 
         if (not works):
             print "NO Work found"
@@ -535,12 +536,14 @@ class DatabaseTest(object):
 
             print "    Work.presentation_edition=%s|" % work.presentation_edition
 
+        print "__________________________________________________________________\n"
         if (not identifiers):
             print "NO Identifier found"
         for iCount, identifier in enumerate(identifiers):
             print "Identifier[%s]=%s|" % (iCount, identifier)
             print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
 
+        print "__________________________________________________________________\n"
         if (not license_pools):
             print "NO LicensePool found"
         for index, license_pool in enumerate(license_pools):
@@ -552,6 +555,7 @@ class DatabaseTest(object):
             print "    LicensePool.superceded=%s|" % license_pool.superceded
             print "    LicensePool.suppressed=%s|" % license_pool.suppressed
 
+        print "__________________________________________________________________\n"
         if (not editions):
             print "NO Edition found"
         for index, edition in enumerate(editions):
@@ -576,6 +580,7 @@ class DatabaseTest(object):
             for acCount, author_contributor in enumerate(edition.author_contributors):
                 print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
 
+        print "__________________________________________________________________\n"
         if (not data_sources):
             print "NO DataSource found"
         for index, data_source in enumerate(data_sources):
@@ -586,6 +591,17 @@ class DatabaseTest(object):
             print "    DataSource.editions=%s|" % data_source.editions            
             print "    DataSource.license_pools=%s|" % data_source.license_pools
             print "    DataSource.links=%s|" % data_source.links
+
+        print "__________________________________________________________________\n"
+        if (not representations):
+            print "NO Representation found"
+        for index, representation in enumerate(representations):
+            print "Representation[%s]=%s|" % (index, representation)
+            print "    Representation.id=%s|" % representation.id
+            print "    Representation.url=%s|" % representation.url
+            print "    Representation.mirror_url=%s|" % representation.mirror_url
+            print "    Representation.fetch_exception=%s|" % representation.fetch_exception   
+            print "    Representation.mirror_exception=%s|" % representation.mirror_exception
 
         return
 
@@ -691,3 +707,5 @@ class DummyHTTPClient(object):
     def do_get(self, url, headers, **kwargs):
         self.requests.append(url)
         return self.responses.pop()
+
+

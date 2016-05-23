@@ -1097,7 +1097,7 @@ class Identifier(Base):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = u' wr=%d ("%s")' % (records[0].id, records[0].title)
+            title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
         return (u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id,
@@ -1433,6 +1433,8 @@ class Identifier(Base):
         fetching, mirroring and scaling Representations as links are
         created. It might be good to move that code into here.
         """
+        #if href == 'http://www.gutenberg.org/ebooks/10441.epub.images':
+            #set_trace()
         _db = Session.object_session(self)
 
         if license_pool and license_pool.identifier != self:
@@ -4188,6 +4190,7 @@ class Resource(Base):
         if not self.representation:
             self.representation, is_new = get_one_or_create(
                 _db, Representation, url=self.url, media_type=media_type)
+        #set_trace()
         self.representation.mirror_url = self.url
         self.representation.set_as_mirrored()
 
@@ -4999,7 +5002,6 @@ class LicensePool(Base):
         # type for the data source.
         if (data_source.primary_identifier_type and 
             foreign_id_type != data_source.primary_identifier_type):
-            set_trace()
             raise ValueError(
                 "License pools for data source '%s' are keyed to "
                 "identifier type '%s' (not '%s', which was provided)" % (

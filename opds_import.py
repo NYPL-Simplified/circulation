@@ -215,7 +215,12 @@ class OPDSImporter(object):
                          cutoff_date=None, 
                          immediately_presentation_ready=False):
 
-        metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
+        try:
+            metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
+        except Exception, e:
+            set_trace()
+            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
+            print "1.  %s" % message
 
         #set_trace()
         imported_editions = {}
@@ -236,6 +241,7 @@ class OPDSImporter(object):
                 if edition:
                     imported_editions[key] = edition
             except Exception, e:
+                #set_trace()
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
@@ -278,6 +284,7 @@ class OPDSImporter(object):
                         if work:
                             imported_works[key] = work
                 except Exception, e:
+                    #set_trace()
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                     status_messages[key] = message
                     # If problem importing a Work, then rather than scratch the whole import, 

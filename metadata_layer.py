@@ -655,6 +655,8 @@ class CirculationData(object):
 
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+                #set_trace()
+                print "link.content=%s" % link.content
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=pool, media_type=link.media_type,
@@ -667,7 +669,6 @@ class CirculationData(object):
                 _db.delete(lpdm)
             pool.delivery_mechanisms = []
 
-        set_trace()
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj = link_objects[link]
@@ -725,18 +726,26 @@ class CirculationData(object):
         # associated with the resource.
         link_obj.resource.representation = representation
 
+        if representation.fetch_exception:
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            return
+
         # Determine the best URL to use when mirroring this
         # representation.
+        #set_trace()
+        print "representation.url=%s" % representation.url
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            '''
-            if pool and pool.presentation_edition and pool.presentation_edition.title:
-                title = pool.presentation_edition.title
+            if (pool and pool.identifier and pool.identifier.primarily_identifies and 
+            pool.identifier.primarily_identifies[0] and pool.identifier.primarily_identifies[0].title):
+                title = pool.identifier.primarily_identifies[0].title
             else:
                 title = self.title or None
-            '''
+
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=None,
+                identifier, data_source=data_source, title=title,
                 extension=extension
             )
         else:
@@ -1398,7 +1407,6 @@ class Metadata(object):
                 edition.display_author = primary_author.display_name
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
-        set_trace()
         for link in self.links:
             #if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
             link_obj = link_objects[link]
@@ -1470,6 +1478,7 @@ class Metadata(object):
         # pool until someone fixes it manually.
         # TODO: don't have pools anymore, nor open_access, but might want 
         # to find edition's pool and suppress it
+        #set_trace()
         if representation.fetch_exception:
             '''
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
@@ -1537,7 +1546,6 @@ class Metadata(object):
                 destination_media_type=Representation.PNG_MEDIA_TYPE,
                 force=True
             )
-            set_trace()
             if is_new:
                 # A thumbnail was created distinct from the original
                 # image. Mirror it as well.
@@ -1555,7 +1563,7 @@ class Metadata(object):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
         """
-        set_trace()
+        #set_trace()
         thumbnail = link.thumbnail
         if not thumbnail:
             return None
