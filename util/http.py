@@ -10,19 +10,20 @@ INTEGRATION_ERROR = pd(
       "A third-party service has failed.",
 )
 
-class RequestNetworkException(requests.exceptions.RequestException):
-    """An exception from the requests module that can be represented as
-    a problem detail document.
-    """
+class RemoteIntegrationException(Exception):
 
+    """An exception that happens when communicating with a third-party
+    service.
+    """
     title = "Network failure contacting external service"
     detail = "The server experienced a network error while accessing %s."
     internal_message = "Network error accessing %s: %s"
 
-    def __init__(self, url, message):
+    def __init__(self, url, message, debug_message=None):
+        super(RemoteIntegrationException, self).__init__(message)
         self.url = url
         self.hostname = urlparse.urlparse(url).netloc
-        super(RequestNetworkException, self).__init__(message)
+        self.debug_message = debug_message
 
     def __str__(self):
         return self.internal_message % (self.url, self.message)
@@ -30,11 +31,19 @@ class RequestNetworkException(requests.exceptions.RequestException):
     def as_problem_detail_document(self, debug):
         if debug:
             message = self.detail % self.url
+            debug_message = self.debug_message
         else:
             message = self.detail % self.hostname
+            debug_message = None
         return INTEGRATION_ERROR.detailed(
-            detail=message, title=self.title
+            detail=message, title=self.title, debug_message=debug_message
         )
+
+class RequestNetworkException(RemoteIntegrationException,
+                              requests.exceptions.RequestException):
+    """An exception from the requests module that can be represented as
+    a problem detail document.
+    """
 
 class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):
     """A timeout exception that can be represented as a problem
@@ -87,5 +96,14 @@ class HTTP(object):
             # Wrap all other requests-specific exceptions in
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
+
+        # Also raise a RequestNetworkException if the response code
+        # indicates a server-side failure.
+        if (response.status_code / 100) == 5:
+            raise RemoteIntegrationException(
+                url,
+                "Got status code %s from external server." % response.status_code, 
+                debug_message=response.content
+            )
         return response
 

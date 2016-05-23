@@ -1,4 +1,8 @@
-from nose.tools import eq_, set_trace
+from nose.tools import (
+    assert_raises_regexp,
+    eq_, 
+    set_trace,
+)
 
 import datetime
 import os
@@ -18,7 +22,25 @@ from axis import (
     BibliographicParser,
 )
 
+from util.http import RemoteIntegrationException
+
 from . import DatabaseTest
+from testing import MockRequestsResponse
+
+class MockAxis360API(Axis360API):
+
+    def __init__(self, _db, *args, **kwargs):        
+        super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        self.responses = []
+
+    def queue_response(self, status_code, headers={}, content=None):
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _make_request(self, *args, **kwargs):
+        return self.responses.pop()
+
 
 class TestAxis360API(DatabaseTest):
 
@@ -26,6 +48,14 @@ class TestAxis360API(DatabaseTest):
         identifier = self._identifier()
         values = Axis360API.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
+
+    def test_refresh_bearer_token_error(self):
+        api = MockAxis360API(self._db)
+        api.queue_response(412)
+        assert_raises_regexp(
+            RemoteIntegrationException, "Network error accessing https://.*: Status code 412 while acquiring bearer token.", 
+            api.refresh_bearer_token
+        )
 
 class TestParsers(object):
 

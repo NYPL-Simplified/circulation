@@ -9,7 +9,10 @@ import re
 
 from util import LanguageCodes
 from util.xmlparser import XMLParser
-from util.http import HTTP
+from util.http import (
+    HTTP,
+    RemoteIntegrationException,
+)
 from coverage import CoverageFailure
 from model import (
     Contributor,
@@ -107,9 +110,13 @@ class Axis360API(object):
         headers = self.authorization_headers
         response = self._make_request(url, 'post', headers)
         if response.status_code != 200:
-            raise Exception(
-                "Could not acquire bearer token: %s, %s" % (
-                    response.status_code, response.content))
+            raise RemoteIntegrationException(
+                url,
+                "Status code %s while acquiring bearer token." % (
+                    response.status_code
+                ),
+                debug_message=response.content
+            )
         return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
