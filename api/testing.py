@@ -97,7 +97,7 @@ class MockCirculationAPI(CirculationAPI):
         return self._db.query(Loan).filter(Loan.patron==patron)
 
     def local_holds(self, patron):
-        return self._db.query(Hold).filter(Loan.patron==patron)
+        return self._db.query(Hold).filter(Hold.patron==patron)
 
     def add_remote_loan(self, *args, **kwargs):
         self.remote_loans.append(LoanInfo(*args, **kwargs))
