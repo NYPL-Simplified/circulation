@@ -158,7 +158,9 @@ class OverdriveAPI(object):
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
-                raise Exception("Something's wrong with the OAuth Bearer Token!")
+                raise Exception(
+                    "Something's wrong with the Overdrive OAuth Bearer Token!"
+                )
             else:
                 # Refresh the token and try again.
                 self.check_creds(True)
@@ -197,13 +199,10 @@ class OverdriveAPI(object):
             self.ALL_PRODUCTS_ENDPOINT % params)
 
         while next_link:
-            try:
-                page_inventory, next_link = self._get_book_list_page(
-                    next_link, 'next')
-            except Exception, e:
-                self.log.error("OVERDRIVE ERROR: %r %r %r",
-                               status_code, headers, content)
-                return
+            page_inventory, next_link = self._get_book_list_page(
+                next_link, 'next'
+            )
+
             for i in page_inventory:
                 yield i
 
@@ -215,15 +214,7 @@ class OverdriveAPI(object):
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
-        try:
-            data = json.loads(content)
-        except Exception, e:
-            self.log.error(
-                "Error getting book list page: %r %r %r", 
-                status_code, headers, content,
-                exc_info=e
-            )
-            return [], None
+        data = json.loads(content)
 
         # Find the link to the next page of results, if any.
         next_link = OverdriveRepresentationExtractor.link(data, rel_to_follow)

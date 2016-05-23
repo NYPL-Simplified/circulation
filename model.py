@@ -136,6 +136,27 @@ def production_session():
 class PolicyException(Exception):
     pass
 
+class RequestTimedOut(Exception):
+
+    def __init__(self, url, response):
+        self.url = url
+        self.hostname = urlparse.urlparse(url).netloc
+
+    def as_problem_detail_document(self, debug):
+        template = "Connection timed out while accessing %s"
+        if debug:
+            message = template % self.url
+        else:
+            message = template % self.hostname
+        if debug:
+            instance = self.url
+        else:
+            instance = None
+        return INTEGRATION_ERROR.detail(
+            detail=message, title="Timeout", instance=instance
+        )
+    
+
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
@@ -6279,22 +6300,37 @@ class Representation(Base):
         return json.dumps(dict(d))
 
     @classmethod
-    def simple_http_get(cls, url, headers, **kwargs):
-        """The most simple HTTP-based GET."""
+    def request_with_timeout(cls, m, url, *args, **kwargs):
+        """Call the given request method and turn a timeout into a
+        RequestTimedOut exception.
+        """
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
-        
+        kwargs['timeout'] = 0.001
+        try:
+            response = m(url, *args, **kwargs)
+        except requests.exceptions.Timeout, e:
+            # Wrap the requests-specific Timeout exception 
+            # in a generic RequestTimedOut exception.
+            raise RequestTimedOut(url, e.message)
+        return response
+
+    @classmethod
+    def simple_http_get(cls, url, headers, **kwargs):
+        """The most simple HTTP-based GET."""
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
-        response = requests.get(url, headers=headers, **kwargs)
+        response = cls.request_with_timeout(
+            requests.get, url, headers=headers, **kwargs
+        )
         return response.status_code, response.headers, response.content
 
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        if not 'timeout' in kwargs:
-            kwargs['timeout'] = 20
-        response = requests.post(url, headers=headers, **kwargs)
+        response = cls.request_with_timeout(
+            requests.post, url, headers=headers, **kwargs
+        )
         return response.status_code, response.headers, response.content
 
     @classmethod
