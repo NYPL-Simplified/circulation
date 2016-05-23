@@ -199,8 +199,11 @@ class ErrorHandler(object):
             document = exception.as_problem_detail_document(self.debug)
             if not self.debug:
                 document.debug_message = None
-            elif not document.debug_message:
-                document.debug_message = tb
+            else:
+                if document.debug_message:
+                    document.debug_message += "\n\n" + tb
+                else:
+                    document.debug_message = tb
             return make_response(document.response)
 
         if self.debug:
