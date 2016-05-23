@@ -3,7 +3,7 @@ import urlparse
 
 from problem_details import INTEGRATION_ERROR
 
-class RequestTimedOut(Exception):
+class RequestTimedOut(requests.exceptions.Timeout):
     """A timeout exception that can be represented as a problem
     detail document.
     """
