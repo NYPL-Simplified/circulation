@@ -225,6 +225,16 @@ class WorkController(CirculationManagerController):
             staff_edition.title = unicode(new_title)
             changed = True
 
+        new_subtitle = flask.request.form.get("subtitle")
+        if work.subtitle != new_subtitle:
+            staff_edition.subtitle = unicode(new_subtitle)
+            changed = True
+
+        new_series = flask.request.form.get("series")
+        if work.series != new_series:
+            staff_edition.series = unicode(new_series)
+            changed = True
+
         new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
             old_summary = None

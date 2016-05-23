@@ -85,6 +85,7 @@ class TestWorkController(AdminControllerTest):
     def test_edit(self):
         [lp] = self.english_1.license_pools
 
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         def staff_edition_count():
             return self._db.query(Edition) \
                 .filter(
@@ -96,13 +97,18 @@ class TestWorkController(AdminControllerTest):
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
+                ("subtitle", "New subtitle"),
+                ("series", "New series"),
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-            staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
+            eq_("New subtitle", self.english_1.subtitle)
+            assert "New subtitle" in self.english_1.simple_opds_entry
+            eq_("New series", self.english_1.series)
+            assert "New series" in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
@@ -111,6 +117,8 @@ class TestWorkController(AdminControllerTest):
             # Change the summary again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
+                ("subtitle", "New subtitle"),
+                ("series", "New series"),
                 ("summary", "abcd")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
@@ -120,14 +128,20 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
-            # Now delete the summary entirely
+            # Now delete the subtitle and series and summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
+                ("subtitle", ""),
+                ("series", ""),
                 ("summary", "")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
+            eq_("", self.english_1.subtitle)
+            eq_("", self.english_1.series)
             eq_("", self.english_1.summary_text)
+            assert 'New subtitle' not in self.english_1.simple_opds_entry
+            assert 'New series' not in self.english_1.simple_opds_entry
             assert 'abcd' not in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
 
