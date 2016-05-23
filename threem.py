@@ -6,7 +6,6 @@ import hmac
 import hashlib
 import os
 import re
-import requests
 import logging
 from datetime import datetime, timedelta
 
@@ -40,6 +39,7 @@ from metadata_layer import (
     SubjectData,
 )
 
+from util.http import HTTP
 from util.xmlparser import XMLParser
 
 class ThreeMAPI(object):
@@ -148,12 +148,15 @@ class ThreeMAPI(object):
         if max_age and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
-                do_get=Representation.http_get_no_timeout, max_age=max_age)
+                do_get=Representation.http_get_no_timeout, max_age=max_age
+            )
             content = representation.content
             return content
         else:
-            response = requests.request(
-                method, url, data=body, headers=headers, allow_redirects=False)
+            HTTP.request_with_timeout(
+                method, url, data=body, headers=headers, 
+                allow_redirects=False
+            )
             return response
         
     def get_bibliographic_info_for(self, editions, max_age=None):

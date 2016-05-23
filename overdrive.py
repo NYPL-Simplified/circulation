@@ -5,7 +5,6 @@ import isbnlib
 import os
 import json
 import logging
-import requests
 import urlparse
 import urllib
 import sys
@@ -154,7 +153,8 @@ class OverdriveAPI(object):
         headers = dict(Authorization="Bearer %s" % self.token)
         headers.update(extra_headers)
         status_code, headers, content = Representation.simple_http_get(
-            url, headers)
+            url, headers
+        )
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -174,7 +174,7 @@ class OverdriveAPI(object):
         auth = base64.encodestring(s).strip()
         headers = dict(headers)
         headers['Authorization'] = "Basic %s" % auth
-        return requests.post(url, payload, headers=headers)
+        return HTTP.post_with_timeout(url, payload, headers=headers)
 
     def _update_credential(self, credential, overdrive_data):
         """Copy Overdrive OAuth data into a Credential object."""

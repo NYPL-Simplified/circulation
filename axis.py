@@ -2,7 +2,6 @@ from nose.tools import set_trace
 from collections import defaultdict
 import datetime
 import base64
-import requests
 import os
 import json
 import logging
@@ -10,6 +9,7 @@ import re
 
 from util import LanguageCodes
 from util.xmlparser import XMLParser
+from util.http import HTTP
 from coverage import CoverageFailure
 from model import (
     Contributor,
@@ -172,9 +172,11 @@ class Axis360API(object):
 
     def _make_request(self, url, method, headers, data=None, params=None):
         """Actually make an HTTP request."""
-        return requests.request(
-            url=url, method=method, headers=headers, data=data,
-            params=params)
+        return HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            params=params
+        )
+
 
 class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Axis 360 records.
