@@ -237,8 +237,9 @@ class Axis360CirculationMonitor(Monitor):
         status_code = availability.status_code
         content = availability.content
         if status_code != 200:
-            raise Exception(
-                "Got status code %d from API: %s" % (status_code, content))
+            raise RemoteInitiatedServerError(
+                "Got status code %d from API: %s" % (status_code, content)
+            )
         count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
                 content):
@@ -386,6 +387,7 @@ class ResponseParser(Axis360Parser):
                     e = cls(message, self.SERVICE_NAME)
                 else:
                     e = cls(message)
+                raise e
         return code, message
 
 
