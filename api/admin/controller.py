@@ -213,22 +213,16 @@ class WorkController(CirculationManagerController):
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         primary_identifier = work.presentation_edition.primary_identifier
-
-        staff_edition = None
-        def staff_edition():
-            if staff_edition:
-                return staff_edition
-            else:
-                staff_edition, is_new = get_one_or_create(
-                    self._db, Edition,
-                    primary_identifier_id=primary_identifier.id,
-                    data_source_id=staff_data_source.id
-                )
-                return staff_edition
+        staff_edition, is_new = get_one_or_create(
+            self._db, Edition,
+            primary_identifier_id=primary_identifier.id,
+            data_source_id=staff_data_source.id
+        )
+        self._db.expire(primary_identifier)
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            staff_edition().title = unicode(new_title)
+            staff_edition.title = unicode(new_title)
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""
