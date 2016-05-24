@@ -33,7 +33,7 @@ from testing import MockRequestsResponse
 
 class MockAxis360API(Axis360API):
 
-    def __init__(self, _db, *args, **kwargs):        
+    def __init__(self, _db, with_token=True, *args, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['Axis 360'] = {
                 'library_id' : 'a',
@@ -42,6 +42,8 @@ class MockAxis360API(Axis360API):
                 'server' : 'http://axis.test/',
             }
             super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        if with_token:
+            self.token = "mock token"
         self.responses = []
 
     def queue_response(self, status_code, headers={}, content=None):
@@ -61,11 +63,19 @@ class TestAxis360API(DatabaseTest):
         eq_(["foo", identifier.identifier], values)
 
     def test_refresh_bearer_token_error(self):
-        api = MockAxis360API(self._db)
+        api = MockAxis360API(self._db, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
             RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
             api.refresh_bearer_token
+        )
+
+    def test_availability_exception(self):
+        api = MockAxis360API(self._db)
+        api.queue_response(500)
+        assert_raises_regexp(
+            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
+            api.availability
         )
 
 class TestParsers(object):
