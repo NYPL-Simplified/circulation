@@ -125,7 +125,7 @@ class HTTP(object):
         status_code_in_disallowed = "Got status code %s from external server, cannot continue."
         if allowed_response_codes:
             allowed_response_codes = map(str, allowed_response_codes)
-            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(allowed_response_codes)
+            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(sorted(allowed_response_codes))
         if disallowed_response_codes:
             disallowed_response_codes = map(str, disallowed_response_codes)
         else:
