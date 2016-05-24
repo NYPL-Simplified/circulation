@@ -9,6 +9,11 @@ import urlparse
 import urllib
 import sys
 
+from config import (
+    temp_config, 
+    Configuration,
+)
+
 from model import (
     Contributor,
     Credential,
@@ -43,10 +48,13 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from testing import MockRequestsResponse
+
 from util.http import (
     HTTP,
     BadResponseException,
 )
+
 
 class OverdriveAPI(object):
 
@@ -314,6 +322,54 @@ class OverdriveAPI(object):
     def _do_post(self, url, payload, headers):
         """This method is overridden in MockOverdriveAPI."""
         return HTTP.post_with_timeout(url, payload, headers=headers)
+
+
+class MockOverdriveAPI(OverdriveAPI):
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+
+        # The constructor will make a request for the access token,
+        # and then a request for the collection token.
+        self.queue_response(200, content=self.mock_access_token("bearer token"))
+        self.queue_response(
+            200, content=self.mock_collection_token("collection token")
+        )
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['Overdrive'] = {
+                'client_key' : 'a',
+                'client_secret' : 'b',
+                'website_id' : 'c',
+                'library_id' : 'd',
+            }
+            super(MockOverdriveAPI, self).__init__(_db, *args, **kwargs)
+
+    def mock_access_token(self, credential):
+        return json.dumps(dict(access_token=credential, expires_in=3600))
+
+    def mock_collection_token(self, token):
+        return json.dumps(dict(collectionToken=token))
+
+    def queue_response(self, status_code, headers={}, content=None):
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _do_get(self, url, *args, **kwargs):
+        """Simulate Representation.simple_http_get."""
+        response = self._make_request(url, *args, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    def _do_post(self, url, *args, **kwargs):
+        return self._make_request(url, *args, **kwargs)
+
+    def _make_request(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class OverdriveRepresentationExtractor(object):
