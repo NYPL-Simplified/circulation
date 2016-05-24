@@ -131,13 +131,16 @@ class ThreeMAPI(object):
         signature = base64.b64encode(digest)
         return signature, now
 
-    def request(self, path, body=None, method="GET", identifier=None,
-                max_age=None):
+    def full_url(self, path):
         if not path.startswith("/"):
             path = "/" + path
         if not path.startswith("/cirrus"):
             path = "/cirrus/library/%s%s" % (self.library_id, path)
-        url = urlparse.urljoin(self.base_url, path)
+        return urlparse.urljoin(self.base_url, path)
+
+    def request(self, path, body=None, method="GET", identifier=None,
+                max_age=None):
+        path = self.full_url(path)
         if method == 'GET':
             headers = {"Accept" : "application/xml"}
         else:

@@ -50,6 +50,8 @@ class BadResponseException(RemoteIntegrationException):
     detail = "The server made a request to %s, and got an unexpected or invalid response."
     internal_message = "Bad response from %s: %s"
 
+    BAD_STATUS_CODE = "Got status code %s from external server, cannot continue."
+
     def document_debug_message(self, debug=True):
         if debug:
             msg = self.message
@@ -57,6 +59,15 @@ class BadResponseException(RemoteIntegrationException):
                 msg += "\n\n" + self.debug_message
             return msg
         return None
+
+    @classmethod
+    def bad_status_code(cls, url, response):
+        """The response is bad because the status code is wrong."""
+        return BadResponseException(
+            url,
+            cls.BAD_STATUS_CODE % response.status_code, 
+            debug_message="Response content: %s" % response.content
+        )
 
 
 class RequestNetworkException(RemoteIntegrationException,
@@ -136,7 +147,6 @@ class HTTP(object):
         server-side failure, or behavior so unpredictable that we can't
         continue.
         """
-        status_code_in_disallowed = "Got status code %s from external server, cannot continue."
         if allowed_response_codes:
             allowed_response_codes = map(str, allowed_response_codes)
             status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(sorted(allowed_response_codes))
@@ -163,7 +173,7 @@ class HTTP(object):
         ):
             # Unless explicitly allowed, the 5xx series always results in
             # an exception.
-            error_message = status_code_in_disallowed
+            error_message = cls.BAD_STATUS_CODE
         elif (allowed_response_codes and not (
                 code in allowed_response_codes 
                 or series in allowed_response_codes
