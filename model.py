@@ -108,7 +108,10 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
-from util.http import HTTP
+from util.http import (
+    HTTP,
+    RemoteIntegrationException,
+)
 from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
 
@@ -6019,7 +6022,8 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None, max_age=None, pause_before=0, allow_redirects=True,
-            presumed_media_type=None, debug=True, response_reviewer=None):
+            presumed_media_type=None, debug=True, response_reviewer=None,
+            exception_handler=None):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6038,6 +6042,8 @@ class Representation(Base):
         """
         representation = None
         do_get = do_get or cls.simple_http_get
+
+        exception_handler = exception_handler or cls.record_exception
 
         # TODO: We allow representations of the same URL in different
         # media types, but we don't have a good solution here for
@@ -6109,6 +6115,8 @@ class Representation(Base):
         if pause_before:
             time.sleep(pause_before)
         media_type = None
+        fetch_exception = None
+        exception_traceback = None
         try:
             status_code, headers, content = do_get(url, headers)
             if response_reviewer:
@@ -6122,12 +6130,8 @@ class Representation(Base):
                 media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
-        except Exception, e:
-            # This indicates there was a problem with making the HTTP
-            # request, not that the HTTP request returned an error
-            # condition.
-            logging.error("Error making HTTP request to %s", url, exc_info=e)
-            exception = traceback.format_exc()
+        except Exception, fetch_exception:
+            exception_traceback = traceback.format_exc()
             status_code = None
             headers = None
             content = None
@@ -6143,7 +6147,10 @@ class Representation(Base):
             representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=unicode(media_type))
 
-        representation.fetch_exception = exception
+        if fetch_exception:
+            exception_handler(
+                representation, fetch_exception, exception_traceback
+            )
         representation.fetched_at = fetched_at
 
         if status_code == 304:
@@ -6197,6 +6204,18 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return representation, False
+
+    @classmethod
+    def reraise_exception(cls, representation, exception, traceback):
+        """Deal with a fetch exception by re-raising it."""
+        raise exception
+
+    @classmethod
+    def record_exception(cls, representation, exception, traceback):
+        """Deal with a fetch exception by recording it
+        and moving on.
+        """
+        representation.fetch_exception = traceback
 
     @classmethod
     def cacheable_post(cls, _db, url, params, max_age=None,

@@ -1,4 +1,5 @@
 import requests
+import json
 from util.http import (
     HTTP, 
     BadResponseException,
@@ -147,6 +148,39 @@ class TestHTTP(object):
 
 
 class TestBadResponseException(object):
+
+    def test_helper_constructor(self):
+        response = MockRequestsResponse(102, content="nonsense")
+        exc = BadResponseException.from_response(
+            "http://url/", "Terrible response, just terrible", response
+        )
+
+        # Turn the exception into a problem detail document, and it's full
+        # of useful information.
+        doc, status_code, headers = exc.as_problem_detail_document(debug=True).response
+        doc = json.loads(doc)
+
+        eq_('Bad response', doc['title'])
+        eq_('The server made a request to http://url/, and got an unexpected or invalid response.', doc['detail'])
+        eq_(
+            u'Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
+            doc['debug_message']
+        )
+
+        # Unless debug is turned off, in which case none of that
+        # information is present.
+        doc, status_code, headers = exc.as_problem_detail_document(debug=False).response
+        assert 'debug_message' not in json.loads(doc)
+
+    def test_bad_status_code_helper(object):
+        response = MockRequestsResponse(500, content="Internal Server Error!")
+        exc = BadResponseException.bad_status_code(
+            "http://url/", response
+        )
+        doc, status_code, headers = exc.as_problem_detail_document(debug=True).response
+        doc = json.loads(doc)
+
+        assert doc['debug_message'].startswith("Got status code 500 from external server, cannot continue.")
 
     def test_as_problem_detail_document(self):
         exception = BadResponseException(
