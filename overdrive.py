@@ -322,9 +322,9 @@ class OverdriveAPI(object):
             url, headers
         )
 
-    def _do_post(self, url, payload, headers):
+    def _do_post(self, url, payload, headers, **kwargs):
         """This method is overridden in MockOverdriveAPI."""
-        return HTTP.post_with_timeout(url, payload, headers=headers)
+        return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
 
 class MockOverdriveAPI(OverdriveAPI):
