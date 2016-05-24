@@ -16,6 +16,7 @@ from core.model import (
     Admin,
     Classification,
     DataSource,
+    Edition,
     Genre,
     Hyperlink,
     PresentationCalculationPolicy,
@@ -165,7 +166,7 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
-    STAFF_WEIGHT = 100000
+    STAFF_WEIGHT = 1
 
     def details(self, data_source, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
@@ -211,10 +212,17 @@ class WorkController(CirculationManagerController):
         changed = False
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_edition, is_new = get_one_or_create(
+            self._db, Edition,
+            primary_identifier_id=primary_identifier.id,
+            data_source_id=staff_data_source.id
+        )
+        self._db.expire(primary_identifier)
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            work.presentation_edition.title = unicode(new_title)
+            staff_edition.title = unicode(new_title)
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""
@@ -223,10 +231,9 @@ class WorkController(CirculationManagerController):
             if work.summary and work.summary.data_source == staff_data_source:
                 old_summary = work.summary
 
-            (link, is_new) =  work.presentation_edition.primary_identifier.add_link(
-                Hyperlink.DESCRIPTION, None, 
+            work.presentation_edition.primary_identifier.add_link(
+                Hyperlink.DESCRIPTION, None,
                 staff_data_source, content=new_summary)
-            work.set_summary(link.resource)
 
             # Delete previous staff summary
             if old_summary:
@@ -245,6 +252,7 @@ class WorkController(CirculationManagerController):
                 classify=True,
                 regenerate_opds_entries=True,
                 update_search_index=True,
+                choose_summary=True
             )
             work.calculate_presentation(policy=policy)
         return Response("", 200)
@@ -410,7 +418,9 @@ class WorkController(CirculationManagerController):
 
         # Update target age if present
         new_target_age_min = flask.request.form.get("target_age_min")
+        new_target_age_min = int(new_target_age_min) if new_target_age_min else None
         new_target_age_max = flask.request.form.get("target_age_max")
+        new_target_age_max = int(new_target_age_max) if new_target_age_max else None
         if new_target_age_max < new_target_age_min:
             return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
 

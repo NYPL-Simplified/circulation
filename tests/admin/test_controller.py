@@ -21,6 +21,7 @@ from core.model import (
     CoverageRecord,
     create,
     DataSource,
+    Edition,
     Genre,
     Identifier,
     SessionManager,
@@ -83,18 +84,28 @@ class TestWorkController(AdminControllerTest):
 
     def test_edit(self):
         [lp] = self.english_1.license_pools
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        def staff_edition_count():
+            return self._db.query(Edition) \
+                .filter(
+                    Edition.data_source == staff_data_source, 
+                    Edition.primary_identifier_id == self.english_1.presentation_edition.primary_identifier.id
+                ) \
+                .count()
+
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
             # Change the summary again
@@ -106,6 +117,7 @@ class TestWorkController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_("abcd", self.english_1.summary_text)
             assert 'New summary' not in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
             # Now delete the summary entirely
@@ -117,6 +129,7 @@ class TestWorkController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_("", self.english_1.summary_text)
             assert 'abcd' not in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
     def test_edit_classifications(self):
         # start with a couple genres based on BISAC classifications from Axis 360
