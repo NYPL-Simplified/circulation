@@ -46,7 +46,8 @@ from opds import AdminAnnotator, AdminFeed
 from collections import Counter
 from core.classifier import (
     genres,
-    SimplifiedGenreClassifier
+    SimplifiedGenreClassifier,
+    NO_VALUE
 )
 
 
@@ -227,11 +228,15 @@ class WorkController(CirculationManagerController):
 
         new_subtitle = flask.request.form.get("subtitle")
         if work.subtitle != new_subtitle:
+            if work.subtitle and not new_subtitle:
+                new_subtitle == classifier.NO_VALUE
             staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
         new_series = flask.request.form.get("series")
         if work.series != new_series:
+            if work.series and not new_series:
+                new_series == classifier.NO_VALUE
             staff_edition.series = unicode(new_series)
             changed = True
 
@@ -432,7 +437,6 @@ class WorkController(CirculationManagerController):
         new_target_age_max = flask.request.form.get("target_age_max")
         new_target_age_max = int(new_target_age_max) if new_target_age_max else None
         if new_target_age_max < new_target_age_min:
-            print new_target_age_min, new_target_age_max
             return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
 
         if work.target_age:
