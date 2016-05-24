@@ -422,7 +422,6 @@ class WorkController(CirculationManagerController):
         new_target_age_max = flask.request.form.get("target_age_max")
         new_target_age_max = int(new_target_age_max) if new_target_age_max else None
         if new_target_age_max < new_target_age_min:
-            print new_target_age_min, new_target_age_max
             return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
 
         if work.target_age:
