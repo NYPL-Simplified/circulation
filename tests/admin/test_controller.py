@@ -137,8 +137,8 @@ class TestWorkController(AdminControllerTest):
             ])
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
-            eq_("", self.english_1.subtitle)
-            eq_("", self.english_1.series)
+            eq_(None, self.english_1.subtitle)
+            eq_(None, self.english_1.series)
             eq_("", self.english_1.summary_text)
             assert 'New subtitle' not in self.english_1.simple_opds_entry
             assert 'New series' not in self.english_1.simple_opds_entry

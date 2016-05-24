@@ -229,14 +229,14 @@ class WorkController(CirculationManagerController):
         new_subtitle = flask.request.form.get("subtitle")
         if work.subtitle != new_subtitle:
             if work.subtitle and not new_subtitle:
-                new_subtitle == classifier.NO_VALUE
+                new_subtitle = NO_VALUE
             staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
         new_series = flask.request.form.get("series")
         if work.series != new_series:
             if work.series and not new_series:
-                new_series == classifier.NO_VALUE
+                new_series = NO_VALUE
             staff_edition.series = unicode(new_series)
             changed = True
 
