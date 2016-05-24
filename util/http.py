@@ -111,7 +111,7 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        cls._process_response(
+        return cls._process_response(
             url, response, allowed_response_codes, disallowed_response_codes
         )
 
