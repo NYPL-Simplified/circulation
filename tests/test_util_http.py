@@ -1,6 +1,7 @@
 import requests
 from util.http import (
     HTTP, 
+    BadResponseException,
     RemoteIntegrationException,
     RequestNetworkException,
     RequestTimedOut,
@@ -55,14 +56,14 @@ class TestHTTP(object):
             return MockRequestsResponse(500, content="Failure!")
 
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error accessing http://url/: Got status code 500 from external server.",
+            BadResponseException,
+            "Bad response from http://url/: Got status code 500 from external server.",
             HTTP._request_with_timeout, "http://url/", fake_500_response,
             "a", "b"
         )
 
     def test_allowed_response_codes(self):
-        """Test our ability to raise RemoteIntegrationException when
+        """Test our ability to raise BadResponseException when
         an HTTP-based integration does not behave as we'd expect.
         """
 
@@ -82,8 +83,8 @@ class TestHTTP(object):
         # You can say that certain codes are specifically allowed, and
         # all others are forbidden.
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error.*Got status code 401 from external server, but can only continue on: 200, 201.", 
+            BadResponseException,
+            "Bad response.*Got status code 401 from external server, but can only continue on: 200, 201.", 
             m, url, fake_401_response, 
             allowed_response_codes=[201, 200]
         )
@@ -93,8 +94,8 @@ class TestHTTP(object):
 
         # In this way you can even raise an exception on a 200 response code.
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error.*Got status code 200 from external server, but can only continue on: 401.", 
+            BadResponseException,
+            "Bad response.*Got status code 200 from external server, but can only continue on: 401.", 
             m, url, fake_200_response, 
             allowed_response_codes=[401]
         )
@@ -102,15 +103,15 @@ class TestHTTP(object):
         # You can say that certain codes are explicitly forbidden, and
         # all others are allowed.
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error.*Got status code 401 from external server, cannot continue.", 
+            BadResponseException,
+            "Bad response.*Got status code 401 from external server, cannot continue.", 
             m, url, fake_401_response, 
             disallowed_response_codes=[401]
         )
 
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error.*Got status code 200 from external server, cannot continue.", 
+            BadResponseException,
+            "Bad response.*Got status code 200 from external server, cannot continue.", 
             m, url, fake_200_response, 
             disallowed_response_codes=["2xx", 301]
         )

@@ -39,11 +39,11 @@ class RemoteIntegrationException(Exception):
             detail=message, title=self.title, debug_message=debug_message
         )
 
-class MalformedResponseException(RemoteIntegrationException):
-    """The request seemingly went okay, but we got a malformed response."""
+class BadResponseException(RemoteIntegrationException):
+    """The request seemingly went okay, but we got a bad response."""
     title = "Bad response"
-    detail = "The server made a request to %s, and got an improperly formatted response."
-    internal_message = "Malformed response from %s: %s"
+    detail = "The server made a request to %s, and got an unexpected or invalid response."
+    internal_message = "Bad response from %s: %s"
 
 class RequestNetworkException(RemoteIntegrationException,
                               requests.exceptions.RequestException):
@@ -157,7 +157,7 @@ class HTTP(object):
             error_message = status_code_not_in_allowed
 
         if error_message:
-            raise RemoteIntegrationException(
+            raise BadResponseException(
                 url,
                 error_message % code, 
                 debug_message=response.content
