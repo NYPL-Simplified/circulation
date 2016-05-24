@@ -120,6 +120,47 @@ class TestHTTP(object):
                      disallowed_response_codes=["2xx"])
         eq_(401, response.status_code)
 
+        # The exception can be turned into a useful problem detail document.
+        exc = None
+        try:
+            m(url, fake_200_response, 
+              disallowed_response_codes=["2xx"])
+        except Exception, exc:
+            pass
+        assert exc is not None
+
+        debug_doc = exc.as_problem_detail_document(debug=True)
+
+        # 502 is the status code to be returned if this integration error
+        # interrupts the processing of an incoming HTTP request, not the
+        # status code that caused the problem.
+        #
+        eq_(502, debug_doc.status_code)
+        eq_("Bad response", debug_doc.title)
+        eq_('The server made a request to http://url/, and got an unexpected or invalid response.', debug_doc.detail)
+        eq_('Got status code 200 from external server, cannot continue.\n\nResponse content: Hurray', debug_doc.debug_message)
+
+        no_debug_doc = exc.as_problem_detail_document(debug=False)
+        eq_("Bad response", no_debug_doc.title)
+        eq_('The server made a request to url, and got an unexpected or invalid response.', no_debug_doc.detail)
+        eq_(None, no_debug_doc.debug_message)
+
+
+class TestBadResponseException(object):
+
+    def test_as_problem_detail_document(self):
+        exception = BadResponseException(
+            "http://url/", "What even is this", 
+            debug_message="some debug info"
+        )
+        document = exception.as_problem_detail_document(debug=True)
+        eq_(502, document.status_code)
+        eq_("Bad response", document.title)
+        eq_("The server made a request to http://url/, and got an unexpected or invalid response.", 
+            document.detail
+        )
+        eq_("What even is this\n\nsome debug info", document.debug_message)
+
 
 class TestRequestTimedOut(object):
 

@@ -28,15 +28,20 @@ class RemoteIntegrationException(Exception):
     def __str__(self):
         return self.internal_message % (self.url, self.message)
 
-    def as_problem_detail_document(self, debug):
+    def document_detail(self, debug=True):
         if debug:
-            message = self.detail % self.url
-            debug_message = self.debug_message
-        else:
-            message = self.detail % self.hostname
-            debug_message = None
+            return self.detail % self.url
+        return self.detail % self.hostname
+
+    def document_debug_message(self, debug=True):
+        if debug:
+            return self.detail % self.url
+        return None
+
+    def as_problem_detail_document(self, debug):
         return INTEGRATION_ERROR.detailed(
-            detail=message, title=self.title, debug_message=debug_message
+            detail=self.document_detail(debug), title=self.title, 
+            debug_message=self.document_debug_message(debug)
         )
 
 class BadResponseException(RemoteIntegrationException):
@@ -44,6 +49,15 @@ class BadResponseException(RemoteIntegrationException):
     title = "Bad response"
     detail = "The server made a request to %s, and got an unexpected or invalid response."
     internal_message = "Bad response from %s: %s"
+
+    def document_debug_message(self, debug=True):
+        if debug:
+            msg = self.message
+            if self.debug_message:
+                msg += "\n\n" + self.debug_message
+            return msg
+        return None
+
 
 class RequestNetworkException(RemoteIntegrationException,
                               requests.exceptions.RequestException):
@@ -160,7 +174,7 @@ class HTTP(object):
             raise BadResponseException(
                 url,
                 error_message % code, 
-                debug_message=response.content
+                debug_message="Response content: %s" % response.content
             )
         return response
 
