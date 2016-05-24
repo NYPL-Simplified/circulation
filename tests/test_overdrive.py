@@ -1,11 +1,17 @@
 # encoding: utf-8
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
 import os
 import json
 import pkgutil
+
+from config import (
+    temp_config, 
+    Configuration,
+)
 
 from overdrive import (
     OverdriveAPI,
@@ -23,11 +29,154 @@ from model import (
     Hyperlink,
 )
 
-class TestOverdriveAPI(object):
+from util.http import (
+    BadResponseException,
+    HTTP,
+)
+
+from . import DatabaseTest
+from testing import MockRequestsResponse
+
+class MockOverdriveAPI(OverdriveAPI):
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+
+        # The constructor will make a request for the access token,
+        # and then a request for the collection token.
+        self.queue_response(200, content=self.mock_access_token("bearer token"))
+        self.queue_response(
+            200, content=self.mock_collection_token("collection token")
+        )
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['Overdrive'] = {
+                'client_key' : 'a',
+                'client_secret' : 'b',
+                'website_id' : 'c',
+                'library_id' : 'd',
+            }
+            super(MockOverdriveAPI, self).__init__(_db, *args, **kwargs)
+
+    def mock_access_token(self, credential):
+        return json.dumps(dict(access_token=credential, expires_in=3600))
+
+    def mock_collection_token(self, token):
+        return json.dumps(dict(collectionToken=token))
+
+    def queue_response(self, status_code, headers={}, content=None):
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _do_get(self, url, *args, **kwargs):
+        """Simulate Representation.simple_http_get."""
+        response = self._make_request(url, *args, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    def _do_post(self, url, *args, **kwargs):
+        return self._make_request(url, *args, **kwargs)
+
+    def _make_request(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
+
+class TestOverdriveAPI(DatabaseTest):
+
+    def setup(self):
+        super(TestOverdriveAPI, self).setup()
+        self.api = MockOverdriveAPI(self._db)
 
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))
+
+    def test_token_post_success(self):
+        self.api.queue_response(200, content="some content")
+        response = self.api.token_post(self._url, "the payload")
+        eq_(200, response.status_code)
+        eq_("some content", response.content)
+
+    def test_get_success(self):
+        self.api.queue_response(200, content="some content")
+        status_code, headers, content = self.api.get(self._url, {})
+        eq_(200, status_code)
+        eq_("some content", content)
+
+    def test_401_on_get_refreshes_bearer_token(self):
+
+        eq_("bearer token", self.api.token)
+
+        # We try to GET and receive a 401.
+        self.api.queue_response(401)
+
+        # We refresh the bearer token.
+        self.api.queue_response(
+            200, content=self.api.mock_access_token("new bearer token")
+        )
+
+        # Then we retry the GET and it succeeds this time.
+        self.api.queue_response(200, content="at last, the content")
+
+        status_code, headers, content = self.api.get(self._url, {})
+
+        eq_(200, status_code)
+        eq_("at last, the content", content)
+
+        # The bearer token has been updated.
+        eq_("new bearer token", self.api.token)
+
+    def test_credential_refresh_success(self):
+        """Verify the process of refreshing the Overdrive bearer token.
+        """
+        credential = self.api.credential_object(lambda x: x)
+        eq_("bearer token", credential.credential)
+        eq_(self.api.token, credential.credential)
+
+        self.api.queue_response(
+            200, content=self.api.mock_access_token("new bearer token")
+        )
+
+        self.api.refresh_creds(credential)
+        eq_("new bearer token", credential.credential)
+        eq_(self.api.token, credential.credential)
+
+    def test_401_after_token_refresh_raises_error(self):
+
+        eq_("bearer token", self.api.token)
+
+        # We try to GET and receive a 401.
+        self.api.queue_response(401)
+
+        # We refresh the bearer token.
+        self.api.queue_response(
+            200, content=self.api.mock_access_token("new bearer token")
+        )
+
+        # Then we retry the GET but we get another 401.
+        self.api.queue_response(401)
+
+        # That raises a BadResponseException
+        assert_raises_regexp(
+            BadResponseException, "Bad response from .*:Something's wrong with the Overdrive OAuth Bearer Token!",
+        )
+
+    def test_401_during_refresh_raises_error(self):
+        """If we fail to refresh the OAuth bearer token, an exception is
+        raised.
+        """
+        self.api.queue_response(401)
+
+        assert_raises_regexp(
+            BadResponseException,
+            ".*Got status code 401.*can only continue on: 200.",        
+            self.api.refresh_creds,
+            None
+        )
+
 
 class TestOverdriveRepresentationExtractor(object):
 

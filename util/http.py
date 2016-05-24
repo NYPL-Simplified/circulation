@@ -50,7 +50,7 @@ class BadResponseException(RemoteIntegrationException):
     detail = "The server made a request to %s, and got an unexpected or invalid response."
     internal_message = "Bad response from %s: %s"
 
-    BAD_STATUS_CODE = "Got status code %s from external server, cannot continue."
+    BAD_STATUS_CODE_MESSAGE = "Got status code %s from external server, cannot continue."
 
     def document_debug_message(self, debug=True):
         if debug:
@@ -61,12 +61,33 @@ class BadResponseException(RemoteIntegrationException):
         return None
 
     @classmethod
+    def from_response(cls, url, message, response):
+        """Helper method to turn a `requests` Response object into
+        a BadResponseException.
+        """
+        if isinstance(response, tuple):
+            # The response has been unrolled into a (status_code,
+            # headers, body) 3-tuple.
+            status_code, headers, content = response
+        else:
+            status_code = response.status_code
+            content = response.content
+        return BadResponseException(
+            url, message, 
+            debug_message="Status code: %s\nContent: %s" % (
+                status_code,
+                content,
+            )
+        )
+
+    @classmethod
     def bad_status_code(cls, url, response):
         """The response is bad because the status code is wrong."""
-        return BadResponseException(
+        message = cls.BAD_STATUS_CODE_MESSAGE % response.status_code
+        return cls.from_response(
             url,
-            cls.BAD_STATUS_CODE % response.status_code, 
-            debug_message="Response content: %s" % response.content
+            message,
+            response,
         )
 
 
@@ -173,7 +194,7 @@ class HTTP(object):
         ):
             # Unless explicitly allowed, the 5xx series always results in
             # an exception.
-            error_message = cls.BAD_STATUS_CODE
+            error_message = BadResponseException.BAD_STATUS_CODE_MESSAGE
         elif (allowed_response_codes and not (
                 code in allowed_response_codes 
                 or series in allowed_response_codes

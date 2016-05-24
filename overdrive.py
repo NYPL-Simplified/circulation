@@ -43,6 +43,11 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from util.http import (
+    HTTP,
+    BadResponseException,
+)
+
 class OverdriveAPI(object):
 
     log = logging.getLogger("Overdrive API")
@@ -133,17 +138,26 @@ class OverdriveAPI(object):
         else:
             refresh_on_lookup = self.refresh_creds
 
-        credential = Credential.lookup(
-            self._db, DataSource.OVERDRIVE, None, None, refresh_on_lookup)
+        credential = self.credential_object(refresh_on_lookup)
         if force_refresh:
             self.refresh_creds(credential)
         self.token = credential.credential
+
+    def credential_object(self, refresh):
+        """Look up the Credential object that allows us to use
+        the Overdrive API.
+        """
+        return Credential.lookup(
+            self._db, DataSource.OVERDRIVE, None, None, refresh
+        )
 
     def refresh_creds(self, credential):
         """Fetch a new Bearer Token and update the given Credential object."""
         response = self.token_post(
             self.TOKEN_ENDPOINT,
-            dict(grant_type="client_credentials"))
+            dict(grant_type="client_credentials"),
+            allowed_response_codes=[200]
+        )
         data = response.json()
         self._update_credential(credential, data)
         self.token = credential.credential
@@ -152,14 +166,14 @@ class OverdriveAPI(object):
         """Make an HTTP GET request using the active Bearer Token."""
         headers = dict(Authorization="Bearer %s" % self.token)
         headers.update(extra_headers)
-        status_code, headers, content = Representation.simple_http_get(
-            url, headers
-        )
+        status_code, headers, content = self._do_get(url, headers)
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
-                raise Exception(
-                    "Something's wrong with the Overdrive OAuth Bearer Token!"
+                raise BadResponseException.from_response(
+                    url,
+                    "Something's wrong with the Overdrive OAuth Bearer Token!",
+                    (status_code, headers, content)
                 )
             else:
                 # Refresh the token and try again.
@@ -168,13 +182,13 @@ class OverdriveAPI(object):
         else:
             return status_code, headers, content
 
-    def token_post(self, url, payload, headers={}):
+    def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
         s = "%s:%s" % (self.client_key, self.client_secret)
         auth = base64.encodestring(s).strip()
         headers = dict(headers)
         headers['Authorization'] = "Basic %s" % auth
-        return HTTP.post_with_timeout(url, payload, headers=headers)
+        return self._do_post(url, payload, headers, **kwargs)
 
     def _update_credential(self, credential, overdrive_data):
         """Copy Overdrive OAuth data into a Credential object."""
@@ -290,6 +304,16 @@ class OverdriveAPI(object):
         query_string = query_string.replace("}", "%7D")
         parts[3] = query_string
         return urlparse.urlunsplit(tuple(parts))
+
+    def _do_get(self, url, headers):
+        """This method is overridden in MockOverdriveAPI."""
+        return Representation.simple_http_get(
+            url, headers
+        )
+
+    def _do_post(self, url, payload, headers):
+        """This method is overridden in MockOverdriveAPI."""
+        return HTTP.post_with_timeout(url, payload, headers=headers)
 
 
 class OverdriveRepresentationExtractor(object):
