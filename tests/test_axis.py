@@ -53,7 +53,10 @@ class MockAxis360API(Axis360API):
 
     def _make_request(self, *args, **kwargs):
         response = self.responses.pop()
-        return HTTP._process_response(response, kwargs.get['require_200'])
+        return HTTP._process_response(
+            response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class TestAxis360API(DatabaseTest):

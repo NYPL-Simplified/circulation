@@ -91,11 +91,12 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
-        if kwargs.get('require_200'):
-            require_200 = True
-            del kwargs['require_200']
-        else:
-            require_200 = False
+        if 'allowed_response_codes' in kwargs:
+            allowed_response_codes = kwargs.get('allowed_response_codes')
+            del kwargs['allowed_response_codes']
+        if 'disallowed_response_codes' in kwargs:
+            disallowed_response_codes = kwargs.get('disallowed_response_codes')
+            del kwargs['disallowed_response_codes']
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
@@ -110,23 +111,48 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        cls._process_response(response, require_200)
+        cls._process_response(
+            response, allowed_response_codes, disallowed_response_codes
+        )
 
-    def _process_response(cls, response, require_200=False):
+    def _process_response(cls, response, allowed_response_codes=None,
+                          disallowed_response_codes=None):
         """Raise a RequestNetworkException if the response code indicates a
         server-side failure, or behavior so unpredictable that we can't
         continue.
         """
-        if require_200:
-            bad_status_code = "Got status code %s from external server, expected status code 200."
+        if allowed_response_codes:
+            status_code_not_in_allowed = "Got status code %s from external server, but can only continue on: %s." % ", ".join(allowed_response_codes)
+        if disallowed_response_codes:
+            status_code_in_disallowed = "Got status code %s from external server, cannot continue."
         else:
-            bad_status_code = "Got status code %s from external server."
+            disallowed_response_codes = []
 
-        if ((response.status_code / 100 == 5)
-            or (require_200 and response.status_code != 200)):
+        code = response.status_code
+        series = "%sxx" % (code / 100)
+        
+        if (code in allowed_response_codes or series in allowed_response_codes):
+            # The code or series has been explicitly allowed. Allow
+            # the request to be processed.
+            return response
+
+        error_message = None
+        if (series == '5xx' or code in disallowed_response_codes
+            or series in disallowed_response_codes
+        ):
+            # Unless explicitly allowed, the 5xx series always results in
+            # an exception.
+            error_message = status_code_in_disallowed
+        elif (allowed_response_codes and not (
+                code in allowed_response_codes 
+                or series in allowed_response_codes
+        )):
+            error_message = status_code_not_in_allowed
+
+        if error_message:
             raise RemoteIntegrationException(
                 url,
-                bad_status_code % response.status_code, 
+                error_message % code, 
                 debug_message=response.content
             )
         return response
