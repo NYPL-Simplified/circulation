@@ -40,8 +40,6 @@ from metadata_layer import (
     SubjectData,
 )
 
-from testing import MockRequestsResponse
-
 from util.http import HTTP
 from util.xmlparser import XMLParser
 
@@ -135,14 +133,20 @@ class ThreeMAPI(object):
         return signature, now
 
     def full_url(self, path):
+        if not path.startswith("/cirrus"):
+            path = self.full_path(path)
+        return urlparse.urljoin(self.base_url, path)
+
+    def full_path(self, path):
         if not path.startswith("/"):
             path = "/" + path
         if not path.startswith("/cirrus"):
             path = "/cirrus/library/%s%s" % (self.library_id, path)
-        return urlparse.urljoin(self.base_url, path)
+        return path
 
     def request(self, path, body=None, method="GET", identifier=None,
                 max_age=None):
+        path = self.full_path(path)
         url = self.full_url(path)
         if method == 'GET':
             headers = {"Accept" : "application/xml"}
@@ -207,9 +211,18 @@ class MockThreeMAPI(ThreeMAPI):
                 'account_id' : 'b',
                 'account_key' : 'c',
             }
-            super(MockThreeMAPI, self).__init__(_db, *args, **kwargs)
+            super(MockThreeMAPI, self).__init__(
+                _db, *args, base_url="http://3m.test", **kwargs
+            )
+
+    def now(self):
+        """Return an unvarying time in the format 3M expects."""
+        return datetime.strftime(
+            datetime(2016, 1, 1), self.AUTH_TIME_FORMAT
+        )
 
     def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )

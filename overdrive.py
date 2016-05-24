@@ -48,8 +48,6 @@ from config import (
     CannotLoadConfiguration,
 )
 
-from testing import MockRequestsResponse
-
 from util.http import (
     HTTP,
     BadResponseException,
@@ -322,9 +320,9 @@ class OverdriveAPI(object):
             url, headers
         )
 
-    def _do_post(self, url, payload, headers):
+    def _do_post(self, url, payload, headers, **kwargs):
         """This method is overridden in MockOverdriveAPI."""
-        return HTTP.post_with_timeout(url, payload, headers=headers)
+        return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
 
 class MockOverdriveAPI(OverdriveAPI):
@@ -355,6 +353,7 @@ class MockOverdriveAPI(OverdriveAPI):
         return json.dumps(dict(collectionToken=token))
 
     def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
