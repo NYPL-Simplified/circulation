@@ -47,6 +47,7 @@ from collections import Counter
 from core.classifier import (
     genres,
     SimplifiedGenreClassifier,
+    NO_NUMBER,
     NO_VALUE
 )
 
@@ -233,11 +234,20 @@ class WorkController(CirculationManagerController):
             staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
+        new_series_cleared = False
         new_series = flask.request.form.get("series")
         if work.series != new_series:
             if work.series and not new_series:
                 new_series = NO_VALUE
             staff_edition.series = unicode(new_series)
+            changed = True
+
+        new_series_position = flask.request.form.get("series_position")
+        new_series_position = int(new_series_position) if new_series_position else None
+        if work.series_position != new_series_position:
+            if work.series_position and not new_series_position:
+                new_series_position = NO_NUMBER
+            staff_edition.series_position = new_series_position
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""
