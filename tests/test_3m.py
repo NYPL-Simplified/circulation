@@ -38,6 +38,28 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
         super(TestThreeMAPI, self).setup()
         self.api = MockThreeMAPI(self._db)
 
+    def test_request_signing(self):
+        """Confirm a known correct result for the 3M request signing
+        algorithm.
+        """
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        [request] = self.api.requests
+        headers = request[-1]['headers']
+        eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
+        eq_('2.0', headers['3mcl-Version'])
+        expect = '3MCLAUTH b:ppuKJ2nf8OO3vCYhH3mJE8c7mjB6mGxzcPO3KOz4FTE='
+        eq_(expect, headers['3mcl-Authorization'])
+        
+        # Tweak one of the variables that go into the signature, and
+        # the signature changes.
+        self.api.library_id = self.api.library_id + "1"
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        request = self.api.requests[-1]
+        headers = request[-1]['headers']
+        assert headers['3mcl-Authorization'] != expect
+
     def test_bibliographic_lookup(self):
         data = self.get_data("item_metadata_single.xml")
         metadata = []

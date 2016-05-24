@@ -215,6 +215,12 @@ class MockThreeMAPI(ThreeMAPI):
             }
             super(MockThreeMAPI, self).__init__(_db, *args, **kwargs)
 
+    def now(self):
+        """Return an unvarying time in the format 3M expects."""
+        return datetime.strftime(
+            datetime(2016, 1, 1), self.AUTH_TIME_FORMAT
+        )
+
     def queue_response(self, status_code, headers={}, content=None):
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
