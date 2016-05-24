@@ -63,7 +63,6 @@ class Axis360API(object):
             self.base_url = self.QA_BASE_URL
         elif self.base_url == 'production':
             self.base_url = self.PRODUCTION_BASE_URL
-        print self.base_url
         self.token = None
 
     @classmethod
