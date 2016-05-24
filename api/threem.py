@@ -91,9 +91,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
-        if response.status_code == 404:
-            # None of the identifiers exist. Not a problem.
-            return
         if response.status_code != 200:
             raise BadResponseException.bad_status_code(
                 self.full_url(url), response

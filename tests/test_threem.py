@@ -69,7 +69,21 @@ class TestThreeMAPI(ThreeMAPITest):
         )
 
     def test_get_circulation_for_success(self):
-        set_trace()
+        self.api.queue_response(200, content=self.sample_data("item_circulation.xml"))
+        data = list(self.api.get_circulation_for(['id1', 'id2']))
+        eq_(2, len(data))
+
+    def test_get_circulation_for_returns_empty_list(self):
+        self.api.queue_response(200, content=self.sample_data("empty_item_circulation.xml"))
+        data = list(self.api.get_circulation_for(['id1', 'id2']))
+        eq_(0, len(data))
+
+    def test_get_circulation_for_failure(self):
+        self.api.queue_response(500)
+        assert_raises(
+            BadResponseException,
+            list, self.api.get_circulation_for(['id1', 'id2'])
+        )
 
     def test_sync_bookshelf(self):
         patron = self._patron()        
