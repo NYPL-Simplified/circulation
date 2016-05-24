@@ -213,7 +213,9 @@ class MockThreeMAPI(ThreeMAPI):
                 'account_id' : 'b',
                 'account_key' : 'c',
             }
-            super(MockThreeMAPI, self).__init__(_db, *args, **kwargs)
+            super(MockThreeMAPI, self).__init__(
+                _db, *args, base_url="http://3m.test", **kwargs
+            )
 
     def now(self):
         """Return an unvarying time in the format 3M expects."""

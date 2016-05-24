@@ -38,6 +38,21 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
         super(TestThreeMAPI, self).setup()
         self.api = MockThreeMAPI(self._db)
 
+    def test_full_path(self):
+        id = self.api.library_id
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("foo"))
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("/foo"))
+        eq_("/cirrus/library/%s/foo" % id, 
+            self.api.full_path("/cirrus/library/%s/foo" % id)
+        )
+
+    def test_full_url(self):
+        id = self.api.library_id
+        eq_("http://3m.test/cirrus/library/%s/foo" % id,
+            self.api.full_url("foo"))
+        eq_("http://3m.test/cirrus/library/%s/foo" % id, 
+            self.api.full_url("/foo"))
+
     def test_request_signing(self):
         """Confirm a known correct result for the 3M request signing
         algorithm.
