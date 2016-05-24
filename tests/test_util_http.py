@@ -62,6 +62,9 @@ class TestHTTP(object):
         )
 
     def test_allowed_response_codes(self):
+        """Test our ability to raise RemoteIntegrationException when
+        an HTTP-based integration does not behave as we'd expect.
+        """
 
         def fake_401_response(*args, **kwargs):
             return MockRequestsResponse(401, content="Weird")
