@@ -117,8 +117,9 @@ class HTTP(object):
         return cls.request_with_timeout("GET", url, *args, **kwargs)
 
     @classmethod
-    def post_with_timeout(cls, url, *args, **kwargs):
+    def post_with_timeout(cls, url, payload, *args, **kwargs):
         """Make a POST request with timeout handling."""
+        kwargs['data'] = payload
         return cls.request_with_timeout("POST", url, *args, **kwargs)
 
     @classmethod
