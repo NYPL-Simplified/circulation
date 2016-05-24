@@ -1,6 +1,7 @@
 import requests
 from util.http import (
     HTTP, 
+    RemoteIntegrationException,
     RequestNetworkException,
     RequestTimedOut,
 )
@@ -9,16 +10,20 @@ from nose.tools import (
     eq_, 
     set_trace
 )
-
+from testing import MockRequestsResponse
 
 class TestHTTP(object):
 
     def test_request_with_timeout_success(self):
 
-        def succeed(*args, **kwargs):
-            return True
+        def fake_200_response(*args, **kwargs):
+            return MockRequestsResponse(200, content="Success!")
 
-        eq_(True, HTTP._request_with_timeout("the url", succeed, "a", "b"))
+        response = HTTP._request_with_timeout(
+            "the url", fake_200_response, "a", "b"
+        )
+        eq_(200, response.status_code)
+        eq_("Success!", response.content)
 
     def test_request_with_timeout_failure(self):
 
@@ -44,6 +49,17 @@ class TestHTTP(object):
             "a", "b"
         )
 
+    def test_request_with_response_indicative_of_failure(self):
+
+        def fake_500_response(*args, **kwargs):
+            return MockRequestsResponse(500, content="Failure!")
+
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            "Network error accessing http://url/: Got status code 500 from external server.",
+            HTTP._request_with_timeout, "http://url/", fake_500_response,
+            "a", "b"
+        )
 
 class TestRequestTimedOut(object):
 
