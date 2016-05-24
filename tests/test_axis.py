@@ -26,7 +26,10 @@ from axis import (
     BibliographicParser,
 )
 
-from util.http import RemoteIntegrationException
+from util.http import (
+    RemoteIntegrationException,
+    HTTP,
+)
 
 from . import DatabaseTest
 from testing import MockRequestsResponse
@@ -51,10 +54,10 @@ class MockAxis360API(Axis360API):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def _make_request(self, *args, **kwargs):
+    def _make_request(self, url, *args, **kwargs):
         response = self.responses.pop()
         return HTTP._process_response(
-            response, kwargs.get('allowed_response_codes'),
+            url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
         )
 
@@ -70,7 +73,7 @@ class TestAxis360API(DatabaseTest):
         api = MockAxis360API(self._db, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
+            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
             api.refresh_bearer_token
         )
 
@@ -78,7 +81,7 @@ class TestAxis360API(DatabaseTest):
         api = MockAxis360API(self._db)
         api.queue_response(500)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
+            RemoteIntegrationException, "Network error accessing http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
             api.availability
         )
 

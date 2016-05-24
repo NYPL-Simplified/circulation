@@ -112,26 +112,33 @@ class HTTP(object):
             raise RequestNetworkException(url, e.message)
 
         cls._process_response(
-            response, allowed_response_codes, disallowed_response_codes
+            url, response, allowed_response_codes, disallowed_response_codes
         )
 
-    def _process_response(cls, response, allowed_response_codes=None,
+    @classmethod
+    def _process_response(cls, url, response, allowed_response_codes=None,
                           disallowed_response_codes=None):
         """Raise a RequestNetworkException if the response code indicates a
         server-side failure, or behavior so unpredictable that we can't
         continue.
         """
+        status_code_in_disallowed = "Got status code %s from external server, cannot continue."
         if allowed_response_codes:
-            status_code_not_in_allowed = "Got status code %s from external server, but can only continue on: %s." % ", ".join(allowed_response_codes)
+            allowed_response_codes = map(str, allowed_response_codes)
+            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(allowed_response_codes)
         if disallowed_response_codes:
-            status_code_in_disallowed = "Got status code %s from external server, cannot continue."
+            disallowed_response_codes = map(str, disallowed_response_codes)
         else:
             disallowed_response_codes = []
 
         code = response.status_code
         series = "%sxx" % (code / 100)
-        
-        if (code in allowed_response_codes or series in allowed_response_codes):
+        code = str(code)
+
+        if allowed_response_codes and (
+                code in allowed_response_codes 
+                or series in allowed_response_codes
+        ):
             # The code or series has been explicitly allowed. Allow
             # the request to be processed.
             return response
