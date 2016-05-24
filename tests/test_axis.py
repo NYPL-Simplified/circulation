@@ -74,7 +74,7 @@ class TestAxis360API(DatabaseTest):
         api = MockAxis360API(self._db)
         api.queue_response(500)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
+            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
             api.availability
         )
 
@@ -96,7 +96,7 @@ class TestAxis360API(DatabaseTest):
         api = MockAxis360API(self._db, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
+            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
             api.refresh_bearer_token
         )
 
