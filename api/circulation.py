@@ -484,6 +484,7 @@ class CirculationAPI(object):
         holds = []
         for thread in threads:
             if thread.exception:
+                set_trace()
                 self.log.error(
                     "%s errored out: %s", thread.api.__class__.__name__,
                     thread.exception,
