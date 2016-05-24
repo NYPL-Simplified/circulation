@@ -243,7 +243,13 @@ class WorkController(CirculationManagerController):
             changed = True
 
         new_series_position = flask.request.form.get("series_position")
-        new_series_position = int(new_series_position) if new_series_position else None
+        if new_series_position:
+            try:
+                new_series_position = int(new_series_position)
+            except ValueError:
+                return INVALID_SERIES_POSITION
+        else:
+            new_series_position = None
         if work.series_position != new_series_position:
             if work.series_position and not new_series_position:
                 new_series_position = NO_NUMBER

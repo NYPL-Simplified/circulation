@@ -153,7 +153,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
-            # Now now set the fields one more time
+            # Set the fields one more time
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "Final subtitle"),
@@ -172,6 +172,19 @@ class TestWorkController(AdminControllerTest):
             assert '169' in self.english_1.simple_opds_entry
             assert "&lt;p&gt;Final summary&lt;/p&gt;" in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
+
+        with self.app.test_request_context("/"):
+            # Set the series position to a non-numerical value
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+                ("subtitle", "Final subtitle"),
+                ("series", "Final series"),
+                ("series_position", "abc"),
+                ("summary", "<p>Final summary</p>")
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(400, response.status_code)
+            eq_(169, self.english_1.series_position)
 
     def test_edit_classifications(self):
         # start with a couple genres based on BISAC classifications from Axis 360

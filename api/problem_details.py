@@ -245,3 +245,10 @@ EROTICA_FOR_ADULTS_ONLY = pd(
     title="Erotica is for Adults Only.",
     detail="The Erotica genre is incompatible with the submitted Audience."
 )
+
+INVALID_SERIES_POSITION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-series-position",
+    status_code=400,
+    title="Invalid series positon.",
+    detail="The series position must be a number or blank."
+)
