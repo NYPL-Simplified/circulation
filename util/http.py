@@ -91,11 +91,11 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
+        allowed_response_codes = kwargs.get('allowed_response_codes')
         if 'allowed_response_codes' in kwargs:
-            allowed_response_codes = kwargs.get('allowed_response_codes')
             del kwargs['allowed_response_codes']
+        disallowed_response_codes = kwargs.get('disallowed_response_codes')
         if 'disallowed_response_codes' in kwargs:
-            disallowed_response_codes = kwargs.get('disallowed_response_codes')
             del kwargs['disallowed_response_codes']
 
         if not 'timeout' in kwargs:

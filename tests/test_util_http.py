@@ -61,6 +61,41 @@ class TestHTTP(object):
             "a", "b"
         )
 
+    def test_allowed_response_codes(self):
+
+        def fake_401_response(*args, **kwargs):
+            return MockRequestsResponse(401, content="Weird")
+
+        def fake_200_response(*args, **kwargs):
+            return MockRequestsResponse(200, content="Hurray")
+
+        url = "http://url/"
+        m = HTTP._request_with_timeout
+
+        # By default, every code except for 5xx codes is allowed.
+        response = m(url, fake_401_response)
+        eq_(401, response.status_code)
+
+        # You can say that certain codes are specifically allowed, and
+        # all others are forbidden.
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            "Network error.*Got status code 401 from external server, but can only continue on: 200.", 
+            m, url, fake_401_response, 
+            allowed_response_codes=[200]
+        )
+
+        response = m(url, fake_401_response, allowed_response_codes=[401])
+
+        # In this way you can even raise an exception on a 200 response code.
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            "Network error.*Got status code 401 from external server, but can only continue on: 401.", 
+            m, url, fake_200_response, 
+            allowed_response_codes=[401]
+        )
+        
+
 class TestRequestTimedOut(object):
 
     def test_as_problem_detail_document(self):
