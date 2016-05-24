@@ -1433,8 +1433,6 @@ class Identifier(Base):
         fetching, mirroring and scaling Representations as links are
         created. It might be good to move that code into here.
         """
-        #if href == 'http://www.gutenberg.org/ebooks/10441.epub.images':
-            #set_trace()
         _db = Session.object_session(self)
 
         if license_pool and license_pool.identifier != self:
@@ -1527,8 +1525,6 @@ class Identifier(Base):
         classifications = []
         subject, is_new = Subject.lookup(
             _db, subject_type, subject_identifier, subject_name)
-        #if is_new:
-        #    print repr(subject)
 
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
@@ -3323,7 +3319,6 @@ class Work(Base):
             # Descriptions from Gutenberg are useless, so we
             # specifically exclude it from being a privileged data
             # source.
-            print "calculate_presentation: pool.data_source.name=%s" % pool.data_source.name
             if pool.data_source.name != DataSource.GUTENBERG:
                 licensed_data_sources.add(pool.data_source)
 
@@ -4190,7 +4185,6 @@ class Resource(Base):
         if not self.representation:
             self.representation, is_new = get_one_or_create(
                 _db, Representation, url=self.url, media_type=media_type)
-        #set_trace()
         self.representation.mirror_url = self.url
         self.representation.set_as_mirrored()
 
@@ -5194,9 +5188,6 @@ class LicensePool(Base):
             # LicensePool. Use it as the presentation edition rather
             # than creating an identical composite.
             self.presentation_edition = all_editions[0]
-            #self.presentation_edition.license_pool = self
-            print "set_presentation_edition: edition.data_source=%r" % self.presentation_edition.data_source
-            print "set_presentation_edition: edition.identifier=%r" % self.presentation_edition.primary_identifier
         else:
             edition_identifier = IdentifierData(self.identifier.type, self.identifier.identifier)
             metadata = Metadata(data_source=DataSource.PRESENTATION_EDITION, primary_identifier=edition_identifier)
@@ -5625,6 +5616,8 @@ class RightsStatus(Base):
     DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
         DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
         DataSource.PLYMPTON: CC_BY_NC,
+        # workaround for opds-imported license pools with 'content server' as data source
+        DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
     }
     
     __tablename__ = 'rightsstatus'

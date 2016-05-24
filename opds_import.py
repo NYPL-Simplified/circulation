@@ -218,11 +218,8 @@ class OPDSImporter(object):
         try:
             metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
         except Exception, e:
-            set_trace()
             message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-            print "1.  %s" % message
 
-        #set_trace()
         imported_editions = {}
         imported_pools = {}
         imported_works = {}
@@ -241,7 +238,6 @@ class OPDSImporter(object):
                 if edition:
                     imported_editions[key] = edition
             except Exception, e:
-                #set_trace()
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
@@ -284,7 +280,6 @@ class OPDSImporter(object):
                         if work:
                             imported_works[key] = work
                 except Exception, e:
-                    #set_trace()
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                     status_messages[key] = message
                     # If problem importing a Work, then rather than scratch the whole import, 
@@ -366,6 +361,7 @@ class OPDSImporter(object):
             links=True,
             contributions=True,
             rights=True,
+            link_content=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
             http_get=self.http_get,
@@ -438,19 +434,10 @@ class OPDSImporter(object):
             else:
                 internal_identifier = external_identifier
 
-            #set_trace()
             identifier_obj = IdentifierData(
                 type=internal_identifier.type,
                 identifier=internal_identifier.identifier
             )
-            '''
-            (Pdb) xml_data_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']['links']
-            [<LinkData: rel="http://opds-spec.org/acquisition/open-access" href="http://www.gutenberg.org/ebooks/10557.epub.images" media_type='application/epub+zip'>]
-
-            (Pdb) xml_data_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']['links']
-            [<LinkData: rel="http://opds-spec.org/image" href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" media_type=None, has thumbnail>, 
-             <LinkData: rel="http://opds-spec.org/acquisition/open-access" href="http://www.gutenberg.org/ebooks/10441.epub.images" media_type='application/epub+zip'>]            
-            '''
 
             # form the Metadata object
             xml_data_dict = xml_data_meta.get(id, {})
