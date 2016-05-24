@@ -107,15 +107,7 @@ class Axis360API(object):
     def refresh_bearer_token(self):
         url = self.base_url + self.access_token_endpoint
         headers = self.authorization_headers
-        response = self._make_request(url, 'post', headers)
-        if response.status_code != 200:
-            raise RemoteIntegrationException(
-                url,
-                "Status code %s while acquiring bearer token." % (
-                    response.status_code
-                ),
-                debug_message=response.content
-            )
+        response = self._make_request(url, 'post', headers, require_200=True)
         return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
@@ -177,11 +169,12 @@ class Axis360API(object):
         data = json.loads(token)
         return data['access_token']
 
-    def _make_request(self, url, method, headers, data=None, params=None):
+    def _make_request(self, url, method, headers, data=None, params=None, 
+                      **kwargs):
         """Actually make an HTTP request."""
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
-            params=params
+            params=params, **kwargs
         )
 
 

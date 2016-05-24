@@ -39,11 +39,18 @@ class RemoteIntegrationException(Exception):
             detail=message, title=self.title, debug_message=debug_message
         )
 
+class MalformedResponseException(RemoteIntegrationException):
+    """The request seemingly went okay, but we got a malformed response."""
+    title = "Bad response"
+    detail = "The server made a request to %s, and got an improperly formatted response."
+    internal_message = "Malformed response from %s: %s"
+
 class RequestNetworkException(RemoteIntegrationException,
                               requests.exceptions.RequestException):
     """An exception from the requests module that can be represented as
     a problem detail document.
     """
+    pass
 
 class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):
     """A timeout exception that can be represented as a problem
@@ -84,6 +91,12 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
+        if kwargs.get('require_200'):
+            require_200 = True
+            del kwargs['require_200']
+        else:
+            require_200 = False
+
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
         try:
@@ -97,12 +110,23 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        # Also raise a RequestNetworkException if the response code
-        # indicates a server-side failure.
-        if (response.status_code / 100) == 5:
+        cls._process_response(response, require_200)
+
+    def _process_response(cls, response, require_200=False):
+        """Raise a RequestNetworkException if the response code indicates a
+        server-side failure, or behavior so unpredictable that we can't
+        continue.
+        """
+        if require_200:
+            bad_status_code = "Got status code %s from external server, expected status code 200."
+        else:
+            bad_status_code = "Got status code %s from external server."
+
+        if ((response.status_code / 100 == 5)
+            or (require_200 and response.status_code != 200)):
             raise RemoteIntegrationException(
                 url,
-                "Got status code %s from external server." % response.status_code, 
+                bad_status_code % response.status_code, 
                 debug_message=response.content
             )
         return response

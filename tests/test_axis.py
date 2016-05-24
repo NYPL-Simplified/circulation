@@ -52,7 +52,8 @@ class MockAxis360API(Axis360API):
         )
 
     def _make_request(self, *args, **kwargs):
-        return self.responses.pop()
+        response = self.responses.pop()
+        return HTTP._process_response(response, kwargs.get['require_200'])
 
 
 class TestAxis360API(DatabaseTest):
