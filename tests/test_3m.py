@@ -1,4 +1,8 @@
-from nose.tools import set_trace, eq_
+from nose.tools import (
+    assert_raises_regexp,
+    set_trace, 
+    eq_,
+)
 import datetime
 import os
 from model import (
@@ -15,7 +19,7 @@ from threem import (
     MockThreeMAPI,
 )
 from . import DatabaseTest
-
+from util.http import BadResponseException
 
 class BaseThreeMTest(object):
 
@@ -41,6 +45,15 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
         identifier = self._identifier()
         metadata = self.api.bibliographic_lookup(identifier)
         eq_("The Incense Game", metadata.title)
+
+    def test_bad_response_raises_exception(self):
+        self.api.queue_response(500, content="oops")
+        identifier = self._identifier()
+        assert_raises_regexp(
+            BadResponseException, 
+            ".*Got status code 500.*",
+            self.api.bibliographic_lookup, identifier
+        )
 
     def test_put_request(self):
         """This is a basic test to make sure the method calls line up

@@ -108,7 +108,10 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
-from util.http import HTTP
+from util.http import (
+    HTTP,
+    RemoteIntegrationException,
+)
 from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
 
@@ -6122,6 +6125,12 @@ class Representation(Base):
                 media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
+        except RemoteIntegrationException, e:
+            # This indicates that the HTTP request was made but timed
+            # out, dropped the connection, returned an unusable
+            # response, etc. No usable representation was found and
+            # the caller needs to decide how to handle this.
+            raise e
         except Exception, e:
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error

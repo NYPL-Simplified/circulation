@@ -176,7 +176,8 @@ class ThreeMAPI(object):
     def bibliographic_lookup(self, identifier, max_age=None):
         data = self.request(
             "/items/%s" % identifier.identifier,
-            max_age=max_age or self.MAX_METADATA_AGE)
+            max_age=max_age or self.MAX_METADATA_AGE
+        )
         response = list(self.item_list_parser.parse(data))
         if not response:
             return None
