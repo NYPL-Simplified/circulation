@@ -48,8 +48,6 @@ from config import (
     CannotLoadConfiguration,
 )
 
-from testing import MockRequestsResponse
-
 from util.http import (
     HTTP,
     BadResponseException,
@@ -355,6 +353,7 @@ class MockOverdriveAPI(OverdriveAPI):
         return json.dumps(dict(collectionToken=token))
 
     def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )

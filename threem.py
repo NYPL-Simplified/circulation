@@ -40,8 +40,6 @@ from metadata_layer import (
     SubjectData,
 )
 
-from testing import MockRequestsResponse
-
 from util.http import HTTP
 from util.xmlparser import XMLParser
 
@@ -224,6 +222,7 @@ class MockThreeMAPI(ThreeMAPI):
         )
 
     def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
