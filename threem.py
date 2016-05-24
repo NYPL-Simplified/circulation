@@ -151,7 +151,7 @@ class ThreeMAPI(object):
         if max_age and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
-                do_get=Representation.http_get_no_timeout, max_age=max_age
+                max_age=max_age
             )
             content = representation.content
             return content
