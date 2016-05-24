@@ -189,8 +189,10 @@ class CirculationManagerAnnotator(Annotator):
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
-        # books in the lane by author.        
-        if lane.sublanes:
+        # books in the lane by author.
+        if not lane.parent:
+            url = self.default_lane_url()
+        elif lane.sublanes:
             url = self.groups_url(lane)
         else:
             url = self.feed_url(lane)

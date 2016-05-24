@@ -104,14 +104,22 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         eq_((feed_url, "All Spanish"), group_uri)
 
     def test_lane_url(self):
+        everything_lane = Lane(
+            self._db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+
         fantasy_lane_with_sublanes = Lane(
             self._db, "Fantasy", genres=[Fantasy], languages="eng", 
             subgenre_behavior=Lane.IN_SAME_LANE,
-            sublanes=[Urban_Fantasy])
+            sublanes=[Urban_Fantasy],
+            parent=everything_lane)
 
         fantasy_lane_without_sublanes = Lane(
             self._db, "Fantasy", genres=[Fantasy], languages="eng", 
-            subgenre_behavior=Lane.IN_SAME_LANE)
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            parent=everything_lane)
+
+        default_lane_url = self.annotator.lane_url(everything_lane)
+        eq_(default_lane_url, self.annotator.default_lane_url())
 
         groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
         eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
