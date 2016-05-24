@@ -28,22 +28,43 @@ class RemoteIntegrationException(Exception):
     def __str__(self):
         return self.internal_message % (self.url, self.message)
 
-    def as_problem_detail_document(self, debug):
+    def document_detail(self, debug=True):
         if debug:
-            message = self.detail % self.url
-            debug_message = self.debug_message
-        else:
-            message = self.detail % self.hostname
-            debug_message = None
+            return self.detail % self.url
+        return self.detail % self.hostname
+
+    def document_debug_message(self, debug=True):
+        if debug:
+            return self.detail % self.url
+        return None
+
+    def as_problem_detail_document(self, debug):
         return INTEGRATION_ERROR.detailed(
-            detail=message, title=self.title, debug_message=debug_message
+            detail=self.document_detail(debug), title=self.title, 
+            debug_message=self.document_debug_message(debug)
         )
+
+class BadResponseException(RemoteIntegrationException):
+    """The request seemingly went okay, but we got a bad response."""
+    title = "Bad response"
+    detail = "The server made a request to %s, and got an unexpected or invalid response."
+    internal_message = "Bad response from %s: %s"
+
+    def document_debug_message(self, debug=True):
+        if debug:
+            msg = self.message
+            if self.debug_message:
+                msg += "\n\n" + self.debug_message
+            return msg
+        return None
+
 
 class RequestNetworkException(RemoteIntegrationException,
                               requests.exceptions.RequestException):
     """An exception from the requests module that can be represented as
     a problem detail document.
     """
+    pass
 
 class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):
     """A timeout exception that can be represented as a problem
@@ -84,6 +105,13 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
+        allowed_response_codes = kwargs.get('allowed_response_codes')
+        if 'allowed_response_codes' in kwargs:
+            del kwargs['allowed_response_codes']
+        disallowed_response_codes = kwargs.get('disallowed_response_codes')
+        if 'disallowed_response_codes' in kwargs:
+            del kwargs['disallowed_response_codes']
+
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
         try:
@@ -97,13 +125,56 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        # Also raise a RequestNetworkException if the response code
-        # indicates a server-side failure.
-        if (response.status_code / 100) == 5:
-            raise RemoteIntegrationException(
+        return cls._process_response(
+            url, response, allowed_response_codes, disallowed_response_codes
+        )
+
+    @classmethod
+    def _process_response(cls, url, response, allowed_response_codes=None,
+                          disallowed_response_codes=None):
+        """Raise a RequestNetworkException if the response code indicates a
+        server-side failure, or behavior so unpredictable that we can't
+        continue.
+        """
+        status_code_in_disallowed = "Got status code %s from external server, cannot continue."
+        if allowed_response_codes:
+            allowed_response_codes = map(str, allowed_response_codes)
+            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(sorted(allowed_response_codes))
+        if disallowed_response_codes:
+            disallowed_response_codes = map(str, disallowed_response_codes)
+        else:
+            disallowed_response_codes = []
+
+        code = response.status_code
+        series = "%sxx" % (code / 100)
+        code = str(code)
+
+        if allowed_response_codes and (
+                code in allowed_response_codes 
+                or series in allowed_response_codes
+        ):
+            # The code or series has been explicitly allowed. Allow
+            # the request to be processed.
+            return response
+
+        error_message = None
+        if (series == '5xx' or code in disallowed_response_codes
+            or series in disallowed_response_codes
+        ):
+            # Unless explicitly allowed, the 5xx series always results in
+            # an exception.
+            error_message = status_code_in_disallowed
+        elif (allowed_response_codes and not (
+                code in allowed_response_codes 
+                or series in allowed_response_codes
+        )):
+            error_message = status_code_not_in_allowed
+
+        if error_message:
+            raise BadResponseException(
                 url,
-                "Got status code %s from external server." % response.status_code, 
-                debug_message=response.content
+                error_message % code, 
+                debug_message="Response content: %s" % response.content
             )
         return response
 
