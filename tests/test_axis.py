@@ -9,6 +9,7 @@ from config import (
 )
 
 import datetime
+import json
 import os
 
 from model import (
@@ -26,14 +27,17 @@ from axis import (
     BibliographicParser,
 )
 
-from util.http import RemoteIntegrationException
+from util.http import (
+    RemoteIntegrationException,
+    HTTP,
+)
 
 from . import DatabaseTest
 from testing import MockRequestsResponse
 
 class MockAxis360API(Axis360API):
 
-    def __init__(self, _db, *args, **kwargs):        
+    def __init__(self, _db, with_token=True, *args, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['Axis 360'] = {
                 'library_id' : 'a',
@@ -42,6 +46,8 @@ class MockAxis360API(Axis360API):
                 'server' : 'http://axis.test/',
             }
             super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        if with_token:
+            self.token = "mock token"
         self.responses = []
 
     def queue_response(self, status_code, headers={}, content=None):
@@ -49,8 +55,12 @@ class MockAxis360API(Axis360API):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def _make_request(self, *args, **kwargs):
-        return self.responses.pop()
+    def _make_request(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class TestAxis360API(DatabaseTest):
@@ -60,13 +70,55 @@ class TestAxis360API(DatabaseTest):
         values = Axis360API.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
 
-    def test_refresh_bearer_token_error(self):
+    def test_availability_exception(self):
         api = MockAxis360API(self._db)
+        api.queue_response(500)
+        assert_raises_regexp(
+            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
+            api.availability
+        )
+
+    def test_refresh_bearer_token_after_401(self):
+        """If we get a 401, we will fetch a new bearer token and try the
+        request again.
+        """
+        api = MockAxis360API(self._db)
+        api.queue_response(401)
+        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
+        api.queue_response(200, content="The data")
+        response = api.request("http://url/")
+        eq_("The data", response.content)
+
+    def test_refresh_bearer_token_error(self):
+        """Raise an exception if we don't get a 200 status code when
+        refreshing the bearer token.
+        """
+        api = MockAxis360API(self._db, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
-            RemoteIntegrationException, "Network error accessing http://axis.test/accesstoken: Status code 412 while acquiring bearer token.", 
+            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
             api.refresh_bearer_token
         )
+
+    def test_exception_after_401_with_fresh_token(self):
+        """If we get a 401 immediately after refreshing the token, we will
+        raise an exception.
+        """
+        api = MockAxis360API(self._db)
+        api.queue_response(401)
+        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
+        api.queue_response(401)
+
+        api.queue_response(301)
+
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            ".*Got status code 401 from external server, cannot continue.",
+            api.request, "http://url/"
+        )
+
+        # The fourth request never got made.
+        eq_([301], [x.status_code for x in api.responses])
 
 class TestParsers(object):
 

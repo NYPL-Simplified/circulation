@@ -1,6 +1,8 @@
 import requests
+import json
 from util.http import (
     HTTP, 
+    BadResponseException,
     RemoteIntegrationException,
     RequestNetworkException,
     RequestTimedOut,
@@ -55,11 +57,144 @@ class TestHTTP(object):
             return MockRequestsResponse(500, content="Failure!")
 
         assert_raises_regexp(
-            RemoteIntegrationException,
-            "Network error accessing http://url/: Got status code 500 from external server.",
+            BadResponseException,
+            "Bad response from http://url/: Got status code 500 from external server.",
             HTTP._request_with_timeout, "http://url/", fake_500_response,
             "a", "b"
         )
+
+    def test_allowed_response_codes(self):
+        """Test our ability to raise BadResponseException when
+        an HTTP-based integration does not behave as we'd expect.
+        """
+
+        def fake_401_response(*args, **kwargs):
+            return MockRequestsResponse(401, content="Weird")
+
+        def fake_200_response(*args, **kwargs):
+            return MockRequestsResponse(200, content="Hurray")
+
+        url = "http://url/"
+        m = HTTP._request_with_timeout
+
+        # By default, every code except for 5xx codes is allowed.
+        response = m(url, fake_401_response)
+        eq_(401, response.status_code)
+
+        # You can say that certain codes are specifically allowed, and
+        # all others are forbidden.
+        assert_raises_regexp(
+            BadResponseException,
+            "Bad response.*Got status code 401 from external server, but can only continue on: 200, 201.", 
+            m, url, fake_401_response, 
+            allowed_response_codes=[201, 200]
+        )
+
+        response = m(url, fake_401_response, allowed_response_codes=[401])
+        response = m(url, fake_401_response, allowed_response_codes=["4xx"])
+
+        # In this way you can even raise an exception on a 200 response code.
+        assert_raises_regexp(
+            BadResponseException,
+            "Bad response.*Got status code 200 from external server, but can only continue on: 401.", 
+            m, url, fake_200_response, 
+            allowed_response_codes=[401]
+        )
+
+        # You can say that certain codes are explicitly forbidden, and
+        # all others are allowed.
+        assert_raises_regexp(
+            BadResponseException,
+            "Bad response.*Got status code 401 from external server, cannot continue.", 
+            m, url, fake_401_response, 
+            disallowed_response_codes=[401]
+        )
+
+        assert_raises_regexp(
+            BadResponseException,
+            "Bad response.*Got status code 200 from external server, cannot continue.", 
+            m, url, fake_200_response, 
+            disallowed_response_codes=["2xx", 301]
+        )
+
+        response = m(url, fake_401_response, 
+                     disallowed_response_codes=["2xx"])
+        eq_(401, response.status_code)
+
+        # The exception can be turned into a useful problem detail document.
+        exc = None
+        try:
+            m(url, fake_200_response, 
+              disallowed_response_codes=["2xx"])
+        except Exception, exc:
+            pass
+        assert exc is not None
+
+        debug_doc = exc.as_problem_detail_document(debug=True)
+
+        # 502 is the status code to be returned if this integration error
+        # interrupts the processing of an incoming HTTP request, not the
+        # status code that caused the problem.
+        #
+        eq_(502, debug_doc.status_code)
+        eq_("Bad response", debug_doc.title)
+        eq_('The server made a request to http://url/, and got an unexpected or invalid response.', debug_doc.detail)
+        eq_('Got status code 200 from external server, cannot continue.\n\nResponse content: Hurray', debug_doc.debug_message)
+
+        no_debug_doc = exc.as_problem_detail_document(debug=False)
+        eq_("Bad response", no_debug_doc.title)
+        eq_('The server made a request to url, and got an unexpected or invalid response.', no_debug_doc.detail)
+        eq_(None, no_debug_doc.debug_message)
+
+
+class TestBadResponseException(object):
+
+    def test_helper_constructor(self):
+        response = MockRequestsResponse(102, content="nonsense")
+        exc = BadResponseException.from_response(
+            "http://url/", "Terrible response, just terrible", response
+        )
+
+        # Turn the exception into a problem detail document, and it's full
+        # of useful information.
+        doc, status_code, headers = exc.as_problem_detail_document(debug=True).response
+        doc = json.loads(doc)
+
+        eq_('Bad response', doc['title'])
+        eq_('The server made a request to http://url/, and got an unexpected or invalid response.', doc['detail'])
+        eq_(
+            u'Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
+            doc['debug_message']
+        )
+
+        # Unless debug is turned off, in which case none of that
+        # information is present.
+        doc, status_code, headers = exc.as_problem_detail_document(debug=False).response
+        assert 'debug_message' not in json.loads(doc)
+
+    def test_bad_status_code_helper(object):
+        response = MockRequestsResponse(500, content="Internal Server Error!")
+        exc = BadResponseException.bad_status_code(
+            "http://url/", response
+        )
+        doc, status_code, headers = exc.as_problem_detail_document(debug=True).response
+        doc = json.loads(doc)
+
+        assert doc['debug_message'].startswith("Got status code 500 from external server, cannot continue.")
+
+    def test_as_problem_detail_document(self):
+        exception = BadResponseException(
+            "http://url/", "What even is this", 
+            debug_message="some debug info"
+        )
+        document = exception.as_problem_detail_document(debug=True)
+        eq_(502, document.status_code)
+        eq_("Bad response", document.title)
+        eq_("The server made a request to http://url/, and got an unexpected or invalid response.", 
+            document.detail
+        )
+        eq_("What even is this\n\nsome debug info", document.debug_message)
+
 
 class TestRequestTimedOut(object):
 

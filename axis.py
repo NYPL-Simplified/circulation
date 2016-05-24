@@ -107,15 +107,9 @@ class Axis360API(object):
     def refresh_bearer_token(self):
         url = self.base_url + self.access_token_endpoint
         headers = self.authorization_headers
-        response = self._make_request(url, 'post', headers)
-        if response.status_code != 200:
-            raise RemoteIntegrationException(
-                url,
-                "Status code %s while acquiring bearer token." % (
-                    response.status_code
-                ),
-                debug_message=response.content
-            )
+        response = self._make_request(
+            url, 'post', headers, allowed_response_codes=[200]
+        )
         return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
@@ -129,20 +123,25 @@ class Axis360API(object):
         headers = dict(extra_headers)
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
+        if exception_on_401:
+            disallowed_response_codes = ["401"]
+        else:
+            disallowed_response_codes = None
         response = self._make_request(
             url=url, method=method, headers=headers,
-            data=data, params=params)
+            data=data, params=params, 
+            disallowed_response_codes=disallowed_response_codes
+        )
         if response.status_code == 401:
-            if exception_on_401:
-                # This is our second try. Give up.
-                raise Exception(
-                    "Something's wrong with the OAuth Bearer Token!")
-            else:
-                # The token has expired. Get a new token and try again.
-                self.token = None
-                return self.request(
-                    url=url, method=method, extra_headers=extra_headers,
-                    data=data, params=params, exception_on_401=True)
+            # This must be our first 401, since our second 401 will
+            # make _make_request raise a RemoteIntegrationException.
+            #
+            # The token has expired. Get a new token and try again.
+            self.token = None
+            return self.request(
+                url=url, method=method, extra_headers=extra_headers,
+                data=data, params=params, exception_on_401=True
+            )
         else:
             return response
 
@@ -176,11 +175,12 @@ class Axis360API(object):
         data = json.loads(token)
         return data['access_token']
 
-    def _make_request(self, url, method, headers, data=None, params=None):
+    def _make_request(self, url, method, headers, data=None, params=None, 
+                      **kwargs):
         """Actually make an HTTP request."""
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
-            params=params
+            params=params, **kwargs
         )
 
 

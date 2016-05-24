@@ -2,6 +2,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import json
 import logging
 import os
 import shutil
@@ -681,3 +682,6 @@ class MockRequestsResponse(object):
         self.status_code = status_code
         self.headers = headers
         self.content = content
+
+    def json(self):
+        return json.loads(self.content)
