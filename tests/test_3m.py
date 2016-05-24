@@ -12,9 +12,12 @@ from model import (
 )
 from threem import (
     ItemListParser,
+    MockThreeMAPI,
 )
+from . import DatabaseTest
 
-class TestItemListParser(object):
+
+class BaseThreeMTest(object):
 
     base_path = os.path.split(__file__)[0]
     resource_path = os.path.join(base_path, "files", "3m")
@@ -23,6 +26,43 @@ class TestItemListParser(object):
     def get_data(cls, filename):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
+
+
+class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
+
+    def setup(self):
+        super(TestThreeMAPI, self).setup()
+        self.api = MockThreeMAPI(self._db)
+
+    def test_bibliographic_lookup(self):
+        data = self.get_data("item_metadata_single.xml")
+        metadata = []
+        self.api.queue_response(200, content=data)
+        identifier = self._identifier()
+        metadata = self.api.bibliographic_lookup(identifier)
+        eq_("The Incense Game", metadata.title)
+
+    def test_put_request(self):
+        """This is a basic test to make sure the method calls line up
+        right--there are more thorough tests in the circulation
+        manager, which actually uses this functionality.
+        """
+        self.api.queue_response(200, content="ok, you put something")
+        response = self.api.request('checkout', "put this!", method="PUT")
+
+        # The PUT request went through to the correct URL and the right
+        # payload was sent.
+        [[method, url, args, kwargs]] = self.api.requests
+        eq_("PUT", method)
+        eq_(self.api.full_url("checkout"), url)
+        eq_('put this!', kwargs['data'])
+
+        # The response is what we'd expect.
+        eq_(200, response.status_code)
+        eq_("ok, you put something", response.content)
+
+
+class TestItemListParser(BaseThreeMTest):
 
     def test_parse_author_string(cls):
         authors = list(ItemListParser.contributors_from_string(
