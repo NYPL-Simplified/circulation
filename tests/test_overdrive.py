@@ -55,6 +55,22 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(200, status_code)
         eq_("some content", content)
 
+    def test_failure_to_get_library_is_fatal(self):
+        # We already called get_library while initializing the
+        # Overdrive API, and when that happened we cached its
+        # Representation. Delete the Representation so we stop using
+        # the cached version.
+        for r in self._db.query(Representation):
+            self._db.delete(r)
+        self._db.commit()
+
+        self.api.queue_response(500)
+        assert_raises_regexp(
+            BadResponseException, 
+            ".*Got status code 500.*",
+            self.api.get_library
+        )
+
     def test_401_on_get_refreshes_bearer_token(self):
 
         eq_("bearer token", self.api.token)
