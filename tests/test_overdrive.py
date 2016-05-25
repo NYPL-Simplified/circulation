@@ -50,10 +50,11 @@ class TestOverdriveAPI(DatabaseTest):
         )
 
         # We have never checked the circulation information for this
-        # LicensePool, and its information is the default for a 
-        # LicensePool created with _edition().
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        # LicensePool. Put some random junk in the pool to make sure
+        # it gets replaced.
+        pool.licenses_owned = 10
+        pool.licenses_available = 4
+        pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
         # Prepare availability information.
@@ -81,6 +82,7 @@ class TestOverdriveAPI(DatabaseTest):
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
         eq_(5, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
     def test_update_licensepool_provides_bibliographic_coverage(self):

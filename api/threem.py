@@ -101,7 +101,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
-        for circ in self.get_circulation_for([licensepool.identifier]):
+        for circ in self.get_circulation_for(
+                [licensepool.identifier.identifier]
+        ):
             self.apply_circulation_information_to_licensepool(
                 circ, licensepool
             )
@@ -416,7 +418,7 @@ class ErrorParser(ThreeMParser):
         actual, expected = m.groups()
         expected = expected.split(",")
 
-        if actual == 'CAN_WISH' and actual == 'CAN_HOLD':
+        if actual == 'CAN_WISH':
             return NoLicenses(message)
 
         if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
