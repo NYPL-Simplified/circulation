@@ -259,7 +259,11 @@ class Axis360Parser(XMLParser):
             pass
         return datetime.datetime.strptime(value, self.FULL_DATE_FORMAT)
 
+
 class BibliographicParser(Axis360Parser):
+    """
+
+    """
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
         "Blio" : None,
@@ -309,6 +313,7 @@ class BibliographicParser(Axis360Parser):
                     availability_updated, self.FULL_DATE_FORMAT)
 
         return CirculationData(
+            data_source=DataSource.AXIS_360, 
             licenses_owned=total_copies,
             licenses_available=available_copies,
             licenses_reserved=0,
@@ -417,7 +422,7 @@ class BibliographicParser(Axis360Parser):
         if isbn:
             identifiers.append(IdentifierData(Identifier.ISBN, isbn))
 
-        formats = []
+        #formats = []
         acceptable = False
         seen_formats = []
         for format_tag in self._xpath(
@@ -430,6 +435,7 @@ class BibliographicParser(Axis360Parser):
                 self.log("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
                 ))
+            '''
             elif self.DELIVERY_DATA_FOR_AXIS_FORMAT.get(informal_name):
                 content_type, drm_scheme = self.DELIVERY_DATA_FOR_AXIS_FORMAT[
                     informal_name
@@ -437,11 +443,16 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+        
+        TODO:  Do we need to also make a CirculationData so we can write the formats, 
+        or can we omit?
+
         if not formats:
             self.log.error(
                 "No supported format for %s (%s)! Saw: %s", identifier,
                 title, ", ".join(seen_formats)
             )
+        '''
 
         data = Metadata(
             data_source=DataSource.AXIS_360,
@@ -456,7 +467,7 @@ class BibliographicParser(Axis360Parser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            formats=formats,
+            # formats=formats,
         )
         return data
 
