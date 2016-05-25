@@ -321,6 +321,7 @@ class Pagination(object):
     def __init__(self, offset=0, size=DEFAULT_SIZE):
         self.offset = offset
         self.size = size
+        self.query_size = None
 
     def items(self):
         yield("after", self.offset)
@@ -345,16 +346,26 @@ class Pagination(object):
         previous_offset = self.offset - self.size
         previous_offset = max(0, previous_offset)
         return Pagination(previous_offset, self.size)
-        
+
+    @property
+    def done(self):
+        if self.query_size is None:
+            return False
+        if self.query_size==0:
+            return True
+        return self.query_size <= (self.offset+1) * self.size
 
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
+        self.query_size = q.count()
         return q.offset(self.offset).limit(self.size)
+
 
 class UndefinedLane(Exception):
     """Cannot create a lane because its definition is contradictory
     or incomplete.
     """
+
 
 class Lane(object):
 

@@ -934,6 +934,7 @@ class TestLanesQuery(DatabaseTest):
         eq_([], young_adult.genre_ids)
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
 
+
 class TestFilters(DatabaseTest):
 
     def test_only_show_ready_deliverable_works(self):
@@ -1006,4 +1007,35 @@ class TestFilters(DatabaseTest):
             # w7 shows up because we own licenses and copies are available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
             eq_([w6, w7], q.all())
-            
+
+
+class TestPagination(DatabaseTest):
+
+    def test_done(self):
+        query = self._db.query(Work)
+        pagination = Pagination(size=2)
+
+        # When the query is empty, pagination is done.
+        pagination.apply(query)
+        eq_(True, pagination.done)
+
+        # When there are more works in the query, pagination isn't done.
+        for num in range(3):
+            # Create three works.
+            self._work()
+        pagination.apply(query)
+        eq_(False, pagination.done)
+
+        # When there aren't, pagination is done.
+        pagination.offset = 1
+        eq_(True, pagination.done)
+
+        # When the database is updated, pagination knows.
+        for num in range(3):
+            self._work()
+        pagination.apply(query)
+        eq_(False, pagination.done)
+
+        # Even when the query ends at the same size as a page, all is well.
+        pagination.offset = 2
+        eq_(True, pagination.done)
