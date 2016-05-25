@@ -937,7 +937,8 @@ class TestLanesQuery(DatabaseTest):
 class TestFilters(DatabaseTest):
 
     def test_only_show_ready_deliverable_works(self):
-        # w1 has licenses but no available copies.
+        # w1 has licenses but no available copies. It's available
+        # unless site policy is to hide books like this.
         w1 = self._work(with_license_pool=True)
         w1.license_pools[0].open_access = False
         w1.license_pools[0].licenses_owned = 10
@@ -961,16 +962,15 @@ class TestFilters(DatabaseTest):
         w5.license_pools[0].open_access = False
         w5.license_pools[0].licenses_owned = 0
 
-        # w6 is an open-access book, so the fact that it
-        # licenses_owned and licenses_available doesn't mean it's not
-        # actually available.
+        # w6 is an open-access book, so it's available even though
+        # licenses_owned and licenses_available are zero.
         w6 = self._work(with_open_access_download=True)
         w6.license_pools[0].open_access = True
         w6.license_pools[0].licenses_owned = 0
         w6.license_pools[0].licenses_available = 0
 
         # w7 is not open-access. We own licenses for it, and there are
-        # licenses available right now.
+        # licenses available right now. It's available.
         w7 = self._work(with_license_pool=True)
         w7.license_pools[0].open_access = False
         w7.license_pools[0].licenses_owned = 9
