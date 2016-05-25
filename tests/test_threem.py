@@ -29,6 +29,7 @@ from . import (
 )
 
 from core.model import (
+    DataSource,
     Identifier,
     Loan,
     Hold,
@@ -84,6 +85,40 @@ class TestThreeMAPI(ThreeMAPITest):
             BadResponseException,
             list, self.api.get_circulation_for(['id1', 'id2'])
         )
+
+    def test_update_availability(self):
+        """Test the 3M implementation of the update_availability
+        method defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.THREEM_ID,
+            data_source_name=DataSource.THREEM,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        # Prepare availability information.
+        data = self.sample_data("item_circulation.xml")
+        self.api.queue_response(200, content=data)
+
+        self.api.update_availability(pool)
+
+        # The availability information has been udpated, as has the
+        # date the availability information was last checked.
+        eq_(2, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
 
     def test_sync_bookshelf(self):
         patron = self._patron()        

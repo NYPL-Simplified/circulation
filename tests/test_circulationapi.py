@@ -1,5 +1,6 @@
 """Test the CirculationAPI."""
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     set_trace,
     eq_,
@@ -178,6 +179,8 @@ class TestCirculationAPI(DatabaseTest):
                      None, None, 10)
         )
 
+        eq_([], self.remote.availability_updated_for)
+
         # As such, an attempt to renew our loan results in us actually
         # placing a hold on the book.
         loan, hold, is_new = self.borrow()
@@ -185,3 +188,22 @@ class TestCirculationAPI(DatabaseTest):
         eq_(True, is_new)
         eq_(self.pool, hold.license_pool)
         eq_(self.patron, hold.patron)
+
+        # When NoAvailableCopies was raised, the circulation
+        # information for the book was immediately updated, to reduce
+        # the risk that other patrons would encounter the same
+        # problem.
+        eq_([self.pool], self.remote.availability_updated_for)
+
+    def test_no_licenses_prompts_availability_update(self):
+        # Once the library offered licenses for this book, but
+        # the licenses just expired.
+        self.remote.queue_checkout(NoLicenses())
+        eq_([], self.remote.availability_updated_for)
+
+        # We're not able to borrow the book...
+        assert_raises(NoLicenses, self.borrow)
+
+        # But the availability of the book gets immediately updated,
+        # so that we don't keep offering the book.
+        eq_([self.pool], self.remote.availability_updated_for)

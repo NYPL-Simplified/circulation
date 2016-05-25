@@ -6,6 +6,7 @@ from sqlalchemy.orm import contains_eager
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
+    MockAxis360API as BaseMockAxis360API,
     Axis360Parser,
     BibliographicParser,
     Axis360BibliographicCoverageProvider
@@ -153,6 +154,13 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+
+        Part of the CirculationAPI interface.
+        """
+        self.update_licensepools_for_identifiers([licensepool.identifier])
+
     def update_licensepools_for_identifiers(self, identifiers):
         """Update availability information for a list of books.
 
@@ -268,6 +276,8 @@ class Axis360CirculationMonitor(Monitor):
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
 
+class MockAxis360API(BaseMockAxis360API, Axis360API):
+    pass
 
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our

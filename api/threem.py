@@ -99,6 +99,15 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             if circ:
                 yield circ
 
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool."""
+        for circ in self.get_circulation_for(
+                [licensepool.identifier.identifier]
+        ):
+            self.apply_circulation_information_to_licensepool(
+                circ, licensepool
+            )
+
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
@@ -225,6 +234,29 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             return True
         else:
             raise CannotReleaseHold()
+
+    def apply_circulation_information_to_licensepool(self, circ, pool):
+        """Apply the output of CirculationParser.process_one() to a
+        LicensePool.
+        
+        TODO: It should be possible to have CirculationParser yield 
+        CirculationData objects instead and to replace this code with
+        CirculationData.apply(pool)
+        """
+        if pool.presentation_edition:
+            e = pool.presentation_edition
+            self.log.info("Updating %s (%s)", e.title, e.author)
+        else:
+            self.log.info(
+                "Updating unknown work %s", identifier.identifier
+            )
+        # Update availability and send out notifications.
+        pool.update_availability(
+            circ.get(LicensePool.licenses_owned, 0),
+            circ.get(LicensePool.licenses_available, 0),
+            circ.get(LicensePool.licenses_reserved, 0),
+            circ.get(LicensePool.patrons_in_hold_queue, 0)
+        )
 
 
 class DummyThreeMAPIResponse(object):
@@ -591,20 +623,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     self._db, pool, CirculationEvent.TITLE_ADD,
                     None, None, start=now)
 
-            if pool.presentation_edition:
-                e = pool.presentation_edition
-                self.log.info("Updating %s (%s)", e.title, e.author)
-            else:
-                self.log.info(
-                    "Updating unknown work %s", identifier.identifier
-                )
-            # Update availability and send out notifications.
-            pool.update_availability(
-                circ.get(LicensePool.licenses_owned, 0),
-                circ.get(LicensePool.licenses_available, 0),
-                circ.get(LicensePool.licenses_reserved, 0),
-                circ.get(LicensePool.patrons_in_hold_queue, 0))
-
+            self.api.apply_circulation_data_to_licensepool(pool)
 
         # At this point there may be some license pools left over
         # that 3M doesn't know about.  This is a pretty reliable
