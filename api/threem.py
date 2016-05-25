@@ -404,6 +404,9 @@ class ErrorParser(ThreeMParser):
         actual, expected = m.groups()
         expected = expected.split(",")
 
+        if actual == 'CAN_WISH':
+            return NoLicenses(message)
+
         if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
             return NoAvailableCopies(message)
 

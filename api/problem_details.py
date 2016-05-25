@@ -31,7 +31,7 @@ EXPIRED_CREDENTIALS = pd(
 
 NO_LICENSES = pd(
       "http://librarysimplified.org/terms/problem/no-licenses",
-      403,
+      404,
       "No licenses.",
       "The library currently has no licenses for this book.",
 )
