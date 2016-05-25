@@ -1060,6 +1060,11 @@ class Lane(object):
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
 
+        # Only find books with available licenses.
+        query = query.filter(
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+
         # If we don't allow holds, hide any books with no available copies.
         hold_policy = Configuration.hold_policy()
         if hold_policy == Configuration.HOLD_POLICY_HIDE:

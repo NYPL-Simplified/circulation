@@ -937,8 +937,10 @@ class TestLanesQuery(DatabaseTest):
 class TestFilters(DatabaseTest):
 
     def test_only_show_ready_deliverable_works(self):
-        # w1 has no available copies.
+        # w1 has licenses but no available copies.
         w1 = self._work(with_license_pool=True)
+        w1.license_pools[0].open_access = False
+        w1.license_pools[0].licenses_owned = 10
         w1.license_pools[0].licenses_available = 0
 
         # w2 has no delivery mechanisms.
@@ -954,19 +956,41 @@ class TestFilters(DatabaseTest):
         w4 = self._work(with_open_access_download=True)
         w4.license_pools[0].suppressed = True
 
+        # w5 has no licenses.
+        w5 = self._work(with_license_pool=True)
+        w5.license_pools[0].open_access = False
+        w5.license_pools[0].licenses_owned = 0
+
+        # w6 is an open-access book, so the fact that it
+        # licenses_owned and licenses_available doesn't mean it's not
+        # actually available.
+        w6 = self._work(with_open_access_download=True)
+        w6.license_pools[0].open_access = True
+        w6.license_pools[0].licenses_owned = 0
+        w6.license_pools[0].licenses_available = 0
+
+        # w7 is not open-access. We own licenses for it, and there are
+        # licenses available right now.
+        w7 = self._work(with_license_pool=True)
+        w7.license_pools[0].open_access = False
+        w7.license_pools[0].licenses_owned = 9
+        w7.license_pools[0].licenses_available = 5
+
         # A normal query against Work/LicensePool finds all works.
         orig_q = self._db.query(Work).join(Work.license_pools)
-        eq_(4, orig_q.count())
+        eq_(7, orig_q.count())
 
-        # only_show_ready_deliverable_works filters out w2, w3, and w4.
+        # only_show_ready_deliverable_works filters out everything but
+        # w1 (owned licenses), w6 (open-access), and w7 (available
+        # licenses)
         q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-        eq_([w1], q.all())
+        eq_([w1, w6, w7], q.all())
 
-        # If we decide to show suppressed works, w4 shows up again.
+        # If we decide to show suppressed works, w4 shows up as well.
         q = Lane.only_show_ready_deliverable_works(
             orig_q, Work, show_suppressed=True
         )
-        eq_(set([w1, w4]), set(q.all()))
+        eq_(set([w1, w4, w6, w7]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
         with temp_config() as config:
@@ -974,13 +998,12 @@ class TestFilters(DatabaseTest):
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
             }
 
-            # w1 still shows up because it's an open-access work.
-            # (w4 is open-access but it's suppressed).
+            # w1 no longer shows up, because although we own licenses, 
+            #  no copies are available.
+            # w4 is open-access but it's suppressed, so it still doesn't 
+            #  show up.
+            # w6 still shows up because it's an open-access work.
+            # w7 shows up because we own licenses and copies are available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(1, q.count())
-
-            # But if we change that...
-            w1.license_pools[0].open_access = False
-            q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(0, q.count())
+            eq_([w6, w7], q.all())
             
