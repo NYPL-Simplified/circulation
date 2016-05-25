@@ -6,6 +6,7 @@ from sqlalchemy.orm import contains_eager
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
+    MockAxis360API as BaseMockAxis360API,
     Axis360Parser,
     BibliographicParser,
     Axis360BibliographicCoverageProvider
@@ -275,6 +276,8 @@ class Axis360CirculationMonitor(Monitor):
         availability.update(license_pool, new_license_pool)
         return edition, license_pool
 
+class MockAxis360API(BaseMockAxis360API, Axis360API):
+    pass
 
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our

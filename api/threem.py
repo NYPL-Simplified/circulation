@@ -267,7 +267,26 @@ class DummyThreeMAPIResponse(object):
         self.content = content
 
 class MockThreeMAPI(BaseMockThreeMAPI, ThreeMAPI):
-    pass
+
+    def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+        self.requests = []
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['3M'] = {
+                'library_id' : 'a',
+                'account_id' : 'b',
+                'account_key' : 'c',
+            }
+            super(MockThreeMAPI, self).__init__(
+                _db, *args, base_url="http://3m.test", **kwargs
+            )
 
 
 class ThreeMParser(XMLParser):

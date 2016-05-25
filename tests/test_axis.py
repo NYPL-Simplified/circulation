@@ -32,6 +32,7 @@ from api.axis import (
     CheckoutResponseParser,
     HoldResponseParser,
     HoldReleaseResponseParser,
+    MockAxis360API,
     ResponseParser,
 )
 
@@ -46,6 +47,57 @@ from api.circulation import (
     FulfillmentInfo,
 )
 from api.circulation_exceptions import *
+
+
+class TestAxis360API(DatabaseTest):
+
+    def setup(self):
+        super(TestAxis360API,self).setup()
+        self.api = MockAxis360API(self._db)
+
+    @classmethod
+    def sample_data(self, filename):
+        return sample_data(filename, 'axis')
+
+    def test_update_availability(self):
+        """Test the Axis 360 implementation of the update_availability method
+        defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        # Prepare availability information.
+        data = self.sample_data("availability_with_loans.xml")
+
+        # Modify the data so that it appears to be talking about the
+        # book we just created.
+        new_identifier = pool.identifier.identifier.encode("ascii")
+        data = data.replace("0012533119", new_identifier)
+
+        self.api.queue_response(200, content=data)
+
+        self.api.update_availability(pool)
+
+        # The availability information has been udpated, as has the
+        # date the availability information was last checked.
+        eq_(2, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
 
 class TestCirculationMonitor(DatabaseTest):
 
