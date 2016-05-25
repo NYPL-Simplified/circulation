@@ -101,12 +101,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
-        for circ in self.get_circulation_for(
-                [licensepool.identifier.identifier]
-        ):
-            self.apply_circulation_information_to_licensepool(
-                circ, licensepool
-            )
+        return ThreeMCirculationSweep(self._db, api=self).process_batch(
+            [licensepool.identifier]
+        )
 
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
@@ -580,11 +577,13 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     count the same event.  However it will greatly improve our current
     view of our 3M circulation, which is more important.
     """
-    def __init__(self, _db, testing=False):
+    def __init__(self, _db, testing=False, api=None):
         super(ThreeMCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
-        self.api = ThreeMAPI(self._db, testing=testing)
+        if not api:
+            api = ThreeMAPI(self._db, testing=testing)
+        self.api = api
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
     def identifier_query(self):
@@ -600,6 +599,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
 
         identifiers_not_mentioned_by_threem = set(identifiers)
         now = datetime.datetime.utcnow()
+
         for circ in self.api.get_circulation_for(threem_ids):
             if not circ:
                 continue
@@ -623,7 +623,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     self._db, pool, CirculationEvent.TITLE_ADD,
                     None, None, start=now)
 
-            self.api.apply_circulation_data_to_licensepool(pool)
+            self.api.apply_circulation_information_to_licensepool(circ, pool)
 
         # At this point there may be some license pools left over
         # that 3M doesn't know about.  This is a pretty reliable
