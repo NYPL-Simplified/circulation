@@ -221,7 +221,6 @@ class CirculationAPI(object):
                 on_multiple='interchangeable'
             )
 
-        needs_update = False
         try:
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
