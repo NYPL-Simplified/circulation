@@ -46,7 +46,7 @@ class TestHTTP(object):
 
         assert_raises_regexp(
             RequestNetworkException,
-            "Network error accessing http://url/: a disaster",
+            "Network error contacting http://url/: a disaster",
             HTTP._request_with_timeout, "http://url/", immediately_fail,
             "a", "b"
         )
@@ -147,6 +147,28 @@ class TestHTTP(object):
         eq_(None, no_debug_doc.debug_message)
 
 
+class TestRemoteIntegrationException(object):
+
+    def test_with_service_name(self):
+        """You don't have to provide a URL when creating a
+        RemoteIntegrationException; you can just provide the service
+        name.
+        """
+        exc = RemoteIntegrationException(
+            u"Unreliable Service", 
+            u"I just can't handle your request right now."
+        )
+
+        # Since only the service name is provided, there are no details to
+        # elide in the non-debug version of a problem detail document.
+        debug_detail = exc.document_detail(debug=True)
+        other_detail = exc.document_detail(debug=False)
+        eq_(debug_detail, other_detail)
+
+        eq_(u'The server tried to access Unreliable Service but the third-party service experienced an error.',
+            debug_detail
+        )
+
 class TestBadResponseException(object):
 
     def test_helper_constructor(self):
@@ -221,14 +243,15 @@ class TestRequestNetworkException(object):
         exception = RequestNetworkException("http://url/", "Colossal failure")
 
         debug_detail = exception.as_problem_detail_document(debug=True)
-        eq_("Network failure contacting external service", debug_detail.title)
-        eq_('The server experienced a network error while accessing http://url/.', debug_detail.detail)
+        eq_("Network failure contacting third-party service", debug_detail.title)
+        eq_('The server experienced a network error while contacting http://url/.', debug_detail.detail)
 
         # If we're not in debug mode, we hide the URL we accessed and just
         # show the hostname.
         standard_detail = exception.as_problem_detail_document(debug=False)
-        eq_("The server experienced a network error while accessing url.", standard_detail.detail)
+        eq_("The server experienced a network error while contacting url.", standard_detail.detail)
 
         # The status code corresponding to an upstream timeout is 502.
         document, status_code, headers = standard_detail.response
         eq_(502, status_code)
+

@@ -173,8 +173,6 @@ class ErrorHandler(object):
         self.debug = debug
 
     def handle(self, exception):
-        logging.error(
-            "Exception in web app: %s", exception, exc_info=exception)
         if hasattr(self.app, 'manager') and hasattr(self.app.manager, '_db'):
             # There is an active database session. Roll it back.
             self.app.manager._db.rollback()
@@ -184,12 +182,18 @@ class ErrorHandler(object):
             # The database session may have become tainted. For now
             # the simplest thing to do is to kill the entire process
             # and let uwsgi restart it.
-            logging.error("Database error! Treating as fatal to avoid holding on to a tainted session.")
+            logging.error(
+                "Database error: %s Treating as fatal to avoid holding on to a tainted session!",
+                exception, exc_info=exception
+            )
             shutdown = flask.request.environ.get('werkzeug.server.shutdown')
             if shutdown:
                 shutdown()
             else:
                 sys.exit()
+
+        # By default, the error will be logged at log level ERROR.
+        log_method = logging.error
 
         # Okay, it's not a database error. Turn it into a useful HTTP error
         # response.
@@ -204,13 +208,25 @@ class ErrorHandler(object):
                     document.debug_message += "\n\n" + tb
                 else:
                     document.debug_message = tb
-            return make_response(document.response)
-
-        if self.debug:
-            body = tb
+            if document.status_code == 502:
+                # This is an error in integrating with some upstream
+                # service. It's a serious problem, but probably not
+                # indicative of a bug in our software. Log it at log level
+                # WARN.
+                log_method = logging.warn
+            response = make_response(document.response)
         else:
-            body = 'An internal error occured'
-        return make_response(body, 500, {"Content-Type": "text/plain"})
+            # There's no way to turn this exception into a problem
+            # document. This is probably indicative of a bug in our
+            # software.
+            if self.debug:
+                body = tb
+            else:
+                body = 'An internal error occured'
+            response = make_response(body, 500, {"Content-Type": "text/plain"})
+
+        log_method("Exception in web app: %s", exception, exc_info=exception)
+        return response
 
 
 class HeartbeatController(object):
