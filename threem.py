@@ -285,6 +285,10 @@ class ItemListParser(XMLParser):
             )
 
         medium = Edition.BOOK_MEDIUM
+        '''
+        TODO:  Do we need to also make a CirculationData so we can write the formats, 
+        or can we omit?
+        
         book_format = value("BookFormat")
         format = None
         if book_format == 'EPUB':
@@ -305,6 +309,7 @@ class ItemListParser(XMLParser):
             medium = Edition.AUDIO_MEDIUM
 
         formats = [format]
+        '''
 
         return Metadata(
             data_source=DataSource.THREEM,
@@ -318,7 +323,7 @@ class ItemListParser(XMLParser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            formats=formats,
+            #formats=formats,
             measurements=measurements,
             links=links,
         )

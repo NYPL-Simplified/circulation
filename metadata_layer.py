@@ -838,7 +838,7 @@ class Metadata(object):
             measurements=None,
             links=None,
             opds_entry_updated=None,
-            #circulation=None,
+            #circulation=None,  # Note: OK to bring back if need.
     ):
         # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface), 
         # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.
