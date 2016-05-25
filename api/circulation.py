@@ -221,6 +221,7 @@ class CirculationAPI(object):
                 on_multiple='interchangeable'
             )
 
+        needs_update = False
         try:
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
@@ -251,7 +252,17 @@ class CirculationAPI(object):
                 )
             else:
                 # That's fine, we'll just (try to) place a hold.
-                pass
+                #
+                # Since the patron incorrectly believed there were
+                # copies available, update availability information
+                # immediately.
+                api.update_availability(licensepool)
+        except NoLicenses, e:
+            # Since the patron incorrectly believed there were
+            # licenses available, update availability information
+            # immediately.
+            api.update_availability(licensepool)
+            raise e
 
         if loan_info:
             # We successfuly secured a loan.  Now create it in our

@@ -525,6 +525,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             book, license_pool, is_new
         )
 
+    # Alias for the CirculationAPI interface
+    def update_availability(self, licensepool):
+        return self.update_licensepool(licensepool.identifier.identifier)
+
     def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.

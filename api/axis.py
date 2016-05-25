@@ -153,6 +153,13 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+
+        Part of the CirculationAPI interface.
+        """
+        self.update_licensepools_for_identifiers([licensepool.identifier])
+
     def update_licensepools_for_identifiers(self, identifiers):
         """Update availability information for a list of books.
 

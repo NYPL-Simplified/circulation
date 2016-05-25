@@ -35,6 +35,54 @@ class TestOverdriveAPI(DatabaseTest):
         data = self.sample_data(filename)
         return data, json.loads(data)
 
+    def test_update_availability(self):
+        """Test the Overdrive implementation of the update_availability
+        method defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            # TODO: If this line is commented out, we get an error later
+            # on which might or might not be worrisome.
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool, and its information is the default for a 
+        # LicensePool created with _edition().
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(None, pool.last_checked)
+
+        # Prepare availability information.
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        # Since this is the first time we've seen this book,
+        # we'll also be updating the bibliographic information.
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the new pool's Identifier.
+        availability['id'] = pool.identifier.identifier
+        bibliographic['id'] = pool.identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+        api.queue_response(content=availability)
+
+        api.update_availability(pool)
+
+        # The availability information has been udpated, as has the
+        # date the availability information was last checked.
+        eq_(5, pool.licenses_owned)
+        eq_(5, pool.licenses_available)
+        assert pool.last_checked is not None
+
     def test_update_licensepool_provides_bibliographic_coverage(self):
         # Create an identifier.
         identifier = self._identifier(
