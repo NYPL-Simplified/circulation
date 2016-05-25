@@ -107,18 +107,36 @@ class TestThreeMAPI(ThreeMAPITest):
         eq_(None, pool.last_checked)
 
         # Prepare availability information.
-        data = self.sample_data("item_circulation.xml")
-        self.api.queue_response(200, content=data)
+        data = self.sample_data("item_circulation_single.xml")
+        # Change the ID in the test data so it looks like it's talking
+        # about the LicensePool we just created.
+        data = data.replace("d5rf89", pool.identifier.identifier)
 
+        # Update availability using that data.
+        self.api.queue_response(200, content=data)
         self.api.update_availability(pool)
 
-        # The availability information has been udpated, as has the
+        # The availability information has been updated, as has the
         # date the availability information was last checked.
-        eq_(2, pool.licenses_owned)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+
+        old_last_checked = pool.last_checked
+        assert old_last_checked is not None
+
+        # Now let's try update_availability again, with a file that
+        # makes it look like the book has been removed from the
+        # collection.
+        data = self.sample_data("empty_item_circulation.xml")
+        self.api.queue_response(200, content=data)
+        self.api.update_availability(pool)
+
+        eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
-        assert pool.last_checked is not None
 
+        assert pool.last_checked is not old_last_checked
 
     def test_sync_bookshelf(self):
         patron = self._patron()        
