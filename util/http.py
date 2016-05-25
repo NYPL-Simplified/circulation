@@ -15,14 +15,22 @@ class RemoteIntegrationException(Exception):
     """An exception that happens when communicating with a third-party
     service.
     """
-    title = "Network failure contacting external service"
-    detail = "The server experienced a network error while accessing %s."
-    internal_message = "Network error accessing %s: %s"
+    title = "Failure contacting external service"
+    detail = "The server tried to access %s but the third-party service experienced an error."
+    internal_message = "Error accessing %s: %s"
 
-    def __init__(self, url, message, debug_message=None):
+    def __init__(self, url_or_service, message, debug_message=None):
+        """Indicate that a remote integration has failed.
+        
+        `param url_or_service` The name of the service that failed
+           (e.g. "Overdrive"), or the specific URL that had the problem.
+        """
         super(RemoteIntegrationException, self).__init__(message)
-        self.url = url
-        self.hostname = urlparse.urlparse(url).netloc
+        if any(url_or_service.startswith(x) for x in ('http:', 'https:')):
+            self.url = url_or_service
+            self.service = urlparse.urlparse(url_or_service).netloc
+        else:
+            self.url = self.service = url_or_service
         self.debug_message = debug_message
 
     def __str__(self):
@@ -31,7 +39,7 @@ class RemoteIntegrationException(Exception):
     def document_detail(self, debug=True):
         if debug:
             return self.detail % self.url
-        return self.detail % self.hostname
+        return self.detail % self.service
 
     def document_debug_message(self, debug=True):
         if debug:
@@ -96,7 +104,10 @@ class RequestNetworkException(RemoteIntegrationException,
     """An exception from the requests module that can be represented as
     a problem detail document.
     """
-    pass
+    title = "Network failure contacting third-party service"
+    detail = "The server experienced a network error while contacting %s."
+    internal_message = "Network error contacting %s: %s"
+
 
 class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):
     """A timeout exception that can be represented as a problem
