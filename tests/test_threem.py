@@ -197,6 +197,20 @@ class TestErrorParser(ThreeMAPITest):
         assert isinstance(error, PatronLoanLimitReached)
         eq_(u'Patron cannot loan more than 12 documents', error.message)
 
+    def test_wrong_status(self):
+        msg=self.sample_data("error_no_licenses.xml")
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, NoLicenses)
+        eq_(
+            u'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION',
+            error.message
+        )
+        
+        problem = error.as_problem_detail_document()
+        eq_("The library currently has no licenses for this book.",
+            problem.detail)
+        eq_(404, problem.status_code)
+
     def test_internal_server_error_beomces_remote_initiated_server_error(self):
         """Simulate the message we get when the server goes down."""
         msg = "The server has encountered an error"
@@ -205,6 +219,9 @@ class TestErrorParser(ThreeMAPITest):
         eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
         eq_(502, error.status_code)
         eq_(msg, error.message)
+        doc = error.as_problem_detail_document()
+        eq_(502, doc.status_code)
+        eq_("Integration error communicating with 3M", doc.detail)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
         msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""

@@ -386,6 +386,9 @@ class ErrorParser(ThreeMParser):
         actual, expected = m.groups()
         expected = expected.split(",")
 
+        if actual == 'CAN_WISH':
+            return NoLicenses(message)
+
         if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
             return NoAvailableCopies(message)
 
@@ -395,7 +398,7 @@ class ErrorParser(ThreeMParser):
         if 'CAN_LOAN' in expected and actual == 'LOAN':
             return AlreadyCheckedOut(message)
 
-        if 'CAN_HOLD' in expected and actual == 'CAN_WISH':
+        if 'CAN_HOLD' in expected and actual == 'CAN_LOAN':
             return CurrentlyAvailable(message)
 
         if 'CAN_HOLD' in expected and actual == 'HOLD':
