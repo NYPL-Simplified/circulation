@@ -3,10 +3,6 @@ from nose.tools import (
     eq_, 
     set_trace,
 )
-from config import (
-    Configuration, 
-    temp_config,
-)
 
 import datetime
 import json
@@ -24,6 +20,7 @@ from model import (
 
 from axis import (
     Axis360API,
+    MockAxis360API,
     BibliographicParser,
 )
 
@@ -34,34 +31,6 @@ from util.http import (
 
 from . import DatabaseTest
 from testing import MockRequestsResponse
-
-class MockAxis360API(Axis360API):
-
-    def __init__(self, _db, with_token=True, *args, **kwargs):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['Axis 360'] = {
-                'library_id' : 'a',
-                'username' : 'b',
-                'password' : 'c',
-                'server' : 'http://axis.test/',
-            }
-            super(MockAxis360API, self).__init__(_db, *args, **kwargs)
-        if with_token:
-            self.token = "mock token"
-        self.responses = []
-
-    def queue_response(self, status_code, headers={}, content=None):
-        self.responses.insert(
-            0, MockRequestsResponse(status_code, headers, content)
-        )
-
-    def _make_request(self, url, *args, **kwargs):
-        response = self.responses.pop()
-        return HTTP._process_response(
-            url, response, kwargs.get('allowed_response_codes'),
-            kwargs.get('disallowed_response_codes')
-        )
-
 
 class TestAxis360API(DatabaseTest):
 
