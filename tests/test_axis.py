@@ -1,7 +1,10 @@
 import datetime
+from lxml import etree
+from StringIO import StringIO
 from nose.tools import (
     eq_, 
     assert_raises,
+    assert_raises_regexp,
     set_trace,
 )
 
@@ -29,6 +32,7 @@ from api.axis import (
     CheckoutResponseParser,
     HoldResponseParser,
     HoldReleaseResponseParser,
+    ResponseParser,
 )
 
 from . import (
@@ -144,6 +148,33 @@ class TestResponseParser(object):
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
+
+class TestRaiseExceptionOnError(TestResponseParser):
+
+    def test_internal_server_error(self):
+        data = self.sample_data("internal_server_error.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Internal Server Error", 
+            parser.process_all, data
+        )
+
+    def test_internal_server_error(self):
+        data = self.sample_data("invalid_error_code.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd", 
+            parser.process_all, data
+        )
+
+    def test_missing_error_code(self):
+        data = self.sample_data("missing_error_code.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "No status code!", 
+            parser.process_all, data
+        )
+
 
 class TestCheckoutResponseParser(TestResponseParser):
 

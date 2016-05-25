@@ -90,7 +90,6 @@ from overdrive import (
 )
 from threem import (
     ThreeMAPI,
-    DummyThreeMAPI,
 )
 from circulation import (
     CirculationAPI,
