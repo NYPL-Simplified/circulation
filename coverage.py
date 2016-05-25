@@ -341,11 +341,45 @@ class CoverageProvider(object):
             return CoverageFailure(self, identifier, e, transient=True)
         return work
 
-    def set_metadata(self, identifier, metadata, 
+
+    def set_meta_circ_data(self, identifier, metadata, circulationdata, 
+        metadata_replacement_policy=None, 
+        circulationdata_replacement_policy=None, 
+    ):
+        """
+        Performs the function of the old set_metadata.  Finds or creates the Edition 
+        and the LicensePool for the passed-in Identifier, updates them, 
+        then finds or creates a Work for them.
+
+        TODO:  Makes assumption of one license pool per identifier.  In a 
+        later branch, this will change.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+
+        result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
+        if isinstance(result, CoverageFailure):
+            return result
+        
+        result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
+        if isinstance(result, CoverageFailure):
+            return result
+
+        # now that made sure that have an edition and a pool on the identifier, 
+        # can try to make work
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+
+        return identifier
+
+
+    def _set_metadata(self, identifier, metadata, 
                      metadata_replacement_policy=None
     ):
         """Finds or creates the Edition for an Identifier, updates it
-        with the given metadata, then creates a Work for the book.
+        with the given metadata.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
@@ -373,11 +407,46 @@ class CoverageProvider(object):
             )
             return CoverageFailure(self, identifier, repr(e), transient=True)
 
-        work = self.work(identifier)
-        if isinstance(work, CoverageFailure):
-            return work
+        return identifier
+
+
+    def _set_circulationdata(self, identifier, circulationdata, 
+                     circulationdata_replacement_policy=None
+    ):
+        """Finds or creates the LicensePool for an Identifier, updates it
+        with the given circulationdata, then creates a Work for the book.
+
+        TODO:  Makes assumption of one license pool per identifier.  In a 
+        later branch, this will change.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+        circulationdata_replacement_policy = circulationdata_replacement_policy or (
+            ReplacementPolicy.from_license_source()
+        )
+
+        pool = self.license_pool(identifier)
+        if isinstance(pool, CoverageFailure):
+            return pool
+
+        if not circulationdata:
+            e = "Did not receive circulationdata from input source"
+            return CoverageFailure(self, identifier, e, transient=True)
+
+        try:
+            circulationdata.apply(
+                pool, replace=circulationdata_replacement_policy,
+            )
+        except Exception as e:
+            self.log.warn(
+                "Error applying circulationdata to pool %d: %s",
+                pool.id, e, exc_info=e
+            )
+            return CoverageFailure(self, identifier, repr(e), transient=True)
 
         return identifier
+
 
     def set_presentation_ready(self, identifier):
         """Set a Work presentation-ready."""

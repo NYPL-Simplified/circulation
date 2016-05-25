@@ -446,6 +446,7 @@ class CirculationData(object):
                 # If a link has a rights_uri, make that the overall rights_uri. 
                 # TODO: If there are multiple links with a rights_uri, make them go into individual delivery mechanisms 
                 # (first need to move rights_uri onto delivery mechanisms). 
+                # TODO: make sure am not writing anything to DB here, only on apply.
                 if link.rights_uri and not self.default_rights_uri:
                     self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=link.rights_uri)
 
