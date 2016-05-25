@@ -19,12 +19,12 @@ from sqlalchemy import (
     or_,
     not_,
 )
-
 from sqlalchemy.orm import (
     contains_eager,
     defer,
     lazyload,
 )
+from sqlalchemy.sql.functions import func
 
 from model import (
     CustomList,
@@ -349,15 +349,24 @@ class Pagination(object):
 
     @property
     def done(self):
+        """Returns boolean reporting whether pagination is done for a query"""
         if self.query_size is None:
             return False
         if self.query_size==0:
             return True
         return self.query_size <= (self.offset+1) * self.size
 
+    def _get_count(self, q):
+        """Counts the results of a query without using super-slow subquery"""
+
+        count_q = q.enable_eagerloads(False).statement.\
+                with_only_columns([func.count()]).order_by(None)
+        count = q.session.execute(count_q).scalar()
+        return count
+
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = q.count()
+        self.query_size = self._get_count(q)
         return q.offset(self.offset).limit(self.size)
 
 
