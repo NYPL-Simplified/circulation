@@ -37,7 +37,11 @@ from core.monitor import (
     IdentifierSweepMonitor,
 )
 from core.util.xmlparser import XMLParser
+from core.util.http import (
+    BadResponseException
+)
 from core.threem import (
+    MockThreeMAPI as BaseMockThreeMAPI,
     ThreeMAPI as BaseThreeMAPI,
     ThreeMBibliographicCoverageProvider
 )
@@ -71,9 +75,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         else:
             max_age = None
         response = self.request(url, max_age=max_age)
-        if response.status_code in (500, 501, 502):
-            raise Exception(
-                "Server sent status code %s" % response.status_code)
         if cache_result:
             self._db.commit()
         try:
@@ -90,11 +91,10 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
-        if response.status_code == 404:
-            return
         if response.status_code != 200:
-            raise IOError("Server gave status code %s: %s" % (
-                response.status_code, response.content))
+            raise BadResponseException.bad_status_code(
+                self.full_url(url), response
+            )
         for circ in CirculationParser().process_all(response.content):
             if circ:
                 yield circ
@@ -234,26 +234,8 @@ class DummyThreeMAPIResponse(object):
         self.headers = headers
         self.content = content
 
-class DummyThreeMAPI(ThreeMAPI):
-
-    def __init__(self, *args, **kwargs):
-        super(DummyThreeMAPI, self).__init__(*args, testing=True, **kwargs)
-        self.responses = []
-
-    def queue_response(self, response_code=200, media_type="application/xml",
-                       other_headers=None, content=''):
-        headers = {"content-type": media_type}
-        if other_headers:
-            for k, v in other_headers.items():
-                headers[k.lower()] = v
-        self.responses.append((response_code, headers, content))
-
-    def request(self, *args, **kwargs):
-        response_code, headers, content = self.responses.pop()
-        if kwargs.get('method') == 'GET':
-            return content
-        else:
-            return DummyThreeMAPIResponse(response_code, headers, content)
+class MockThreeMAPI(BaseMockThreeMAPI, ThreeMAPI):
+    pass
 
 
 class ThreeMParser(XMLParser):

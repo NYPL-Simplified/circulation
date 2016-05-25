@@ -236,9 +236,6 @@ class Axis360CirculationMonitor(Monitor):
         availability = self.api.availability(since=since)
         status_code = availability.status_code
         content = availability.content
-        if status_code != 200:
-            raise Exception(
-                "Got status code %d from API: %s" % (status_code, content))
         count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
                 content):
@@ -299,6 +296,8 @@ class ResponseParser(Axis360Parser):
 
     id_type = Identifier.AXIS_360_ID
 
+    SERVICE_NAME = "Axis 360"
+
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
         315  : InvalidInputException, # Bad password
@@ -341,12 +340,12 @@ class ResponseParser(Axis360Parser):
         3127 : InvalidInputException, # First name is required
         3128 : InvalidInputException, # Last name is required
         3130 : LibraryInvalidInputException, # Invalid hold format (?)
-        3131 : InternalServerError, # Custom error message (?)
+        3131 : RemoteInitiatedServerError, # Custom error message (?)
         3132 : LibraryInvalidInputException, # Invalid delta datetime format
         3134 : LibraryInvalidInputException, # Delta datetime format must not be in the future
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
-        5000 : InternalServerError,
+        5000 : RemoteInitiatedServerError,
     }
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
@@ -362,14 +361,16 @@ class ResponseParser(Axis360Parser):
 
         if code is None:
             # Something is so wrong that we don't know what to do.
-            raise InternalServerError(message)
+            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
         code = code.text
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
-            raise InternalServerError(
-                "Invalid response code from Axis 360: %s" % code)
+            raise RemoteInitiatedServerError(
+                "Invalid response code from Axis 360: %s" % code,
+                self.SERVICE_NAME
+            )
 
         for d in custom_error_classes, self.code_to_exception:
             if (code, message) in d:
@@ -377,7 +378,12 @@ class ResponseParser(Axis360Parser):
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                raise d[code](message)
+                cls = d[code]
+                if cls is RemoteInitiatedServerError:
+                    e = cls(message, self.SERVICE_NAME)
+                else:
+                    e = cls(message)
+                raise e
         return code, message
 
 

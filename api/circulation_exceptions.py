@@ -13,8 +13,7 @@ class CirculationException(Exception):
 class InternalServerError(Exception):
     status_code = 500
 
-    @property
-    def as_problem_detail_document(self):
+    def as_problem_detail_document(self, debug):
         """Return a suitable problem detail document."""
         return INTERNAL_SERVER_ERROR
 
@@ -26,8 +25,7 @@ class RemoteInitiatedServerError(InternalServerError):
         super(RemoteInitiatedServerError, self).__init__(message)
         self.service_name = service_name
 
-    @property
-    def as_problem_detail_document(self):
+    def as_problem_detail_document(self, debug):
         """Return a suitable problem detail document."""
         msg = "Integration error communicating with %s" % self.service_name
         return INTEGRATION_ERROR.detailed(msg)
