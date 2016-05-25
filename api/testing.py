@@ -20,6 +20,7 @@ class MockRemoteAPI(object):
         self.CAN_REVOKE_HOLD_WHEN_RESERVED = can_revoke_hold_when_reserved
         self.responses = defaultdict(list)
         self.log = logging.getLogger("Mock remote API")
+        self.availability_updated_for = []
 
     def checkout(
             self, patron_obj, patron_password, licensepool, 
@@ -27,6 +28,10 @@ class MockRemoteAPI(object):
     ):
         # Should be a LoanInfo.
         return self._return_or_raise('checkout')
+
+    def update_availability(self, licensepool):
+        """Simply record the fact that update_availability was called."""
+        self.availability_updated_for.append(licensepool)
                 
     def place_hold(self, patron, pin, licensepool, 
                    hold_notification_email=None):
