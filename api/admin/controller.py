@@ -234,7 +234,6 @@ class WorkController(CirculationManagerController):
             staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
-        new_series_cleared = False
         new_series = flask.request.form.get("series")
         if work.series != new_series:
             if work.series and not new_series:
