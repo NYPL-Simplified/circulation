@@ -30,6 +30,9 @@ from psycopg2.extras import NumericRange
 base_dir = os.path.split(__file__)[0]
 resource_dir = os.path.join(base_dir, "resources")
 
+NO_VALUE = "NONE"
+NO_NUMBER = -1
+
 class Classifier(object):
 
     """Turn an external classification into an internal genre, an
@@ -3839,7 +3842,7 @@ class WorkClassifier(object):
 
 class SimplifiedGenreClassifier(Classifier):
 
-    NONE = "NONE"
+    NONE = NO_VALUE
 
     @classmethod
     def scrub_identifier(cls, identifier):
