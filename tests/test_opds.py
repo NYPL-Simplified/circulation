@@ -259,6 +259,33 @@ class TestAnnotators(DatabaseTest):
         ]
         eq_(set(expected), set(ratings))
 
+    def test_subtitle(self):
+        work = self._work(with_license_pool=True, with_open_access_download=True)
+        work.presentation_edition.subtitle = "Return of the Jedi"
+        work.calculate_opds_entries()
+
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+        assert "schema:alternativeHeadline" in raw_feed
+        assert work.presentation_edition.subtitle in raw_feed
+
+        feed = feedparser.parse(unicode(raw_feed))
+        alternative_headline = feed['entries'][0]['schema_alternativeheadline']
+        eq_(work.presentation_edition.subtitle, alternative_headline)
+
+        # If there's no series title, the series tag isn't included.
+        work.presentation_edition.subtitle = None
+        work.calculate_opds_entries()
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+
+        assert "schema:alternativeHeadline" not in raw_feed
+        assert "Return of the Jedi" not in raw_feed
+        [entry] = feedparser.parse(unicode(raw_feed))['entries']
+        assert 'schema_alternativeheadline' not in entry.items()
+
     def test_series(self):
         work = self._work(with_license_pool=True, with_open_access_download=True)
         work.presentation_edition.series = "Harry Otter and the Lifetime of Despair"

@@ -406,7 +406,7 @@ class OPDSImporter(object):
         title = entry.get('title', None)
         if title == OPDSFeed.NO_TITLE:
             title = None
-        subtitle = entry.get('alternativeheadline', None)
+        subtitle = entry.get('schema_alternativeheadline', None)
 
         def _datetime(key):
             value = entry.get(key, None)
