@@ -38,6 +38,11 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY: 'api.millenium_patron'
             }
+            config[Configuration.INTEGRATIONS] = {
+                MilleniumPatronAPI.NAME: {
+                    Configuration.URL: "http://url"
+                }
+            }
             
             auth = Authenticator.initialize(self._db)
 
