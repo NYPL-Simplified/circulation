@@ -80,6 +80,12 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY: 'api.clever'
             }
+            config[Configuration.INTEGRATIONS] = {
+                CleverAuthenticationAPI.NAME: {
+                    Configuration.OAUTH_CLIENT_ID: 'client_id',
+                    Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
+                }
+            }
 
             auth = Authenticator.initialize(self._db)
             eq_(None, auth.basic_auth_provider)
@@ -88,7 +94,7 @@ class TestAuthenticator(DatabaseTest):
             assert isinstance(auth.oauth_providers[0], CleverAuthenticationAPI)
 
     def test_create_decode_token(self):
-        auth = Authenticator.initialize(self._db)
+        auth = Authenticator.initialize(self._db, test=True)
         token = auth.create_token("Provider name", "Provider token")
 
         decoded_name, decoded_token = auth.decode_token(token)
