@@ -247,6 +247,7 @@ class URNLookupController(object):
     def __init__(self, _db, can_resolve_identifiers=False):
         self._db = _db
         self.works = []
+        self.messages_by_urn = dict()
         self.precomposed_entries = []
         self.unresolved_identifiers = []
         self.can_resolve_identifiers = can_resolve_identifiers
@@ -287,7 +288,8 @@ class URNLookupController(object):
         identifier = self.parse_urn(self._db, urn, True)
         if not isinstance(identifier, Identifier):
             # Error.
-            return identifier
+            self.messages_by_urn[urn] = identifier
+            return
 
         if collection:
             collection.catalog_identifier(self._db, identifier)
@@ -300,12 +302,14 @@ class URNLookupController(object):
                 if work.presentation_ready:
                     # It's ready for use in an OPDS feed!
                     self.works.append((identifier, work))
-                    return None, None
+                    return
                 else:
-                    return (202, self.WORK_NOT_PRESENTATION_READY)
+                    self.messages_by_urn[urn] = (202, self.WORK_NOT_PRESENTATION_READY)
+                    return
             else:
                 # There is a LicensePool but no Work. 
-                return (202, self.WORK_NOT_CREATED)
+                self.messages_by_urn[urn] = (202, self.WORK_NOT_CREATED)
+                return
 
         # This identifier has yet to be resolved into a LicensePool. Or maybe
         # the best we can do is metadata lookups.
@@ -315,20 +319,23 @@ class URNLookupController(object):
             #
             # TODO: We should delete the original Identifier object as it
             # is not properly part of the dataset and never will be.
-            return (404, self.UNRECOGNIZED_IDENTIFIER)
+            self.messages_by_urn[urn] = (404, self.UNRECOGNIZED_IDENTIFIER)
+            return
 
         license_sources = DataSource.license_sources_for(
             self._db, identifier)
         if identifier.type != Identifier.ISBN and license_sources.count():
-            return self.register_identifier_as_unresolved(identifier)
+            self.messages_by_urn[urn] = self.register_identifier_as_unresolved(identifier)
+            return
         else:
             entry = self.make_opds_entry_from_metadata_lookups(identifier)
             if isinstance(entry, tuple):
                 # Alleged 'entry' is actually a message
-                return entry
+                self.messages_by_urn[urn] = entry
+                return
             else:
                 self.precomposed_entries.append(entry)
-                return None, None
+                return
 
     def register_identifier_as_unresolved(self, identifier):
         # This identifier could have a LicensePool associated with
@@ -410,21 +417,9 @@ class URNLookupController(object):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
-        messages_by_urn = dict()
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
         for urn in urns:
-            code, message = self.process_urn(urn, collection=collection)
-            if code:
-                messages_by_urn[urn] = (code, message)
-
-        missing_urns = set(urns).difference(set(messages_by_urn.keys()))
-        if missing_urns:
-            # One or more urns have disappeared in the process.
-            for urn in missing_urns:
-                messages_by_urn[urn] = (
-                    INTERNAL_SERVER_ERROR.status_code,
-                    INTERNAL_SERVER_ERROR.detail
-                )
+            self.process_urn(urn, collection=collection)
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
@@ -432,7 +427,7 @@ class URNLookupController(object):
 
         opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, self.works, annotator,
-            messages_by_urn=messages_by_urn, 
+            messages_by_urn=self.messages_by_urn, 
             precomposed_entries=self.precomposed_entries,
             require_active_licensepool=require_active_licensepool
         )
@@ -441,10 +436,7 @@ class URNLookupController(object):
     def permalink(self, urn, annotator):
         """Generate an OPDS feed for looking up a single work by identifier."""
         this_url = cdn_url_for('work', _external=True, urn=urn)
-        messages_by_urn = dict()
-        code, message = self.process_urn(urn)
-        if code:
-            messages_by_urn[urn] = (code, message)
+        self.process_urn(urn)
 
         # The commit is necessary because we may have registered new
         # Identifier or UnresolvedIdentifier objects.
@@ -452,7 +444,7 @@ class URNLookupController(object):
 
         opds_feed = AcquisitionFeed(
             self._db, urn, this_url, self.works, annotator,
-            messages_by_urn=messages_by_urn)
+            messages_by_urn=self.messages_by_urn)
 
         return feed_response(opds_feed)
 
