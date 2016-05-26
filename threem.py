@@ -1,4 +1,4 @@
-from pdb import set_trace
+from nose.tools import set_trace
 import base64
 import urlparse
 import time
@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from config import (
     Configuration,
     CannotLoadConfiguration,
+    temp_config,
 )
 from coverage import (
     BibliographicCoverageProvider,
@@ -131,13 +132,22 @@ class ThreeMAPI(object):
         signature = base64.b64encode(digest)
         return signature, now
 
-    def request(self, path, body=None, method="GET", identifier=None,
-                max_age=None):
+    def full_url(self, path):
+        if not path.startswith("/cirrus"):
+            path = self.full_path(path)
+        return urlparse.urljoin(self.base_url, path)
+
+    def full_path(self, path):
         if not path.startswith("/"):
             path = "/" + path
         if not path.startswith("/cirrus"):
             path = "/cirrus/library/%s%s" % (self.library_id, path)
-        url = urlparse.urljoin(self.base_url, path)
+        return path
+
+    def request(self, path, body=None, method="GET", identifier=None,
+                max_age=None):
+        path = self.full_path(path)
+        url = self.full_url(path)
         if method == 'GET':
             headers = {"Accept" : "application/xml"}
         else:
@@ -148,16 +158,17 @@ class ThreeMAPI(object):
         if max_age and method=='GET':
             representation, cached = Representation.get(
                 self._db, url, extra_request_headers=headers,
-                do_get=Representation.http_get_no_timeout, max_age=max_age
+                do_get=self._simple_http_get, max_age=max_age,
+                exception_handler=Representation.reraise_exception,
             )
             content = representation.content
             return content
         else:
-            return HTTP.request_with_timeout(
+            return self._request_with_timeout(
                 method, url, data=body, headers=headers, 
                 allow_redirects=False
             )
-        
+      
     def get_bibliographic_info_for(self, editions, max_age=None):
         results = dict()
         for edition in editions:
@@ -170,13 +181,68 @@ class ThreeMAPI(object):
     def bibliographic_lookup(self, identifier, max_age=None):
         data = self.request(
             "/items/%s" % identifier.identifier,
-            max_age=max_age or self.MAX_METADATA_AGE)
+            max_age=max_age or self.MAX_METADATA_AGE
+        )
         response = list(self.item_list_parser.parse(data))
         if not response:
             return None
         else:
             [metadata] = response
         return metadata
+
+    def _request_with_timeout(self, method, url, *args, **kwargs):
+        """This will be overridden in MockThreeMAPI."""
+        return HTTP.request_with_timeout(method, url, *args, **kwargs)
+
+    def _simple_http_get(self, url, headers, *args, **kwargs):
+        """This will be overridden in MockThreeMAPI."""
+        return Representation.simple_http_get(url, headers, *args, **kwargs)
+
+
+class MockThreeMAPI(ThreeMAPI):
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+        self.requests = []
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['3M'] = {
+                'library_id' : 'a',
+                'account_id' : 'b',
+                'account_key' : 'c',
+            }
+            super(MockThreeMAPI, self).__init__(
+                _db, *args, base_url="http://3m.test", **kwargs
+            )
+
+    def now(self):
+        """Return an unvarying time in the format 3M expects."""
+        return datetime.strftime(
+            datetime(2016, 1, 1), self.AUTH_TIME_FORMAT
+        )
+
+    def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _request_with_timeout(self, method, url, *args, **kwargs):
+        """Simulate HTTP.request_with_timeout."""
+        self.requests.append([method, url, args, kwargs])
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
+
+    def _simple_http_get(self, url, headers, *args, **kwargs):
+        """Simulate Representation.simple_http_get."""
+        response = self._request_with_timeout('GET', url, *args, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    
+
 
 class ItemListParser(XMLParser):
 

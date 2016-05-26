@@ -9,6 +9,11 @@ import urlparse
 import urllib
 import sys
 
+from config import (
+    temp_config, 
+    Configuration,
+)
+
 from model import (
     Contributor,
     Credential,
@@ -42,6 +47,12 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+
+from util.http import (
+    HTTP,
+    BadResponseException,
+)
+
 
 class OverdriveAPI(object):
 
@@ -133,17 +144,26 @@ class OverdriveAPI(object):
         else:
             refresh_on_lookup = self.refresh_creds
 
-        credential = Credential.lookup(
-            self._db, DataSource.OVERDRIVE, None, None, refresh_on_lookup)
+        credential = self.credential_object(refresh_on_lookup)
         if force_refresh:
             self.refresh_creds(credential)
         self.token = credential.credential
+
+    def credential_object(self, refresh):
+        """Look up the Credential object that allows us to use
+        the Overdrive API.
+        """
+        return Credential.lookup(
+            self._db, DataSource.OVERDRIVE, None, None, refresh
+        )
 
     def refresh_creds(self, credential):
         """Fetch a new Bearer Token and update the given Credential object."""
         response = self.token_post(
             self.TOKEN_ENDPOINT,
-            dict(grant_type="client_credentials"))
+            dict(grant_type="client_credentials"),
+            allowed_response_codes=[200]
+        )
         data = response.json()
         self._update_credential(credential, data)
         self.token = credential.credential
@@ -152,14 +172,14 @@ class OverdriveAPI(object):
         """Make an HTTP GET request using the active Bearer Token."""
         headers = dict(Authorization="Bearer %s" % self.token)
         headers.update(extra_headers)
-        status_code, headers, content = Representation.simple_http_get(
-            url, headers
-        )
+        status_code, headers, content = self._do_get(url, headers)
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
-                raise Exception(
-                    "Something's wrong with the Overdrive OAuth Bearer Token!"
+                raise BadResponseException.from_response(
+                    url,
+                    "Something's wrong with the Overdrive OAuth Bearer Token!",
+                    (status_code, headers, content)
                 )
             else:
                 # Refresh the token and try again.
@@ -168,13 +188,13 @@ class OverdriveAPI(object):
         else:
             return status_code, headers, content
 
-    def token_post(self, url, payload, headers={}):
+    def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
         s = "%s:%s" % (self.client_key, self.client_secret)
         auth = base64.encodestring(s).strip()
         headers = dict(headers)
         headers['Authorization'] = "Basic %s" % auth
-        return HTTP.post_with_timeout(url, payload, headers=headers)
+        return self._do_post(url, payload, headers, **kwargs)
 
     def _update_credential(self, credential, overdrive_data):
         """Copy Overdrive OAuth data into a Credential object."""
@@ -186,7 +206,10 @@ class OverdriveAPI(object):
 
     def get_library(self):
         url = self.LIBRARY_ENDPOINT % dict(library_id=self.library_id)
-        representation, cached = Representation.get(self._db, url, self.get)
+        representation, cached = Representation.get(
+            self._db, url, self.get, 
+            exception_handler=Representation.reraise_exception,
+        )
         return json.loads(representation.content)
 
     def all_ids(self):
@@ -290,6 +313,65 @@ class OverdriveAPI(object):
         query_string = query_string.replace("}", "%7D")
         parts[3] = query_string
         return urlparse.urlunsplit(tuple(parts))
+
+    def _do_get(self, url, headers):
+        """This method is overridden in MockOverdriveAPI."""
+        return Representation.simple_http_get(
+            url, headers
+        )
+
+    def _do_post(self, url, payload, headers, **kwargs):
+        """This method is overridden in MockOverdriveAPI."""
+        return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
+
+
+class MockOverdriveAPI(OverdriveAPI):
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+
+        # The constructor will make a request for the access token,
+        # and then a request for the collection token.
+        self.queue_response(200, content=self.mock_access_token("bearer token"))
+        self.queue_response(
+            200, content=self.mock_collection_token("collection token")
+        )
+
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['Overdrive'] = {
+                'client_key' : 'a',
+                'client_secret' : 'b',
+                'website_id' : 'c',
+                'library_id' : 'd',
+            }
+            super(MockOverdriveAPI, self).__init__(_db, *args, **kwargs)
+
+    def mock_access_token(self, credential):
+        return json.dumps(dict(access_token=credential, expires_in=3600))
+
+    def mock_collection_token(self, token):
+        return json.dumps(dict(collectionToken=token))
+
+    def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _do_get(self, url, *args, **kwargs):
+        """Simulate Representation.simple_http_get."""
+        response = self._make_request(url, *args, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    def _do_post(self, url, *args, **kwargs):
+        return self._make_request(url, *args, **kwargs)
+
+    def _make_request(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class OverdriveRepresentationExtractor(object):

@@ -2243,6 +2243,29 @@ class TestRepresentation(DatabaseTest):
         assert "No. Just no." in representation.fetch_exception
         eq_(False, cached)
 
+    def test_exception_handler(self):
+        def oops(*args, **kwargs):
+            raise Exception("oops!")
+
+        # By default exceptions raised during get() are 
+        # recorded along with the (empty) Representation objects
+        representation, cached = Representation.get(
+            self._db, self._url, do_get=oops,
+        )
+        assert representation.fetch_exception.strip().endswith(
+            "Exception: oops!"
+        )
+        eq_(None, representation.content)
+        eq_(None, representation.status_code)
+
+        # But we can ask that exceptions simply be re-raised instead of
+        # being handled.
+        assert_raises_regexp(
+            Exception, "oops!", Representation.get,
+            self._db, self._url, do_get=oops,
+            exception_handler=Representation.reraise_exception
+        )
+
     def test_url_extension(self):
         epub, ignore = self._representation("test.epub")
         eq_(".epub", epub.url_extension)
