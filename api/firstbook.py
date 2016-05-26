@@ -63,7 +63,10 @@ class FirstBookAuthenticationAPI(Authenticator):
             return True
         return False
 
-    def authenticated_patron(self, _db, identifier, password):
+    def authenticated_patron(self, _db, header):
+        identifier = header.get('username')
+        password = header.get('password')
+
         # If they fail basic validation, there is no authenticated patron.
         if not self.server_side_validation(identifier, password):
             return None

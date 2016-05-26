@@ -153,15 +153,15 @@ class TestBaseController(CirculationControllerTest):
             eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
-        value = self.controller.authenticated_patron("5", "1234")
+        value = self.controller.authenticated_patron(dict(username="5", password="1234"))
         eq_(value, INVALID_CREDENTIALS)
 
     def test_authenticated_patron_expired_credentials(self):
-        value = self.controller.authenticated_patron("0", "0000")
+        value = self.controller.authenticated_patron(dict(username="0", password="0000"))
         eq_(value, EXPIRED_CREDENTIALS)
 
     def test_authenticated_patron_correct_credentials(self):
-        value = self.controller.authenticated_patron("5", "5555")
+        value = self.controller.authenticated_patron(dict(username="5", password="5555"))
         assert isinstance(value, Patron)
 
     def test_load_lane(self):
@@ -218,7 +218,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
-        patron = self.controller.authenticated_patron("5", "5555")
+        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
@@ -247,7 +247,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
 
-        patron = self.controller.authenticated_patron("5", "5555")
+        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
 

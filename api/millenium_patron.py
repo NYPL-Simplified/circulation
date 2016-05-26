@@ -117,7 +117,10 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             username = dump.get(self.USERNAME_FIELD),
         )
         
-    def authenticated_patron(self, db, identifier, password):
+    def authenticated_patron(self, db, header):
+        identifier = header.get('username')
+        password = header.get('password')
+
         # If they fail basic validation, there is no authenticated patron.
         if not self.server_side_validation(identifier, password):
             return None
