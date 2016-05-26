@@ -13,10 +13,12 @@ from core.model import (
 
 class FirstBookAuthenticationAPI(Authenticator):
 
+    TYPE = Authenticator.BASIC_AUTH
+    NAME = 'First Book'
+
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
 
     SECRET_KEY = 'key'
-    FIRSTBOOK = 'First Book'
 
     log = logging.getLogger("First Book authentication API")
 
@@ -29,7 +31,7 @@ class FirstBookAuthenticationAPI(Authenticator):
 
     @classmethod
     def from_config(cls):
-        config = Configuration.integration(cls.FIRSTBOOK, required=True)
+        config = Configuration.integration(cls.NAME, required=True)
         host = config.get(Configuration.URL)
         key = config.get(cls.SECRET_KEY)
         if not host:
@@ -115,3 +117,4 @@ class DummyFirstBookAuthentationAPI(FirstBookAuthenticationAPI):
                 return DummyFirstBookResponse(200, self.FAILURE)
 
 
+AuthenticationAPI = FirstBookAuthenticationAPI

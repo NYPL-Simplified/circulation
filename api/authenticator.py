@@ -10,9 +10,13 @@ import uuid
 import json
 import jwt
 from flask import Response
+import importlib
 
 
 class Authenticator(object):
+
+    BASIC_AUTH = 'basic_auth'
+    OAUTH = 'oauth'
 
     @classmethod
     def initialize(cls, _db, test=False):
@@ -31,22 +35,26 @@ class Authenticator(object):
             providers = [providers]
         basic_auth_provider = None
         oauth_providers = []
-        if 'Millenium' in providers:
-            from millenium_patron import (
-                MilleniumPatronAPI,
-            )
-            basic_auth_provider = MilleniumPatronAPI.from_environment()
-        elif 'First Book' in providers:
-            from firstbook import FirstBookAuthenticationAPI
-            basic_auth_provider = FirstBookAuthenticationAPI.from_config()
 
-        if 'Clever' in providers:
-            from clever import CleverAuthenticationAPI
-            oauth_providers.append(CleverAuthenticationAPI.from_config())
+        for provider_string in providers:
+            provider_module = importlib.import_module(provider_string)
+            provider_class = getattr(provider_module, "AuthenticationAPI")
+            if provider_class.TYPE == Authenticator.BASIC_AUTH:
+                if basic_auth_provider != None:
+                    raise CannotLoadConfiguration(
+                        "Two basic auth providers configured"
+                    )
+                basic_auth_provider = provider_class.from_config()
+            elif provider_class.TYPE == Authenticator.OAUTH:
+                oauth_providers.append(provider_class.from_config())
+            else:
+                raise CannotLoadConfiguration(
+                    "Unrecognized authentication provider: %s" % provider
+                )
 
         if not basic_auth_provider and not oauth_providers:
             raise CannotLoadConfiguration(
-                "Unrecognized authentication provider: %s" % provider
+                "No authentication provider configured"
             )
         return cls(basic_auth_provider, oauth_providers)
 

@@ -36,7 +36,7 @@ class TestAuthenticator(DatabaseTest):
         # Only a basic auth provider.
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: 'Millenium'
+                Configuration.AUTHENTICATION_POLICY: 'api.millenium_patron'
             }
             
             auth = Authenticator.initialize(self._db)
@@ -49,10 +49,10 @@ class TestAuthenticator(DatabaseTest):
         # A basic auth provider and an oauth provider.
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: ['First Book', 'Clever']
+                Configuration.AUTHENTICATION_POLICY: ['api.firstbook', 'api.clever']
             }
             config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.FIRSTBOOK: {
+                FirstBookAuthenticationAPI.NAME: {
                     Configuration.URL: "http://url",
                     FirstBookAuthenticationAPI.SECRET_KEY: "secret",
                 },
@@ -73,7 +73,7 @@ class TestAuthenticator(DatabaseTest):
         # Only an oauth provider
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: 'Clever'
+                Configuration.AUTHENTICATION_POLICY: 'api.clever'
             }
 
             auth = Authenticator.initialize(self._db)

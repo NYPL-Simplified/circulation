@@ -15,6 +15,7 @@ from problem_details import *
 
 class CleverAuthenticationAPI(Authenticator):
 
+    TYPE = Authenticator.OAUTH
     NAME = 'Clever'
 
     CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=Clever"
@@ -35,6 +36,7 @@ class CleverAuthenticationAPI(Authenticator):
         return cls(client_id, client_secret)
 
     def authenticate_url(self):
+        """URL to direct patrons to for authentication with the provider."""
         redirect_uri = url_for('oauth_callback', _external=True)
         return self.CLEVER_OAUTH_URL % (self.client_id, redirect_uri)
 
@@ -105,3 +107,5 @@ class CleverAuthenticationAPI(Authenticator):
 
     def patron_info(self, identifier):
         return {}
+
+AuthenticationAPI = CleverAuthenticationAPI
