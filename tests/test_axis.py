@@ -1,7 +1,10 @@
 import datetime
+from lxml import etree
+from StringIO import StringIO
 from nose.tools import (
     eq_, 
     assert_raises,
+    assert_raises_regexp,
     set_trace,
 )
 
@@ -29,6 +32,8 @@ from api.axis import (
     CheckoutResponseParser,
     HoldResponseParser,
     HoldReleaseResponseParser,
+    MockAxis360API,
+    ResponseParser,
 )
 
 from . import (
@@ -42,6 +47,57 @@ from api.circulation import (
     FulfillmentInfo,
 )
 from api.circulation_exceptions import *
+
+
+class TestAxis360API(DatabaseTest):
+
+    def setup(self):
+        super(TestAxis360API,self).setup()
+        self.api = MockAxis360API(self._db)
+
+    @classmethod
+    def sample_data(self, filename):
+        return sample_data(filename, 'axis')
+
+    def test_update_availability(self):
+        """Test the Axis 360 implementation of the update_availability method
+        defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        # Prepare availability information.
+        data = self.sample_data("availability_with_loans.xml")
+
+        # Modify the data so that it appears to be talking about the
+        # book we just created.
+        new_identifier = pool.identifier.identifier.encode("ascii")
+        data = data.replace("0012533119", new_identifier)
+
+        self.api.queue_response(200, content=data)
+
+        self.api.update_availability(pool)
+
+        # The availability information has been udpated, as has the
+        # date the availability information was last checked.
+        eq_(2, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
 
 class TestCirculationMonitor(DatabaseTest):
 
@@ -144,6 +200,33 @@ class TestResponseParser(object):
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
+
+class TestRaiseExceptionOnError(TestResponseParser):
+
+    def test_internal_server_error(self):
+        data = self.sample_data("internal_server_error.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Internal Server Error", 
+            parser.process_all, data
+        )
+
+    def test_internal_server_error(self):
+        data = self.sample_data("invalid_error_code.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd", 
+            parser.process_all, data
+        )
+
+    def test_missing_error_code(self):
+        data = self.sample_data("missing_error_code.xml")
+        parser = HoldReleaseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "No status code!", 
+            parser.process_all, data
+        )
+
 
 class TestCheckoutResponseParser(TestResponseParser):
 

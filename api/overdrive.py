@@ -35,6 +35,7 @@ from core.monitor import (
     Monitor,
     IdentifierSweepMonitor,
 )
+from core.util.http import HTTP
 
 from circulation_exceptions import *
 
@@ -78,13 +79,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         headers = dict(Authorization="Bearer %s" % patron_credential.credential)
         headers.update(extra_headers)
         if method and method.lower() in ('get', 'post', 'put', 'delete'):
-            method = getattr(requests, method.lower())
+            method = method.lower()
         else:
             if data:
-                method = requests.post
+                method = 'post'
             else:
-                method = requests.get
-        response = method(url, headers=headers, data=data)
+                method = 'get'
+        response = HTTP.request_with_timeout(
+            method, url, headers=headers, data=data
+        )
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -521,6 +524,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         return self.update_licensepool_with_book_info(
             book, license_pool, is_new
         )
+
+    # Alias for the CirculationAPI interface
+    def update_availability(self, licensepool):
+        return self.update_licensepool(licensepool.identifier.identifier)
 
     def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON

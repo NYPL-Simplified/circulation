@@ -37,7 +37,11 @@ from core.monitor import (
     IdentifierSweepMonitor,
 )
 from core.util.xmlparser import XMLParser
+from core.util.http import (
+    BadResponseException
+)
 from core.threem import (
+    MockThreeMAPI as BaseMockThreeMAPI,
     ThreeMAPI as BaseThreeMAPI,
     ThreeMBibliographicCoverageProvider
 )
@@ -71,9 +75,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         else:
             max_age = None
         response = self.request(url, max_age=max_age)
-        if response.status_code in (500, 501, 502):
-            raise Exception(
-                "Server sent status code %s" % response.status_code)
         if cache_result:
             self._db.commit()
         try:
@@ -90,14 +91,19 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         """Return circulation objects for the selected identifiers."""
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
-        if response.status_code == 404:
-            return
         if response.status_code != 200:
-            raise IOError("Server gave status code %s: %s" % (
-                response.status_code, response.content))
+            raise BadResponseException.bad_status_code(
+                self.full_url(url), response
+            )
         for circ in CirculationParser().process_all(response.content):
             if circ:
                 yield circ
+
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool."""
+        return ThreeMCirculationSweep(self._db, api=self).process_batch(
+            [licensepool.identifier]
+        )
 
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
@@ -226,6 +232,29 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         else:
             raise CannotReleaseHold()
 
+    def apply_circulation_information_to_licensepool(self, circ, pool):
+        """Apply the output of CirculationParser.process_one() to a
+        LicensePool.
+        
+        TODO: It should be possible to have CirculationParser yield 
+        CirculationData objects instead and to replace this code with
+        CirculationData.apply(pool)
+        """
+        if pool.presentation_edition:
+            e = pool.presentation_edition
+            self.log.info("Updating %s (%s)", e.title, e.author)
+        else:
+            self.log.info(
+                "Updating unknown work %s", identifier.identifier
+            )
+        # Update availability and send out notifications.
+        pool.update_availability(
+            circ.get(LicensePool.licenses_owned, 0),
+            circ.get(LicensePool.licenses_available, 0),
+            circ.get(LicensePool.licenses_reserved, 0),
+            circ.get(LicensePool.patrons_in_hold_queue, 0)
+        )
+
 
 class DummyThreeMAPIResponse(object):
 
@@ -234,26 +263,8 @@ class DummyThreeMAPIResponse(object):
         self.headers = headers
         self.content = content
 
-class DummyThreeMAPI(ThreeMAPI):
-
-    def __init__(self, *args, **kwargs):
-        super(DummyThreeMAPI, self).__init__(*args, testing=True, **kwargs)
-        self.responses = []
-
-    def queue_response(self, response_code=200, media_type="application/xml",
-                       other_headers=None, content=''):
-        headers = {"content-type": media_type}
-        if other_headers:
-            for k, v in other_headers.items():
-                headers[k.lower()] = v
-        self.responses.append((response_code, headers, content))
-
-    def request(self, *args, **kwargs):
-        response_code, headers, content = self.responses.pop()
-        if kwargs.get('method') == 'GET':
-            return content
-        else:
-            return DummyThreeMAPIResponse(response_code, headers, content)
+class MockThreeMAPI(BaseMockThreeMAPI, ThreeMAPI):
+    pass
 
 
 class ThreeMParser(XMLParser):
@@ -404,6 +415,9 @@ class ErrorParser(ThreeMParser):
         actual, expected = m.groups()
         expected = expected.split(",")
 
+        if actual == 'CAN_WISH':
+            return NoLicenses(message)
+
         if 'CAN_LOAN' in expected and actual == 'CAN_HOLD':
             return NoAvailableCopies(message)
 
@@ -413,7 +427,7 @@ class ErrorParser(ThreeMParser):
         if 'CAN_LOAN' in expected and actual == 'LOAN':
             return AlreadyCheckedOut(message)
 
-        if 'CAN_HOLD' in expected and actual == 'CAN_WISH':
+        if 'CAN_HOLD' in expected and actual == 'CAN_LOAN':
             return CurrentlyAvailable(message)
 
         if 'CAN_HOLD' in expected and actual == 'HOLD':
@@ -563,11 +577,13 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     count the same event.  However it will greatly improve our current
     view of our 3M circulation, which is more important.
     """
-    def __init__(self, _db, testing=False):
+    def __init__(self, _db, testing=False, api=None):
         super(ThreeMCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
-        self.api = ThreeMAPI(self._db, testing=testing)
+        if not api:
+            api = ThreeMAPI(self._db, testing=testing)
+        self.api = api
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
     def identifier_query(self):
@@ -583,6 +599,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
 
         identifiers_not_mentioned_by_threem = set(identifiers)
         now = datetime.datetime.utcnow()
+
         for circ in self.api.get_circulation_for(threem_ids):
             if not circ:
                 continue
@@ -606,20 +623,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     self._db, pool, CirculationEvent.TITLE_ADD,
                     None, None, start=now)
 
-            if pool.presentation_edition:
-                e = pool.presentation_edition
-                self.log.info("Updating %s (%s)", e.title, e.author)
-            else:
-                self.log.info(
-                    "Updating unknown work %s", identifier.identifier
-                )
-            # Update availability and send out notifications.
-            pool.update_availability(
-                circ.get(LicensePool.licenses_owned, 0),
-                circ.get(LicensePool.licenses_available, 0),
-                circ.get(LicensePool.licenses_reserved, 0),
-                circ.get(LicensePool.patrons_in_hold_queue, 0))
-
+            self.api.apply_circulation_information_to_licensepool(circ, pool)
 
         # At this point there may be some license pools left over
         # that 3M doesn't know about.  This is a pretty reliable
