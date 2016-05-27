@@ -35,24 +35,25 @@ class OPDSImportCoverageProvider(CoverageProvider):
     corresponding OPDS feeds.
     """
 
-    # How many lookups can the server handle in a reasonable time?
-    DEFAULT_WORKSET_SIZE = 25
-
-    # Would we expect the import operation to create a license pool?
-    EXPECT_LICENSE_POOL = True
-
-    # If we manage to create a Work because of this import, should the
-    # Work be considered presentation-ready? If False, then more work
-    # needs to be done.
-    PRESENTATION_READY_ON_SUCCESS = True
-
     def __init__(self, service_name, input_identifier_types, output_source,
-                 lookup=None, **kwargs):
+                 lookup=None, workset_size=25, expect_license_pool=False,
+                 presentation_ready_on_success=False, **kwargs):
+        """Basic constructor.
+
+        :param expect_license_pool: Would we expect the import operation to
+          create a LicensePool for an identifier where no LicensePool currently exists?
+
+        :param presentation_ready_on_success: If we manage to create a
+          Work because of this import, should the Work be considered
+          presentation-ready?
+
+        """
         self.lookup = lookup
-        if not 'workset_size' in kwargs:
-            kwargs['workset_size'] = self.DEFAULT_WORKSET_SIZE
+        self.expect_license_pool=expect_license_pool
+        self.presentation_ready_on_success=presentation_ready_on_success
         super(OPDSImportCoverageProvider, self).__init__(
-            service_name, input_identifier_types, output_source, **kwargs
+            service_name, input_identifier_types, output_source, workset_size=workset_size, 
+            **kwargs
         )
 
     def process_batch(self, batch):
@@ -115,7 +116,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
         if not pool:
             # Without a LicensePool there can be no Work.
-            if self.EXPECT_LICENSE_POOL:
+            if self.expect_license_pool:
                 self.log.warn(
                     "Expected that OPDS import would create a LicensePool for %r, but it didn't happen.",
                     edition
@@ -130,7 +131,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
             even_if_no_author=True
         )            
 
-        if work and self.PRESENTATION_READY_ON_SUCCESS:
+        if work and self.presentation_ready_on_success:
             work.set_presentation_ready()
 
     def lookup_and_import_batch(self, batch):
@@ -188,7 +189,6 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
     SERVICE_NAME = "Metadata Wrangler Coverage Provider"
     OPERATION = CoverageRecord.SYNC_OPERATION
-    EXPECT_LICENSE_POOL = False
 
     def __init__(self, _db, lookup=None, input_identifier_types=None, 
                  operation=None, **kwargs):
@@ -325,8 +325,6 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     """Make sure our records for open-access books match what the content
     server says.
     """
-    EXPECT_LICENSE_POOL = True
-    PRESENTATION_READY_ON_SUCCESS = True
     DEFAULT_SERVICE_NAME = "Open-access content server bibliographic coverage provider"
 
     def __init__(self, _db, service_name=None, lookup=None, **kwargs):
@@ -343,5 +341,6 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
         )
         super(ContentServerBibliographicCoverageProvider, self).__init__(
             service_name, lookup=lookup, output_source=output_source,
+            expect_license_pool=True, presentation_ready_on_success=True
             **kwargs
         )

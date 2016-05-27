@@ -68,10 +68,13 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_("404: we're doomed", f2.exception)
         eq_(False, f2.transient)
 
-    def _provider(self):
+    def _provider(self, presentation_ready_on_success=True):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
         source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        return MockOPDSImportCoverageProvider("mock provider", [], source)
+        return MockOPDSImportCoverageProvider(
+            "mock provider", [], source,
+            presentation_ready_on_success=presentation_ready_on_success
+        )
 
     def test_badresponseexception_on_non_opds_feed(self):
 
@@ -85,7 +88,8 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
     def test_finalize_edition(self):
 
-        provider = self._provider()
+        provider_no_presentation_ready = self._provider(presentation_ready_on_success=False)
+        provider_presentation_ready = self._provider(presentation_ready_on_success=True)
         identifier = self._identifier()
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
@@ -96,7 +100,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         edition.title = self._str
 
         # This will effectively do nothing.
-        provider.finalize_edition(edition)
+        provider_no_presentation_ready.finalize_edition(edition)
 
         # No Works have been created.
         eq_(0, self._db.query(Work).count())
@@ -106,12 +110,16 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             self._db, source, identifier.type, identifier.identifier
         )
 
-        # finalize_edition() will create a work and mark it
-        # presentation-ready.
-        provider.finalize_edition(edition)
+        # finalize_edition() will create a Work.
+        provider_no_presentation_ready.finalize_edition(edition)
 
         work = pool.work
         eq_(work, edition.work)
+        eq_(False, work.presentation_ready)
+
+        # If the provider is configured to do so, finalize_edition()
+        # will also set the Work as presentation-ready.
+        provider_presentation_ready.finalize_edition(edition)
         eq_(True, work.presentation_ready)
 
     def test_import_batch(self):
