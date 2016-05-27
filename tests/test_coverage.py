@@ -1,11 +1,15 @@
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
 
 from . import (
     DatabaseTest,
+    sample_data,
 )
+
+from core.testing import MockRequestsResponse
 
 from core.config import (
     Configuration,
@@ -14,19 +18,27 @@ from core.config import (
 from core.model import (
     CoverageRecord,
     DataSource,
+    Edition,
     Identifier,
+    LicensePool,
+    Work,
 )
+from core.opds import OPDSFeed
 from core.opds_import import (
     StatusMessage,
+    MockSimplifiedOPDSLookup,
 )
 from core.coverage import (
     CoverageFailure,
 )
 
+from core.util.http import BadResponseException
+
 from api.coverage import (
     MetadataWranglerCoverageProvider,
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
+    MockOPDSImportCoverageProvider,
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
@@ -58,8 +70,151 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_("404: we're doomed", f2.exception)
         eq_(False, f2.transient)
 
+    def _provider(self, presentation_ready_on_success=True):
+        """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        return MockOPDSImportCoverageProvider(
+            "mock provider", [], source,
+            presentation_ready_on_success=presentation_ready_on_success
+        )
+
+    def test_badresponseexception_on_non_opds_feed(self):
+
+        response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
+        
+        provider = self._provider()
+        assert_raises_regexp(
+            BadResponseException, "Wrong media type: text/plain",
+            provider.import_feed_response, response, None
+        )
+
+    def test_process_batch_with_identifier_mapping(self):
+        """Test that internal identifiers are mapped to and from the form used
+        by the external service.
+        """
+
+        # Unlike other tests in this class, we are using a real
+        # implementation of OPDSImportCoverageProvider.process_batch.        
+        class TestProvider(OPDSImportCoverageProvider):
+
+            # Mock the identifier mapping
+            def create_identifier_mapping(self, batch):
+                return self.mapping
+
+        # This means we need to mock the lookup client instead.
+        lookup = MockSimplifiedOPDSLookup(self._url)
+
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        provider = TestProvider(
+            "test provider", [], source, lookup=lookup
+        )
+
+        # Create a hard-coded mapping. We use id1 internally, but the
+        # foreign data source knows the book as id2.
+        id1 = self._identifier()
+        id2 = self._identifier()
+        provider.mapping = { id2 : id1 }
+
+        feed = "<feed><entry><id>%s</id><title>Here's your title!</title></entry></feed>" % id2.urn
+        headers = {"content-type" : OPDSFeed.ACQUISITION_FEED_TYPE}
+        lookup.queue_response(200, headers=headers, content=feed)
+        [identifier] = provider.process_batch([id1])
+
+        # We wanted to process id1. We sent id2 to the server, the
+        # server responded with an <entry> for id2, and it was used to
+        # modify the Edition associated with id1.
+        eq_(id1, identifier)
+
+        [edition] = id1.primarily_identifies
+        eq_("Here's your title!", edition.title)
+        eq_(id1, edition.primary_identifier)
+
+    def test_finalize_edition(self):
+
+        provider_no_presentation_ready = self._provider(presentation_ready_on_success=False)
+        provider_presentation_ready = self._provider(presentation_ready_on_success=True)
+        identifier = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        # Here's an Edition with no LicensePool.
+        edition, is_new = Edition.for_foreign_id(
+            self._db, source, identifier.type, identifier.identifier
+        )
+        edition.title = self._str
+
+        # This will effectively do nothing.
+        provider_no_presentation_ready.finalize_edition(edition)
+
+        # No Works have been created.
+        eq_(0, self._db.query(Work).count())
+
+        # But if there's also a LicensePool...
+        pool, is_new = LicensePool.for_foreign_id(
+            self._db, source, identifier.type, identifier.identifier
+        )
+
+        # finalize_edition() will create a Work.
+        provider_no_presentation_ready.finalize_edition(edition)
+
+        work = pool.work
+        eq_(work, edition.work)
+        eq_(False, work.presentation_ready)
+
+        # If the provider is configured to do so, finalize_edition()
+        # will also set the Work as presentation-ready.
+        provider_presentation_ready.finalize_edition(edition)
+        eq_(True, work.presentation_ready)
+
+    def test_process_batch(self):
+        provider = self._provider()
+
+        edition = self._edition()
+
+        identifier = self._identifier()
+        messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
+
+        provider.queue_import_results([edition], messages_by_id)
+
+        fake_batch = [object()]
+        success, failure = provider.process_batch(fake_batch)
+
+        # The batch was provided to lookup_and_import_batch.
+        eq_([fake_batch], provider.batches)
+
+        # The edition was finalized.
+        eq_([success], [e.primary_identifier for e in provider.finalized])
+
+        # The failure was converted to a CoverageFailure object.
+        eq_(identifier, failure.obj)
+        eq_(True, failure.transient)
+
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
+
+    def setup(self):
+        super(TestMetadataWranglerCoverageProvider, self).setup()
+        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
+                Configuration.URL : "http://url.gov"
+            }
+            self.provider = MetadataWranglerCoverageProvider(self._db)
+
+    def test_create_identifier_mapping(self):
+        # Most identifiers map to themselves.
+        overdrive = self._identifier(Identifier.OVERDRIVE_ID)
+
+        # But Axis 360 identifiers map to equivalent ISBNs.
+        axis = self._identifier(Identifier.AXIS_360_ID)
+        isbn = self._identifier(Identifier.ISBN)
+
+        who_says = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+        axis.equivalent_to(who_says, isbn, 1)
+
+        mapping = self.provider.create_identifier_mapping([overdrive, axis])
+        eq_(overdrive, mapping[overdrive])
+        eq_(axis, mapping[isbn])
 
     def test_items_that_need_coverage(self):
         source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
@@ -81,12 +236,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         relicensed_licensepool.update_availability(1, 0, 0, 0)
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            provider = MetadataWranglerCoverageProvider(self._db)
-        items = provider.items_that_need_coverage.all()
+        items = self.provider.items_that_need_coverage.all()
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
         assert reaper_cr.identifier not in items
