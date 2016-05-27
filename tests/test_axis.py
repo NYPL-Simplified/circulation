@@ -137,8 +137,7 @@ class TestParsers(object):
         eq_(None, bib1)
         eq_(None, bib2)
 
-        eq_(datetime.datetime(2015, 5, 20, 14, 9, 8),
-            av1.last_checked)
+        eq_("0003642860", av1.primary_identifier)
         eq_(9, av1.licenses_owned)
         eq_(9, av1.licenses_available)
         eq_(0, av1.patrons_in_hold_queue)

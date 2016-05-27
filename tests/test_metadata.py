@@ -604,6 +604,11 @@ class TestMetadata(DatabaseTest):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
         measurement = MeasurementData(Measurement.RATING, 5)
+        circulation = CirculationData(0, 0, 0, 0)
+        primary_as_data = IdentifierData(
+            type=identifier.type, identifier=identifier.identifier
+        )
+        other_data = IdentifierData(type=u"abc", identifier=u"def")
 
         m = Metadata(
             DataSource.GUTENBERG,
@@ -612,6 +617,21 @@ class TestMetadata(DatabaseTest):
             primary_identifier=identifier,
             links=[link],
             measurements=[measurement],
+            circulation=circulation,
+
+            title="Hello Title",
+            subtitle="Subtle Hello",
+            sort_title="Sorting Howdy",
+            language="US English",
+            medium=Edition.BOOK_MEDIUM,
+            series="1",
+            series_position=1,
+            publisher="Hello World Publishing House",
+            imprint=u"Follywood",
+            issued=datetime.datetime.utcnow(),
+            published=datetime.datetime.utcnow(),
+            identifiers=[primary_as_data, other_data],
+            opds_entry_updated=datetime.datetime.utcnow(),
         )
 
         m_copy = deepcopy(m)

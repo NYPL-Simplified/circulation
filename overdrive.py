@@ -457,6 +457,9 @@ class OverdriveRepresentationExtractor(object):
 
     @classmethod
     def book_info_to_circulation(cls, book):
+        """ Note:  The json data passed into this method is from a different file 
+        from the json data that goes into the book_info_to_circulation() method.
+        """
         # In Overdrive, 'reserved' books show up as books on
         # hold. There is no separate notion of reserved books.
         licenses_reserved = 0
@@ -464,6 +467,13 @@ class OverdriveRepresentationExtractor(object):
         licenses_owned = None
         licenses_available = None
         patrons_in_hold_queue = None
+
+        if not 'id' in book:
+            return None
+        overdrive_id = book['id']
+        primary_identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID, overdrive_id
+        )
 
         if (book.get('isOwnedByCollections') is not False):
             # We own this book.
@@ -481,6 +491,8 @@ class OverdriveRepresentationExtractor(object):
                         patrons_in_hold_queue = 0
                     patrons_in_hold_queue += collection['numberOfHolds']
         return CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary_identifier,
             licenses_owned=licenses_owned,
             licenses_available=licenses_available,
             licenses_reserved=licenses_reserved,
@@ -499,6 +511,9 @@ class OverdriveRepresentationExtractor(object):
     def book_info_to_metadata(cls, book):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
+
+        Note:  The json data passed into this method is from a different file 
+        from the json data that goes into the book_info_to_circulation() method.
         """
         if not 'id' in book:
             return None
@@ -734,7 +749,7 @@ class OverdriveRepresentationExtractor(object):
                 )
             )
 
-        return Metadata(
+        metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
             title=title,
             subtitle=subtitle,
@@ -752,6 +767,18 @@ class OverdriveRepresentationExtractor(object):
             measurements=measurements,
             links=links,
         )
+
+        # Also make a CirculationData so we can write the formats, 
+        circulationdata = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary_identifier,
+            formats=formats,
+            links=links,
+        )
+
+        metadata.circulation = circulationdata
+
+        return metadata
 
 
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):

@@ -371,7 +371,6 @@ class CirculationData(object):
     about a book.
 
     Basically,
-
         Metadata : Edition :: CirculationData : Licensepool
     """
 
@@ -388,8 +387,6 @@ class CirculationData(object):
             licenses_reserved=None,
             patrons_in_hold_queue=None,
             formats=None,
-            first_appearance=None,
-            last_checked=None,
             default_rights_uri=None,
             links=None,
     ):
@@ -414,8 +411,6 @@ class CirculationData(object):
 
         self.default_rights_uri = None
         self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=default_rights_uri)
-        self.first_appearance = first_appearance
-        self.last_checked = last_checked or datetime.datetime.utcnow()
 
         self.__links = None
         self.links = links
@@ -471,14 +466,11 @@ class CirculationData(object):
     def __repr__(self):
         description_string = '<CirculationData primary_identifier=%(primary_identifier)r| licenses_owned=%(licenses_owned)s|'
         description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|' 
-        description_string += ' first_appearance=%(first_appearance)s| last_checked=%(last_checked)s|' 
         description_string += ' links=%(links)r| formats=%(formats)r| data_source=%(data_source)s|>'
 
         description_data = {'primary_identifier':self.primary_identifier, 'licenses_owned':self.licenses_owned}
         description_data['licenses_available'] = self.licenses_available
         description_data['default_rights_uri'] = self.default_rights_uri
-        description_data['first_appearance'] = self.first_appearance
-        description_data['last_checked'] = self.last_checked
         description_data['links'] = self.links
         description_data['formats'] = self.formats
         description_data['data_source'] = self.data_source_name
@@ -522,82 +514,38 @@ class CirculationData(object):
                 _db, RightsStatus, uri=self.default_rights_uri
             )
 
+            last_checked = datetime.datetime.utcnow()
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
                 foreign_id=self.primary_identifier.identifier,
                 rights_status=rights_status,
             )
-            if is_new:
-                if self.first_appearance:
-                    license_pool.availability_time = self.first_appearance
-                else:
-                    license_pool.availability_time = datetime.datetime.utcnow()
 
-            license_pool.last_checked = datetime.datetime.utcnow()
+            if is_new:
+                license_pool.availability_time = datetime.datetime.utcnow()
+                # This is our first time seeing this LicensePool. Log its
+                # occurance as a separate event.
+                event = get_one_or_create(
+                    _db, CirculationEvent,
+                    type=CirculationEvent.TITLE_ADD,
+                    license_pool=license_pool,
+                    create_method_kwargs=dict(
+                        start=last_checked,
+                        delta=1,
+                        end=last_checked,
+                    )
+                )
+
+            license_pool.last_checked = last_checked
 
             if self.has_open_access_link:
                 license_pool.open_access = True
             if self.default_rights_uri:
                 license_pool.set_rights_status(self.default_rights_uri)
+
         return license_pool, is_new
 
-
-    def update(self, license_pool, license_pool_is_new):
-        _db = Session.object_session(license_pool)
-        if license_pool_is_new:
-            # This is our first time seeing this LicensePool. Log its
-            # occurance as a separate event.
-            event = get_one_or_create(
-                _db, CirculationEvent,
-                type=CirculationEvent.TITLE_ADD,
-                license_pool=license_pool,
-                create_method_kwargs=dict(
-                    start=self.last_checked,
-                    delta=1,
-                    end=self.last_checked,
-                )
-            )
-            # TODO: Also put this in the log.
-
-        changed = (license_pool.licenses_owned != self.licenses_owned or
-                   license_pool.licenses_available != self.licenses_available or
-                   license_pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
-                   license_pool.licenses_reserved != self.licenses_reserved)
-
-        if changed:
-            edition = license_pool.presentation_edition
-            if edition:
-                self.log.info(
-                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    edition.medium,
-                    edition.title or "[NO TITLE]",
-                    edition.author or "",
-                    edition.primary_identifier.identifier,
-                    license_pool.licenses_owned, self.licenses_owned,
-                    license_pool.licenses_available, self.licenses_available,
-                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-            else:
-                self.log.info(
-                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    license_pool.identifier,
-                    license_pool.licenses_owned, self.licenses_owned,
-                    license_pool.licenses_available, self.licenses_available,
-                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-
-
-        # Update availabily information. This may result in the issuance
-        # of additional events.
-        license_pool.update_availability(
-            self.licenses_owned,
-            self.licenses_available,
-            self.licenses_reserved,
-            self.patrons_in_hold_queue,
-            self.last_checked
-        )
-        return changed
 
     @property
     def has_open_access_link(self):
@@ -664,11 +612,6 @@ class CirculationData(object):
                 )
                 link_objects[link] = link_obj
 
-        if pool and replace.formats:
-            for lpdm in pool.delivery_mechanisms:
-                _db.delete(lpdm)
-            pool.delivery_mechanisms = []
-
         for link in self.links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
                 link_obj = link_objects[link]
@@ -677,6 +620,11 @@ class CirculationData(object):
                     # thumbnail may be provided as a side effect.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
                 
+        if pool and replace.formats:
+            for lpdm in pool.delivery_mechanisms:
+                _db.delete(lpdm)
+            pool.delivery_mechanisms = []
+
         # follows up on the mirror link, and confirms the delivery mechanism.
         for format in self.formats:
             if format.link:
@@ -692,7 +640,50 @@ class CirculationData(object):
                     format.content_type, format.drm_scheme, resource
                 )
 
-        pool.last_checked = self.last_checked
+
+        changed_licenses = False
+        if pool:
+            changed_licenses = (pool.licenses_owned != self.licenses_owned or
+               pool.licenses_available != self.licenses_available or
+               pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
+               pool.licenses_reserved != self.licenses_reserved)
+
+        if changed_licenses:
+            edition = pool.presentation_edition
+            if edition:
+                self.log.info(
+                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                    edition.medium,
+                    edition.title or "[NO TITLE]",
+                    edition.author or "",
+                    edition.primary_identifier.identifier,
+                    pool.licenses_owned, self.licenses_owned,
+                    pool.licenses_available, self.licenses_available,
+                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                )
+            else:
+                self.log.info(
+                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
+                    pool.identifier,
+                    pool.licenses_owned, self.licenses_owned,
+                    pool.licenses_available, self.licenses_available,
+                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                )
+
+        # Update availabily information. This may result in the issuance
+        # of additional events.
+        if pool:
+            last_checked = datetime.datetime.utcnow()
+            pool.update_availability(
+                self.licenses_owned,
+                self.licenses_available,
+                self.licenses_reserved,
+                self.patrons_in_hold_queue,
+                last_checked
+            )
+
+        made_changes = made_changes or changed_licenses
+
         return pool, made_changes
 
 
@@ -838,7 +829,8 @@ class Metadata(object):
             measurements=None,
             links=None,
             opds_entry_updated=None,
-            #circulation=None,  # Note: OK to bring back if need.
+            # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
+            circulation=None,  
     ):
         # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface), 
         # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.

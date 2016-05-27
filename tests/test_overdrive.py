@@ -54,9 +54,20 @@ class TestOverdriveRepresentationExtractor(object):
         eq_(expect, OverdriveRepresentationExtractor.link(raw, "first"))
 
 
+    def test_book_info_with_circulationdata(self):
+        # Tests that can convert an overdrive json block into a CirculationData object.
+
+        raw, info = self.sample_json("overdrive_availability_information.json")
+        circulationdata = OverdriveRepresentationExtractor.book_info_to_circulation(info)
+
+        # Related IDs.
+        eq_((Identifier.OVERDRIVE_ID, '2a005d55-a417-4053-b90d-7a38ca6d2065'),
+            (circulationdata.primary_identifier.type, circulationdata.primary_identifier.identifier))
+
+
+
     def test_book_info_with_metadata(self):
         # Tests that can convert an overdrive json block into a Metadata object.
-        # 
 
         raw, info = self.sample_json("overdrive_metadata.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
@@ -134,6 +145,7 @@ class TestOverdriveRepresentationExtractor(object):
         rating = [x for x in measurements
                   if x.quantity_measured==Measurement.RATING][0]
         eq_(1, rating.value)
+
 
     def test_book_info_with_sample(self):
         raw, info = self.sample_json("has_sample.json")

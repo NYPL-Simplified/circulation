@@ -215,18 +215,17 @@ class OPDSImporter(object):
                          cutoff_date=None, 
                          immediately_presentation_ready=False):
 
+        imported_editions = {}
+        imported_pools = {}
+        imported_works = {}
+        # status_messages notes business logic errors and non-success download statuses
+        status_messages = {}
+        next_links = []
         try:
             metadata_objs, circulation_objs, status_messages, next_links = self.extract_feed_data(feed)
         except Exception, e:
             message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-
-        imported_editions = {}
-        imported_pools = {}
-        imported_works = {}
-
-        # status_messages notes business logic errors and non-success download statuses
-        if not status_messages:
-            status_messages = {}
+            return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages, next_links
 
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
@@ -648,9 +647,9 @@ class OPDSImporter(object):
             # Metadata.rights_uri, but we're treating it same for now.
             default_rights_uri=rights_uri,
             # gets assigned to pool.last_checked on CirculationData.apply()
-            last_checked=datetime.datetime.utcnow(), 
+            #last_checked=datetime.datetime.utcnow(), 
             # first appearance in our databases, gets assigned to pool, if have to make new pool. 
-            first_appearance = datetime.datetime.utcnow()
+            #first_appearance = datetime.datetime.utcnow()
         )
 
         return identifier, kwargs_meta, kwargs_circ, status_message

@@ -158,7 +158,6 @@ class TestOPDSImporter(OPDSImporterTest):
 
         circulation = values_circ['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
-        assert (datetime.datetime.utcnow() - circulation['first_appearance']) < datetime.timedelta(seconds=10)
 
         message = status_messages['http://www.gutenberg.org/ebooks/1984']
         eq_(202, message.status_code)

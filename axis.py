@@ -261,9 +261,6 @@ class Axis360Parser(XMLParser):
 
 
 class BibliographicParser(Axis360Parser):
-    """
-
-    """
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
         "Blio" : None,
@@ -293,6 +290,7 @@ class BibliographicParser(Axis360Parser):
             yield i
 
     def extract_availability(self, element, ns):
+        primary_identifier = self.text_of_subtag(element, 'axis:titleId', ns)
         availability = self._xpath1(element, 'axis:availability', ns)
         total_copies = self.int_of_subtag(availability, 'axis:totalCopies', ns)
         available_copies = self.int_of_subtag(
@@ -314,11 +312,11 @@ class BibliographicParser(Axis360Parser):
 
         return CirculationData(
             data_source=DataSource.AXIS_360, 
+            primary_identifier=primary_identifier, 
             licenses_owned=total_copies,
             licenses_available=available_copies,
             licenses_reserved=0,
             patrons_in_hold_queue=size_of_hold_queue,
-            last_checked=availability_updated,
         )
 
     # Axis authors with a special role have an abbreviation after their names,
@@ -354,8 +352,10 @@ class BibliographicParser(Axis360Parser):
         return ContributorData(
             sort_name=author, roles=role)
 
+
     def extract_bibliographic(self, element, ns):
-        """Turn bibliographic metadata into a Metadata object."""
+        """Turn bibliographic metadata into a Metadata and a CirculationData objects, 
+        and return them as a tuple."""
 
         # TODO: These are consistently empty (some are clearly for
         # audiobooks) so I don't know what they do and/or what format
@@ -422,7 +422,7 @@ class BibliographicParser(Axis360Parser):
         if isbn:
             identifiers.append(IdentifierData(Identifier.ISBN, isbn))
 
-        #formats = []
+        formats = []
         acceptable = False
         seen_formats = []
         for format_tag in self._xpath(
@@ -435,7 +435,6 @@ class BibliographicParser(Axis360Parser):
                 self.log("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
                 ))
-            '''
             elif self.DELIVERY_DATA_FOR_AXIS_FORMAT.get(informal_name):
                 content_type, drm_scheme = self.DELIVERY_DATA_FOR_AXIS_FORMAT[
                     informal_name
@@ -444,17 +443,13 @@ class BibliographicParser(Axis360Parser):
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
         
-        TODO:  Do we need to also make a CirculationData so we can write the formats, 
-        or can we omit?
-
         if not formats:
             self.log.error(
                 "No supported format for %s (%s)! Saw: %s", identifier,
                 title, ", ".join(seen_formats)
             )
-        '''
 
-        data = Metadata(
+        metadata = Metadata(
             data_source=DataSource.AXIS_360,
             title=title,
             language=language,
@@ -467,9 +462,17 @@ class BibliographicParser(Axis360Parser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            # formats=formats,
         )
-        return data
+
+        circulationdata = CirculationData(
+            data_source=DataSource.AXIS_360,
+            primary_identifier=primary_identifier,
+            formats=formats,
+        )
+
+        metadata.circulation = circulationdata
+        return metadata
+
 
     def process_one(self, element, ns):
         if self.include_bibliographic:
@@ -481,3 +484,4 @@ class BibliographicParser(Axis360Parser):
         else:
             availability = None
         return bibliographic, availability
+

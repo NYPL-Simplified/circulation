@@ -4098,8 +4098,11 @@ class Hyperlink(Base):
     def default_filename(self):
         return self._default_filename(self.rel)
 
+
 class Resource(Base):
-    """An external resource that may be mirrored locally."""
+    """An external resource that may be mirrored locally.
+    E.g: a cover image, an epub, a description.
+    """
 
     __tablename__ = 'resources'
 
@@ -5539,8 +5542,17 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
     def set_delivery_mechanism(
             self, content_type, drm_scheme, resource):
+        """
+        Additive, unless have more than one version of a book, in the same format, 
+        on the same license (ex.:  book with images and book without images in Gutenberg, 
+        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
+
+        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
+        so long as they have different resources.
+        """
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme)
