@@ -571,6 +571,12 @@ class TestRecommendationData(DatabaseTest):
         result = recommendations.recommended_works
         eq_(None, result)
 
+        # It can also find a work if the identifier itself is passed, instead
+        # of an equivalency.
+        recommendations.identifiers = [work.license_pools[0].identifier]
+        result = recommendations.recommended_works
+        eq_(1, len(result.all()))
+
 
 class TestMetadata(DatabaseTest):
     def test_from_edition(self):

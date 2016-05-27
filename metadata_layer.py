@@ -400,8 +400,8 @@ class RecommendationData(object):
 
         equivalent_identifier = aliased(Identifier)
         works_q = Work.feed_query(_db)
-        works_q = works_q.join(Identifier.equivalencies).\
-            join(equivalent_identifier, Equivalency.output).\
+        works_q = works_q.outerjoin(Identifier.equivalencies).\
+            outerjoin(equivalent_identifier, Equivalency.output).\
             filter(or_(
                 Identifier.id.in_(identifier_ids),
                 equivalent_identifier.id.in_(identifier_ids)
