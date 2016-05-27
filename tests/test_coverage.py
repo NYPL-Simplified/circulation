@@ -140,6 +140,31 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
+    def setup(self):
+        super(TestMetadataWranglerCoverageProvider, self).setup()
+        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
+                Configuration.URL : "http://url.gov"
+            }
+            self.provider = MetadataWranglerCoverageProvider(self._db)
+
+    def test_create_identifier_mapping(self):
+        # Most identifiers map to themselves.
+        overdrive = self._identifier(Identifier.OVERDRIVE_ID)
+
+        # But Axis 360 identifiers map to equivalent ISBNs.
+        axis = self._identifier(Identifier.AXIS_360_ID)
+        isbn = self._identifier(Identifier.ISBN)
+
+        who_says = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+        axis.equivalent_to(who_says, isbn, 1)
+
+        mapping = self.provider.create_identifier_mapping([overdrive, axis])
+        eq_(overdrive, mapping[overdrive])
+        eq_(axis, mapping[isbn])
+
     def test_items_that_need_coverage(self):
         source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -160,12 +185,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         relicensed_licensepool.update_availability(1, 0, 0, 0)
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            provider = MetadataWranglerCoverageProvider(self._db)
-        items = provider.items_that_need_coverage.all()
+        items = self.provider.items_that_need_coverage.all()
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
         assert reaper_cr.identifier not in items
