@@ -67,11 +67,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
     def import_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        response = self.lookup.lookup(batch)
-        id_mapping = self.create_identifier_mapping(batch)
-        imported, messages_by_id, next_links = self.import_feed_response(
-            response, id_mapping
-        )
+        imported, messages_by_id, next_links = self.lookup_and_import_batch(batch)        
 
         results = []
         for edition in imported:
@@ -110,19 +106,6 @@ class OPDSImportCoverageProvider(CoverageProvider):
             identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
             yield CoverageFailure(self, identifier_obj, exception, transient)
 
-    def import_feed_response(self, response, id_mapping):
-        """Confirms OPDS feed response and imports feed."""
-           
-        content_type = response.headers['content-type']
-        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
-            raise BadResponseException.from_response(
-                response.url, 
-                "Wrong media type: %s" % content_type
-            )
-
-        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
-        return importer.import_from_feed(response.text)
-
     def finalize_edition(self, edition):
         """An OPDS entry has become an Edition. This method may (depending on
         configuration) create a Work for that book and mark it as
@@ -149,6 +132,45 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
         if work and self.PRESENTATION_READY_ON_SUCCESS:
             work.set_presentation_ready()
+
+    def lookup_and_import_batch(self, batch):
+        """Look up a batch of identifiers and parse the resulting OPDS feed.
+
+        This method is overridden by MockOPDSImportCoverageProvider.
+        """
+        response = self.lookup.lookup(batch)
+        id_mapping = self.create_identifier_mapping(batch)
+        imported, messages_by_id, next_links = self.import_feed_response(
+            response, id_mapping
+        )
+
+    def import_feed_response(self, response, id_mapping):
+        """Confirms OPDS feed response and imports feed.
+        """
+           
+        content_type = response.headers['content-type']
+        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
+            raise BadResponseException.from_response(
+                response.url, 
+                "Wrong media type: %s" % content_type,
+                response
+            )
+
+        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
+        return importer.import_from_feed(response.text)
+
+
+class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
+
+    def __init__(self, *args, **kwargs):
+        super(MockOPDSImportCoverageProvider, self).__init__(*args, **kwargs)
+        self.import_results = []
+
+    def queue_import_results(self, editions, messages_by_id, next_links):
+        self.import_results.insert(0, (editions, messages_by_id, next_links))
+
+    def import_feed_response(self, *args, **kwargs):
+        return self.import_results.pop()
 
 
 class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):

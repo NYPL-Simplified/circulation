@@ -1,11 +1,15 @@
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
 
 from . import (
     DatabaseTest,
+    sample_data,
 )
+
+from core.testing import MockRequestsResponse
 
 from core.config import (
     Configuration,
@@ -22,6 +26,8 @@ from core.opds_import import (
 from core.coverage import (
     CoverageFailure,
 )
+
+from core.util.http import BadResponseException
 
 from api.coverage import (
     MetadataWranglerCoverageProvider,
@@ -57,6 +63,21 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(identifier2, f2.obj)
         eq_("404: we're doomed", f2.exception)
         eq_(False, f2.transient)
+
+    def _provider(self):
+        """Create a generic OPDSImportCoverageProvider for testing purposes."""
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        return OPDSImportCoverageProvider("test provider", [], source)
+
+    def test_badresponseexception_on_non_opds_feed(self):
+
+        response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
+        
+        provider = self._provider()
+        assert_raises_regexp(
+            BadResponseException, "Wrong media type: text/plain",
+            provider.import_feed_response, response, None
+        )
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
