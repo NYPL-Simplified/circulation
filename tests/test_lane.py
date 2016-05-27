@@ -985,7 +985,7 @@ class TestFilters(DatabaseTest):
         # w1 (owned licenses), w6 (open-access), and w7 (available
         # licenses)
         q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-        eq_([w1, w6, w7], q.all())
+        eq_(set([w1, w6, w7]), set(q.all()))
 
         # If we decide to show suppressed works, w4 shows up as well.
         q = Lane.only_show_ready_deliverable_works(
@@ -1006,7 +1006,7 @@ class TestFilters(DatabaseTest):
             # w6 still shows up because it's an open-access work.
             # w7 shows up because we own licenses and copies are available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_([w6, w7], q.all())
+            eq_(set([w6, w7]), set(q.all()))
 
 
 class TestPagination(DatabaseTest):
