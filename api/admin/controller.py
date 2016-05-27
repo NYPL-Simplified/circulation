@@ -46,7 +46,9 @@ from opds import AdminAnnotator, AdminFeed
 from collections import Counter
 from core.classifier import (
     genres,
-    SimplifiedGenreClassifier
+    SimplifiedGenreClassifier,
+    NO_NUMBER,
+    NO_VALUE
 )
 
 
@@ -223,6 +225,34 @@ class WorkController(CirculationManagerController):
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
             staff_edition.title = unicode(new_title)
+            changed = True
+
+        new_subtitle = flask.request.form.get("subtitle")
+        if work.subtitle != new_subtitle:
+            if work.subtitle and not new_subtitle:
+                new_subtitle = NO_VALUE
+            staff_edition.subtitle = unicode(new_subtitle)
+            changed = True
+
+        new_series = flask.request.form.get("series")
+        if work.series != new_series:
+            if work.series and not new_series:
+                new_series = NO_VALUE
+            staff_edition.series = unicode(new_series)
+            changed = True
+
+        new_series_position = flask.request.form.get("series_position")
+        if new_series_position:
+            try:
+                new_series_position = int(new_series_position)
+            except ValueError:
+                return INVALID_SERIES_POSITION
+        else:
+            new_series_position = None
+        if work.series_position != new_series_position:
+            if work.series_position and not new_series_position:
+                new_series_position = NO_NUMBER
+            staff_edition.series_position = new_series_position
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""

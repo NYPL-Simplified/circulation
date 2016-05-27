@@ -190,7 +190,13 @@ class CirculationManagerAnnotator(Annotator):
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
-        if not lane.parent:
+
+        if not lane.sublanes and not lane.parent:
+            # This lane isn't part of our lane hierarchy. It's probably
+            # an ad hoc lane created to represent the top-level when we needed
+            # a Lane instance, since we use the CirculationManager as the 
+            # top-level lane and it's not actually a Lane. Use the top-level
+            # url for it.
             url = self.default_lane_url()
         elif lane.sublanes:
             url = self.groups_url(lane)
