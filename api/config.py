@@ -17,6 +17,7 @@ class Configuration(CoreConfiguration):
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
+    TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
     LANES_POLICY = "lanes"
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
@@ -78,6 +79,19 @@ class Configuration(CoreConfiguration):
         value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
         logging.info("Language policy: %r" % cls.language_policy())
         logging.info("Small collections: %r" % value)
+        if not value:
+            return []
+        if isinstance(value, list):
+            return value
+        return [[x] for x in value.split(',')]
+
+    @classmethod
+    def tiny_collection_languages(cls):
+        import logging
+        logging.info("In tiny_collection_languages.")
+        value = cls.language_policy().get(cls.TINY_COLLECTION_LANGUAGES, '')
+        logging.info("Language policy: %r" % cls.language_policy())
+        logging.info("Tiny collections: %r" % value)
         if not value:
             return []
         if isinstance(value, list):
