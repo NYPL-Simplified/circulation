@@ -84,8 +84,8 @@ class SimplifiedOPDSLookup(object):
             Configuration.METADATA_WRANGLER_INTEGRATION
         )
         self.client_id = self.client_secret = None
-        if (self.base_url==metadata_wrangler_url or
-            self.base_url==metadata_wrangler_url+'/'):
+        if (metadata_wrangler_url
+            and self.base_url.startswith(metadata_wrangler_url)):
             values = Configuration.integration(Configuration.METADATA_WRANGLER_INTEGRATION)
             self.client_id = values.get(Configuration.METADATA_WRANGLER_CLIENT_ID)
             self.client_secret = values.get(Configuration.METADATA_WRANGLER_CLIENT_SECRET)
