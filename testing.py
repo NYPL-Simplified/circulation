@@ -678,10 +678,11 @@ class MockRequestsResponse(object):
     """A mock object that simulates an HTTP response from the
     `requests` library.
     """
-    def __init__(self, status_code, headers={}, content=None):
+    def __init__(self, status_code, headers={}, content=None, url=None):
         self.status_code = status_code
         self.headers = headers
         self.content = content
+        self.url = url or "http://url/"
 
     def json(self):
         return json.loads(self.content)

@@ -100,8 +100,8 @@ class TestSimplifiedOPDSLookup(object):
                 url = "http://whatevz"
             )
             importer = SimplifiedOPDSLookup.from_config("Content Server")
-            eq_(False, hasattr(importer, "client_id"))
-            eq_(False, hasattr(importer, "client_secret"))
+            eq_(None, importer.client_id)
+            eq_(None, importer.client_secret)
 
 
 class OPDSImporterTest(DatabaseTest):
