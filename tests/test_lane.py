@@ -1011,31 +1011,31 @@ class TestFilters(DatabaseTest):
 
 class TestPagination(DatabaseTest):
 
-    def test_done(self):
+    def test_has_next_page(self):
         query = self._db.query(Work)
         pagination = Pagination(size=2)
 
-        # When the query is empty, pagination is done.
+        # When the query is empty, pagination doesn't have a next page.
         pagination.apply(query)
-        eq_(True, pagination.done)
+        eq_(False, pagination.has_next_page)
 
-        # When there are more works in the query, pagination isn't done.
+        # When there are more works in the query, it doesn't.
         for num in range(3):
             # Create three works.
             self._work()
         pagination.apply(query)
-        eq_(False, pagination.done)
+        eq_(True, pagination.has_next_page)
 
-        # When there aren't, pagination is done.
+        # When there aren't, pagination has_next_page.
         pagination.offset = 1
-        eq_(True, pagination.done)
+        eq_(False, pagination.has_next_page)
 
         # When the database is updated, pagination knows.
         for num in range(3):
             self._work()
         pagination.apply(query)
-        eq_(False, pagination.done)
+        eq_(True, pagination.has_next_page)
 
         # Even when the query ends at the same size as a page, all is well.
         pagination.offset = 2
-        eq_(True, pagination.done)
+        eq_(False, pagination.has_next_page)
