@@ -63,7 +63,9 @@ def make_lanes_default(_db):
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
-    top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
+    other_languages_lane = lane_for_other_languages(_db, seen_languages)
+    if other_languages_lane:
+        top_level_lanes.append(other_languages_lane)
 
     return LaneList.from_description(_db, None, top_level_lanes)
 
@@ -341,6 +343,9 @@ def lane_for_other_languages(_db, exclude_languages):
 
     language_lanes = []
     other_languages = Configuration.tiny_collection_languages()
+
+    if not other_languages:
+        return None
 
     for language_set in other_languages:
         name = LanguageCodes.name_for_languageset(language_set)

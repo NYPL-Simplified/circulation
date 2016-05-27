@@ -108,6 +108,20 @@ class TestLaneCreation(DatabaseTest):
                 [x.languages for x in lane.sublanes.lanes]
             )
 
+        # If no tiny languages are configured, the other languages lane
+        # doesn't show up.
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.LANGUAGE_POLICY: {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng'
+                }
+            }
+
+            exclude = ['eng', 'spa']
+            lane = lane_for_other_languages(self._db, exclude)
+            eq_(None, lane)
+
+
     def test_make_lanes_default(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -115,6 +129,7 @@ class TestLaneCreation(DatabaseTest):
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
                 }
             }
             lane_list = make_lanes_default(self._db)
