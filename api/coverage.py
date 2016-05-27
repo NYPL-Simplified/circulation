@@ -56,19 +56,15 @@ class OPDSImportCoverageProvider(CoverageProvider):
             **kwargs
         )
 
-    def process_batch(self, batch):
-        identifier_mapping = self.create_identifier_mapping(batch)
-        if identifier_mapping:
-            batch = identifier_mapping.keys()
-        return self.import_batch(batch)
-
     def create_identifier_mapping(self, batch):
         """By default, no identifier mapping is needed."""
         return None
 
-    def import_batch(self, batch):
+    def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        imported, messages_by_id, next_links = self.lookup_and_import_batch(batch)        
+        imported, messages_by_id, next_links = self.lookup_and_import_batch(
+            batch
+        )
 
         results = []
         for edition in imported:
@@ -139,9 +135,17 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
         This method is overridden by MockOPDSImportCoverageProvider.
         """
-        response = self.lookup.lookup(batch)
+
+        # id_mapping maps our local identifiers to identifiers the
+        # foreign data source will reocgnize.
         id_mapping = self.create_identifier_mapping(batch)
-        imported, messages_by_id, next_links = self.import_feed_response(
+        foreign_identifiers = id_mapping.keys()
+
+        response = self.lookup.lookup(foreign_identifiers)
+
+        # import_feed_response takes id_mapping so it can map the
+        # foreign identifiers back to their local counterparts.
+        return self.import_feed_response(
             response, id_mapping
         )
 

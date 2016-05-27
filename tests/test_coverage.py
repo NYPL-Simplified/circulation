@@ -23,8 +23,10 @@ from core.model import (
     LicensePool,
     Work,
 )
+from core.opds import OPDSFeed
 from core.opds_import import (
     StatusMessage,
+    MockSimplifiedOPDSLookup,
 )
 from core.coverage import (
     CoverageFailure,
@@ -86,6 +88,47 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             provider.import_feed_response, response, None
         )
 
+    def test_process_batch_with_identifier_mapping(self):
+        """Test that internal identifiers are mapped to and from the form used
+        by the external service.
+        """
+
+        # Unlike other tests in this class, we are using a real
+        # implementation of OPDSImportCoverageProvider.process_batch.        
+        class TestProvider(OPDSImportCoverageProvider):
+
+            # Mock the identifier mapping
+            def create_identifier_mapping(self, batch):
+                return self.mapping
+
+        # This means we need to mock the lookup client instead.
+        lookup = MockSimplifiedOPDSLookup(self._url)
+
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        provider = TestProvider(
+            "test provider", [], source, lookup=lookup
+        )
+
+        # Create a hard-coded mapping. We use id1 internally, but the
+        # foreign data source knows the book as id2.
+        id1 = self._identifier()
+        id2 = self._identifier()
+        provider.mapping = { id2 : id1 }
+
+        feed = "<feed><entry><id>%s</id><title>Here's your title!</title></entry></feed>" % id2.urn
+        headers = {"content-type" : OPDSFeed.ACQUISITION_FEED_TYPE}
+        lookup.queue_response(200, headers=headers, content=feed)
+        [identifier] = provider.process_batch([id1])
+
+        # We wanted to process id1. We sent id2 to the server, the
+        # server responded with an <entry> for id2, and it was used to
+        # modify the Edition associated with id1.
+        eq_(id1, identifier)
+
+        [edition] = id1.primarily_identifies
+        eq_("Here's your title!", edition.title)
+        eq_(id1, edition.primary_identifier)
+
     def test_finalize_edition(self):
 
         provider_no_presentation_ready = self._provider(presentation_ready_on_success=False)
@@ -122,7 +165,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         provider_presentation_ready.finalize_edition(edition)
         eq_(True, work.presentation_ready)
 
-    def test_import_batch(self):
+    def test_process_batch(self):
         provider = self._provider()
 
         edition = self._edition()
@@ -133,7 +176,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         provider.queue_import_results([edition], messages_by_id)
 
         fake_batch = [object()]
-        success, failure = provider.import_batch(fake_batch)
+        success, failure = provider.process_batch(fake_batch)
 
         # The batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
