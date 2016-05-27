@@ -8,7 +8,7 @@ import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 
 from ..test_controller import CirculationControllerTest
-from api.admin.controller import setup_admin_controllers
+from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.problem_details import *
 from api.admin.config import (
     Configuration,
@@ -16,6 +16,7 @@ from api.admin.config import (
 )
 from core.model import (
     Admin,
+    CirculationEvent,
     Classification,
     Complaint,
     CoverageRecord,
@@ -36,6 +37,7 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
+from datetime import datetime, timedelta
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -704,3 +706,37 @@ class TestFeedController(AdminControllerTest):
                     "parents": [parent.name for parent in genres[name].parents],
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
                 }))        
+
+    def test_circulation_events(self):
+        [lp] = self.english_1.license_pools
+        patron_id = "patronid"
+        types = [
+            CirculationEvent.CHECKIN,
+            CirculationEvent.CHECKOUT,
+            CirculationEvent.HOLD_PLACE,
+            CirculationEvent.HOLD_RELEASE,
+            CirculationEvent.TITLE_ADD
+        ]
+        time = datetime.now() - timedelta(minutes=len(types))
+        for type in types:
+            self._circulation_event(
+                license_pool=lp, type=type, start=time, end=time,
+                foreign_patron_id=patron_id)
+            time += timedelta(minutes=1)
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.circulation_events()
+            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+
+        events = response['circulation_events']
+        eq_(types[::-1], [event['type'] for event in events])
+        eq_([self.english_1.title]*len(types), [event['book']['title'] for event in events])
+        eq_([url]*len(types), [event['book']['url'] for event in events])
+        eq_([patron_id]*len(types), [event['patron_id'] for event in events])
+
+        # request fewer events
+        with self.app.test_request_context("/?num=2"):
+            response = self.manager.admin_feed_controller.circulation_events()
+            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+
+        eq_(2, len(response['circulation_events']))

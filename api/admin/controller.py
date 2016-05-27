@@ -608,7 +608,7 @@ class FeedController(CirculationManagerController):
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation)
 
-        num = flask.request.args.get("num") or 100
+        num = flask.request.args.get("num", 100)
         results = self._db.query(CirculationEvent) \
             .join(LicensePool) \
             .order_by(CirculationEvent.id.desc()) \
@@ -621,6 +621,7 @@ class FeedController(CirculationManagerController):
         events = map(lambda result: {
             "id": result.id,
             "type": result.type,
+            "patron_id": result.foreign_patron_id,
             "time": result.start,
             "book": {
                 "title": result.license_pool.work.title,
