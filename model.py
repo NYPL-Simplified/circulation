@@ -1162,7 +1162,7 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
-        was_new = None
+
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
             foreign_id = foreign_id.lower()
@@ -1170,7 +1170,6 @@ class Identifier(Base):
             m = get_one_or_create
         else:
             m = get_one
-            was_new = False
 
         result = m(_db, cls, type=foreign_identifier_type,
                    identifier=foreign_id)
