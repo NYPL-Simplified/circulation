@@ -99,7 +99,8 @@ class SimplifiedOPDSLookup(object):
     def authenticated(self):
         return bool(self.client_id and self.client_secret)
 
-    def _get(self, url):
+    def _get(self, url, **kwargs):
+        """Make an HTTP request. This method is overridden in the mock class."""
         return HTTP.get_with_timeout(url, **kwargs)
 
     def opds_get(self, url):
@@ -107,11 +108,10 @@ class SimplifiedOPDSLookup(object):
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
-        kwargs = dict(timeout=120)
+        kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         if self.client_id and self.client_secret:
             kwargs['auth'] = (self.client_id, self.client_secret)
-        kwargs['allowed_response_codes']=['2xx', '3xx']
-        return HTTP.get_with_timeout(url, **kwargs)
+        return self._get(url, **kwargs)
 
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
