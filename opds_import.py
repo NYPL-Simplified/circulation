@@ -56,7 +56,7 @@ class AccessNotAuthenticated(Exception):
     pass
 
 
-class SimplifiedOPDSLookup(OPDSHTTPClient):
+class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
@@ -733,7 +733,7 @@ class OPDSImporter(object):
             return None
 
 
-class OPDSImportMonitor(Monitor, OPDSHTTPClient):
+class OPDSImportMonitor(Monitor):
 
     """Periodically monitor an OPDS archive feed and import every edition
     it mentions.
