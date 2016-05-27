@@ -7,7 +7,6 @@ from collections import (
 import datetime
 import feedparser
 import logging
-import requests
 import traceback
 import urllib
 from urlparse import urlparse, urljoin
@@ -48,6 +47,7 @@ from model import (
     Subject,
     RightsStatus,
 )
+from util.http import HTTP
 from opds import OPDSFeed
 from s3 import S3Uploader
 
@@ -55,7 +55,8 @@ class AccessNotAuthenticated(Exception):
     """No authentication is configured for this service"""
     pass
 
-class SimplifiedOPDSLookup(object):
+
+class SimplifiedOPDSLookup(OPDSHTTPClient):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
@@ -82,6 +83,7 @@ class SimplifiedOPDSLookup(object):
         metadata_wrangler_url = Configuration.integration_url(
             Configuration.METADATA_WRANGLER_INTEGRATION
         )
+        self.client_id = self.client_secret = None
         if (self.base_url==metadata_wrangler_url or
             self.base_url==metadata_wrangler_url+'/'):
             values = Configuration.integration(Configuration.METADATA_WRANGLER_INTEGRATION)
@@ -98,18 +100,25 @@ class SimplifiedOPDSLookup(object):
         return bool(self.client_id and self.client_secret)
 
     def _get(self, url):
-        """Runs requests with the appropriate authentication"""
+        return HTTP.get_with_timeout(url, **kwargs)
 
+    def opds_get(self, url):
+        """Make the sort of HTTP request that's normal for an OPDS feed.
+
+        Long timeout, raise error on anything but 2xx or 3xx.
+        """
+        kwargs = dict(timeout=120)
         if self.client_id and self.client_secret:
-            return requests.get(url, auth=(self.client_id, self.client_secret))
-        return requests.get(url)
+            kwargs['auth'] = (self.client_id, self.client_secret)
+        kwargs['allowed_response_codes']=['2xx', '3xx']
+        return HTTP.get_with_timeout(url, **kwargs)
 
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
         args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
         url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
         logging.info("Lookup URL: %s", url)
-        return self._get(url)
+        return self.opds_get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
         """Attempt to find the canonical name for the author of a book.
@@ -139,6 +148,25 @@ class SimplifiedOPDSLookup(object):
         url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
         logging.info("Metadata Wrangler Removal URL: %s", url)
         return self._get(url)
+
+
+class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
+
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+
+    def queue_response(self, status_code, headers={}, content=None):
+        from testing import MockRequestsResponse
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _get(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class OPDSXMLParser(XMLParser):
@@ -705,7 +733,7 @@ class OPDSImporter(object):
             return None
 
 
-class OPDSImportMonitor(Monitor):
+class OPDSImportMonitor(Monitor, OPDSHTTPClient):
 
     """Periodically monitor an OPDS archive feed and import every edition
     it mentions.
@@ -721,14 +749,18 @@ class OPDSImportMonitor(Monitor):
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER
         )
+    
+    def _get(self, url):
+        """Make the sort of HTTP request that's normal for an OPDS feed.
+
+        Long timeout, raise error on anything but 2xx or 3xx.
+        """
+        kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
+        return HTTP.get_with_timeout(url, **kwargs)
 
     def follow_one_link(self, link, start):
         self.log.info("Following next link: %s, cutoff=%s", link, start)
-        response = requests.get(link)
-
-        if response.status_code / 100 not in [2, 3]:
-            self.log.error("Fetching next link %s failed with status %i" % (link, response.status_code))
-            return []
+        response = self._get(link)
 
         imported, messages, next_links = self.importer.import_from_feed(
             response.content, even_if_no_author=True, cutoff_date=start,
