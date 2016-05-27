@@ -24,6 +24,7 @@ from core.model import (
     DataSource,
     Edition,
     Genre,
+    get_one_or_create,
     Identifier,
     SessionManager,
     Subject,
@@ -719,7 +720,8 @@ class TestFeedController(AdminControllerTest):
         ]
         time = datetime.now() - timedelta(minutes=len(types))
         for type in types:
-            self._circulation_event(
+            get_one_or_create(
+                self._db, CirculationEvent,
                 license_pool=lp, type=type, start=time, end=time,
                 foreign_patron_id=patron_id)
             time += timedelta(minutes=1)
