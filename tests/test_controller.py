@@ -837,7 +837,6 @@ class TestFeedController(CirculationControllerTest):
                         counter[link['title']] += 1
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
-                eq_(1, counter['Other Languages'])
 
 
     def test_search(self):
