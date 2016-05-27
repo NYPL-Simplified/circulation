@@ -169,7 +169,7 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
     def queue_import_results(self, editions, messages_by_id, next_links):
         self.import_results.insert(0, (editions, messages_by_id, next_links))
 
-    def import_feed_response(self, *args, **kwargs):
+    def lookup_and_import_batch(self, *args, **kwargs):
         return self.import_results.pop()
 
 

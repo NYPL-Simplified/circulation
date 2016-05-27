@@ -18,7 +18,10 @@ from core.config import (
 from core.model import (
     CoverageRecord,
     DataSource,
+    Edition,
     Identifier,
+    LicensePool,
+    Work,
 )
 from core.opds_import import (
     StatusMessage,
@@ -78,6 +81,37 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             BadResponseException, "Wrong media type: text/plain",
             provider.import_feed_response, response, None
         )
+
+    def test_finalize_edition(self):
+
+        provider = self._provider()
+        identifier = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        # Here's an Edition with no LicensePool.
+        edition, is_new = Edition.for_foreign_id(
+            self._db, source, identifier.type, identifier.identifier
+        )
+        edition.title = self._str
+
+        # This will effectively do nothing.
+        provider.finalize_edition(edition)
+
+        # No Works have been created.
+        eq_(0, self._db.query(Work).count())
+
+        # But if there's also a LicensePool...
+        pool, is_new = LicensePool.for_foreign_id(
+            self._db, source, identifier.type, identifier.identifier
+        )
+
+        # finalize_edition() will create a work and mark it
+        # presentation-ready.
+        provider.finalize_edition(edition)
+
+        work = pool.work
+        eq_(work, edition.work)
+        eq_(True, work.presentation_ready)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
