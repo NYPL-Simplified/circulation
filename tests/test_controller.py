@@ -53,6 +53,7 @@ from api.circulation import (
     HoldInfo,
     LoanInfo,
 )
+from api.novelist import DummyNoveListAPI
 
 from api.lanes import make_lanes_default
 from core.util.cdn import cdnify
@@ -62,6 +63,7 @@ from core.opds import (
     OPDSFeed,
     AcquisitionFeed,
 )
+from core.metadata_layer import RecommendationData
 from api.opds import CirculationManagerAnnotator
 from api.admin.oauth import DummyGoogleClient
 from lxml import etree
@@ -561,7 +563,7 @@ class TestLoanController(CirculationControllerTest):
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
-            
+
             with self.app.test_request_context(
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
@@ -712,6 +714,41 @@ class TestWorkController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_(expect, response.data)
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_recommendations(self):
+        # Prep an empty recommendation.
+        source = DataSource.lookup(self._db, self.datasource)
+        recommendation_sample = RecommendationData(source)
+        mock_api = DummyNoveListAPI()
+        mock_api.setup((None, recommendation_sample))
+
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                api=mock_api
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_('Related Works', feed['feed']['title'])
+        eq_(0, len(feed['entries']))
+
+        # Prep a recommendation result.
+        rec_identifier = self.english_2.license_pools[0].identifier
+        recommendation_sample.identifiers = [rec_identifier]
+        mock_api.setup((None, recommendation_sample))
+
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                api=mock_api
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_('Related Works', feed['feed']['title'])
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(self.english_2.title, entry['title'])
+        eq_(self.english_2.author, entry['author'])
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):

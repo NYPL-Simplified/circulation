@@ -22,22 +22,10 @@ from core.model import (
     Representation,
 )
 from api.novelist import (
+    DummyNoveListAPI,
     NoveListAPI,
     NoveListCoverageProvider,
 )
-
-class DummyNoveListAPI(object):
-
-    def __init__(self):
-        self.responses = []
-
-    def setup(self, *args):
-        self.responses = self.responses + list(args)
-
-    def lookup(self, identifier):
-        response = self.responses[0]
-        self.responses = self.responses[1:]
-        return response
 
 
 class TestNoveListAPI(DatabaseTest):

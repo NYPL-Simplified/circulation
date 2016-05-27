@@ -351,6 +351,20 @@ class NoveListAPI(object):
         return recommendations
 
 
+class DummyNoveListAPI(object):
+
+    def __init__(self):
+        self.responses = []
+
+    def setup(self, *args):
+        self.responses = self.responses + list(args)
+
+    def lookup(self, identifier):
+        response = self.responses[0]
+        self.responses = self.responses[1:]
+        return response
+
+
 class NoveListCoverageProvider(CoverageProvider):
 
     def __init__(self, _db, cutoff_time=None):

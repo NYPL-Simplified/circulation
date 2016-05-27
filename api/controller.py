@@ -79,18 +79,13 @@ from config import (
 from lanes import make_lanes
 
 from adobe_vendor_id import AdobeVendorIDController
-from axis import (
-    Axis360API,
-)
-from overdrive import (
-    OverdriveAPI,
-    DummyOverdriveAPI,
-)
-from threem import (
-    ThreeMAPI,
-)
-from circulation import (
-    CirculationAPI,
+from axis import Axis360API
+from overdrive import OverdriveAPI
+from threem import ThreeMAPI
+from circulation import CirculationAPI
+from novelist import (
+    NoveListAPI,
+    DummyNoveListAPI,
 )
 from testing import MockCirculationAPI
 from services import ServiceStatus
@@ -790,6 +785,34 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
+
+    def recommendations(self, data_source, identifier_type, identifier, api=None):
+        """Serve a feed of recommendations related to a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        work_identifier = pool.identifier
+
+        if not api:
+            api = NoveListAPI.from_config(self._db)
+        works = []
+        ignore, recommendations = api.lookup(work_identifier)
+        if recommendations:
+            recommended = recommendations.recommended_works
+            if recommended:
+                works = recommended.all()
+
+        url = self.cdn_url_for(
+            'recommendations', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(None)
+        feed = AcquisitionFeed(
+            self._db, 'Related Works', url, works, annotator=annotator
+        )
+
+        return feed_response(unicode(feed), None)
 
     def report(self, data_source, identifier_type, identifier):
         """Report a problem with a book."""
