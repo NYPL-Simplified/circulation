@@ -381,7 +381,7 @@ class CirculationData(object):
     def __init__(
             self, 
             data_source,
-            primary_identifier=None,
+            primary_identifier,
             licenses_owned=None,
             licenses_available=None,
             licenses_reserved=None,

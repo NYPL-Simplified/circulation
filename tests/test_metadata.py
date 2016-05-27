@@ -354,7 +354,8 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         circulation_data = CirculationData(formats=[drm_format],
-                            data_source=edition.data_source)
+                            data_source=edition.data_source, 
+                            primary_identifier=edition.primary_identifier)
         circulation_data.apply(pool)
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
@@ -395,7 +396,8 @@ class TestMetadataImporter(DatabaseTest):
         )
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
-            links=[link]
+            primary_identifier=edition.primary_identifier, 
+            links=[link], 
         )
 
         replace = ReplacementPolicy(
@@ -411,6 +413,7 @@ class TestMetadataImporter(DatabaseTest):
 
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
+            primary_identifier=edition.primary_identifier, 
             links=[]
         )
         replace = ReplacementPolicy(
@@ -595,6 +598,7 @@ class TestMetadata(DatabaseTest):
         eq_(equivalency.output.type, u"abc")
         eq_(equivalency.output.identifier, u"def")
 
+
     def test_metadata_can_be_deepcopied(self):
         # Check that we didn't put something in the metadata that
         # will prevent it from being copied. (e.g., self.log)
@@ -604,7 +608,12 @@ class TestMetadata(DatabaseTest):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
         measurement = MeasurementData(Measurement.RATING, 5)
-        circulation = CirculationData(0, 0, 0, 0)
+        circulation = CirculationData(data_source=DataSource.GUTENBERG,
+            primary_identifier=identifier, 
+            licenses_owned=0, 
+            licenses_available=0, 
+            licenses_reserved=0, 
+            patrons_in_hold_queue=0)
         primary_as_data = IdentifierData(
             type=identifier.type, identifier=identifier.identifier
         )

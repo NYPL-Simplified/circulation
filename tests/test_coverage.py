@@ -405,7 +405,9 @@ class TestCoverageProvider(DatabaseTest):
         metadata = Metadata(output_source)
         # We've got a CirculationData object that includes an open-access download.
         link = LinkData(rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://foo.com/")
-        circulationdata = CirculationData(output_source, links=[link])
+        circulationdata = CirculationData(output_source, 
+            primary_identifier=metadata.primary_identifier, 
+            links=[link])
 
         provider.set_meta_circ_data(
             identifier, metadata, circulationdata, 
@@ -530,6 +532,10 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         language='eng',
         title=u'A Girl Named Disaster',
         published=datetime.datetime(1998, 3, 1, 0, 0),
+        primary_identifier=IdentifierData(
+            type=Identifier.OVERDRIVE_ID,
+            identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+        ),
         identifiers = [
             IdentifierData(
                     type=Identifier.OVERDRIVE_ID,
@@ -552,7 +558,9 @@ class TestBibliographicCoverageProvider(DatabaseTest):
 
     CIRCULATION_DATA = CirculationData(
         DataSource.OVERDRIVE,
+        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
     )
+
 
     def test_edition(self):
         provider = BibliographicCoverageProvider(self._db, None,
@@ -618,7 +626,10 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         assert isinstance(result, CoverageFailure)
         eq_("No license pool available", result.exception)
 
-        edition, lp = self._edition(with_license_pool=True)
+        edition, lp = self._edition(data_source_name=DataSource.OVERDRIVE, 
+            identifier_type=Identifier.OVERDRIVE_ID, 
+            identifier_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
+            with_license_pool=True)
 
         # If no metadata is passed in, a CoverageRecord results.
         result = provider.set_meta_circ_data(edition.primary_identifier, None, None)
