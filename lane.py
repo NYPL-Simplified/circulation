@@ -24,7 +24,6 @@ from sqlalchemy.orm import (
     defer,
     lazyload,
 )
-from sqlalchemy.sql.functions import func
 
 from model import (
     CustomList,
@@ -38,7 +37,7 @@ from model import (
     WorkGenre,
 )
 from facets import FacetConstants
-
+import util.query_fast_count
 import elasticsearch
 
 class Facets(FacetConstants):
@@ -356,17 +355,9 @@ class Pagination(object):
             return True
         return self.query_size <= (self.offset+1) * self.size
 
-    def _get_count(self, q):
-        """Counts the results of a query without using super-slow subquery"""
-
-        count_q = q.enable_eagerloads(False).statement.\
-                with_only_columns([func.count()]).order_by(None)
-        count = q.session.execute(count_q).scalar()
-        return count
-
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = self._get_count(q)
+        self.query_size = q.fast_count()
         return q.offset(self.offset).limit(self.size)
 
 
