@@ -18,6 +18,7 @@ from metadata_layer import (
     LinkData,
     Metadata,
     IdentifierData,
+    RecommendationData,
     ReplacementPolicy,
     SubjectData,
     ContributorData,
@@ -537,6 +538,33 @@ class TestContributorData(DatabaseTest):
         eq_(contributor_data.family_name, contributor.family_name)
         eq_(contributor_data.wikipedia_name, contributor.wikipedia_name)
         eq_(contributor_data.biography, contributor.biography)
+
+
+class TestRecommendationData(DatabaseTest):
+
+    def test_recommended_works(self):
+        work = self._work(with_license_pool=True, with_open_access_download=True)
+        isbn = self._identifier(identifier_type=Identifier.ISBN)
+        source = work.license_pools[0].data_source
+        work.license_pools[0].identifier.equivalent_to(source, isbn, 1)
+
+        recommendations = RecommendationData(source)
+        recommendations.identifiers = [isbn]
+        result = recommendations.recommended_works
+        eq_(1, len(result.all()))
+
+        # It works with IdentifierData as well.
+        recommendations.identifiers = []
+        recommendations.identifiers.append(
+            IdentifierData(isbn.type, isbn.identifier)
+        )
+        result = recommendations.recommended_works
+        eq_(1, len(result.all()))
+
+        # Two of the same/similar identifiers still only lead to one result.
+        recommendations.identifiers.append(isbn)
+        result = recommendations.recommended_works
+        eq_(1, len(result.all()))
 
 
 class TestMetadata(DatabaseTest):

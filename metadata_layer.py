@@ -11,10 +11,11 @@ from collections import defaultdict
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
 from dateutil.parser import parse
-from sqlalchemy.sql.expression import and_
+from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from sqlalchemy.orm import aliased
 import csv
 import datetime
 import logging
@@ -29,6 +30,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    Equivalency,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -37,6 +39,7 @@ from model import (
     PresentationCalculationPolicy,
     RightsStatus,
     Representation,
+    Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
 
@@ -360,6 +363,42 @@ class FormatData(object):
                 "Expected LinkData object, got %s" % type(link)
             )
         self.link = link
+
+
+class RecommendationData(object):
+
+    def __init__(self, data_source, identifiers=None):
+        self.data_source = data_source
+        self.identifiers = identifiers or []
+
+    @property
+    def recommended_works(self):
+        identifier_ids = []
+        _db = Session.object_session(self.data_source)
+        for identifier_data in self.identifiers[:]:
+            if isinstance(identifier_data, Identifier):
+                identifier = identifier_data
+            else:
+                identifier, ignore = Identifier.for_foreign_id(
+                    _db, identifier_data.type, identifier_data.identifier,
+                    autocreate=False
+                )
+            if not identifier:
+                self.identifiers.remove(identifier_data)
+                continue
+            identifier_ids.append(identifier.id)
+
+        equivalent_identifier = aliased(Identifier)
+        works_q = Work.feed_query(_db)
+        works_q = works_q.join(Identifier.equivalencies).\
+            join(equivalent_identifier, Equivalency.output).\
+            filter(or_(
+                Identifier.id.in_(identifier_ids),
+                equivalent_identifier.id.in_(identifier_ids)
+            ))
+
+        return works_q
+
 
 class CirculationData(object):
 
