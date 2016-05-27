@@ -37,7 +37,7 @@ from model import (
     WorkGenre,
 )
 from facets import FacetConstants
-import util.query_fast_count
+from util import fast_query_count
 import elasticsearch
 
 class Facets(FacetConstants):
@@ -357,7 +357,7 @@ class Pagination(object):
 
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = q.fast_count()
+        self.query_size = fast_query_count(q)
         return q.offset(self.offset).limit(self.size)
 
 
