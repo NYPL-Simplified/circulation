@@ -580,7 +580,6 @@ class TestMetadata(DatabaseTest):
         for field in Metadata.BASIC_EDITION_FIELDS:
             eq_(getattr(edition, field), getattr(metadata, field))
 
-
         e_contribution = edition.contributions[0]
         m_contributor_data = metadata.contributors[0]
         eq_(e_contribution.contributor.name, m_contributor_data.sort_name)

@@ -5042,13 +5042,12 @@ class CachedFeed(Base):
             self.facets, self.pagination,
             self.timestamp, length
         )
-    
+
 
 Index(
     "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
-
 
 
 class LicensePool(Base):
@@ -5298,7 +5297,6 @@ class LicensePool(Base):
                 return True
         return False
 
-
     def editions_in_priority_order(self):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
@@ -5325,7 +5323,6 @@ class LicensePool(Base):
                 return -2
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
-
 
     # TODO:  policy is not used in this method.  Removing argument
     # breaks many-many tests, and needs own branch.
@@ -5519,7 +5516,6 @@ class LicensePool(Base):
             if a and not a % batch_size:
                 _db.commit()
         _db.commit()
-
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Find or create a Work for this LicensePool.
@@ -5721,7 +5717,6 @@ class LicensePool(Base):
 
         return best
 
-
     @property
     def best_license_link(self):
         """Find the best available licensing link for the work associated
@@ -5758,7 +5753,7 @@ class LicensePool(Base):
         )
         lpdm.resource = resource
         return lpdm
-        
+
 
 Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
@@ -7012,6 +7007,7 @@ class CustomList(Base):
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
         return entry, was_new
+
 
 class CustomListEntry(Base):
 

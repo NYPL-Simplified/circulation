@@ -745,7 +745,6 @@ class Lane(object):
             list_ids = None
         return list_data_source_id, list_ids
 
-
     @classmethod
     def from_description(cls, _db, parent, description):
         genre = None

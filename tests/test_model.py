@@ -998,8 +998,6 @@ class TestLicensePool(DatabaseTest):
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
 
-
-
     def test_better_open_access_pool_than(self):
 
         gutenberg_1 = self._licensepool(
@@ -1060,7 +1058,6 @@ class TestLicensePool(DatabaseTest):
         )
         eq_(True, better(no_resource, None))
         eq_(False, better(no_resource, gutenberg_1))
-        
 
     def test_with_complaint(self):
         type = iter(Complaint.VALID_TYPES)
@@ -1162,7 +1159,6 @@ class TestLicensePool(DatabaseTest):
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
 
-
     def test_editions_in_priority_order(self):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
         edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
@@ -1183,7 +1179,6 @@ class TestLicensePool(DatabaseTest):
 
         for index, edition in enumerate(editions_correct):
             eq_(editions_contender[index].title, editions_correct[index].title)
-
 
     def test_set_presentation_edition(self):
         """
@@ -1370,8 +1365,6 @@ class TestWork(DatabaseTest):
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
-        
-
 
     def test_set_presentation_ready(self):
         work = self._work(with_license_pool=True)
@@ -1438,7 +1431,6 @@ class TestWork(DatabaseTest):
         results = work.classifications_with_genre().all()
         
         eq_([classification2, classification1], results)
-
 
     def test_mark_licensepools_as_superceded(self):
         # A commercial LP that somehow got superceded will be
@@ -1520,7 +1512,6 @@ class TestWork(DatabaseTest):
         eq_(gitenberg1.superceded, True)
         eq_(gitenberg2.superceded, False)
 
-
     def test_work_remains_viable_on_pools_suppressed(self):
         """ If a work has all of its pools suppressed, the work's author, title, 
         and subtitle still have the last best-known info in them.
@@ -1575,9 +1566,6 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder", work.author)
         eq_("Adder, Alice", work.sort_author)
 
-
-
-
     def test_work_updates_info_on_pool_suppressed(self):
         """ If the provider of the work's presentation edition gets suppressed, 
         the work will choose another child license pool's presentation edition as 
@@ -1630,7 +1618,6 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
-
 
 
 class TestCirculationEvent(DatabaseTest):
