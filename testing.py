@@ -686,3 +686,7 @@ class MockRequestsResponse(object):
 
     def json(self):
         return json.loads(self.content)
+
+    @property
+    def text(self):
+        return self.content.decode("utf8")
