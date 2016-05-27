@@ -1019,14 +1019,14 @@ class TestPagination(DatabaseTest):
         pagination.apply(query)
         eq_(False, pagination.has_next_page)
 
-        # When there are more works in the query, it doesn't.
+        # When there are more results in the query, it does.
         for num in range(3):
             # Create three works.
             self._work()
         pagination.apply(query)
         eq_(True, pagination.has_next_page)
 
-        # When there aren't, pagination has_next_page.
+        # When we reach the end of results, there's no next page.
         pagination.offset = 1
         eq_(False, pagination.has_next_page)
 
