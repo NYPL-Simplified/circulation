@@ -164,12 +164,19 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
 
     def __init__(self, *args, **kwargs):
         super(MockOPDSImportCoverageProvider, self).__init__(*args, **kwargs)
+        self.batches = []
+        self.finalized = []
         self.import_results = []
 
-    def queue_import_results(self, editions, messages_by_id, next_links):
-        self.import_results.insert(0, (editions, messages_by_id, next_links))
+    def queue_import_results(self, editions, messages_by_id, next_links=None):
+        self.import_results.insert(0, (editions, messages_by_id, next_links or []))
 
-    def lookup_and_import_batch(self, *args, **kwargs):
+    def finalize_edition(self, edition):
+        self.finalized.append(edition)
+        super(MockOPDSImportCoverageProvider, self).finalize_edition(edition)
+
+    def lookup_and_import_batch(self, batch):
+        self.batches.append(batch)
         return self.import_results.pop()
 
 

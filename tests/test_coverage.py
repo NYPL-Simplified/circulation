@@ -36,6 +36,7 @@ from api.coverage import (
     MetadataWranglerCoverageProvider,
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
+    MockOPDSImportCoverageProvider,
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
@@ -68,9 +69,9 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(False, f2.transient)
 
     def _provider(self):
-        """Create a generic OPDSImportCoverageProvider for testing purposes."""
+        """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
         source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        return OPDSImportCoverageProvider("test provider", [], source)
+        return MockOPDSImportCoverageProvider("mock provider", [], source)
 
     def test_badresponseexception_on_non_opds_feed(self):
 
@@ -112,6 +113,29 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         work = pool.work
         eq_(work, edition.work)
         eq_(True, work.presentation_ready)
+
+    def test_import_batch(self):
+        provider = self._provider()
+
+        edition = self._edition()
+
+        identifier = self._identifier()
+        messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
+
+        provider.queue_import_results([edition], messages_by_id)
+
+        fake_batch = [object()]
+        success, failure = provider.import_batch(fake_batch)
+
+        # The batch was provided to lookup_and_import_batch.
+        eq_([fake_batch], provider.batches)
+
+        # The edition was finalized.
+        eq_([success], [e.primary_identifier for e in provider.finalized])
+
+        # The failure was converted to a CoverageFailure object.
+        eq_(identifier, failure.obj)
+        eq_(True, failure.transient)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
