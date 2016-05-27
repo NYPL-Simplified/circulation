@@ -3250,19 +3250,18 @@ class Work(Base):
         )
 
     @classmethod
-    def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
-        """Return a query against Work suitable for using in OPDS feeds."""
+    def feed_query(cls, _db, languages=None, availability=ALL):
+        """Return a query against Work suitable for using in an OPDS feed."""
+
         q = _db.query(Work).join(Work.presentation_edition)
         q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
         q = q.options(
             contains_eager(Work.license_pools),
             contains_eager(Work.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
-            contains_eager(Work.license_pools, LicensePool.edition),
             contains_eager(Work.license_pools, LicensePool.identifier),
             defer(Work.verbose_opds_entry),
             defer(Work.presentation_edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.edition, Edition.extra),
         )
         if availability == cls.CURRENTLY_AVAILABLE:
             or_clause = or_(
@@ -3273,8 +3272,9 @@ class Work(Base):
                 LicensePool.open_access==True,
                 LicensePool.licenses_owned > 0)
         q = q.filter(or_clause)
+        if languages:
+            q = q.filter(Edition.language.in_(languages))
         q = q.filter(
-            Edition.language.in_(languages),
             Work.presentation_ready == True,
             Edition.medium == Edition.BOOK_MEDIUM,
         )
