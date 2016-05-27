@@ -88,15 +88,25 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lane_for_other_languages(self):
 
-        exclude = ['eng', 'spa']
-        lane = lane_for_other_languages(self._db, exclude)
-        eq_(None, lane.languages)
-        eq_(exclude, lane.exclude_languages)
-        eq_("Other Languages", lane.name)
-        eq_(
-            ['Adult Fiction', 'Adult Nonfiction', 'Children & Young Adult'],
-            [x.name for x in lane.sublanes.lanes]
-        )
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.LANGUAGE_POLICY: {
+                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
+                }
+            }
+
+            exclude = ['eng', 'spa']
+            lane = lane_for_other_languages(self._db, exclude)
+            eq_(None, lane.languages)
+            eq_(exclude, lane.exclude_languages)
+            eq_("Other Languages", lane.name)
+            eq_(
+                ['German', 'French', 'Italian'],
+                [x.name for x in lane.sublanes.lanes]
+            )
+            eq_([['ger'], ['fre'], ['ita']],
+                [x.languages for x in lane.sublanes.lanes]
+            )
 
     def test_make_lanes_default(self):
         with temp_config() as config:

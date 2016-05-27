@@ -42,14 +42,14 @@ def make_lanes_default(_db):
     # Fiction", "Adult Nonfiction", and "Children/YA" sublanes.
     #
     # Finally the top-level LaneList includes an "Other Languages" sublane
-    # which covers all other languages. This lane contains "Adult Fiction",
-    # "Adult Nonfiction", and "Children/YA" sublanes.
+    # which covers all other languages. This lane contains sublanes for each
+    # of the tiny-collection languages in the configuration.
     seen_languages = set()
 
     top_level_lanes = []
 
     def language_list(x):
-        if isinstance(language_set, basestring):
+        if isinstance(x, basestring):
             return x.split(',')
         return x
 
@@ -339,44 +339,27 @@ def lane_for_small_collection(_db, languages):
 def lane_for_other_languages(_db, exclude_languages):
     """Make a lane for all books not in one of the given languages."""
 
-    YA = Classifier.AUDIENCE_YOUNG_ADULT
-    CHILDREN = Classifier.AUDIENCE_CHILDREN
+    language_lanes = []
+    other_languages = Configuration.tiny_collection_languages()
 
-    common_args = dict(
-        exclude_languages=exclude_languages,
-        genres=None,
-    )
-
-    adult_fiction = Lane(
-        _db, 
-        full_name="Adult Fiction",
-        display_name="Fiction",
-        fiction=True, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
-    )
-    adult_nonfiction = Lane(
-        _db, full_name="Adult Nonfiction", 
-        display_name="Nonfiction",
-        fiction=False, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
-    )
-
-    ya_children = Lane(
-        _db, 
-        full_name="Children & Young Adult", 
-        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-        audiences=[YA, CHILDREN],
-        **common_args
-    )
+    for language_set in other_languages:
+        name = LanguageCodes.name_for_languageset(language_set)
+        language_lane = Lane(
+            _db, full_name=name,
+            genres=None,
+            fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+            searchable=True,
+            languages=language_set,
+        )
+        language_lanes.append(language_lane)
 
     lane = Lane(
         _db, 
         full_name="Other Languages", 
-        sublanes=[adult_fiction, adult_nonfiction, ya_children],
+        sublanes=language_lanes,
+        exclude_languages=exclude_languages,
         searchable=True,
-        **common_args
+        genres=None,
     )
     lane.default_for_language = True
     return lane

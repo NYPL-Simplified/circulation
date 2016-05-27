@@ -8,7 +8,10 @@ import sys
 import time
 import urlparse
 
-from sqlalchemy import or_
+from sqlalchemy import (
+    or_,
+    func,
+)
 from sqlalchemy.orm import (
     contains_eager, 
     defer
@@ -475,3 +478,16 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
+class LanguageListScript(Script):
+    """List all the languages with at least one non-open access work
+    in the collection.
+    """
+
+    def do_run(self):
+        query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
+        query = query.join(Edition.primary_identifier).join(Identifier.licensed_through)
+        query = query.filter(LicensePool.open_access==False)
+
+        sorted_languages = sorted(query.all(), key=lambda x: -x[1])
+
+        print "\n".join(["%s %i" % l for l in sorted_languages])
