@@ -145,6 +145,16 @@ def genres():
         return data
     return flask.jsonify(**data)
 
+@app.route('/admin/circulation_events')
+@returns_problem_detail
+@requires_admin
+def circulation_events():
+    """Returns a JSON representation of the most recent circulation events."""
+    data = app.manager.admin_feed_controller.circulation_events()
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -157,9 +167,10 @@ def admin_sign_in_again():
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     return flask.render_template_string(sign_in_again_template)
 
-@app.route('/admin')
-@app.route('/admin/')
-def admin_view():
+@app.route('/admin/web')
+@app.route('/admin/web/')
+@app.route('/admin/web/<path:etc>') # catchall for single-page URLs
+def admin_view(**kwargs):
     admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
