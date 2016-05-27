@@ -237,13 +237,25 @@ class CirculationManagerAnnotator(Annotator):
 
         # Now we need to generate a <link> tag for every delivery mechanism
         # that has well-defined media types.
-
         link_tags = self.acquisition_links(
             active_license_pool, active_loan, active_hold, feed,
             data_source_name, identifier
         )
         for tag in link_tags:
             entry.append(tag)
+
+        # Add a link for related recommendations.
+        feed.add_link_to_entry(
+            entry,
+            rel='related',
+            type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            title='Recommended Works',
+            href=self.url_for(
+                'recommendations',
+                data_source=data_source_name, identifier_type=identifier.type,
+                identifier=identifier.identifier, _external=True
+            )
+        )
 
     def annotate_feed(self, feed, lane):
         if self.patron:

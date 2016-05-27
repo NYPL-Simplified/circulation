@@ -251,6 +251,18 @@ class TestOPDS(DatabaseTest):
         borrow_rels = [x['rel'] for x in borrow_links]
         assert OPDSFeed.BORROW_REL in borrow_rels
 
+    def test_acquisition_feed_includes_recommendations_link(self):
+        w1 = self._work(with_open_access_download=True)
+        self._db.commit()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [w1], CirculationManagerAnnotator(
+                None, Fantasy, test_mode=True))
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        [recommendations_link] = [x for x in entry['links'] if x['rel'] == 'related']
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, recommendations_link['type'])
+        assert '/recommendations' in recommendations_link['href']
+
     def test_active_loan_feed(self):
         patron = self.default_patron
         raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
