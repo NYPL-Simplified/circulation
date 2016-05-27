@@ -41,13 +41,18 @@ class TestURNLookupController(DatabaseTest):
         self.controller = URNLookupController(self._db, True)
 
     def test_process_urn_invalid_urn(self):
-        code, message = self.controller.process_urn("not even a URN")
+        urn = "not even a URN"
+        self.controller.process_urn(urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[urn]
         eq_(400, code)
         eq_(INVALID_URN.detail, message)
 
     def test_process_urn_initial_registration(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(201, code)
         eq_(URNLookupController.IDENTIFIER_REGISTERED, message)
         [unresolved] = self.controller.unresolved_identifiers
@@ -57,7 +62,9 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urn_pending_resolve_attempt(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)
         unresolved, is_new = UnresolvedIdentifier.register(self._db, identifier)
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(URNLookupController.WORKING_TO_RESOLVE_IDENTIFIER, message)
 
@@ -66,23 +73,26 @@ class TestURNLookupController(DatabaseTest):
         unresolved, is_new = UnresolvedIdentifier.register(self._db, identifier)
         unresolved.status = 500
         unresolved.exception = "foo"
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(500, code)
         eq_("foo", message)
 
     def test_process_urn_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        code, message = self.controller.process_urn(identifier.urn)
-        eq_(None, code)
-        eq_(None, message)
+        self.controller.process_urn(identifier.urn)
+        eq_(0, len(self.controller.messages_by_urn.keys()))
         eq_([(work.presentation_edition.primary_identifier, work)], self.controller.works)
 
     def test_process_urn_work_is_not_presentation_ready(self):
         work = self._work(with_license_pool=True)
         work.presentation_ready = False
         identifier = work.license_pools[0].identifier
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(self.controller.WORK_NOT_PRESENTATION_READY, message)
         eq_([], self.controller.works)
@@ -90,7 +100,9 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urn_work_not_created_yet(self):
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(self.controller.WORK_NOT_CREATED, message)
         eq_([], self.controller.works)        
@@ -100,8 +112,10 @@ class TestURNLookupController(DatabaseTest):
         controller = URNLookupController(self._db, False)
 
         # Give it an identifier it doesn't recognize.
-        code, message = controller.process_urn(
-            Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000')
+        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
+        controller.process_urn(urn)
+        eq_(1, len(controller.messages_by_urn.keys()))
+        code, message = controller.messages_by_urn[urn]
 
         # Instead of creating a resolution task, it simply rejects the
         # input.

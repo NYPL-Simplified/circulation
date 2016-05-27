@@ -66,7 +66,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10596</id>
     <title>Cap and Gown</title>
-    <alternativeHeadline>A Treasury of College Verse</alternativeHeadline>
+    <schema:alternativeHeadline>A Treasury of College Verse</schema:alternativeHeadline>
     <summary></summary>
     <updated>2015-01-02T16:56:40Z</updated>
     <simplified:pwid>a3389f1b-a7b2-c328-f6fc-c50ea5791e65</simplified:pwid>
@@ -130,7 +130,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10058</id>
     <title>The Divine Office</title>
-    <alternativeHeadline>A Study of the Roman Breviary</alternativeHeadline>
+    <schema:alternativeHeadline>A Study of the Roman Breviary</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Quigley, Edward J.</simplified:sort_name>
@@ -182,7 +182,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10341</id>
     <title>The Great Events by Famous Historians, Volume 21</title>
-    <alternativeHeadline>The Recent Days (1910-1914)</alternativeHeadline>
+    <schema:alternativeHeadline>The Recent Days (1910-1914)</schema:alternativeHeadline>
     <summary></summary>
     <updated>2015-01-02T16:56:40Z</updated>
     <simplified:pwid>56120ab1-bbc2-4d3c-1ee2-070645cd37f0</simplified:pwid>
@@ -316,7 +316,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10567</id>
     <title>The Guardian Angel</title>
-    <alternativeHeadline>Ship's Company, Part 7.</alternativeHeadline>
+    <schema:alternativeHeadline>Ship's Company, Part 7.</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
@@ -350,7 +350,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10134</id>
     <title>John Wesley, Jr.</title>
-    <alternativeHeadline>The Story of an Experiment</alternativeHeadline>
+    <schema:alternativeHeadline>The Story of an Experiment</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Brummitt, Dan B. (Dan Brearley)</simplified:sort_name>
@@ -403,7 +403,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10435</id>
     <title>The Atlantic Monthly, Volume 02, No. 12, October, 1858</title>
-    <alternativeHeadline>A Magazine of Literature, Art, and Politics</alternativeHeadline>
+    <schema:alternativeHeadline>A Magazine of Literature, Art, and Politics</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Various</simplified:sort_name>
@@ -455,7 +455,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10572</id>
     <title>Manners Makyth Man</title>
-    <alternativeHeadline>Ship's Company, Part 12.</alternativeHeadline>
+    <schema:alternativeHeadline>Ship's Company, Part 12.</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
@@ -568,7 +568,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10210</id>
     <title>Wolves of the Sea</title>
-    <alternativeHeadline>Being a Tale of the Colonies from the Manuscript of One Geoffry Carlyle, Seaman, Narrating Certain Strange Adventures Which Befell Him Aboard the Pirate Craft "Namur"</alternativeHeadline>
+    <schema:alternativeHeadline>Being a Tale of the Colonies from the Manuscript of One Geoffry Carlyle, Seaman, Narrating Certain Strange Adventures Which Befell Him Aboard the Pirate Craft "Namur"</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Parrish, Randall</simplified:sort_name>
@@ -638,7 +638,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10606</id>
     <title>The Tragedie of Hamlet, Prince of Denmark</title>
-    <alternativeHeadline>A Study with the Text of the Folio of 1623</alternativeHeadline>
+    <schema:alternativeHeadline>A Study with the Text of the Folio of 1623</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Shakespeare, William</simplified:sort_name>
@@ -662,7 +662,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10609</id>
     <title>English Literature</title>
-    <alternativeHeadline>Its History and Its Significance for the Life of the English-Speaking World</alternativeHeadline>
+    <schema:alternativeHeadline>Its History and Its Significance for the Life of the English-Speaking World</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Long, William J. (William Joseph)</simplified:sort_name>
@@ -817,7 +817,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10131</id>
     <title>Required Poems for Reading and Memorizing</title>
-    <alternativeHeadline>Third and Fourth Grades, Prescribed by State Courses of Study</alternativeHeadline>
+    <schema:alternativeHeadline>Third and Fourth Grades, Prescribed by State Courses of Study</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Anonymous</simplified:sort_name>
@@ -886,7 +886,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10121</id>
     <title>The Literature of Arabia</title>
-    <alternativeHeadline>With Critical and Biographical Sketches by Epiphanius Wilson</alternativeHeadline>
+    <schema:alternativeHeadline>With Critical and Biographical Sketches by Epiphanius Wilson</schema:alternativeHeadline>
     <summary></summary>
     <updated>2015-01-02T16:56:42Z</updated>
     <simplified:pwid>8315b94b-fa44-1a63-3d1d-a1ea83d53687</simplified:pwid>
@@ -947,7 +947,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10565</id>
     <title>Watch-Dogs</title>
-    <alternativeHeadline>Ship's Company, Part 5.</alternativeHeadline>
+    <schema:alternativeHeadline>Ship's Company, Part 5.</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
@@ -1000,7 +1000,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10517</id>
     <title>Government and Rebellion</title>
-    <alternativeHeadline>A Sermon Delivered in the North Broad Street Presbyterian Church, Sunday Morning, April 28, 1861</alternativeHeadline>
+    <schema:alternativeHeadline>A Sermon Delivered in the North Broad Street Presbyterian Church, Sunday Morning, April 28, 1861</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Adams, E. E. (Ezra Eastman)</simplified:sort_name>
@@ -1122,7 +1122,7 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10560</id>
     <title>The Last of the Foresters</title>
-    <alternativeHeadline>Or, Humors on the Border; A story of the Old Virginia Frontier</alternativeHeadline>
+    <schema:alternativeHeadline>Or, Humors on the Border; A story of the Old Virginia Frontier</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Cooke, John Esten</simplified:sort_name>
@@ -1170,9 +1170,9 @@
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10520</id>
     <title>The Compleat Cook</title>
-    <alternativeHeadline>Expertly Prescribing the Most Ready Wayes, Whether Italian,
+    <schema:alternativeHeadline>Expertly Prescribing the Most Ready Wayes, Whether Italian,
 Spanish or French, for Dressing of Flesh and Fish, Ordering
-Of Sauces or Making of Pastry</alternativeHeadline>
+Of Sauces or Making of Pastry</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>W. M.</simplified:sort_name>
@@ -1190,7 +1190,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10357</id>
     <title>Life of Johnson, Volume 4</title>
-    <alternativeHeadline>1780-1784</alternativeHeadline>
+    <schema:alternativeHeadline>1780-1784</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Boswell, James</simplified:sort_name>
@@ -1281,7 +1281,7 @@ Of Sauces or Making of Pastry</alternativeHeadline>
   <entry schema:additionalType="http://schema.org/Book">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10381</id>
     <title>The History of a Crime</title>
-    <alternativeHeadline>The Testimony of an Eye-Witness</alternativeHeadline>
+    <schema:alternativeHeadline>The Testimony of an Eye-Witness</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Hugo, Victor</simplified:sort_name>

@@ -893,7 +893,9 @@ class AcquisitionFeed(OPDSFeed):
             **kw
         )
         if edition.subtitle:
-            entry.extend([E.alternativeHeadline(edition.subtitle)])
+            subtitle_tag = E._makeelement("{%s}alternativeHeadline" % schema_ns)
+            subtitle_tag.text = edition.subtitle
+            entry.append(subtitle_tag)
 
         if license_pool:
             provider_name_attr = "{%s}ProviderName" % bibframe_ns
