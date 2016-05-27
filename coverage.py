@@ -438,5 +438,3 @@ class BibliographicCoverageProvider(CoverageProvider):
     def process_batch(self):
         """Returns a list of successful identifiers and CoverageFailures"""
         raise NotImplementedError
-
-
