@@ -377,6 +377,9 @@ class RecommendationData(object):
 
     @property
     def recommended_works(self):
+        """:return: a query of all of the recommended works in self.identifiers
+        or None
+        """
         identifier_ids = []
         _db = Session.object_session(self.data_source)
         for identifier_data in self.identifiers[:]:
@@ -392,6 +395,9 @@ class RecommendationData(object):
                 continue
             identifier_ids.append(identifier.id)
 
+        if not identifier_ids:
+            return None
+
         equivalent_identifier = aliased(Identifier)
         works_q = Work.feed_query(_db)
         works_q = works_q.join(Identifier.equivalencies).\
@@ -400,9 +406,7 @@ class RecommendationData(object):
                 Identifier.id.in_(identifier_ids),
                 equivalent_identifier.id.in_(identifier_ids)
             ))
-
         return works_q
-
 
 class CirculationData(object):
 

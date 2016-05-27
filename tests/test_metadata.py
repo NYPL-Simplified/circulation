@@ -561,10 +561,15 @@ class TestRecommendationData(DatabaseTest):
         result = recommendations.recommended_works
         eq_(1, len(result.all()))
 
-        # Two of the same/similar identifiers still only lead to one result.
+        # Two of the same identifiers still only lead to one result.
         recommendations.identifiers.append(isbn)
         result = recommendations.recommended_works
         eq_(1, len(result.all()))
+
+        # No identifiers returns None.
+        recommendations.identifiers = []
+        result = recommendations.recommended_works
+        eq_(None, result)
 
 
 class TestMetadata(DatabaseTest):
