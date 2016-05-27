@@ -9,6 +9,8 @@ import pkgutil
 import os
 import re
 import string
+from sqlalchemy.sql.functions import func
+
 
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""
@@ -16,7 +18,15 @@ def batch(iterable, size=1):
     l = len(iterable)
     for start in range(0, l, size):
         yield iterable[start:min(start+size, l)]
-    
+
+def fast_query_count(query):
+    """Counts the results of a query without using super-slow subquery"""
+
+    count_q = query.enable_eagerloads(False).statement.\
+        with_only_columns([func.count()]).order_by(None)
+    count = query.session.execute(count_q).scalar()
+    return count
+
 
 class LanguageCodes(object):
     """Convert between ISO-639-2 and ISO-693-1 language codes.

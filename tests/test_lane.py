@@ -934,6 +934,7 @@ class TestLanesQuery(DatabaseTest):
         eq_([], young_adult.genre_ids)
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, young_adult.fiction)
 
+
 class TestFilters(DatabaseTest):
 
     def test_only_show_ready_deliverable_works(self):
@@ -984,7 +985,7 @@ class TestFilters(DatabaseTest):
         # w1 (owned licenses), w6 (open-access), and w7 (available
         # licenses)
         q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-        eq_([w1, w6, w7], q.all())
+        eq_(set([w1, w6, w7]), set(q.all()))
 
         # If we decide to show suppressed works, w4 shows up as well.
         q = Lane.only_show_ready_deliverable_works(
@@ -1005,5 +1006,36 @@ class TestFilters(DatabaseTest):
             # w6 still shows up because it's an open-access work.
             # w7 shows up because we own licenses and copies are available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_([w6, w7], q.all())
-            
+            eq_(set([w6, w7]), set(q.all()))
+
+
+class TestPagination(DatabaseTest):
+
+    def test_has_next_page(self):
+        query = self._db.query(Work)
+        pagination = Pagination(size=2)
+
+        # When the query is empty, pagination doesn't have a next page.
+        pagination.apply(query)
+        eq_(False, pagination.has_next_page)
+
+        # When there are more results in the query, it does.
+        for num in range(3):
+            # Create three works.
+            self._work()
+        pagination.apply(query)
+        eq_(True, pagination.has_next_page)
+
+        # When we reach the end of results, there's no next page.
+        pagination.offset = 1
+        eq_(False, pagination.has_next_page)
+
+        # When the database is updated, pagination knows.
+        for num in range(3):
+            self._work()
+        pagination.apply(query)
+        eq_(True, pagination.has_next_page)
+
+        # Even when the query ends at the same size as a page, all is well.
+        pagination.offset = 2
+        eq_(False, pagination.has_next_page)
