@@ -152,8 +152,9 @@ class SimplifiedOPDSLookup(object):
 
 class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
 
-    def __init__(self, _db, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.responses = []
+        super(MockSimplifiedOPDSLookup, self).__init__(*args, **kwargs)
 
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
