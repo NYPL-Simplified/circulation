@@ -495,12 +495,18 @@ class LanguageListScript(Script):
             LicensePool.licenses_owned > 0
         ).filter(
             Edition.medium==Edition.BOOK_MEDIUM
+        ).filter(
+            Edition.language != None
         )
-
-        sorted_languages = sorted(query.all(), key=lambda x: -x[1])
+        name = LanguageCodes.name_for_languageset
+        sorted_languages = sorted(
+            query.all(), key=lambda x: (
+                -x[1], name(x[0])
+            )
+        )
         sorted_languages = [
-            (language, count, LanguageCodes.name_for_languageset([language]))
-            for (language, count) in sorted_languages if language
+            (language, count, name(language))
+            for (language, count) in sorted_languages
         ]
 
         print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
