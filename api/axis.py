@@ -166,7 +166,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             if identifier in remainder:
                 remainder.remove(identifier)
             pool, is_new = bibliographic.license_pool(self._db)
-            availability.update(pool, is_new)
+            availability.apply(pool, is_new)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -185,13 +185,17 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             self.log.info(
                 "Reaping %r", removed_identifier
             )
+
             availability = CirculationData(
+                data_source=pool.data_source,
+                primary_identifier=removed_identifier,
                 licenses_owned=0,
                 licenses_available=0,
                 licenses_reserved=0,
-                patrons_in_hold_queue=0
+                patrons_in_hold_queue=0,
             )
-            availability.update(pool, False)
+            availability.apply(pool, False)
+
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -251,7 +255,7 @@ class Axis360CirculationMonitor(Monitor):
                 replace_contributions=True,
                 replace_formats=True,
             )
-        availability.update(license_pool, new_license_pool)
+        availability.apply(license_pool, new_license_pool)
         return edition, license_pool
 
 
