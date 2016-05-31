@@ -7,15 +7,13 @@ from oauth2client import client as GoogleClient
 
 class GoogleAuthService(object):
 
-    def __init__(self, client_json_file, redirect_uri, test_mode=False):
+    def __init__(self, config, redirect_uri, test_mode=False):
         if test_mode:
             self.client = DummyGoogleClient()
         else:
-            self.client = GoogleClient.flow_from_clientsecrets(
-                client_json_file,
-                scope='https://www.googleapis.com/auth/userinfo.email',
-                redirect_uri=redirect_uri
-            )
+            config['redirect_uri'] = redirect_uri
+            config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
+            self.client = GoogleClient.OAuth2WebServerFlow(**config)
 
     def auth_uri(self, redirect_url):
         return self.client.step1_get_authorize_url(state=redirect_url)
@@ -26,9 +24,8 @@ class GoogleAuthService(object):
             return cls('/path', '/callback', test_mode)
         config = Configuration.integration(
             Configuration.GOOGLE_OAUTH_INTEGRATION
-        )
-        client_json_file = config[Configuration.GOOGLE_OAUTH_CLIENT_JSON]
-        return cls(client_json_file, redirect_uri, test_mode)
+        )['web']
+        return cls(config, redirect_uri, test_mode)
 
     def callback(self, request={}):
         """Google OAuth sign-in flow"""
