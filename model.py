@@ -310,7 +310,7 @@ def get_one_or_create(db, model, create_method='',
             __transaction.commit()
             return obj
         except IntegrityError, e:
-            logging.error(
+            logging.info(
                 "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs, 
                 kwargs, e)
             __transaction.rollback()
