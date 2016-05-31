@@ -202,7 +202,6 @@ class OverdriveAPI(object):
         expires_in = (overdrive_data['expires_in'] * 0.9)
         credential.expires = datetime.datetime.utcnow() + datetime.timedelta(
             seconds=expires_in)
-        self._db.commit()
 
     def get_library(self):
         url = self.LIBRARY_ENDPOINT % dict(library_id=self.library_id)
