@@ -788,7 +788,7 @@ class AcquisitionFeed(OPDSFeed):
                 return None
 
             if isinstance(work, BaseMaterializedWork):
-                identifier = work.identifier
+                identifier = work.license_pool.identifier
                 active_edition = None
             elif active_license_pool:
                 identifier = active_license_pool.identifier
@@ -893,7 +893,9 @@ class AcquisitionFeed(OPDSFeed):
             **kw
         )
         if edition.subtitle:
-            entry.extend([E.alternativeHeadline(edition.subtitle)])
+            subtitle_tag = E._makeelement("{%s}alternativeHeadline" % schema_ns)
+            subtitle_tag.text = edition.subtitle
+            entry.append(subtitle_tag)
 
         if license_pool:
             provider_name_attr = "{%s}ProviderName" % bibframe_ns

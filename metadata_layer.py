@@ -38,6 +38,7 @@ from model import (
     RightsStatus,
     Representation,
 )
+from classifier import NO_VALUE, NO_NUMBER
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -1263,6 +1264,8 @@ class Metadata(MetaToModelUtility):
             old_edition_value = getattr(edition, field)
             new_metadata_value = getattr(self, field)
             if new_metadata_value and (new_metadata_value != old_edition_value):
+                if new_metadata_value in [NO_VALUE, NO_NUMBER]:
+                    new_metadata_value = None
                 setattr(edition, field, new_metadata_value)
                 made_core_changes = True
 

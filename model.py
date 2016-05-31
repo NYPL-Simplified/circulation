@@ -108,6 +108,10 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from util.http import (
+    HTTP,
+    RemoteIntegrationException,
+)
 from util.permanent_work_id import WorkIDCalculator
 from util.summary import SummaryEvaluator
 
@@ -3611,6 +3615,10 @@ class Work(Base):
         for wg in by_genre.values():
             _db.delete(wg)
             changed = True
+
+        # ensure that work_genres is up to date without having to read from database again
+        self.work_genres = workgenres
+
         return workgenres, changed
 
 
@@ -4384,7 +4392,7 @@ class Subject(Base):
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
     SIMPLIFIED_GENRE = Classifier.SIMPLIFIED_GENRE
-    SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
+    SIMPLIFIED_FICTION_STATUS = Classifier.SIMPLIFIED_FICTION_STATUS
 
     by_uri = {
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
@@ -6034,7 +6042,8 @@ class Representation(Base):
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None, max_age=None, pause_before=0, allow_redirects=True,
-            presumed_media_type=None, debug=True, response_reviewer=None):
+            presumed_media_type=None, debug=True, response_reviewer=None,
+            exception_handler=None):
         """Retrieve a representation from the cache if possible.
         
         If not possible, retrieve it from the web and store it in the
@@ -6053,6 +6062,8 @@ class Representation(Base):
         """
         representation = None
         do_get = do_get or cls.simple_http_get
+
+        exception_handler = exception_handler or cls.record_exception
 
         # TODO: We allow representations of the same URL in different
         # media types, but we don't have a good solution here for
@@ -6124,6 +6135,8 @@ class Representation(Base):
         if pause_before:
             time.sleep(pause_before)
         media_type = None
+        fetch_exception = None
+        exception_traceback = None
         try:
             status_code, headers, content = do_get(url, headers)
             if response_reviewer:
@@ -6137,13 +6150,13 @@ class Representation(Base):
                 media_type = presumed_media_type
             if isinstance(content, unicode):
                 content = content.encode("utf8")
-        except Exception, e:
+        except Exception, fetch_exception:
             # This indicates there was a problem with making the HTTP
             # request, not that the HTTP request returned an error
             # condition.
-            logging.error("Error making HTTP request to %s", url, exc_info=e)
-            # TODO: exception doesn't seem to be used
-            exception = traceback.format_exc()
+            logging.error("Error making HTTP request to %s", url, exc_info=fetch_exception)
+            exception_traceback = traceback.format_exc()
+
             status_code = None
             headers = None
             content = None
@@ -6159,7 +6172,10 @@ class Representation(Base):
             representation, is_new = get_one_or_create(
                 _db, Representation, url=url, media_type=unicode(media_type))
 
-        representation.fetch_exception = exception
+        if fetch_exception:
+            exception_handler(
+                representation, fetch_exception, exception_traceback
+            )
         representation.fetched_at = fetched_at
 
         if status_code == 304:
@@ -6213,6 +6229,18 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return representation, False
+
+    @classmethod
+    def reraise_exception(cls, representation, exception, traceback):
+        """Deal with a fetch exception by re-raising it."""
+        raise exception
+
+    @classmethod
+    def record_exception(cls, representation, exception, traceback):
+        """Deal with a fetch exception by recording it
+        and moving on.
+        """
+        representation.fetch_exception = traceback
 
     @classmethod
     def cacheable_post(cls, _db, url, params, max_age=None,
@@ -6298,20 +6326,15 @@ class Representation(Base):
     @classmethod
     def simple_http_get(cls, url, headers, **kwargs):
         """The most simple HTTP-based GET."""
-        if not 'timeout' in kwargs:
-            kwargs['timeout'] = 20
-        
         if not 'allow_redirects' in kwargs:
             kwargs['allow_redirects'] = True
-        response = requests.get(url, headers=headers, **kwargs)
+        response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        if not 'timeout' in kwargs:
-            kwargs['timeout'] = 20
-        response = requests.post(url, headers=headers, **kwargs)
+        response = HTTP.post_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod

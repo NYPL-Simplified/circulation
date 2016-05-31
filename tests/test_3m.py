@@ -1,4 +1,8 @@
-from nose.tools import set_trace, eq_
+from nose.tools import (
+    assert_raises_regexp,
+    set_trace, 
+    eq_,
+)
 import datetime
 import os
 from model import (
@@ -12,9 +16,12 @@ from model import (
 )
 from threem import (
     ItemListParser,
+    MockThreeMAPI,
 )
+from . import DatabaseTest
+from util.http import BadResponseException
 
-class TestItemListParser(object):
+class BaseThreeMTest(object):
 
     base_path = os.path.split(__file__)[0]
     resource_path = os.path.join(base_path, "files", "3m")
@@ -23,6 +30,89 @@ class TestItemListParser(object):
     def get_data(cls, filename):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
+
+
+class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
+
+    def setup(self):
+        super(TestThreeMAPI, self).setup()
+        self.api = MockThreeMAPI(self._db)
+
+    def test_full_path(self):
+        id = self.api.library_id
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("foo"))
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("/foo"))
+        eq_("/cirrus/library/%s/foo" % id, 
+            self.api.full_path("/cirrus/library/%s/foo" % id)
+        )
+
+    def test_full_url(self):
+        id = self.api.library_id
+        eq_("http://3m.test/cirrus/library/%s/foo" % id,
+            self.api.full_url("foo"))
+        eq_("http://3m.test/cirrus/library/%s/foo" % id, 
+            self.api.full_url("/foo"))
+
+    def test_request_signing(self):
+        """Confirm a known correct result for the 3M request signing
+        algorithm.
+        """
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        [request] = self.api.requests
+        headers = request[-1]['headers']
+        eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
+        eq_('2.0', headers['3mcl-Version'])
+        expect = '3MCLAUTH b:ppuKJ2nf8OO3vCYhH3mJE8c7mjB6mGxzcPO3KOz4FTE='
+        eq_(expect, headers['3mcl-Authorization'])
+        
+        # Tweak one of the variables that go into the signature, and
+        # the signature changes.
+        self.api.library_id = self.api.library_id + "1"
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        request = self.api.requests[-1]
+        headers = request[-1]['headers']
+        assert headers['3mcl-Authorization'] != expect
+
+    def test_bibliographic_lookup(self):
+        data = self.get_data("item_metadata_single.xml")
+        metadata = []
+        self.api.queue_response(200, content=data)
+        identifier = self._identifier()
+        metadata = self.api.bibliographic_lookup(identifier)
+        eq_("The Incense Game", metadata.title)
+
+    def test_bad_response_raises_exception(self):
+        self.api.queue_response(500, content="oops")
+        identifier = self._identifier()
+        assert_raises_regexp(
+            BadResponseException, 
+            ".*Got status code 500.*",
+            self.api.bibliographic_lookup, identifier
+        )
+
+    def test_put_request(self):
+        """This is a basic test to make sure the method calls line up
+        right--there are more thorough tests in the circulation
+        manager, which actually uses this functionality.
+        """
+        self.api.queue_response(200, content="ok, you put something")
+        response = self.api.request('checkout', "put this!", method="PUT")
+
+        # The PUT request went through to the correct URL and the right
+        # payload was sent.
+        [[method, url, args, kwargs]] = self.api.requests
+        eq_("PUT", method)
+        eq_(self.api.full_url("checkout"), url)
+        eq_('put this!', kwargs['data'])
+
+        # The response is what we'd expect.
+        eq_(200, response.status_code)
+        eq_("ok, you put something", response.content)
+
+
+class TestItemListParser(BaseThreeMTest):
 
     def test_parse_author_string(cls):
         authors = list(ItemListParser.contributors_from_string(

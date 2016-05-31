@@ -23,6 +23,7 @@ from lane import (
 
 from app_server import (
     URNLookupController,
+    ErrorHandler,
     ComplaintController,
     load_facets_from_request,
     load_pagination_from_request,
@@ -40,13 +41,18 @@ class TestURNLookupController(DatabaseTest):
         self.controller = URNLookupController(self._db, True)
 
     def test_process_urn_invalid_urn(self):
-        code, message = self.controller.process_urn("not even a URN")
+        urn = "not even a URN"
+        self.controller.process_urn(urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[urn]
         eq_(400, code)
         eq_(INVALID_URN.detail, message)
 
     def test_process_urn_initial_registration(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(201, code)
         eq_(URNLookupController.IDENTIFIER_REGISTERED, message)
         [unresolved] = self.controller.unresolved_identifiers
@@ -56,7 +62,9 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urn_pending_resolve_attempt(self):
         identifier = self._identifier(Identifier.GUTENBERG_ID)
         unresolved, is_new = UnresolvedIdentifier.register(self._db, identifier)
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(URNLookupController.WORKING_TO_RESOLVE_IDENTIFIER, message)
 
@@ -65,23 +73,26 @@ class TestURNLookupController(DatabaseTest):
         unresolved, is_new = UnresolvedIdentifier.register(self._db, identifier)
         unresolved.status = 500
         unresolved.exception = "foo"
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(500, code)
         eq_("foo", message)
 
     def test_process_urn_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        code, message = self.controller.process_urn(identifier.urn)
-        eq_(None, code)
-        eq_(None, message)
+        self.controller.process_urn(identifier.urn)
+        eq_(0, len(self.controller.messages_by_urn.keys()))
         eq_([(work.presentation_edition.primary_identifier, work)], self.controller.works)
 
     def test_process_urn_work_is_not_presentation_ready(self):
         work = self._work(with_license_pool=True)
         work.presentation_ready = False
         identifier = work.license_pools[0].identifier
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(self.controller.WORK_NOT_PRESENTATION_READY, message)
         eq_([], self.controller.works)
@@ -89,7 +100,9 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urn_work_not_created_yet(self):
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
-        code, message = self.controller.process_urn(identifier.urn)
+        self.controller.process_urn(identifier.urn)
+        eq_(1, len(self.controller.messages_by_urn.keys()))
+        code, message = self.controller.messages_by_urn[identifier.urn]
         eq_(202, code)
         eq_(self.controller.WORK_NOT_CREATED, message)
         eq_([], self.controller.works)        
@@ -99,8 +112,10 @@ class TestURNLookupController(DatabaseTest):
         controller = URNLookupController(self._db, False)
 
         # Give it an identifier it doesn't recognize.
-        code, message = controller.process_urn(
-            Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000')
+        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
+        controller.process_urn(urn)
+        eq_(1, len(controller.messages_by_urn.keys()))
+        code, message = controller.messages_by_urn[urn]
 
         # Instead of creating a resolution task, it simply rejects the
         # input.
@@ -215,3 +230,77 @@ class TestLoadMethods(object):
             pagination = load_pagination_from_request()
             eq_(100, pagination.size)
 
+
+class TestErrorHandler(object):
+
+    def setup(self):
+        self.app = Flask(__name__)
+
+    def raise_exception(self, cls=Exception):
+        """Simulate an exception that happens deep within the stack."""
+        raise cls()
+
+    def test_unhandled_error(self):
+        handler = ErrorHandler(self.app, debug=False)
+        with self.app.test_request_context('/'):
+            response = None
+            try:
+                self.raise_exception()
+            except Exception, exception:
+                response = handler.handle(exception)
+            eq_(500, response.status_code)
+            eq_("An internal error occured", response.data)
+
+        # Try it again with debug=True to get a stack trace instead of
+        # a generic error message.
+        handler = ErrorHandler(self.app, debug=True)
+        with self.app.test_request_context('/'):
+            response = None
+            try:
+                self.raise_exception()
+            except Exception, exception:
+                response = handler.handle(exception)
+            eq_(500, response.status_code)
+            assert response.data.startswith('Traceback (most recent call last)')
+
+
+    def test_handle_error_as_problem_detail_document(self):
+        class CanBeProblemDetailDocument(Exception):
+
+            def as_problem_detail_document(self, debug):
+                return INVALID_URN.detailed(
+                    "detail info",
+                    debug_message="A debug_message which should only appear in debug mode."
+                )
+
+        handler = ErrorHandler(self.app, debug=False)
+        with self.app.test_request_context('/'):
+            try:
+                self.raise_exception(CanBeProblemDetailDocument)
+            except Exception, exception:
+                response = handler.handle(exception)
+
+            eq_(400, response.status_code)
+            data = json.loads(response.data)
+            eq_(INVALID_URN.title, data['title'])
+
+            # Since we are not in debug mode, the debug_message is
+            # destroyed.
+            assert 'debug_message' not in data
+
+        # Now try it with debug=True and see that the debug_message is
+        # preserved and a stack trace is append it to it.
+        handler = ErrorHandler(self.app, debug=True)
+        with self.app.test_request_context('/'):
+            try:
+                self.raise_exception(CanBeProblemDetailDocument)
+            except Exception, exception:
+                response = handler.handle(exception)
+
+            eq_(400, response.status_code)
+            data = json.loads(response.data)
+            eq_(INVALID_URN.title, data['title'])
+            assert data['debug_message'].startswith(
+                u"A debug_message which should only appear in debug mode.\n\n"
+                u'Traceback (most recent call last)'
+            )

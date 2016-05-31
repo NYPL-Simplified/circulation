@@ -1,6 +1,11 @@
-from nose.tools import eq_, set_trace
+from nose.tools import (
+    assert_raises_regexp,
+    eq_, 
+    set_trace,
+)
 
 import datetime
+import json
 import os
 
 from model import (
@@ -15,10 +20,17 @@ from model import (
 
 from axis import (
     Axis360API,
+    MockAxis360API,
     BibliographicParser,
 )
 
+from util.http import (
+    RemoteIntegrationException,
+    HTTP,
+)
+
 from . import DatabaseTest
+from testing import MockRequestsResponse
 
 class TestAxis360API(DatabaseTest):
 
@@ -26,6 +38,56 @@ class TestAxis360API(DatabaseTest):
         identifier = self._identifier()
         values = Axis360API.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
+
+    def test_availability_exception(self):
+        api = MockAxis360API(self._db)
+        api.queue_response(500)
+        assert_raises_regexp(
+            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
+            api.availability
+        )
+
+    def test_refresh_bearer_token_after_401(self):
+        """If we get a 401, we will fetch a new bearer token and try the
+        request again.
+        """
+        api = MockAxis360API(self._db)
+        api.queue_response(401)
+        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
+        api.queue_response(200, content="The data")
+        response = api.request("http://url/")
+        eq_("The data", response.content)
+
+    def test_refresh_bearer_token_error(self):
+        """Raise an exception if we don't get a 200 status code when
+        refreshing the bearer token.
+        """
+        api = MockAxis360API(self._db, with_token=False)
+        api.queue_response(412)
+        assert_raises_regexp(
+            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
+            api.refresh_bearer_token
+        )
+
+    def test_exception_after_401_with_fresh_token(self):
+        """If we get a 401 immediately after refreshing the token, we will
+        raise an exception.
+        """
+        api = MockAxis360API(self._db)
+        api.queue_response(401)
+        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
+        api.queue_response(401)
+
+        api.queue_response(301)
+
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            ".*Got status code 401 from external server, cannot continue.",
+            api.request, "http://url/"
+        )
+
+        # The fourth request never got made.
+        eq_([301], [x.status_code for x in api.responses])
 
 class TestParsers(object):
 

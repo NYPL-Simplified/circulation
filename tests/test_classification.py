@@ -1253,7 +1253,6 @@ class TestWorkClassifier(DatabaseTest):
         c = Counter([1,1,1,2])
         eq_(set([1]), WorkClassifier.top_tier_values(c))
 
-
     def test_duplicate_classification_ignored(self):
         """A given classification is only used once from
         a given data source.
@@ -1279,3 +1278,137 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(c3)
         assert self.classifier.genre_weights[history] > old_weight
 
+    def test_staff_genre_overrides_others(self):
+        genre1, is_new = Genre.lookup(self._db, "Psychology")
+        genre2, is_new = Genre.lookup(self._db, "Cooking")
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genre1
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.genre = genre2
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=10)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_([genre2.name], [genre.name for genre in genre_weights.keys()])
+
+    def test_staff_none_genre_overrides_others(self):
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        genre1, is_new = Genre.lookup(self._db, "Poetry")
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.genre = genre1
+        subject2 = self._subject(
+            type=Subject.SIMPLIFIED_GENRE,
+            identifier=SimplifiedGenreClassifier.NONE
+        )
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=10)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(0, len(genre_weights.keys()))
+
+    def test_staff_fiction_overrides_others(self):
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        subject1 = self._subject(type="type1", identifier="Cooking")
+        subject1.fiction = False
+        subject2 = self._subject(type="type2", identifier="Psychology")
+        subject2.fiction = False
+        subject3 = self._subject(
+            type=Subject.SIMPLIFIED_FICTION_STATUS,
+            identifier="Fiction"
+        )
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=10)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=source, weight=10)
+        classification3 = self._classification(
+            identifier=self.identifier, subject=subject3,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        self.classifier.add(classification3)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(True, fiction)
+
+    def test_staff_audience_overrides_others(self):
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.audience = "Adult"
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.audience = "Adult"
+        subject3 = self._subject(
+            type=Subject.FREEFORM_AUDIENCE,
+            identifier="Children"
+        )
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=10)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=source, weight=10)
+        classification3 = self._classification(
+            identifier=self.identifier, subject=subject3,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        self.classifier.add(classification3)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_("Children", audience)
+
+    def test_staff_target_age_overrides_others(self):
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        subject1 = self._subject(type="type1", identifier="subject1")
+        subject1.target_age = NumericRange(6, 8, "[)")
+        subject1.weight_as_indicator_of_target_age = 1
+        subject2 = self._subject(type="type2", identifier="subject2")
+        subject2.target_age = NumericRange(6, 8, "[)")
+        subject2.weight_as_indicator_of_target_age = 1
+        subject3 = self._subject(
+            type=Subject.AGE_RANGE,
+            identifier="10-13"
+        )
+        classification1 = self._classification(
+            identifier=self.identifier, subject=subject1,
+            data_source=source, weight=10)
+        classification2 = self._classification(
+            identifier=self.identifier, subject=subject2,
+            data_source=source, weight=10)
+        classification3 = self._classification(
+            identifier=self.identifier, subject=subject3,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification1)
+        self.classifier.add(classification2)
+        self.classifier.add(classification3)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(NumericRange(10, 13, "[]"), target_age)
+
+    def test_not_inclusive_target_age(self):
+        staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        subject = self._subject(
+            type=Subject.AGE_RANGE,
+            identifier="10-12"
+        )
+        subject.target_age = NumericRange(9, 13, "()")
+        classification = self._classification(
+            identifier=self.identifier, subject=subject,
+            data_source=staff_source, weight=1)
+        self.classifier.add(classification)
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        eq_(NumericRange(10, 12, "[]"), target_age)

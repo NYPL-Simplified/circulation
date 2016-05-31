@@ -1,4 +1,5 @@
 from util.problem_detail import ProblemDetail as pd
+from util.http import INTEGRATION_ERROR
 
 INVALID_INPUT = pd(
       "http://librarysimplified.org/terms/problem/invalid-input",

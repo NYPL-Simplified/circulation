@@ -21,6 +21,8 @@ class ProblemDetail(object):
 
     """A common type of problem."""
 
+    JSON_MEDIA_TYPE = JSON_MEDIA_TYPE
+
     def __init__(self, uri, status_code=None, title=None, detail=None,
                  instance=None, debug_message=None):
         self.uri = uri

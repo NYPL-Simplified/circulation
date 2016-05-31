@@ -8,7 +8,7 @@
     <id>urn:librarysimplified.org/terms/id/Overdrive%20ID/{OVERDRIVE ID}</id>
     <bibframe:distribution bibframe:ProviderName="Overdrive"/>
     <title>The Green Mouse</title>
-    <alternativeHeadline>A Tale of Mousy Terror</alternativeHeadline>
+    <schema:alternativeHeadline>A Tale of Mousy Terror</schema:alternativeHeadline>
     <author>
       <name></name>
       <simplified:sort_name>Chambers, Robert W. (Robert William)</simplified:sort_name>

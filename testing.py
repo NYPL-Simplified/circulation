@@ -2,6 +2,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import json
 import logging
 import os
 import shutil
@@ -707,5 +708,23 @@ class DummyHTTPClient(object):
     def do_get(self, url, headers, **kwargs):
         self.requests.append(url)
         return self.responses.pop()
+
+
+class MockRequestsResponse(object):
+    """A mock object that simulates an HTTP response from the
+    `requests` library.
+    """
+    def __init__(self, status_code, headers={}, content=None, url=None):
+        self.status_code = status_code
+        self.headers = headers
+        self.content = content
+        self.url = url or "http://url/"
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def text(self):
+        return self.content.decode("utf8")
 
 

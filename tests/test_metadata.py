@@ -42,6 +42,7 @@ from . import (
 )
 
 from s3 import DummyS3Uploader
+from classifier import NO_VALUE, NO_NUMBER
 
 class TestIdentifierData(object):
 
@@ -597,6 +598,31 @@ class TestMetadata(DatabaseTest):
         [equivalency] = primary.equivalencies
         eq_(equivalency.output.type, u"abc")
         eq_(equivalency.output.identifier, u"def")
+
+    def test_apply_no_value(self):
+        edition_old, pool = self._edition(with_license_pool=True)
+
+        metadata = Metadata(
+            data_source=DataSource.PRESENTATION_EDITION,
+            subtitle=NO_VALUE,
+            series=NO_VALUE,
+            series_position=NO_NUMBER
+        )
+
+        edition_new, changed = metadata.apply(edition_old)
+
+        eq_(changed, True)
+        eq_(edition_new.title, edition_old.title)
+        eq_(edition_new.sort_title, edition_old.sort_title)
+        eq_(edition_new.subtitle, None)
+        eq_(edition_new.series, None)
+        eq_(edition_new.series_position, None)
+        eq_(edition_new.language, edition_old.language)
+        eq_(edition_new.medium, edition_old.medium)
+        eq_(edition_new.publisher, edition_old.publisher)
+        eq_(edition_new.imprint, edition_old.imprint)
+        eq_(edition_new.published, edition_old.published)
+        eq_(edition_new.issued, edition_old.issued)
 
 
     def test_metadata_can_be_deepcopied(self):
