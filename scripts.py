@@ -57,6 +57,7 @@ from core.opds import (
 )
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
+from core.util import LanguageCodes
 from api.opds import CirculationManagerAnnotator
 
 from api.circulation import CirculationAPI
@@ -486,8 +487,21 @@ class LanguageListScript(Script):
     def do_run(self):
         query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
         query = query.join(Edition.primary_identifier).join(Identifier.licensed_through)
-        query = query.filter(LicensePool.open_access==False)
+        # TODO: It would be more reliable to use
+        # Lane.only_show_ready_deliverable_works here, but that's
+        # geared towards operating on Work. It's not a big deal since
+        # this is just to get a general count.
+        query = query.filter(LicensePool.open_access==False).filter(
+            LicensePool.licenses_owned > 0
+        ).filter(
+            Edition.medium==Edition.BOOK_MEDIUM
+        )
 
         sorted_languages = sorted(query.all(), key=lambda x: -x[1])
+        sorted_languages = [
+            (language, count, LanguageCodes.name_for_languageset([language]))
+            for (language, count) in sorted_languages if language
+        ]
 
-        print "\n".join(["%s %i" % l for l in sorted_languages])
+        print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
+        print json.dumps([l[0] for l in sorted_languages])
