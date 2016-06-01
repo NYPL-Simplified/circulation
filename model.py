@@ -3090,14 +3090,14 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
-    def for_permanent_work_id(cls, pwid):
+    def for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
 
-        This may result in the consolidation of Works, if a book's
-        permanent work ID has changed without calculate_work() being
-        called, or if the data is in an inconsistent state for any
-        other reason.
+        This may result in the consolidation or splitting of Works, if
+        a book's permanent work ID has changed without
+        calculate_work() being called, or if the data is in an
+        inconsistent state for any other reason.
         """
         is_new = False
 
@@ -3122,15 +3122,15 @@ class Work(Base):
             if lp.work and not licensepools_for_work[lp.work]:
                 licensepools_for_work[lp.work] = len(lp.work.license_pools)
 
+        work = None
         if len(licensepools_for_work) == 0:
             # None of these LicensePools have a Work. Create a new one.
             for pool in licensepools:
-                work, is_new = pool.calculate_work()
-                if work:
-                    break
+                work = Work()
+                is_new = True
         else:
             # Pick the Work with the most LicensePools.
-            work = licensepools_for_work.most_common(1)[0]
+            work, count = licensepools_for_work.most_common(1)[0]
 
             # In the simple case, there will only be the one Work.
             if len(licensepools_for_work) > 1:
@@ -3138,7 +3138,8 @@ class Work(Base):
                 # data caused by a bug) there's more than one
                 # Work. Merge the other Works into the one we chose
                 # earlier.  (This is why we chose the work with the
-                # most LicensePools--it minimizes the disruption.)
+                # most LicensePools--it minimizes the disruption
+                # here.)
                 for needs_merge in licensepools_for_work.keys():
                     if needs_merge != work:
                         needs_merge.merge_into(work)
@@ -3148,6 +3149,75 @@ class Work(Base):
         # presentation Edition has that permanent work ID.
         for lp in licensepools:
             lp.work = work
+        return work, is_new
+
+    def make_exclusive_to_permanent_work_id(self, pwid):
+        """Ensure that every LicensePool associated with this Work has the
+        given PWID. Any LicensePool with a different PWID is kicked
+        out and assigned to a different Work. LicensePools with no
+        presentation edition and no PWID are left alone. (TODO:
+        although maybe they should be kicked out.)
+        """
+        _db = Session.object_session(self)
+        for pool in self.license_pools:
+            if not pool.presentation_edition:
+                continue
+            this_pwid = pool.presentation_edition.permanent_work_id
+            if not this_pwid:
+                continue
+            if this_pwid != pwid:
+                # This LicensePool should not belong to this Work.
+                # Make sure it gets its own Work, creating a new one
+                # if necessary.
+                pool.work = None
+                other_work, is_new = Work.for_permanent_work_id(
+                    _db, this_pwid
+                )
+                if is_new:
+                    other_work.calculate_presentation()
+
+
+    @property
+    def pwids(self):
+        """Return the set of permanent work IDs associated with this Work.
+
+        There should only be one permanent work ID associated with a
+        given work, but if there is more than one, this will find all
+        of them.
+        """
+        pwids = set()
+        for pool in self.license_pools:
+            if pool.presentation_edition and pool.presentation_edition.permanent_work_id:
+                pwids.add(pool.presentation_edition.permanent_work_id)
+        return pwids
+
+    def merge_into(self, other_work):
+        """Merge this Work into another Work and delete it."""
+
+        my_pwids = self.pwids
+        other_pwids = other_work.pwids
+        if not my_pwids.issubset(other_pwids):
+            difference = my_pwids.difference(other_pwids)
+            raise ValueError(
+                "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s", 
+                self, other_work, ",".join(difference)
+            )
+
+        # Every LicensePool associated with this work becomes
+        # associated instead with the other work.
+        for pool in self.license_pools:            
+            other_work.license_pools.append(pool)
+
+        # All WorkGenres, WorkCoverageRecords, and WorkContributions
+        # for this Work are deleted.
+        _db = Session.object_session(self)
+        for wg in self.work_genres:
+            _db.delete(wg)
+        for cr in self.coverage_records:
+            _db.delete(cr)
+        for contribution in self.contributions:
+            _db.delete(contribution)
+        _db.delete(self)
 
     def set_summary(self, resource):
         self.summary = resource
@@ -5484,12 +5554,27 @@ class LicensePool(Base):
 
         _db = Session.object_session(self)
         work = None
-        created = False
+        is_new = False
         if self.open_access and presentation_edition.permanent_work_id:
             # This is an open-access book. Use the Work for all
             # open-access books associated with this book's permanent
             # work ID.
-            work = Work.for_permanent_work_id(
+            #
+            # If the dataset is in an inconsistent state, calling
+            # Work.for_permanent_work_id may result in works being
+            # merged.
+            work, is_new = Work.for_permanent_work_id(
+                _db, presentation_edition.permanent_work_id
+            )
+
+            # Run a sanity check to make sure every LicensePool
+            # associated with this Work actually belongs there. This
+            # may result in new Works being created.
+            #
+            # This could go into Work.for_permanent_work_id, but that
+            # could conceivably lead to an infinite loop, or at least
+            # a very long recursive call, so I've put it here.
+            work.make_exclusive_to_permanent_work_id(
                 presentation_edition.permanent_work_id
             )
 
@@ -5502,12 +5587,12 @@ class LicensePool(Base):
             # a Work. Use that Work.
             work = presentation_edition.work
 
-        if work:
-
-        else:
+        if not work:
             # There is no better choice than creating a brand new Work.
-            created = True
-            logging.info("NEW WORK for %s" % presentation_edition.title)
+            is_new = True
+            logging.info(
+                "Creating a new work for %r" % presentation_edition.title
+            )
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
@@ -5522,10 +5607,11 @@ class LicensePool(Base):
         # associated Editions have changed.
         work.calculate_presentation()
 
-        if created:
+        if is_new:
             logging.info("Created a new work: %r", work)
+
         # All done!
-        return work, created
+        return work, is_new
 
     @property
     def open_access_links(self):
