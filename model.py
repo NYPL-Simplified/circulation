@@ -3436,8 +3436,6 @@ class Work(Base):
         )
         return changed
 
-
-
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
@@ -3559,8 +3557,6 @@ class Work(Base):
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
 
-
-
     @property
     def detailed_representation(self):
         """A description of this work more detailed than repr()"""
@@ -3622,7 +3618,6 @@ class Work(Base):
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
-        # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
     def update_external_index(self, client):
         args = dict(index=client.works_index,
@@ -3770,7 +3765,6 @@ class Work(Base):
         self.work_genres = workgenres
 
         return workgenres, changed
-
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):

@@ -18,7 +18,6 @@ from metadata_layer import (
     LinkData,
     Metadata,
     IdentifierData,
-    RecommendationData,
     ReplacementPolicy,
     SubjectData,
     ContributorData,
@@ -540,44 +539,6 @@ class TestContributorData(DatabaseTest):
         eq_(contributor_data.biography, contributor.biography)
 
 
-class TestRecommendationData(DatabaseTest):
-
-    def test_recommended_works(self):
-        work = self._work(with_license_pool=True, with_open_access_download=True)
-        isbn = self._identifier(identifier_type=Identifier.ISBN)
-        source = work.license_pools[0].data_source
-        work.license_pools[0].identifier.equivalent_to(source, isbn, 1)
-
-        recommendations = RecommendationData(source)
-        recommendations.identifiers = [isbn]
-        result = recommendations.recommended_works
-        eq_(1, len(result.all()))
-
-        # It works with IdentifierData as well.
-        recommendations.identifiers = []
-        recommendations.identifiers.append(
-            IdentifierData(isbn.type, isbn.identifier)
-        )
-        result = recommendations.recommended_works
-        eq_(1, len(result.all()))
-
-        # Two of the same identifiers still only lead to one result.
-        recommendations.identifiers.append(isbn)
-        result = recommendations.recommended_works
-        eq_(1, len(result.all()))
-
-        # No identifiers returns None.
-        recommendations.identifiers = []
-        result = recommendations.recommended_works
-        eq_(None, result)
-
-        # It can also find a work if the identifier itself is passed, instead
-        # of an equivalency.
-        recommendations.identifiers = [work.license_pools[0].identifier]
-        result = recommendations.recommended_works
-        eq_(1, len(result.all()))
-
-
 class TestMetadata(DatabaseTest):
     def test_from_edition(self):
         # Makes sure Metadata.from_edition copies all the fields over.
@@ -708,6 +669,24 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.imprint, edition_old.imprint)
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
+
+    def test_filter_recommendations(self):
+        metadata = Metadata(DataSource.OVERDRIVE)
+        known_identifier = self._identifier()
+        unknown_identifier = IdentifierData(Identifier.ISBN, "hey there")
+
+        # Unknown identifiers are filtered out of the recommendations.
+        metadata.recommendations += [known_identifier, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        eq_([known_identifier], metadata.recommendations)
+
+        # It works with IdentifierData as well.
+        known_identifier_data = IdentifierData(
+            known_identifier.type, known_identifier.identifier
+        )
+        metadata.recommendations = [known_identifier_data, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        eq_([known_identifier_data], metadata.recommendations)
 
     def test_metadata_can_be_deepcopied(self):
 

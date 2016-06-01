@@ -369,45 +369,6 @@ class FormatData(object):
         self.link = link
 
 
-class RecommendationData(object):
-
-    def __init__(self, data_source, identifiers=None):
-        self.data_source = data_source
-        self.identifiers = identifiers or []
-
-    @property
-    def recommended_works(self):
-        """:return: a query of all of the recommended works in self.identifiers
-        or None
-        """
-        identifier_ids = []
-        _db = Session.object_session(self.data_source)
-        for identifier_data in self.identifiers[:]:
-            if isinstance(identifier_data, Identifier):
-                identifier = identifier_data
-            else:
-                identifier, ignore = Identifier.for_foreign_id(
-                    _db, identifier_data.type, identifier_data.identifier,
-                    autocreate=False
-                )
-            if not identifier:
-                self.identifiers.remove(identifier_data)
-                continue
-            identifier_ids.append(identifier.id)
-
-        if not identifier_ids:
-            return None
-
-        equivalent_identifier = aliased(Identifier)
-        works_q = Work.feed_query(_db)
-        works_q = works_q.outerjoin(Identifier.equivalencies).\
-            outerjoin(equivalent_identifier, Equivalency.output).\
-            filter(or_(
-                Identifier.id.in_(identifier_ids),
-                equivalent_identifier.id.in_(identifier_ids)
-            ))
-        return works_q
-
 class CirculationData(object):
 
     log = logging.getLogger(
@@ -515,6 +476,7 @@ class Metadata(object):
             published=None,
             primary_identifier=None,
             identifiers=None,
+            recommendations=None,
             subjects=None,
             contributors=None,
             measurements=None,
@@ -559,6 +521,7 @@ class Metadata(object):
         if (self.primary_identifier
             and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
+        self.recommendations = recommendations or []
         self.subjects = subjects or []
         self.contributors = contributors or []
         self.links = links or []
@@ -1330,6 +1293,24 @@ class Metadata(object):
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
+
+    def filter_recommendations(self, _db):
+        """Filters out  recommendations that don't currently exist in the db
+        """
+        for identifier_data in self.recommendations[:]:
+            if isinstance(identifier_data, Identifier):
+                identifier = identifier_data
+            else:
+                identifier, ignore = Identifier.for_foreign_id(
+                    _db, identifier_data.type, identifier_data.identifier,
+                    autocreate=False
+                )
+            # Make sure filtered list doesn't contain the work itself.
+            if identifier==self.primary_identifier:
+                identifier = None
+            if not identifier:
+                self.recommendations.remove(identifier_data)
+                continue
 
 
 class CSVFormatError(csv.Error):
