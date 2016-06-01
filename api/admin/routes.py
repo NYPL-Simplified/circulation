@@ -180,6 +180,11 @@ def admin_view(**kwargs):
         csrf_token=csrf_token,
         home_url=app.manager.url_for('acquisition_groups'))
 
+@app.route('/admin')
+@app.route('/admin/')
+def admin_base(**kwargs):
+    return redirect(app.manager.url_for('admin_view'))
+
 @app.route('/admin/static/circulation-web.js')
 @returns_problem_detail
 @requires_admin
