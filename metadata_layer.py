@@ -869,7 +869,7 @@ class Metadata(MetaToModelUtility):
             contributors=None,
             measurements=None,
             links=None,
-            opds_entry_updated=None,
+            provider_entry_updated=None,
             # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
             circulation=None,  
     ):
@@ -909,8 +909,8 @@ class Metadata(MetaToModelUtility):
         # circulation-metadata connection has been removed, but might come back
         #self.circulation = circulation
 
-        # renamed last_update_time to opds_entry_updated
-        self.opds_entry_updated = opds_entry_updated
+        # renamed last_update_time to provider_entry_updated
+        self.provider_entry_updated = provider_entry_updated
 
         self.__links = None
         self.links = links
@@ -1241,11 +1241,11 @@ class Metadata(MetaToModelUtility):
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
 
-        if self.opds_entry_updated and not replace.even_if_not_apparently_updated:
+        if self.provider_entry_updated and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_time = coverage_record.timestamp
-                last_time = self.opds_entry_updated
+                last_time = self.provider_entry_updated
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return edition, False
@@ -1407,7 +1407,7 @@ class Metadata(MetaToModelUtility):
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.opds_entry_updated
+            edition, data_source, timestamp=self.provider_entry_updated
         )
         return edition, made_core_changes
 

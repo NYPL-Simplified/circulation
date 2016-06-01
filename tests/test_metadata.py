@@ -173,7 +173,9 @@ class TestMetadataImporter(DatabaseTest):
 
 
     def test_image_scale_and_mirror(self):
-        # TODO: mirroring links is now also CirculationData's job.  So the unit tests 
+        # Make sure that open access material links are translated to our S3 buckets, and that 
+        # commercial material links are left as is.
+        # Note: mirroring links is now also CirculationData's job.  So the unit tests 
         # that test for that have been changed to call to mirror cover images.
         # However, updated tests passing does not guarantee that all code now 
         # correctly calls on CirculationData, too.  This is a risk.
@@ -437,7 +439,7 @@ class TestMetadataImporter(DatabaseTest):
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", opds_entry_updated=last_update)
+                     title=u"New title", provider_entry_updated=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
@@ -447,7 +449,7 @@ class TestMetadataImporter(DatabaseTest):
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
-                     opds_entry_updated=older_last_update
+                     provider_entry_updated=older_last_update
         )
         m.apply(edition)
         eq_(u"New title", edition.title)
@@ -666,7 +668,7 @@ class TestMetadata(DatabaseTest):
             issued=datetime.datetime.utcnow(),
             published=datetime.datetime.utcnow(),
             identifiers=[primary_as_data, other_data],
-            opds_entry_updated=datetime.datetime.utcnow(),
+            provider_entry_updated=datetime.datetime.utcnow(),
         )
 
         m_copy = deepcopy(m)
@@ -676,8 +678,32 @@ class TestMetadata(DatabaseTest):
 
 
     def test_links_filtered(self):
-        # TODO: test that filter links to only metadata-relevant ones
-        pass
+        # test that filter links to only metadata-relevant ones
+        link1 = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
+        link2 = LinkData(rel=Hyperlink.IMAGE, href="http://example.com/")
+        link3 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
+        link4 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        link5 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=link4,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        links = [link1, link2, link3, link4, link5]
+
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        metadata = Metadata(
+            DataSource.GUTENBERG,
+            primary_identifier=identifier,
+            links=links,
+        )
+
+        filtered_links = sorted(metadata.links, key=lambda x:x.rel)
+
+        eq_([link2, link5, link4, link3], filtered_links)
+
+
 
 
 

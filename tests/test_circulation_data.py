@@ -12,6 +12,7 @@ from metadata_layer import (
     FormatData,
     IdentifierData,
     LinkData,
+    ReplacementPolicy,
     SubjectData,
 )
 
@@ -27,8 +28,10 @@ from model import (
 
 from . import (
     DatabaseTest,
+    DummyHTTPClient,
 )
 
+from s3 import DummyS3Uploader
 
 class TestCirculationData(DatabaseTest):
 
@@ -61,119 +64,38 @@ class TestCirculationData(DatabaseTest):
         assert circulation_data_copy is not None
 
 
-    def test_book_info_with_circulation_data(self):
-        # Tests that can convert an overdrive json block into a CirculationData object.
-        # Originally from TestOverdriveRepresentationExtractor.
-
-        """
-        raw, info = self.sample_json("overdrive_metadata.json")
-        metadata = OverdriveRepresentationExtractor.book_info_to_circulation_data(info)
-
-        [...]
-
-        # Available formats.
-        [kindle, pdf] = sorted(metadata.formats, key=lambda x: x.content_type)
-        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)
-        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)
-
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
-
-
-
-    from: OPDSImporter
-    def detail_for_feedparser_entry(cls, entry):
-    	[...]
-        '''
-        # metadata no longer knows about circulation
-        if added_to_collection_time:
-            circulation = CirculationData(
-                licenses_owned=None, licenses_available=None,
-                licenses_reserved=None, patrons_in_hold_queue=None,
-                first_appearance=added_to_collection_time,
-                data_source=...
-            )
-        else:
-            circulation = None
-        '''
-        [...]
-        kwargs = dict(
-            license_data_source=license_data_source,
-            title=title,
-            subtitle=subtitle,
-            language=language,
-            publisher=publisher,
-            links=links,
-            rights_uri=rights_uri,
-            last_update_time=last_update_time,
-            #circulation=circulation,
-        )
-        return identifier, kwargs, status_message
-
-
-write test for opds_import.    @classmethod
-    def extract_circulationdata_from_feedparser(cls, feed):
-
-
-
-
-
-
-class TestCirculationData(DatabaseTest):
-
     def test_links_filtered(self):
-        # TODO: Tests that passed-in links filter down to only the relevant ones.
-        links = []
-        def summary_to_linkdata(detail):
-            if not detail:
-                return None
-            if not 'value' in detail or not detail['value']:
-                return None
-
-            content = detail['value']
-            media_type = detail.get('type', 'text/plain')
-            return LinkData(
-                rel=Hyperlink.DESCRIPTION,
-                media_type=media_type,
-                content=content
-            )
-
-        summary_detail = entry.get('summary_detail', None)
-        link = summary_to_linkdata(summary_detail)
-        if link:
-            links.append(link)
-
-        for content_detail in entry.get('content', []):
-            link = summary_to_linkdata(content_detail)
-            if link:
-                links.append(link)
-
-        kwargs_circ = dict(
-            # Note: later on, we'll check to make sure data_source is lendable, and if not, abort creating a pool and a work.
-            data_source=data_source,
-            links=links,
-            # Note: CirculationData.default_rights_uri is not same as the old 
-            # Metadata.rights_uri, but we're treating it same for now.
-            default_rights_uri=rights_uri,
-            last_checked=last_update_time, 
-            # first appearance in our databases, 
-            # gets assigned to pool, if have to make new pool. 
-            first_appearance = datetime.datetime.utcnow()
+        # Tests that passed-in links filter down to only the relevant ones.
+        link1 = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
+        link2 = LinkData(rel=Hyperlink.IMAGE, href="http://example.com/")
+        link3 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
+        link4 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
         )
-        circulation_data = CirculationData(**kwargs_circ)
-        pass
+        link5 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=link4,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        links = [link1, link2, link3, link4, link5]
 
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        circulation_data = CirculationData(
+            DataSource.GUTENBERG,
+            primary_identifier=identifier,
+            links=links,
+        )
 
+        filtered_links = sorted(circulation_data.links, key=lambda x:x.rel)
+
+        eq_([link1], filtered_links)
 
 
     def test_open_access_content_mirrored(self):
-        # TODO: mirroring links is now also CirculationData's job.  So the unit tests 
-        # that test for that have been changed to call to mirror cover images.
-        # However, updated tests passing does not guarantee that all code now 
-        # correctly calls on CirculationData, too.  This is a risk.
-
         # Make sure that open access material links are translated to our S3 buckets, and that 
         # commercial material links are left as is.
+        # Note: Mirroring tests passing does not guarantee that all code now 
+        # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
         mirror = DummyS3Uploader()
         # Here's a book.
@@ -188,15 +110,19 @@ class TestCirculationData(DatabaseTest):
 
         # This link will not be mirrored.
         link_unmirrored = LinkData(
-            rel=Hyperlink.SAMPLE, href="http://example.com/2",
-            media_type=Representation.TEXT_PLAIN,
-            content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
+            rel=Hyperlink.DRM_ENCRYPTED_DOWNLOAD, href="http://example.com/2",
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            content="i am a pricy book"
         )
 
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
-        metadata = Metadata(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
-        metadata.apply(edition, replace=policy)
+        circulation_data = CirculationData(
+        	data_source=edition.data_source, 
+        	primary_identifier=edition.primary_identifier,
+        	links=[link_mirrored, link_unmirrored],
+        )
+        circulation_data.apply(pool, replace=policy)
         
 
         # Only the open-access link has been 'mirrored'.
@@ -226,7 +152,7 @@ class TestCirculationData(DatabaseTest):
 
         # make sure the mirrored link is safely on edition
         sorted_edition_links = sorted(edition.license_pool.identifier.links, key=lambda x: x.rel)
-        mirrored_representation, unmirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
+        unmirrored_representation, mirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
         assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
 
         # make sure the unmirrored link is safely on edition
@@ -236,15 +162,17 @@ class TestCirculationData(DatabaseTest):
 
 
     def test_mirror_open_access_link_fetch_failure(self):
-        edition, pool = self._edition(with_license_pool=True)
-
-        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        m = Metadata(data_source=data_source)
-
         mirror = DummyS3Uploader()
         h = DummyHTTPClient()
 
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        circulation_data = CirculationData(
+        	data_source=edition.data_source, 
+        	primary_identifier=edition.primary_identifier,
+        )
 
         link = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
@@ -257,9 +185,10 @@ class TestCirculationData(DatabaseTest):
             license_pool=pool, media_type=link.media_type,
             content=link.content,
         )
+
         h.queue_response(403)
         
-        m.mirror_link(pool, data_source, link, link_obj, policy)
+        circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -275,16 +204,20 @@ class TestCirculationData(DatabaseTest):
         eq_(True, pool.suppressed)
         assert representation.fetch_exception in pool.license_exception
 
+
     def test_mirror_open_access_link_mirror_failure(self):
-        edition, pool = self._edition(with_license_pool=True)
-
-        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        m = Metadata(data_source=data_source)
-
         mirror = DummyS3Uploader(fail=True)
         h = DummyHTTPClient()
 
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        circulation_data = CirculationData(
+        	data_source=edition.data_source, 
+        	primary_identifier=edition.primary_identifier,
+        )
 
         link = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
@@ -300,7 +233,7 @@ class TestCirculationData(DatabaseTest):
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
         
-        m.mirror_link(pool, data_source, link, link_obj, policy)
+        circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -329,5 +262,4 @@ class TestCirculationData(DatabaseTest):
 
 
 
-"""
 
