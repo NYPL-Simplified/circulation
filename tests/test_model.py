@@ -1230,6 +1230,47 @@ class TestLicensePool(DatabaseTest):
 
 class TestWork(DatabaseTest):
 
+    def test_from_identifiers(self):
+        # Prep a work to be identified and a work to be ignored.
+        work = self._work(with_license_pool=True, with_open_access_download=True)
+        lp = work.license_pools[0]
+        ignored_work = self._work(with_license_pool=True, with_open_access_download=True)
+
+        # No identifiers returns None.
+        result = Work.from_identifiers(self._db, [])
+        eq_(None, result)
+
+        # A work can be found according to its identifier.
+        identifiers = [lp.identifier]
+        result = Work.from_identifiers(self._db, identifiers).all()
+        eq_(1, len(result))
+        eq_([work], result)
+
+        # When the work has an equivalent identifier.
+        isbn = self._identifier(Identifier.ISBN)
+        source = lp.data_source
+        lp.identifier.equivalent_to(source, isbn, 1)
+
+        # It can be found according to that equivalency.
+        identifiers = [isbn]
+        result = Work.from_identifiers(self._db, identifiers).all()
+        eq_(1, len(result))
+        eq_([work], result)
+
+        # Two+ of the same or equivalent identifiers lead to one result.
+        identifiers = [lp.identifier, isbn, lp.identifier]
+        result = Work.from_identifiers(self._db, identifiers).all()
+        eq_(1, len(result))
+        eq_([work], result)
+
+        # It accepts a base query.
+        qu = self._db.query(Work).join(LicensePool).join(Identifier).\
+            filter(LicensePool.suppressed)
+        identifiers = [lp.identifier]
+        result = Work.from_identifiers(self._db, identifiers, base_query=qu).all()
+        # Because the work's license_pool isn't suppressed, it isn't returned.
+        eq_([], result)
+
     def test_calculate_presentation(self):
         """ Test that:
         - work coverage records are made on work creation and primary edition selection.

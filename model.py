@@ -3250,41 +3250,6 @@ class Work(Base):
         )
 
     @classmethod
-    def feed_query(cls, _db, languages=None, availability=ALL):
-        """Return a query against Work suitable for using in an OPDS feed."""
-
-        q = _db.query(Work).join(Work.presentation_edition)
-        q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
-        q = q.options(
-            contains_eager(Work.license_pools),
-            contains_eager(Work.presentation_edition),
-            contains_eager(Work.license_pools, LicensePool.data_source),
-            contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.verbose_opds_entry),
-            defer(Work.presentation_edition, Edition.extra),
-        )
-        if availability == cls.CURRENTLY_AVAILABLE:
-            or_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0)
-        else:
-            or_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_owned > 0)
-        q = q.filter(or_clause)
-        if languages:
-            q = q.filter(Edition.language.in_(languages))
-        q = q.filter(
-            Work.presentation_ready == True,
-            Edition.medium == Edition.BOOK_MEDIUM,
-        )
-
-        q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
-        )
-        return q
-
-    @classmethod
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
         if isinstance(genre, basestring):
@@ -3299,6 +3264,29 @@ class Work(Base):
         q = q.options(contains_eager(Work.work_genres))
         q = q.filter(WorkGenre.genre==None)
         return q
+
+    @classmethod
+    def from_identifiers(cls, _db, identifiers, base_query=None):
+        """Finds all of the works indicated by a list of identifiers"""
+
+        identifier_ids = [identifier.id for identifier in identifiers]
+        if not identifier_ids:
+            return None
+
+        if not base_query:
+            # A raw base query that makes no accommodations for works that are
+            # suppressed or otherwise undeliverable.
+            base_query = _db.query(Work).join(Work.license_pools).\
+                join(LicensePool.identifier)
+
+        equivalent_identifier = aliased(Identifier)
+        query = base_query.outerjoin(Identifier.equivalencies).\
+                outerjoin(equivalent_identifier, Equivalency.output).\
+                filter(or_(
+                    Identifier.id.in_(identifier_ids),
+                    equivalent_identifier.id.in_(identifier_ids)
+                ))
+        return query
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
