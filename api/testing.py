@@ -156,6 +156,7 @@ class MockAnalytics(object):
         self.count = 0
         self.event = None
 
-    def collect_event(self, event):
+    def collect(self, _db, lp, event_type, time, **kwargs):
         self.count = self.count + 1
-        self.event = event
+        self.event_type = event_type
+        self.time = time

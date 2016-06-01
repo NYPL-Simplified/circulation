@@ -5,11 +5,11 @@ from api.config import (
     Configuration,
     temp_config,
 )
-from api.analytics import Analytics
 from api.google_analytics import GoogleAnalytics
 from . import DatabaseTest
 from core.model import CirculationEvent
 import urlparse
+import datetime
 
 class MockGoogleAnalytics(GoogleAnalytics):
 
@@ -33,7 +33,7 @@ class TestGoogleAnalytics(DatabaseTest):
             ga = GoogleAnalytics.from_config()
             eq_("faketrackingid", ga.tracking_id)
 
-    def test_collect_event(self):
+    def test_collect(self):
         ga = MockGoogleAnalytics("faketrackingid")
         work = self._work(
             title="title", authors="author", fiction=True,
@@ -41,9 +41,8 @@ class TestGoogleAnalytics(DatabaseTest):
             with_license_pool=True
         )     
         [lp] = work.license_pools
-        event, is_new = CirculationEvent.log(
-            self._db, lp, CirculationEvent.CHECKIN, None, None)        
-        ga.collect_event(event)
+        now = datetime.datetime.utcnow()
+        ga.collect(self._db, lp, CirculationEvent.CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
@@ -52,10 +51,10 @@ class TestGoogleAnalytics(DatabaseTest):
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])
         eq_(CirculationEvent.CHECKIN, params['ea'][0])
-        eq_(event.license_pool.identifier.identifier, params['cd1'][0])
+        eq_(lp.identifier.identifier, params['cd1'][0])
         eq_("title", params['cd2'][0])
         eq_("author", params['cd3'][0])
         eq_("fiction", params['cd4'][0])
         eq_("audience", params['cd5'][0])
         eq_("lang", params['cd7'][0])
-        eq_(str(event.start), params['cd9'][0])
+        eq_(str(now), params['cd9'][0])

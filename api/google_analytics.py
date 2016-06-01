@@ -24,18 +24,18 @@ class GoogleAnalytics(object):
         else:
             return str(min)
 
-    def collect_event(self, event):
+    def collect(self, _db, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
-        work = event.license_pool.work
-        edition = event.license_pool.presentation_edition
+        work = license_pool.work
+        edition = license_pool.presentation_edition
         params = urllib.urlencode({
             'v': 1,
             'tid': self.tracking_id,
             'cid': client_id,
             't': 'event',
             'ec': 'circulation',
-            'ea': event.type,
-            'cd1': event.license_pool.identifier.identifier,
+            'ea': event_type,
+            'cd1': license_pool.identifier.identifier,
             'cd2': edition.title,
             'cd3': edition.author,
             'cd4': "fiction" if work.fiction else "nonfiction",
@@ -43,7 +43,7 @@ class GoogleAnalytics(object):
             'cd6': edition.publisher,
             'cd7': edition.language,
             'cd8': self.format_range(work.target_age),
-            'cd9': event.start
+            'cd9': time
         })
         self.post("http://www.google-analytics.com/collect", params)
 

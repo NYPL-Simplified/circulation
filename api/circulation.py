@@ -9,16 +9,14 @@ import time
 
 from core.model import (
     get_one,
-    CirculationEvent,
-    DataSource,
-    Hold,
     Identifier,
+    DataSource,
     LicensePool,
     Loan,
+    Hold,
 )
 from core.util.cdn import cdnify
 from config import Configuration
-from analytics import Analytics
 
 class CirculationInfo(object):
     def fd(self, d):
@@ -106,7 +104,6 @@ class CirculationAPI(object):
         self.axis = axis
         self.apis = [x for x in (overdrive, threem, axis) if x]
         self.log = logging.getLogger("Circulation API")
-        self.analytics = Analytics.initialize()
 
         # When we get our view of a patron's loans and holds, we need
         # to include loans from all licensed data sources.  We do not
@@ -158,11 +155,6 @@ class CirculationAPI(object):
             return True
         return False
 
-    def collect_event(self, license_pool, event_type):
-        event, is_new = CirculationEvent.log(
-            self._db, license_pool, event_type, None, None)
-        self.analytics.collect_event(event)
-
     def borrow(self, patron, pin, licensepool, delivery_mechanism,
                hold_notification_email):
         """Either borrow a book or put it on hold. Don't worry about fulfilling
@@ -179,7 +171,6 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
-            self.collect_event(licensepool, CirculationEvent.CHECKIN)
             return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
@@ -234,7 +225,6 @@ class CirculationAPI(object):
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
             )
-            self.collect_event(licensepool, CirculationEvent.CHECKOUT)
         except AlreadyCheckedOut:
             # This is good, but we didn't get the real loan info.
             # Just fake it.
@@ -305,7 +295,6 @@ class CirculationAPI(object):
                     patron, pin, licensepool,
                     hold_notification_email
                 )
-                self.collect_event(licensepool, CirculationEvent.HOLD_PLACE)
             except AlreadyOnHold, e:
                 hold_info = HoldInfo(
                     licensepool.identifier.type, licensepool.identifier.identifier,
@@ -430,7 +419,6 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.checkin(patron, pin, licensepool)
-                self.collect_event(licensepool, CirculationEvent.CHECKIN)
             except NotCheckedOut, e:
                 # The book wasn't checked out in the first
                 # place. Everything's fine.
@@ -449,7 +437,6 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)
-                self.collect_event(licensepool, CirculationEvent.HOLD_RELEASE)
             except NotOnHold, e:
                 # The book wasn't on hold in the first place. Everything's
                 # fine.

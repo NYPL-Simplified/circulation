@@ -3,6 +3,7 @@ from config import (
     CannotLoadConfiguration,
 )
 import importlib
+import datetime
 
 class Analytics(object):
     @classmethod
@@ -22,6 +23,8 @@ class Analytics(object):
     def __init__(self, providers=[]):
         self.providers = providers
 
-    def collect_event(self, event):
+    def collect(self, _db, license_pool, event_type, time=None, **kwargs):
+        if not time:
+            time = datetime.datetime.utcnow()
         for provider in self.providers:
-            provider.collect_event(event)
+            provider.collect(_db, license_pool, event_type, time, **kwargs)
