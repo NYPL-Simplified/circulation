@@ -37,6 +37,7 @@ from core.model import (
     SessionManager,
     CachedFeed,
     Work,
+    CirculationEvent,
     get_one,
     create,
 )
@@ -884,6 +885,29 @@ class TestFeedController(CirculationControllerTest):
                 assert self.english_2.title in response.data
                 assert self.french_1.author not in response.data
 
+class TestAnalyticsController(CirculationControllerTest):
+    def setup(self):
+        super(TestAnalyticsController, self).setup()
+        [self.lp] = self.english_1.license_pools
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier
+
+    def test_track_event(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "invalid_type")
+            eq_(400, response.status_code)
+            eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
+
+        with self.app.test_request_context("/"):
+            response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "open_book")
+            eq_(200, response.status_code)
+
+            circulation_event = get_one(
+                self._db, CirculationEvent,
+                type="open_book",
+                license_pool=self.lp
+            )
+            assert circulation_event != None
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)

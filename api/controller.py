@@ -40,6 +40,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    CirculationEvent,
     Complaint,
     DataSource,
     Hold,
@@ -192,6 +193,7 @@ class CirculationManager(object):
         self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
+        self.analytics_controller = AnalyticsController(self)
 
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
@@ -810,6 +812,16 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
+
+class AnalyticsController(CirculationManagerController):
+
+    def track_event(self, data_source, identifier_type, identifier, event_type):
+        if event_type in [CirculationEvent.OPEN_BOOK]:
+            pool = self.load_licensepool(data_source, identifier_type, identifier)
+            self.circulation.collect_event(pool, event_type)
+            return Response({}, 200)
+        else:
+            return INVALID_ANALYTICS_EVENT_TYPE
 
 class ServiceStatusController(CirculationManagerController):
 
