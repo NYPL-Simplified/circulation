@@ -203,6 +203,12 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
+# Redirect URI for OAuth providers, eg. Clever
+@app.route('/oauth_callback')
+@returns_problem_detail
+def oauth_callback():
+    return app.manager.auth.oauth_callback(app.manager._db, flask.request.args)
+
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

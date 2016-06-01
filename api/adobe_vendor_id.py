@@ -89,9 +89,7 @@ class AdobeVendorIDRequestHandler(object):
             return self.error_document(
                 self.AUTH_ERROR_TYPE, "No method specified")
         if data['method'] == parser.STANDARD:
-            username = data['username']
-            password = data['password']
-            user_id, label = standard_lookup(username, password)
+            user_id, label = standard_lookup(data)
             failure = self.AUTHENTICATION_FAILURE
         elif data['method'] == parser.AUTH_DATA:
             authdata = data[parser.AUTH_DATA]
@@ -246,13 +244,13 @@ class AdobeVendorIDModel(object):
             patron, self.temporary_token_duration)
         return credential
 
-    def standard_lookup(self, username, password):       
-        """Look up a patron by username and password. Return their Vendor ID
+    def standard_lookup(self, authorization_data):
+        """Look up a patron by authorization header. Return their Vendor ID
         UUID and their human-readable label, creating a Credential
         object to hold the UUID if necessary.
         """
         patron = self.authenticator.authenticated_patron(
-            self._db, username, password)
+            self._db, authorization_data)
         return self.uuid_and_label(patron)
 
     def authdata_lookup(self, authdata):

@@ -27,6 +27,7 @@ textblob
 
 # Used only by circulation
 oauth2client
+pyjwt
 
 # A NYPL-specific requirement
 newrelic
