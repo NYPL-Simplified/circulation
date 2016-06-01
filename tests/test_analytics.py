@@ -9,14 +9,7 @@ from api.analytics import Analytics
 from api.google_analytics import GoogleAnalytics
 from . import DatabaseTest
 from core.model import CirculationEvent
-
-class DummyAnalytics(object):
-    """ An analytics provider that keeps track of how many times it's called."""
-    def __init__(self):
-        self.count = 0
-
-    def collect_event(self, event):
-        self.count = self.count + 1
+from api.testing import MockAnalytics
 
 class TestAnalytics(DatabaseTest):
 

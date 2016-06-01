@@ -234,6 +234,7 @@ class CirculationAPI(object):
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
             )
+            self.collect_event(licensepool, CirculationEvent.CHECKOUT)
         except AlreadyCheckedOut:
             # This is good, but we didn't get the real loan info.
             # Just fake it.
@@ -291,7 +292,6 @@ class CirculationAPI(object):
                 # Delete the record of the hold.
                 self._db.delete(existing_hold)
             __transaction.commit()
-            self.collect_event(licensepool, CirculationEvent.CHECKOUT)
             return loan, None, is_new
 
         # At this point we know that we neither successfully
@@ -305,6 +305,7 @@ class CirculationAPI(object):
                     patron, pin, licensepool,
                     hold_notification_email
                 )
+                self.collect_event(licensepool, CirculationEvent.HOLD_PLACE)
             except AlreadyOnHold, e:
                 hold_info = HoldInfo(
                     licensepool.identifier.type, licensepool.identifier.identifier,
@@ -323,7 +324,6 @@ class CirculationAPI(object):
         if existing_loan:
             self._db.delete(existing_loan)
         __transaction.commit()
-        self.collect_event(licensepool, CirculationEvent.HOLD_PLACE)
         return None, hold, is_new
 
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
@@ -417,7 +417,6 @@ class CirculationAPI(object):
 
     def revoke_loan(self, patron, pin, licensepool):
         """Revoke a patron's loan for a book."""
-        self.collect_event(licensepool, CirculationEvent.CHECKIN)
         loan = get_one(
             self._db, Loan, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
@@ -431,6 +430,7 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.checkin(patron, pin, licensepool)
+                self.collect_event(licensepool, CirculationEvent.CHECKIN)
             except NotCheckedOut, e:
                 # The book wasn't checked out in the first
                 # place. Everything's fine.
@@ -441,7 +441,6 @@ class CirculationAPI(object):
 
     def release_hold(self, patron, pin, licensepool):
         """Remove a patron's hold on a book."""
-        self.collect_event(licensepool, CirculationEvent.HOLD_RELEASE)
         hold = get_one(
             self._db, Hold, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
@@ -450,6 +449,7 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)
+                self.collect_event(licensepool, CirculationEvent.HOLD_RELEASE)
             except NotOnHold, e:
                 # The book wasn't on hold in the first place. Everything's
                 # fine.

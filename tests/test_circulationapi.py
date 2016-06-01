@@ -18,6 +18,7 @@ from api.circulation import (
 )
 
 from core.model import (
+    CirculationEvent,
     DataSource,
     Identifier,
     Loan,
@@ -76,6 +77,7 @@ class TestCirculationAPI(DatabaseTest):
         # until the next sync.
         assert abs((loan.start-now).seconds) < 2
         eq_(3600, (loan.end-loan.start).seconds)
+        eq_(0, self.circulation.analytics_provider.count)
 
     def test_attempt_borrow_with_existing_remote_hold(self):
         """The patron has a remote hold that the circ manager doesn't know
@@ -106,7 +108,8 @@ class TestCirculationAPI(DatabaseTest):
         assert abs((hold.start-now).seconds) < 2
         eq_(None, hold.end)
         eq_(None, hold.position)
-        
+        eq_(0, self.circulation.analytics_provider.count)
+
     def test_attempt_premature_renew_with_local_loan(self):
         """We have a local loan and a remote loan but the patron tried to
         borrow again -- probably to renew their loan.
@@ -124,6 +127,7 @@ class TestCirculationAPI(DatabaseTest):
         # renew the loan and failed because it's not time yet.
         self.remote.queue_checkout(CannotRenew())
         assert_raises_regexp(CannotRenew, '^$', self.borrow)
+        eq_(0, self.circulation.analytics_provider.count)
 
     def test_attempt_renew_with_local_loan_and_no_available_copies(self):
         """We have a local loan and a remote loan but the patron tried to
@@ -150,6 +154,7 @@ class TestCirculationAPI(DatabaseTest):
             "You cannot renew a loan if other patrons have the work on hold.",
             self.borrow
         )
+        eq_(0, self.circulation.analytics_provider.count)
 
     def test_loan_becomes_hold_if_no_available_copies(self):
         # We want to borrow this book but there are no copies.
@@ -166,6 +171,8 @@ class TestCirculationAPI(DatabaseTest):
         eq_(True, is_new)
         eq_(self.pool, hold.license_pool)
         eq_(self.patron, hold.patron)
+        eq_(1, self.circulation.analytics_provider.count)
+        eq_(CirculationEvent.HOLD_PLACE, self.circulation.analytics_provider.event.type)
 
     def test_loan_becomes_hold_if_no_available_copies_and_preexisting_loan(self):
         # Once upon a time, we had a loan for this book.
@@ -188,6 +195,8 @@ class TestCirculationAPI(DatabaseTest):
         eq_(True, is_new)
         eq_(self.pool, hold.license_pool)
         eq_(self.patron, hold.patron)
+        eq_(1, self.circulation.analytics_provider.count)
+        eq_(CirculationEvent.HOLD_PLACE, self.circulation.analytics_provider.event.type)
 
         # When NoAvailableCopies was raised, the circulation
         # information for the book was immediately updated, to reduce
@@ -207,3 +216,4 @@ class TestCirculationAPI(DatabaseTest):
         # But the availability of the book gets immediately updated,
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
+        eq_(0, self.circulation.analytics_provider.count)
