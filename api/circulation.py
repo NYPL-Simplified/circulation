@@ -9,14 +9,16 @@ import time
 
 from core.model import (
     get_one,
-    Identifier,
+    CirculationEvent,
     DataSource,
+    Hold,
+    Identifier,
     LicensePool,
     Loan,
-    Hold,
 )
 from core.util.cdn import cdnify
 from config import Configuration
+from analytics import collect_analytics_event
 
 class CirculationInfo(object):
     def fd(self, d):
@@ -155,6 +157,11 @@ class CirculationAPI(object):
             return True
         return False
 
+    def collect_event(self, license_pool, event_type):
+        event, is_new = CirculationEvent.log(
+            self._db, license_pool, event_type, None, None)
+        collect_analytics_event(event)
+
     def borrow(self, patron, pin, licensepool, delivery_mechanism,
                hold_notification_email):
         """Either borrow a book or put it on hold. Don't worry about fulfilling
@@ -171,6 +178,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
+            self.collect_event(licensepool, CirculationEvent.CHECKIN)
             return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
@@ -282,6 +290,7 @@ class CirculationAPI(object):
                 # Delete the record of the hold.
                 self._db.delete(existing_hold)
             __transaction.commit()
+            self.collect_event(licensepool, CirculationEvent.CHECKOUT)
             return loan, None, is_new
 
         # At this point we know that we neither successfully
@@ -313,6 +322,7 @@ class CirculationAPI(object):
         if existing_loan:
             self._db.delete(existing_loan)
         __transaction.commit()
+        self.collect_event(licensepool, CirculationEvent.HOLD_PLACE)
         return None, hold, is_new
 
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
@@ -406,6 +416,7 @@ class CirculationAPI(object):
 
     def revoke_loan(self, patron, pin, licensepool):
         """Revoke a patron's loan for a book."""
+        self.collect_event(licensepool, CirculationEvent.CHECKIN)
         loan = get_one(
             self._db, Loan, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
@@ -429,6 +440,7 @@ class CirculationAPI(object):
 
     def release_hold(self, patron, pin, licensepool):
         """Remove a patron's hold on a book."""
+        self.collect_event(licensepool, CirculationEvent.HOLD_RELEASE)
         hold = get_one(
             self._db, Hold, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
