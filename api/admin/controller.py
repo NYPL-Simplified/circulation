@@ -608,7 +608,7 @@ class FeedController(CirculationManagerController):
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation)
 
-        num = flask.request.args.get("num", 100)
+        num = min(int(flask.request.args.get("num", "100")), 500)
         results = self._db.query(CirculationEvent) \
             .join(LicensePool) \
             .order_by(CirculationEvent.id.desc()) \

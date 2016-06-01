@@ -19,6 +19,9 @@ from core.model import (
 
 class MilleniumPatronAPI(Authenticator, XMLParser):
 
+    TYPE = Authenticator.BASIC_AUTH
+    NAME = "Millenium"
+
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
     PATRON_TYPE_FIELD = 'P TYPE[p47]'
     EXPIRATION_FIELD = 'EXP DATE[p43]'
@@ -44,7 +47,7 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         self.parser = etree.HTMLParser()
 
     @classmethod
-    def from_environment(cls):
+    def from_config(cls):
         config = Configuration.integration(
             Configuration.MILLENIUM_INTEGRATION, required=True)
         host = config.get(Configuration.URL)
@@ -117,7 +120,10 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             username = dump.get(self.USERNAME_FIELD),
         )
         
-    def authenticated_patron(self, db, identifier, password):
+    def authenticated_patron(self, db, header):
+        identifier = header.get('username')
+        password = header.get('password')
+
         # If they fail basic validation, there is no authenticated patron.
         if not self.server_side_validation(identifier, password):
             return None
@@ -269,3 +275,5 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
         u['P BARCODE[pb]'] = barcode
         u['RECORD #[p81]'] = "200" + barcode
         return u
+
+AuthenticationAPI = MilleniumPatronAPI
