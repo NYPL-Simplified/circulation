@@ -14,13 +14,17 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    CirculationEvent,
     Classification,
     DataSource,
     Edition,
     Genre,
     Hyperlink,
+    Identifier,
+    LicensePool,
     PresentationCalculationPolicy,
     Subject,
+    Work,
     WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
@@ -600,3 +604,29 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+    def circulation_events(self):
+        annotator = AdminAnnotator(self.circulation)
+
+        num = min(int(flask.request.args.get("num", "100")), 500)
+        results = self._db.query(CirculationEvent) \
+            .join(LicensePool) \
+            .order_by(CirculationEvent.id.desc()) \
+            .join(Work) \
+            .join(DataSource) \
+            .join(Identifier) \
+            .limit(num) \
+            .all()
+
+        events = map(lambda result: {
+            "id": result.id,
+            "type": result.type,
+            "patron_id": result.foreign_patron_id,
+            "time": result.start,
+            "book": {
+                "title": result.license_pool.work.title,
+                "url": annotator.permalink_for(result.license_pool.work, result.license_pool, result.license_pool.identifier)
+            }
+        }, results)
+
+        return dict({ "circulation_events": events })

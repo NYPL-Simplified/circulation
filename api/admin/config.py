@@ -10,7 +10,6 @@ import contextlib
 class Configuration(CirculationManagerConfiguration):
 
     ADMIN_AUTH_DOMAIN = "admin_authentication_domain"
-    SECRET_KEY = "secret_key"
     GOOGLE_OAUTH_INTEGRATION = "Google OAuth"
 
 @contextlib.contextmanager

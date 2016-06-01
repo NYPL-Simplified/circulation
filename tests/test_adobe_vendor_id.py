@@ -34,7 +34,7 @@ class TestVendorIDModel(DatabaseTest):
         # Normally this test patron doesn't have an authorization identifier.
         # Let's make sure there is one so it'll show up as the label.
         self.bob_patron = self.authenticator.authenticated_patron(
-            self._db, "5", "5555")
+            self._db, dict(username="5", password="5555"))
         self.bob_patron.authorization_identifier = "5"
 
     def test_uuid(self):
@@ -61,7 +61,7 @@ class TestVendorIDModel(DatabaseTest):
         eq_(credential.credential, bob_authdata.credential)
 
     def test_standard_lookup_success(self):
-        urn, label = self.model.standard_lookup("5", "5555")
+        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
 
         # There is now a UUID associated with Bob's patron account,
         # and that's the UUID returned by standard_lookup().
@@ -107,7 +107,7 @@ class TestVendorIDModel(DatabaseTest):
         eq_(None, label)
 
     def test_urn_to_label_success(self):
-        urn, label = self.model.standard_lookup("5", "5555")
+        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
         label2 = self.model.urn_to_label(urn)
         eq_(label, label2)
         eq_("Card number 5", label)
@@ -117,7 +117,7 @@ class TestVendorIDModel(DatabaseTest):
         eq_(None, label)
 
     def test_urn_to_label_failure_incorrect_urn(self):
-        urn, label = self.model.standard_lookup("5", "5555")
+        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
         label = self.model.urn_to_label("bad urn")
         eq_(None, label)
 
@@ -191,9 +191,9 @@ class TestVendorIDRequestHandler(object):
             self.TEST_VENDOR_ID)
 
     @classmethod
-    def _standard_login(cls, username, password):
+    def _standard_login(cls, data):
         return cls.username_password_lookup.get(
-            (username, password), (None, None))
+            (data.get('username'), data.get('password')), (None, None))
 
     @classmethod
     def _authdata_login(cls, authdata):
