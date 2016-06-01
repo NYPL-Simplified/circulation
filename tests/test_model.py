@@ -1971,9 +1971,68 @@ class TestWorkConsolidation(DatabaseTest):
         edition, lp2 = self._edition(with_license_pool=True)
         work.license_pools.append(lp2)
 
+        # Work.pwids finds both PWIDs.
         eq_(set([lp1.presentation_edition.permanent_work_id,
                  lp2.presentation_edition.permanent_work_id]),
             work.pwids)
+
+    def test_for_permanent_work_id_no_licensepools(self):
+        eq_(
+            None, Work.for_permanent_work_id(
+                self._db, "No such permanent work ID"
+            )
+        )
+
+    def test_for_permanent_work_id(self):
+        # Two different works full of open-access license pools.
+        w1 = self._work(with_license_pool=True, with_open_access_download=True)
+
+        w2 = self._work(with_license_pool=True, with_open_access_download=True)
+
+        [lp1] = w1.license_pools 
+        [lp2] = w2.license_pools 
+
+        # Work #2 has two different license pools grouped
+        # together. Work #1 only has one.
+        edition, lp3 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        w2.license_pools.append(lp3)
+
+        # Due to an error, it turns out both Works are providing the
+        # exact same book.
+        lp1.presentation_edition.permanent_work_id="abcd"
+        lp2.presentation_edition.permanent_work_id="abcd"
+        lp3.presentation_edition.permanent_work_id="abcd"
+
+        # Work.for_permanent_work_id can resolve this problem.
+        work, is_new = Work.for_permanent_work_id(self._db, "abcd")
+
+        # All three license pools now have the same work.
+        eq_(work, lp1.work)
+        eq_(work, lp2.work)
+        eq_(work, lp3.work)
+        
+        # Because work #2 had two license pools, and work #1 only had
+        # one, work #1 was merged into work #2, rather than the other
+        # way around.
+        eq_(w2, work)
+        eq_(False, is_new)
+
+        # Work #1 no longer exists.
+        eq_([], self._db.query(Work).filter(Work.id==w1.id).all())
+
+        # Calling Work.for_permanent_work_id again returns the same
+        # result.
+        eq_((w2, False), Work.for_permanent_work_id(self._db, "abcd"))
+
+    def test_for_permanent_work_id_can_create_work(self):
+        edition, lp = self._edition(with_license_pool=True)
+        edition.permanent_work_id="abcd"
+        work, is_new = Work.for_permanent_work_id(self._db, "abcd")
+        eq_([lp], work.license_pools)
+        eq_(True, is_new)
+
 
 
 class TestLoans(DatabaseTest):

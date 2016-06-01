@@ -3215,8 +3215,6 @@ class Work(Base):
             _db.delete(wg)
         for cr in self.coverage_records:
             _db.delete(cr)
-        for contribution in self.contributions:
-            _db.delete(contribution)
         _db.delete(self)
 
     def set_summary(self, resource):
