@@ -252,3 +252,10 @@ INVALID_SERIES_POSITION = pd(
     title="Invalid series positon.",
     detail="The series position must be a number or blank."
 )
+
+INVALID_ANALYTICS_EVENT_TYPE = pd(
+    "http://librarysimplified.org/terms/problem/invalid-analytics-event-type",
+    status_code=400,
+    title="Invalid analytics event type.",
+    detail="The analytics event must be a supported type."
+)
