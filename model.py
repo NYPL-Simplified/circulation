@@ -3089,6 +3089,66 @@ class Work(Base):
                 self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
                 len(self.license_pools))).encode("utf8")
 
+    @classmethod
+    def for_permanent_work_id(cls, pwid):
+        """Find or create the Work encompassing all open-access LicensePools
+        whose presentation Editions have the given permanent work ID.
+
+        This may result in the consolidation of Works, if a book's
+        permanent work ID has changed without calculate_work() being
+        called, or if the data is in an inconsistent state for any
+        other reason.
+        """
+        is_new = False
+
+        # Find all LicensePools whose presentation Editions have the given
+        # permanent work ID.
+        qu = _db.query(LicensePool).join(
+            LicensePool.presentation_edition).filter(
+                Edition.permanent_work_id==pwid
+            ).filter(
+                LicensePool.open_access==True
+            )
+
+        licensepools = qu.all()
+        if not licensepools:
+            # There are no LicensePools for this PWID. Do nothing.
+            return None, is_new
+
+        # Tally up how many LicensePools are associated with each
+        # Work.
+        licensepools_for_work = Counter()
+        for lp in qu:
+            if lp.work and not licensepools_for_work[lp.work]:
+                licensepools_for_work[lp.work] = len(lp.work.license_pools)
+
+        if len(licensepools_for_work) == 0:
+            # None of these LicensePools have a Work. Create a new one.
+            for pool in licensepools:
+                work, is_new = pool.calculate_work()
+                if work:
+                    break
+        else:
+            # Pick the Work with the most LicensePools.
+            work = licensepools_for_work.most_common(1)[0]
+
+            # In the simple case, there will only be the one Work.
+            if len(licensepools_for_work) > 1:
+                # But in this case, for whatever reason (probably bad
+                # data caused by a bug) there's more than one
+                # Work. Merge the other Works into the one we chose
+                # earlier.  (This is why we chose the work with the
+                # most LicensePools--it minimizes the disruption.)
+                for needs_merge in licensepools_for_work.keys():
+                    if needs_merge != work:
+                        needs_merge.merge_into(work)
+            
+        # At this point we have one, and only one, Work for this
+        # permanent work ID. Assign it to every LicensePool whose
+        # presentation Edition has that permanent work ID.
+        for lp in licensepools:
+            lp.work = work
+
     def set_summary(self, resource):
         self.summary = resource
         # TODO: clean up the content
@@ -5093,6 +5153,11 @@ class LicensePool(Base):
         """ Is this open-access pool generally known for better-quality
         download files than the passed-in pool?
         """
+        # A license pool with no identifier shouldn't happen, but it
+        # definitely shouldn't be considered.
+        if not self.identifier:
+            return False
+
         # A suppressed license pool should never be used, even if there is
         # no alternative.
         if self.suppressed:
@@ -5380,21 +5445,14 @@ class LicensePool(Base):
 
         presentation_edition = known_edition or self.presentation_edition
 
-        if self.work:
-            # The work has already been done. Make sure the work's
-            # display is up to date.
-            self.work.calculate_presentation()
-            return self.work, False
-
-
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
             logging.warn("NO EDITION for %s, cowardly refusing to create work.",
-                     self.identifier)
-            
+                     self.identifier)            
             return None, False
+
         if presentation_edition.is_presentation_for != self:
             raise ValueError(
                 "Presentation edition's license pool is not the license pool for which work is being calculated!")
@@ -5424,29 +5482,28 @@ class LicensePool(Base):
 
         presentation_edition.calculate_permanent_work_id()
 
-        if presentation_edition.work:
+        _db = Session.object_session(self)
+        work = None
+        created = False
+        if self.open_access and presentation_edition.permanent_work_id:
+            # This is an open-access book. Use the Work for all
+            # open-access books associated with this book's permanent
+            # work ID.
+            work = Work.for_permanent_work_id(
+                presentation_edition.permanent_work_id
+            )
+
+        if self.work:
+            # This pool is already associated with a Work. Use that
+            # Work.
+            work = self.work
+        elif presentation_edition.work:
             # This pool's presentation edition is already associated with
             # a Work. Use that Work.
             work = presentation_edition.work
 
-        else:
-            _db = Session.object_session(self)
-            work = None
-            if self.open_access and presentation_edition.permanent_work_id:
-                # Is there already an open-access Work which includes editions
-                # with this edition's permanent work ID?
-                q = _db.query(Edition).filter(
-                    Edition.permanent_work_id
-                    ==presentation_edition.permanent_work_id).filter(
-                        Edition.work != None).filter(
-                            Edition.id != presentation_edition.id)
-                for edition in q:
-                    if edition.work.has_open_access_license:
-                        work = edition.work
-                        break
-
         if work:
-            created = False
+
         else:
             # There is no better choice than creating a brand new Work.
             created = True
@@ -5458,7 +5515,8 @@ class LicensePool(Base):
 
         # Associate this LicensePool and its Edition with the work we
         # chose or created.
-        work.license_pools.append(self)
+        if not self in work.license_pools:
+            work.license_pools.append(self)
 
         # Recalculate the display information for the Work, since the
         # associated Editions have changed.
@@ -5475,6 +5533,8 @@ class LicensePool(Base):
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
+        if not self.identifier:
+            set_trace()
         q = Identifier.resources_for_identifier_ids(
             _db, [self.identifier.id], open_access
         )

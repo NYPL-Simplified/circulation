@@ -195,6 +195,7 @@ class CoverageProvider(object):
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
+                    self.log.warn("Transient failure: %s", item.exception)
                     transient_failures += 1
                     record = item
                 else:

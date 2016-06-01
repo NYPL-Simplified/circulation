@@ -442,11 +442,35 @@ class WorkConsolidationScript(WorkProcessingScript):
                     # then that LicensePool must also have
                     # calculate_work() called on it, so that we can
                     # create two Works where there used to be one.
-                    all_pools = pool.work.license_pools
-                    self.clear_works(pool.work.id)
+                    all_pools = set(pool.work.license_pools)
                 else:
-                    all_pools = [pool]
+                    all_pools = set([pool])
+
+                # Find Editions with the same permanent work ID as one
+                # of the pools mentioned in all_pools.  All of them
+                # need to be recalculated.
+                permanent_work_ids = [
+                    pool.presentation_edition.permanent_work_id
+                    for pool in all_pools
+                    if pool.presentation_edition 
+                    and pool.presentation_edition.permanent_work_id
+                ]
+                more_editions = self._db.query(Edition).filter(Edition.permanent_work_id.in_(permanent_work_ids))
+                for edition in more_editions:
+                    identifier = edition.primary_identifier
+                    all_pools.add(identifier.licensed_through)
+
+                # First, clear any preexisting associations between
+                # LicensePools and their Works. This will force
+                # calculate_work() to think about which Work the
+                # LicensePool belongs to instead of assuming the work
+                # has already been done.
+                work_ids = [x.work.id for x in all_pools if x.work]
+                self.clear_works(*work_ids)
+
                 for pool in all_pools:
+                    if pool.identifier.type=='URI':
+                        set_trace()
                     pool.calculate_work()
                 self._db.commit()
         else:
@@ -471,14 +495,6 @@ class WorkConsolidationScript(WorkProcessingScript):
         self.clear_works(self, *work_ids_to_delete)
 
     def clear_works(self, *work_ids_to_delete):
-        # Locate works we want to consolidate.
-        unset_work_id = { Edition.work_id : None }
-        editions = self._db.query(Edition).filter(
-            Edition.work_id.in_(work_ids_to_delete))
-
-        # Unset the work IDs for any works we want to re-consolidate.
-        editions.update(unset_work_id, synchronize_session='fetch')
-
         pools = self._db.query(LicensePool).filter(
             LicensePool.work_id.in_(work_ids_to_delete))
 
