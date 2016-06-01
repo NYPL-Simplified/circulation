@@ -87,19 +87,19 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Patron is valid, but not in our database yet
         self.api.enqueue("dump.success.html")
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "alice", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
         # Patron is in the db, now authenticate with barcode
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "44444444444447", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="44444444444447", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
         # Authenticate with username again
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "alice", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 

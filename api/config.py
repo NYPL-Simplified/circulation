@@ -37,6 +37,10 @@ class Configuration(CoreConfiguration):
     AUTHENTICATION_TEST_USERNAME = "test_username"
     AUTHENTICATION_TEST_PASSWORD = "test_password"
 
+    OAUTH_CLIENT_ID = 'client_id'
+    OAUTH_CLIENT_SECRET = 'client_secret'
+    SECRET_KEY = "secret_key"
+
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
 
