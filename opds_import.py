@@ -185,7 +185,6 @@ class OPDSXMLParser(XMLParser):
 class StatusMessage(object):
 
     def __init__(self, status_code, message):
-        set_trace()
         try:
             status_code = int(status_code)
             success = (status_code == 200)

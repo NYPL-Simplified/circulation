@@ -1957,6 +1957,25 @@ class TestWorkConsolidation(DatabaseTest):
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
 
+
+    def test_pwids(self):
+        """Test the property that finds all permanent work IDs
+        associated with a Work.
+        """
+        # Create a (bad) situation in which LicensePools associated
+        # with two different PWIDs are associated with the same work.
+        work = self._work(with_license_pool=True)
+        [lp1] = work.license_pools
+        eq_(set([lp1.presentation_edition.permanent_work_id]),
+            work.pwids)
+        edition, lp2 = self._edition(with_license_pool=True)
+        work.license_pools.append(lp2)
+
+        eq_(set([lp1.presentation_edition.permanent_work_id,
+                 lp2.presentation_edition.permanent_work_id]),
+            work.pwids)
+
+
 class TestLoans(DatabaseTest):
 
     def test_open_access_loan(self):
