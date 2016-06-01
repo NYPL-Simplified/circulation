@@ -30,13 +30,13 @@ class TestAnalytics(DatabaseTest):
             eq_("faketrackingid", analytics.providers[0].tracking_id)
 
     def test_collect_event(self):
-        dummy = DummyAnalytics()
+        mock = MockAnalytics()
         analytics = Analytics.initialize()
-        analytics.providers = [dummy]   
+        analytics.providers = [mock]   
         work = self._work("title", with_license_pool=True)     
         [lp] = work.license_pools
         event, is_new = CirculationEvent.log(
             self._db, lp, CirculationEvent.CHECKIN, None, None)        
         analytics.collect_event(event)
 
-        eq_(1, dummy.count)
+        eq_(1, mock.count)
