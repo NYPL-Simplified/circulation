@@ -22,9 +22,9 @@ class GoogleAuthService(object):
     def from_environment(cls, redirect_uri, test_mode=False):
         if test_mode:
             return cls('/path', '/callback', test_mode)
-        config = Configuration.integration(
+        config = dict(Configuration.integration(
             Configuration.GOOGLE_OAUTH_INTEGRATION
-        )['web']
+        )['web'])
         return cls(config, redirect_uri, test_mode)
 
     def callback(self, request={}):
