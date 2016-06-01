@@ -13,6 +13,7 @@ class Configuration(CoreConfiguration):
     INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     AUTHENTICATION_POLICY = "authentication"
+    ANALYTICS_POLICY = "analytics"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
