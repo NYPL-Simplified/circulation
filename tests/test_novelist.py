@@ -11,10 +11,7 @@ from core.config import (
     Configuration,
     temp_config,
 )
-from core.metadata_layer import (
-    Metadata,
-    RecommendationData,
-)
+from core.metadata_layer import Metadata
 from core.model import (
     get_one_or_create,
     DataSource,
@@ -88,7 +85,7 @@ class TestNoveListAPI(DatabaseTest):
             self._db, Identifier.ISBN, "9780804171335"
         )
         bad_character = self.sample_representation("a_bad_character.json")
-        metadata, recommendations = self.novelist.lookup_info_to_metadata(bad_character)
+        metadata = self.novelist.lookup_info_to_metadata(bad_character)
 
         eq_(True, isinstance(metadata, Metadata))
         eq_(Identifier.NOVELIST_ID, metadata.primary_identifier.type)
@@ -104,15 +101,12 @@ class TestNoveListAPI(DatabaseTest):
         ratings = sorted(metadata.measurements, key=lambda m: m.value)
         eq_(2, ratings[0].value)
         eq_(3.27, ratings[1].value)
-
-        # As well as any recommendations
-        eq_(True, isinstance(recommendations, RecommendationData))
-        eq_(625, len(recommendations.identifiers))
+        eq_(625, len(metadata.recommendations))
 
         # Confirm that Lexile and series data is extracted with a
         # different sample.
         vampire = self.sample_representation("vampire_kisses.json")
-        metadata, recommendations = self.novelist.lookup_info_to_metadata(vampire)
+        metadata = self.novelist.lookup_info_to_metadata(vampire)
 
         [lexile] = filter(lambda s: s.type=='Lexile', metadata.subjects)
         eq_(u'630', lexile.identifier)
@@ -121,8 +115,7 @@ class TestNoveListAPI(DatabaseTest):
         # has the same main title: 'Vampire kisses'
         eq_(u'Vampire kisses: blood relatives. Volume 1', metadata.title)
         eq_(1, metadata.series_position)
-        eq_(True, isinstance(recommendations, RecommendationData))
-        eq_(5, len(recommendations.identifiers))
+        eq_(5, len(metadata.recommendations))
 
     def test_get_series_information(self):
 
@@ -187,13 +180,13 @@ class TestNoveListAPI(DatabaseTest):
 
         null_response = self.sample_representation("null_data.json")
         result = self.novelist.lookup_info_to_metadata(null_response)
-        eq_((None, None), result)
+        eq_(None, result)
 
         # This also happens when NoveList indicates with an empty
         # response that it doesn't know the ISBN.
         empty_response = self.sample_representation("unknown_isbn.json")
         result = self.novelist.lookup_info_to_metadata(empty_response)
-        eq_((None, None), result)
+        eq_(None, result)
 
     def test_scrub_subtitle(self):
         """Unnecessary title segments are removed from subtitles"""

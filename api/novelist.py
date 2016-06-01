@@ -15,7 +15,6 @@ from core.metadata_layer import (
     LinkData,
     MeasurementData,
     Metadata,
-    RecommendationData,
     SubjectData,
 )
 from core.model import (
@@ -187,7 +186,7 @@ class NoveListAPI(object):
         """Transforms a NoveList JSON representation into a Metadata object"""
 
         if not lookup_representation.content:
-            return None, None
+            return None
 
         lookup_info = json.loads(lookup_representation.content)
         book_info = lookup_info['TitleInfo']
@@ -195,7 +194,7 @@ class NoveListAPI(object):
             novelist_identifier = book_info.get('ui')
         if not book_info or not novelist_identifier:
             # NoveList didn't know the ISBN.
-            return None, None
+            return None
 
         primary_identifier, ignore = Identifier.for_foreign_id(
             self._db, Identifier.NOVELIST_ID, novelist_identifier
@@ -203,7 +202,7 @@ class NoveListAPI(object):
         metadata = Metadata(self.source, primary_identifier=primary_identifier)
 
         # Get the equivalent ISBN identifiers.
-        metadata = self.get_isbns(metadata, book_info)
+        metadata.identifiers += self._extract_isbns(book_info)
 
         author = book_info.get('author')
         if author:
@@ -274,17 +273,14 @@ class NoveListAPI(object):
                 Measurement.RATING, goodreads_info['average_rating']
             ))
 
-        recommendations = self.get_recommendations(recommendations_info)
+        metadata = self.get_recommendations(metadata, recommendations_info)
 
         # If nothing interesting comes from the API, ignore it.
         if not (metadata.measurements or metadata.series_position or
                 metadata.series or metadata.subjects or metadata.links or
-                metadata.subtitle):
+                metadata.subtitle or metadata.recommendations):
             metadata = None
-        if not (recommendations and recommendations.identifiers):
-            recommendations = None
-
-        return metadata, recommendations
+        return metadata
 
     def get_series_information(self, metadata, series_info, book_info):
         """Returns metadata object with series info and optimal title key"""
@@ -318,37 +314,28 @@ class NoveListAPI(object):
 
         return metadata, title_key
 
-    def get_isbns(self, metadata_object, book_info):
-        """Grabs IdentifierData object for each ISBN in NoveList manifestations"""
-        primary_identifier = None
-        if (hasattr(metadata_object, 'primary_identifier')
-            and metadata_object.primary_identifier):
-            primary_identifier = metadata_object.primary_identifier
+    def _extract_isbns(self, book_info):
+        isbns = []
 
         synonymous_ids = book_info.get('manifestations')
         for synonymous_id in synonymous_ids:
             isbn = synonymous_id.get('ISBN')
             if isbn:
-                if (primary_identifier and
-                    isbn==primary_identifier.identifier):
-                    continue
                 isbn_data = IdentifierData(Identifier.ISBN, isbn)
-                metadata_object.identifiers.append(isbn_data)
+                isbns.append(isbn_data)
 
-        return metadata_object
+        return isbns
 
-    def get_recommendations(self, recommendations_info):
+    def get_recommendations(self, metadata, recommendations_info):
         if not recommendations_info:
             return None
 
-        recommendations = RecommendationData(self.source)
         related_books = recommendations_info.get('titles')
         related_books = filter(lambda b: b.get('is_held_locally'), related_books)
         if related_books:
             for book_info in related_books:
-                recommendations = self.get_isbns(recommendations, book_info)
-
-        return recommendations
+                metadata.recommendations += self._extract_isbns(book_info)
+        return metadata
 
 
 class DummyNoveListAPI(object):
