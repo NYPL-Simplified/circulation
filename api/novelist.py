@@ -64,10 +64,11 @@ class NoveListAPI(object):
 
         :return: Metadata object or None
         """
-
-        license_source = DataSource.license_source_for(self._db, identifier)
+        lookup_metadata = []
+        license_sources = DataSource.license_sources_for(self._db, identifier)
         # Look up strong ISBN equivalents.
-        lookup_metadata =  [self.lookup(eq.output)
+        for license_source in license_sources:
+            lookup_metadata += [self.lookup(eq.output)
                 for eq in identifier.equivalencies
                 if (eq.data_source==license_source and eq.strength==1
                     and eq.output.type==Identifier.ISBN)]
