@@ -11,7 +11,6 @@ class Configuration(CirculationManagerConfiguration):
 
     ADMIN_AUTH_DOMAIN = "admin_authentication_domain"
     GOOGLE_OAUTH_INTEGRATION = "Google OAuth"
-    GOOGLE_OAUTH_CLIENT_JSON = "client_json_file"
 
 @contextlib.contextmanager
 def temp_config(new_config=None):
