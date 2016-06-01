@@ -5708,6 +5708,7 @@ class CirculationEvent(Base):
     SERVER_NOTIFICATION = u"server_notification"
     TITLE_ADD = u"title_add"
     TITLE_REMOVE = u"title_remove"
+    OPEN_BOOK = u"open_book"
     UNKNOWN = u"unknown"
 
     # The time format used when exporting to JSON.
