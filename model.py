@@ -4929,7 +4929,7 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
-    # A LicensePool for feeds associated with a certain work.
+    # A feed may be associated with a LicensePool.
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
         nullable=True, index=True)
 
