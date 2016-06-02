@@ -72,8 +72,8 @@ from . import (
     DummyHTTPClient,
 )
 
-from core.analytics import Analytics
-from core.mock_analytics_provider import MockAnalyticsProvider
+from analytics import Analytics
+from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDataSource(DatabaseTest):
 
