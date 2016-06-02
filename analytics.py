@@ -22,4 +22,4 @@ class Analytics(object):
         if not time:
             time = datetime.datetime.utcnow()
         for provider in self.providers:
-            provider.collect_event(_db, license_pool, event_type, time, **kwargs)    
+            provider.collect_event(_db, license_pool, event_type, time, **kwargs)

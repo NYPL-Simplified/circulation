@@ -309,8 +309,9 @@ class Configuration(object):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
     @classmethod
-    def collect_analytics_event(cls, *args, **kwargs):
-        cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(*args, **kwargs)
+    def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
+        cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(
+            _db, license_pool, event_type, time, **kwargs)
 
     # Methods for loading the configuration from disk.
 
