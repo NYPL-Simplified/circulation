@@ -12,8 +12,13 @@ from core.lane import (
     Lane,
     LaneList,
 )
+from core.model import (
+    Work,
+    Edition,
+)
 
 from core.util import LanguageCodes
+from novelist import NoveListAPI
 
 def make_lanes(_db, definitions=None):
 
@@ -368,3 +373,36 @@ def lane_for_other_languages(_db, exclude_languages):
     )
     lane.default_for_language = True
     return lane
+
+
+class RecommendationLane(Lane):
+    """A lane of works recommended for a particular work"""
+
+    MAX_CACHE_AGE = 7*24*60*60      # one week
+
+    def __init__(self, _db, license_pool, full_name, display_name=None,
+            mock_api=None):
+        self.license_pool = license_pool
+        if mock_api or not NoveListAPI.is_configured():
+            self.api = mock_api
+        else:
+            self.api = NoveListAPI.from_config(_db)
+        display_name = display_name or "Related Works"
+        super(RecommendationLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+            edition_model=Edition):
+        identifier = self.license_pool.identifier
+        metadata = self.api.lookup(identifier)
+
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        if metadata:
+            metadata.filter_recommendations(self._db)
+            if metadata.recommendations:
+                qu = Work.from_identifiers(
+                    self._db, metadata.recommendations, base_query=qu
+                )
+                return qu
+        return None
