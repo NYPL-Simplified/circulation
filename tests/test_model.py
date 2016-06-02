@@ -926,21 +926,18 @@ class TestLicensePool(DatabaseTest):
         eq_([p2], LicensePool.with_no_work(self._db))
 
     def test_update_availability(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics()
+        work = self._work(with_license_pool=True)
+        work.last_update_time = None
 
-            work = self._work(with_license_pool=True)
-            work.last_update_time = None
+        [pool] = work.license_pools
+        pool.update_availability(30, 20, 2, 0)
+        eq_(30, pool.licenses_owned)
+        eq_(20, pool.licenses_available)
+        eq_(2, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
 
-            [pool] = work.license_pools
-            pool.update_availability(30, 20, 2, 0)
-            eq_(30, pool.licenses_owned)
-            eq_(20, pool.licenses_available)
-            eq_(2, pool.licenses_reserved)
-            eq_(0, pool.patrons_in_hold_queue)
-
-            # Updating availability also modified work.last_update_time.
-            assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        # Updating availability also modified work.last_update_time.
+        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
         with temp_config() as config:
