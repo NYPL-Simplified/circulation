@@ -342,7 +342,7 @@ class CoverageProvider(object):
         return work
 
 
-    def set_meta_circ_data(self, identifier, metadata, circulationdata, 
+    def set_metadata_and_circulation_data(self, identifier, metadata, circulationdata, 
         metadata_replacement_policy=None, 
         circulationdata_replacement_policy=None, 
     ):
@@ -353,6 +353,7 @@ class CoverageProvider(object):
 
         TODO:  Makes assumption of one license pool per identifier.  In a 
         later branch, this will change.
+        TODO:  Update doc string removing reference to past function.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).

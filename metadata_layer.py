@@ -351,6 +351,7 @@ class MeasurementData(object):
             self.quantity_measured, self.value, self.weight, self.taken_at
         )
 
+
 class FormatData(object):
     def __init__(self, content_type, drm_scheme, link=None, rights_uri=None):
         self.content_type = content_type
@@ -361,15 +362,16 @@ class FormatData(object):
             )
         self.link = link
         self.rights_uri = rights_uri
+        if ((not self.rights_uri) and self.link and self.link.rights_uri):
+            self.rights_uri = self.link.rights_uri
 
 
 
 class MetaToModelUtility(object):
     """
-    TODO
+    Contains functionality common to both CirculationData and Metadata.
     """
 
-    #def mirror_link(self, pool, data_source, link, link_obj, policy):
     def mirror_link(self, model_object, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and
@@ -379,7 +381,7 @@ class MetaToModelUtility(object):
         """
 
         if link_obj.rel not in (
-                Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
+            Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
         ):
             # we only host locally open-source epubs and cover images
             return
@@ -389,7 +391,6 @@ class MetaToModelUtility(object):
 
         _db = Session.object_session(link_obj)
         original_url = link.href
-        identifier = link_obj.identifier
 
         self.log.debug("About to mirror %s" % original_url)
 
@@ -412,6 +413,11 @@ class MetaToModelUtility(object):
             title = edition.title
         else:
             title = self.title or None
+
+        if ((not identifier) or (link_obj.identifier and identifier != link_obj.identifier)):
+            # insanity found
+            self.log.warn("Tried to mirror a link with an invalid identifier %r" % identifier)
+            return
 
         max_age = None
         if policy.link_content:
@@ -468,9 +474,10 @@ class MetaToModelUtility(object):
 
         # If we couldn't mirror an open access link representation, suppress
         # the license pool until someone fixes it manually.
-        if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            pool.suppressed = True
-            pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
+        if representation.mirror_exception: 
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
@@ -536,6 +543,7 @@ class CirculationData(MetaToModelUtility):
             formats=None,
             default_rights_uri=None,
             links=None,
+            last_checked=None,
     ):
         # data_source is where the lending licenses (our ability to actually access the book) are coming from.
         self._data_source = data_source
@@ -552,6 +560,7 @@ class CirculationData(MetaToModelUtility):
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
+        self.last_checked = last_checked
 
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -582,6 +591,7 @@ class CirculationData(MetaToModelUtility):
 
         for link in arg_links:
             if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+                # TODO:  what about Hyperlink.SAMPLE?
                 # only accept the types of links relevant to pools
                 self.__links.append(link)
 
@@ -627,7 +637,7 @@ class CirculationData(MetaToModelUtility):
                 if not obj:
                     raise ValueError("Data source %s not found!" % self._data_source)
                 if not obj.offers_licenses:
-                    raise ValueError("Data source %s does not offer licenses and cannot be used as a LicenseData data source." % self._data_source)
+                    raise ValueError("Data source %s does not offer licenses and cannot be used as a CirculationData data source." % self._data_source)
             else:
                 obj = None
             self.data_source_obj = obj
@@ -666,7 +676,7 @@ class CirculationData(MetaToModelUtility):
             if is_new:
                 license_pool.availability_time = datetime.datetime.utcnow()
                 # This is our first time seeing this LicensePool. Log its
-                # occurance as a separate event.
+                # occurence as a separate event.
                 event = get_one_or_create(
                     _db, CirculationEvent,
                     type=CirculationEvent.TITLE_ADD,
@@ -677,8 +687,8 @@ class CirculationData(MetaToModelUtility):
                         end=last_checked,
                     )
                 )
-
-            license_pool.last_checked = last_checked
+                # only set license_pool's last_checked time on creation and update
+                license_pool.last_checked = last_checked
 
             if self.has_open_access_link:
                 license_pool.open_access = True
@@ -708,7 +718,7 @@ class CirculationData(MetaToModelUtility):
 
 
     def apply(self, pool, replace=None):
-        """  TODO: apply name provisional, doc string follows.
+        """  Update the passed-in license pool with this CirculationData's information.
         """
         made_changes = False
 
@@ -772,10 +782,32 @@ class CirculationData(MetaToModelUtility):
 
         changed_licenses = False
         if pool:
-            changed_licenses = (pool.licenses_owned != self.licenses_owned or
-               pool.licenses_available != self.licenses_available or
-               pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
-               pool.licenses_reserved != self.licenses_reserved)
+            # if we were not passed a last_checked value, then update pool as of now
+            if not self.last_checked: 
+                # Update availabily information. This may result in the issuance
+                # of additional events.
+                changed_licenses = pool.update_availability(
+                    new_licenses_owned=self.licenses_owned,
+                    new_licenses_available=self.licenses_available,
+                    new_licenses_reserved=self.licenses_reserved,
+                    new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                    as_of=datetime.datetime.utcnow(),
+                )
+            else:
+                # if we were passed a last_checked value, such as when creating the 
+                # CirculationData object in the bibliographic parser for a 3m log, then 
+                # check if that log update value is after the license pool's current knowledge, 
+                # and only update license infos if new information is really new.
+                if (pool.last_checked and (self.last_checked > pool.last_checked)):
+                    # Update availabily information. This may result in the issuance
+                    # of additional events.
+                    changed_licenses = pool.update_availability(
+                        new_licenses_owned=self.licenses_owned,
+                        new_licenses_available=self.licenses_available,
+                        new_licenses_reserved=self.licenses_reserved,
+                        new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                        as_of=self.last_checked
+                    )
 
         if changed_licenses:
             edition = pool.presentation_edition
@@ -799,17 +831,6 @@ class CirculationData(MetaToModelUtility):
                     pool.patrons_in_hold_queue, self.patrons_in_hold_queue
                 )
 
-        # Update availabily information. This may result in the issuance
-        # of additional events.
-        if pool:
-            last_checked = datetime.datetime.utcnow()
-            pool.update_availability(
-                self.licenses_owned,
-                self.licenses_available,
-                self.licenses_reserved,
-                self.patrons_in_hold_queue,
-                last_checked
-            )
 
         made_changes = made_changes or changed_licenses
 
@@ -888,8 +909,7 @@ class Metadata(MetaToModelUtility):
         self.contributors = contributors or []
         self.measurements = measurements or []
 
-        # circulation-metadata connection has been removed, but might come back
-        #self.circulation = circulation
+        self.circulation = circulation
 
         # renamed last_update_time to provider_entry_updated
         self.provider_entry_updated = provider_entry_updated
@@ -917,13 +937,6 @@ class Metadata(MetaToModelUtility):
                 # only accept the types of links relevant to editions
                 self.__links.append(link)
                 
-    # TODO: perhaps should move to CirculationData, as Metadata will no longer ever have open-access links.
-    def has_open_access_link(self):
-        """Does this Metadata object have an associated open-access link?"""
-        return any(
-            [x for x in self.links
-             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
-        )
 
     @classmethod
     def from_edition(cls, edition):
@@ -1070,7 +1083,6 @@ class Metadata(MetaToModelUtility):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        #data_source = self.license_data_source(_db) or self.data_source(_db)
         data_source = self.data_source(_db)
 
         return Edition.for_foreign_id(
@@ -1078,27 +1090,6 @@ class Metadata(MetaToModelUtility):
             self.primary_identifier.identifier,
             create_if_not_exists=create_if_not_exists
         )
-
-    # TODO: move method to CirculationData (compare first, see if something changed in master version)
-    def set_default_rights_uri(self, data_source):
-        if self.rights_uri == None and data_source:
-            # We haven't been able to determine rights from the metadata, so use the default rights
-            # for the data source if any.
-            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
-            if default:
-                self.rights_uri = default
-
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights from the metadata or the data source, but there's an
-                    # open access download link, so we'll consider it generic open access.
-                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
-
-        if self.rights_uri == None:
-            # We still haven't determined rights, so it's unknown.
-            self.rights_uri = RightsStatus.UNKNOWN
 
 
     def consolidate_identifiers(self):
@@ -1165,16 +1156,6 @@ class Metadata(MetaToModelUtility):
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
-    '''
-    def apply(self, edition, metadata_client=None, replace=None,
-              replace_identifiers=False,
-              replace_subjects=False,
-              replace_contributions=False,
-              replace_links=False,
-              replace_formats=False,
-              replace_rights=False,
-              force=False,
-    '''
     def apply(self, edition, metadata_client=None, replace=None,
               replace_identifiers=False,
               replace_subjects=False,
@@ -1370,7 +1351,6 @@ class Metadata(MetaToModelUtility):
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
-            #if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
             link_obj = link_objects[link]
             # TODO: We do not properly handle the (unlikely) case
             # where there is an IMAGE_THUMBNAIL link but no IMAGE

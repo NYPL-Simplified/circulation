@@ -12,6 +12,7 @@ from metadata_layer import (
     FormatData,
     IdentifierData,
     LinkData,
+    Metadata,
     ReplacementPolicy,
     SubjectData,
 )
@@ -33,9 +34,10 @@ from . import (
 
 from s3 import DummyS3Uploader
 
+
 class TestCirculationData(DatabaseTest):
 
-    def test_metadata_can_be_deepcopied(self):
+    def test_circulationdata_can_be_deepcopied(self):
         # Check that we didn't put something in the CirculationData that
         # will prevent it from being copied. (e.g., self.log)
 
@@ -91,6 +93,93 @@ class TestCirculationData(DatabaseTest):
         eq_([link1], filtered_links)
 
 
+    def test_explicit_formatdata(self):
+        # Creating an edition with an open-access download will
+        # automatically create a delivery mechanism.
+        edition, pool = self._edition(with_open_access_download=True)
+
+        # Let's also add a DRM format.
+        drm_format = FormatData(
+            content_type=Representation.PDF_MEDIA_TYPE,
+            drm_scheme=DeliveryMechanism.ADOBE_DRM,
+        )
+
+        circulation_data = CirculationData(formats=[drm_format],
+                            data_source=edition.data_source, 
+                            primary_identifier=edition.primary_identifier)
+        circulation_data.apply(pool)
+
+        [epub, pdf] = sorted(pool.delivery_mechanisms, 
+                             key=lambda x: x.delivery_mechanism.content_type)
+        eq_(epub.resource, edition.license_pool.best_open_access_link)
+
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
+
+        # If we tell Metadata to replace the list of formats, we only
+        # have the one format we manually created.
+        replace = ReplacementPolicy(
+                formats=True,
+            )
+        circulation_data.apply(pool, replace=replace)
+        [pdf] = pool.delivery_mechanisms
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+
+
+    def test_implicit_format_for_open_access_link(self):
+        # A format is a delivery mechanism.  We handle delivery on open access 
+        # pools from our mirrored content in S3.  
+        # Tests that when a link is open access, a pool can be delivered.
+        
+        edition, pool = self._edition(with_license_pool=True)
+
+        # This is the delivery mechanism created by default when you
+        # create a book with _edition().
+        [epub] = pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, epub.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.delivery_mechanism.drm_scheme)
+
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.PDF_MEDIA_TYPE,
+            href=self._url
+        )
+        circulation_data = CirculationData(
+            data_source=DataSource.GUTENBERG, 
+            primary_identifier=edition.primary_identifier, 
+            links=[link], 
+        )
+
+        replace = ReplacementPolicy(
+                formats=True,
+            )
+        circulation_data.apply(pool, replace)
+
+        # We destroyed the default delivery format and added a new,
+        # open access delivery format.
+        [pdf] = pool.delivery_mechanisms
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
+
+        circulation_data = CirculationData(
+            data_source=DataSource.GUTENBERG, 
+            primary_identifier=edition.primary_identifier, 
+            links=[]
+        )
+        replace = ReplacementPolicy(
+                formats=True,
+                links=True,
+            )
+        circulation_data.apply(pool, replace)
+
+        # Now we have no formats at all.
+        eq_([], pool.delivery_mechanisms)
+
+
+
+class TestMetaToModelUtility(DatabaseTest):
+
     def test_open_access_content_mirrored(self):
         # Make sure that open access material links are translated to our S3 buckets, and that 
         # commercial material links are left as is.
@@ -117,6 +206,15 @@ class TestCirculationData(DatabaseTest):
 
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
+
+        metadata = Metadata(data_source=edition.data_source, 
+        	links=[link_mirrored, link_unmirrored],
+    	)
+        metadata.apply(edition, replace=policy)
+        # make sure the refactor is done right, and metadata does not upload
+        eq_(0, len(mirror.uploaded))
+
+
         circulation_data = CirculationData(
         	data_source=edition.data_source, 
         	primary_identifier=edition.primary_identifier,
@@ -124,16 +222,11 @@ class TestCirculationData(DatabaseTest):
         )
         circulation_data.apply(pool, replace=policy)
         
+        # make sure the refactor is done right, and circulation does upload 
+        eq_(1, len(mirror.uploaded))
 
         # Only the open-access link has been 'mirrored'.
-        # TODO: make sure the refactor is done right, and metadata does not upload
-        #eq_(0, len(mirror.uploaded))
         [book] = mirror.uploaded
-
-        # TODO: make sure the refactor is done right, and circulation does upload 
-        #circulation = CirculationData(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
-        #circulation.apply(pool, replace=policy)
-        #[book] = mirror.uploaded
 
         # It's remained an open-access link.
         eq_(

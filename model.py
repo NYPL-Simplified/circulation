@@ -5276,7 +5276,7 @@ class LicensePool(Base):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
-
+        changes_made = False
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
@@ -5295,6 +5295,7 @@ class LicensePool(Base):
                 continue
             if old_value == new_value:
                 continue
+            changes_made = True
 
             if old_value < new_value:
                 event_name = more_event
@@ -5317,6 +5318,8 @@ class LicensePool(Base):
         # Update the last update time of the Work.
         if self.work:
             self.work.last_update_time = as_of
+
+        return changes_made
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
         _db = Session.object_session(patron)
@@ -5464,18 +5467,21 @@ class LicensePool(Base):
             _db.add(work)
             _db.flush()
 
-        # Associate this LicensePool and its Edition with the work we
-        # chose or created.
-        work.license_pools.append(self)
+        if work:
+            # Associate this LicensePool and its Edition with the work we
+            # chose or created.
+            work.license_pools.append(self)
 
-        # Recalculate the display information for the Work, since the
-        # associated Editions have changed.
-        work.calculate_presentation()
+            # Recalculate the display information for the Work, since the
+            # associated Editions have changed.
+            work.calculate_presentation()
 
         if created:
             logging.info("Created a new work: %r", work)
+            
         # All done!
         return work, created
+
 
     @property
     def open_access_links(self):

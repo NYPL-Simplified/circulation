@@ -409,7 +409,7 @@ class TestCoverageProvider(DatabaseTest):
             primary_identifier=metadata.primary_identifier, 
             links=[link])
 
-        provider.set_meta_circ_data(
+        provider.set_metadata_and_circulation_data(
             identifier, metadata, circulationdata, 
             metadata_replacement_policy=metadata_replacement_policy, 
             circulationdata_replacement_policy=circulationdata_replacement_policy, 
@@ -632,7 +632,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             with_license_pool=True)
 
         # If no metadata is passed in, a CoverageRecord results.
-        result = provider.set_meta_circ_data(edition.primary_identifier, None, None)
+        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, None, None)
 
         assert isinstance(result, CoverageFailure)
         eq_("Did not receive metadata from input source", result.exception)
@@ -642,13 +642,13 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         edition.title = None
         old_title = test_metadata.title
         test_metadata.title = None
-        result = provider.set_meta_circ_data(edition.primary_identifier, test_metadata, test_circulationdata)
+        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, test_metadata, test_circulationdata)
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
         test_metadata.title = old_title        
 
         # Test success
-        result = provider.set_meta_circ_data(edition.primary_identifier, test_metadata, test_circulationdata)
+        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, test_metadata, test_circulationdata)
         eq_(result, edition.primary_identifier)
 
         # If there's an exception setting the metadata, a
@@ -658,7 +658,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         test_metadata.primary_identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID
         )
-        result = provider.set_meta_circ_data(lp.identifier, test_metadata, test_circulationdata)
+        result = provider.set_metadata_and_circulation_data(lp.identifier, test_metadata, test_circulationdata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
 

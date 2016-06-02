@@ -528,10 +528,11 @@ class OverdriveRepresentationExtractor(object):
                 processed.append(cls.overdrive_role_to_simplified_role[x])
         return processed
 
+
     @classmethod
     def book_info_to_circulation(cls, book):
-        """ Note:  The json data passed into this method is from a different file 
-        from the json data that goes into the book_info_to_circulation() method.
+        """ Note:  The json data passed into this method is from a different file/stream 
+        from the json data that goes into the book_info_to_metadata() method.
         """
         # In Overdrive, 'reserved' books show up as books on
         # hold. There is no separate notion of reserved books.
@@ -580,12 +581,13 @@ class OverdriveRepresentationExtractor(object):
         media_type = link.get('type', None)
         return LinkData(rel=rel, href=href, media_type=media_type)
 
+
     @classmethod
     def book_info_to_metadata(cls, book):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
 
-        Note:  The json data passed into this method is from a different file 
+        Note:  The json data passed into this method is from a different file/stream 
         from the json data that goes into the book_info_to_circulation() method.
         """
         if not 'id' in book:

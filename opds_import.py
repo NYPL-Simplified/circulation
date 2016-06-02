@@ -218,9 +218,6 @@ class OPDSImporter(object):
     our internal content server, and also when our content server asks for data 
     from external content servers. 
 
-    Note: Ignores author and subject information, under the assumption that it will 
-    get better author and subject information from the metadata wrangler.
-
     :param mirror: Use this MirrorUploader object to mirror all
     incoming open-access books and cover images.
     """
@@ -298,7 +295,7 @@ class OPDSImporter(object):
                         circulationdata, associated_metadata, cutoff_date
                     )
 
-                    work = self.import_work_from_circulationdata(
+                    work = self.import_work(
                         pool, even_if_no_author, immediately_presentation_ready
                     )
                     # if error or cutoff making license pool, don't make work
@@ -308,6 +305,10 @@ class OPDSImporter(object):
                         imported_pools[key] = pool
                         if work:
                             imported_works[key] = work
+                        else:
+                            error_message = "No Work created for CirculationData %r, for an unknown reason." % circulationdata
+                            self.log.warn(error_message)
+                            raise DBImportException(error_message)
                 except Exception, e:
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                     status_messages[key] = message
@@ -385,6 +386,13 @@ class OPDSImporter(object):
             # before that date. There's no reason to do anything.
             return None
 
+        if license_pool is None:
+            # Without a LicensePool, we can't circulationdata.apply and can't create a Work.
+            error_message = "No LicensePool created for CirculationData %r, will not attempt to continue to create Work." % circulationdata
+            self.log.warn(error_message)
+            raise DBImportException(error_message)
+            return None
+
         policy = ReplacementPolicy(
             subjects=True,
             links=True,
@@ -399,16 +407,10 @@ class OPDSImporter(object):
             license_pool, replace=policy
         )
 
-        if license_pool is None:
-            # Without a LicensePool, we can't create a Work.
-            error_message = "No LicensePool created for CirculationData %r, will not attempt to continue to create Work." % circulationdata
-            self.log.warn(error_message)
-            raise DBImportException(error_message)
-
         return license_pool
 
 
-    def import_work_from_circulationdata(
+    def import_work(
             self, license_pool, even_if_no_author, immediately_presentation_ready
     ):
         """ Making work is not based on pool's cutoff logic, but based on whether have a pool and and edition, period.
@@ -419,10 +421,8 @@ class OPDSImporter(object):
         # which will find editions attached to same Identifier.
         # If the pool has no edition, pool.calculate_work is responsible for not allowing the work to be created.
         work = None
-        work, is_new_work = license_pool.calculate_work(even_if_no_author=even_if_no_author,)
-        # if pool.calculate_work made a new work, it already called calculate_presentation
-        if (work and not is_new_work):
-            work.calculate_presentation()
+        work, is_new_work = license_pool.calculate_work(even_if_no_author=even_if_no_author)
+        # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
         if (work):
             if immediately_presentation_ready:
                 # We want this book to be presentation-ready
@@ -537,7 +537,7 @@ class OPDSImporter(object):
             else:
                 # That's bad. Can't make an item-specific error message, but write to 
                 # log that something very wrong happened.
-                logging.error("Tried to parse an element without a valid identifier.")
+                logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
 
         feed = feedparser_parsed['feed']
         next_links = []
