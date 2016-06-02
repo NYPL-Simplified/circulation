@@ -3125,9 +3125,8 @@ class Work(Base):
         work = None
         if len(licensepools_for_work) == 0:
             # None of these LicensePools have a Work. Create a new one.
-            for pool in licensepools:
-                work = Work()
-                is_new = True
+            work = Work()
+            is_new = True
         else:
             # Pick the Work with the most LicensePools.
             work, count = licensepools_for_work.most_common(1)[0]
@@ -5631,7 +5630,6 @@ class LicensePool(Base):
             # setting pool.work to None before calling
             # pool.calculate_work(), and the recursive call only
             # happens if self.work is set.
-            my_pwid = self.presentation_edition
             for pool in list(work.license_pools):
                 if pool is self:
                     continue
@@ -5661,8 +5659,14 @@ class LicensePool(Base):
         # Recalculate the display information for the Work, since the
         # associated LicensePools have changed, which may have caused
         # the Work's presentation Edition to change.
-        if licensepools_changed:
-            work.calculate_presentation()
+        #
+        # TODO: In theory we can speed things up by only calling
+        # calculate_presentation if licensepools_changed is
+        # True. However, some bits of other code call calculate_work()
+        # under the assumption that it always calls
+        # calculate_presentation(), so we'd need to evaluate those
+        # call points first.
+        work.calculate_presentation()
 
         if is_new:
             logging.info("Created a new work: %r", work)
