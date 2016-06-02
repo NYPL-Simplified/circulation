@@ -72,6 +72,9 @@ from . import (
     DummyHTTPClient,
 )
 
+from core.analytics import Analytics
+from core.mock_analytics_provider import MockAnalyticsProvider
+
 class TestDataSource(DatabaseTest):
 
     def test_lookup(self):
@@ -923,18 +926,36 @@ class TestLicensePool(DatabaseTest):
         eq_([p2], LicensePool.with_no_work(self._db))
 
     def test_update_availability(self):
-        work = self._work(with_license_pool=True)
-        work.last_update_time = None
+        with temp_config() as config:
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics()
 
-        [pool] = work.license_pools
-        pool.update_availability(30, 20, 2, 0)
-        eq_(30, pool.licenses_owned)
-        eq_(20, pool.licenses_available)
-        eq_(2, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
+            work = self._work(with_license_pool=True)
+            work.last_update_time = None
 
-        # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+            [pool] = work.license_pools
+            pool.update_availability(30, 20, 2, 0)
+            eq_(30, pool.licenses_owned)
+            eq_(20, pool.licenses_available)
+            eq_(2, pool.licenses_reserved)
+            eq_(0, pool.patrons_in_hold_queue)
+
+            # Updating availability also modified work.last_update_time.
+            assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
+    def test_update_availability_triggers_analytics(self):
+        with temp_config() as config:
+            provider = MockAnalyticsProvider()
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics([provider])
+            work = self._work(with_license_pool=True)
+            [pool] = work.license_pools
+            pool.update_availability(30, 20, 2, 0)
+            count = provider.count
+            pool.update_availability(30, 21, 2, 0)
+            eq_(count + 1, provider.count)
+            eq_(CirculationEvent.CHECKIN, provider.event_type)
+            pool.update_availability(30, 21, 2, 1)
+            eq_(count + 2, provider.count)
+            eq_(CirculationEvent.HOLD_PLACE, provider.event_type)
 
     def test_set_rights_status(self):
         edition, pool = self._edition(with_license_pool=True)
