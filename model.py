@@ -3161,7 +3161,6 @@ class Work(Base):
         """
         _db = Session.object_session(self)
         for pool in list(self.license_pools):
-            print pool.presentation_edition.permanent_work_id
             other_work = is_new = None
             if not pool.open_access:
                 # This needs to have its own Work--we don't mix
@@ -3175,7 +3174,6 @@ class Work(Base):
                 this_pwid = pool.presentation_edition.permanent_work_id
                 if not this_pwid:
                     continue
-                print this_pwid, pwid
                 if this_pwid != pwid:
                     # This LicensePool should not belong to this Work.
                     # Make sure it gets its own Work, creating a new one
