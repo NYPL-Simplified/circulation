@@ -799,9 +799,11 @@ class WorkController(CirculationManagerController):
             return pool
 
         lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
-        lane = RecommendationLane(self._db, pool, lane_name)
-        if self.manager.testing:
-            lane.api = mock_api or MockNoveListAPI()
+        try:
+            lane = RecommendationLane(self._db, pool, lane_name, mock_api=mock_api)
+        except ValueError, e:
+            # NoveList isn't configured.
+            return NO_SUCH_LANE.detailed("Recommendations not available: %r" % e)
 
         use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(

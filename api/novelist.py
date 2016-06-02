@@ -44,17 +44,21 @@ class NoveListAPI(object):
     @classmethod
     def from_config(cls, _db):
         config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
-        profile = config.get(Configuration.NOVELIST_PROFILE)
-        password = config.get(Configuration.NOVELIST_PASSWORD)
+        profile, password = cls.values()
         if not (profile and password):
             raise ValueError("No NoveList client configured.")
         return cls(_db, profile, password)
 
     @classmethod
-    def is_configured(cls):
+    def values(cls):
         config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
         profile = config.get(Configuration.NOVELIST_PROFILE)
         password = config.get(Configuration.NOVELIST_PASSWORD)
+        return (profile, password)
+
+    @classmethod
+    def is_configured(cls):
+        profile, password = cls.values()
         return bool(profile and password)
 
     def __init__(self, _db, profile, password):

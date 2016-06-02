@@ -751,6 +751,15 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.english_2.title, entry['title'])
         eq_(self.english_2.author, entry['author'])
 
+        with temp_config() as config:
+            with self.app.test_request_context('/'):
+                config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+                response = self.manager.work_controller.recommendations(
+                    self.datasource, self.identifier.type, self.identifier.identifier
+                )
+            eq_(404, response.status_code)
+            eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
             response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
