@@ -237,6 +237,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
 
+
     def test_import(self):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
@@ -254,8 +255,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, crow.license_pool)
         eq_(Edition.BOOK_MEDIUM, crow.medium)
 
-        # But the 'mouse' book is known to come from Project Gutenberg,
-        # so a Work has been created for that book.
+        # not even the 'mouse'
         eq_(None, mouse.work)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
@@ -313,8 +313,6 @@ class TestOPDSImporter(OPDSImporterTest):
         assert crow.license_pool.work is not None
         eq_(Edition.BOOK_MEDIUM, crow.medium)
 
-        # But the 'mouse' book is known to come from Project Gutenberg,
-        # so a Work has been created for that book.
         assert mouse.license_pool.work is not None
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
@@ -333,7 +331,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
 
 
-    def test_import_with_wrangler_data_source(self):
+    def test_import_with_lendability(self):
         # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
         # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
         # editions, but not pools or works.  On a lendable data source, should create 
@@ -422,8 +420,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(imported_pools))
         eq_(2, len(imported_works))
 
-        # TODO: last_checked isn't getting set.  correct behavior or should fix?
-        #assert (datetime.datetime.utcnow() - imported_pools[0].last_checked) < datetime.timedelta(seconds=10)
+        assert (datetime.datetime.utcnow() - imported_pools[0].last_checked) < datetime.timedelta(seconds=10)
 
 
     def test_import_updates_metadata(self):
@@ -548,7 +545,7 @@ class TestOPDSImporter(OPDSImporterTest):
                     raise Exception("Utter failure!")
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
-        #imported, messages, next_links = DoomedOPDSImporter(self._db).import_from_feed(feed)
+
         imported_editions, imported_pools, imported_works, error_messages, next_links = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
@@ -666,7 +663,6 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_(4, len(s3.uploaded))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        # The first resource has no bibframe provider in OPDS so it uses the importer's data source.
         url0 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url1 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url2 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'

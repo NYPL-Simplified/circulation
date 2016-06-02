@@ -179,7 +179,6 @@ class TestOverdriveRepresentationExtractor(object):
             (circulationdata.primary_identifier.type, circulationdata.primary_identifier.identifier))
 
 
-
     def test_book_info_with_metadata(self):
         # Tests that can convert an overdrive json block into a Metadata object.
 
@@ -228,6 +227,14 @@ class TestOverdriveRepresentationExtractor(object):
             ],
             sorted(ids)
         )
+
+        # Available formats.      
+        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
+        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)       
+        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)      
+
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)      
+        eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
         # Links to various resources.
         shortd, image, longd = sorted(
