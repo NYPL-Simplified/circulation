@@ -4926,6 +4926,10 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
+    # A LicensePool for feeds associated with a certain work.
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
+        nullable=True, index=True)
+
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
 
@@ -4942,8 +4946,11 @@ class CachedFeed(Base):
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
+        license_pool = None
         if lane:
             lane_name = lane.name
+            if hasattr(lane, 'license_pool'):
+                license_pool = lane.license_pool
         else:
             lane_name = None
 
@@ -4967,6 +4974,7 @@ class CachedFeed(Base):
         feed, is_new = get_one_or_create(
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
+            license_pool=license_pool,
             type=type,
             languages=languages_key,
             facets=facets_key,
@@ -5084,6 +5092,9 @@ class LicensePool(Base):
     delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism", backref="license_pool"
     )
+
+    # One LicensePool may have multiple CachedFeeds.
+    cached_feeds = relationship('CachedFeed', backref='license_pool')
 
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
