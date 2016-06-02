@@ -39,3 +39,8 @@ class TestAnalytics(DatabaseTest):
         loaded_config = Configuration._load(json.dumps(config))
         providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
         assert isinstance(providers[0], MockAnalyticsProvider)
+
+    def test_load_configuration_without_analytics(self):
+        loaded_config = Configuration._load(json.dumps({}))
+        providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
+        eq_([], providers)

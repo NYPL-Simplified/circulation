@@ -337,6 +337,8 @@ class Configuration(object):
     def _load(cls, str):
         lines = [x for x in str.split("\n") if not x.strip().startswith("#")]
         config = json.loads("\n".join(lines))
-        providers = config[cls.POLICIES][cls.ANALYTICS_POLICY]
+        if not config.get(cls.POLICIES):
+            config[cls.POLICIES] = {}
+        providers = config[cls.POLICIES].get(cls.ANALYTICS_POLICY, [])
         config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(providers, config)
         return config
