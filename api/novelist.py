@@ -339,7 +339,7 @@ class NoveListAPI(object):
         return metadata
 
 
-class DummyNoveListAPI(object):
+class MockNoveListAPI(object):
 
     def __init__(self):
         self.responses = []

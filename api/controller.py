@@ -40,6 +40,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    CachedFeed,
     Complaint,
     DataSource,
     Hold,
@@ -47,6 +48,7 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
+    Work,
 )
 from core.opds import (
     E,
@@ -76,7 +78,10 @@ from config import (
     CannotLoadConfiguration
 )
 
-from lanes import make_lanes
+from lanes import (
+    make_lanes,
+    RecommendationLane,
+)
 
 from adobe_vendor_id import AdobeVendorIDController
 from axis import Axis360API
@@ -85,7 +90,7 @@ from threem import ThreeMAPI
 from circulation import CirculationAPI
 from novelist import (
     NoveListAPI,
-    DummyNoveListAPI,
+    MockNoveListAPI,
 )
 from testing import MockCirculationAPI
 from services import ServiceStatus
@@ -786,33 +791,31 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, data_source, identifier_type, identifier, api=None):
+    def recommendations(self, data_source, identifier_type, identifier, mock_api=None):
         """Serve a feed of recommendations related to a given book."""
 
         pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
-        work_identifier = pool.identifier
 
-        if not api:
-            api = NoveListAPI.from_config(self._db)
-        works = []
-        ignore, recommendations = api.lookup(work_identifier)
-        if recommendations:
-            recommended = recommendations.recommended_works
-            if recommended:
-                works = recommended.all()
+        lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
+        lane = RecommendationLane(self._db, pool, lane_name)
+        if self.manager.testing:
+            lane.api = mock_api or MockNoveListAPI()
 
+        use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
             'recommendations', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
         )
-        annotator = self.manager.annotator(None)
-        feed = AcquisitionFeed(
-            self._db, 'Related Works', url, works, annotator=annotator
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.page(
+            self._db, 'Related Works', url, lane,
+            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
+            use_materialized_works=use_materialized_works
         )
 
-        return feed_response(unicode(feed), None)
+        return feed_response(unicode(feed.content))
 
     def report(self, data_source, identifier_type, identifier):
         """Report a problem with a book."""

@@ -24,6 +24,7 @@ from api.controller import (
 from core.app_server import (
     load_lending_policy
 )
+from core.metadata_layer import Metadata
 from core.model import (
     Patron,
     DeliveryMechanism,
@@ -53,7 +54,7 @@ from api.circulation import (
     HoldInfo,
     LoanInfo,
 )
-from api.novelist import DummyNoveListAPI
+from api.novelist import MockNoveListAPI
 
 from api.lanes import make_lanes_default
 from core.util.cdn import cdnify
@@ -63,7 +64,6 @@ from core.opds import (
     OPDSFeed,
     AcquisitionFeed,
 )
-from core.metadata_layer import RecommendationData
 from api.opds import CirculationManagerAnnotator
 from api.admin.oauth import DummyGoogleClient
 from lxml import etree
@@ -718,29 +718,30 @@ class TestWorkController(CirculationControllerTest):
     def test_recommendations(self):
         # Prep an empty recommendation.
         source = DataSource.lookup(self._db, self.datasource)
-        recommendation_sample = RecommendationData(source)
-        mock_api = DummyNoveListAPI()
-        mock_api.setup((None, recommendation_sample))
+        metadata = Metadata(source)
+        mock_api = MockNoveListAPI()
+        mock_api.setup(metadata)
 
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                api=mock_api
+                mock_api=mock_api
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_('Related Works', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
-        # Prep a recommendation result.
-        rec_identifier = self.english_2.license_pools[0].identifier
-        recommendation_sample.identifiers = [rec_identifier]
-        mock_api.setup((None, recommendation_sample))
+        # Delete the cache and prep a recommendation result.
+        [cached_empty_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_empty_feed)
+        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        mock_api.setup(metadata)
 
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                api=mock_api
+                mock_api=mock_api
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)

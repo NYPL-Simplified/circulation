@@ -383,10 +383,7 @@ class RecommendationLane(Lane):
     def __init__(self, _db, license_pool, full_name, display_name=None,
             mock_api=None):
         self.license_pool = license_pool
-        if mock_api or not NoveListAPI.is_configured():
-            self.api = mock_api
-        else:
-            self.api = NoveListAPI.from_config(_db)
+        self.api = mock_api or NoveListAPI.from_config(_db)
         display_name = display_name or "Related Works"
         super(RecommendationLane, self).__init__(
             _db, full_name, display_name=display_name
