@@ -125,7 +125,7 @@ from sqlalchemy.dialects.postgresql import (
 )
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
-
+from analytics import Analytics
 
 
 DEBUG = False
@@ -5449,8 +5449,9 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            CirculationEvent.log(
-                _db, self, event_name, old_value, new_value, as_of)
+            Configuration.collect_analytics_event(
+                _db, self, event_name, as_of,
+                old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
         self.licenses_owned = new_licenses_owned
