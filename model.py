@@ -125,7 +125,7 @@ from sqlalchemy.dialects.postgresql import (
 )
 from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
-from core.analytics import Analytics
+from analytics import Analytics
 
 
 DEBUG = False
