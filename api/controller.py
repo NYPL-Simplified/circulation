@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import urllib
+import datetime
 
 from lxml import etree
 
@@ -62,7 +63,6 @@ from core.util.problem_detail import ProblemDetail
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 
 from circulation_exceptions import *
-from config import Configuration
 
 from opds import (
     CirculationManagerAnnotator,
@@ -818,7 +818,7 @@ class AnalyticsController(CirculationManagerController):
     def track_event(self, data_source, identifier_type, identifier, event_type):
         if event_type in [CirculationEvent.OPEN_BOOK]:
             pool = self.load_licensepool(data_source, identifier_type, identifier)
-            self.circulation.collect_event(pool, event_type)
+            Configuration.collect_analytics_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE

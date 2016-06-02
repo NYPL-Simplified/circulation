@@ -13,7 +13,6 @@ class Configuration(CoreConfiguration):
     INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     AUTHENTICATION_POLICY = "authentication"
-    ANALYTICS_POLICY = "analytics"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
@@ -131,8 +130,12 @@ class Configuration(CoreConfiguration):
     @classmethod
     def load(cls):
         CoreConfiguration.load()
-        cls.instance = CoreConfiguration.instance
-
+        config = CoreConfiguration.instance
+        if not config.get(cls.POLICIES):
+            config[cls.POLICIES] = {}
+        providers = config[cls.POLICIES].get(cls.ANALYTICS_POLICY, ["api.local_analytics_provider"])
+        config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(providers, config)
+        cls.instance = config
 
 @contextlib.contextmanager
 def empty_config():

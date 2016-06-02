@@ -69,6 +69,8 @@ from lxml import etree
 import random
 import json
 import urllib
+from core.analytics import Analytics
+from api.local_analytics_provider import LocalAnalyticsProvider
 
 class TestCirculationManager(CirculationManager):
 
@@ -893,21 +895,26 @@ class TestAnalyticsController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_track_event(self):
-        with self.app.test_request_context("/"):
-            response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "invalid_type")
-            eq_(400, response.status_code)
-            eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
+        with temp_config() as config:
+            provider = LocalAnalyticsProvider()
+            analytics = Analytics([provider])
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = analytics
 
-        with self.app.test_request_context("/"):
-            response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "open_book")
-            eq_(200, response.status_code)
+            with self.app.test_request_context("/"):
+                response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "invalid_type")
+                eq_(400, response.status_code)
+                eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
-            circulation_event = get_one(
-                self._db, CirculationEvent,
-                type="open_book",
-                license_pool=self.lp
-            )
-            assert circulation_event != None
+            with self.app.test_request_context("/"):
+                response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "open_book")
+                eq_(200, response.status_code)
+
+                circulation_event = get_one(
+                    self._db, CirculationEvent,
+                    type="open_book",
+                    license_pool=self.lp
+                )
+                assert circulation_event != None
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)

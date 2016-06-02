@@ -97,8 +97,6 @@ class MockCirculationAPI(CirculationAPI):
             self.identifier_type_to_data_source_name.values()
         ]
         self.remotes = {}
-        self.analytics_provider = MockAnalytics()
-        self.analytics.providers = [self.analytics_provider]
 
     def local_loans(self, patron):
         return self._db.query(Loan).filter(Loan.patron==patron)
@@ -149,14 +147,3 @@ class MockCirculationAPI(CirculationAPI):
             )
             self.remotes[source] = remote
         return self.remotes[source]
-
-class MockAnalytics(object):
-    """A mock analytics provider that keeps track of how many times it's called."""
-    def __init__(self):
-        self.count = 0
-        self.event = None
-
-    def collect(self, _db, lp, event_type, time, **kwargs):
-        self.count = self.count + 1
-        self.event_type = event_type
-        self.time = time

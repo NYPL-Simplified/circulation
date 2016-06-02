@@ -1,15 +1,15 @@
 from nose.tools import (
     eq_,
 )
-from api.local_analytics import LocalAnalytics
+from api.local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
 from core.model import CirculationEvent
 import datetime
 
-class TestLocalAnalytics(DatabaseTest):
+class TestLocalAnalyticsProvider(DatabaseTest):
 
-    def test_collect(self):
-        la = LocalAnalytics()
+    def test_collect_event(self):
+        la = LocalAnalyticsProvider()
         work = self._work(
             title="title", authors="author", fiction=True,
             audience="audience", language="lang",
@@ -17,8 +17,8 @@ class TestLocalAnalytics(DatabaseTest):
         )
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
-        la.collect(
-            self._db, lp, CirculationEvent.CHECKIN, now, 
+        la.collect_event(
+            self._db, lp, CirculationEvent.CHECKIN, now,
             old_value=None, new_value=None)
         [event] = self._db \
             .query(CirculationEvent) \

@@ -5,36 +5,35 @@ from api.config import (
     Configuration,
     temp_config,
 )
-from api.google_analytics import GoogleAnalytics
+from core.analytics import Analytics
+from api.google_analytics_provider import GoogleAnalyticsProvider
 from . import DatabaseTest
 from core.model import CirculationEvent
 import urlparse
 import datetime
 
-class MockGoogleAnalytics(GoogleAnalytics):
+class MockGoogleAnalyticsProvider(GoogleAnalyticsProvider):
 
     def post(self, url, params):
         self.count = self.count + 1 if hasattr(self, "count") else 1
         self.url = url
         self.params = params
 
-class TestGoogleAnalytics(DatabaseTest):
+class TestGoogleAnalyticsProvider(DatabaseTest):
 
-    def test_from_config(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.ANALYTICS_POLICY: 'api.google_analytics'
-            }
-            config[Configuration.INTEGRATIONS] = {
-                GoogleAnalytics.NAME: {
+    def test_from_config(self):        
+        config = {
+            Configuration.INTEGRATIONS: {
+                GoogleAnalyticsProvider.INTEGRATION_NAME: {
                     "tracking_id": "faketrackingid"
                 }
             }
-            ga = GoogleAnalytics.from_config()
-            eq_("faketrackingid", ga.tracking_id)
+        }        
+        ga = GoogleAnalyticsProvider.from_config(config)
+        eq_("faketrackingid", ga.tracking_id)
 
-    def test_collect(self):
-        ga = MockGoogleAnalytics("faketrackingid")
+    def test_collect_event(self):
+        ga = MockGoogleAnalyticsProvider("faketrackingid")
         work = self._work(
             title="title", authors="author", fiction=True,
             audience="audience", language="lang", 
@@ -42,7 +41,7 @@ class TestGoogleAnalytics(DatabaseTest):
         )     
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
-        ga.collect(self._db, lp, CirculationEvent.CHECKIN, now)
+        ga.collect_event(self._db, lp, CirculationEvent.CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)

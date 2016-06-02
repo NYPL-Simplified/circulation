@@ -3,12 +3,12 @@ import uuid
 import urllib
 from core.util.http import HTTP
 
-class GoogleAnalytics(object):
-    NAME = "Google Analytics"
+class GoogleAnalyticsProvider(object):
+    INTEGRATION_NAME = "Google Analytics"
     
     @classmethod
-    def from_config(cls):
-        tracking_id = Configuration.integration(cls.NAME, required=True)['tracking_id']
+    def from_config(cls, config):
+        tracking_id = config[Configuration.INTEGRATIONS][cls.INTEGRATION_NAME]['tracking_id']
         return cls(tracking_id)
 
     def __init__(self, tracking_id):
@@ -24,7 +24,7 @@ class GoogleAnalytics(object):
         else:
             return str(min)
 
-    def collect(self, _db, license_pool, event_type, time, **kwargs):
+    def collect_event(self, _db, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
         work = license_pool.work
         edition = license_pool.presentation_edition
@@ -50,4 +50,4 @@ class GoogleAnalytics(object):
     def post(self, url, params):
         response = HTTP.post_with_timeout(url, params)
         
-Collector = GoogleAnalytics
+Provider = GoogleAnalyticsProvider
