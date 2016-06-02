@@ -1976,14 +1976,14 @@ class TestWorkConsolidation(DatabaseTest):
                  lp2.presentation_edition.permanent_work_id]),
             work.pwids)
 
-    def test_for_permanent_work_id_no_licensepools(self):
+    def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
-            None, Work.for_permanent_work_id(
+            None, Work.open_access_for_permanent_work_id(
                 self._db, "No such permanent work ID"
             )
         )
 
-    def test_for_permanent_work_id(self):
+    def test_open_access_for_permanent_work_id(self):
         # Two different works full of open-access license pools.
         w1 = self._work(with_license_pool=True, with_open_access_download=True)
 
@@ -2005,10 +2005,21 @@ class TestWorkConsolidation(DatabaseTest):
         lp2.presentation_edition.permanent_work_id="abcd"
         lp3.presentation_edition.permanent_work_id="abcd"
 
-        # Work.for_permanent_work_id can resolve this problem.
-        work, is_new = Work.for_permanent_work_id(self._db, "abcd")
+        # We've also got Work #3, which provides a commercial license
+        # for that book.
+        w3 = self._work(with_license_pool=True)
+        w3_pool = w3.license_pools[0]
+        w3_pool.presentation_edition.permanent_work_id="abcd"
+        w3_pool.open_access = False
 
-        # All three license pools now have the same work.
+        # Work.open_access_for_permanent_work_id can resolve this problem.
+        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+
+        # Work #3 still exists and its license pool was not affected.
+        eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
+        eq_(w3, w3_pool.work)
+
+        # But the other three license pools now have the same work.
         eq_(work, lp1.work)
         eq_(work, lp2.work)
         eq_(work, lp3.work)
@@ -2022,18 +2033,66 @@ class TestWorkConsolidation(DatabaseTest):
         # Work #1 no longer exists.
         eq_([], self._db.query(Work).filter(Work.id==w1.id).all())
 
-        # Calling Work.for_permanent_work_id again returns the same
+        # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
-        eq_((w2, False), Work.for_permanent_work_id(self._db, "abcd"))
+        eq_((w2, False), Work.open_access_for_permanent_work_id(self._db, "abcd"))
 
-    def test_for_permanent_work_id_can_create_work(self):
+    def test_open_access_for_permanent_work_id_can_create_work(self):
+
+        # Here's a LicensePool with no corresponding Work.
         edition, lp = self._edition(with_license_pool=True)
         edition.permanent_work_id="abcd"
-        work, is_new = Work.for_permanent_work_id(self._db, "abcd")
+
+        # open_access_for_permanent_work_id creates the Work.
+        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
+    def test_make_exclusive_open_access_for_permanent_work_id(self):
+        # Here's a work containing an open-access LicensePool for
+        # literary work "abcd".
+        work1 = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        [abcd_oa] = work1.license_pools
+        abcd_oa.presentation_edition.permanent_work_id="abcd"
 
+        # Unfortunately, a commercial LicensePool for the literary
+        # work "abcd" has gotten associated with the same work.
+        edition, abcd_commercial = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        abcd_commercial.open_access = False
+        abcd_commercial.presentation_edition.permanent_work_id="abcd"
+        abcd_commercial.work = work1
+
+        # Here's another Work containing an open-access LicensePool
+        # for literary work "efgh".
+        work2 = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        [efgh_1] = work2.license_pools
+        efgh_1.presentation_edition.permanent_work_id="efgh"
+
+        # Unfortunately, there's another open-access LicensePool for
+        # "efgh", and it's incorrectly associated with the "abcd"
+        # work.
+        edition, efgh_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        efgh_2.presentation_edition.permanent_work_id = "efgh"
+        efgh_2.work = work1
+
+        # Let's fix these problems.
+        work1.make_exclusive_open_access_for_permanent_work_id("abcd")
+
+        # The open-access "abcd" book is now the only LicensePool
+        # associated with work1.
+        eq_([abcd_oa], work1.license_pools)
+
+        # Both open-access "efgh" books are now associated with work2.
+        eq_(set([efgh_1, efgh_2]), set(work2.license_pools))
+
+        # A third work has been created for the commercial edition of "abcd".
+        assert abcd_commercial.work not in (work1, work2)
 
 class TestLoans(DatabaseTest):
 

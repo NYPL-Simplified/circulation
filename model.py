@@ -3090,7 +3090,7 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
-    def for_permanent_work_id(cls, _db, pwid):
+    def open_access_for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
 
@@ -3101,8 +3101,8 @@ class Work(Base):
         """
         is_new = False
 
-        # Find all LicensePools whose presentation Editions have the given
-        # permanent work ID.
+        # Find all open-access LicensePools whose presentation
+        # Editions have the given permanent work ID.
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 Edition.permanent_work_id==pwid
@@ -3151,30 +3151,42 @@ class Work(Base):
             lp.work = work
         return work, is_new
 
-    def make_exclusive_to_permanent_work_id(self, pwid):
-        """Ensure that every LicensePool associated with this Work has the
-        given PWID. Any LicensePool with a different PWID is kicked
-        out and assigned to a different Work. LicensePools with no
-        presentation edition and no PWID are left alone. (TODO:
-        although maybe they should be kicked out.)
+    def make_exclusive_open_access_for_permanent_work_id(self, pwid):
+        """Ensure that every open-access LicensePool associated with this Work
+        has the given PWID. Any non-open-access LicensePool, and any
+        LicensePool with a different PWID, is kicked out and assigned
+        to a different Work. LicensePools with no presentation edition
+        and no PWID are left alone. (TODO: although maybe they should
+        be kicked out.)
         """
         _db = Session.object_session(self)
-        for pool in self.license_pools:
-            if not pool.presentation_edition:
-                continue
-            this_pwid = pool.presentation_edition.permanent_work_id
-            if not this_pwid:
-                continue
-            if this_pwid != pwid:
-                # This LicensePool should not belong to this Work.
-                # Make sure it gets its own Work, creating a new one
-                # if necessary.
+        for pool in list(self.license_pools):
+            print pool.presentation_edition.permanent_work_id
+            other_work = is_new = None
+            if not pool.open_access:
+                # This needs to have its own Work--we don't mix
+                # open-access and commercial versions of the same book.
                 pool.work = None
-                other_work, is_new = Work.for_permanent_work_id(
-                    _db, this_pwid
-                )
-                if is_new:
-                    other_work.calculate_presentation()
+                pool.presentation_edition.work = None
+                other_work, is_new = pool.calculate_work()
+            elif not pool.presentation_edition:
+                continue
+            else:
+                this_pwid = pool.presentation_edition.permanent_work_id
+                if not this_pwid:
+                    continue
+                print this_pwid, pwid
+                if this_pwid != pwid:
+                    # This LicensePool should not belong to this Work.
+                    # Make sure it gets its own Work, creating a new one
+                    # if necessary.
+                    pool.work = None
+                    pool.presentation_edition.work = None
+                    other_work, is_new = Work.open_access_for_permanent_work_id(
+                        _db, this_pwid
+                    )
+            if other_work and is_new:
+                other_work.calculate_presentation()
 
 
     @property
@@ -5495,13 +5507,12 @@ class LicensePool(Base):
 
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
-        """Try to find an existing Work for this LicensePool.
+        """Find or create a Work for this LicensePool.
 
-        If there are no Works for the permanent work ID associated
-        with this LicensePool's presentation edition, create a new Work.
-
-        Pools that are not open-access will always have a new Work
-        created for them.
+        A pool that is not open-access will always have its own
+        Work. Open-access LicensePools will be grouped together with
+        other open-access LicensePools based on the permanent work ID
+        of the LicensePool's presentation edition.
 
         :param even_if_no_author: Ordinarily this method will refuse
         to create a Work for a LicensePool whose Edition has no title
@@ -5572,7 +5583,7 @@ class LicensePool(Base):
             # This could go into Work.for_permanent_work_id, but that
             # could conceivably lead to an infinite loop, or at least
             # a very long recursive call, so I've put it here.
-            work.make_exclusive_to_permanent_work_id(
+            work.make_exclusive_open_access_for_permanent_work_id(
                 presentation_edition.permanent_work_id
             )
 
