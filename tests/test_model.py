@@ -2094,6 +2094,78 @@ class TestWorkConsolidation(DatabaseTest):
         # A third work has been created for the commercial edition of "abcd".
         assert abcd_commercial.work not in (work1, work2)
 
+    def test_merge_into_success(self):
+        # Here's a work with an open-access LicensePool.
+        work1 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [lp1] = work1.license_pools
+        lp1.presentation_edition.permanent_work_id="abcd"
+
+        # Let's give it a WorkGenre and a WorkCoverageRecord.
+        genre, ignore = Genre.lookup(self._db, "Fantasy")
+        wg, wg_is_new = get_one_or_create(
+            self._db, WorkGenre, work=work1, genre=genre
+        )
+        wcr, wcr_is_new = WorkCoverageRecord.add_for(work1, "test")
+
+        # Here's another work with an open-access LicensePool for the
+        # same book.
+        work2 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [lp2] = work2.license_pools
+        lp2.presentation_edition.permanent_work_id="abcd"
+
+        # Let's merge the first work into the second.
+        work1.merge_into(work2)
+
+        # The first work has been deleted, as have its WorkGenre and
+        # WorkCoverageRecord.
+        eq_([], self._db.query(Work).filter(Work.id==work1.id).all())
+        eq_([], self._db.query(WorkGenre).all())
+        eq_([], self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.work_id==work1.id).all()
+        )
+
+    def test_merge_into_raises_exception_if_grouping_rules_violated(self):
+        # Here's a work with an open-access LicensePool.
+        work1 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [lp1] = work1.license_pools
+        lp1.presentation_edition.permanent_work_id="abcd"
+
+        # Here's another work with a commercial LicensePool for the
+        # same book.
+        work2 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [lp2] = work2.license_pools
+        lp2.open_access = False
+        lp2.presentation_edition.permanent_work_id="abcd"
+
+        # The works cannot be merged.
+        assert_raises_regexp(
+            ValueError, 
+            "Refusing to merge .* into .* because it would put an open-access LicensePool into the same work as a non-open-access LicensePool.",
+            work1.merge_into, work2,
+        )
+
+    def test_merge_into_raises_exception_if_pwids_differ(self):
+        work1 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [abcd_oa] = work1.license_pools
+        abcd_oa.presentation_edition.permanent_work_id="abcd"
+
+        work2 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [efgh_oa] = work2.license_pools
+        efgh_oa.presentation_edition.permanent_work_id="efgh"
+
+        assert_raises_regexp(
+            ValueError,
+            "Refusing to merge .* into .* because it has permanent work IDs not present in the target work: abcd",
+            work1.merge_into, 
+            work2
+        )
+
 class TestLoans(DatabaseTest):
 
     def test_open_access_loan(self):

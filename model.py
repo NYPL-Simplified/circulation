@@ -3206,13 +3206,24 @@ class Work(Base):
     def merge_into(self, other_work):
         """Merge this Work into another Work and delete it."""
 
+        # Neither the source nor the destination work may have any
+        # non-open-access LicensePools.
+        for w in self, other_work:
+            for pool in w.license_pools:
+                if not pool.open_access:
+                    raise ValueError(
+                        "Refusing to merge %r into %r because it would put an open-access LicensePool into the same work as a non-open-access LicensePool." %
+                        (self, other_work)
+                        )
+
         my_pwids = self.pwids
         other_pwids = other_work.pwids
         if not my_pwids.issubset(other_pwids):
             difference = my_pwids.difference(other_pwids)
             raise ValueError(
-                "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s", 
-                self, other_work, ",".join(difference)
+                "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s" % (
+                    self, other_work, ",".join(difference)
+                )
             )
 
         # Every LicensePool associated with this work becomes
@@ -3220,14 +3231,16 @@ class Work(Base):
         for pool in self.license_pools:            
             other_work.license_pools.append(pool)
 
-        # All WorkGenres, WorkCoverageRecords, and WorkContributions
-        # for this Work are deleted.
+        # All WorkGenres and WorkCoverageRecords for this Work are
+        # deleted.
         _db = Session.object_session(self)
         for wg in self.work_genres:
             _db.delete(wg)
         for cr in self.coverage_records:
             _db.delete(cr)
         _db.delete(self)
+
+        other_work.calculate_presentation()
 
     def set_summary(self, resource):
         self.summary = resource
