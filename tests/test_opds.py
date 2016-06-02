@@ -253,10 +253,28 @@ class TestOPDS(DatabaseTest):
 
     def test_acquisition_feed_includes_recommendations_link(self):
         w1 = self._work(with_open_access_download=True)
-        self._db.commit()
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            feed = AcquisitionFeed(
+                self._db, "test", "url", [w1],
+                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            )
+        # If NoveList isn't configured, there's no recommendation link.
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        recommendations_links = [x for x in entry['links'] if x['rel'] == 'related']
+        eq_([], recommendations_links)
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
+                Configuration.NOVELIST_PROFILE : "library",
+                Configuration.NOVELIST_PASSWORD : "yep"
+            }
+            feed = AcquisitionFeed(
+                self._db, "test", "url", [w1],
+                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            )
+        # If NoveList isn't configured, there's is a recommendation link.
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [recommendations_link] = [x for x in entry['links'] if x['rel'] == 'related']
