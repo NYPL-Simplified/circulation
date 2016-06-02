@@ -29,10 +29,12 @@ from core.model import (
     Contribution,
     CustomList,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Representation,
     Subject,
     Work,
@@ -485,18 +487,27 @@ class LanguageListScript(Script):
     """
 
     def do_run(self):
+
         query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
-        query = query.join(Edition.primary_identifier).join(Identifier.licensed_through)
+        query = query.join(Edition.primary_identifier).join(
+            Identifier.licensed_through
+        ).join(LicensePool.delivery_mechanisms).join(
+            LicensePoolDeliveryMechanism.delivery_mechanism
+        )
+
         # TODO: It would be more reliable to use
         # Lane.only_show_ready_deliverable_works here, but that's
         # geared towards operating on Work. It's not a big deal since
         # this is just to get a general count.
+
         query = query.filter(LicensePool.open_access==False).filter(
             LicensePool.licenses_owned > 0
         ).filter(
             Edition.medium==Edition.BOOK_MEDIUM
         ).filter(
             Edition.language != None
+        ).filter(
+            DeliveryMechanism.default_client_can_fulfill==True
         )
         name = LanguageCodes.name_for_languageset
         sorted_languages = sorted(
