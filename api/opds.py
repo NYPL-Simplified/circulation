@@ -28,6 +28,7 @@ from core.lane import Lane
 from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
+from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -244,18 +245,19 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
-        # Add a link for related recommendations.
-        feed.add_link_to_entry(
-            entry,
-            rel='related',
-            type=OPDSFeed.ACQUISITION_FEED_TYPE,
-            title='Recommended Works',
-            href=self.url_for(
-                'recommendations',
-                data_source=data_source_name, identifier_type=identifier.type,
-                identifier=identifier.identifier, _external=True
+        # Add a link for related recommendations if available.
+        if NoveListAPI.is_configured():
+            feed.add_link_to_entry(
+                entry,
+                rel='related',
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                title='Recommended Works',
+                href=self.url_for(
+                    'recommendations',
+                    data_source=data_source_name, identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True
+                )
             )
-        )
 
     def annotate_feed(self, feed, lane):
         if self.patron:

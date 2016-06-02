@@ -19,7 +19,7 @@ from core.model import (
     Representation,
 )
 from api.novelist import (
-    DummyNoveListAPI,
+    MockNoveListAPI,
     NoveListAPI,
     NoveListCoverageProvider,
 )
@@ -246,7 +246,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
                 Configuration.NOVELIST_PASSWORD : "yep"
             }
             self.novelist = NoveListCoverageProvider(self._db)
-        self.novelist.api = DummyNoveListAPI()
+        self.novelist.api = MockNoveListAPI()
 
     def test_process_item(self):
         identifier = self._identifier()

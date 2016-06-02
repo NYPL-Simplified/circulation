@@ -39,7 +39,7 @@ class NoveListAPI(object):
     # from the database.
     QUERY_ENDPOINT = "http://novselect.ebscohost.com/Data/ContentByQuery?\
             ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
-    MAX_REPRESENTATION_AGE = 6*30*24*60*60      # six months
+    MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
 
     @classmethod
     def from_config(cls, _db):
@@ -49,6 +49,13 @@ class NoveListAPI(object):
         if not (profile and password):
             raise ValueError("No NoveList client configured.")
         return cls(_db, profile, password)
+
+    @classmethod
+    def is_configured(cls):
+        config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
+        profile = config.get(Configuration.NOVELIST_PROFILE)
+        password = config.get(Configuration.NOVELIST_PASSWORD)
+        return bool(profile and password)
 
     def __init__(self, _db, profile, password):
         self._db = _db
