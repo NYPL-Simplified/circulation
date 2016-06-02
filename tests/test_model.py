@@ -1257,6 +1257,12 @@ class TestWork(DatabaseTest):
         eq_(1, len(result))
         eq_([work], result)
 
+        # Unless the strength is too low.
+        lp.identifier.equivalencies[0].strength = 0.8
+        identifiers = [isbn]
+        result = Work.from_identifiers(self._db, identifiers).all()
+        eq_([], result)
+
         # Two+ of the same or equivalent identifiers lead to one result.
         identifiers = [lp.identifier, isbn, lp.identifier]
         result = Work.from_identifiers(self._db, identifiers).all()

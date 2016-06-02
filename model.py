@@ -3267,8 +3267,10 @@ class Work(Base):
 
     @classmethod
     def from_identifiers(cls, _db, identifiers, base_query=None):
-        """Finds all of the works indicated by a list of identifiers"""
-
+        """Returns all of the works that have one or more license_pools
+        associated with either an identifier in the given list or an
+        identifier considered equivalent to one of those listed
+        """
         identifier_ids = [identifier.id for identifier in identifiers]
         if not identifier_ids:
             return None
@@ -3284,7 +3286,8 @@ class Work(Base):
                 outerjoin(equivalent_identifier, Equivalency.output).\
                 filter(or_(
                     Identifier.id.in_(identifier_ids),
-                    equivalent_identifier.id.in_(identifier_ids)
+                    and_(equivalent_identifier.id.in_(identifier_ids),
+                    Equivalency.strength>=1)
                 ))
         return query
 
