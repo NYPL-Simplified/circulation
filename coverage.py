@@ -334,9 +334,7 @@ class CoverageProvider(object):
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
-        work, created = license_pool.calculate_work(
-            even_if_no_author=True, known_edition=self.edition(identifier)
-        )
+        work, created = license_pool.calculate_work(even_if_no_author=True)
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)

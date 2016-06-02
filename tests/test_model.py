@@ -2063,7 +2063,7 @@ class TestWorkConsolidation(DatabaseTest):
 
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
-            None, Work.open_access_for_permanent_work_id(
+            (None, False), Work.open_access_for_permanent_work_id(
                 self._db, "No such permanent work ID"
             )
         )
