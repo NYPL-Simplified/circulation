@@ -1,14 +1,14 @@
 from nose.tools import (
     eq_,
 )
-from core.config import (
+from config import (
     Configuration,
     temp_config,
 )
-from core.analytics import Analytics
-from core.mock_analytics_provider import MockAnalyticsProvider
+from analytics import Analytics
+from mock_analytics_provider import MockAnalyticsProvider
 from . import DatabaseTest
-from core.model import CirculationEvent
+from model import CirculationEvent
 import json
 
 class TestAnalytics(DatabaseTest):
@@ -16,7 +16,7 @@ class TestAnalytics(DatabaseTest):
     def test_initialize(self):
         # supports multiple analytics providers
         config = { "option": "value" }
-        analytics = Analytics.initialize(["core.mock_analytics_provider"], config)
+        analytics = Analytics.initialize(["mock_analytics_provider"], config)
         assert isinstance(analytics.providers[0], MockAnalyticsProvider)
         eq_("value", analytics.providers[0].option)
 
@@ -32,7 +32,7 @@ class TestAnalytics(DatabaseTest):
     def test_load_analytics_configuration(self):
         config = {
             Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+                Configuration.ANALYTICS_POLICY: ["mock_analytics_provider"]
             },
             "option": "value"
         }
