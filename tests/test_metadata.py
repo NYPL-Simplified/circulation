@@ -686,7 +686,11 @@ class TestMetadata(DatabaseTest):
         )
         metadata.recommendations = [known_identifier_data, unknown_identifier]
         metadata.filter_recommendations(self._db)
-        eq_([known_identifier_data], metadata.recommendations)
+        [result] = metadata.recommendations
+        # The IdentifierData has been replaced by a bonafide Identifier.
+        eq_(True, isinstance(result, Identifier))
+        # The genuwine article.
+        eq_(known_identifier, result)
 
     def test_metadata_can_be_deepcopied(self):
 

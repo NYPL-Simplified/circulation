@@ -1295,22 +1295,23 @@ class Metadata(object):
                 )
 
     def filter_recommendations(self, _db):
-        """Filters out  recommendations that don't currently exist in the db
+        """Filters out recommended identifiers that don't exist in the db.
+        Any IdentifierData objects will be replaced with Identifiers.
         """
-        for identifier_data in self.recommendations[:]:
-            if isinstance(identifier_data, Identifier):
-                identifier = identifier_data
-            else:
-                identifier, ignore = Identifier.for_foreign_id(
-                    _db, identifier_data.type, identifier_data.identifier,
-                    autocreate=False
-                )
-            # Make sure filtered list doesn't contain the work itself.
-            if identifier==self.primary_identifier:
-                identifier = None
-            if not identifier:
-                self.recommendations.remove(identifier_data)
-                continue
+
+        by_type = defaultdict(list)
+        for identifier in self.recommendations:
+            by_type[identifier.type].append(identifier.identifier)
+
+        self.recommendations = []
+        for type, identifiers in by_type.items():
+            existing_identifiers = _db.query(Identifier).\
+                filter(Identifier.type==type).\
+                filter(Identifier.identifier.in_(identifiers))
+            self.recommendations += existing_identifiers.all()
+
+        if self.primary_identifier in self.recommendations:
+            self.recommendations.remove(identifier_data)
 
 
 class CSVFormatError(csv.Error):
