@@ -1957,6 +1957,91 @@ class TestWorkConsolidation(DatabaseTest):
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
 
+    def test_calculate_work_fixes_work_in_invalid_state(self):
+        # Here's a Work with a commercial edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [abcd_commercial] = work.license_pools
+        abcd_commercial.open_access = False
+        abcd_commercial.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains a _second_
+        # commercial edition of "abcd"...
+        edition, abcd_commercial_2 = self._edition(with_license_pool=True)
+        abcd_commercial_2.open_access = False
+        abcd_commercial_2.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(abcd_commercial_2)
+
+        # ...as well as an open-access edition of "abcd".
+        edition, abcd_open_access = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        abcd_open_access.open_access = True
+        abcd_open_access.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(abcd_open_access)
+
+        # calculate_work() recalculates the permanent work ID of a
+        # LicensePool's presentation edition, and obviously the real
+        # value isn't "abcd" for any of these Editions. Mocking
+        # calculate_permanent_work_id ensures that we run the code
+        # under the assumption that all these Editions have the same
+        # permanent work ID.
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [abcd_commercial, abcd_commercial_2, abcd_open_access]:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
+
+        # Anyway, we can fix the whole problem by calling
+        # calculate_work() on one of the LicensePools.
+        work_after, is_new = abcd_commercial.calculate_work()
+        eq_(work_after, work)
+        eq_(False, is_new)
+
+        # The LicensePool we called calculate_work() on gets to stay
+        # in the Work, but the other two have been kicked out and
+        # given their own works.
+        assert abcd_commercial_2.work != work
+        assert abcd_open_access.work != work
+
+        # The commercial LicensePool has been given a Work of its own.
+        eq_([abcd_commercial_2], abcd_commercial_2.work.license_pools)
+
+        # The open-access work has been given the Work that will be
+        # used for all open-access LicensePools for that book going
+        # forward.
+
+        expect_open_access_work, open_access_work_is_new = (
+            Work.open_access_for_permanent_work_id(self._db, "abcd")
+        )
+        eq_(expect_open_access_work, abcd_open_access.work)
+
+        # Now we're going to restore the bad configuration, where all
+        # three books have the same Work. This time we're going to
+        # call calculate_work() on the open-access LicensePool, and
+        # verify that we get similar results as when we call
+        # calculate_work() on one of the commercial LicensePools.
+        abcd_commercial_2.work = work
+        abcd_open_access.work = work
+
+        work_after, is_new = abcd_open_access.calculate_work()
+        # Since we called calculate_work() on the open-access work, it
+        # maintained control of the Work, and both commercial books
+        # got assigned new Works.
+        eq_(work, work_after)
+        eq_(False, is_new)
+
+        assert abcd_commercial.work != work
+        assert abcd_commercial.work != None
+        assert abcd_commercial_2.work != work
+        assert abcd_commercial_2.work != None
+        assert abcd_commercial.work != abcd_commercial_2.work
+
+        # Finally, let's test that nothing happens if you call
+        # calculate_work() on a self-consistent situation.
+        open_access_work = abcd_open_access.work
+        eq_((open_access_work, False), abcd_open_access.calculate_work())
+
+        commercial_work = abcd_commercial.work
+        eq_((commercial_work, False), abcd_commercial.calculate_work())
 
     def test_pwids(self):
         """Test the property that finds all permanent work IDs

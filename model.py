@@ -3085,7 +3085,7 @@ class Work(Base):
         return any(x.open_access for x in self.license_pools)
 
     def __repr__(self):
-        return (u'%s "%s" (%s) %s %s (%s lp)' % (
+        return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
                 self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
                 len(self.license_pools))).encode("utf8")
 
@@ -5577,15 +5577,16 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         work = None
         is_new = False
+        licensepools_changed = False
         if self.open_access and presentation_edition.permanent_work_id:
             # This is an open-access book. Use the Work for all
             # open-access books associated with this book's permanent
             # work ID.
             #
             # If the dataset is in an inconsistent state, calling
-            # Work.for_permanent_work_id may result in works being
+            # Work.open_access_for_permanent_work_id may result in works being
             # merged.
-            work, is_new = Work.for_permanent_work_id(
+            work, is_new = Work.open_access_for_permanent_work_id(
                 _db, presentation_edition.permanent_work_id
             )
 
@@ -5599,6 +5600,8 @@ class LicensePool(Base):
             work.make_exclusive_open_access_for_permanent_work_id(
                 presentation_edition.permanent_work_id
             )
+            self.work = work
+            licensepools_changed = True
 
         if self.work:
             # This pool is already associated with a Work. Use that
@@ -5608,8 +5611,31 @@ class LicensePool(Base):
             # This pool's presentation edition is already associated with
             # a Work. Use that Work.
             work = presentation_edition.work
+            self.work = work
 
-        if not work:
+        if work:
+            # There is already a Work associated with this LicensePool,
+            # but we need to run a sanity check because occasionally
+            # LicensePools get mis-grouped due to bugs.
+            #
+            # A commercially-licensed book should have a Work to
+            # itself. All other LicensePools need to be kicked out and
+            # associated with some other work.
+            #
+            # This won't cause an infinite recursion because we're
+            # setting pool.work to None before calling
+            # pool.calculate_work(), and the recursive call only
+            # happens if self.work is set.
+            my_pwid = self.presentation_edition
+            for pool in list(work.license_pools):
+                if pool is self:
+                    continue
+                if not (self.open_access and pool.open_access):
+                    pool.work = None
+                    pool.calculate_work()
+                    licensepools_changed = True
+
+        else:
             # There is no better choice than creating a brand new Work.
             is_new = True
             logging.info(
@@ -5619,15 +5645,19 @@ class LicensePool(Base):
             _db = Session.object_session(self)
             _db.add(work)
             _db.flush()
+            licensepools_changed = True
 
         # Associate this LicensePool and its Edition with the work we
         # chose or created.
         if not self in work.license_pools:
             work.license_pools.append(self)
+            licensepools_changed = True
 
         # Recalculate the display information for the Work, since the
-        # associated Editions have changed.
-        work.calculate_presentation()
+        # associated LicensePools have changed, which may have caused
+        # the Work's presentation Edition to change.
+        if licensepools_changed:
+            work.calculate_presentation()
 
         if is_new:
             logging.info("Created a new work: %r", work)
@@ -5641,8 +5671,6 @@ class LicensePool(Base):
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
-        if not self.identifier:
-            set_trace()
         q = Identifier.resources_for_identifier_ids(
             _db, [self.identifier.id], open_access
         )

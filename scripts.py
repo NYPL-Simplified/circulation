@@ -418,7 +418,16 @@ class WorkProcessingScript(IdentifierInputScript):
     def process_work(self, work):
         raise NotImplementedError()      
 
-class WorkConsolidationScript(WorkProcessingScript):
+class WorkCalculationScript(WorkProcessingScript):
+    """Given an Identifier, make sure all the LicensePools for that
+    Identifier are in the correct Works, and that those Works follow
+    these rules:
+
+    a) For a given permanent work ID, there may be at most one Work
+    containing open-access LicensePools.
+
+    b) Each non-open-access LicensePool has its own Work.
+    """
 
     name = "Work consolidation script"
 
@@ -436,6 +445,11 @@ class WorkConsolidationScript(WorkProcessingScript):
                     continue
 
                 if pool.work:
+
+                    if pool.open_access:
+                        pool.make_
+
+                    pool.work = None
                     # We're about to delete a preexisting work. If the
                     # problem is that this LicensePool is incorrectly
                     # grouped together with some other LicensePool,
