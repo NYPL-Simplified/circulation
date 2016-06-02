@@ -585,27 +585,22 @@ class CirculationData(MetaToModelUtility):
                 # only accept the types of links relevant to pools
                 self.__links.append(link)
 
-                # If a link has a rights_uri, make that the overall rights_uri. 
-                # TODO: If there are multiple links with a rights_uri, make them go into individual delivery mechanisms 
-                # (first need to move rights_uri onto delivery mechanisms). 
-                # TODO: make sure am not writing anything to DB here, only on apply.
-                if link.rights_uri and not self.default_rights_uri:
-                    self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=link.rights_uri)
-
                 # An open-access link or open-access rights implies a FormatData object.
                 open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
                                     and link.href)
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
                 open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
                                            and link.href
-                                           and self.default_rights_uri in RightsStatus.OPEN_ACCESS)
+                                           and (link.rights_uri or self.default_rights_uri) in RightsStatus.OPEN_ACCESS)
                 
                 if open_access_link or open_access_rights_link:
+                    rights_uri = link.rights_uri or self.default_rights_uri
                     self.formats.append(
                         FormatData(
                             content_type=link.media_type,
                             drm_scheme=DeliveryMechanism.NO_DRM,
-                            link=link
+                            link=link,
+                            rights_uri=rights_uri,
                         )
                 )
 
@@ -666,7 +661,6 @@ class CirculationData(MetaToModelUtility):
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
                 foreign_id=self.primary_identifier.identifier,
-                rights_status=rights_status,
             )
 
             if is_new:
@@ -688,8 +682,6 @@ class CirculationData(MetaToModelUtility):
 
             if self.has_open_access_link:
                 license_pool.open_access = True
-            if self.default_rights_uri:
-                license_pool.set_rights_status(self.default_rights_uri)
 
         return license_pool, is_new
 
@@ -704,21 +696,11 @@ class CirculationData(MetaToModelUtility):
 
 
     def set_default_rights_uri(self, data_source_name, default_rights_uri=None):
-        """ TODO: should there be a way to delete default_rights_uri?
-        """
         if default_rights_uri == None and data_source_name:
             # We didn't get rights passed in, so use the default rights for the data source if any.
             default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source_name, None)
             if default:
                 self.default_rights_uri = default
-
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if self.default_rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights in the constructor or the data source, but there's an
-                    # open access download link, so we'll consider it generic open access.
-                    self.default_rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
 
         if self.default_rights_uri == None:
             # We still haven't determined rights, so it's unknown.
@@ -784,7 +766,7 @@ class CirculationData(MetaToModelUtility):
                 resource = None
             if pool:
                 pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, resource
+                    format.content_type, format.drm_scheme, format.rights_uri, resource
                 )
 
 

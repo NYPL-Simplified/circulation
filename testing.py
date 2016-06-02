@@ -29,6 +29,7 @@ from model import (
     Patron,
     Representation,
     Resource,
+    RightsStatus,
     SessionManager,
     Subject,
     Work,
@@ -341,6 +342,7 @@ class DatabaseTest(object):
             pool.set_delivery_mechanism(
                 Representation.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.NO_DRM,
+                RightsStatus.GENERIC_OPEN_ACCESS,
                 link.resource,
             )
 
@@ -353,6 +355,7 @@ class DatabaseTest(object):
             pool.set_delivery_mechanism(
                 Representation.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.ADOBE_DRM,
+                RightsStatus.UNKNOWN,
                 None
             )
             pool.licenses_owned = pool.licenses_available = 1

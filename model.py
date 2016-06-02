@@ -4024,6 +4024,21 @@ class LicensePoolDeliveryMechanism(Base):
     # One LicensePoolDeliveryMechanism may fulfill many Loans.
     fulfills = relationship("Loan", backref="fulfillment")
 
+    # One LicensePoolDeliveryMechanism may be associated with one RightsStatus.
+    rightsstatus_id = Column(
+        Integer, ForeignKey('rightsstatus.id'), index=True)
+
+
+    def set_rights_status(self, uri, name=None):
+        _db = Session.object_session(self)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=dict(name=name))
+        self.rights_status = status
+        if status.uri in RightsStatus.OPEN_ACCESS:
+            self.license_pool.open_access = True
+        return status
+
     def __repr__(self):
         return "%r %r" % (self.license_pool, self.delivery_mechanism)
 
@@ -4924,10 +4939,6 @@ class LicensePool(Base):
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
-    # One LicensePool may be associated with one RightsStatus.
-    rightsstatus_id = Column(
-        Integer, ForeignKey('rightsstatus.id'), index=True)
-
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
@@ -5307,18 +5318,6 @@ class LicensePool(Base):
         if self.work:
             self.work.last_update_time = as_of
 
-    def set_rights_status(self, uri, name=None):
-        _db = Session.object_session(self)
-        status, ignore = get_one_or_create(
-            _db, RightsStatus, uri=uri,
-            create_method_kwargs=dict(name=name))
-        self.rights_status = status
-        if status.uri in RightsStatus.OPEN_ACCESS:
-            self.open_access = True
-        else:
-            self.open_access = False
-        return status
-
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
@@ -5552,7 +5551,7 @@ class LicensePool(Base):
 
 
     def set_delivery_mechanism(
-            self, content_type, drm_scheme, resource):
+            self, content_type, drm_scheme, rights_uri, resource):
         """
         Additive, unless have more than one version of a book, in the same format, 
         on the same license (ex.:  book with images and book without images in Gutenberg, 
@@ -5564,12 +5563,21 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme)
+        rights_status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=rights_uri)
         lpdm, ignore = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
             license_pool=self,
-            delivery_mechanism=delivery_mechanism
+            delivery_mechanism=delivery_mechanism,
+            rights_status=rights_status,
         )
         lpdm.resource = resource
+        # If we're adding an open access lpdm, it makes the pool
+        # open access. If we're adding a non-open access lpdm, it
+        # doesn't change anything because the pool might have another
+        # lpdm that is open access.
+        if lpdm.rights_status in RightsStatus.OPEN_ACCESS:
+            self.open_access = True
         return lpdm
         
 
@@ -5650,8 +5658,8 @@ class RightsStatus(Base):
     # Human-readable name of the license.
     name = Column(String, index=True)
 
-    # One RightsStatus may apply to many LicensePools.
-    licensepools = relationship("LicensePool", backref="rights_status")
+    # One RightsStatus may apply to many LicensePoolDeliveryMechanisms.
+    licensepooldeliverymechanisms = relationship("LicensePoolDeliveryMechanism", backref="rights_status")
 
     @classmethod
     def rights_uri_from_string(cls, rights):
