@@ -5135,8 +5135,13 @@ class LicensePool(Base):
     )
 
     def __repr__(self):
-        return "<LicensePool #%s owned=%d available=%d reserved=%d holds=%d>" % (
-            self.id, self.licenses_owned, self.licenses_available, 
+        if self.identifier:
+            identifier = "%s/%s" % (self.identifier.type, 
+                                    self.identifier.identifier)
+        else:
+            identifier = "unknown identifier"
+        return "<LicensePool #%s for %s: owned=%d available=%d reserved=%d holds=%d>" % (
+            self.id, identifier, self.licenses_owned, self.licenses_available, 
             self.licenses_reserved, self.patrons_in_hold_queue
         )
 
@@ -5533,9 +5538,11 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
-        self.set_presentation_edition(None)
-
-        presentation_edition = known_edition or self.presentation_edition
+        if known_edition:
+            presentation_edition = known_edition
+        else:
+            self.set_presentation_edition(None)
+            presentation_edition = self.presentation_edition
 
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
