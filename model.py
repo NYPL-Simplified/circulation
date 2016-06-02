@@ -5582,7 +5582,7 @@ class LicensePool(Base):
         # open access. If we're adding a non-open access lpdm, it
         # doesn't change anything because the pool might have another
         # lpdm that is open access.
-        if lpdm.rights_status in RightsStatus.OPEN_ACCESS:
+        if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
             self.open_access = True
         return lpdm
         
