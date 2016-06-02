@@ -380,9 +380,7 @@ class MetaToModelUtility(object):
         The model_object can be either a pool or an edition.
         """
 
-        if link_obj.rel not in (
-            Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
-        ):
+        if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
             return
 
@@ -582,6 +580,7 @@ class CirculationData(MetaToModelUtility):
             pools (the rights-related links).
         """
         # start by deleting any old links
+        set_trace()
         self.__links = []
 
         if not arg_links:
@@ -590,7 +589,7 @@ class CirculationData(MetaToModelUtility):
         self.set_default_rights_uri(data_source_name=self.data_source_name)
 
         for link in arg_links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 # TODO:  what about Hyperlink.SAMPLE?
                 # only accept the types of links relevant to pools
                 self.__links.append(link)
@@ -603,8 +602,7 @@ class CirculationData(MetaToModelUtility):
                     self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=link.rights_uri)
 
                 # An open-access link or open-access rights implies a FormatData object.
-                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                                    and link.href)
+                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href)
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
                 open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
                                            and link.href
@@ -759,7 +757,7 @@ class CirculationData(MetaToModelUtility):
         link_objects = {}
 
         for link in self.links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=pool, media_type=link.media_type,
@@ -768,7 +766,7 @@ class CirculationData(MetaToModelUtility):
                 link_objects[link] = link_obj
 
         for link in self.links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
                 if replace.mirror:
                     # We need to mirror this resource. If it's an image, a
@@ -949,7 +947,7 @@ class Metadata(MetaToModelUtility):
             return
 
         for link in arg_links:
-            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.METADATA_ALLOWED:
                 # only accept the types of links relevant to editions
                 self.__links.append(link)
                 
@@ -1320,17 +1318,11 @@ class Metadata(MetaToModelUtility):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
-
-
-        # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
-        # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
-        # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
-        # it's problematic that pool isn't always being set in this method.
         
         link_objects = {}
 
         for link in self.links:
-            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.METADATA_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=None, media_type=link.media_type,

@@ -4047,6 +4047,11 @@ class Hyperlink(Base):
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
 
+    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD]
+    METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
+        DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, SAMPLE]
+    MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
+
     id = Column(Integer, primary_key=True)
 
     # A Hyperlink is always associated with some Identifier.
