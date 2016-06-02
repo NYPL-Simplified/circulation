@@ -4932,6 +4932,7 @@ class CachedFeed(Base):
 
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
+    RECOMMENDATIONS_TYPE = 'recommendations'
 
     log = logging.getLogger("CachedFeed")
 
@@ -4939,7 +4940,9 @@ class CachedFeed(Base):
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
         if max_age is None:
-            if type == cls.GROUPS_TYPE:
+            if lane and hasattr(lane, 'MAX_CACHE_AGE'):
+                max_age = lane.MAX_CACHE_AGE
+            elif type == cls.GROUPS_TYPE:
                 max_age = Configuration.groups_max_age()
             elif type == cls.PAGE_TYPE:
                 max_age = Configuration.page_max_age()

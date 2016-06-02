@@ -488,16 +488,17 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator, 
-               force_refresh=False,
+               force_refresh=False, cache_type=None,
                use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         # Find or create a CachedFeed.
+        cache_type = cache_type or CachedFeed.GROUPS_TYPE
         cached, usable = CachedFeed.fetch(
             _db,
-            lane=lane, 
-            type=CachedFeed.GROUPS_TYPE, 
+            lane=lane,
+            type=cache_type,
             facets=None,
             pagination=None,
             annotator=annotator,
@@ -609,20 +610,21 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
              facets=None, pagination=None, 
-             force_refresh=False,
+             force_refresh=False, cache_type=None,
              use_materialized_works=True
     ):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
+        cache_type = cache_type or CachedFeed.PAGE_TYPE
 
         # Find or create a CachedFeed.
         cached, usable = CachedFeed.fetch(
             _db,
-            lane=lane, 
-            type=CachedFeed.PAGE_TYPE, 
-            facets=facets, 
-            pagination=pagination, 
+            lane=lane,
+            type=cache_type,
+            facets=facets,
+            pagination=pagination,
             annotator=annotator,
             force_refresh=force_refresh
         )
@@ -633,8 +635,11 @@ class AcquisitionFeed(OPDSFeed):
             works_q = lane.materialized_works(facets, pagination)
         else:
             works_q = lane.works(facets, pagination)
-        works = works_q.all()
 
+        if not works_q:
+            works = []
+        else:
+            works = works_q.all()
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
