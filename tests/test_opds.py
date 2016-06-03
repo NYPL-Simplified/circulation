@@ -826,13 +826,13 @@ class TestOPDS(DatabaseTest):
 
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                False, False
+                force_refresh=False, use_materialized_works=False
             )
             eq_(CachedFeed.PAGE_TYPE, feed.type)
 
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                True, False
+                force_refresh=True, use_materialized_works=False
             )
             parsed = feedparser.parse(cached_groups.content)
             
@@ -894,7 +894,7 @@ class TestOPDS(DatabaseTest):
 
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, test_lane, annotator,
-                True, False
+                force_refresh=True, use_materialized_works=False
             )
 
             # The feed is filed as a groups feed, even though in

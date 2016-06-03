@@ -359,7 +359,6 @@ class DatabaseTest(object):
 
         return pool
 
-
     def _representation(self, url=None, media_type=None, content=None,
                         mirrored=False):
         url = url or "http://foo.com/" + self._str

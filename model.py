@@ -1162,7 +1162,7 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
-        was_new = None
+
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
             foreign_id = foreign_id.lower()
@@ -1170,7 +1170,6 @@ class Identifier(Base):
             m = get_one_or_create
         else:
             m = get_one
-            was_new = False
 
         result = m(_db, cls, type=foreign_identifier_type,
                    identifier=foreign_id)
@@ -3251,41 +3250,6 @@ class Work(Base):
         )
 
     @classmethod
-    def feed_query(cls, _db, languages, availability=CURRENTLY_AVAILABLE):
-        """Return a query against Work suitable for using in OPDS feeds."""
-        q = _db.query(Work).join(Work.presentation_edition)
-        q = q.join(Work.license_pools).join(LicensePool.data_source).join(LicensePool.identifier)
-        q = q.options(
-            contains_eager(Work.license_pools),
-            contains_eager(Work.presentation_edition),
-            contains_eager(Work.license_pools, LicensePool.data_source),
-            contains_eager(Work.license_pools, LicensePool.edition),
-            contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.verbose_opds_entry),
-            defer(Work.presentation_edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.edition, Edition.extra),
-        )
-        if availability == cls.CURRENTLY_AVAILABLE:
-            or_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0)
-        else:
-            or_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_owned > 0)
-        q = q.filter(or_clause)
-        q = q.filter(
-            Edition.language.in_(languages),
-            Work.presentation_ready == True,
-            Edition.medium == Edition.BOOK_MEDIUM,
-        )
-
-        q = q.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
-        )
-        return q
-
-    @classmethod
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
         if isinstance(genre, basestring):
@@ -3300,6 +3264,32 @@ class Work(Base):
         q = q.options(contains_eager(Work.work_genres))
         q = q.filter(WorkGenre.genre==None)
         return q
+
+    @classmethod
+    def from_identifiers(cls, _db, identifiers, base_query=None):
+        """Returns all of the works that have one or more license_pools
+        associated with either an identifier in the given list or an
+        identifier considered equivalent to one of those listed
+        """
+        identifier_ids = [identifier.id for identifier in identifiers]
+        if not identifier_ids:
+            return None
+
+        if not base_query:
+            # A raw base query that makes no accommodations for works that are
+            # suppressed or otherwise undeliverable.
+            base_query = _db.query(Work).join(Work.license_pools).\
+                join(LicensePool.identifier)
+
+        equivalent_identifier = aliased(Identifier)
+        query = base_query.outerjoin(Identifier.equivalencies).\
+                outerjoin(equivalent_identifier, Equivalency.output).\
+                filter(or_(
+                    Identifier.id.in_(identifier_ids),
+                    and_(equivalent_identifier.id.in_(identifier_ids),
+                    Equivalency.strength>=1)
+                ))
+        return query
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
@@ -3437,8 +3427,6 @@ class Work(Base):
         )
         return changed
 
-
-
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
@@ -3560,8 +3548,6 @@ class Work(Base):
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
 
-
-
     @property
     def detailed_representation(self):
         """A description of this work more detailed than repr()"""
@@ -3623,7 +3609,6 @@ class Work(Base):
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
-        # print self.id, self.simple_opds_entry, self.verbose_opds_entry
 
     def update_external_index(self, client):
         args = dict(index=client.works_index,
@@ -3771,7 +3756,6 @@ class Work(Base):
         self.work_genres = workgenres
 
         return workgenres, changed
-
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4945,8 +4929,13 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
+    # A feed may be associated with a LicensePool.
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
+        nullable=True, index=True)
+
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
+    RECOMMENDATIONS_TYPE = 'recommendations'
 
     log = logging.getLogger("CachedFeed")
 
@@ -4954,15 +4943,20 @@ class CachedFeed(Base):
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
         if max_age is None:
-            if type == cls.GROUPS_TYPE:
+            if lane and hasattr(lane, 'MAX_CACHE_AGE'):
+                max_age = lane.MAX_CACHE_AGE
+            elif type == cls.GROUPS_TYPE:
                 max_age = Configuration.groups_max_age()
             elif type == cls.PAGE_TYPE:
                 max_age = Configuration.page_max_age()
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
+        license_pool = None
         if lane:
             lane_name = lane.name
+            if hasattr(lane, 'license_pool'):
+                license_pool = lane.license_pool
         else:
             lane_name = None
 
@@ -4986,6 +4980,7 @@ class CachedFeed(Base):
         feed, is_new = get_one_or_create(
             _db, CachedFeed, on_multiple='interchangeable',
             lane_name=lane_name,
+            license_pool=license_pool,
             type=type,
             languages=languages_key,
             facets=facets_key,
@@ -5043,13 +5038,12 @@ class CachedFeed(Base):
             self.facets, self.pagination,
             self.timestamp, length
         )
-    
+
 
 Index(
     "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
-
 
 
 class LicensePool(Base):
@@ -5104,6 +5098,9 @@ class LicensePool(Base):
     delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism", backref="license_pool"
     )
+
+    # One LicensePool may have multiple CachedFeeds.
+    cached_feeds = relationship('CachedFeed', backref='license_pool')
 
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
@@ -5299,7 +5296,6 @@ class LicensePool(Base):
                 return True
         return False
 
-
     def editions_in_priority_order(self):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
@@ -5326,7 +5322,6 @@ class LicensePool(Base):
                 return -2
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
-
 
     # TODO:  policy is not used in this method.  Removing argument
     # breaks many-many tests, and needs own branch.
@@ -5520,7 +5515,6 @@ class LicensePool(Base):
             if a and not a % batch_size:
                 _db.commit()
         _db.commit()
-
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Find or create a Work for this LicensePool.
@@ -5722,7 +5716,6 @@ class LicensePool(Base):
 
         return best
 
-
     @property
     def best_license_link(self):
         """Find the best available licensing link for the work associated
@@ -5759,7 +5752,7 @@ class LicensePool(Base):
         )
         lpdm.resource = resource
         return lpdm
-        
+
 
 Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
@@ -7013,6 +7006,7 @@ class CustomList(Base):
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
         return entry, was_new
+
 
 class CustomListEntry(Base):
 

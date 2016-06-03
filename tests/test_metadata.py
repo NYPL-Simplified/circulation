@@ -552,7 +552,6 @@ class TestMetadata(DatabaseTest):
         for field in Metadata.BASIC_EDITION_FIELDS:
             eq_(getattr(edition, field), getattr(metadata, field))
 
-
         e_contribution = edition.contributions[0]
         m_contributor_data = metadata.contributors[0]
         eq_(e_contribution.contributor.name, m_contributor_data.sort_name)
@@ -670,6 +669,28 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.imprint, edition_old.imprint)
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
+
+    def test_filter_recommendations(self):
+        metadata = Metadata(DataSource.OVERDRIVE)
+        known_identifier = self._identifier()
+        unknown_identifier = IdentifierData(Identifier.ISBN, "hey there")
+
+        # Unknown identifiers are filtered out of the recommendations.
+        metadata.recommendations += [known_identifier, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        eq_([known_identifier], metadata.recommendations)
+
+        # It works with IdentifierData as well.
+        known_identifier_data = IdentifierData(
+            known_identifier.type, known_identifier.identifier
+        )
+        metadata.recommendations = [known_identifier_data, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        [result] = metadata.recommendations
+        # The IdentifierData has been replaced by a bonafide Identifier.
+        eq_(True, isinstance(result, Identifier))
+        # The genuwine article.
+        eq_(known_identifier, result)
 
     def test_metadata_can_be_deepcopied(self):
 
