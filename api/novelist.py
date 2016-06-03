@@ -39,16 +39,27 @@ class NoveListAPI(object):
     # from the database.
     QUERY_ENDPOINT = "http://novselect.ebscohost.com/Data/ContentByQuery?\
             ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
-    MAX_REPRESENTATION_AGE = 6*30*24*60*60      # six months
+    MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
 
     @classmethod
     def from_config(cls, _db):
         config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
-        profile = config.get(Configuration.NOVELIST_PROFILE)
-        password = config.get(Configuration.NOVELIST_PASSWORD)
+        profile, password = cls.values()
         if not (profile and password):
             raise ValueError("No NoveList client configured.")
         return cls(_db, profile, password)
+
+    @classmethod
+    def values(cls):
+        config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
+        profile = config.get(Configuration.NOVELIST_PROFILE)
+        password = config.get(Configuration.NOVELIST_PASSWORD)
+        return (profile, password)
+
+    @classmethod
+    def is_configured(cls):
+        profile, password = cls.values()
+        return bool(profile and password)
 
     def __init__(self, _db, profile, password):
         self._db = _db
@@ -64,10 +75,11 @@ class NoveListAPI(object):
 
         :return: Metadata object or None
         """
-
-        license_source = DataSource.license_source_for(self._db, identifier)
+        lookup_metadata = []
+        license_sources = DataSource.license_sources_for(self._db, identifier)
         # Look up strong ISBN equivalents.
-        lookup_metadata =  [self.lookup(eq.output)
+        for license_source in license_sources:
+            lookup_metadata += [self.lookup(eq.output)
                 for eq in identifier.equivalencies
                 if (eq.data_source==license_source and eq.strength==1
                     and eq.output.type==Identifier.ISBN)]
@@ -153,9 +165,7 @@ class NoveListAPI(object):
             response_reviewer=self.review_response
         )
 
-        if not representation.content:
-            return None
-        return self.lookup_info_to_metadata(representation.content)
+        return self.lookup_info_to_metadata(representation)
 
     @classmethod
     def review_response(cls, response):
@@ -184,10 +194,13 @@ class NoveListAPI(object):
             params[name] = urllib.quote(value)
         return (cls.QUERY_ENDPOINT % params).replace(" ", "")
 
-    def lookup_info_to_metadata(self, lookup_info):
-        """Turns a NoveList JSON response into a Metadata object"""
+    def lookup_info_to_metadata(self, lookup_representation):
+        """Transforms a NoveList JSON representation into a Metadata object"""
 
-        lookup_info = json.loads(lookup_info)
+        if not lookup_representation.content:
+            return None
+
+        lookup_info = json.loads(lookup_representation.content)
         book_info = lookup_info['TitleInfo']
         if book_info:
             novelist_identifier = book_info.get('ui')
@@ -201,12 +214,7 @@ class NoveListAPI(object):
         metadata = Metadata(self.source, primary_identifier=primary_identifier)
 
         # Get the equivalent ISBN identifiers.
-        synonymous_ids = book_info.get('manifestations')
-        for synonymous_id in synonymous_ids:
-            isbn = synonymous_id.get('ISBN')
-            if isbn and isbn != primary_identifier.identifier:
-                isbn_data = IdentifierData(Identifier.ISBN, isbn)
-                metadata.identifiers.append(isbn_data)
+        metadata.identifiers += self._extract_isbns(book_info)
 
         author = book_info.get('author')
         if author:
@@ -232,13 +240,18 @@ class NoveListAPI(object):
             ))
 
         # Extract feature content if it is available.
-        lexile_info = series_info = goodreads_info = appeals_info = None
+        series_info = None
+        appeals_info = None
+        lexile_info = None
+        goodreads_info = None
+        recommendations_info = None
         feature_content = lookup_info.get('FeatureContent')
         if feature_content:
-            lexile_info = feature_content.get('LexileInfo')
             series_info = feature_content.get('SeriesInfo')
-            goodreads_info = feature_content.get('GoodReads')
             appeals_info = feature_content.get('Appeals')
+            lexile_info = feature_content.get('LexileInfo')
+            goodreads_info = feature_content.get('GoodReads')
+            recommendations_info = feature_content.get('SimilarTitles')
 
         metadata, title_key = self.get_series_information(
             metadata, series_info, book_info
@@ -272,12 +285,13 @@ class NoveListAPI(object):
                 Measurement.RATING, goodreads_info['average_rating']
             ))
 
+        metadata = self.get_recommendations(metadata, recommendations_info)
+
         # If nothing interesting comes from the API, ignore it.
         if not (metadata.measurements or metadata.series_position or
                 metadata.series or metadata.subjects or metadata.links or
-                metadata.subtitle):
-            return None
-
+                metadata.subtitle or metadata.recommendations):
+            metadata = None
         return metadata
 
     def get_series_information(self, metadata, series_info, book_info):
@@ -312,6 +326,43 @@ class NoveListAPI(object):
 
         return metadata, title_key
 
+    def _extract_isbns(self, book_info):
+        isbns = []
+
+        synonymous_ids = book_info.get('manifestations')
+        for synonymous_id in synonymous_ids:
+            isbn = synonymous_id.get('ISBN')
+            if isbn:
+                isbn_data = IdentifierData(Identifier.ISBN, isbn)
+                isbns.append(isbn_data)
+
+        return isbns
+
+    def get_recommendations(self, metadata, recommendations_info):
+        if not recommendations_info:
+            return None
+
+        related_books = recommendations_info.get('titles')
+        related_books = filter(lambda b: b.get('is_held_locally'), related_books)
+        if related_books:
+            for book_info in related_books:
+                metadata.recommendations += self._extract_isbns(book_info)
+        return metadata
+
+
+class MockNoveListAPI(object):
+
+    def __init__(self):
+        self.responses = []
+
+    def setup(self, *args):
+        self.responses = self.responses + list(args)
+
+    def lookup(self, identifier):
+        response = self.responses[0]
+        self.responses = self.responses[1:]
+        return response
+
 
 class NoveListCoverageProvider(CoverageProvider):
 
@@ -330,17 +381,17 @@ class NoveListCoverageProvider(CoverageProvider):
 
     def process_item(self, identifier):
 
-        novelist_metadata = self.api.lookup(identifier)
-        if not novelist_metadata:
+        metadata, ignore = self.api.lookup(identifier)
+        if not metadata:
             # Either NoveList didn't recognize the identifier or
             # no interesting data came of this. Consider it covered.
             return identifier
 
         # Set identifier equivalent to its NoveList ID.
         identifier.equivalent_to(
-            self.output_source, novelist_metadata.primary_identifier,
+            self.output_source, metadata.primary_identifier,
             strength=1
         )
-        edition, ignore = novelist_metadata.edition(self._db)
-        novelist_metadata.apply(edition)
+        edition, ignore = metadata.edition(self._db)
+        metadata.apply(edition)
         return identifier
