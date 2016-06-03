@@ -1224,9 +1224,9 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         if self.require_active_licensepool and not active_licensepool:
             error_status = 404
             error_message = "Identifier not found in collection"
-
-        if (not identifier.licensed_through
-            or identifier.licensed_through.work != work):
+        
+        if (identifier.licensed_through and 
+            identifier.licensed_through.work != work):
             error_status = 500
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            

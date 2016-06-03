@@ -1043,11 +1043,11 @@ class TestAcquisitionFeed(DatabaseTest):
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
-    def entry(self, identifier, work):
+    def entry(self, identifier, work, **kwargs):
         """Helper method to create an entry."""
         feed = LookupAcquisitionFeed(
             self._db, u"Feed Title", "http://whatever.io", [],
-            annotator=VerboseAnnotator
+            annotator=VerboseAnnotator, **kwargs
         )
         entry = feed.create_entry((identifier, work), u"http://lane/")
         if entry:
@@ -1091,43 +1091,42 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
         # We were not successful at creating an <entry> for this
         # lookup.
-        expect_status = '<simplified:status_code>500</simplified:status_code>'
-        expect_message = '<simplified:message>I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
+        expect_status = '<simplified:status_code>404'
+        expect_message = '<simplified:message>Identifier not found in collection'
         assert expect_status in entry
-        assert (expect_message % identifier.urn) in entry
+        assert expect_message in entry
 
-        # We get the same error if we use an Identifier that is
+        # We also get an error if we use an Identifier that is
         # associated with a LicensePool, but that LicensePool is not
         # associated with the Work.
         edition, lp = self._edition(with_license_pool=True)
         feed, entry = self.entry(lp.identifier, work)
+        expect_status = '<simplified:status_code>500'
+        expect_message = '<simplified:message>I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
         assert expect_status in entry
         assert (expect_message % lp.identifier.urn) in entry
 
-    def test_lookup_feed_checks_licensepool_activeness(self):
-        """It doesn't matter whether a work has a licensepool or not in lookup
-        feeds.
+    def test_error_when_work_has_no_licensepool(self):
+        """Under most circumstances, a Work must have at least one
+        LicensePool for a lookup to succeed.
         """
-        work = self._work(title=u"Hello, World!", with_license_pool=True)
-        identifier = work.license_pools[0].identifier
-        feed = LookupAcquisitionFeed(
-            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
-            annotator=VerboseAnnotator
-        )
-        # By default, the work is ignored because its licensepool is inactive.
-        feed = feedparser.parse(unicode(feed))
-        eq_(1, len(feed.entries))
-        [entry] = feed.entries
-        eq_('404', entry['simplified_status_code'])
-        eq_('Identifier not found in collection', entry['simplified_message'])
 
-        feed = LookupAcquisitionFeed(
-            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
-            annotator=VerboseAnnotator, require_active_licensepool=False
+        # Here's a work with no LicensePools.
+        work = self._work(title=u"Hello, World!", with_license_pool=False)
+        identifier = work.presentation_edition.primary_identifier
+        feed, entry = self.entry(identifier, work)
+
+        # By default, a work is treated as 'not in the collection' if
+        # there is no LicensePool for it.
+        eq_(True, feed.require_active_licensepool)
+        assert "Identifier not found in collection" in entry
+        assert work.title not in entry
+
+        # But if the LookupAcquisitionFeed is set up to allow a lookup
+        # even in the absense of a LicensePool (as might happen in the
+        # metadata wrangler), the same lookup succeeds.
+        feed, entry = self.entry(
+            identifier, work, require_active_licensepool = False
         )
-        # When an active licensepool isn't required, the work is returned.
-        feed = feedparser.parse(unicode(feed))
-        eq_(1, len(feed.entries))
-        [entry] = feed.entries
-        eq_("Hello, World!", entry.title)
-        eq_(identifier.urn, entry.id)
+        assert 'simplified:status_code' not in entry
+        assert work.title in entry
