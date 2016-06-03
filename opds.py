@@ -773,7 +773,7 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=False):
+                     force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -807,7 +807,8 @@ class AcquisitionFeed(OPDSFeed):
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier, lane_link, force_create)
+                                  identifier, lane_link, force_create, 
+                                  use_cache)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False, use_cache=True):

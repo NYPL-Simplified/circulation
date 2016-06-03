@@ -1040,6 +1040,33 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+    def test_cache_usage(self):
+        work = self._work(with_open_access_download=True)
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+
+        # Set the Work's cached OPDS entry to something that's clearly wrong.
+        tiny_entry = '<feed>cached entry</feed>'
+        work.simple_opds_entry = tiny_entry
+
+        # If we pass in use_cache=True, the cached value is used.
+        entry = feed.create_entry(work, self._url, use_cache=True)
+        eq_(tiny_entry, work.simple_opds_entry)
+        eq_(tiny_entry, etree.tostring(entry))
+
+        # If we pass in use_cache=False, a new OPDS entry is created
+        # from scratch, but the cache is not updated.
+        entry = feed.create_entry(work, self._url, use_cache=False)
+        assert etree.tostring(entry) != tiny_entry
+        eq_(tiny_entry, work.simple_opds_entry)
+
+        # If we pass in force_create, a new OPDS entry is created
+        # and the cache is updated.
+        entry = feed.create_entry(work, self._url, force_create=True)
+        entry_string = etree.tostring(entry) 
+        assert entry_string != tiny_entry
+        eq_(entry_string, work.simple_opds_entry)
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
