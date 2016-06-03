@@ -186,6 +186,11 @@ def recommendations(data_source, identifier_type, identifier):
 def report(data_source, identifier_type, identifier):
     return app.manager.work_controller.report(data_source, identifier_type, identifier)
 
+@app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
+@returns_problem_detail
+def track_analytics_event(data_source, identifier_type, identifier, event_type):
+    return app.manager.analytics_controller.track_event(data_source, identifier_type, identifier, event_type)
+
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
 @requires_auth
