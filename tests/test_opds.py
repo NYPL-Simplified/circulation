@@ -1015,7 +1015,94 @@ class TestOPDS(DatabaseTest):
             assert work2.title in cached3.content
 
 
+class TestAcquisitionFeed(DatabaseTest):
+
+    def test_single_entry(self):
+
+        # Here's a Work with two LicensePools.
+        work = self._work(with_open_access_download=True)
+        original_pool = work.license_pools[0]
+        edition, new_pool = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(new_pool)
+
+        # The presentation edition of the Work is associated with
+        # the first LicensePool added to it.
+        eq_(work.presentation_edition, original_pool.presentation_edition)
+
+        # This is the edition used when we create an <entry> tag for
+        # this Work.
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator
+        )
+        entry = etree.tostring(entry)
+        assert original_pool.presentation_edition.title in entry
+        assert new_pool.presentation_edition.title not in entry
+
+
 class TestLookupAcquisitionFeed(DatabaseTest):
+
+    def entry(self, identifier, work):
+        """Helper method to create an entry."""
+        feed = LookupAcquisitionFeed(
+            self._db, u"Feed Title", "http://whatever.io", [],
+            annotator=VerboseAnnotator
+        )
+        entry = feed.create_entry((identifier, work), u"http://lane/")
+        if entry:
+            entry = etree.tostring(entry)
+        return feed, entry
+
+    def test_create_entry_uses_specified_identifier(self):
+
+        # Here's a Work with two LicensePools.
+        work = self._work(with_open_access_download=True)
+        original_pool = work.license_pools[0]
+        edition, new_pool = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(new_pool)
+
+        # We can generate two different OPDS feeds for a single work
+        # depending on which identifier we look up.
+        ignore, e1 = self.entry(original_pool.identifier, work)
+        ignore, e2 = self.entry(new_pool.identifier, work)
+        assert original_pool.identifier.urn in e1
+        assert original_pool.presentation_edition.title in e1
+        assert new_pool.identifier.urn not in e1
+        assert new_pool.presentation_edition.title not in e1
+
+        assert new_pool.identifier.urn in e2
+        assert new_pool.presentation_edition.title in e2
+        assert original_pool.identifier.urn not in e2
+        assert original_pool.presentation_edition.title not in e2
+
+    def test_error_on_mismatched_identifier(self):
+        """We get an error if we try to make it look like an Identifier lookup
+        retrieved a Work that's not actually associated with that Identifier.
+        """
+        work = self._work(with_open_access_download=True)
+
+        # Here's an identifier not associated with any LicensePool.
+        identifier = self._identifier()
+
+        feed, entry = self.entry(identifier, work)
+
+        # We were not successful at creating an <entry> for this
+        # lookup.
+        expect_status = '<simplified:status_code>500</simplified:status_code>'
+        expect_message = '<simplified:message>I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
+        assert expect_status in entry
+        assert (expect_message % identifier.urn) in entry
+
+        # We get the same error if we use an Identifier that is
+        # associated with a LicensePool, but that LicensePool is not
+        # associated with the Work.
+        edition, lp = self._edition(with_license_pool=True)
+        feed, entry = self.entry(lp.identifier, work)
+        assert expect_status in entry
+        assert (expect_message % lp.identifier.urn) in entry
 
     def test_lookup_feed_checks_licensepool_activeness(self):
         """It doesn't matter whether a work has a licensepool or not in lookup
@@ -1044,25 +1131,3 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         [entry] = feed.entries
         eq_("Hello, World!", entry.title)
         eq_(identifier.urn, entry.id)
-
-
-class TestAcquisitionFeed(DatabaseTest):
-
-    def test_single_entry(self):
-
-        work = self._work(with_open_access_download=True)
-        pool = work.license_pools[0]
-
-        # Create an <entry> tag for this work and its LicensePool.
-        feed1 = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator, pool
-        )
-
-        # If we don't pass in the license pool, it makes a guess to
-        # figure out which license pool we're talking about.
-        feed2 = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator, None
-        )
-
-        # Both entries are identical.
-        eq_(etree.tostring(feed1), etree.tostring(feed2))
