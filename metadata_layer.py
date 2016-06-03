@@ -1357,10 +1357,11 @@ class Metadata(MetaToModelUtility):
                 edition.display_author = primary_author.display_name
 
         # we updated the links.  but does the associated pool know?
+        pool = None
         if self.circulation:
-            pool, is_new = circulation.license_pool
+            pool, is_new = self.circulation.license_pool(_db)
             if (pool and not is_new):
-                circulation.apply(pool)
+                self.circulation.apply(pool)
 
             # we updated the pool.  but do the associated links know?
             for link in self.links:
@@ -1382,7 +1383,7 @@ class Metadata(MetaToModelUtility):
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
-                self.make_thumbnail(data_source, link, link_obj)
+                self.make_thumbnail(data_source, link, link_obj, pool)
 
 
         # Finally, update the coverage record for this edition
@@ -1393,7 +1394,7 @@ class Metadata(MetaToModelUtility):
         return edition, made_core_changes
 
         
-    def make_thumbnail(self, data_source, link, link_obj):
+    def make_thumbnail(self, data_source, link, link_obj, pool=None):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
         """
@@ -1410,10 +1411,6 @@ class Metadata(MetaToModelUtility):
 
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
-        pool = None
-        if self.circulation:
-            pool = self.circulation.license_pool
-
         thumbnail_obj, ignore = link_obj.identifier.add_link(
             rel=thumbnail.rel, href=thumbnail.href, 
             data_source=data_source, 

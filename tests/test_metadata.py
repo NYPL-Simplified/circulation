@@ -614,7 +614,7 @@ class TestMetadata(DatabaseTest):
 
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         metadata = Metadata(
-            DataSource.GUTENBERG,
+            data_source=DataSource.GUTENBERG,
             primary_identifier=identifier,
             links=links,
         )
@@ -625,24 +625,31 @@ class TestMetadata(DatabaseTest):
 
 
     def test_make_thumbnail_assigns_pool(self):
-        edition = self._edition()
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        #identifier = self._identifier()
+        #identifier = IdentifierData(type=Identifier.GUTENBERG_ID, identifier=edition.primary_identifier)
+        edition = self._edition(identifier_id=identifier.identifier)
+
         link = LinkData(
             rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
             media_type=Representation.JPEG_MEDIA_TYPE,
         )
 
-        metadata = Metadata(links=[link], 
-                            data_source=edition.data_source)
+        metadata = Metadata(data_source=edition.data_source, 
+            primary_identifier=identifier,
+            links=[link], 
+        )
 
         circulation = CirculationData(data_source=edition.data_source, 
-            primary_identifier=edition.primary_identifier)
+            primary_identifier=identifier)
 
         metadata.circulation = circulation
 
         metadata.apply(edition)
         thumbnail_link = edition.primary_identifier.links[0]
 
-        eq_(thumbnail_link.license_pool, circulation.license_pool)
+        circulation_pool, is_new = circulation.license_pool(self._db)
+        eq_(thumbnail_link.license_pool, circulation_pool)
 
 
 
