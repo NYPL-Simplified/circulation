@@ -580,7 +580,6 @@ class CirculationData(MetaToModelUtility):
             pools (the rights-related links).
         """
         # start by deleting any old links
-        set_trace()
         self.__links = []
 
         if not arg_links:
@@ -886,7 +885,7 @@ class Metadata(MetaToModelUtility):
             contributors=None,
             measurements=None,
             links=None,
-            provider_entry_updated=None,
+            data_source_last_updated=None,
             # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
             circulation=None,  
     ):
@@ -925,8 +924,8 @@ class Metadata(MetaToModelUtility):
 
         self.circulation = circulation
 
-        # renamed last_update_time to provider_entry_updated
-        self.provider_entry_updated = provider_entry_updated
+        # renamed last_update_time to data_source_last_updated
+        self.data_source_last_updated = data_source_last_updated
 
         self.__links = None
         self.links = links
@@ -1218,11 +1217,11 @@ class Metadata(MetaToModelUtility):
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
 
-        if self.provider_entry_updated and not replace.even_if_not_apparently_updated:
+        if self.data_source_last_updated and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_time = coverage_record.timestamp
-                last_time = self.provider_entry_updated
+                last_time = self.data_source_last_updated
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return edition, False
@@ -1357,6 +1356,17 @@ class Metadata(MetaToModelUtility):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        # we updated the links.  but does the associated pool know?
+        if self.circulation:
+            pool, is_new = circulation.license_pool
+            if (pool and not is_new):
+                circulation.apply(pool)
+
+            # we updated the pool.  but do the associated links know?
+            for link in self.links:
+                link_obj = link_objects[link]
+                link_obj.license_pool = pool
+
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             link_obj = link_objects[link]
@@ -1374,10 +1384,11 @@ class Metadata(MetaToModelUtility):
                 # is associated with the original image.
                 self.make_thumbnail(data_source, link, link_obj)
 
+
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.provider_entry_updated
+            edition, data_source, timestamp=self.data_source_last_updated
         )
         return edition, made_core_changes
 
@@ -1399,10 +1410,14 @@ class Metadata(MetaToModelUtility):
 
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
+        pool = None
+        if self.circulation:
+            pool = self.circulation.license_pool
+
         thumbnail_obj, ignore = link_obj.identifier.add_link(
             rel=thumbnail.rel, href=thumbnail.href, 
             data_source=data_source, 
-            license_pool=None, media_type=thumbnail.media_type,
+            license_pool=pool, media_type=thumbnail.media_type,
             content=thumbnail.content
         )
         # And make sure the thumbnail knows it's a thumbnail of the main

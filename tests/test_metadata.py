@@ -359,7 +359,7 @@ class TestMetadataImporter(DatabaseTest):
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", provider_entry_updated=last_update)
+                     title=u"New title", data_source_last_updated=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
@@ -369,7 +369,7 @@ class TestMetadataImporter(DatabaseTest):
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
-                     provider_entry_updated=older_last_update
+                     data_source_last_updated=older_last_update
         )
         m.apply(edition)
         eq_(u"New title", edition.title)
@@ -588,7 +588,7 @@ class TestMetadata(DatabaseTest):
             issued=datetime.datetime.utcnow(),
             published=datetime.datetime.utcnow(),
             identifiers=[primary_as_data, other_data],
-            provider_entry_updated=datetime.datetime.utcnow(),
+            data_source_last_updated=datetime.datetime.utcnow(),
         )
 
         m_copy = deepcopy(m)
@@ -622,6 +622,28 @@ class TestMetadata(DatabaseTest):
         filtered_links = sorted(metadata.links, key=lambda x:x.rel)
 
         eq_([link2, link5, link4, link3], filtered_links)
+
+
+    def test_make_thumbnail_assigns_pool(self):
+        edition = self._edition()
+        link = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+
+        metadata = Metadata(links=[link], 
+                            data_source=edition.data_source)
+
+        circulation = CirculationData(data_source=edition.data_source, 
+            primary_identifier=edition.primary_identifier)
+
+        metadata.circulation = circulation
+
+        metadata.apply(edition)
+        thumbnail_link = edition.primary_identifier.links[0]
+
+        eq_(thumbnail_link.license_pool, circulation.license_pool)
+
 
 
 

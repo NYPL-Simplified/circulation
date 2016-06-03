@@ -339,7 +339,7 @@ class OPDSImporter(object):
 
         if (cutoff_date 
             and not is_new_edition
-            and metadata.provider_entry_updated < cutoff_date
+            and metadata.data_source_last_updated < cutoff_date
         ):
             # We've already imported this book, we've been told
             # not to bother with books that haven't changed since a
@@ -379,7 +379,7 @@ class OPDSImporter(object):
         if (cutoff_date 
             and not is_new_license_pool 
             and associated_metadata 
-            and associated_metadata.provider_entry_updated < cutoff_date):
+            and associated_metadata.data_source_last_updated < cutoff_date):
             # We've already imported this book, we've been told
             # not to bother with books that appeared before a
             # certain date, and this book did in fact appear
@@ -666,7 +666,7 @@ class OPDSImporter(object):
             publisher=publisher,
             links=links,
             # refers to when was updated in opds feed, not our db
-            provider_entry_updated=last_opds_update,
+            data_source_last_updated=last_opds_update,
         )
 
         kwargs_circ = dict(

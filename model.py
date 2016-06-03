@@ -4043,13 +4043,14 @@ class Hyperlink(Base):
     DESCRIPTION = u"http://schema.org/description"
     SHORT_DESCRIPTION = u"http://librarysimplified.org/terms/rel/short-description"
     AUTHOR = u"http://schema.org/author"
+    ALTERNATE = u"alternate"
 
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
 
     CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD]
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
-        DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, SAMPLE]
+        DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
     MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
 
     id = Column(Integer, primary_key=True)

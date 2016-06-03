@@ -180,7 +180,6 @@ class TestItemListParser(BaseThreeMTest):
         eq_(Measurement.PAGE_COUNT, pages.quantity_measured)
         eq_(304, pages.value)
 
-        set_trace()
         [alternate, image, description] = sorted(
             cooked.links, key = lambda x: x.rel)
         eq_("alternate", alternate.rel)
