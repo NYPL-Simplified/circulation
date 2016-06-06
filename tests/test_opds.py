@@ -839,7 +839,6 @@ class TestOPDS(DatabaseTest):
             parsed = feedparser.parse(cached_groups.content)
             
             # There are two entries, one for each work.
-            set_trace()
             e1, e2 = parsed['entries']
 
             # Each entry has one and only one link.
