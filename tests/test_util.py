@@ -8,7 +8,6 @@ from nose.tools import (
 )
 
 from model import (
-    CustomListEntry,
     Identifier,
     Edition
 )

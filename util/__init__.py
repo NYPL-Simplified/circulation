@@ -10,8 +10,6 @@ import os
 import re
 import string
 from sqlalchemy.sql.functions import func
-from sqlalchemy import distinct
-
 
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""
