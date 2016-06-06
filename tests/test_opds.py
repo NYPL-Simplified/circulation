@@ -215,9 +215,12 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, "test", "url", works, CirculationManagerAnnotator(
                 None, Fantasy, test_mode=True))
+
+        set_trace()
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
+        set_trace()
         open_access_links, borrow_links = [x['links'] for x in entries]
         open_access_rels = [x['rel'] for x in open_access_links]
         assert OPDSFeed.BORROW_REL in open_access_rels
