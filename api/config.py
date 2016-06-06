@@ -7,6 +7,7 @@ from core.config import (
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
+from core.analytics import Analytics
 
 class Configuration(CoreConfiguration):
 
@@ -17,6 +18,7 @@ class Configuration(CoreConfiguration):
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
+    TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
     LANES_POLICY = "lanes"
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
@@ -35,6 +37,10 @@ class Configuration(CoreConfiguration):
     AUTHENTICATION = "authentication"
     AUTHENTICATION_TEST_USERNAME = "test_username"
     AUTHENTICATION_TEST_PASSWORD = "test_password"
+
+    OAUTH_CLIENT_ID = 'client_id'
+    OAUTH_CLIENT_SECRET = 'client_secret'
+    SECRET_KEY = "secret_key"
 
     MILLENIUM_INTEGRATION = "Millenium"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
@@ -85,6 +91,19 @@ class Configuration(CoreConfiguration):
         return [[x] for x in value.split(',')]
 
     @classmethod
+    def tiny_collection_languages(cls):
+        import logging
+        logging.info("In tiny_collection_languages.")
+        value = cls.language_policy().get(cls.TINY_COLLECTION_LANGUAGES, '')
+        logging.info("Language policy: %r" % cls.language_policy())
+        logging.info("Tiny collections: %r" % value)
+        if not value:
+            return []
+        if isinstance(value, list):
+            return value
+        return [[x] for x in value.split(',')]
+
+    @classmethod
     def force_language(cls, language):
         """Override normal language settings to deliver a particular
         collection no matter what.
@@ -112,8 +131,12 @@ class Configuration(CoreConfiguration):
     @classmethod
     def load(cls):
         CoreConfiguration.load()
-        cls.instance = CoreConfiguration.instance
-
+        config = CoreConfiguration.instance
+        if not config.get(cls.POLICIES):
+            config[cls.POLICIES] = {}
+        if not config[cls.POLICIES].get(cls.ANALYTICS_POLICY):
+            config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(["api.local_analytics_provuder"], config)
+        cls.instance = config
 
 @contextlib.contextmanager
 def empty_config():

@@ -1,5 +1,4 @@
 import pkgutil
-import os
 from datetime import date
 from nose.tools import (
     eq_,
@@ -7,7 +6,7 @@ from nose.tools import (
 )
 
 from api.millenium_patron import MilleniumPatronAPI
-from . import DatabaseTest
+from . import DatabaseTest, sample_data
 
 class DummyResponse(object):
     def __init__(self, content):
@@ -19,14 +18,9 @@ class DummyAPI(MilleniumPatronAPI):
     def __init__(self):
         super(DummyAPI, self).__init__("")
         self.queue = []
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(
-            base_path, "files", "millenium_patron")
 
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'millenium_patron')
 
     def enqueue(self, filename):
         data = self.sample_data(filename)
@@ -93,19 +87,19 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Patron is valid, but not in our database yet
         self.api.enqueue("dump.success.html")
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "alice", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
         # Patron is in the db, now authenticate with barcode
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "44444444444447", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="44444444444447", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
         # Authenticate with username again
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, "alice", "4444")
+        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 

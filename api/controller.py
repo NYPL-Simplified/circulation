@@ -3,8 +3,7 @@ import json
 import logging
 import sys
 import urllib
-import urlparse
-import uuid
+import datetime
 
 from lxml import etree
 
@@ -42,6 +41,8 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    CachedFeed,
+    CirculationEvent,
     Complaint,
     DataSource,
     Hold,
@@ -49,6 +50,7 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
+    Work,
 )
 from core.opds import (
     E,
@@ -59,11 +61,10 @@ from core.opensearch import OpenSearchDocument
 from core.util.flask_util import (
     problem,
 )
-from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from core.util.problem_detail import ProblemDetail
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 
 from circulation_exceptions import *
-from config import Configuration
 
 from opds import (
     CirculationManagerAnnotator,
@@ -78,24 +79,21 @@ from config import (
     CannotLoadConfiguration
 )
 
-from lanes import make_lanes
+from lanes import (
+    make_lanes,
+    RecommendationLane,
+)
 
 from adobe_vendor_id import AdobeVendorIDController
-from axis import (
-    Axis360API,
+from axis import Axis360API
+from overdrive import OverdriveAPI
+from threem import ThreeMAPI
+from circulation import CirculationAPI
+from novelist import (
+    NoveListAPI,
+    MockNoveListAPI,
 )
-from overdrive import (
-    OverdriveAPI,
-    DummyOverdriveAPI,
-)
-from threem import (
-    ThreeMAPI,
-    DummyThreeMAPI,
-)
-from circulation import (
-    CirculationAPI,
-    DummyCirculationAPI,
-)
+from testing import MockCirculationAPI
 from services import ServiceStatus
 
 class CirculationManager(object):
@@ -136,7 +134,6 @@ class CirculationManager(object):
         )
 
         self.setup_controllers()
-        self.urn_lookup_controller = URNLookupController(self._db)
         self.setup_adobe_vendor_id()
 
         if self.testing:
@@ -144,7 +141,7 @@ class CirculationManager(object):
         else:
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
-        self.opds_authentication_document = self.create_authentication_document()
+        self.opds_authentication_document = self.auth.create_authentication_document()
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -176,7 +173,7 @@ class CirculationManager(object):
     def setup_circulation(self):
         """Set up distributor APIs and a the Circulation object."""
         if self.testing:
-            self.circulation = DummyCirculationAPI(self._db)
+            self.circulation = MockCirculationAPI(self._db)
         else:
             overdrive = OverdriveAPI.from_environment(self._db)
             threem = ThreeMAPI.from_environment(self._db)
@@ -196,6 +193,7 @@ class CirculationManager(object):
         self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
+        self.analytics_controller = AnalyticsController(self)
 
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
@@ -224,35 +222,6 @@ class CirculationManager(object):
             self.circulation, lane, *args, top_level_title=self.display_name, **kwargs
         )
 
-    def create_authentication_document(self):
-        """Create the OPDS authentication document to be used when
-        there's a 401 error.
-        """
-        base_opds_document = Configuration.base_opds_authentication_document()
-        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-        circulation_manager_url = Configuration.integration_url(
-            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
-        scheme, netloc, path, parameters, query, fragment = (
-            urlparse.urlparse(circulation_manager_url))
-        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
-
-        links = {}
-        for rel, value in (
-                ("terms-of-service", Configuration.terms_of_service_url()),
-                ("privacy-policy", Configuration.privacy_policy_url()),
-                ("copyright", Configuration.acknowledgements_url()),
-                ("about", Configuration.about_url()),
-        ):
-            if value:
-                links[rel] = dict(href=value, type="text/html")
-
-        doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
-            "PIN", links=links
-            )
-
-        return json.dumps(doc)
-
 
 class CirculationManagerController(object):
 
@@ -263,13 +232,28 @@ class CirculationManagerController(object):
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 
-    def authenticated_patron_from_request(self):
+    def authorization_header(self):
+        """Get the authentication header."""
+
+        # This is the basic auth header.
         header = flask.request.authorization
+
+        # If we're using a token instead, flask doesn't extract it for us.
+        if not header:
+            if 'Authorization' in flask.request.headers:
+                header = flask.request.headers['Authorization']
+
+        return header
+
+
+    def authenticated_patron_from_request(self):
+        header = self.authorization_header()
+
         if not header:
             # No credentials were provided.
             return self.authenticate()
         try:
-            patron = self.authenticated_patron(header.username, header.password)
+            patron = self.authenticated_patron(header)
         except RemoteInitiatedServerError,e:
             return REMOTE_INTEGRATION_FAILED.detailed(
                 "Error in authentication service"
@@ -281,8 +265,11 @@ class CirculationManagerController(object):
             flask.request.patron = patron
             return patron
 
-    def authenticated_patron(self, barcode, pin):
-        """Look up the patron authenticated by the given barcode/pin.
+    def authenticated_patron(self, authorization_header):
+        """Look up the patron authenticated by the given authorization header.
+
+        The header could contain a barcode and pin or a token for an
+        external service.
 
         If there's a problem, return a 2-tuple (URI, title) for use in a
         Problem Detail Document.
@@ -290,7 +277,7 @@ class CirculationManagerController(object):
         If there's no problem, return a Patron object.
         """
         patron = self.manager.auth.authenticated_patron(
-            self._db, barcode, pin
+            self._db, authorization_header
         )
         if not patron:
             return INVALID_CREDENTIALS
@@ -304,7 +291,7 @@ class CirculationManagerController(object):
         return patron
 
     def authenticate(self):
-        """Sends a 401 response that demands basic auth."""
+        """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
         headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
                    'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
@@ -338,7 +325,7 @@ class CirculationManagerController(object):
             )
         return lanes[name]
 
-    def load_licensepool(self, data_source, identifier):
+    def load_licensepool(self, data_source, identifier_type, identifier):
         """Turn user input into a LicensePool object."""
         if isinstance(data_source, DataSource):
             source = data_source
@@ -347,12 +334,8 @@ class CirculationManagerController(object):
         if source is None:
             return INVALID_INPUT.detailed("No such data source: %s" % data_source)
 
-        if isinstance(identifier, Identifier):
-            id_obj = identifier
-        else:
-            identifier_type = source.primary_identifier_type
-            id_obj, ignore = Identifier.for_foreign_id(
-                self._db, identifier_type, identifier, autocreate=False)
+        id_obj, ignore = Identifier.for_foreign_id(
+            self._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
             return NO_LICENSES.detailed("I've never heard of this work.")
         pool = id_obj.licensed_through
@@ -521,9 +504,9 @@ class OPDSFeedController(CirculationManagerController):
 class AccountController(CirculationManagerController):
 
     def account(self):
-        header = flask.request.authorization
+        header = self.authorization_header()
 
-        patron_info = self.manager.auth.patron_info(header.username)
+        patron_info = self.manager.auth.patron_info(header)
         return json.dumps(dict(
             username=patron_info.get('username', None),
             barcode=patron_info.get('barcode'),
@@ -554,7 +537,7 @@ class LoanController(CirculationManagerController):
             self.circulation, patron)
         return feed_response(feed, cache_for=None)
 
-    def borrow(self, data_source, identifier, mechanism_id=None):
+    def borrow(self, data_source, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
 
         Return an OPDS Acquisition feed that includes a link of rel
@@ -563,7 +546,7 @@ class LoanController(CirculationManagerController):
         """
 
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -572,7 +555,7 @@ class LoanController(CirculationManagerController):
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(pool, mechanism_id)
-            if isinstance(mechanism, Response):
+            if isinstance(mechanism, ProblemDetail):
                 return mechanism
 
         if not pool:
@@ -648,7 +631,7 @@ class LoanController(CirculationManagerController):
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(content, status_code, headers)
 
-    def fulfill(self, data_source, identifier, mechanism_id=None):
+    def fulfill(self, data_source, identifier_type, identifier, mechanism_id=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -661,7 +644,7 @@ class LoanController(CirculationManagerController):
         pin = header.password
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
     
@@ -710,10 +693,10 @@ class LoanController(CirculationManagerController):
             headers['Content-Type'] = fulfillment.content_type
         return Response(fulfillment.content, status_code, headers)
 
-    def revoke(self, data_source, identifier):
+    def revoke(self, data_source, identifier_type, identifier):
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier)
-        if isinstance(pool, Response):
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
         if loan:
@@ -757,12 +740,12 @@ class LoanController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def detail(self, data_source, identifier):
+    def detail(self, data_source, identifier_type, identifier):
         if flask.request.method=='DELETE':
-            return self.revoke_loan_or_hold(data_source, identifier)
+            return self.revoke_loan_or_hold(data_source, identifier_type, identifier)
 
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
@@ -790,7 +773,7 @@ class LoanController(CirculationManagerController):
 
 class WorkController(CirculationManagerController):
 
-    def permalink(self, data_source, identifier):
+    def permalink(self, data_source, identifier_type, identifier):
         """Serve an entry for a single book.
 
         This does not include any loan or hold-specific information for
@@ -801,7 +784,7 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -810,11 +793,39 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def report(self, data_source, identifier):
+    def recommendations(self, data_source, identifier_type, identifier, mock_api=None):
+        """Serve a feed of recommendations related to a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
+        try:
+            lane = RecommendationLane(self._db, pool, lane_name, mock_api=mock_api)
+        except ValueError, e:
+            # NoveList isn't configured.
+            return NO_SUCH_LANE.detailed("Recommendations not available: %r" % e)
+
+        use_materialized_works = not self.manager.testing
+        url = self.cdn_url_for(
+            'recommendations', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.page(
+            self._db, 'Related Works', url, lane,
+            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
+            use_materialized_works=use_materialized_works
+        )
+
+        return feed_response(unicode(feed.content))
+
+    def report(self, data_source, identifier_type, identifier):
         """Report a problem with a book."""
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -829,6 +840,16 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
+
+class AnalyticsController(CirculationManagerController):
+
+    def track_event(self, data_source, identifier_type, identifier, event_type):
+        if event_type in [CirculationEvent.OPEN_BOOK]:
+            pool = self.load_licensepool(data_source, identifier_type, identifier)
+            Configuration.collect_analytics_event(self._db, pool, event_type, datetime.datetime.utcnow())
+            return Response({}, 200)
+        else:
+            return INVALID_ANALYTICS_EVENT_TYPE
 
 class ServiceStatusController(CirculationManagerController):
 

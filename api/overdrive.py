@@ -14,7 +14,7 @@ from circulation import (
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
-    OverdriveBibliographicCoverageProvider as BaseOverdriveBibliographicCoverageProvider,
+    OverdriveBibliographicCoverageProvider
 )
 
 from core.model import (
@@ -35,6 +35,7 @@ from core.monitor import (
     Monitor,
     IdentifierSweepMonitor,
 )
+from core.util.http import HTTP
 
 from circulation_exceptions import *
 
@@ -60,6 +61,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
+    def __init__(self, *args, **kwargs):
+        super(OverdriveAPI, self).__init__(*args, **kwargs)
+        self.overdrive_bibliographic_coverage_provider = (
+            OverdriveBibliographicCoverageProvider(
+                self._db, overdrive_api=self
+                )
+        )
+
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
         """Make an HTTP request on behalf of a patron.
@@ -70,13 +79,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         headers = dict(Authorization="Bearer %s" % patron_credential.credential)
         headers.update(extra_headers)
         if method and method.lower() in ('get', 'post', 'put', 'delete'):
-            method = getattr(requests, method.lower())
+            method = method.lower()
         else:
             if data:
-                method = requests.post
+                method = 'post'
             else:
-                method = requests.get
-        response = method(url, headers=headers, data=data)
+                method = 'get'
+        response = HTTP.request_with_timeout(
+            method, url, headers=headers, data=data
+        )
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -468,7 +479,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         will be created for the book.
 
         The book's LicensePool will be updated with current
-        circulation information.
+        circulation information. Bibliographic coverage will be
+        ensured for the Overdrive Identifier, and a Work will be
+        created for the LicensePool and set as presentation-ready.
         """
         # Retrieve current circulation information about this book
         orig_book = book
@@ -501,17 +514,29 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         book.apply(json.loads(content))
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+        if is_new:
+            # This is the first time we've seen this book. Make sure its
+            # identifier has bibliographic coverage.
+            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier
+            )
+
         return self.update_licensepool_with_book_info(
             book, license_pool, is_new
         )
+
+    # Alias for the CirculationAPI interface
+    def update_availability(self, licensepool):
+        return self.update_licensepool(licensepool.identifier.identifier)
 
     def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
-        Also creates an Edition and gives it very basic bibliographic
-        information (the title), if possible.  If the new Edition is the only 
-        candidate for the pool's presentation_edition, promote it to presentation status.
+        Then, create an Edition and make sure it has bibliographic
+        coverage. If the new Edition is the only candidate for the
+        pool's presentation_edition, promote it to presentation
+        status.
         """
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
@@ -521,7 +546,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,
             license_pool.identifier.identifier)
-        edition.title = edition.title or book.get('title')
 
         # If the pool does not already have a presentation edition, 
         # and if this edition is newly made, then associate pool and edition
@@ -585,13 +609,19 @@ class DummyOverdriveAPI(OverdriveAPI):
 
     token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
 
+    collection_token = 'fake token'
+
     def __init__(self, *args, **kwargs):
-        super(DummyOverdriveAPI, self).__init__(*args, testing=True, **kwargs)
+        super(DummyOverdriveAPI, self).__init__(
+            *args, testing=True, **kwargs
+        )
         self.responses = []
 
     def queue_response(self, response_code=200, media_type="application/json",
                        other_headers=None, content=''):
         headers = {"content-type": media_type}
+        if not isinstance(content, basestring):
+            content = json.dumps(content)
         if other_headers:
             for k, v in other_headers.items():
                 headers[k.lower()] = v
@@ -720,20 +750,3 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         super(RecentOverdriveCollectionMonitor, self).__init__(
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
-
-
-class OverdriveBibliographicCoverageProvider(BaseOverdriveBibliographicCoverageProvider):
-
-    """Fill in bibliographic metadata for Overdrive records.
-    
-    Then mark the works as presentation-ready.
-    """
-    def process_batch(self, identifiers):
-        results = []
-        for result in super(OverdriveBibliographicCoverageProvider, self).process_batch(identifiers):
-            # Mark every successful result as presentation-ready.
-            if isinstance(result, Identifier):
-                result = self.set_presentation_ready(result)
-            results.append(result)
-        return results
-

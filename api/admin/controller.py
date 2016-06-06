@@ -14,12 +14,17 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    CirculationEvent,
     Classification,
     DataSource,
+    Edition,
     Genre,
     Hyperlink,
+    Identifier,
+    LicensePool,
     PresentationCalculationPolicy,
     Subject,
+    Work,
     WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
@@ -43,7 +48,12 @@ from core.app_server import (
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
-from core.classifier import genres, SimplifiedGenreClassifier
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier,
+    NO_NUMBER,
+    NO_VALUE
+)
 
 
 def setup_admin_controllers(manager):
@@ -162,15 +172,15 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
-    STAFF_WEIGHT = 100000
+    STAFF_WEIGHT = 1
 
-    def details(self, data_source, identifier):
+    def details(self, data_source, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
         
         This includes relevant links for editing the book.
         """
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -180,16 +190,17 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
         
-    def complaints(self, data_source, identifier):
+    def complaints(self, data_source, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         counter = self._count_complaints_for_licensepool(pool)
         response = dict({
             "book": { 
                 "data_source": data_source,
+                "identifier_type": identifier_type,
                 "identifier": identifier
             },
             "complaints": counter
@@ -197,119 +208,55 @@ class WorkController(CirculationManagerController):
         
         return response
 
-    def classifications(self, data_source, identifier):
-        """Return list of this work's classifications that are linked to genres."""
-
-        pool = self.load_licensepool(data_source, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-
-        results = pool.work.classifications_with_genre() \
-            .join(DataSource) \
-            .all()
-        
-        data = []
-        for result in results:
-            data.append(dict({
-                "type": result.subject.type,
-                "name": result.subject.identifier,
-                "source": result.data_source.name,
-                "weight": result.weight
-            }))
-
-        return dict({
-            "book": {
-                "data_source": data_source,
-                "identifier": identifier
-            },
-            "classifications": data
-        })
-
-    def edit(self, data_source, identifier):
+    def edit(self, data_source, identifier_type, identifier):
         """Edit a work's metadata."""
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
         changed = False
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_edition, is_new = get_one_or_create(
+            self._db, Edition,
+            primary_identifier_id=primary_identifier.id,
+            data_source_id=staff_data_source.id
+        )
+        self._db.expire(primary_identifier)
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            work.primary_edition.title = unicode(new_title)
+            staff_edition.title = unicode(new_title)
             changed = True
 
-        # Previous staff classifications
-        old_classifications = self._db.query(Classification).filter(
-            Classification.identifier==work.primary_edition.primary_identifier,
-            Classification.data_source==staff_data_source,
-        )
-
-        new_fiction = False
-        if flask.request.form.get("fiction") == "fiction":
-            new_fiction = True
-        if new_fiction != work.fiction:
-            # Delete previous staff fiction classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight (higher than genre)
-            fiction_term = "Fiction"
-            if not new_fiction:
-                fiction_term = "Nonfiction"
-            classification = work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
-                subject_identifier=fiction_term,
-                weight=WorkController.STAFF_WEIGHT * 100,
-            )
-            classification.subject.fiction = new_fiction
+        new_subtitle = flask.request.form.get("subtitle")
+        if work.subtitle != new_subtitle:
+            if work.subtitle and not new_subtitle:
+                new_subtitle = NO_VALUE
+            staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
-        new_audience = flask.request.form.get("audience")
-        if new_audience != work.audience:
-            # Delete all previous staff audience classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.FREEFORM_AUDIENCE:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight
-            work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.FREEFORM_AUDIENCE,
-                subject_identifier=new_audience,
-                weight=WorkController.STAFF_WEIGHT,
-            )
+        new_series = flask.request.form.get("series")
+        if work.series != new_series:
+            if work.series and not new_series:
+                new_series = NO_VALUE
+            staff_edition.series = unicode(new_series)
             changed = True
 
-        new_target_age_min = flask.request.form.get("target_age_min")
-        new_target_age_max = flask.request.form.get("target_age_max")
-        if new_target_age_max < new_target_age_min:
-            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
-
-        if work.target_age:
-            old_target_age_min = work.target_age.lower
-            old_target_age_max = work.target_age.upper
+        new_series_position = flask.request.form.get("series_position")
+        if new_series_position:
+            try:
+                new_series_position = int(new_series_position)
+            except ValueError:
+                return INVALID_SERIES_POSITION
         else:
-            old_target_age_min = None
-            old_target_age_max = None
-        if new_target_age_min != old_target_age_min or new_target_age_max != old_target_age_max:
-            # Delete all previous staff target age classifications
-            for c in old_classifications:
-                if c.subject.type == Subject.AGE_RANGE:
-                    self._db.delete(c)
-
-            # Create a new classification with a high weight - higher than audience
-            age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
-            work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.AGE_RANGE,
-                subject_identifier=age_range_identifier,
-                weight=WorkController.STAFF_WEIGHT * 100,
-            )
+            new_series_position = None
+        if work.series_position != new_series_position:
+            if work.series_position and not new_series_position:
+                new_series_position = NO_NUMBER
+            staff_edition.series_position = new_series_position
             changed = True
 
         new_summary = flask.request.form.get("summary") or ""
@@ -318,10 +265,9 @@ class WorkController(CirculationManagerController):
             if work.summary and work.summary.data_source == staff_data_source:
                 old_summary = work.summary
 
-            (link, is_new) =  work.primary_edition.primary_identifier.add_link(
-                Hyperlink.DESCRIPTION, None, 
+            work.presentation_edition.primary_identifier.add_link(
+                Hyperlink.DESCRIPTION, None,
                 staff_data_source, content=new_summary)
-            work.set_summary(link.resource)
 
             # Delete previous staff summary
             if old_summary:
@@ -340,15 +286,16 @@ class WorkController(CirculationManagerController):
                 classify=True,
                 regenerate_opds_entries=True,
                 update_search_index=True,
+                choose_summary=True
             )
             work.calculate_presentation(policy=policy)
         return Response("", 200)
 
-    def suppress(self, data_source, identifier):
+    def suppress(self, data_source, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -356,11 +303,11 @@ class WorkController(CirculationManagerController):
         pool.suppressed = True
         return Response("", 200)
 
-    def unsuppress(self, data_source, identifier):
+    def unsuppress(self, data_source, identifier_type, identifier):
         """Unsuppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -368,12 +315,12 @@ class WorkController(CirculationManagerController):
         pool.suppressed = False
         return Response("", 200)
 
-    def refresh_metadata(self, data_source, identifier, provider=None):
+    def refresh_metadata(self, data_source, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         try:
@@ -394,10 +341,10 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def resolve_complaints(self, data_source, identifier):
+    def resolve_complaints(self, data_source, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
 
-        pool = self.load_licensepool(data_source, identifier)
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -419,55 +366,189 @@ class WorkController(CirculationManagerController):
             return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
-    def update_genres(self, data_source, identifier):
-        pool = self.load_licensepool(data_source, identifier)
+    def classifications(self, data_source, identifier_type, identifier):
+        """Return list of this work's classifications."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        identifier_id = pool.work.presentation_edition.primary_identifier.id
+        results = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .join(DataSource) \
+            .filter(Classification.identifier_id == identifier_id) \
+            .order_by(Classification.weight.desc()) \
+            .all()
+
+        data = []
+        for result in results:
+            data.append(dict({
+                "type": result.subject.type,
+                "name": result.subject.identifier,
+                "source": result.data_source.name,
+                "weight": result.weight
+            }))
+
+        return dict({
+            "book": {
+                "data_source": data_source,
+                "identifier_type": identifier_type,
+                "identifier": identifier
+            },
+            "classifications": data
+        })
+
+    def edit_classifications(self, data_source, identifier_type, identifier):
+        """Edit a work's audience, target age, fiction status, and genres."""
+        
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        new_genres = flask.request.form.getlist("genres")
 
-        current_staff_classifications = work.classifications_with_genre() \
-            .filter(Classification.data_source_id == staff_data_source.id) \
-            .all()
-        current_staff_genres = [
+        # Previous staff classifications
+        primary_identifier = work.presentation_edition.primary_identifier
+        old_classifications = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source
+            )
+        old_genre_classifications = old_classifications \
+            .filter(Subject.genre_id != None)
+        old_staff_genres = [
             c.subject.genre.name 
-            for c in current_staff_classifications 
+            for c in old_genre_classifications 
             if c.subject.genre
         ]
+        old_computed_genres = [
+            work_genre.genre.name
+            for work_genre in work.work_genres
+        ]
 
+        # New genres should be compared to previously computed genres
+        new_genres = flask.request.form.getlist("genres")
+        genres_changed = sorted(new_genres) != sorted(old_computed_genres)
+
+        # Update audience
+        new_audience = flask.request.form.get("audience")
+        if new_audience != work.audience:
+            # Delete all previous staff audience classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.FREEFORM_AUDIENCE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight
+            primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.FREEFORM_AUDIENCE,
+                subject_identifier=new_audience,
+                weight=WorkController.STAFF_WEIGHT,
+            )
+
+        # Update target age if present
+        new_target_age_min = flask.request.form.get("target_age_min")
+        new_target_age_min = int(new_target_age_min) if new_target_age_min else None
+        new_target_age_max = flask.request.form.get("target_age_max")
+        new_target_age_max = int(new_target_age_max) if new_target_age_max else None
+        if new_target_age_max < new_target_age_min:
+            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
+
+        if work.target_age:
+            old_target_age_min = work.target_age.lower
+            old_target_age_max = work.target_age.upper
+        else:
+            old_target_age_min = None
+            old_target_age_max = None
+        if new_target_age_min != old_target_age_min or new_target_age_max != old_target_age_max:
+            # Delete all previous staff target age classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.AGE_RANGE:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight - higher than audience
+            if new_target_age_min and new_target_age_max:
+                age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
+                primary_identifier.classify(
+                    data_source=staff_data_source,
+                    subject_type=Subject.AGE_RANGE,
+                    subject_identifier=age_range_identifier,
+                    weight=WorkController.STAFF_WEIGHT * 100,
+                )
+
+        # Update fiction status
+        # If fiction status hasn't changed but genres have changed,
+        # we still want to ensure that there's a staff classification
+        new_fiction = True if flask.request.form.get("fiction") == "fiction" else False
+        if new_fiction != work.fiction or genres_changed:
+            # Delete previous staff fiction classifications
+            for c in old_classifications:
+                if c.subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
+                    self._db.delete(c)
+
+            # Create a new classification with a high weight (higher than genre)
+            fiction_term = "Fiction" if new_fiction else "Nonfiction"
+            classification = primary_identifier.classify(
+                data_source=staff_data_source,
+                subject_type=Subject.SIMPLIFIED_FICTION_STATUS,
+                subject_identifier=fiction_term,
+                weight=WorkController.STAFF_WEIGHT,
+            )
+            classification.subject.fiction = new_fiction
+
+        # Update genres
         # make sure all new genres are legit
         for name in new_genres:
             genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
-            if work.fiction != genres[name].is_fiction:
+            if genres[name].is_fiction != new_fiction:
                 return INCOMPATIBLE_GENRE
+            if name == "Erotica" and new_audience != "Adults Only":
+                return EROTICA_FOR_ADULTS_ONLY
 
-        # delete existing staff classifications for genres that aren't being kept
-        for c in current_staff_classifications:
-            if c.subject.genre.name not in new_genres:
-                self._db.delete(c)
+        if genres_changed:
+            # delete existing staff classifications for genres that aren't being kept
+            for c in old_genre_classifications:
+                if c.subject.genre.name not in new_genres:
+                    self._db.delete(c)
 
-        # add new staff classifications for new genres
-        for genre in new_genres:
-            if genre not in current_staff_genres:
-                classification = work.primary_edition.primary_identifier.classify(
+            # add new staff classifications for new genres
+            for genre in new_genres:
+                if genre not in old_staff_genres:
+                    classification = primary_identifier.classify(
+                        data_source=staff_data_source,
+                        subject_type=Subject.SIMPLIFIED_GENRE,
+                        subject_identifier=genre,
+                        weight=WorkController.STAFF_WEIGHT
+                    )
+
+            # add NONE genre classification if we aren't keeping any genres
+            if len(new_genres) == 0:
+                primary_identifier.classify(
                     data_source=staff_data_source,
                     subject_type=Subject.SIMPLIFIED_GENRE,
-                    subject_identifier=genre,
+                    subject_identifier=SimplifiedGenreClassifier.NONE,
                     weight=WorkController.STAFF_WEIGHT
                 )
+            else: 
+                # otherwise delete existing NONE genre classification
+                none_classifications = self._db \
+                    .query(Classification) \
+                    .join(Subject) \
+                    .filter(
+                        Classification.identifier == primary_identifier,
+                        Subject.identifier == SimplifiedGenreClassifier.NONE
+                    ) \
+                    .all()
+                for c in none_classifications:
+                    self._db.delete(c)
 
-        # add NONE classification if we aren't keeping any genres
-        if len(new_genres) == 0:
-            work.primary_edition.primary_identifier.classify(
-                data_source=staff_data_source,
-                subject_type=Subject.SIMPLIFIED_GENRE,
-                subject_identifier=SimplifiedGenreClassifier.NONE,
-                weight=WorkController.STAFF_WEIGHT
-            )
-
+        # Update presentation
         policy = PresentationCalculationPolicy(
             classify=True,
             regenerate_opds_entries=True,
@@ -523,3 +604,29 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+    def circulation_events(self):
+        annotator = AdminAnnotator(self.circulation)
+
+        num = min(int(flask.request.args.get("num", "100")), 500)
+        results = self._db.query(CirculationEvent) \
+            .join(LicensePool) \
+            .order_by(CirculationEvent.id.desc()) \
+            .join(Work) \
+            .join(DataSource) \
+            .join(Identifier) \
+            .limit(num) \
+            .all()
+
+        events = map(lambda result: {
+            "id": result.id,
+            "type": result.type,
+            "patron_id": result.foreign_patron_id,
+            "time": result.start,
+            "book": {
+                "title": result.license_pool.work.title,
+                "url": annotator.permalink_for(result.license_pool.work, result.license_pool, result.license_pool.identifier)
+            }
+        }, results)
+
+        return dict({ "circulation_events": events })

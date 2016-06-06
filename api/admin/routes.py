@@ -57,70 +57,70 @@ def google_auth_callback():
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
-@app.route('/admin/works/<data_source>/<identifier>', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_details(data_source, identifier):
-    return app.manager.admin_work_controller.details(data_source, identifier)
+def work_details(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.details(data_source, identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/classifications', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_classifications(data_source, identifier):
-    data = app.manager.admin_work_controller.classifications(data_source, identifier)
+def work_classifications(data_source, identifier_type, identifier):
+    data = app.manager.admin_work_controller.classifications(data_source, identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier>/complaints', methods=['GET'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_complaints(data_source, identifier):
-    data = app.manager.admin_work_controller.complaints(data_source, identifier)
+def work_complaints(data_source, identifier_type, identifier):
+    data = app.manager.admin_work_controller.complaints(data_source, identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier>/edit', methods=['POST'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit', methods=['POST'])
 @returns_problem_detail
 @requires_admin
-def edit(data_source, identifier):
-    return app.manager.admin_work_controller.edit(data_source, identifier)
+def edit(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.edit(data_source, identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/suppress', methods=['POST'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def suppress(data_source, identifier):
-    return app.manager.admin_work_controller.suppress(data_source, identifier)
+def suppress(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.suppress(data_source, identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/unsuppress', methods=['POST'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def unsuppress(data_source, identifier):
-    return app.manager.admin_work_controller.unsuppress(data_source, identifier)
+def unsuppress(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.unsuppress(data_source, identifier_type, identifier)
 
-@app.route('/works/<data_source>/<identifier>/refresh', methods=['POST'])
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def refresh(data_source, identifier):
-    return app.manager.admin_work_controller.refresh_metadata(data_source, identifier)
+def refresh(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.refresh_metadata(data_source, identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/resolve_complaints', methods=['POST'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def resolve_complaints(data_source, identifier):
-    return app.manager.admin_work_controller.resolve_complaints(data_source, identifier)
+def resolve_complaints(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.resolve_complaints(data_source, identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier>/update_genres', methods=['POST'])
+@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def update_genres(data_source, identifier):
-    return app.manager.admin_work_controller.update_genres(data_source, identifier)
+def edit_classifications(data_source, identifier_type, identifier):
+    return app.manager.admin_work_controller.edit_classifications(data_source, identifier_type, identifier)
 
 @app.route('/admin/complaints')
 @returns_problem_detail
@@ -145,6 +145,16 @@ def genres():
         return data
     return flask.jsonify(**data)
 
+@app.route('/admin/circulation_events')
+@returns_problem_detail
+@requires_admin
+def circulation_events():
+    """Returns a JSON representation of the most recent circulation events."""
+    data = app.manager.admin_feed_controller.circulation_events()
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -157,9 +167,10 @@ def admin_sign_in_again():
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     return flask.render_template_string(sign_in_again_template)
 
-@app.route('/admin')
-@app.route('/admin/')
-def admin_view():
+@app.route('/admin/web')
+@app.route('/admin/web/')
+@app.route('/admin/web/<path:etc>') # catchall for single-page URLs
+def admin_view(**kwargs):
     admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
@@ -168,6 +179,11 @@ def admin_view():
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,
         home_url=app.manager.url_for('acquisition_groups'))
+
+@app.route('/admin')
+@app.route('/admin/')
+def admin_base(**kwargs):
+    return redirect(app.manager.url_for('admin_view'))
 
 @app.route('/admin/static/circulation-web.js')
 @returns_problem_detail

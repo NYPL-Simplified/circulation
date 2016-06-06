@@ -26,14 +26,64 @@ from core.opds_import import (
     OPDSImporter,
 )
 
-class HTTPIntegrationException(Exception):
-    pass
+from core.util.http import BadResponseException
 
 
 class OPDSImportCoverageProvider(CoverageProvider):
+    """Provide coverage for identifiers by looking them up, in batches,
+    using the Simplified lookup protocol and importing the
+    corresponding OPDS feeds.
+    """
+
+    def __init__(self, service_name, input_identifier_types, output_source,
+                 lookup=None, workset_size=25, expect_license_pool=False,
+                 presentation_ready_on_success=False, **kwargs):
+        """Basic constructor.
+
+        :param expect_license_pool: Would we expect the import operation to
+          create a LicensePool for an identifier where no LicensePool currently exists?
+
+        :param presentation_ready_on_success: If we manage to create a
+          Work because of this import, should the Work be considered
+          presentation-ready?
+
+        """
+        self.lookup = lookup
+        self.expect_license_pool=expect_license_pool
+        self.presentation_ready_on_success=presentation_ready_on_success
+        super(OPDSImportCoverageProvider, self).__init__(
+            service_name, input_identifier_types, output_source, workset_size=workset_size, 
+            **kwargs
+        )
+
+    def create_identifier_mapping(self, batch):
+        """By default, no identifier mapping is needed."""
+        return None
+
+    def process_batch(self, batch):
+        """Perform a Simplified lookup and import the resulting OPDS feed."""
+        imported, messages_by_id, next_links = self.lookup_and_import_batch(
+            batch
+        )
+
+        results = []
+        for edition in imported:
+            self.finalize_edition(edition)
+            results.append(edition.primary_identifier)
+
+        for failure in self.handle_import_messages(messages_by_id):
+            results.append(failure)
+        return results
+
+    def process_item(self, identifier):
+        """Handle an individual item (e.g. through ensure_coverage) as a very
+        small batch. Not efficient, but it works.
+        """
+        [result] = self.process_batch([identifier])
+        return result
 
     def handle_import_messages(self, messages_by_id):
-        """Turn import messages from the OPDS importer into CoverageFailure
+        """Turn OPDS messages from the lookup protocol into CoverageFailure
         objects.
         """
         for identifier, message in messages_by_id.items():
@@ -43,13 +93,96 @@ class OPDSImportCoverageProvider(CoverageProvider):
             # If the message does not indicate success, create a
             # CoverageRecord with the error so we stop trying this
             # book.
-            if not message.success:
-                exception = str(message.status_code)
-                if message.message:
-                    exception += ": %s" % message.message
-                transient = message.transient
-                identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
-                yield CoverageFailure(self, identifier_obj, exception, transient)
+            if message.success:
+                continue
+                
+            exception = str(message.status_code)
+            if message.message:
+                exception += ": %s" % message.message
+            transient = message.transient
+            identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
+            yield CoverageFailure(self, identifier_obj, exception, transient)
+
+    def finalize_edition(self, edition):
+        """An OPDS entry has become an Edition. This method may (depending on
+        configuration) create a Work for that book and mark it as
+        presentation-ready.
+        """
+        pool = edition.license_pool
+
+        if not pool:
+            # Without a LicensePool there can be no Work.
+            if self.expect_license_pool:
+                self.log.warn(
+                    "Expected that OPDS import would create a LicensePool for %r, but it didn't happen.",
+                    edition
+                )
+            return
+            
+        # With a LicensePool and an Edition, there can be a Work.
+        #
+        # If the Work already exists, calculate_work() will at least
+        # update the presentation.
+        work, new_work = pool.calculate_work(
+            even_if_no_author=True
+        )            
+
+        if work and self.presentation_ready_on_success:
+            work.set_presentation_ready()
+
+    def lookup_and_import_batch(self, batch):
+        """Look up a batch of identifiers and parse the resulting OPDS feed.
+
+        This method is overridden by MockOPDSImportCoverageProvider.
+        """
+
+        # id_mapping maps our local identifiers to identifiers the
+        # foreign data source will reocgnize.
+        id_mapping = self.create_identifier_mapping(batch)
+        foreign_identifiers = id_mapping.keys()
+
+        response = self.lookup.lookup(foreign_identifiers)
+
+        # import_feed_response takes id_mapping so it can map the
+        # foreign identifiers back to their local counterparts.
+        return self.import_feed_response(
+            response, id_mapping
+        )
+
+    def import_feed_response(self, response, id_mapping):
+        """Confirms OPDS feed response and imports feed.
+        """
+           
+        content_type = response.headers['content-type']
+        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
+            raise BadResponseException.from_response(
+                response.url, 
+                "Wrong media type: %s" % content_type,
+                response
+            )
+
+        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
+        return importer.import_from_feed(response.text)
+
+
+class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
+
+    def __init__(self, *args, **kwargs):
+        super(MockOPDSImportCoverageProvider, self).__init__(*args, **kwargs)
+        self.batches = []
+        self.finalized = []
+        self.import_results = []
+
+    def queue_import_results(self, editions, messages_by_id, next_links=None):
+        self.import_results.insert(0, (editions, messages_by_id, next_links or []))
+
+    def finalize_edition(self, edition):
+        self.finalized.append(edition)
+        super(MockOPDSImportCoverageProvider, self).finalize_edition(edition)
+
+    def lookup_and_import_batch(self, batch):
+        self.batches.append(batch)
+        return self.import_results.pop()
 
 
 class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
@@ -58,11 +191,11 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     identifiers that might be associated with a LicensePool.
     """
 
-    service_name = "Metadata Wrangler Coverage Provider"
+    SERVICE_NAME = "Metadata Wrangler Coverage Provider"
+    OPERATION = CoverageRecord.SYNC_OPERATION
 
-    def __init__(self, _db, input_identifier_types=None, metadata_lookup=None,
-                 cutoff_time=None, operation=None):
-        self._db = _db
+    def __init__(self, _db, lookup=None, input_identifier_types=None, 
+                 operation=None, **kwargs):
         if not input_identifier_types:
             input_identifier_types = [
                 Identifier.OVERDRIVE_ID, 
@@ -70,26 +203,23 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 Identifier.GUTENBERG_ID, 
                 Identifier.AXIS_360_ID,
             ]
-        self.output_source = DataSource.lookup(
-            self._db, DataSource.METADATA_WRANGLER
+        output_source = DataSource.lookup(
+            _db, DataSource.METADATA_WRANGLER
         )
-
-        if not metadata_lookup:
-            metadata_lookup = SimplifiedOPDSLookup.from_config()
-        self.lookup = metadata_lookup
-
-        if not operation:
-            operation = CoverageRecord.SYNC_OPERATION
-        self.operation = operation
-
         super(MetadataWranglerCoverageProvider, self).__init__(
-            self.service_name,
-            input_identifier_types,
-            self.output_source,
-            workset_size=20,
-            cutoff_time=cutoff_time,
-            operation=self.operation,
+            lookup = lookup or SimplifiedOPDSLookup.from_config(),
+            service_name=self.SERVICE_NAME,
+            input_identifier_types=input_identifier_types,
+            output_source=output_source,
+            operation=operation or self.OPERATION
         )
+
+        if not self.lookup.authenticated:
+            self.log.warn(
+                "Authentication for the Library Simplified Metadata Wrangler "
+                "is not set up. You can still use the metadata wrangler, but "
+                "it will not know which collection you're asking about."
+            )
 
     @property
     def items_that_need_coverage(self):
@@ -112,95 +242,28 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             self._db.delete(reaper_coverage_record)
         return uncovered.except_(reaper_covered).union(relicensed)
 
-    def create_id_mapping(self, batch):
+    def create_identifier_mapping(self, batch):
+        """The metadata wrangler can't look up Axis 360 identifiers, so look
+        up the corresponding ISBNs instead. All other identifier types
+        are fine, so they map to themselves.
+        """
         mapping = dict()
         for identifier in batch:
             if identifier.type == Identifier.AXIS_360_ID:
-                # The metadata wrangler can't look up Axis 360
-                # identifiers, so look up the corresponding ISBNs
-                # instead.
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier
+                        break
             else:
                 mapping[identifier] = identifier
         return mapping
-
-    def import_feed_response(self, response, id_mapping):
-        """Confirms OPDS feed response and imports feed"""
-
-        if response.status_code != 200:
-            self.log.error("BAD RESPONSE CODE: %s", response.status_code)
-            raise HTTPIntegrationException(response.text)
-            
-        content_type = response.headers['content-type']
-        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
-            raise HTTPIntegrationException("Wrong media type: %s" % content_type)
-
-        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
-        return importer.import_from_feed(response.text)
-
-    def process_batch(self, batch):
-        if not self.lookup.authenticated:
-            self.log.warn(
-                "Library Simplified Metadata Wrangler is not configured."
-            )
-
-        id_mapping = self.create_id_mapping(batch)
-        batch = id_mapping.keys()
-        response = self.lookup.lookup(batch)
-        imported, messages_by_id, next_links = self.import_feed_response(
-            response, id_mapping
-        )
-
-        results = []
-        for edition in imported:
-            self.finalize_edition(edition)
-            results.append(edition.primary_identifier)
-
-        for failure in self.handle_import_messages(messages_by_id):
-            results.append(failure)
-        return results
-
-    def process_item(self, identifier):
-        [result] = self.process_batch([identifier])
-        return result
-
-    def finalize_edition(self, edition):
-        """Now that an OPDS entry has been imported into an Edition, make sure
-        there's a Work associated with the edition, and mark the Work
-        as presentation-ready.
-        """
-        pool = edition.license_pool
-        work = edition.work
-
-        if not pool:
-            if work:
-                warning = "Edition %r has a work but no associated license pool."
-            else:
-                warning = "Edition %r has no license pool. Will not create work."
-            self.log.warn(warning, edition)
-            
-        # Make sure there's a Work associated with the edition.
-        if pool and not work:
-            work, new_work = pool.calculate_work(
-                even_if_no_author=True
-            )            
-
-        # If the Work wasn't presentation ready before, it
-        # certainly is now.
-        if pool and work:
-            work.set_presentation_ready()
 
 
 class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
     """Removes unlicensed identifiers from the Metadata Wrangler collection"""
 
-    service_name = "Metadata Wrangler Reaper"
-
-    def __init__(self, _db):
-        super(MetadataWranglerCollectionReaper, self).__init__(_db)
-        self.operation = CoverageRecord.REAP_OPERATION
+    SERVICE_NAME = "Metadata Wrangler Reaper"
+    OPERATION = CoverageRecord.REAP_OPERATION
 
     @property
     def items_that_need_coverage(self):
@@ -213,10 +276,12 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
             filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION)
 
     def process_batch(self, batch):
-        id_mapping = self.create_id_mapping(batch)
+        id_mapping = self.create_identifier_mapping(batch)
         batch = id_mapping.keys()
         response = self.lookup.remove(batch)
-        removed, messages_by_id, next_links = self.import_feed_response(response)
+        removed, messages_by_id, next_links = self.import_feed_response(
+            response, id_mapping
+        )
 
         results = []
         for identifier in removed:
@@ -229,10 +294,6 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
             else:
                 results.append(failure)
         return results
-
-    def process_item(self, identifier):
-        [result] = self.process_batch([identifier])
-        return result
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
@@ -264,76 +325,26 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
             self._db.delete(record)
 
 
-class OpenAccessDownloadURLCoverageProvider(OPDSImportCoverageProvider):
-
-    """Make sure all open-access books have download URLs, or record
-    the reason why they can't have one.
-
-    This may not be necessary anymore, but it's useful to have around
-    in case there's a problem.
+class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
+    """Make sure our records for open-access books match what the content
+    server says.
     """
-    service_name = "Open Access Download URL Coverage Provider"
+    DEFAULT_SERVICE_NAME = "Open-access content server bibliographic coverage provider"
 
-    def __init__(self, _db, content_lookup=None, cutoff_time=None):
-        self._db = _db
-        if not content_lookup:
+    def __init__(self, _db, service_name=None, lookup=None, **kwargs):
+        service_name = service_name or self.DEFAULT_SERVICE_NAME
+        if not lookup:
             content_server_url = (
                 Configuration.integration_url(
-                    Configuration.CONTENT_SERVER_INTEGRATION)
+                    Configuration.CONTENT_SERVER_INTEGRATION
+                )
             )
-            content_lookup = SimplifiedOPDSLookup(content_server_url)
-        self.content_lookup = content_lookup
-        self.coverage_source = DataSource.lookup(
-            self._db, DataSource.OA_CONTENT_SERVER
+            lookup = SimplifiedOPDSLookup(content_server_url)
+        output_source = DataSource.lookup(
+            _db, DataSource.OA_CONTENT_SERVER
         )
-        super(OpenAccessDownloadURLCoverageProvider, self).__init__(
-            self.service_name,
-            None,
-            self.coverage_source,
-            workset_size=50,
-            cutoff_time=cutoff_time
+        super(ContentServerBibliographicCoverageProvider, self).__init__(
+            service_name, lookup=lookup, output_source=output_source,
+            expect_license_pool=True, presentation_ready_on_success=True
+            **kwargs
         )
-
-    @property
-    def items_that_need_coverage(self):
-        """Returns Editions associated with an open-access LicensePool but
-        with no open-access download URL.
-        """
-        q = Edition.missing_coverage_from(self._db, [], self.coverage_source)
-        clause = and_(Edition.data_source_id==LicensePool.data_source_id,
-                      Edition.primary_identifier_id==LicensePool.identifier_id)
-        q = q.join(LicensePool, clause)
-        q = q.filter(LicensePool.open_access == True).filter(
-            Edition.open_access_download_url==None
-        )
-        return q
-
-    def process_batch(self, items):
-        identifiers = [x.primary_identifier for x in items]
-        response = self.content_lookup.lookup(identifiers)
-        importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
-        imported, messages_by_id, next_links = importer.import_from_feed(
-            response.content
-        )
-
-        results = []
-
-        # Handle the successes and seeming successes
-        for edition in imported:
-            if edition.open_access_download_url:
-                self.log.info(
-                    "Successfully located open access download ID for %r: %s", 
-                    edition, edition.open_access_download_url
-                )
-                results.append(edition.primary_identifier)
-            else:
-                exception = "Open access content server acknowledged book but gave no open-access download URL."
-                failure = CoverageFailure(
-                    self, edition, exception=exception, transient=False
-                )
-                results.append(failure)
-
-        # Handle the outright failures.
-        for failure in self.handle_import_messages(messages_by_id):
-            results.append(failure)
-        return results

@@ -12,8 +12,13 @@ from core.lane import (
     Lane,
     LaneList,
 )
+from core.model import (
+    Work,
+    Edition,
+)
 
 from core.util import LanguageCodes
+from novelist import NoveListAPI
 
 def make_lanes(_db, definitions=None):
 
@@ -42,14 +47,14 @@ def make_lanes_default(_db):
     # Fiction", "Adult Nonfiction", and "Children/YA" sublanes.
     #
     # Finally the top-level LaneList includes an "Other Languages" sublane
-    # which covers all other languages. This lane contains "Adult Fiction",
-    # "Adult Nonfiction", and "Children/YA" sublanes.
+    # which covers all other languages. This lane contains sublanes for each
+    # of the tiny-collection languages in the configuration.
     seen_languages = set()
 
     top_level_lanes = []
 
     def language_list(x):
-        if isinstance(language_set, basestring):
+        if isinstance(x, basestring):
             return x.split(',')
         return x
 
@@ -63,7 +68,9 @@ def make_lanes_default(_db):
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.append(lane_for_small_collection(_db, language_set))
 
-    top_level_lanes.append(lane_for_other_languages(_db, seen_languages))
+    other_languages_lane = lane_for_other_languages(_db, seen_languages)
+    if other_languages_lane:
+        top_level_lanes.append(other_languages_lane)
 
     return LaneList.from_description(_db, None, top_level_lanes)
 
@@ -339,44 +346,60 @@ def lane_for_small_collection(_db, languages):
 def lane_for_other_languages(_db, exclude_languages):
     """Make a lane for all books not in one of the given languages."""
 
-    YA = Classifier.AUDIENCE_YOUNG_ADULT
-    CHILDREN = Classifier.AUDIENCE_CHILDREN
+    language_lanes = []
+    other_languages = Configuration.tiny_collection_languages()
 
-    common_args = dict(
-        exclude_languages=exclude_languages,
-        genres=None,
-    )
+    if not other_languages:
+        return None
 
-    adult_fiction = Lane(
-        _db, 
-        full_name="Adult Fiction",
-        display_name="Fiction",
-        fiction=True, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
-    )
-    adult_nonfiction = Lane(
-        _db, full_name="Adult Nonfiction", 
-        display_name="Nonfiction",
-        fiction=False, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
-    )
-
-    ya_children = Lane(
-        _db, 
-        full_name="Children & Young Adult", 
-        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-        audiences=[YA, CHILDREN],
-        **common_args
-    )
+    for language_set in other_languages:
+        name = LanguageCodes.name_for_languageset(language_set)
+        language_lane = Lane(
+            _db, full_name=name,
+            genres=None,
+            fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+            searchable=True,
+            languages=language_set,
+        )
+        language_lanes.append(language_lane)
 
     lane = Lane(
         _db, 
         full_name="Other Languages", 
-        sublanes=[adult_fiction, adult_nonfiction, ya_children],
+        sublanes=language_lanes,
+        exclude_languages=exclude_languages,
         searchable=True,
-        **common_args
+        genres=None,
     )
     lane.default_for_language = True
     return lane
+
+
+class RecommendationLane(Lane):
+    """A lane of works recommended for a particular work"""
+
+    MAX_CACHE_AGE = 7*24*60*60      # one week
+
+    def __init__(self, _db, license_pool, full_name, display_name=None,
+            mock_api=None):
+        self.license_pool = license_pool
+        self.api = mock_api or NoveListAPI.from_config(_db)
+        display_name = display_name or "Related Works"
+        super(RecommendationLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+            edition_model=Edition):
+        identifier = self.license_pool.identifier
+        metadata = self.api.lookup(identifier)
+
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        if metadata:
+            metadata.filter_recommendations(self._db)
+            if metadata.recommendations:
+                qu = Work.from_identifiers(
+                    self._db, metadata.recommendations, base_query=qu
+                )
+                return qu
+        return None

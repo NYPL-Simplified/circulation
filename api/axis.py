@@ -6,8 +6,10 @@ from sqlalchemy.orm import contains_eager
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
+    MockAxis360API as BaseMockAxis360API,
     Axis360Parser,
     BibliographicParser,
+    Axis360BibliographicCoverageProvider
 )
 
 from core.metadata_layer import (
@@ -56,6 +58,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
+    SERVICE_NAME = "Axis 360"
+
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -81,7 +85,9 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         try:
             return CheckoutResponseParser().process_all(response.content)
         except etree.XMLSyntaxError, e:
-            raise InternalServerError(response.content)
+            raise RemoteInitiatedServerError(
+                response.content, self.SERVICE_NAME
+            )
 
     def fulfill(self, patron, pin, licensepool, format_type):
         """Fulfill a patron's request for a specific book.
@@ -147,6 +153,13 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             title_ids=title_ids)
         return list(AvailabilityResponseParser().process_all(
             availability.content))
+
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+
+        Part of the CirculationAPI interface.
+        """
+        self.update_licensepools_for_identifiers([licensepool.identifier])
 
     def update_licensepools_for_identifiers(self, identifiers):
         """Update availability information for a list of books.
@@ -220,6 +233,9 @@ class Axis360CirculationMonitor(Monitor):
         else:
             # This should only happen during a test.
             self.metadata_wrangler = None
+        self.bibliographic_coverage_provider = (
+            Axis360BibliographicCoverageProvider(self._db)
+        )
 
     def run(self):
         self.api = Axis360API(self._db)
@@ -232,9 +248,6 @@ class Axis360CirculationMonitor(Monitor):
         availability = self.api.availability(since=since)
         status_code = availability.status_code
         content = availability.content
-        if status_code != 200:
-            raise Exception(
-                "Got status code %d from API: %s" % (status_code, content))
         count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
                 content):
@@ -255,9 +268,22 @@ class Axis360CirculationMonitor(Monitor):
                 replace_contributions=True,
                 replace_formats=True,
             )
+
+            # At this point we have done work equivalent to that done by 
+            # the Axis360BibliographicCoverageProvider. Register that the
+            # work has been done so we don't have to do it again.
+            identifier = edition.primary_identifier
+            self.bibliographic_coverage_provider.handle_success(identifier)
+            self.bibliographic_coverage_provider.add_coverage_record_for(
+                identifier
+            )
+            
         availability.apply(license_pool, new_license_pool)
         return edition, license_pool
 
+
+class MockAxis360API(BaseMockAxis360API, Axis360API):
+    pass
 
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
@@ -285,6 +311,8 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
 class ResponseParser(Axis360Parser):
 
     id_type = Identifier.AXIS_360_ID
+
+    SERVICE_NAME = "Axis 360"
 
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
@@ -328,12 +356,12 @@ class ResponseParser(Axis360Parser):
         3127 : InvalidInputException, # First name is required
         3128 : InvalidInputException, # Last name is required
         3130 : LibraryInvalidInputException, # Invalid hold format (?)
-        3131 : InternalServerError, # Custom error message (?)
+        3131 : RemoteInitiatedServerError, # Custom error message (?)
         3132 : LibraryInvalidInputException, # Invalid delta datetime format
         3134 : LibraryInvalidInputException, # Delta datetime format must not be in the future
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
-        5000 : InternalServerError,
+        5000 : RemoteInitiatedServerError,
     }
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
@@ -349,14 +377,16 @@ class ResponseParser(Axis360Parser):
 
         if code is None:
             # Something is so wrong that we don't know what to do.
-            raise InternalServerError(message)
+            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
         code = code.text
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
-            raise InternalServerError(
-                "Invalid response code from Axis 360: %s" % code)
+            raise RemoteInitiatedServerError(
+                "Invalid response code from Axis 360: %s" % code,
+                self.SERVICE_NAME
+            )
 
         for d in custom_error_classes, self.code_to_exception:
             if (code, message) in d:
@@ -364,7 +394,12 @@ class ResponseParser(Axis360Parser):
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                raise d[code](message)
+                cls = d[code]
+                if cls is RemoteInitiatedServerError:
+                    e = cls(message, self.SERVICE_NAME)
+                else:
+                    e = cls(message)
+                raise e
         return code, message
 
 

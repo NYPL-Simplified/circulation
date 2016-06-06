@@ -8,7 +8,10 @@ import sys
 import time
 import urlparse
 
-from sqlalchemy import or_
+from sqlalchemy import (
+    or_,
+    func,
+)
 from sqlalchemy.orm import (
     contains_eager, 
     defer
@@ -26,10 +29,12 @@ from core.model import (
     Contribution,
     CustomList,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Representation,
     Subject,
     Work,
@@ -54,6 +59,7 @@ from core.opds import (
 )
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
+from core.util import LanguageCodes
 from api.opds import CirculationManagerAnnotator
 
 from api.circulation import CirculationAPI
@@ -443,8 +449,8 @@ class AvailabilityRefreshScript(IdentifierInputScript):
     license source.
     """
     def do_run(self):
-        identifiers = self.parse_identifiers()
-        if not identifiers:
+        args = self.parse_command_line(self._db)
+        if not args.identifiers:
             raise Exception(
                 "You must specify at least one identifier to refresh."
             )
@@ -453,8 +459,8 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         # always safe.
         start = 0
         size = 10
-        while start < len(identifiers):
-            batch = identifiers[start:start+size]
+        while start < len(args.identifiers):
+            batch = args.identifiers[start:start+size]
             self.refresh_availability(batch)
             self._db.commit()
             start += size
@@ -475,3 +481,44 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
+class LanguageListScript(Script):
+    """List all the languages with at least one non-open access work
+    in the collection.
+    """
+
+    def do_run(self):
+
+        query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
+        query = query.join(Edition.primary_identifier).join(
+            Identifier.licensed_through
+        ).join(LicensePool.delivery_mechanisms).join(
+            LicensePoolDeliveryMechanism.delivery_mechanism
+        )
+
+        # TODO: It would be more reliable to use
+        # Lane.only_show_ready_deliverable_works here, but that's
+        # geared towards operating on Work. It's not a big deal since
+        # this is just to get a general count.
+
+        query = query.filter(LicensePool.open_access==False).filter(
+            LicensePool.licenses_owned > 0
+        ).filter(
+            Edition.medium==Edition.BOOK_MEDIUM
+        ).filter(
+            Edition.language != None
+        ).filter(
+            DeliveryMechanism.default_client_can_fulfill==True
+        )
+        name = LanguageCodes.name_for_languageset
+        sorted_languages = sorted(
+            query.all(), key=lambda x: (
+                -x[1], name(x[0])
+            )
+        )
+        sorted_languages = [
+            (language, count, name(language))
+            for (language, count) in sorted_languages
+        ]
+
+        print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
+        print json.dumps([l[0] for l in sorted_languages])

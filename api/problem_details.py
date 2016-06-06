@@ -3,7 +3,7 @@ from core.problem_details import *
 
 REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
-      500,
+      502,
       "Third-party service failed.",
       "The library could not complete your request because a third-party service has failed.",
 )
@@ -31,7 +31,7 @@ EXPIRED_CREDENTIALS = pd(
 
 NO_LICENSES = pd(
       "http://librarysimplified.org/terms/problem/no-licenses",
-      403,
+      404,
       "No licenses.",
       "The library currently has no licenses for this book.",
 )
@@ -73,21 +73,21 @@ OUTSTANDING_FINES = pd(
 
 CHECKOUT_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-issue-loan",
-      500,
+      502,
       "Could not issue loan.",
       "Could not issue loan (reason unknown).",
 )
 
 HOLD_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-place-hold",
-      500,
+      502,
       "Could not place hold.",
       "Could not place hold (reason unknown).",
 )
 
 RENEW_FAILED = pd(
       "http://librarysimplified.org/terms/problem/cannot-renew-loan",
-      500,
+      400,
       "Could not renew loan.",
       "Could not renew loan (reason unknown).",
 )
@@ -122,7 +122,7 @@ NO_ACTIVE_LOAN_OR_HOLD = pd(
 
 COULD_NOT_MIRROR_TO_REMOTE = pd(
       "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
-      500,
+      502,
       "Could not mirror local state to remote.",
       "Could not convince a third party to accept the change you made. It's likely to show up again soon.",
 )
@@ -237,4 +237,25 @@ INCOMPATIBLE_GENRE = pd(
     status_code=409,
     title="Incompatible genre.",
     detail="The genre is incompatible with the fiction status of the work."
+)
+
+EROTICA_FOR_ADULTS_ONLY = pd(
+    "http://librarysimplified.org/terms/problem/erotica-for-adults-only",
+    status_code=409,
+    title="Erotica is for Adults Only.",
+    detail="The Erotica genre is incompatible with the submitted Audience."
+)
+
+INVALID_SERIES_POSITION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-series-position",
+    status_code=400,
+    title="Invalid series positon.",
+    detail="The series position must be a number or blank."
+)
+
+INVALID_ANALYTICS_EVENT_TYPE = pd(
+    "http://librarysimplified.org/terms/problem/invalid-analytics-event-type",
+    status_code=400,
+    title="Invalid analytics event type.",
+    detail="The analytics event must be a supported type."
 )

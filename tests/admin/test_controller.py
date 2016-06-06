@@ -8,7 +8,7 @@ import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 
 from ..test_controller import CirculationControllerTest
-from api.admin.controller import setup_admin_controllers
+from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.problem_details import *
 from api.admin.config import (
     Configuration,
@@ -16,21 +16,30 @@ from api.admin.config import (
 )
 from core.model import (
     Admin,
+    CirculationEvent,
     Classification,
     Complaint,
     CoverageRecord,
     create,
     DataSource,
+    Edition,
     Genre,
+    get_one_or_create,
     Identifier,
     SessionManager,
-    Subject
+    Subject,
+    WorkGenre
 )
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
 )
-from core.classifier import genres
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier
+)
+from datetime import datetime, timedelta
+
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -50,7 +59,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = False
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
@@ -64,7 +73,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = True
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
@@ -78,182 +87,329 @@ class TestWorkController(AdminControllerTest):
 
     def test_edit(self):
         [lp] = self.english_1.license_pools
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        def staff_edition_count():
+            return self._db.query(Edition) \
+                .filter(
+                    Edition.data_source == staff_data_source, 
+                    Edition.primary_identifier_id == self.english_1.presentation_edition.primary_identifier.id
+                ) \
+                .count()
+
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Adults Only"),
-                ("summary", "<p>New summary</p>"),
-                ("fiction", "nonfiction"),
+                ("subtitle", "New subtitle"),
+                ("series", "New series"),
+                ("series_position", "144"),
+                ("summary", "<p>New summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
-
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
-            eq_("Adults Only", self.english_1.audience)
-            assert 'Adults Only' in self.english_1.simple_opds_entry
+            eq_("New subtitle", self.english_1.subtitle)
+            assert "New subtitle" in self.english_1.simple_opds_entry
+            eq_("New series", self.english_1.series)
+            assert "New series" in self.english_1.simple_opds_entry
+            eq_(144, self.english_1.series_position)
+            assert "144" in self.english_1.simple_opds_entry
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
-            eq_(False, self.english_1.fiction)
-            assert "Nonfiction" in self.english_1.simple_opds_entry
-
-        with self.app.test_request_context("/"):
-            # Change the audience and fiction status again, and add a target age
-            flask.request.form = ImmutableMultiDict([
-                ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", "<p>New summary</p>"),
-                ("fiction", "fiction"),
-                ("target_age_min", 13),
-                ("target_age_max", 15),
-            ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
-            eq_(200, response.status_code)
-            eq_("Young Adult", self.english_1.audience)
-            assert 'Young Adult' in self.english_1.simple_opds_entry
-            assert 'Adults Only' not in self.english_1.simple_opds_entry
-            eq_(True, self.english_1.fiction)
-            assert "Fiction" in self.english_1.simple_opds_entry
-            assert "Nonfiction" not in self.english_1.simple_opds_entry
-            eq_(13, self.english_1.target_age.lower)
-            eq_(15, self.english_1.target_age.upper)
-            assert "13-15" in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
             # Change the summary again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", "abcd"),
-                ("fiction", "fiction"),
-                ("target_age_min", 13),
-                ("target_age_max", 15),
+                ("subtitle", "New subtitle"),
+                ("series", "New series"),
+                ("series_position", "144"),
+                ("summary", "abcd")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_("abcd", self.english_1.summary_text)
             assert 'New summary' not in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
-            # Now delete the summary entirely and change the target age again
+            # Now delete the subtitle and series and summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Young Adult"),
-                ("summary", ""),
-                ("fiction", "fiction"),
-                ("target_age_min", 11),
-                ("target_age_max", 14),
+                ("subtitle", ""),
+                ("series", ""),
+                ("series_position", ""),
+                ("summary", "")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
+            eq_(None, self.english_1.subtitle)
+            eq_(None, self.english_1.series)
+            eq_(None, self.english_1.series_position)
             eq_("", self.english_1.summary_text)
+            assert 'New subtitle' not in self.english_1.simple_opds_entry
+            assert 'New series' not in self.english_1.simple_opds_entry
+            assert '144' not in self.english_1.simple_opds_entry
             assert 'abcd' not in self.english_1.simple_opds_entry
-            eq_(11, self.english_1.target_age.lower)
-            eq_(14, self.english_1.target_age.upper)
-            assert "11-14" in self.english_1.simple_opds_entry
-            assert "13-15" not in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
-            # Change audience and remove target age, so computed target age is based on audience
+            # Set the fields one more time
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
-                ("audience", "Adult"),
-                ("summary", ""),
-                ("fiction", "fiction"),
+                ("subtitle", "Final subtitle"),
+                ("series", "Final series"),
+                ("series_position", "169"),
+                ("summary", "<p>Final summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
-            eq_("Adult", self.english_1.audience)
-            assert 'Adult' in self.english_1.simple_opds_entry
-            assert 'Young Adult' not in self.english_1.simple_opds_entry
-            eq_(18, self.english_1.target_age.lower)
-            eq_(None, self.english_1.target_age.upper)
-            assert "11-14" not in self.english_1.simple_opds_entry
-            assert "18" in self.english_1.simple_opds_entry
+            eq_("Final subtitle", self.english_1.subtitle)
+            eq_("Final series", self.english_1.series)
+            eq_(169, self.english_1.series_position)
+            eq_("<p>Final summary</p>", self.english_1.summary_text)
+            assert 'Final subtitle' in self.english_1.simple_opds_entry
+            assert 'Final series' in self.english_1.simple_opds_entry
+            assert '169' in self.english_1.simple_opds_entry
+            assert "&lt;p&gt;Final summary&lt;/p&gt;" in self.english_1.simple_opds_entry
+            eq_(1, staff_edition_count())
 
-    def test_edit_invalid_input(self):
-        [lp] = self.english_1.license_pools
         with self.app.test_request_context("/"):
-            # target age min greater than target age max
+            # Set the series position to a non-numerical value
             flask.request.form = ImmutableMultiDict([
-                ("target_age_min", 10),
-                ("target_age_max", 5),
+                ("title", "New title"),
+                ("subtitle", "Final subtitle"),
+                ("series", "Final series"),
+                ("series_position", "abc"),
+                ("summary", "<p>Final summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(400, response.status_code)
-            eq_(INVALID_EDIT.uri, response.uri)
+            eq_(169, self.english_1.series_position)
 
-    def test_update_genres(self):
-        # start with a couple genres
-        [lp] = self.english_1.license_pools
-        genre, ignore = Genre.lookup(self._db, "Occult Horror")
-        lp.work.genres = [genre]
+    def test_edit_classifications(self):
+        # start with a couple genres based on BISAC classifications from Axis 360
+        work = self.english_1
+        [lp] = work.license_pools
+        primary_identifier = work.presentation_edition.primary_identifier
+        work.audience = "Adult"
+        work.fiction = True
+        axis_360 = DataSource.lookup(self._db, DataSource.AXIS_360)
+        classification1 = primary_identifier.classify(
+            data_source=axis_360,
+            subject_type=Subject.BISAC,
+            subject_identifier="FICTION / Horror",
+            weight=1
+        )
+        classification2 = primary_identifier.classify(
+            data_source=axis_360,
+            subject_type=Subject.BISAC,
+            subject_identifier="FICTION / Science Fiction / Time Travel",
+            weight=1
+        )
+        genre1, ignore = Genre.lookup(self._db, "Horror")
+        genre2, ignore = Genre.lookup(self._db, "Science Fiction")
+        work.genres = [genre1, genre2]
 
-        # change genres
+        # make no changes
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Urban Fantasy", "Women's Fiction"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Horror"),
+                ("genres", "Science Fiction")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(response.status_code, 200)
 
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(len(new_genre_names), len(requested_genres))
-        for genre in requested_genres:
-            eq_(True, genre in new_genre_names)
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        genre_classifications = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source,
+                Subject.genre_id != None
+            )
+        staff_genres = [
+            c.subject.genre.name 
+            for c in genre_classifications 
+            if c.subject.genre
+        ]
+        eq_(staff_genres, [])
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
 
-        # remove a genre
+        # remove all genres
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(response.status_code, 200)
 
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(len(new_genre_names), len(requested_genres))
-        for genre in requested_genres:
-            eq_(True, genre in new_genre_names)
+        primary_identifier = work.presentation_edition.primary_identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        none_classification_count = self._db \
+            .query(Classification) \
+            .join(Subject) \
+            .filter(
+                Classification.identifier == primary_identifier,
+                Classification.data_source == staff_data_source,
+                Subject.identifier == SimplifiedGenreClassifier.NONE
+            ) \
+            .all()
+        eq_(1, len(none_classification_count))
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
 
-        previous_genres = requested_genres
+        # completely change genres
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Drama"),
+                ("genres", "Urban Fantasy"),
+                ("genres", "Women's Fiction")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+            
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(requested_genres))
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # remove some genres and change audience and target age
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Urban Fantasy")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(response.status_code, 200)
+
+        # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(requested_genres))
+        eq_("Young Adult", work.audience)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        previous_genres = new_genre_names
 
         # try to add a nonfiction genre
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction", "Cooking"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Cooking"),
+                ("genres", "Urban Fantasy")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
 
         eq_(response, INCOMPATIBLE_GENRE)
-        new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(len(new_genre_names), len(previous_genres))
-        for genre in previous_genres:
-            eq_(True, genre in new_genre_names)
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(previous_genres))
+        eq_("Young Adult", work.audience)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
+        eq_(True, work.fiction)
 
-        # try to add a nonexistent genre
+        # try to add Erotica
         with self.app.test_request_context("/"):
-            requested_genres = ["Drama", "Women's Fiction", "Epic Military Memoirs"]
-            form = MultiDict()
-            for genre in requested_genres:
-                form.add("genres", genre)
-            flask.request.form = form
-            response = self.manager.admin_work_controller.update_genres(lp.data_source.name, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 18),
+                ("fiction", "fiction"),
+                ("genres", "Erotica"),
+                ("genres", "Urban Fantasy")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            eq_(response, EROTICA_FOR_ADULTS_ONLY)
 
-        eq_(response, GENRE_NOT_FOUND)
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(previous_genres))
+        eq_("Young Adult", work.audience)
+        eq_(16, work.target_age.lower)
+        eq_(19, work.target_age.upper)
+        eq_(True, work.fiction)
+
+        # try to set min target age greater than max target age
+        # othe edits should not go through
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 16),
+                ("target_age_max", 14),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)        
+            eq_(400, response.status_code)
+            eq_(INVALID_EDIT.uri, response.uri)
+
+        new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+        eq_(sorted(new_genre_names), sorted(previous_genres))
+        eq_(True, work.fiction)        
+
+        # change to nonfiction with nonfiction genres and new target age
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Young Adult"),
+                ("target_age_min", 15),
+                ("target_age_max", 17),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(len(new_genre_names), len(previous_genres))
-        for genre in previous_genres:
-            eq_(True, genre in new_genre_names)
+        eq_(sorted(new_genre_names), sorted(requested_genres))
+        eq_("Young Adult", work.audience)
+        eq_(15, work.target_age.lower)
+        eq_(18, work.target_age.upper)
+        eq_(False, work.fiction)
+
+        # set to Adult and make sure that target ages is set automatically
+        with self.app.test_request_context("/"):
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "nonfiction"),
+                ("genres", "Cooking")
+            ])
+            requested_genres = flask.request.form.getlist("genres")
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+
+        eq_("Adult", work.audience)
+        eq_(18, work.target_age.lower)
+        eq_(None, work.target_age.upper)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.suppress(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.suppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_(True, lp.suppressed)
 
@@ -262,7 +418,7 @@ class TestWorkController(AdminControllerTest):
         lp.suppressed = True
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
 
@@ -278,14 +434,14 @@ class TestWorkController(AdminControllerTest):
         with self.app.test_request_context('/'):
             [lp] = self.english_1.license_pools
             response = self.manager.admin_work_controller.refresh_metadata(
-                lp.data_source.name, lp.identifier.identifier, provider=success_provider
+                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=success_provider
             )
             eq_(200, response.status_code)
             # Also, the work has a coverage record now for the wrangler.
             assert CoverageRecord.lookup(lp.identifier, wrangler)
 
             response = self.manager.admin_work_controller.refresh_metadata(
-                lp.data_source.name, lp.identifier.identifier, provider=failure_provider
+                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=failure_provider
             )
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
@@ -320,8 +476,9 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier_type'], lp.identifier.type)
             eq_(response['book']['identifier'], lp.identifier.identifier)
             eq_(response['complaints'][type1], 2)
             eq_(response['complaints'][type2], 1)
@@ -353,7 +510,7 @@ class TestWorkController(AdminControllerTest):
         # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type2)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             unresolved_complaints = [complaint for complaint in lp.complaints if complaint.resolved == None]
             eq_(response.status_code, 404)
             eq_(len(unresolved_complaints), 2)
@@ -361,7 +518,7 @@ class TestWorkController(AdminControllerTest):
         # then attempt to resolve complaints of the correct type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             unresolved_complaints = [complaint for complaint in lp.complaints if complaint.resolved == None]
             eq_(response.status_code, 200)
             eq_(len(unresolved_complaints), 0)
@@ -369,13 +526,13 @@ class TestWorkController(AdminControllerTest):
         # then attempt to resolve the already-resolved complaints of the correct type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(response.status_code, 409)
 
     def test_classifications(self):
         e, pool = self._edition(with_license_pool=True)
-        work = self._work(primary_edition=e)
-        identifier = work.primary_edition.primary_identifier
+        work = self._work(presentation_edition=e)
+        identifier = work.presentation_edition.primary_identifier
         genres = self._db.query(Genre).all()
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.genre = genres[0]
@@ -389,30 +546,30 @@ class TestWorkController(AdminControllerTest):
             data_source=source, weight=1)
         classification2 = self._classification(
             identifier=identifier, subject=subject2, 
-            data_source=source, weight=2)
+            data_source=source, weight=3)
         classification3 = self._classification(
             identifier=identifier, subject=subject3, 
-            data_source=source, weight=1.5)
+            data_source=source, weight=2)
 
         SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
-        # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.classifications(
-                lp.data_source.name, lp.identifier.identifier)
-            
+                lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(response['book']['data_source'], lp.data_source.name)
+            eq_(response['book']['identifier_type'], lp.identifier.type)
             eq_(response['book']['identifier'], lp.identifier.identifier)
-            eq_(len(response['classifications']), 2)
-            eq_(response['classifications'][0]['name'], subject2.identifier)
-            eq_(response['classifications'][0]['type'], subject2.type)
-            eq_(response['classifications'][0]['source'], source.name)
-            eq_(response['classifications'][0]['weight'], classification2.weight)
-            eq_(response['classifications'][1]['name'], subject1.identifier)
-            eq_(response['classifications'][1]['type'], subject1.type)
-            eq_(response['classifications'][1]['source'], source.name)
-            eq_(response['classifications'][1]['weight'], classification1.weight)
+
+            expected_results = [classification2, classification3, classification1]
+            eq_(len(response['classifications']), len(expected_results))            
+            for i, classification in enumerate(expected_results):
+                subject = classification.subject
+                source = classification.data_source
+                eq_(response['classifications'][i]['name'], subject.identifier)
+                eq_(response['classifications'][i]['type'], subject.type)
+                eq_(response['classifications'][i]['source'], source.name)
+                eq_(response['classifications'][i]['weight'], classification.weight)
 
 
 class TestSignInController(AdminControllerTest):
@@ -550,3 +707,38 @@ class TestFeedController(AdminControllerTest):
                     "parents": [parent.name for parent in genres[name].parents],
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
                 }))        
+
+    def test_circulation_events(self):
+        [lp] = self.english_1.license_pools
+        patron_id = "patronid"
+        types = [
+            CirculationEvent.CHECKIN,
+            CirculationEvent.CHECKOUT,
+            CirculationEvent.HOLD_PLACE,
+            CirculationEvent.HOLD_RELEASE,
+            CirculationEvent.TITLE_ADD
+        ]
+        time = datetime.now() - timedelta(minutes=len(types))
+        for type in types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp, type=type, start=time, end=time,
+                foreign_patron_id=patron_id)
+            time += timedelta(minutes=1)
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.circulation_events()
+            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+
+        events = response['circulation_events']
+        eq_(types[::-1], [event['type'] for event in events])
+        eq_([self.english_1.title]*len(types), [event['book']['title'] for event in events])
+        eq_([url]*len(types), [event['book']['url'] for event in events])
+        eq_([patron_id]*len(types), [event['patron_id'] for event in events])
+
+        # request fewer events
+        with self.app.test_request_context("/?num=2"):
+            response = self.manager.admin_feed_controller.circulation_events()
+            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+
+        eq_(2, len(response['circulation_events']))

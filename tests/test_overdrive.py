@@ -3,7 +3,6 @@ from nose.tools import (
     set_trace, eq_,
     assert_raises,
 )
-import os
 import pkgutil
 import json
 from api.overdrive import (
@@ -16,6 +15,7 @@ from api.circulation import (
 
 from . import (
     DatabaseTest,
+    sample_data
 )
 
 from core.model import (
@@ -26,19 +26,114 @@ from core.model import (
 
 class TestOverdriveAPI(DatabaseTest):
 
-    base_path = os.path.split(__file__)[0]
-    resource_path = os.path.join(base_path, "files", "overdrive")
-
     @classmethod
     def sample_data(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data
+        return sample_data(filename, 'overdrive')
 
     @classmethod
     def sample_json(self, filename):
         data = self.sample_data(filename)
         return data, json.loads(data)
+
+    def test_update_availability(self):
+        """Test the Overdrive implementation of the update_availability
+        method defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            # TODO: If this line is commented out, we get an error later
+            # on which might or might not be worrisome.
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to make sure
+        # it gets replaced.
+        pool.licenses_owned = 10
+        pool.licenses_available = 4
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        # Prepare availability information.
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        # Since this is the first time we've seen this book,
+        # we'll also be updating the bibliographic information.
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the new pool's Identifier.
+        availability['id'] = pool.identifier.identifier
+        bibliographic['id'] = pool.identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+        api.queue_response(content=availability)
+
+        api.update_availability(pool)
+
+        # The availability information has been udpated, as has the
+        # date the availability information was last checked.
+        eq_(5, pool.licenses_owned)
+        eq_(5, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
+    def test_update_licensepool_provides_bibliographic_coverage(self):
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+
+        # Prepare bibliographic and availability information 
+        # for this identifier.
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the newly created Identifier.
+        availability['id'] = identifier.identifier
+        bibliographic['id'] = identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+        api.queue_response(content=availability)
+
+        # Now we're ready. When we call update_licensepool, the
+        # OverdriveAPI will retrieve the availability information,
+        # then the bibliographic information. It will then trigger the
+        # OverdriveBibliographicCoverageProvider, which will
+        # create an Edition and a presentation-ready Work.
+        pool, was_new, changed = api.update_licensepool(identifier.identifier)
+        eq_(True, was_new)        
+        eq_(availability['copiesOwned'], pool.licenses_owned)
+
+        edition = pool.presentation_edition
+        eq_("Ancillary Justice", edition.title)
+
+        eq_(True, pool.work.presentation_ready)
+        assert pool.work.cover_thumbnail_url.startswith(
+            'http://images.contentreserve.com/'
+        )
+
+        # The book has been run through the bibliographic coverage
+        # provider.
+        coverage = [
+            x for x in identifier.coverage_records 
+            if x.operation is None
+            and x.data_source.name == DataSource.OVERDRIVE
+        ]
+        eq_(1, len(coverage))
 
     def test_update_new_licensepool(self):
         data, raw = self.sample_json("overdrive_availability_information.json")
@@ -64,11 +159,8 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(True, was_new)
         eq_(True, changed)
 
-        # The title of the corresponding Edition has been filled
-        # in, just to provide some basic human-readable metadata.
         self._db.commit()
 
-        eq_("Blah blah blah", pool.presentation_edition.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -279,3 +371,4 @@ class TestOverdriveAPI(DatabaseTest):
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert threem_hold in patron.holds
+

@@ -104,20 +104,46 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         eq_((feed_url, "All Spanish"), group_uri)
 
     def test_lane_url(self):
+        everything_lane = Lane(
+            self._db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+
         fantasy_lane_with_sublanes = Lane(
             self._db, "Fantasy", genres=[Fantasy], languages="eng", 
             subgenre_behavior=Lane.IN_SAME_LANE,
-            sublanes=[Urban_Fantasy])
+            sublanes=[Urban_Fantasy],
+            parent=everything_lane)
 
         fantasy_lane_without_sublanes = Lane(
             self._db, "Fantasy", genres=[Fantasy], languages="eng", 
-            subgenre_behavior=Lane.IN_SAME_LANE)
+            subgenre_behavior=Lane.IN_SAME_LANE,
+            parent=everything_lane)
+
+        default_lane_url = self.annotator.lane_url(everything_lane)
+        eq_(default_lane_url, self.annotator.default_lane_url())
 
         groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
         eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
 
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+
+    def test_single_entry_no_active_license_pool(self):
+        work = self._work(with_open_access_download=True)
+        pool = work.license_pools[0]
+
+        # Create an <entry> tag for this work and its LicensePool.
+        feed1 = AcquisitionFeed.single_entry(
+            self._db, work, self.annotator, pool
+        )
+
+        # If we don't pass in the license pool, it makes a guess to
+        # figure out which license pool we're talking about.
+        feed2 = AcquisitionFeed.single_entry(
+            self._db, work, self.annotator, None
+        )
+
+        # Both entries are identical.
+        eq_(etree.tostring(feed1), etree.tostring(feed2))
 
 
 class TestOPDS(DatabaseTest):
@@ -208,7 +234,7 @@ class TestOPDS(DatabaseTest):
         w1 = self._work(with_open_access_download=True)
         w2 = self._work(with_open_access_download=True)
         w2.license_pools[0].open_access = False
-        w2.licenses_available = 10
+        w2.license_pools[0].licenses_owned = 1
         self._db.commit()
 
         works = self._db.query(Work)
@@ -227,6 +253,36 @@ class TestOPDS(DatabaseTest):
 
         borrow_rels = [x['rel'] for x in borrow_links]
         assert OPDSFeed.BORROW_REL in borrow_rels
+
+    def test_acquisition_feed_includes_recommendations_link(self):
+        w1 = self._work(with_open_access_download=True)
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            feed = AcquisitionFeed(
+                self._db, "test", "url", [w1],
+                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            )
+        # If NoveList isn't configured, there's no recommendation link.
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        recommendations_links = [x for x in entry['links'] if x['rel'] == 'related']
+        eq_([], recommendations_links)
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
+                Configuration.NOVELIST_PROFILE : "library",
+                Configuration.NOVELIST_PASSWORD : "yep"
+            }
+            feed = AcquisitionFeed(
+                self._db, "test", "url", [w1],
+                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            )
+        # If NoveList isn't configured, there's is a recommendation link.
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        [recommendations_link] = [x for x in entry['links'] if x['rel'] == 'related']
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, recommendations_link['type'])
+        assert '/recommendations' in recommendations_link['href']
 
     def test_active_loan_feed(self):
         patron = self.default_patron
@@ -338,4 +394,3 @@ class TestOPDS(DatabaseTest):
 
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
-

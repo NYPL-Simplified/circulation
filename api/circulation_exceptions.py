@@ -1,3 +1,11 @@
+from core.problem_details import (
+    INTEGRATION_ERROR,
+    INTERNAL_SERVER_ERROR,
+)
+from problem_details import (
+    NO_LICENSES,
+)
+
 class CirculationException(Exception):
     """An exception occured when carrying out a circulation operation.
 
@@ -8,8 +16,22 @@ class CirculationException(Exception):
 class InternalServerError(Exception):
     status_code = 500
 
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return INTERNAL_SERVER_ERROR
+
 class RemoteInitiatedServerError(InternalServerError):
     """One of the servers we communicate with had an internal error."""
+    status_code = 502
+
+    def __init__(self, message, service_name):
+        super(RemoteInitiatedServerError, self).__init__(message)
+        self.service_name = service_name
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        msg = "Integration error communicating with %s" % self.service_name
+        return INTEGRATION_ERROR.detailed(msg)
 
 class NoOpenAccessDownload(CirculationException):
     """We expected a book to have an open-access download, but it didn't."""
@@ -73,6 +95,13 @@ class CannotFulfill(CirculationException):
 class NotFoundOnRemote(CirculationException):
     """We know about this book but the remote site doesn't seem to."""
     status_code = 404
+
+class NoLicenses(NotFoundOnRemote):
+    """The library no longer has licenses for this book."""
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return NO_LICENSES
 
 class CannotRenew(CirculationException):
     """The patron can't renew their loan on this book.
