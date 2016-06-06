@@ -762,9 +762,10 @@ class TestOPDS(DatabaseTest):
         pagination = Pagination(size=1)
 
         def make_page(pagination):
+            SessionManager.refresh_materialized_views(self._db)
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=pagination, use_materialized_works=False
+                pagination=pagination, use_materialized_works=True
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works.content))
@@ -824,19 +825,21 @@ class TestOPDS(DatabaseTest):
             # an attempt to generate them will fail. You'll get a
             # page-type feed as a consolation prize.
 
+            SessionManager.refresh_materialized_views(self._db)
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=False, use_materialized_works=False
+                force_refresh=False, use_materialized_works=True
             )
             eq_(CachedFeed.PAGE_TYPE, feed.type)
 
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=True, use_materialized_works=False
+                force_refresh=True, use_materialized_works=True
             )
             parsed = feedparser.parse(cached_groups.content)
             
             # There are two entries, one for each work.
+            set_trace()
             e1, e2 = parsed['entries']
 
             # Each entry has one and only one link.
@@ -892,9 +895,10 @@ class TestOPDS(DatabaseTest):
             config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
             annotator = TestAnnotator()
 
+            SessionManager.refresh_materialized_views(self._db)
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, test_lane, annotator,
-                force_refresh=True, use_materialized_works=False
+                force_refresh=True, use_materialized_works=True
             )
 
             # The feed is filed as a groups feed, even though in
@@ -981,9 +985,10 @@ class TestOPDS(DatabaseTest):
         fantasy_lane = self.lanes.by_languages['']['Fantasy']
 
         def make_page():
+            SessionManager.refresh_materialized_views(self._db)
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=Pagination.default(), use_materialized_works=False
+                pagination=Pagination.default(), use_materialized_works=True
             )
 
         with temp_config() as config:

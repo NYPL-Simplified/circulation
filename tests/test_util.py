@@ -7,12 +7,21 @@ from nose.tools import (
     set_trace,
 )
 
+from model import (
+    CustomListEntry,
+    Identifier,
+    Edition
+)
+
+from . import DatabaseTest
+
 from util import (
     Bigrams,
     english_bigrams,
     LanguageCodes,
     MetadataSimilarity,
     TitleProcessor,
+    fast_query_count,
 )
 from util.opds_authentication_document import OPDSAuthenticationDocument
 from util.median import median
@@ -489,3 +498,41 @@ class TestMedian(object):
 
         test_set = [8, 82, 781233, 857, 290, 7, 8467]
         eq_(290, median(test_set))
+
+
+class TestFastQueryCount(DatabaseTest):
+
+    def test_no_distinct(self):
+        identifier = self._identifier()
+        qu = self._db.query(Identifier)
+        eq_(1, fast_query_count(qu))
+
+    def test_distinct(self):
+        # Create a custom list with two editions.
+        cl, ignore = self._customlist(num_entries=2)
+        [e1, e2] = [x.edition for x in cl.entries]
+
+        # Create a second custom list that has one of the same
+        # editions.
+        cl2, ignore = self._customlist(num_entries=0)
+        cl2.add_entry(e1)
+
+        # Without the distinct clause, a query against Edition x
+        # CustomListEntry x CustomList will return three editions,
+        # double-counting one of them.
+        qu = self._db.query(Edition).join(Edition.custom_list_entries).join(CustomListEntry.customlist)
+        eq_(3, fast_query_count(qu))
+
+        # If made distinct on Edition.id, the query will return only
+        # two editions.
+        qu2 = qu.distinct(Edition.id)
+        eq_(qu2.count(), fast_query_count(qu2))
+
+        # The query will go back to three editions if made
+        # distinct on Edition.id and CustomListEntry.id, since there
+        # are three edition/customlist combinations.
+        qu3 = qu.distinct(Edition.id, CustomListEntry.id).group_by(Edition.id, CustomListEntry.id)
+        c3 = qu3.count()
+        set_trace()
+        eq_(c3, fast_query_count(qu3))
+

@@ -10,6 +10,7 @@ import os
 import re
 import string
 from sqlalchemy.sql.functions import func
+from sqlalchemy import distinct
 
 
 def batch(iterable, size=1):
@@ -22,8 +23,14 @@ def batch(iterable, size=1):
 def fast_query_count(query):
     """Counts the results of a query without using super-slow subquery"""
 
-    count_q = query.enable_eagerloads(False).statement.\
-        with_only_columns([func.count()]).order_by(None)
+    statement = query.enable_eagerloads(False).statement
+    distinct_columns = statement._distinct
+    count_q = statement.with_only_columns([func.count()]).order_by(None)
+    if isinstance(distinct_columns, list):
+        # We didn't need GROUP BY when we were selecting rows made
+        # distinct by a list of columns, but now that we're selecting
+        # an aggregate function we do need to GROUP BY those columns.
+        count_q = count_q.group_by(*distinct_columns)
     count = query.session.execute(count_q).scalar()
     return count
 
