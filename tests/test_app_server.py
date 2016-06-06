@@ -1,5 +1,6 @@
 import json
 from flask import Flask
+from flask.ext.babel import Babel
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -150,6 +151,7 @@ class TestComplaintController(DatabaseTest):
         self.controller = ComplaintController()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.app = Flask(__name__)
+        Babel(self.app)
 
     def test_no_license_pool(self):
         with self.app.test_request_context("/"):
@@ -194,6 +196,7 @@ class TestLoadMethods(object):
 
     def setup(self):
         self.app = Flask(__name__)
+        Babel(self.app)
 
 
     def test_load_facets_from_request(self):
@@ -235,6 +238,7 @@ class TestErrorHandler(object):
 
     def setup(self):
         self.app = Flask(__name__)
+        Babel(self.app)
 
     def raise_exception(self, cls=Exception):
         """Simulate an exception that happens deep within the stack."""

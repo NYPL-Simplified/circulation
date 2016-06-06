@@ -18,3 +18,4 @@ loggly-python-handler
 cairosvg
 mock
 py-bcrypt
+Flask-Babel

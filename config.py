@@ -106,6 +106,8 @@ class Configuration(object):
 
     ANALYTICS_POLICY = "analytics"
 
+    LOCALIZATION_LANGUAGES = "localization_languages"
+
     # Integrations
     URL = "url"
     NAME = "name"
@@ -308,6 +310,10 @@ class Configuration(object):
     def show_staff_picks_on_top_level(cls):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
+    @classmethod
+    def localization_languages(cls):
+        return cls.policy(cls.LOCALIZATION_LANGUAGES, default=["en"])
+    
     @classmethod
     def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
         cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(
