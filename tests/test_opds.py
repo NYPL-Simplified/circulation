@@ -762,10 +762,9 @@ class TestOPDS(DatabaseTest):
         pagination = Pagination(size=1)
 
         def make_page(pagination):
-            SessionManager.refresh_materialized_views(self._db)
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=pagination, use_materialized_works=True
+                pagination=pagination, use_materialized_works=False
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works.content))
@@ -825,16 +824,15 @@ class TestOPDS(DatabaseTest):
             # an attempt to generate them will fail. You'll get a
             # page-type feed as a consolation prize.
 
-            SessionManager.refresh_materialized_views(self._db)
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=False, use_materialized_works=True
+                force_refresh=False, use_materialized_works=False
             )
             eq_(CachedFeed.PAGE_TYPE, feed.type)
 
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=True, use_materialized_works=True
+                force_refresh=True, use_materialized_works=False
             )
             parsed = feedparser.parse(cached_groups.content)
             
@@ -894,10 +892,9 @@ class TestOPDS(DatabaseTest):
             config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
             annotator = TestAnnotator()
 
-            SessionManager.refresh_materialized_views(self._db)
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, test_lane, annotator,
-                force_refresh=True, use_materialized_works=True
+                force_refresh=True, use_materialized_works=False
             )
 
             # The feed is filed as a groups feed, even though in
@@ -984,10 +981,9 @@ class TestOPDS(DatabaseTest):
         fantasy_lane = self.lanes.by_languages['']['Fantasy']
 
         def make_page():
-            SessionManager.refresh_materialized_views(self._db)
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=Pagination.default(), use_materialized_works=True
+                pagination=Pagination.default(), use_materialized_works=False
             )
 
         with temp_config() as config:
