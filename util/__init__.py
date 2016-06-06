@@ -28,6 +28,11 @@ def fast_query_count(query):
     new_columns = [func.count()]
     count_q = statement.with_only_columns(new_columns).order_by(None)
     if isinstance(distinct_columns, list):
+        # TODO: We currently can't create a reliable count for queries
+        # that include specific distinct columns.  Just calculate the
+        # count the normal way.
+        return query.count()
+
         # We didn't need GROUP BY when we were selecting rows made
         # distinct by a list of columns, but now that we're selecting
         # an aggregate function we do need to GROUP BY those columns.
