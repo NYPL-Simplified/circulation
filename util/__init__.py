@@ -25,7 +25,8 @@ def fast_query_count(query):
 
     statement = query.enable_eagerloads(False).statement
     distinct_columns = statement._distinct
-    count_q = statement.with_only_columns([func.count()]).order_by(None)
+    new_columns = [func.count()]
+    count_q = statement.with_only_columns(new_columns).order_by(None)
     if isinstance(distinct_columns, list):
         # We didn't need GROUP BY when we were selecting rows made
         # distinct by a list of columns, but now that we're selecting

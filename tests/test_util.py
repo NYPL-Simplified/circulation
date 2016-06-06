@@ -508,31 +508,24 @@ class TestFastQueryCount(DatabaseTest):
         eq_(1, fast_query_count(qu))
 
     def test_distinct(self):
-        # Create a custom list with two editions.
-        cl, ignore = self._customlist(num_entries=2)
-        [e1, e2] = [x.edition for x in cl.entries]
 
-        # Create a second custom list that has one of the same
-        # editions.
-        cl2, ignore = self._customlist(num_entries=0)
-        cl2.add_entry(e1)
+        e1 = self._edition(title="The title", authors="Author 1")
+        e2 = self._edition(title="The title", authors="Author 1")
+        e3 = self._edition(title="The title", authors="Author 2")
+        e4 = self._edition(title="Another title", authors="Author 1")
 
-        # Without the distinct clause, a query against Edition x
-        # CustomListEntry x CustomList will return three editions,
-        # double-counting one of them.
-        qu = self._db.query(Edition).join(Edition.custom_list_entries).join(CustomListEntry.customlist)
-        eq_(3, fast_query_count(qu))
+        # Without the distinct clause, a query against Edition will
+        # return four editions.
+        qu = self._db.query(Edition)
+        eq_(qu.count(), fast_query_count(qu))
 
-        # If made distinct on Edition.id, the query will return only
+        # If made distinct on Edition.author, the query will return only
         # two editions.
-        qu2 = qu.distinct(Edition.id)
+        qu2 = qu.distinct(Edition.author)
         eq_(qu2.count(), fast_query_count(qu2))
 
-        # The query will go back to three editions if made
-        # distinct on Edition.id and CustomListEntry.id, since there
-        # are three edition/customlist combinations.
-        qu3 = qu.distinct(Edition.id, CustomListEntry.id).group_by(Edition.id, CustomListEntry.id)
-        c3 = qu3.count()
-        set_trace()
-        eq_(c3, fast_query_count(qu3))
+        # If made distinct on Edition.title _and_ Edition.author,
+        # the query will return three editions.
+        qu3 = qu.distinct(Edition.title, Edition.author)
+        eq_(qu3.count(), fast_query_count(qu3))
 
