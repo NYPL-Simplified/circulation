@@ -1,3 +1,5 @@
+from flask.ext.babel import gettext as _
+
 from core.problem_details import (
     INTEGRATION_ERROR,
     INTERNAL_SERVER_ERROR,
@@ -30,7 +32,7 @@ class RemoteInitiatedServerError(InternalServerError):
 
     def as_problem_detail_document(self, debug=False):
         """Return a suitable problem detail document."""
-        msg = "Integration error communicating with %s" % self.service_name
+        msg = _("Integration error communicating with %(service_name)s", service_name=self.service_name)
         return INTEGRATION_ERROR.detailed(msg)
 
 class NoOpenAccessDownload(CirculationException):

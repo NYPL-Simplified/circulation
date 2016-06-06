@@ -4,6 +4,7 @@ from nose.tools import set_trace
 from api.problem_details import GOOGLE_OAUTH_FAILURE
 from config import Configuration
 from oauth2client import client as GoogleClient
+from flask.ext.babel import gettext as _
 
 class GoogleAuthService(object):
 
@@ -46,7 +47,7 @@ class GoogleAuthService(object):
             ), redirect_url
 
     def google_error_problem_detail(self, error):
-        error_detail = GOOGLE_OAUTH_FAILURE.detail + " Error: " + error
+        error_detail = GOOGLE_OAUTH_FAILURE.detail + _("Error: ") + error
         return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 
     def active_credentials(self, admin):

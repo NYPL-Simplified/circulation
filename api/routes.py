@@ -6,9 +6,10 @@ import flask
 from flask import (
     Response,
     redirect,
+    request,
 )
 
-from app import app, _db
+from app import app, _db, babel
 
 from config import Configuration
 from core.app_server import (
@@ -60,6 +61,11 @@ def monkeypatch_try_trigger_before_first_request_functions(self):
 
 from flask import Flask
 Flask.try_trigger_before_first_request_functions = monkeypatch_try_trigger_before_first_request_functions
+
+@babel.localeselector
+def get_locale():
+    languages = Configuration.localization_languages()
+    return request.accept_languages.best_match(languages)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)

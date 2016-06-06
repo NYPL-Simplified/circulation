@@ -9,6 +9,7 @@ from flask import (
     Response,
     redirect,
 )
+from flask.ext.babel import gettext as _
 
 from core.model import (
     get_one,
@@ -456,7 +457,7 @@ class WorkController(CirculationManagerController):
         new_target_age_max = flask.request.form.get("target_age_max")
         new_target_age_max = int(new_target_age_max) if new_target_age_max else None
         if new_target_age_max < new_target_age_min:
-            return INVALID_EDIT.detailed("Minimum target age must be less than maximum target age.")
+            return INVALID_EDIT.detailed(_("Minimum target age must be less than maximum target age."))
 
         if work.target_age:
             old_target_age_min = work.target_age.lower

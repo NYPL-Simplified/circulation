@@ -13,6 +13,7 @@ from flask import (
     Response,
     redirect,
 )
+from flask.ext.babel import gettext as _
 
 from core.app_server import (
     entry_response,
@@ -256,7 +257,7 @@ class CirculationManagerController(object):
             patron = self.authenticated_patron(header)
         except RemoteInitiatedServerError,e:
             return REMOTE_INTEGRATION_FAILED.detailed(
-                "Error in authentication service"
+                _("Error in authentication service")
             )
         if isinstance(patron, ProblemDetail):
             flask.request.patron = None
@@ -293,7 +294,7 @@ class CirculationManagerController(object):
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm="Library card"',
+        headers= { 'WWW-Authenticate' : 'Basic realm=%s' % _("Library card"),
                    'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
         return Response(data, 401, headers)
 
@@ -305,7 +306,7 @@ class CirculationManagerController(object):
 
         if not language_key in self.manager.sublanes.by_languages:
             return NO_SUCH_LANE.detailed(
-                "Unrecognized language key: %s" % language_key
+                _("Unrecognized language key: %(language_key)s", language_key=language_key)
             )
 
         if name:
@@ -321,7 +322,7 @@ class CirculationManagerController(object):
 
         if name not in lanes:
             return NO_SUCH_LANE.detailed(
-                "No such lane: %s" % name
+                _("No such lane: %(lane_name)s", lane_name=name)
             )
         return lanes[name]
 
@@ -332,12 +333,12 @@ class CirculationManagerController(object):
         else:
             source = DataSource.lookup(self._db, data_source)
         if source is None:
-            return INVALID_INPUT.detailed("No such data source: %s" % data_source)
+            return INVALID_INPUT.detailed(_("No such data source: %(data_source)s", data_source=data_source))
 
         id_obj, ignore = Identifier.for_foreign_id(
             self._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
-            return NO_LICENSES.detailed("I've never heard of this work.")
+            return NO_LICENSES.detailed(_("I've never heard of this work."))
         pool = id_obj.licensed_through
         return pool
 
@@ -352,7 +353,7 @@ class CirculationManagerController(object):
     def apply_borrowing_policy(self, patron, license_pool):
         if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
             return FORBIDDEN_BY_POLICY.detailed(
-                "Library policy prohibits us from lending you this book.",
+                _("Library policy prohibits us from lending you this book."),
                 status_code=451
             )
 
@@ -362,7 +363,7 @@ class CirculationManagerController(object):
             Configuration.HOLD_POLICY_ALLOW
         ):
             return FORBIDDEN_BY_POLICY.detailed(
-                "Library policy prohibits the placement of holds.",
+                _("Library policy prohibits the placement of holds."),
                 status_code=403
             )        
         return None
@@ -561,7 +562,7 @@ class LoanController(CirculationManagerController):
         if not pool:
             # I've never heard of this book.
             return NO_LICENSES.detailed(
-                "I've never heard of this work."
+                _("I've never heard of this work.")
             )
 
         patron = flask.request.patron
@@ -579,7 +580,7 @@ class LoanController(CirculationManagerController):
                 patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
         except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
-                "Couldn't find an open-access download link for this book.", 
+                _("Couldn't find an open-access download link for this book."),
                 status_code=404
             )
         except PatronAuthorizationFailedException, e:
@@ -591,7 +592,9 @@ class LoanController(CirculationManagerController):
                 str(e), status_code=e.status_code
             )
         except OutstandingFines, e:
-            problem_doc = OUTSTANDING_FINES.detailed("You must pay your %s outstanding fines before you can borrow more books." % patron.fines)
+            problem_doc = OUTSTANDING_FINES.detailed(
+                _("You must pay your %(fine_amount)s outstanding fines before you can borrow more books.", fine_amount=patron.fines)
+            )
         except CannotLoan, e:
             problem_doc = CHECKOUT_FAILED.with_debug(str(e))
         except CannotHold, e:
@@ -662,7 +665,7 @@ class LoanController(CirculationManagerController):
                 mechanism =  loan.fulfillment
             else:
                 return BAD_DELIVERY_MECHANISM.detailed(
-                    "You must specify a delivery mechanism to fulfill this loan."
+                    _("You must specify a delivery mechanism to fulfill this loan.")
                 )
     
         try:
@@ -671,7 +674,7 @@ class LoanController(CirculationManagerController):
             return DELIVERY_CONFLICT.detailed(e.message)
         except NoActiveLoan, e:
             return NO_ACTIVE_LOAN.detailed( 
-                    'Can\'t fulfill loan because you have no active loan for this book.',
+                    _('Can\'t fulfill loan because you have no active loan for this book.'),
                     status_code=e.status_code
             )
         except CannotFulfill, e:
@@ -710,7 +713,7 @@ class LoanController(CirculationManagerController):
             else:
                 title = '"%s"' % pool.work.title
             return NO_ACTIVE_LOAN_OR_HOLD.detailed(
-                'Can\'t revoke because you have no active loan or hold for "%s".' % title,
+                _('Can\'t revoke because you have no active loan or hold for "%(title)s".', title=title),
                 status_code=404
             )
 
@@ -719,19 +722,19 @@ class LoanController(CirculationManagerController):
             try:
                 self.circulation.revoke_loan(patron, pin, pool)
             except RemoteRefusedReturn, e:
-                title = "Loan deleted locally but remote refused. Loan is likely to show up again on next sync."
+                title = _("Loan deleted locally but remote refused. Loan is likely to show up again on next sync.")
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
             except CannotReturn, e:
-                title = "Loan deleted locally but remote failed."
+                title = _("Loan deleted locally but remote failed.")
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(str(e))
         elif hold:
             if not self.circulation.can_revoke_hold(pool, hold):
-                title = "Cannot release a hold once it enters reserved state."
+                title = _("Cannot release a hold once it enters reserved state.")
                 return CANNOT_RELEASE_HOLD.detailed(title, 400)
             try:
                 self.circulation.release_hold(patron, pin, pool)
             except CannotReleaseHold, e:
-                title = "Hold released locally but remote failed."
+                title = _("Hold released locally but remote failed.")
                 return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(str(e))
 
         work = pool.work
@@ -756,7 +759,7 @@ class LoanController(CirculationManagerController):
 
         if not loan and not hold:
             return NO_ACTIVE_LOAN_OR_HOLD.detailed( 
-                'You have no active loan or hold for "%s".' % pool.work.title,
+                _('You have no active loan or hold for "%(title)s".', title=pool.work.title),
                 status_code=404
             )
 

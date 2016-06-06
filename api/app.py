@@ -13,9 +13,9 @@ from flask_sqlalchemy_session import flask_scoped_session
 from sqlalchemy.orm import sessionmaker
 from config import Configuration
 from core.model import SessionManager
+from flask.ext.babel import Babel
 
 app = Flask(__name__)
-
 
 testing = 'TESTING' in os.environ
 db_url = Configuration.database_url(testing)
@@ -23,6 +23,10 @@ SessionManager.initialize(db_url)
 session_factory = SessionManager.sessionmaker(db_url)
 _db = flask_scoped_session(session_factory, app)
 SessionManager.initialize_data(_db)
+
+app.config['BABEL_DEFAULT_LOCALE'] = 'en'
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
+babel = Babel(app)
 
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):
@@ -32,8 +36,6 @@ debug = Configuration.logging_policy().get("level") == 'DEBUG'
 logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
-
-
 
 def run():
     debug = True
