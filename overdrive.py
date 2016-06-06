@@ -888,10 +888,12 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        result = self.set_metadata(
-            identifier, metadata, 
-            metadata_replacement_policy=self.metadata_replacement_policy
+        result = self.set_metadata_and_circulation_data(
+            identifier, metadata, metadata.circulation, 
+            metadata_replacement_policy=self.metadata_replacement_policy, 
+            circulationdata_replacement_policy=self.circulationdata_replacement_policy
         )
+
         if not isinstance(result, CoverageFailure):
             # Success!
             result = self.set_presentation_ready(result)

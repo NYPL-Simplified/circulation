@@ -487,7 +487,8 @@ class BibliographicCoverageProvider(CoverageProvider):
     CAN_CREATE_LICENSE_POOLS = True
 
     def __init__(self, _db, api, datasource, workset_size=10,
-                 metadata_replacement_policy=None, cutoff_time=None
+                 metadata_replacement_policy=None, circulationdata_replacement_policy=None, 
+                 cutoff_time=None
     ):
         self._db = _db
         self.api = api
@@ -497,7 +498,11 @@ class BibliographicCoverageProvider(CoverageProvider):
         metadata_replacement_policy = (
             metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
         )
+        circulationdata_replacement_policy = (
+            circulationdata_replacement_policy or ReplacementPolicy.from_license_source()
+        )
         self.metadata_replacement_policy = metadata_replacement_policy
+        self.circulationdata_replacement_policy = circulationdata_replacement_policy
         super(BibliographicCoverageProvider, self).__init__(
             service_name,
             input_identifier_types, output_source,
