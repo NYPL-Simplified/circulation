@@ -94,120 +94,129 @@ class TestAuthenticator(DatabaseTest):
             assert isinstance(auth.oauth_providers[0], CleverAuthenticationAPI)
 
     def test_create_decode_token(self):
-        auth = Authenticator.initialize(self._db, test=True)
-        token = auth.create_token("Provider name", "Provider token")
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
 
-        decoded_name, decoded_token = auth.decode_token(token)
-
-        eq_("Provider name", decoded_name)
-        eq_("Provider token", decoded_token)
+            auth = Authenticator.initialize(self._db, test=True)
+            token = auth.create_token("Provider name", "Provider token")
+            
+            decoded_name, decoded_token = auth.decode_token(token)
+            
+            eq_("Provider name", decoded_name)
+            eq_("Provider token", decoded_token)
 
     def test_authenticated_patron(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
 
-        # Check that the correct auth provider is called.
-        basic_auth = DummyAuthAPI()
-        oauth1 = DummyAuthAPI()
-        oauth1.NAME = "oauth1"
-        oauth2 = DummyAuthAPI()
-        oauth2.NAME = "oauth2"
+            # Check that the correct auth provider is called.
+            basic_auth = DummyAuthAPI()
+            oauth1 = DummyAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyAuthAPI()
+            oauth2.NAME = "oauth2"
 
-        auth = Authenticator.initialize(self._db, test=True)
-        auth.basic_auth_provider = basic_auth
-        auth.oauth_providers = [oauth1, oauth2]
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
         
-        # Basic auth
-        header = dict(username="foo", password="bar")
-        auth.authenticated_patron(self._db, header)
-        eq_(1, basic_auth.count)
-        eq_(0, oauth1.count)
-        eq_(0, oauth2.count)
+            # Basic auth
+            header = dict(username="foo", password="bar")
+            auth.authenticated_patron(self._db, header)
+            eq_(1, basic_auth.count)
+            eq_(0, oauth1.count)
+            eq_(0, oauth2.count)
 
-        # Oauth 1
-        token = auth.create_token("oauth1", "token")
-        header = "Bearer: %s" % token
-        auth.authenticated_patron(self._db, header)
-        eq_(1, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(0, oauth2.count)
+            # Oauth 1
+            token = auth.create_token("oauth1", "token")
+            header = "Bearer: %s" % token
+            auth.authenticated_patron(self._db, header)
+            eq_(1, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(0, oauth2.count)
 
-        # Oauth 2
-        token = auth.create_token("oauth2", "token")
-        header = "Bearer: %s" % token
-        auth.authenticated_patron(self._db, header)
-        eq_(1, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(1, oauth2.count)
+            # Oauth 2
+            token = auth.create_token("oauth2", "token")
+            header = "Bearer: %s" % token
+            auth.authenticated_patron(self._db, header)
+            eq_(1, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(1, oauth2.count)
 
     def test_oauth_callback(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
 
-        # Check that the correct auth provider is called.
-        basic_auth = DummyAuthAPI()
-        oauth1 = DummyAuthAPI()
-        oauth1.NAME = "oauth1"
-        oauth2 = DummyAuthAPI()
-        oauth2.NAME = "oauth2"
+            # Check that the correct auth provider is called.
+            basic_auth = DummyAuthAPI()
+            oauth1 = DummyAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyAuthAPI()
+            oauth2.NAME = "oauth2"
 
-        auth = Authenticator.initialize(self._db, test=True)
-        auth.basic_auth_provider = basic_auth
-        auth.oauth_providers = [oauth1, oauth2]
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
         
-        # Oauth 1
-        params = dict(code="foo", state="oauth1")
-        response = auth.oauth_callback(self._db, params)
-        eq_(0, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(0, oauth2.count)
-        eq_(200, response.status_code)
-        token = json.loads(response.data).get("access_token")
-        provider_name, provider_token = auth.decode_token(token)
-        eq_("oauth1", provider_name)
-        eq_("token", provider_token)
+            # Oauth 1
+            params = dict(code="foo", state="oauth1")
+            response = auth.oauth_callback(self._db, params)
+            eq_(0, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(0, oauth2.count)
+            eq_(200, response.status_code)
+            token = json.loads(response.data).get("access_token")
+            provider_name, provider_token = auth.decode_token(token)
+            eq_("oauth1", provider_name)
+            eq_("token", provider_token)
         
-        # Oauth 2
-        params = dict(code="foo", state="oauth2")
-        response = auth.oauth_callback(self._db, params)
-        eq_(0, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(1, oauth2.count)
-        eq_(200, response.status_code)
-        token = json.loads(response.data).get("access_token")
-        provider_name, provider_token = auth.decode_token(token)
-        eq_("oauth2", provider_name)
-        eq_("token", provider_token)
+            # Oauth 2
+            params = dict(code="foo", state="oauth2")
+            response = auth.oauth_callback(self._db, params)
+            eq_(0, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(1, oauth2.count)
+            eq_(200, response.status_code)
+            token = json.loads(response.data).get("access_token")
+            provider_name, provider_token = auth.decode_token(token)
+            eq_("oauth2", provider_name)
+            eq_("token", provider_token)
 
     def test_patron_info(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
 
-        # Check that the correct auth provider is called.
-        basic_auth = DummyAuthAPI()
-        oauth1 = DummyAuthAPI()
-        oauth1.NAME = "oauth1"
-        oauth2 = DummyAuthAPI()
-        oauth2.NAME = "oauth2"
+            # Check that the correct auth provider is called.
+            basic_auth = DummyAuthAPI()
+            oauth1 = DummyAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyAuthAPI()
+            oauth2.NAME = "oauth2"
 
-        auth = Authenticator.initialize(self._db, test=True)
-        auth.basic_auth_provider = basic_auth
-        auth.oauth_providers = [oauth1, oauth2]
-        
-        # Basic auth
-        header = dict(username="foo", password="bar")
-        auth.patron_info(header)
-        eq_(1, basic_auth.count)
-        eq_(0, oauth1.count)
-        eq_(0, oauth2.count)
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+            
+            # Basic auth
+            header = dict(username="foo", password="bar")
+            auth.patron_info(header)
+            eq_(1, basic_auth.count)
+            eq_(0, oauth1.count)
+            eq_(0, oauth2.count)
 
-        # Oauth 1
-        token = auth.create_token("oauth1", "token")
-        header = "Bearer: %s" % token
-        auth.patron_info(header)
-        eq_(1, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(0, oauth2.count)
+            # Oauth 1
+            token = auth.create_token("oauth1", "token")
+            header = "Bearer: %s" % token
+            auth.patron_info(header)
+            eq_(1, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(0, oauth2.count)
 
-        # Oauth 2
-        token = auth.create_token("oauth2", "token")
-        header = "Bearer: %s" % token
-        auth.patron_info(header)
-        eq_(1, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(1, oauth2.count)
+            # Oauth 2
+            token = auth.create_token("oauth2", "token")
+            header = "Bearer: %s" % token
+            auth.patron_info(header)
+            eq_(1, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(1, oauth2.count)
 
