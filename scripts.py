@@ -533,11 +533,10 @@ class CompileTranslationsScript(Script):
 
     def run(self):
         languages = Configuration.localization_languages()
-        for language3 in languages:
-            language = LanguageCodes.three_to_two[language3]
+        for language in languages:
             base_path = "translations/%s/LC_MESSAGES" % language
             if not os.path.exists(base_path):
-                logging.warn("No translations for configured language %s" % language3)
+                logging.warn("No translations for configured language %s" % language)
                 continue
 
             os.system("rm %(path)s/messages.po" % dict(path=base_path))

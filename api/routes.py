@@ -17,7 +17,6 @@ from core.app_server import (
     returns_problem_detail,
 )
 from core.util.problem_detail import ProblemDetail
-from core.util import LanguageCodes
 from opds import (
     CirculationManagerAnnotator,
 )
@@ -65,7 +64,7 @@ Flask.try_trigger_before_first_request_functions = monkeypatch_try_trigger_befor
 
 @babel.localeselector
 def get_locale():
-    languages = [LanguageCodes.three_to_two[l] for l in Configuration.localization_languages()]
+    languages = Configuration.localization_languages()
     return request.accept_languages.best_match(languages)
 
 h = ErrorHandler(app, app.config['DEBUG'])
