@@ -3,6 +3,7 @@
 As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/
 """
 import json as j
+import logging
 from flask.ext.babel import LazyString
 
 JSON_MEDIA_TYPE = "application/api-problem+json"
@@ -56,9 +57,9 @@ class ProblemDetail(object):
         # Title and detail must be LazyStrings from Flask-Babel that are
         # localized when they are first used as strings.
         if title and not isinstance(title, LazyString):
-            raise Exception("\"%s\" has not been internationalized" % title)
+            logging.warn("\"%s\" has not been internationalized" % title)
         if detail and not isinstance(detail, LazyString):
-            raise Exception("\"%s\" has not been internationalized" % detail)
+            logging.warn("\"%s\" has not been internationalized" % detail)
 
         return ProblemDetail(
             self.uri, status_code or self.status_code, title or self.title, 
