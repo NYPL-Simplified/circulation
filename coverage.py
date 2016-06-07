@@ -60,7 +60,7 @@ class CoverageProvider(object):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
 
-        if not isinstance(input_identifier_types, list):
+        if input_identifier_types and not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
         self.output_source_name = output_source.name

@@ -2263,6 +2263,144 @@ class TestWorkConsolidation(DatabaseTest):
             WorkCoverageRecord.work_id==work1.id).all()
         )
 
+    def test_open_access_for_permanent_work_id_fixes_mismatched_works_incidentally(self):
+
+        # Here's a work with two open-access LicensePools for the book "abcd".
+        work1 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [abcd_1] = work1.license_pools
+        edition, abcd_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work1.license_pools.append(abcd_2)
+
+        # Unfortunately, due to an earlier error, that work also
+        # contains a _third_ open-access LicensePool, and this one
+        # belongs to a totally separate book, "efgh".
+        edition, efgh = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work1.license_pools.append(efgh)
+
+        # Here's another work with an open-access LicensePool for the
+        # book "abcd".
+        work2 = self._work(with_license_pool=True, 
+                           with_open_access_download=True)
+        [abcd_3] = work2.license_pools
+
+        # Unfortunately, this work also contains an open-access Licensepool 
+        # for the totally separate book, 'ijkl".
+        edition, ijkl = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work2.license_pools.append(ijkl)
+
+        # Mock the permanent work IDs for all the presentation
+        # editions in play.
+        def mock_pwid_abcd(debug=False):
+            return "abcd"
+
+        def mock_pwid_efgh(debug=False):
+            return "efgh"
+
+        def mock_pwid_ijkl(debug=False):
+            return "ijkl"
+
+        for lp in abcd_1, abcd_2, abcd_3:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid_abcd
+            lp.presentation_edition.permanent_work_id = 'abcd'
+
+        efgh.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
+        efgh.presentation_edition.permanent_work_id = 'efgh'
+
+        ijkl.presentation_edition.calculate_permanent_work_id = mock_pwid_ijkl
+        ijkl.presentation_edition.permanent_work_id = 'ijkl'
+
+        # Calling Work.open_access_for_permanent_work_id()
+        # automatically kicks the 'efgh' and 'ijkl' LicensePools into
+        # their own works, and merges the second 'abcd' work with the
+        # first one. (The first work is chosen because it represents
+        # two LicensePools for 'abcd', not just one.)
+        abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd"
+        )
+        efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
+            self._db, "efgh"
+        )
+        ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
+            self._db, "ijkl"
+        )
+
+        # We've got three different works here. The 'abcd' work is the
+        # old 'abcd' work that had three LicensePools--the other work
+        # was merged into it.
+        eq_(abcd_1.work, abcd_work)
+        assert efgh_work != abcd_work
+        assert ijkl_work != abcd_work
+        assert ijkl_work != efgh_work
+
+        # The two 'new' works (for efgh and ijkl) are not counted as
+        # new because they were created during the first call to
+        # Work.open_access_for_permanent_work_id, when those
+        # LicensePools were split out of Works where they didn't
+        # belong.
+        eq_(False, efgh_new)
+        eq_(False, ijkl_new)
+
+        eq_([ijkl], ijkl_work.license_pools)
+        eq_([efgh], efgh_work.license_pools)
+        eq_(3, len(abcd_work.license_pools))
+
+    def test_open_access_for_permanent_work_id_avoids_infinite_loop(self):
+
+        # Here's are three works for the books "abcd", "efgh", and "ijkl".
+        abcd_work = self._work(with_license_pool=True, 
+                               with_open_access_download=True)
+        [abcd_1] = abcd_work.license_pools
+
+        efgh_work = self._work(with_license_pool=True, 
+                               with_open_access_download=True)
+        [efgh_1] = efgh_work.license_pools
+
+        # Unfortunately, due to an earlier error, the 'abcd' work
+        # contains a LicensePool for 'efgh', and the 'efgh' work contains
+        # a LicensePool for 'abcd'.
+        #
+        # (This is pretty much impossible, but bear with me...)
+
+        edition, abcd_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        efgh_work.license_pools.append(abcd_2)
+
+        edition, efgh_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        abcd_work.license_pools.append(efgh_2)
+
+        def mock_pwid_abcd(debug=False):
+            return "abcd"
+
+        for lp in abcd_1, abcd_2:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid_abcd
+            lp.presentation_edition.permanent_work_id = 'abcd'
+
+        def mock_pwid_efgh(debug=False):
+            return "efgh"
+
+        for lp in efgh_1, efgh_2:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
+            lp.presentation_edition.permanent_work_id = 'efgh'
+
+        # Calling Work.open_access_for_permanent_work_id() raises an
+        # exception. We can't untangle the loop (for now) but at least
+        # it doesn't put us into an infinite loop.
+        assert_raises_regexp(
+            ValueError,
+            "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
+            Work.open_access_for_permanent_work_id, self._db, "abcd"
+        )
+
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
         work1 = self._work(with_license_pool=True, 
@@ -2298,7 +2436,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         assert_raises_regexp(
             ValueError,
-            "Refusing to merge .* into .* because it has permanent work IDs not present in the target work: abcd",
+            "Refusing to merge .* into .* because permanent work IDs don't match: abcd vs. efgh",
             work1.merge_into, 
             work2
         )
