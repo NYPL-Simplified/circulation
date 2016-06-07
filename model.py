@@ -3232,10 +3232,10 @@ class Work(Base):
         my_pwids = self.pwids
         other_pwids = other_work.pwids
         if not my_pwids == other_pwids:
-            difference = my_pwids.symmetric_difference(other_pwids)
             raise ValueError(
-                "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s" % (
-                    self, other_work, ",".join(difference)
+                "Refusing to merge %r into %r because permanent work IDs don't match: %s vs. %s" % (
+                    self, other_work, ",".join(sorted(my_pwids)),
+                    ",".join(sorted(other_pwids))
                 )
             )
 

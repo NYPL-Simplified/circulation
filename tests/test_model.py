@@ -2397,7 +2397,7 @@ class TestWorkConsolidation(DatabaseTest):
         # it doesn't put us into an infinite loop.
         assert_raises_regexp(
             ValueError,
-            "Refusing to merge .* into .* because it has permanent work IDs not present in the target work: efgh",
+            "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
             Work.open_access_for_permanent_work_id, self._db, "abcd"
         )
 
@@ -2436,7 +2436,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         assert_raises_regexp(
             ValueError,
-            "Refusing to merge .* into .* because it has permanent work IDs not present in the target work: abcd",
+            "Refusing to merge .* into .* because permanent work IDs don't match: abcd vs. efgh",
             work1.merge_into, 
             work2
         )
