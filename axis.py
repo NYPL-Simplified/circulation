@@ -333,8 +333,16 @@ class BibliographicParser(Axis360Parser):
                 string, "//axis:title", self.NS):
             yield i
 
-    def extract_availability(self, element, ns):
-        primary_identifier = self.text_of_subtag(element, 'axis:titleId', ns)
+    def extract_availability(self, circulation_data, element, ns):
+        identifier = self.text_of_subtag(element, 'axis:titleId', ns)
+        primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
+
+        if not circulation_data: 
+            circulation_data = CirculationData(
+                data_source=DataSource.AXIS_360, 
+                primary_identifier=primary_identifier, 
+            )
+
         availability = self._xpath1(element, 'axis:availability', ns)
         total_copies = self.int_of_subtag(availability, 'axis:totalCopies', ns)
         available_copies = self.int_of_subtag(
@@ -354,14 +362,13 @@ class BibliographicParser(Axis360Parser):
             availability_updated = datetime.datetime.strptime(
                     availability_updated, self.FULL_DATE_FORMAT)
 
-        return CirculationData(
-            data_source=DataSource.AXIS_360, 
-            primary_identifier=primary_identifier, 
-            licenses_owned=total_copies,
-            licenses_available=available_copies,
-            licenses_reserved=0,
-            patrons_in_hold_queue=size_of_hold_queue,
-        )
+        circulation_data.licenses_owned=total_copies
+        circulation_data.licenses_available=available_copies
+        circulation_data.licenses_reserved=0
+        circulation_data.patrons_in_hold_queue=size_of_hold_queue
+
+        return circulation_data
+
 
     # Axis authors with a special role have an abbreviation after their names,
     # e.g. "San Ruby (FRW)"
@@ -523,9 +530,16 @@ class BibliographicParser(Axis360Parser):
             bibliographic = self.extract_bibliographic(element, ns)
         else:
             bibliographic = None
+
+        passed_availability = None
+        if bibliographic and bibliographic.circulation:
+            passed_availability = bibliographic.circulation
+
         if self.include_availability:
-            availability = self.extract_availability(element, ns)
+            availability = self.extract_availability(circulation_data=passed_availability, element=element, ns=ns)
         else:
             availability = None
+
         return bibliographic, availability
+
 

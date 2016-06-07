@@ -2051,7 +2051,6 @@ class TestWorkConsolidation(DatabaseTest):
         # The LicensePool we called calculate_work() on gets to stay
         # in the Work, but the other two have been kicked out and
         # given their own works.
-        set_trace()
         assert abcd_commercial_2.work != work
         assert abcd_open_access.work != work
 

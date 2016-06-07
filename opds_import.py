@@ -475,7 +475,8 @@ class OPDSImporter(object):
 
             circ_links_dict = {}
             # extract just the links to pass to CirculationData constructor
-            circ_links_dict['links'] = xml_data_dict['links']
+            if 'links' in xml_data_dict:
+                circ_links_dict['links'] = xml_data_dict['links']
             combined_circ = self.combine(c_data_dict, circ_links_dict)
             if combined_circ.get('data_source') is None:
                 combined_circ['data_source'] = self.data_source_name

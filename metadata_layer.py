@@ -672,7 +672,7 @@ class CirculationData(MetaToModelUtility):
                 _db, RightsStatus, uri=self.default_rights_uri
             )
 
-            last_checked = datetime.datetime.utcnow()
+            last_checked = self.last_checked or datetime.datetime.utcnow()
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
@@ -738,7 +738,7 @@ class CirculationData(MetaToModelUtility):
         """  Update the passed-in license pool with this CirculationData's information.
         """
         made_changes = False
-
+        
         if pool is None:
             raise ValueError("CirculationData.apply needs a pool.")
 
@@ -815,7 +815,7 @@ class CirculationData(MetaToModelUtility):
                 # CirculationData object in the bibliographic parser for a 3m log, then 
                 # check if that log update value is after the license pool's current knowledge, 
                 # and only update license infos if new information is really new.
-                if (pool.last_checked and (self.last_checked > pool.last_checked)):
+                if (pool.last_checked and (self.last_checked >= pool.last_checked)):
                     # Update availabily information. This may result in the issuance
                     # of additional events.
                     changed_licenses = pool.update_availability(
@@ -1107,89 +1107,6 @@ class Metadata(MetaToModelUtility):
             self.primary_identifier.identifier,
             create_if_not_exists=create_if_not_exists
         )
-
-
-    def set_default_rights_uri(self, data_source):
-        if self.rights_uri == None and data_source:
-            # We haven't been able to determine rights from the metadata, so use the default rights
-            # for the data source if any.
-            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
-            if default:
-                self.rights_uri = default
-
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights from the metadata or the data source, but there's an
-                    # open access download link, so we'll consider it generic open access.
-                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
-
-        if self.rights_uri == None:
-            # We still haven't determined rights, so it's unknown.
-            self.rights_uri = RightsStatus.UNKNOWN
-
-    def license_pool(self, _db):
-        if not self.primary_identifier:
-            raise ValueError(
-                "Cannot find license pool: metadata has no primary identifier."
-            )
-
-        license_pool = None
-        is_new = False
-
-        identifier_obj, ignore = self.primary_identifier.load(_db)
-
-        metadata_data_source = self.data_source(_db)
-        license_data_source = self.license_data_source(_db)
-
-        self.set_default_rights_uri(metadata_data_source)
-        if license_data_source:
-            can_create_new_pool = True
-            check_for_licenses_from = [license_data_source]
-        else:
-            check_for_licenses_from = DataSource.license_sources_for(
-                _db, identifier_obj
-            ).all()
-            if len(check_for_licenses_from) == 1:
-                # Since there is only one source for this kind of book,
-                # we can create a new license pool if necessary.
-                can_create_new_pool = True
-                self.license_data_source_obj = check_for_licenses_from[0]
-            elif metadata_data_source in check_for_licenses_from:
-                # We can assume that the license comes from the same
-                # source as the metadata.
-                self.license_data_source_obj = metadata_data_source
-                can_create_new_pool = True
-            else:
-                # We might be able to find an existing license pool
-                # for this book, but we won't be able to create a new
-                # one, because we don't know who's responsible for the
-                # book.
-                can_create_new_pool = False
-
-        license_data_source = self.license_data_source(_db)
-        for potential_data_source in check_for_licenses_from:
-            license_pool = get_one(
-                _db, LicensePool, data_source=potential_data_source,
-                identifier=identifier_obj
-            )
-            if license_pool:
-                break
-
-        if not license_pool and can_create_new_pool:
-            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
-            license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.license_data_source_obj,
-                self.primary_identifier.type,
-                self.primary_identifier.identifier,
-                rights_status=rights_status,
-            )
-            if self.has_open_access_link:
-                license_pool.open_access = True
-            if self.rights_uri:
-                license_pool.set_rights_status(self.rights_uri)
-        return license_pool, is_new
 
 
     def consolidate_identifiers(self):

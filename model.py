@@ -5550,20 +5550,11 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
-        set_trace()
-        if (known_edition and known_edition.license_pool != self):
-            raise ValueError(
-                "Primary edition's license pool is not the license pool for which work is being calculated!")
-
-        self.set_presentation_edition(None)
-
-        presentation_edition = known_edition or self.presentation_edition
-
-        if self.work:
-            # The work has already been done. Make sure the work's
-            # display is up to date.
-            self.work.calculate_presentation()
-            return self.work, False
+        if known_edition:
+            presentation_edition = known_edition
+        else:
+            self.set_presentation_edition(None)
+            presentation_edition = self.presentation_edition
 
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
@@ -5606,7 +5597,6 @@ class LicensePool(Base):
         work = None
         is_new = False
         licensepools_changed = False
-        set_trace()
         if self.open_access and presentation_edition.permanent_work_id:
             # This is an open-access book. Use the Work for all
             # open-access books associated with this book's permanent

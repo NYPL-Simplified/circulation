@@ -551,7 +551,7 @@ class TestOPDSImporter(OPDSImporterTest):
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
-        # No books were imported.
+        # Only one book was imported, the other failed.
         eq_(1, len(imported_editions))
 
         # The other failed to import, and became a StatusMessage
