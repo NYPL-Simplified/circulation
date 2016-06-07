@@ -3138,8 +3138,19 @@ class Work(Base):
                 # earlier.  (This is why we chose the work with the
                 # most LicensePools--it minimizes the disruption
                 # here.)
+
+                # First, make sure this Work is the exclusive
+                # open-access work for its permanent work ID. 
+                # Otherwise the merge may fail.
+                work.make_exclusive_open_access_for_permanent_work_id(pwid)
                 for needs_merge in licensepools_for_work.keys():
                     if needs_merge != work:
+
+                        # Make sure that Work we're about to merge has
+                        # nothing but LicensePools whose permanent
+                        # work ID matches the permanent work ID of the
+                        # Work we're about to merge into.
+                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid)
                         needs_merge.merge_into(work)
             
         # At this point we have one, and only one, Work for this
@@ -3156,6 +3167,11 @@ class Work(Base):
         to a different Work. LicensePools with no presentation edition
         and no PWID are left alone. (TODO: although maybe they should
         be kicked out.)
+
+        In most cases this Work will be the _only_ work for this PWID,
+        but inside open_access_for_permanent_work_id this is called as
+        a preparatory step for merging two Works, and after the call
+        (but before the merge) there may be two Works for a given PWID.
         """
         _db = Session.object_session(self)
         for pool in list(self.license_pools):
@@ -3208,14 +3224,15 @@ class Work(Base):
             for pool in w.license_pools:
                 if not pool.open_access:
                     raise ValueError(
+
                         "Refusing to merge %r into %r because it would put an open-access LicensePool into the same work as a non-open-access LicensePool." %
                         (self, other_work)
                         )
 
         my_pwids = self.pwids
         other_pwids = other_work.pwids
-        if not my_pwids.issubset(other_pwids):
-            difference = my_pwids.difference(other_pwids)
+        if not my_pwids == other_pwids:
+            difference = my_pwids.symmetric_difference(other_pwids)
             raise ValueError(
                 "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s" % (
                     self, other_work, ",".join(difference)
