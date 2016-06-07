@@ -785,6 +785,43 @@ class TestWorkController(CirculationControllerTest):
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
 
+    def test_series(self):
+        # If the edition doesn't have a series, a ProblemDetail is returned.
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        # If the edition is in a series without other volumes, an empty feed
+        # is returned.
+        self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_('Other Books in the Like As If Whatever Mysteries series', feed['feed']['title'])
+        eq_([], feed['entries'])
+
+        # Remove cache.
+        [cached_empty_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_empty_feed)
+        # When other volumes present themselves, the feed has entries.
+        other_volume = self.english_2.license_pools[0].presentation_edition
+        other_volume.series = "Like As If Whatever Mysteries"
+
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(self.english_2.title, entry['title'])
 
 class TestFeedController(CirculationControllerTest):
 

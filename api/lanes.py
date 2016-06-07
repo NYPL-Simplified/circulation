@@ -374,17 +374,56 @@ def lane_for_other_languages(_db, exclude_languages):
     lane.default_for_language = True
     return lane
 
+class LicensePoolBasedLane(Lane):
+    """A lane based on a particular LicensePool"""
 
-class RecommendationLane(Lane):
-    """A lane of works recommended for a particular work"""
+    DISPLAY_NAME = None
+    MAX_CACHE_AGE = 14*24*60*60      # two weeks
 
+    def __init__(self, _db, license_pool, full_name, display_name=None):
+        self.license_pool = license_pool
+        display_name = display_name or self.DISPLAY_NAME
+        super(LicensePoolBasedLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+    def apply_filters(self, qu, facets=None, pagination=None,
+            work_model=Work, edition_model=Edition):
+        """Incorporates additional filters to be run on a query of all Works
+        in the db or materialized view
+        """
+        raise NotImplementedError()
+
+
+class SeriesLane(LicensePoolBasedLane):
+    """A lane of Works in a series based on a particular LicensePool"""
+
+    DISPLAY_NAME = "Other Books in this Series"
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+            edition_model=Edition):
+        edition = self.license_pool.presentation_edition
+        series = edition.series
+        if not series:
+            return None
+
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        qu = qu.filter(
+            Edition.series==series,
+            Edition.id!=edition.id
+        )
+        return qu
+
+
+class RecommendationLane(LicensePoolBasedLane):
+    """A lane of recommended Works based on a particular LicensePool"""
+
+    DISPLAY_NAME = "Related Works"
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
             mock_api=None):
-        self.license_pool = license_pool
         self.api = mock_api or NoveListAPI.from_config(_db)
-        display_name = display_name or "Related Works"
         super(RecommendationLane, self).__init__(
             _db, full_name, display_name=display_name
         )

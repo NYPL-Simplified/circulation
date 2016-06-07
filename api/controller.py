@@ -82,6 +82,7 @@ from config import (
 from lanes import (
     make_lanes,
     RecommendationLane,
+    SeriesLane,
 )
 
 from adobe_vendor_id import AdobeVendorIDController
@@ -839,6 +840,43 @@ class WorkController(CirculationManagerController):
         data = flask.request.data
         controller = ComplaintController()
         return controller.register(pool, data)
+
+    def series(self, data_source, identifier_type, identifier):
+        """Serve a feed of books in the same series as a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        edition = pool.presentation_edition
+        series = edition.series
+        if not series:
+            return NO_SUCH_LANE.detailed("%s is not in a series" % edition.title)
+
+        feed_title = self._series_feed_title(series)
+        lane = SeriesLane(self._db, pool, feed_title)
+        use_materialized_works = not self.manager.testing
+        url = self.cdn_url_for(
+            'series', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.page(
+            self._db, feed_title, url, lane,
+            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE,
+            use_materialized_works=use_materialized_works
+        )
+
+        return feed_response(unicode(feed.content))
+
+    def _series_feed_title(self, series_title):
+        feed_title = "Other Books in "
+        if series_title[:3].lower() != 'the':
+            feed_title += "the "
+        feed_title += series_title
+        if series_title.lower().endswith(' series'):
+            return feed_title
+        return feed_title + ' series'
 
 
 class AnalyticsController(CirculationManagerController):
