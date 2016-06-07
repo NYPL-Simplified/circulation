@@ -13,6 +13,7 @@ from flask_sqlalchemy_session import flask_scoped_session
 from sqlalchemy.orm import sessionmaker
 from config import Configuration
 from core.model import SessionManager
+from core.util import LanguageCodes
 from flask.ext.babel import Babel
 
 app = Flask(__name__)
@@ -24,7 +25,7 @@ session_factory = SessionManager.sessionmaker(db_url)
 _db = flask_scoped_session(session_factory, app)
 SessionManager.initialize_data(_db)
 
-app.config['BABEL_DEFAULT_LOCALE'] = 'en'
+app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.localization_languages()[0]]
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
 
