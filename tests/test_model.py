@@ -2351,6 +2351,56 @@ class TestWorkConsolidation(DatabaseTest):
         eq_([efgh], efgh_work.license_pools)
         eq_(3, len(abcd_work.license_pools))
 
+    def test_open_access_for_permanent_work_id_avoids_infinite_loop(self):
+
+        # Here's are three works for the books "abcd", "efgh", and "ijkl".
+        abcd_work = self._work(with_license_pool=True, 
+                               with_open_access_download=True)
+        [abcd_1] = abcd_work.license_pools
+
+        efgh_work = self._work(with_license_pool=True, 
+                               with_open_access_download=True)
+        [efgh_1] = efgh_work.license_pools
+
+        # Unfortunately, due to an earlier error, the 'abcd' work
+        # contains a LicensePool for 'efgh', and the 'efgh' work contains
+        # a LicensePool for 'abcd'.
+        #
+        # (This is pretty much impossible, but bear with me...)
+
+        edition, abcd_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        efgh_work.license_pools.append(abcd_2)
+
+        edition, efgh_2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        abcd_work.license_pools.append(efgh_2)
+
+        def mock_pwid_abcd(debug=False):
+            return "abcd"
+
+        for lp in abcd_1, abcd_2:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid_abcd
+            lp.presentation_edition.permanent_work_id = 'abcd'
+
+        def mock_pwid_efgh(debug=False):
+            return "efgh"
+
+        for lp in efgh_1, efgh_2:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
+            lp.presentation_edition.permanent_work_id = 'efgh'
+
+        # Calling Work.open_access_for_permanent_work_id() raises an
+        # exception. We can't untangle the loop (for now) but at least
+        # it doesn't put us into an infinite loop.
+        assert_raises_regexp(
+            ValueError,
+            "Refusing to merge .* into .* because it has permanent work IDs not present in the target work: efgh",
+            Work.open_access_for_permanent_work_id, self._db, "abcd"
+        )
+
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
         work1 = self._work(with_license_pool=True, 
