@@ -9,7 +9,7 @@ from werkzeug import ImmutableMultiDict, MultiDict
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
-from api.problem_details import *
+from api.admin.problem_details import *
 from api.admin.config import (
     Configuration,
     temp_config,

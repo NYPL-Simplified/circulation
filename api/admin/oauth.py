@@ -1,7 +1,7 @@
 import json
 from nose.tools import set_trace
 
-from api.problem_details import GOOGLE_OAUTH_FAILURE
+from problem_details import GOOGLE_OAUTH_FAILURE
 from config import Configuration
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
@@ -51,8 +51,10 @@ class GoogleAuthService(object):
 
         # ProblemDetail.detailed requires the detail to be an internationalized
         # string, so pass the combined string through _ as well even though the
-        # components were translated already.
-        error_detail = _(str(GOOGLE_OAUTH_FAILURE.detail) + " " + str(error_detail))
+        # components were translated already. Space is a variable so it doesn't
+        # end up in the translation template.
+        space = " "
+        error_detail = _(str(GOOGLE_OAUTH_FAILURE.detail) + space + str(error_detail))
 
         return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 

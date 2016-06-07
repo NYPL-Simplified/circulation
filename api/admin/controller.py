@@ -29,7 +29,7 @@ from core.model import (
     WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
-from api.problem_details import *
+from problem_details import *
 
 from config import (
     Configuration, 
