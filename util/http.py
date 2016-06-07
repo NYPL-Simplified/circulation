@@ -39,12 +39,12 @@ class RemoteIntegrationException(Exception):
 
     def document_detail(self, debug=True):
         if debug:
-            return str(self.detail) % dict(service=self.url)
-        return str(self.detail) % dict(service=self.service)
+            return _(str(self.detail), service=self.url)
+        return _(str(self.detail), service=self.service)
 
     def document_debug_message(self, debug=True):
         if debug:
-            return str(self.detail) % dict(service=self.url)
+            return _(str(self.detail), service=self.url)
         return None
 
     def as_problem_detail_document(self, debug):

@@ -9,7 +9,7 @@ import subprocess
 from lxml import etree
 from functools import wraps
 from flask import url_for, make_response
-from flask.ext.babel import gettext as _
+from flask.ext.babel import lazy_gettext as _
 from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
@@ -150,7 +150,7 @@ def load_pagination(size, offset):
     try:
         size = int(size)
     except ValueError:
-        return INVALID_INPUT.detailed(_("Invalid size: %(size)s", size=size))
+        return INVALID_INPUT.detailed(_("Invalid page size: %(size)s", size=size))
     size = min(size, 100)
     if offset:
         try:
@@ -224,7 +224,7 @@ class ErrorHandler(object):
                 body = tb
             else:
                 body = _('An internal error occured')
-            response = make_response(body, 500, {"Content-Type": "text/plain"})
+            response = make_response(str(body), 500, {"Content-Type": "text/plain"})
 
         log_method("Exception in web app: %s", exception, exc_info=exception)
         return response
@@ -481,4 +481,4 @@ class ComplaintController(object):
                 None, 400, _("Error registering complaint: %(error)s", error=str(e))
             )
 
-        return make_response(_("Success"), 201, {"Content-Type": "text/plain"})
+        return make_response(str(_("Success")), 201, {"Content-Type": "text/plain"})

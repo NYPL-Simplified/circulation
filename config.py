@@ -312,7 +312,7 @@ class Configuration(object):
 
     @classmethod
     def localization_languages(cls):
-        return cls.policy(cls.LOCALIZATION_LANGUAGES, default=["en"])
+        return cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
     
     @classmethod
     def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
