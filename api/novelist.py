@@ -380,7 +380,6 @@ class NoveListCoverageProvider(CoverageProvider):
         return DataSource.lookup(self._db, DataSource.NOVELIST)
 
     def process_item(self, identifier):
-
         metadata, ignore = self.api.lookup(identifier)
         if not metadata:
             # Either NoveList didn't recognize the identifier or
@@ -392,6 +391,23 @@ class NoveListCoverageProvider(CoverageProvider):
             self.output_source, metadata.primary_identifier,
             strength=1
         )
+        # Create an edition with the NoveList metadata and identifier
         edition, ignore = metadata.edition(self._db)
         metadata.apply(edition)
+        if edition.series or edition.series_position:
+            # Place any missing series data that NoveList gathered into this
+            # identifier's edition.
+            self._apply_series_data(
+                identifier, edition.series, edition.series_position
+            )
+
         return identifier
+
+    def _apply_series_data(self, identifier, series, series_position):
+        """Provides series data on the given identifier"""
+        licensed_edition = self.edition(identifier)
+        if licensed_edition:
+            if series and not licensed_edition.series:
+                licensed_edition.series = series
+            if series_position and not licensed_edition.series_position:
+                licensed_edition.series_position = series_position

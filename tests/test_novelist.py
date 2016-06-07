@@ -269,3 +269,37 @@ class TestNoveListCoverageProvider(DatabaseTest):
         eq_(u"The Great American Novel", edition.title)
         equivalents = [eq.output for eq in identifier.equivalencies]
         eq_(True, metadata.primary_identifier in equivalents)
+
+    def test_apply_series_data(self):
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+        series = "A Series of Unfortunate Events"
+
+        # With no series information, an edition is updated with a series.
+        self.novelist._apply_series_data(identifier, series, 6)
+        eq_(work.presentation_edition.series, series)
+        eq_(work.presentation_edition.series_position, 6)
+
+        # If the edition already has series information, no changes are made.
+        self.novelist._apply_series_data(identifier, "Just Books", 8)
+        eq_(work.presentation_edition.series, series)
+        eq_(work.presentation_edition.series_position, 6)
+
+        # If only one field is empty, that field will be updated.
+        work.presentation_edition.series = "Like Whatever As If Mysteries"
+        work.presentation_edition.series_position = None
+        self.novelist._apply_series_data(identifier, "HI", 22)
+        eq_(work.presentation_edition.series, "Like Whatever As If Mysteries")
+        eq_(work.presentation_edition.series_position, 22)
+
+        work.presentation_edition.series = None
+        work.presentation_edition.series_position = 13
+        self.novelist._apply_series_data(identifier, series, 1)
+        eq_(work.presentation_edition.series, series)
+        eq_(work.presentation_edition.series_position, 13)
+
+        # If no series information is passed, nothing happens and everything
+        # is fine.
+        self.novelist._apply_series_data(identifier, None, None)
+        eq_(work.presentation_edition.series, series)
+        eq_(work.presentation_edition.series_position, 13)

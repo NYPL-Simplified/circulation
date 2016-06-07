@@ -121,7 +121,6 @@ class TestLaneCreation(DatabaseTest):
             lane = lane_for_other_languages(self._db, exclude)
             eq_(None, lane)
 
-
     def test_make_lanes_default(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -151,4 +150,3 @@ class TestLaneCreation(DatabaseTest):
             eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
                 [x.display_name for x in english_lane.sublanes.lanes]
             )
-
