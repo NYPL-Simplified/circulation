@@ -274,7 +274,7 @@ class TestAnnotators(DatabaseTest):
         alternative_headline = feed['entries'][0]['schema_alternativeheadline']
         eq_(work.presentation_edition.subtitle, alternative_headline)
 
-        # If there's no series title, the series tag isn't included.
+        # If there's no subtitle, the subtitle tag isn't included.
         work.presentation_edition.subtitle = None
         work.calculate_opds_entries()
         raw_feed = unicode(AcquisitionFeed(
