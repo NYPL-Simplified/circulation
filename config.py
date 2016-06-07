@@ -7,6 +7,7 @@ import logging
 import copy
 from facets import FacetConstants as Facets
 from analytics import Analytics
+from util import LanguageCodes
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -312,7 +313,8 @@ class Configuration(object):
 
     @classmethod
     def localization_languages(cls):
-        return cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
+        languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
+        return [LanguageCodes.three_to_two[l] for l in languages]
     
     @classmethod
     def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
