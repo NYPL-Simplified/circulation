@@ -513,6 +513,15 @@ class TestCoverageProvider(DatabaseTest):
             operations()
         )
 
+    def test_no_input_identifier_types(self):
+        # It's okay to pass in None to the constructor--it means you
+        # are looking for all identifier types.
+        provider = AlwaysSuccessfulCoverageProvider(
+            "Always successful", None, self.output_source
+        )
+        eq_(None, provider.input_identifier_types)
+
+
 class TestBibliographicCoverageProvider(DatabaseTest):
 
     BIBLIOGRAPHIC_DATA = Metadata(
@@ -669,4 +678,3 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         ed, lp = self._edition(with_license_pool=True)
         result = provider.set_presentation_ready(ed.primary_identifier)
         eq_(result, ed.primary_identifier)
-
