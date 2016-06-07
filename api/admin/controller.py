@@ -9,7 +9,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import gettext as _
+from flask.ext.babel import lazy_gettext as _
 
 from core.model import (
     get_one,

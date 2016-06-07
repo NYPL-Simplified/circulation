@@ -6,6 +6,7 @@ from threading import Thread
 import logging
 import re
 import time
+from flask.ext.babel import lazy_gettext as _
 
 from core.model import (
     get_one,
@@ -247,7 +248,7 @@ class CirculationAPI(object):
                 # people waiting in line for them to return the book,
                 # so renewals are not allowed.
                 raise CannotRenew(
-                    "You cannot renew a loan if other patrons have the work on hold."
+                    _("You cannot renew a loan if other patrons have the work on hold.")
                 )
             else:
                 # That's fine, we'll just (try to) place a hold.
@@ -340,12 +341,12 @@ class CirculationAPI(object):
                     sync_on_failure=False
                 )
             else:
-                raise NoActiveLoan("Cannot find your active loan for this work.")
+                raise NoActiveLoan(_("Cannot find your active loan for this work."))
         if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism:
             raise DeliveryMechanismConflict(
-                "You already fulfilled this loan as %s, you can't also do it as %s" 
-                % (loan.fulfillment.delivery_mechanism.name, 
-                   delivery_mechanism.delivery_mechanism.name)
+                _("You already fulfilled this loan as %(loan_delivery_mechanism)s, you can't also do it as %(requested_delivery_mechanism)s",
+                  loan_delivery_mechanism=loan.fulfillment.delivery_mechanism.name, 
+                  requested_delivery_mechanism=delivery_mechanism.delivery_mechanism.name)
             )
 
         if licensepool.open_access:
@@ -653,6 +654,6 @@ class BaseCirculationAPI(object):
         internal_format = self.delivery_mechanism_to_internal_format.get(key)
         if not internal_format:
             raise DeliveryMechanismError(
-                "Could not map Simplified delivery mechanism %s to internal delivery mechanism!" % d.name
+                _("Could not map Simplified delivery mechanism %(mechanism_name)s to internal delivery mechanism!", mechanism_name=d.name)
             )
         return internal_format

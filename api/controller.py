@@ -13,7 +13,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import gettext as _
+from flask.ext.babel import lazy_gettext as _
 
 from core.app_server import (
     entry_response,
@@ -808,7 +808,7 @@ class WorkController(CirculationManagerController):
             lane = RecommendationLane(self._db, pool, lane_name, mock_api=mock_api)
         except ValueError, e:
             # NoveList isn't configured.
-            return NO_SUCH_LANE.detailed("Recommendations not available: %r" % e)
+            return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
         use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
