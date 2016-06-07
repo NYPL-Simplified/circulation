@@ -652,7 +652,7 @@ class TestLanesQuery(DatabaseTest):
         self.spanish.simple_opds_entry = '<entry>'
 
         # Refresh the materialized views so that all these books are present
-        # in the 
+        # in them.
         SessionManager.refresh_materialized_views(self._db)
 
     def test_lanes(self):

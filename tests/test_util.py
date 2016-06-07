@@ -7,12 +7,20 @@ from nose.tools import (
     set_trace,
 )
 
+from model import (
+    Identifier,
+    Edition
+)
+
+from . import DatabaseTest
+
 from util import (
     Bigrams,
     english_bigrams,
     LanguageCodes,
     MetadataSimilarity,
     TitleProcessor,
+    fast_query_count,
 )
 from util.opds_authentication_document import OPDSAuthenticationDocument
 from util.median import median
@@ -489,3 +497,34 @@ class TestMedian(object):
 
         test_set = [8, 82, 781233, 857, 290, 7, 8467]
         eq_(290, median(test_set))
+
+
+class TestFastQueryCount(DatabaseTest):
+
+    def test_no_distinct(self):
+        identifier = self._identifier()
+        qu = self._db.query(Identifier)
+        eq_(1, fast_query_count(qu))
+
+    def test_distinct(self):
+
+        e1 = self._edition(title="The title", authors="Author 1")
+        e2 = self._edition(title="The title", authors="Author 1")
+        e3 = self._edition(title="The title", authors="Author 2")
+        e4 = self._edition(title="Another title", authors="Author 1")
+
+        # Without the distinct clause, a query against Edition will
+        # return four editions.
+        qu = self._db.query(Edition)
+        eq_(qu.count(), fast_query_count(qu))
+
+        # If made distinct on Edition.author, the query will return only
+        # two editions.
+        qu2 = qu.distinct(Edition.author)
+        eq_(qu2.count(), fast_query_count(qu2))
+
+        # If made distinct on Edition.title _and_ Edition.author,
+        # the query will return three editions.
+        qu3 = qu.distinct(Edition.title, Edition.author)
+        eq_(qu3.count(), fast_query_count(qu3))
+

@@ -11,10 +11,11 @@ from collections import defaultdict
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
 from dateutil.parser import parse
-from sqlalchemy.sql.expression import and_
+from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from sqlalchemy.orm import aliased
 import csv
 import datetime
 import logging
@@ -29,6 +30,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    Equivalency,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -37,6 +39,7 @@ from model import (
     PresentationCalculationPolicy,
     RightsStatus,
     Representation,
+    Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
 
@@ -122,6 +125,7 @@ class ReplacementPolicy(object):
             formats=False,
             **args
         )
+
 
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
@@ -298,6 +302,7 @@ class IdentifierData(object):
             _db, self.type, self.identifier
         )
 
+
 class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, content=None,
                  thumbnail=None, rights_uri=None):
@@ -328,6 +333,7 @@ class LinkData(object):
             self.rel, self.href, self.media_type, thumbnail,
             content
         )
+
 
 class MeasurementData(object):
     def __init__(self,
@@ -513,8 +519,6 @@ class MetaToModelUtility(object):
 
 
 
-
-
 class CirculationData(MetaToModelUtility):
     """Information about actual copies of a book that can be delivered to
     patrons.
@@ -525,7 +529,7 @@ class CirculationData(MetaToModelUtility):
     Basically,
         Metadata : Edition :: CirculationData : Licensepool
     """
-
+    
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
@@ -850,8 +854,6 @@ class CirculationData(MetaToModelUtility):
         return pool, made_changes
 
 
-        
-
 
 class Metadata(MetaToModelUtility):
 
@@ -881,6 +883,7 @@ class Metadata(MetaToModelUtility):
             published=None,
             primary_identifier=None,
             identifiers=None,
+            recommendations=None,
             subjects=None,
             contributors=None,
             measurements=None,
@@ -918,6 +921,7 @@ class Metadata(MetaToModelUtility):
         if (self.primary_identifier
             and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
+        self.recommendations = recommendations or []
         self.subjects = subjects or []
         self.contributors = contributors or []
         self.measurements = measurements or []
@@ -1105,6 +1109,89 @@ class Metadata(MetaToModelUtility):
         )
 
 
+    def set_default_rights_uri(self, data_source):
+        if self.rights_uri == None and data_source:
+            # We haven't been able to determine rights from the metadata, so use the default rights
+            # for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
+            if default:
+                self.rights_uri = default
+
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights from the metadata or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
+
+        if self.rights_uri == None:
+            # We still haven't determined rights, so it's unknown.
+            self.rights_uri = RightsStatus.UNKNOWN
+
+    def license_pool(self, _db):
+        if not self.primary_identifier:
+            raise ValueError(
+                "Cannot find license pool: metadata has no primary identifier."
+            )
+
+        license_pool = None
+        is_new = False
+
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+
+        metadata_data_source = self.data_source(_db)
+        license_data_source = self.license_data_source(_db)
+
+        self.set_default_rights_uri(metadata_data_source)
+        if license_data_source:
+            can_create_new_pool = True
+            check_for_licenses_from = [license_data_source]
+        else:
+            check_for_licenses_from = DataSource.license_sources_for(
+                _db, identifier_obj
+            ).all()
+            if len(check_for_licenses_from) == 1:
+                # Since there is only one source for this kind of book,
+                # we can create a new license pool if necessary.
+                can_create_new_pool = True
+                self.license_data_source_obj = check_for_licenses_from[0]
+            elif metadata_data_source in check_for_licenses_from:
+                # We can assume that the license comes from the same
+                # source as the metadata.
+                self.license_data_source_obj = metadata_data_source
+                can_create_new_pool = True
+            else:
+                # We might be able to find an existing license pool
+                # for this book, but we won't be able to create a new
+                # one, because we don't know who's responsible for the
+                # book.
+                can_create_new_pool = False
+
+        license_data_source = self.license_data_source(_db)
+        for potential_data_source in check_for_licenses_from:
+            license_pool = get_one(
+                _db, LicensePool, data_source=potential_data_source,
+                identifier=identifier_obj
+            )
+            if license_pool:
+                break
+
+        if not license_pool and can_create_new_pool:
+            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
+            license_pool, is_new = LicensePool.for_foreign_id(
+                _db, self.license_data_source_obj,
+                self.primary_identifier.type,
+                self.primary_identifier.identifier,
+                rights_status=rights_status,
+            )
+            if self.has_open_access_link:
+                license_pool.open_access = True
+            if self.rights_uri:
+                license_pool.set_rights_status(self.rights_uri)
+        return license_pool, is_new
+
+
     def consolidate_identifiers(self):
         by_weight = defaultdict(list)
         for i in self.identifiers:
@@ -1163,7 +1250,6 @@ class Metadata(MetaToModelUtility):
                 potentials[lp] = confidence
                 success = True
         return success
-
 
 
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
@@ -1461,9 +1547,29 @@ class Metadata(MetaToModelUtility):
                     contributor_data.display_name
                 )
 
+    def filter_recommendations(self, _db):
+        """Filters out recommended identifiers that don't exist in the db.
+        Any IdentifierData objects will be replaced with Identifiers.
+        """
+
+        by_type = defaultdict(list)
+        for identifier in self.recommendations:
+            by_type[identifier.type].append(identifier.identifier)
+
+        self.recommendations = []
+        for type, identifiers in by_type.items():
+            existing_identifiers = _db.query(Identifier).\
+                filter(Identifier.type==type).\
+                filter(Identifier.identifier.in_(identifiers))
+            self.recommendations += existing_identifiers.all()
+
+        if self.primary_identifier in self.recommendations:
+            self.recommendations.remove(identifier_data)
+
 
 class CSVFormatError(csv.Error):
     pass
+
 
 class CSVMetadataImporter(object):
 
