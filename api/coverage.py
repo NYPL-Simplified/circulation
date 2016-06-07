@@ -140,7 +140,10 @@ class OPDSImportCoverageProvider(CoverageProvider):
         # id_mapping maps our local identifiers to identifiers the
         # foreign data source will reocgnize.
         id_mapping = self.create_identifier_mapping(batch)
-        foreign_identifiers = id_mapping.keys()
+        if id_mapping:
+            foreign_identifiers = id_mapping.keys()
+        else:
+            foreign_identifiers = batch
 
         response = self.lookup.lookup(foreign_identifiers)
 
@@ -346,7 +349,20 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             _db, DataSource.OA_CONTENT_SERVER
         )
         super(ContentServerBibliographicCoverageProvider, self).__init__(
-            service_name, lookup=lookup, output_source=output_source,
-            expect_license_pool=True, presentation_ready_on_success=True
+            service_name, input_identifier_types=None,
+            output_source=output_source, lookup=lookup,
+            expect_license_pool=True, presentation_ready_on_success=True,
             **kwargs
         )
+
+    @property
+    def items_that_need_coverage(self):
+        """Only identifiers associated with an open-access license
+        need coverage.
+        """
+        qu = super(ContentServerBibliographicCoverageProvider, 
+                   self).items_that_need_coverage
+        qu = qu.join(Identifier.licensed_through).filter(
+            LicensePool.open_access==True
+        )
+        return qu
