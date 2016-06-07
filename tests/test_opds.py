@@ -57,6 +57,7 @@ from classifier import (
 )
 from external_search import DummyExternalSearchIndex
 import xml.etree.ElementTree as ET
+from flask.ext.babel import lazy_gettext as _
 
 class TestAnnotator(Annotator):
 
@@ -735,8 +736,8 @@ class TestOPDS(DatabaseTest):
         """Test the ability to include messages (with HTTP-style status code)
         for a given URI in lieu of a proper ODPS entry.
         """
-        messages = { "urn:foo" : (400, "msg1"),
-                     "urn:bar" : (500, "msg2")}
+        messages = { "urn:foo" : (400, _("msg1")),
+                     "urn:bar" : (500, _("msg2"))}
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [], messages_by_urn=messages)
         parsed = feedparser.parse(unicode(feed))
