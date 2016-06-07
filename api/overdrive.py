@@ -511,7 +511,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
             return None, None, False
 
-        book.apply(json.loads(content))
+        #set_trace()
+        book.update(json.loads(content))
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
         if is_new:

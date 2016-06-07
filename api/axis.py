@@ -14,6 +14,7 @@ from core.axis import (
 
 from core.metadata_layer import (
     CirculationData,
+    ReplacementPolicy, 
 )
 
 from core.monitor import (
@@ -178,8 +179,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = bibliographic.license_pool(self._db)
-            availability.apply(pool, is_new)
+            pool, is_new = availability.license_pool(self._db)
+            availability.apply(pool)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -257,10 +258,23 @@ class Axis360CirculationMonitor(Monitor):
                 self._db.commit()
 
     def process_book(self, bibliographic, availability):
-        license_pool, new_license_pool = bibliographic.license_pool(self._db)
+        
+        license_pool, new_license_pool = availability.license_pool(self._db)
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
-        if new_license_pool or new_edition:
+        if new_license_pool:
+            policy = ReplacementPolicy(
+                subjects=True,
+                contributions=True,
+                formats=True,
+                identifiers=False,
+            )
+            availability.apply(
+                pool=license_pool, 
+                replace=policy,
+            )
+
+        if new_edition:
             bibliographic.apply(
                 edition, 
                 replace_identifiers=False,
@@ -269,6 +283,7 @@ class Axis360CirculationMonitor(Monitor):
                 replace_formats=True,
             )
 
+        if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by 
             # the Axis360BibliographicCoverageProvider. Register that the
             # work has been done so we don't have to do it again.
@@ -278,7 +293,6 @@ class Axis360CirculationMonitor(Monitor):
                 identifier
             )
             
-        availability.apply(license_pool, new_license_pool)
         return edition, license_pool
 
 
