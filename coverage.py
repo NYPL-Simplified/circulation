@@ -364,6 +364,11 @@ class CoverageProvider(object):
         CoverageFailure (if not).
         """
 
+        if not metadata and not circulationdata:
+            e = "Received neither metadata nor circulation data from input source"
+            return CoverageFailure(self, identifier, e, transient=True)
+
+
         if metadata:
             result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
             if isinstance(result, CoverageFailure):

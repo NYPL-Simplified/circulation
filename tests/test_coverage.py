@@ -662,11 +662,11 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             identifier_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
             with_license_pool=True)
 
-        # If no metadata is passed in, a CoverageRecord results.
+        # If no metadata is passed in, a CoverageFailure results.
         result = provider.set_metadata_and_circulation_data(edition.primary_identifier, None, None)
 
         assert isinstance(result, CoverageFailure)
-        eq_("Did not receive metadata from input source", result.exception)
+        eq_("Received neither metadata nor circulation data from input source", result.exception)
 
         # If no work can be created (in this case, because there's no title),
         # a CoverageFailure results.
@@ -689,6 +689,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         test_metadata.primary_identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID
         )
+        set_trace()
         result = provider.set_metadata_and_circulation_data(lp.identifier, test_metadata, test_circulationdata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
