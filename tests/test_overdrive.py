@@ -356,13 +356,12 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         # available in.
         pool = identifier.licensed_through
         eq_(0, pool.licenses_owned)
-        [lpdm] = pool.delivery_mechanisms
-        eq_(
-            'application/epub+zip (vnd.adobe/adept+xml)', 
-            lpdm.delivery_mechanism.name
-        )
+        [lpdm1, lpdm2] = pool.delivery_mechanisms
+        names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
+        eq_(sorted([u'application/pdf (vnd.adobe/adept+xml)', 
+                    u'Kindle via Amazon (Kindle DRM)']), sorted(names))
 
         # A Work was created and made presentation ready.
-        eq_("The Incense Game", pool.work.title)
+        eq_("Agile Documentation", pool.work.title)
         eq_(True, pool.work.presentation_ready)
        
