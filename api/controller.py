@@ -848,7 +848,6 @@ class WorkController(CirculationManagerController):
             self._db, lane.DISPLAY_NAME, url, lane,
             annotator=annotator,
             ignore_feed_size=True,
-            cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
             use_materialized_works=use_materialized_works
         )
         return feed_response(unicode(feed.content))
