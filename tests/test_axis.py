@@ -213,8 +213,12 @@ class TestParsers(AxisTest):
 
 
 class TestAxis360BibliographicCoverageProvider(AxisTest):
+    """Test the code that looks up bibliographic information from Axis 360."""
 
     def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask Axis for data,
+        Axis provides it, and we create a presentation-ready work.
+        """
         api = MockAxis360API(self._db)
         data = self.get_data("single_item.xml")
         api.queue_response(200, content=data)
