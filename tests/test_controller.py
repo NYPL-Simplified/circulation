@@ -732,7 +732,7 @@ class TestWorkController(CirculationControllerTest):
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Related Works', feed['feed']['title'])
+        eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
         # Delete the cache and prep a recommendation result.
@@ -740,15 +740,15 @@ class TestWorkController(CirculationControllerTest):
         self._db.delete(cached_empty_feed)
         metadata.recommendations = [self.english_2.license_pools[0].identifier]
         mock_api.setup(metadata)
-
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
                 mock_api=mock_api
             )
+        # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Related Works', feed['feed']['title'])
+        eq_('Recommended Books', feed['feed']['title'])
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
         eq_(self.english_2.title, entry['title'])
@@ -822,6 +822,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
         eq_(self.english_2.title, entry['title'])
+
 
 class TestFeedController(CirculationControllerTest):
 
@@ -924,7 +925,6 @@ class TestFeedController(CirculationControllerTest):
                         counter[link['title']] += 1
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
-
 
     def test_search(self):
         # Put two works into the search index

@@ -815,7 +815,7 @@ class WorkController(CirculationManagerController):
         )
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
-            self._db, 'Related Works', url, lane,
+            self._db, lane.DISPLAY_NAME, url, lane,
             annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
             use_materialized_works=use_materialized_works
         )
@@ -853,7 +853,7 @@ class WorkController(CirculationManagerController):
         if not series:
             return NO_SUCH_LANE.detailed("%s is not in a series" % edition.title)
 
-        feed_title = self._series_feed_title(series)
+        feed_title = SeriesLane.lane_name_from_series_title(series)
         lane = SeriesLane(self._db, pool, feed_title)
         use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
@@ -868,15 +868,6 @@ class WorkController(CirculationManagerController):
         )
 
         return feed_response(unicode(feed.content))
-
-    def _series_feed_title(self, series_title):
-        feed_title = "Other Books in "
-        if series_title[:3].lower() != 'the':
-            feed_title += "the "
-        feed_title += series_title
-        if series_title.lower().endswith(' series'):
-            return feed_title
-        return feed_title + ' series'
 
 
 class AnalyticsController(CirculationManagerController):

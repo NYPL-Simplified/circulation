@@ -380,19 +380,72 @@ class LicensePoolBasedLane(Lane):
     DISPLAY_NAME = None
     MAX_CACHE_AGE = 14*24*60*60      # two weeks
 
-    def __init__(self, _db, license_pool, full_name, display_name=None):
+    def __init__(self, _db, license_pool, full_name,
+                 display_name=None, sublanes=[]):
         self.license_pool = license_pool
         display_name = display_name or self.DISPLAY_NAME
         super(LicensePoolBasedLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, full_name, display_name=display_name,
+            sublanes=sublanes
         )
 
     def apply_filters(self, qu, facets=None, pagination=None,
             work_model=Work, edition_model=Edition):
         """Incorporates additional filters to be run on a query of all Works
         in the db or materialized view
+
+        :return: query
         """
         raise NotImplementedError()
+
+
+class RelatedBooksLane(LicensePoolBasedLane):
+    """A lane of Works all related to the Work of a particular LicensePool
+
+    Sublanes currently include a SeriesLane and a RecommendationLane"""
+
+    DISPLAY_NAME = "Related Books"
+
+    def __init__(self, _db, license_pool, full_name, display_name=None,
+                 mock_api=None):
+        sublanes = self._get_sublanes(_db, license_pool, mock_api=mock_api)
+        if not sublanes:
+            edition = license_pool.presentation_edition
+            raise ValueError(
+                "No related books for %s by %s" % (edition.title, edition.author)
+            )
+        super(RelatedBooksLane, self).__init__(
+            _db, license_pool, full_name, display_name=display_name,
+            sublanes=sublanes
+        )
+
+    def _get_sublanes(self, _db, license_pool, mock_api=None):
+        sublanes = []
+
+        # Create a recommendations sublane.
+        try:
+            lane_name = "Recommendations for %s by %s" % (
+                license_pool.work.title, license_pool.work.author
+            )
+            sublanes.append(RecommendationLane(
+                _db, license_pool, lane_name, mock_api=mock_api
+            ))
+        except ValueError, e:
+            # NoveList isn't configured.
+            pass
+
+        # Create a series sublane.
+        series = license_pool.presentation_edition.series
+        if series:
+            lane_name = SeriesLane.lane_name_from_series_title(series)
+            sublanes.append(SeriesLane(_db, license_pool, lane_name))
+
+        return sublanes
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+            edition_model=Edition):
+        # This lane is composed entirely of sublanes.
+        return None
 
 
 class SeriesLane(LicensePoolBasedLane):
@@ -414,18 +467,28 @@ class SeriesLane(LicensePoolBasedLane):
         )
         return qu
 
+    @classmethod
+    def lane_name_from_series_title(cls, series_title):
+        feed_title = "Other Books in "
+        if series_title[:3].lower() != 'the':
+            feed_title += "the "
+        feed_title += series_title
+        if series_title.lower().endswith(' series'):
+            return feed_title
+        return feed_title + ' series'
+
 
 class RecommendationLane(LicensePoolBasedLane):
     """A lane of recommended Works based on a particular LicensePool"""
 
-    DISPLAY_NAME = "Related Works"
+    DISPLAY_NAME = "Recommended Books"
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
             mock_api=None):
         self.api = mock_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, license_pool, full_name, display_name=display_name
         )
 
     def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,

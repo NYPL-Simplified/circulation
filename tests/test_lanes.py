@@ -1,4 +1,4 @@
-from nose.tools import set_trace, eq_
+from nose.tools import set_trace, eq_, assert_raises
 
 from . import (
     DatabaseTest,
@@ -19,6 +19,7 @@ from api.lanes import (
     lanes_for_large_collection,
     lane_for_small_collection,
     lane_for_other_languages,
+    RelatedBooksLane,
 )
 
 from core.lane import Lane
@@ -149,4 +150,16 @@ class TestLaneCreation(DatabaseTest):
             )
             eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
                 [x.display_name for x in english_lane.sublanes.lanes]
+            )
+
+
+class TestRelatedBooksLane(DatabaseTest):
+
+    def test_initialization(self):
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            assert_raises(
+                ValueError, RelatedBooksLane, self._db, lp, ""
             )
