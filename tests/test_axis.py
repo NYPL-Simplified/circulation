@@ -22,6 +22,7 @@ from axis import (
     Axis360API,
     MockAxis360API,
     BibliographicParser,
+    Axis360BibliographicCoverageProvider,
 )
 
 from util.http import (
@@ -32,7 +33,15 @@ from util.http import (
 from . import DatabaseTest
 from testing import MockRequestsResponse
 
-class TestAxis360API(DatabaseTest):
+class AxisTest(DatabaseTest):
+
+    def get_data(self, filename):
+        path = os.path.join(
+            os.path.split(__file__)[0], "files/axis/", filename)
+        return open(path).read()
+
+
+class TestAxis360API(AxisTest):
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
@@ -89,12 +98,7 @@ class TestAxis360API(DatabaseTest):
         # The fourth request never got made.
         eq_([301], [x.status_code for x in api.responses])
 
-class TestParsers(object):
-
-    def get_data(self, filename):
-        path = os.path.join(
-            os.path.split(__file__)[0], "files/axis/", filename)
-        return open(path).read()
+class TestParsers(AxisTest):
 
     def test_bibliographic_parser(self):
         """Make sure the bibliographic information gets properly
@@ -205,4 +209,38 @@ class TestParsers(object):
         eq_(9, av1.licenses_available)
         eq_(0, av1.patrons_in_hold_queue)
 
+
+class TestAxis360BibliographicCoverageProvider(AxisTest):
+
+    def test_process_item_creates_presentation_ready_work(self):
+        api = MockAxis360API(self._db)
+        data = self.get_data("single_item.xml")
+        api.queue_response(200, content=data)
+        
+        # Here's the book mentioned in single_item.xml.
+        identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        identifier.identifier = '0003642860'
+
+        # This book has no LicensePool.
+        eq_(None, identifier.licensed_through)
+
+        # Run it through the Axis360BibliographicCoverageProvider
+        provider = Axis360BibliographicCoverageProvider(
+            self._db, axis_360_api=api
+        )
+        [result] = provider.process_batch([identifier])
+        eq_(identifier, result)
+
+        # A LicensePool was created. We know both how many copies of this
+        # book are available, and what formats it's available in.
+        pool = identifier.licensed_through
+        eq_(9, pool.licenses_owned)
+        [lpdm] = pool.delivery_mechanisms
+        eq_('application/epub+zip (vnd.adobe/adept+xml)', 
+            lpdm.delivery_mechanism.name)
+
+        # A Work was created and made presentation ready.
+        eq_('Faith of My Fathers : A Family Memoir', pool.work.title)
+        eq_(True, pool.work.presentation_ready)
+       
 
