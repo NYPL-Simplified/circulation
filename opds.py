@@ -488,8 +488,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator, ignore_feed_size=False,
-               force_refresh=False, cache_type=CachedFeed.GROUPS_TYPE,
-               use_materialized_works=True):
+               force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
@@ -497,7 +496,7 @@ class AcquisitionFeed(OPDSFeed):
         cached, usable = CachedFeed.fetch(
             _db,
             lane=lane,
-            type=cache_type,
+            type=CachedFeed.GROUPS_TYPE,
             facets=None,
             pagination=None,
             annotator=annotator,
