@@ -41,7 +41,7 @@ from . import DatabaseTest
 class OverdriveTest(DatabaseTest):
 
     def setup(self):
-        super(TestOverdriveAPI, self).setup()
+        super(OverdriveTest, self).setup()
         self.api = MockOverdriveAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "overdrive")
@@ -306,7 +306,6 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
 
     def setup(self):
         super(TestOverdriveBibliographicCoverageProvider, self).setup()
-        self.api = MockOverdriveAPI(self._db)
         self.provider = OverdriveBibliographicCoverageProvider(
             self._db, overdrive_api=self.api
         )
@@ -345,7 +344,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_(None, identifier.licensed_through)
 
         # Run it through the OverdriveBibliographicCoverageProvider
-        provider = OverdriveCoverageProvider(
+        provider = OverdriveBibliographicCoverageProvider(
             self._db, overdrive_api=self.api
         )
         [result] = provider.process_batch([identifier])
