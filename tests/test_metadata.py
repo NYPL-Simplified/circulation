@@ -672,14 +672,3 @@ class TestMetadata(DatabaseTest):
 
         circulation_pool, is_new = circulation.license_pool(self._db)
         eq_(thumbnail_link.license_pool, circulation_pool)
-
-
-
-
-
-
-
-
-
-
-

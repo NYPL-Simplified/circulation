@@ -126,6 +126,33 @@ class TestCirculationData(DatabaseTest):
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 
 
+    def test_license_pool_sets_default_license_values(self):
+        """We have no information about how many copies of the book we've
+        actually licensed, but a LicensePool can be created anyway,
+        so we can store format information.
+        """
+        identifier = IdentifierData(Identifier.OVERDRIVE_ID, "1")
+        drm_format = FormatData(
+            content_type=Representation.PDF_MEDIA_TYPE,
+            drm_scheme=DeliveryMechanism.ADOBE_DRM,
+        )
+        circulation = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            formats=[drm_format],
+        )
+        pool, is_new = circulation.license_pool(
+            self._db,
+        )
+        eq_(True, is_new)
+
+        # We start with the conservative assumption that we own no
+        # licenses for the book.
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+
     def test_implicit_format_for_open_access_link(self):
         # A format is a delivery mechanism.  We handle delivery on open access 
         # pools from our mirrored content in S3.  

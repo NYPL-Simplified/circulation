@@ -5209,6 +5209,15 @@ class LicensePool(Base):
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
+
+        if was_new:
+            # Set the LicensePool's initial values to indicate
+            # that we don't actually know how many copies we own.
+            license_pool.licenses_owned = 0
+            license_pool.licenses_available = 0
+            license_pool.licenses_reserved = 0
+            license_pool.patrons_in_hold_queue = 0
+
         return license_pool, was_new
 
     @classmethod
@@ -5452,7 +5461,6 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
-
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
                  CirculationEvent.HOLD_PLACE, CirculationEvent.HOLD_RELEASE], 
@@ -5482,14 +5490,25 @@ class LicensePool(Base):
                 old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
-        self.licenses_owned = new_licenses_owned
-        self.licenses_available = new_licenses_available
-        self.licenses_reserved = new_licenses_reserved
-        self.patrons_in_hold_queue = new_patrons_in_hold_queue
-        self.last_checked = as_of
+        any_data = False
+        if new_licenses_owned is not None:
+            self.licenses_owned = new_licenses_owned
+            any_data = True
+        if new_licenses_available is not None:
+            self.licenses_available = new_licenses_available
+            any_data = True
+        if new_licenses_reserved is not None:
+            self.licenses_reserved = new_licenses_reserved
+            any_data = True
+        if new_patrons_in_hold_queue is not None:
+            self.patrons_in_hold_queue = new_patrons_in_hold_queue
+            any_data = True
+
+        if changes_made or any_data:
+            self.last_checked = as_of
 
         # Update the last update time of the Work.
-        if self.work:
+        if self.work and (any_data or changes_made):
             self.work.last_update_time = as_of
 
         return changes_made

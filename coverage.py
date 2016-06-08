@@ -517,6 +517,18 @@ class BibliographicCoverageProvider(CoverageProvider):
             cutoff_time=cutoff_time
         )
 
-    def process_batch(self):
+    def process_batch(self, identifiers):
         """Returns a list of successful identifiers and CoverageFailures"""
-        raise NotImplementedError
+        results = []
+        for identifier in identifiers:
+            result = self.process_item(identifier)
+            if not isinstance(result, CoverageFailure):
+                self.handle_success(identifier)
+            results.append(result)
+        return results
+
+    def handle_success(self, identifier):
+        self.set_presentation_ready(identifier)
+
+    def process_item(self, identifier):
+        raise NotImplementedError()
