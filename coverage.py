@@ -221,7 +221,7 @@ class CoverageProvider(object):
         num_ignored = max(0, batch_size - len(results))
 
         self.log.info(
-            "Batch processed with %d successes, %d transient failures, %d ignored, %d persistent failures.",
+            "Batch processed with %d successes, %d transient failures, %d persistent failures, %d ignored.",
             successes, transient_failures, persistent_failures, num_ignored
         )
 
