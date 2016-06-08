@@ -426,16 +426,11 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
             workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
-    def process_batch(self, identifiers):
-        batch_results = []
-        for identifier in identifiers:
-            metadata = self.api.bibliographic_lookup(identifier)
-            result = self.set_metadata(identifier, metadata)
-            if not isinstance(result, CoverageFailure):
-                # Success!
-                result = self.set_presentation_ready(result)
-            batch_results.append(result)
-        return batch_results
-
     def process_item(self, identifier):
-        return self.process_batch([identifier])[0]
+        metadata = self.api.bibliographic_lookup(identifier)
+        if not metadata:
+            return CoverageFailure(
+                self, identifier, "3M bibliographic lookup failed.",
+                transient=True
+            )
+        return self.set_metadata(identifier, metadata)

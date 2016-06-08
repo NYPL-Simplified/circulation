@@ -12,6 +12,11 @@ from overdrive import (
     OverdriveAPI,
     MockOverdriveAPI,
     OverdriveRepresentationExtractor,
+    OverdriveBibliographicCoverageProvider,
+)
+
+from coverage import (
+    CoverageFailure,
 )
 
 from model import (
@@ -294,3 +299,35 @@ class TestOverdriveRepresentationExtractor(object):
         ]
         eq_(1, awards.value)
         eq_(1, awards.weight)
+
+
+class TestOverdriveBibliographicCoverageProvider(DatabaseTest):
+
+    def setup(self):
+        super(TestOverdriveBibliographicCoverageProvider, self).setup()
+        self.api = MockOverdriveAPI(self._db)
+        self.provider = OverdriveBibliographicCoverageProvider(
+            self._db, overdrive_api=self.api
+        )
+
+    def test_invalid_or_unrecognized_guid(self):
+        identifier = self._identifier()
+        identifier.identifier = 'bad guid'
+        
+        error = '{"errorCode": "InvalidGuid", "message": "An invalid guid was given.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
+        self.api.queue_response(200, content=error)
+
+        failure = self.provider.process_item(identifier)
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        eq_("Invalid Overdrive ID: bad guid", failure.exception)
+
+        # This is for when the GUID is well-formed but doesn't
+        # correspond to any real Overdrive book.
+        error = '{"errorCode": "NotFound", "message": "Not found in Overdrive collection.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
+        self.api.queue_response(200, content=error)
+
+        failure = self.provider.process_item(identifier)
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        eq_("ID not recognized by Overdrive: bad guid", failure.exception)

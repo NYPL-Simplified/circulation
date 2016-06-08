@@ -221,7 +221,7 @@ class CoverageProvider(object):
         num_ignored = max(0, batch_size - len(results))
 
         self.log.info(
-            "Batch processed with %d successes, %d transient failures, %d ignored, %d persistent failures.",
+            "Batch processed with %d successes, %d transient failures, %d persistent failures, %d ignored.",
             successes, transient_failures, persistent_failures, num_ignored
         )
 
@@ -341,6 +341,12 @@ class CoverageProvider(object):
         return work
 
 
+    def set_metadata(self, identifier, metadata, 
+                     metadata_replacement_policy=None):
+        return self.set_metadata_and_circulation_data(
+            identifier, metadata, None, metadata_replacement_policy,
+        )
+
     def set_metadata_and_circulation_data(self, identifier, metadata, circulationdata, 
         metadata_replacement_policy=None, 
         circulationdata_replacement_policy=None, 
@@ -358,13 +364,20 @@ class CoverageProvider(object):
         CoverageFailure (if not).
         """
 
-        result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
-        if isinstance(result, CoverageFailure):
-            return result
-        
-        result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
-        if isinstance(result, CoverageFailure):
-            return result
+        if not metadata and not circulationdata:
+            e = "Received neither metadata nor circulation data from input source"
+            return CoverageFailure(self, identifier, e, transient=True)
+
+
+        if metadata:
+            result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
+
+        if circulationdata:
+            result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
 
         # now that made sure that have an edition and a pool on the identifier, 
         # can try to make work
@@ -509,6 +522,18 @@ class BibliographicCoverageProvider(CoverageProvider):
             cutoff_time=cutoff_time
         )
 
-    def process_batch(self):
+    def process_batch(self, identifiers):
         """Returns a list of successful identifiers and CoverageFailures"""
-        raise NotImplementedError
+        results = []
+        for identifier in identifiers:
+            result = self.process_item(identifier)
+            if not isinstance(result, CoverageFailure):
+                self.handle_success(identifier)
+            results.append(result)
+        return results
+
+    def handle_success(self, identifier):
+        self.set_presentation_ready(identifier)
+
+    def process_item(self, identifier):
+        raise NotImplementedError()

@@ -533,6 +533,31 @@ class TestCoverageProvider(DatabaseTest):
         eq_(None, provider.input_identifier_types)
 
 
+class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's always successful."""
+
+    def __init__(self, _db, **kwargs):
+        if not 'api' in kwargs:
+            kwargs['api'] = None
+        if not 'datasource' in kwargs:
+            kwargs['datasource'] = DataSource.OVERDRIVE
+        super(MockBibliographicCoverageProvider, self).__init__(
+            _db, **kwargs
+        )
+
+    def process_item(self, identifier):
+        return identifier
+
+
+class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's never successful."""
+
+    def process_item(self, identifier):
+        return CoverageFailure(
+            self, identifier, "Bitter failure", transient=True
+        )
+
+
 class TestBibliographicCoverageProvider(DatabaseTest):
 
     BIBLIOGRAPHIC_DATA = Metadata(
@@ -572,8 +597,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
 
 
     def test_edition(self):
-        provider = BibliographicCoverageProvider(self._db, None,
-                DataSource.OVERDRIVE)
+        provider = MockBibliographicCoverageProvider(self._db)
         provider.CAN_CREATE_LICENSE_POOLS = False
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
@@ -596,8 +620,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         assert isinstance(e2, Edition)
 
     def test_work(self):
-        provider = BibliographicCoverageProvider(self._db, None,
-                DataSource.OVERDRIVE)
+        provider = MockBibliographicCoverageProvider(self._db)
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
         provider.CAN_CREATE_LICENSE_POOLS = False
@@ -622,8 +645,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_(result, lp.work)
 
     def test_set_metadata(self):
-        provider = BibliographicCoverageProvider(self._db, None,
-                DataSource.OVERDRIVE)
+        provider = MockBibliographicCoverageProvider(self._db)
         provider.CAN_CREATE_LICENSE_POOLS = False
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
@@ -640,11 +662,11 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             identifier_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
             with_license_pool=True)
 
-        # If no metadata is passed in, a CoverageRecord results.
+        # If no metadata is passed in, a CoverageFailure results.
         result = provider.set_metadata_and_circulation_data(edition.primary_identifier, None, None)
 
         assert isinstance(result, CoverageFailure)
-        eq_("Did not receive metadata from input source", result.exception)
+        eq_("Received neither metadata nor circulation data from input source", result.exception)
 
         # If no work can be created (in this case, because there's no title),
         # a CoverageFailure results.
@@ -673,8 +695,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
 
 
     def test_autocreate_licensepool(self):
-        provider = BibliographicCoverageProvider(self._db, None,
-                DataSource.OVERDRIVE)
+        provider = MockBibliographicCoverageProvider(self._db)
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
 
         # If this constant is set to False, the coverage provider cannot
@@ -690,8 +711,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_(pool.identifier, identifier)
        
     def test_set_presentation_ready(self):
-        provider = BibliographicCoverageProvider(self._db, None,
-                DataSource.OVERDRIVE)
+        provider = MockBibliographicCoverageProvider(self._db)
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
@@ -705,3 +725,31 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         ed, lp = self._edition(with_license_pool=True)
         result = provider.set_presentation_ready(ed.primary_identifier)
         eq_(result, ed.primary_identifier)
+
+    def test_process_batch_sets_work_presentation_ready(self):
+
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        identifier = work.license_pools[0].identifier
+        work.presentation_ready = False
+        provider = MockBibliographicCoverageProvider(self._db)
+        [result] = provider.process_batch([identifier])
+        eq_(result, identifier)
+        eq_(True, work.presentation_ready)
+
+        # ensure_coverage does the same thing.
+        work.presentation_ready = False
+        result = provider.ensure_coverage(identifier)
+        assert isinstance(result, CoverageRecord)
+        eq_(result.identifier, identifier)
+        eq_(True, work.presentation_ready)
+
+    def test_failure_does_not_set_work_presentation_ready(self):
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        identifier = work.license_pools[0].identifier
+        work.presentation_ready = False
+        provider = MockFailureBibliographicCoverageProvider(self._db)
+        [result] = provider.process_batch([identifier])
+        assert isinstance(result, CoverageFailure)
+        eq_(False, work.presentation_ready)

@@ -871,26 +871,28 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
-    def process_batch(self, identifiers):
-        return [self.process_item(identifier) for identifier in identifiers]
-
-
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
+        error = None
         if info.get('errorCode') == 'NotFound':
-            e = "ID not recognized by Overdrive"
-            return CoverageFailure(self, identifier, e, transient=False)
+            error = "ID not recognized by Overdrive: %s" % identifier.identifier
+        elif info.get('errorCode') == 'InvalidGuid':
+            error = "Invalid Overdrive ID: %s" % identifier.identifier
+
+        if error:
+            return CoverageFailure(self, identifier, error, transient=False)
+
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
+
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        result = self.set_metadata_and_circulation_data(
-            identifier, metadata, metadata.circulation, 
-            metadata_replacement_policy=self.metadata_replacement_policy, 
-            circulationdata_replacement_policy=self.circulationdata_replacement_policy
+        result = self.set_metadata(
+            identifier, metadata, 
+            metadata_replacement_policy=self.metadata_replacement_policy
         )
 
         if not isinstance(result, CoverageFailure):

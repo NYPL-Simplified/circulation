@@ -888,6 +888,10 @@ class TestLicensePool(DatabaseTest):
         eq_(DataSource.GUTENBERG, pool.data_source.name)
         eq_(Identifier.GUTENBERG_ID, pool.identifier.type)
         eq_("541", pool.identifier.identifier)        
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
 
     def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
         """OCLC doesn't offer licenses. It only provides metadata. We can get
@@ -954,6 +958,36 @@ class TestLicensePool(DatabaseTest):
             pool.update_availability(30, 21, 2, 1)
             eq_(count + 2, provider.count)
             eq_(CirculationEvent.HOLD_PLACE, provider.event_type)
+
+    def test_update_availability_does_nothing_if_given_no_data(self):
+        """Passing an empty set of data into update_availability is
+        a no-op.
+        """
+
+        # Set up a Work.
+        work = self._work(with_license_pool=True)
+        work.last_update_time = None
+
+        # Set up a LicensePool.
+        [pool] = work.license_pools
+        pool.last_checked = None
+        pool.licenses_owned = 10
+        pool.licenses_available = 20
+        pool.licenses_reserved = 30
+        pool.patrons_in_hold_queue = 40
+
+        # Pass empty values into update_availability.
+        pool.update_availability(None, None, None, None)
+
+        # The LicensePool's circulation data is what it was before.
+        eq_(10, pool.licenses_owned)
+        eq_(20, pool.licenses_available)
+        eq_(30, pool.licenses_reserved)
+        eq_(40, pool.patrons_in_hold_queue)
+
+        # Work.update_time and LicensePool.last_checked are unaffected.
+        eq_(None, work.last_update_time)
+        eq_(None, pool.last_checked)
 
     def test_open_access_links(self):
         edition, pool = self._edition(with_open_access_download=True)
