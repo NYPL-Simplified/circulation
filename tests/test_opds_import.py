@@ -479,10 +479,10 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.OA_CONTENT_SERVER, mouse.data_source.name)
 
         # Since the 'mouse' book came with an open-access link, the license
-        # pool has been marked as open access.
+        # pool delivery mechanism has been marked as open access.
         eq_(True, mouse.license_pool.open_access)
         eq_(RightsStatus.GENERIC_OPEN_ACCESS, 
-            mouse.license_pool.rights_status.uri)
+            mouse.license_pool.delivery_mechanisms[0].rights_status.uri)
 
         # The 'mouse' work has not been marked presentation-ready,
         # because the OPDS importer was not told to make works
