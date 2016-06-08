@@ -1241,6 +1241,8 @@ class Lane(object):
             query = self.materialized_works(facets)
         else:
             query = self.works(facets)
+        if not query:
+            return []
         total_size = query.count()
         if total_size >= size:
             # There are enough results that we can take a random

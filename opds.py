@@ -487,8 +487,9 @@ class AcquisitionFeed(OPDSFeed):
     FACET_REL = "http://opds-spec.org/facet"
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator, 
-               force_refresh=False, use_materialized_works=True):
+    def groups(cls, _db, title, url, lane, annotator, ignore_feed_size=False,
+               force_refresh=False, cache_type=CachedFeed.GROUPS_TYPE,
+               use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
@@ -496,7 +497,7 @@ class AcquisitionFeed(OPDSFeed):
         cached, usable = CachedFeed.fetch(
             _db,
             lane=lane,
-            type=CachedFeed.GROUPS_TYPE,
+            type=cache_type,
             facets=None,
             pagination=None,
             annotator=annotator,
@@ -506,6 +507,10 @@ class AcquisitionFeed(OPDSFeed):
             return cached
 
         feed_size = Configuration.featured_lane_size()
+        if ignore_feed_size:
+            # This groups feed should return groups no matter how many
+            # books are found.
+            feed_size = 1
        
         # This is a list rather than a dict because we want to 
         # preserve the ordering of the lanes.
