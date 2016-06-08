@@ -249,6 +249,11 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         batch_results = []
         for metadata, availability in self.parser.process_all(response.content):
             identifier, is_new = metadata.primary_identifier.load(self._db)
+            if not identifier in identifiers:
+                # Axis 360 told us about a book we didn't ask
+                # for. This shouldn't happen, but if it does we should
+                # do nothing further.
+                continue
             seen_identifiers.add(identifier.identifier)
             result = self.set_metadata(identifier, metadata)
             if not isinstance(result, CoverageFailure):
@@ -543,5 +548,4 @@ class BibliographicParser(Axis360Parser):
             availability = None
 
         return bibliographic, availability
-
 

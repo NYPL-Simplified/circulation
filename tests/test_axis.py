@@ -8,6 +8,8 @@ import datetime
 import json
 import os
 
+from coverage import CoverageFailure
+
 from model import (
     Edition,
     Identifier,
@@ -243,4 +245,37 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         eq_('Faith of My Fathers : A Family Memoir', pool.work.title)
         eq_(True, pool.work.presentation_ready)
        
+    def test_transient_failure_if_requested_book_not_mentioned(self):
+        """Test an unrealistic case where we ask Axis 360 about one book and
+        it tells us about a totally different book.
+        """
+        api = MockAxis360API(self._db)
+
+        # We're going to ask about abcdef
+        identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        identifier.identifier = 'abcdef'
+
+        # But we're going to get told about 0003642860.
+        data = self.get_data("single_item.xml")
+        api.queue_response(200, content=data)
+        
+        # Run abcdef through the Axis360BibliographicCoverageProvider.
+        provider = Axis360BibliographicCoverageProvider(
+            self._db, axis_360_api=api
+        )
+        [result] = provider.process_batch([identifier])
+
+        # Coverage failed for the book we asked about.
+        assert isinstance(result, CoverageFailure)
+        eq_(identifier, result.obj)
+        eq_("Book not in collection", result.exception)
+        
+        # And nothing major was done about the book we were told
+        # about. We created an Identifier record for its identifier,
+        # but no LicensePool or Edition.
+        wrong_identifier = Identifier.for_foreign_id(
+            self._db, Identifier.AXIS_360_ID, "0003642860"
+        )
+        eq_(None, identifier.licensed_through)
+        eq_([], identifier.primarily_identifies)
 
