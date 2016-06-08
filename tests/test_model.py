@@ -989,24 +989,6 @@ class TestLicensePool(DatabaseTest):
         eq_(None, work.last_update_time)
         eq_(None, pool.last_checked)
 
-    def test_set_rights_status(self):
-        edition, pool = self._edition(with_license_pool=True)
-        uri = "http://foo"
-        name = "bar"
-        status = pool.set_rights_status(uri, name)
-        eq_(status, pool.rights_status)
-        eq_(uri, status.uri)
-        eq_(name, status.name)
-
-        status2 = pool.set_rights_status(uri)
-        eq_(status, status2)
-
-        uri2 = "http://baz"
-        status3 = pool.set_rights_status(uri2)
-        assert status != status3
-        eq_(uri2, status3.uri)
-        eq_(None, status3.name)
-
     def test_open_access_links(self):
         edition, pool = self._edition(with_open_access_download=True)
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
