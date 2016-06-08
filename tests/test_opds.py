@@ -251,35 +251,48 @@ class TestOPDS(DatabaseTest):
         borrow_rels = [x['rel'] for x in borrow_links]
         assert OPDSFeed.BORROW_REL in borrow_rels
 
-    def test_acquisition_feed_includes_recommendations_link(self):
-        w1 = self._work(with_open_access_download=True)
+    def test_acquisition_feed_includes_related_books_link(self):
+        # If there are no related works, there's no related books link.
+        work = self._work(with_open_access_download=True)
         with temp_config() as config:
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
             feed = AcquisitionFeed(
-                self._db, "test", "url", [w1],
+                self._db, "test", "url", [work],
                 CirculationManagerAnnotator(None, Fantasy, test_mode=True)
             )
-        # If NoveList isn't configured, there's no recommendation link.
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         recommendations_links = [x for x in entry['links'] if x['rel'] == 'related']
         eq_([], recommendations_links)
 
+        # If NoveList is configured (and thus recommendations are available),
+        # there's is a related books link.
         with temp_config() as config:
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
                 Configuration.NOVELIST_PROFILE : "library",
                 Configuration.NOVELIST_PASSWORD : "yep"
             }
             feed = AcquisitionFeed(
-                self._db, "test", "url", [w1],
+                self._db, "test", "url", [work],
                 CirculationManagerAnnotator(None, Fantasy, test_mode=True)
             )
-        # If NoveList isn't configured, there's is a recommendation link.
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [recommendations_link] = [x for x in entry['links'] if x['rel'] == 'related']
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, recommendations_link['type'])
-        assert '/recommendations' in recommendations_link['href']
+        assert '/related_books' in recommendations_link['href']
+
+        # If the book is in a series, there's is a related books link.
+        work.license_pools[0].presentation_edition.series = "Serious Cereal Series"
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [work],
+            CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+        )
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        [recommendations_link] = [x for x in entry['links'] if x['rel'] == 'related']
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, recommendations_link['type'])
+        assert '/related_books' in recommendations_link['href']
 
     def test_active_loan_feed(self):
         patron = self.default_patron
