@@ -5526,12 +5526,14 @@ class LicensePool(Base):
             self.patrons_in_hold_queue = new_patrons_in_hold_queue
             any_data = True
 
-        if changes_made or any_data:
+        if any_data or changes_made:
+            # Sometimes update_availability is called with no actual
+            # numbers, but that's not the case this time. We got
+            # numbers and they may have even changed our view of the
+            # LicensePool.
             self.last_checked = as_of
-
-        # Update the last update time of the Work.
-        if self.work and (any_data or changes_made):
-            self.work.last_update_time = as_of
+            if self.work:
+                self.work.last_update_time = as_of
 
         return changes_made
 
