@@ -359,7 +359,7 @@ class MeasurementData(object):
 
 
 class FormatData(object):
-    def __init__(self, content_type, drm_scheme, link=None):
+    def __init__(self, content_type, drm_scheme, link=None, rights_uri=None):
         self.content_type = content_type
         self.drm_scheme = drm_scheme
         if link and not isinstance(link, LinkData):
@@ -367,53 +367,467 @@ class FormatData(object):
                 "Expected LinkData object, got %s" % type(link)
             )
         self.link = link
+        self.rights_uri = rights_uri
+        if ((not self.rights_uri) and self.link and self.link.rights_uri):
+            self.rights_uri = self.link.rights_uri
 
 
-class CirculationData(object):
 
+class MetaToModelUtility(object):
+    """
+    Contains functionality common to both CirculationData and Metadata.
+    """
+
+    def mirror_link(self, model_object, data_source, link, link_obj, policy):
+        """Retrieve a copy of the given link and make sure it gets
+        mirrored. If it's a full-size image, create a thumbnail and
+        mirror that too.
+
+        The model_object can be either a pool or an edition.
+        """
+
+        if link_obj.rel not in Hyperlink.MIRRORED:
+            # we only host locally open-source epubs and cover images
+            return
+
+        mirror = policy.mirror
+        http_get = policy.http_get
+
+        _db = Session.object_session(link_obj)
+        original_url = link.href
+
+        self.log.debug("About to mirror %s" % original_url)
+
+        pool = None
+        edition = None
+        title = None
+        identifier = None
+        if model_object:
+            if isinstance(model_object, LicensePool):
+                pool = model_object
+                identifier = model_object.identifier
+
+                if (identifier and identifier.primarily_identifies and identifier.primarily_identifies[0]): 
+                    edition = identifier.primarily_identifies[0]
+            elif isinstance(model_object, Edition):
+                pool = model_object.license_pool
+                identifier = model_object.primary_identifier
+                edition = model_object
+        if edition and edition.title:
+            title = edition.title
+        else:
+            title = self.title or None
+
+        if ((not identifier) or (link_obj.identifier and identifier != link_obj.identifier)):
+            # insanity found
+            self.log.warn("Tried to mirror a link with an invalid identifier %r" % identifier)
+            return
+
+        max_age = None
+        if policy.link_content:
+            # We want to fetch the representation again, even if we
+            # already have a recent usable copy. If we fetch it and it
+            # hasn't changed, we'll keep using the one we have.
+            max_age = 0
+
+        # This will fetch a representation of the original and 
+        # store it in the database.
+        representation, is_new = Representation.get(
+            _db, link.href, do_get=http_get,
+            presumed_media_type=link.media_type,
+            max_age=max_age,
+        )
+
+        # Make sure the (potentially newly-fetched) representation is
+        # associated with the resource.
+        link_obj.resource.representation = representation
+
+        # If we couldn't fetch this representation, don't mirror it,
+        # and if this was an open access link, then suppress the associated 
+        # license pool until someone fixes it manually.
+        # The license pool to suppress will be either the passed-in model_object (if it's of type pool), 
+        # or the license pool associated with the passed-in model object (if it's of type edition).
+        if representation.fetch_exception:
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+            return
+
+        # If we fetched the representation and it hasn't changed,
+        # the previously mirrored version is fine. Don't mirror it
+        # again.
+        if representation.status_code == 304:
+            return
+
+        # Determine the best URL to use when mirroring this
+        # representation.
+        if title and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            extension = representation.extension()
+            mirror_url = mirror.book_url(
+                identifier, data_source=data_source, title=title,
+                extension=extension
+            )
+        else:
+            filename = representation.default_filename(link_obj)
+            mirror_url = mirror.cover_image_url(
+                data_source, identifier, filename
+            )
+
+        representation.mirror_url = mirror_url
+        mirror.mirror_one(representation)
+
+        # If we couldn't mirror an open access link representation, suppress
+        # the license pool until someone fixes it manually.
+        if representation.mirror_exception: 
+            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                pool.suppressed = True
+                pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
+
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
+
+        if link_obj.rel == Hyperlink.IMAGE:
+            # Create and mirror a thumbnail.
+            thumbnail_filename = representation.default_filename(
+                link_obj, Representation.PNG_MEDIA_TYPE
+            )
+            thumbnail_url = mirror.cover_image_url(
+                data_source, identifier, thumbnail_filename,
+                Edition.MAX_THUMBNAIL_HEIGHT
+            )
+            thumbnail, is_new = representation.scale(
+                max_height=Edition.MAX_THUMBNAIL_HEIGHT,
+                max_width=Edition.MAX_THUMBNAIL_WIDTH,
+                destination_url=thumbnail_url,
+                destination_media_type=Representation.PNG_MEDIA_TYPE,
+                force=True
+            )
+            if is_new:
+                # A thumbnail was created distinct from the original
+                # image. Mirror it as well.
+                mirror.mirror_one(thumbnail)
+
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            # If we mirrored book content successfully, don't keep it in
+            # the database to save space. We do keep images in case we
+            # ever need to resize them.
+            if representation.mirrored_at and not representation.mirror_exception:
+                representation.content = None
+
+
+
+class CirculationData(MetaToModelUtility):
+    """Information about actual copies of a book that can be delivered to
+    patrons.
+
+    As distinct from Metadata, which is a container for information
+    about a book.
+
+    Basically,
+        Metadata : Edition :: CirculationData : Licensepool
+    """
+    
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
 
     def __init__(
-            self, licenses_owned,
-            licenses_available,
-            licenses_reserved,
-            patrons_in_hold_queue,
-            first_appearance=None,
+            self, 
+            data_source,
+            primary_identifier,
+            licenses_owned=None,
+            licenses_available=None,
+            licenses_reserved=None,
+            patrons_in_hold_queue=None,
+            formats=None,
+            default_rights_uri=None,
+            links=None,
             last_checked=None,
     ):
+        # data_source is where the lending licenses (our ability to actually access the book) are coming from.
+        self._data_source = data_source
+
+        if isinstance(self._data_source, DataSource):
+            self.data_source_obj = self._data_source
+            self.data_source_name = self.data_source_obj.name
+        else:
+            self.data_source_obj = None
+            self.data_source_name = data_source
+
+        self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
-        self.first_appearance = first_appearance
-        self.last_checked = last_checked or datetime.datetime.utcnow()
+        self.last_checked = last_checked
 
-    def update(self, license_pool, license_pool_is_new):
-        _db = Session.object_session(license_pool)
-        if license_pool_is_new:
-            # This is our first time seeing this LicensePool. Log its
-            # occurance as a separate event.
-            event = get_one_or_create(
-                _db, CirculationEvent,
-                type=CirculationEvent.TITLE_ADD,
-                license_pool=license_pool,
-                create_method_kwargs=dict(
-                    start=self.last_checked,
-                    delta=1,
-                    end=self.last_checked,
+        # format contains pdf/epub, drm, link
+        self.formats = formats or []
+
+        self.default_rights_uri = None
+        self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=default_rights_uri)
+
+        self.__links = None
+        self.links = links
+
+
+    @property
+    def links(self):
+        return self.__links
+
+    @links.setter
+    def links(self, arg_links):
+        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+            pools (the rights-related links).
+        """
+        # start by deleting any old links
+        self.__links = []
+
+        if not arg_links:
+            return
+
+        self.set_default_rights_uri(data_source_name=self.data_source_name)
+
+        for link in arg_links:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
+                # TODO:  what about Hyperlink.SAMPLE?
+                # only accept the types of links relevant to pools
+                self.__links.append(link)
+
+                # If a link has a rights_uri, make that the overall rights_uri. 
+                # TODO: If there are multiple links with a rights_uri, make them go into individual delivery mechanisms 
+                # (first need to move rights_uri onto delivery mechanisms). 
+                # TODO: make sure am not writing anything to DB here, only on apply.
+                if link.rights_uri and not self.default_rights_uri:
+                    self.set_default_rights_uri(data_source_name=self.data_source_name, default_rights_uri=link.rights_uri)
+
+                # An open-access link or open-access rights implies a FormatData object.
+                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href)
+                # try to deduce if the link is open-access, even if it doesn't explicitly say it is
+                open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
+                                           and link.href
+                                           and self.default_rights_uri in RightsStatus.OPEN_ACCESS)
+                
+                if open_access_link or open_access_rights_link:
+                    self.formats.append(
+                        FormatData(
+                            content_type=link.media_type,
+                            drm_scheme=DeliveryMechanism.NO_DRM,
+                            link=link
+                        )
                 )
+
+
+    def __repr__(self):
+        description_string = '<CirculationData primary_identifier=%(primary_identifier)r| licenses_owned=%(licenses_owned)s|'
+        description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|' 
+        description_string += ' links=%(links)r| formats=%(formats)r| data_source=%(data_source)s|>'
+
+        description_data = {'primary_identifier':self.primary_identifier, 'licenses_owned':self.licenses_owned}
+        description_data['licenses_available'] = self.licenses_available
+        description_data['default_rights_uri'] = self.default_rights_uri
+        description_data['links'] = self.links
+        description_data['formats'] = self.formats
+        description_data['data_source'] = self.data_source_name
+            
+        return description_string % description_data
+    
+
+    def data_source(self, _db):
+        if not self.data_source_obj:
+            if self._data_source:
+                obj = DataSource.lookup(_db, self._data_source)
+                if not obj:
+                    raise ValueError("Data source %s not found!" % self._data_source)
+                if not obj.offers_licenses:
+                    raise ValueError("Data source %s does not offer licenses and cannot be used as a CirculationData data source." % self._data_source)
+            else:
+                obj = None
+            self.data_source_obj = obj
+        return self.data_source_obj
+
+
+    def license_pool(self, _db):
+        """Find or create a LicensePool object for this CirculationData."""
+        if not self.primary_identifier:
+            raise ValueError(
+                "Cannot find license pool: CirculationData has no primary identifier."
             )
-            # TODO: Also put this in the log.
 
-        changed = (license_pool.licenses_owned != self.licenses_owned or
-                   license_pool.licenses_available != self.licenses_available or
-                   license_pool.patrons_in_hold_queue != self.patrons_in_hold_queue or
-                   license_pool.licenses_reserved != self.licenses_reserved)
+        license_pool = None
+        is_new = False
+        
+        identifier_obj, ignore = self.primary_identifier.load(_db)
+        data_source = self.data_source(_db)
+        license_pool = get_one(
+            _db, LicensePool, data_source=data_source,
+            identifier=identifier_obj
+        )
 
-        if changed:
-            edition = license_pool.presentation_edition
+        if not license_pool:
+            rights_status = get_one(
+                _db, RightsStatus, uri=self.default_rights_uri
+            )
+
+            last_checked = self.last_checked or datetime.datetime.utcnow()
+            license_pool, is_new = LicensePool.for_foreign_id(
+                _db, data_source=self.data_source_obj,
+                foreign_id_type=self.primary_identifier.type, 
+                foreign_id=self.primary_identifier.identifier,
+                rights_status=rights_status,
+            )
+
+            if is_new:
+                license_pool.availability_time = datetime.datetime.utcnow()
+                # This is our first time seeing this LicensePool. Log its
+                # occurence as a separate event.
+                event = get_one_or_create(
+                    _db, CirculationEvent,
+                    type=CirculationEvent.TITLE_ADD,
+                    license_pool=license_pool,
+                    create_method_kwargs=dict(
+                        start=last_checked,
+                        delta=1,
+                        end=last_checked,
+                    )
+                )
+                # only set license_pool's last_checked time on creation and update
+                license_pool.last_checked = last_checked
+
+            if self.has_open_access_link:
+                license_pool.open_access = True
+            if self.default_rights_uri:
+                license_pool.set_rights_status(self.default_rights_uri)
+
+        return license_pool, is_new
+
+
+    @property
+    def has_open_access_link(self):
+        """Does this Circulation object have an associated open-access link?"""
+        return any(
+            [x for x in self.links 
+             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
+        )
+
+
+    def set_default_rights_uri(self, data_source_name, default_rights_uri=None):
+        if default_rights_uri == None and data_source_name:
+            # We didn't get rights passed in, so use the default rights for the data source if any.
+            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source_name, None)
+            if default:
+                self.default_rights_uri = default
+
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if self.default_rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    # We haven't determined rights in the constructor or the data source, but there's an
+                    # open access download link, so we'll consider it generic open access.
+                    self.default_rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
+
+        if self.default_rights_uri == None:
+            # We still haven't determined rights, so it's unknown.
+            self.default_rights_uri = RightsStatus.UNKNOWN
+
+
+    def apply(self, pool, replace=None):
+        """  Update the passed-in license pool with this CirculationData's information.
+        """
+        made_changes = False
+        
+        if pool is None:
+            raise ValueError("CirculationData.apply needs a pool.")
+
+        if replace is None:
+            replace = ReplacementPolicy()
+
+        _db = Session.object_session(pool)
+        data_source = self.data_source(_db)
+
+        identifier = pool.identifier
+
+        # TODO:  had following comment in metadata.apply.  need to figure out if still relevant.
+        # now that pool uses a composite edition, we must create that edition before 
+        # calculating any links
+        # TODO:  if we do call pool.set_presentation_edition from here, watch out for circular logic.
+
+        self.set_default_rights_uri(data_source)
+        # TODO: be able to handle the case where the URL to a link changes or a link disappears.
+        link_objects = {}
+
+        for link in self.links:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
+                link_obj, ignore = identifier.add_link(
+                    rel=link.rel, href=link.href, data_source=data_source, 
+                    license_pool=pool, media_type=link.media_type,
+                    content=link.content
+                )
+                link_objects[link] = link_obj
+
+        for link in self.links:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
+                link_obj = link_objects[link]
+                if replace.mirror:
+                    # We need to mirror this resource. If it's an image, a
+                    # thumbnail may be provided as a side effect.
+                    self.mirror_link(pool, data_source, link, link_obj, replace)
+                
+        if pool and replace.formats:
+            for lpdm in pool.delivery_mechanisms:
+                _db.delete(lpdm)
+            pool.delivery_mechanisms = []
+
+        # follows up on the mirror link, and confirms the delivery mechanism.
+        for format in self.formats:
+            if format.link:
+                link = format.link
+                if not format.content_type:
+                    format.content_type = link.media_type
+                link_obj = link_objects[format.link]
+                resource = link_obj.resource
+            else:
+                resource = None
+            if pool:
+                pool.set_delivery_mechanism(
+                    format.content_type, format.drm_scheme, resource
+                )
+
+
+        changed_licenses = False
+        if pool:
+            # if we were not passed a last_checked value, then update pool as of now
+            if not self.last_checked: 
+                # Update availabily information. This may result in the issuance
+                # of additional events.
+                changed_licenses = pool.update_availability(
+                    new_licenses_owned=self.licenses_owned,
+                    new_licenses_available=self.licenses_available,
+                    new_licenses_reserved=self.licenses_reserved,
+                    new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                    as_of=datetime.datetime.utcnow(),
+                )
+            else:
+                # if we were passed a last_checked value, such as when creating the 
+                # CirculationData object in the bibliographic parser for a 3m log, then 
+                # check if that log update value is after the license pool's current knowledge, 
+                # and only update license infos if new information is really new.
+                if (pool.last_checked and (self.last_checked >= pool.last_checked)):
+                    # Update availabily information. This may result in the issuance
+                    # of additional events.
+                    changed_licenses = pool.update_availability(
+                        new_licenses_owned=self.licenses_owned,
+                        new_licenses_available=self.licenses_available,
+                        new_licenses_reserved=self.licenses_reserved,
+                        new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                        as_of=self.last_checked
+                    )
+
+        if changed_licenses:
+            edition = pool.presentation_edition
             if edition:
                 self.log.info(
                     'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
@@ -421,33 +835,27 @@ class CirculationData(object):
                     edition.title or "[NO TITLE]",
                     edition.author or "",
                     edition.primary_identifier.identifier,
-                    license_pool.licenses_owned, self.licenses_owned,
-                    license_pool.licenses_available, self.licenses_available,
-                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                    pool.licenses_owned, self.licenses_owned,
+                    pool.licenses_available, self.licenses_available,
+                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
                 )
             else:
                 self.log.info(
                     'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    license_pool.identifier,
-                    license_pool.licenses_owned, self.licenses_owned,
-                    license_pool.licenses_available, self.licenses_available,
-                    license_pool.patrons_in_hold_queue, self.patrons_in_hold_queue
+                    pool.identifier,
+                    pool.licenses_owned, self.licenses_owned,
+                    pool.licenses_available, self.licenses_available,
+                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
                 )
 
 
-        # Update availabily information. This may result in the issuance
-        # of additional events.
-        license_pool.update_availability(
-            self.licenses_owned,
-            self.licenses_available,
-            self.licenses_reserved,
-            self.patrons_in_hold_queue,
-            self.last_checked
-        )
-        return changed
+        made_changes = made_changes or changed_licenses
+
+        return pool, made_changes
 
 
-class Metadata(object):
+
+class Metadata(MetaToModelUtility):
 
     """A (potentially partial) set of metadata for a published work."""
 
@@ -462,7 +870,6 @@ class Metadata(object):
     def __init__(
             self,
             data_source,
-            license_data_source=None,
             title=None,
             subtitle=None,
             sort_title=None,
@@ -481,25 +888,17 @@ class Metadata(object):
             contributors=None,
             measurements=None,
             links=None,
-            formats=None,
-            rights_uri=None,
-            last_update_time=None,
-            circulation=None,
+            data_source_last_updated=None,
+            # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
+            circulation=None,  
     ):
-        # data_source is where the data comes from.
+        # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface), 
+        # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
         else:
             self.data_source_obj = None
-
-        # license_data_source is where our ability to actually access the
-        # book comes from.
-        self._license_data_source = license_data_source
-        if isinstance(self._license_data_source, DataSource):
-            self.license_data_source_obj = self._license_data_source
-        else:
-            self.license_data_source_obj = None
 
         self.title = title
         self.sort_title = sort_title
@@ -507,6 +906,7 @@ class Metadata(object):
         if language:
             language = LanguageCodes.string_to_alpha_3(language)
         self.language = language
+        # medium is book/audio/video, etc.
         self.medium = medium
         self.series = series
         self.series_position = series_position
@@ -524,43 +924,36 @@ class Metadata(object):
         self.recommendations = recommendations or []
         self.subjects = subjects or []
         self.contributors = contributors or []
-        self.links = links or []
         self.measurements = measurements or []
-        self.formats = formats or []
-        self.rights_uri = rights_uri
+
         self.circulation = circulation
 
-        self.last_update_time = last_update_time
-        for link in self.links:
-            # If a link has a rights_uri, make that the overall rights_uri.
-            # If there are multiple links with a rights_uri, they should be
-            # split into separate metadata objects.
-            if link.rights_uri:
-                self.rights_uri = link.rights_uri
+        # renamed last_update_time to data_source_last_updated
+        self.data_source_last_updated = data_source_last_updated
 
-            # An open-access link or open-access rights implies a FormatData object.
-            open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                                and link.href)
-            open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES
-                                       and link.href
-                                       and self.rights_uri in RightsStatus.OPEN_ACCESS)
-
-            if open_access_link or open_access_rights_link:
-                self.formats.append(
-                    FormatData(
-                        content_type=link.media_type,
-                        drm_scheme=DeliveryMechanism.NO_DRM,
-                        link=link
-                    )
-            )
-
+        self.__links = None
+        self.links = links
+        
     @property
-    def has_open_access_link(self):
-        """Does this Metadata object have an associated open-access link?"""
-        return any(
-            [x for x in self.links
-             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
-        )
+    def links(self):
+        return self.__links
+
+    @links.setter
+    def links(self, arg_links):
+        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+            editions (the image/cover/etc links).
+        """
+        # start by deleting any old links
+        self.__links = []
+
+        if not arg_links:
+            return
+
+        for link in arg_links:
+            if link.rel in Hyperlink.METADATA_ALLOWED:
+                # only accept the types of links relevant to editions
+                self.__links.append(link)
+                
 
     @classmethod
     def from_edition(cls, edition):
@@ -620,6 +1013,7 @@ class Metadata(object):
                 break
         return primary_author
 
+
     def update(self, metadata):
         """Update this Metadata object with values from the given Metadata
         object.
@@ -632,6 +1026,7 @@ class Metadata(object):
             new_value = getattr(metadata, field)
             if new_value:
                 setattr(self, field, new_value)
+
 
     def calculate_permanent_work_id(self, _db, metadata_client):
         """Try to calculate a permanent work ID from this metadata.
@@ -697,19 +1092,6 @@ class Metadata(object):
             raise ValueError("Data source %s not found!" % self._data_source)
         return self.data_source_obj
 
-    def license_data_source(self, _db):
-        if not self.license_data_source_obj:
-            if self._license_data_source:
-                obj = DataSource.lookup(_db, self._license_data_source)
-                if not obj:
-                    raise ValueError("Data source %s not found!" % self._license_data_source)
-                if not obj.offers_licenses:
-                    raise ValueError("Data source %s does not offer licenses and cannot be used as a license data source." % self._license_data_Source)
-            else:
-                obj = None
-            self.license_data_source_obj = obj
-        return self.license_data_source_obj
-
     def edition(self, _db, create_if_not_exists=True):
         """ Find or create the edition described by this Metadata object.
         """
@@ -718,7 +1100,7 @@ class Metadata(object):
                 "Cannot find edition: metadata has no primary identifier."
             )
 
-        data_source = self.license_data_source(_db) or self.data_source(_db)
+        data_source = self.data_source(_db)
 
         return Edition.for_foreign_id(
             _db, data_source, self.primary_identifier.type,
@@ -726,87 +1108,6 @@ class Metadata(object):
             create_if_not_exists=create_if_not_exists
         )
 
-    def set_default_rights_uri(self, data_source):
-        if self.rights_uri == None and data_source:
-            # We haven't been able to determine rights from the metadata, so use the default rights
-            # for the data source if any.
-            default = RightsStatus.DATA_SOURCE_DEFAULT_RIGHTS_STATUS.get(data_source.name, None)
-            if default:
-                self.rights_uri = default
-
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if self.rights_uri in (None, RightsStatus.UNKNOWN) and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                    # We haven't determined rights from the metadata or the data source, but there's an
-                    # open access download link, so we'll consider it generic open access.
-                    self.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
-
-        if self.rights_uri == None:
-            # We still haven't determined rights, so it's unknown.
-            self.rights_uri = RightsStatus.UNKNOWN
-
-    def license_pool(self, _db):
-        if not self.primary_identifier:
-            raise ValueError(
-                "Cannot find license pool: metadata has no primary identifier."
-            )
-
-        license_pool = None
-        is_new = False
-
-        identifier_obj, ignore = self.primary_identifier.load(_db)
-
-        metadata_data_source = self.data_source(_db)
-        license_data_source = self.license_data_source(_db)
-
-        self.set_default_rights_uri(metadata_data_source)
-        if license_data_source:
-            can_create_new_pool = True
-            check_for_licenses_from = [license_data_source]
-        else:
-            check_for_licenses_from = DataSource.license_sources_for(
-                _db, identifier_obj
-            ).all()
-            if len(check_for_licenses_from) == 1:
-                # Since there is only one source for this kind of book,
-                # we can create a new license pool if necessary.
-                can_create_new_pool = True
-                self.license_data_source_obj = check_for_licenses_from[0]
-            elif metadata_data_source in check_for_licenses_from:
-                # We can assume that the license comes from the same
-                # source as the metadata.
-                self.license_data_source_obj = metadata_data_source
-                can_create_new_pool = True
-            else:
-                # We might be able to find an existing license pool
-                # for this book, but we won't be able to create a new
-                # one, because we don't know who's responsible for the
-                # book.
-                can_create_new_pool = False
-
-        license_data_source = self.license_data_source(_db)
-        for potential_data_source in check_for_licenses_from:
-            license_pool = get_one(
-                _db, LicensePool, data_source=potential_data_source,
-                identifier=identifier_obj
-            )
-            if license_pool:
-                break
-
-        if not license_pool and can_create_new_pool:
-            rights_status = get_one(_db, RightsStatus, uri=self.rights_uri)
-            license_pool, is_new = LicensePool.for_foreign_id(
-                _db, self.license_data_source_obj,
-                self.primary_identifier.type,
-                self.primary_identifier.identifier,
-                rights_status=rights_status,
-            )
-            if self.has_open_access_link:
-                license_pool.open_access = True
-            if self.rights_uri:
-                license_pool.set_rights_status(self.rights_uri)
-        return license_pool, is_new
 
     def consolidate_identifiers(self):
         by_weight = defaultdict(list)
@@ -867,6 +1168,7 @@ class Metadata(object):
                 success = True
         return success
 
+
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
@@ -917,11 +1219,12 @@ class Metadata(object):
 
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
-        if self.last_update_time and not replace.even_if_not_apparently_updated:
+
+        if self.data_source_last_updated and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_time = coverage_record.timestamp
-                last_time = self.last_update_time
+                last_time = self.data_source_last_updated
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return edition, False
@@ -930,7 +1233,7 @@ class Metadata(object):
             self.calculate_permanent_work_id(_db, metadata_client)
 
         identifier = edition.primary_identifier
-        pool = identifier.licensed_through
+        
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
@@ -1017,34 +1320,17 @@ class Metadata(object):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
-
-        # TODO:  remove below comment.
-        # now that pool uses a composite edition, we must create that edition before 
-        # calculating any links
-        # TODO:  we're calling pool.set_presentation_edition from a bunch of places, 
-        # and it's possible there's a better way.
-        # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
-        # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
-        # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
-        # it's problematic that pool isn't always being set in this method.
-
-        link_data_source = self.license_data_source(_db) or data_source
+        
         link_objects = {}
 
         for link in self.links:
-            link_obj, ignore = identifier.add_link(
-                rel=link.rel, href=link.href, data_source=link_data_source,
-                license_pool=pool, media_type=link.media_type,
-                content=link.content
-            )
+            if link.rel in Hyperlink.METADATA_ALLOWED:
+                link_obj, ignore = identifier.add_link(
+                    rel=link.rel, href=link.href, data_source=data_source, 
+                    license_pool=None, media_type=link.media_type,
+                    content=link.content
+                )
             link_objects[link] = link_obj
-
-        if pool and replace.formats:
-            for lpdm in pool.delivery_mechanisms:
-                _db.delete(lpdm)
-            pool.delivery_mechanisms = []
-
-        self.set_default_rights_uri(data_source)
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -1073,6 +1359,18 @@ class Metadata(object):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        # we updated the links.  but does the associated pool know?
+        pool = None
+        if self.circulation:
+            pool, is_new = self.circulation.license_pool(_db)
+            if (pool and not is_new):
+                self.circulation.apply(pool)
+
+            # we updated the pool.  but do the associated links know?
+            for link in self.links:
+                link_obj = link_objects[link]
+                link_obj.license_pool = pool
+
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             link_obj = link_objects[link]
@@ -1083,155 +1381,26 @@ class Metadata(object):
             if replace.mirror:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
-                self.mirror_link(pool, data_source, link, link_obj, replace)
+                self.mirror_link(edition, data_source, link, link_obj, replace)
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
-                self.make_thumbnail(pool, data_source, link, link_obj)
+                self.make_thumbnail(data_source, link, link_obj, pool)
 
-        # follows up on the mirror link, and confirms the delivery mechanism.
-        for format in self.formats:
-            if format.link:
-                link = format.link
-                if not format.content_type:
-                    format.content_type = link.media_type
-                link_obj = link_objects[format.link]
-                resource = link_obj.resource
-            else:
-                resource = None
-            if pool:
-                pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, resource
-                )
 
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.last_update_time
+            edition, data_source, timestamp=self.data_source_last_updated
         )
         return edition, made_core_changes
 
-    def mirror_link(self, pool, data_source, link, link_obj, policy):
-        """Retrieve a copy of the given link and make sure it gets
-        mirrored. If it's a full-size image, create a thumbnail and
-        mirror that too.
-        """
-
-        if link_obj.rel not in (
-                Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
-        ):
-            return
-        mirror = policy.mirror
-        http_get = policy.http_get
-
-        _db = Session.object_session(link_obj)
-        original_url = link.href
-        identifier = link_obj.identifier
-
-        self.log.debug("About to mirror %s" % original_url)
-
-        if policy.link_content:
-            # We want to fetch the representation again, even if we
-            # already have a recent usable copy. If we fetch it and it
-            # hasn't changed, we'll keep using the one we have.
-            max_age = 0
-        else:
-            max_age = None
-
-        # This will fetch a representation of the original and
-        # store it in the database.
-        representation, is_new = Representation.get(
-            _db, link.href, do_get=http_get,
-            presumed_media_type=link.media_type,
-            max_age=max_age,
-        )
-
-        # Make sure the (potentially newly-fetched) representation is
-        # associated with the resource.
-        link_obj.resource.representation = representation
-
-        # If we couldn't fetch this representation, don't mirror it,
-        # and if this was an open access link suppress the license
-        # pool until someone fixes it manually.
-        if representation.fetch_exception:
-            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                pool.suppressed = True
-                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
-            return
-
-        # If we fetched the representation and it hasn't changed,
-        # the previously mirrored version is fine. Don't mirror it
-        # again.
-        if representation.status_code == 304:
-            return
-
-        # Determine the best URL to use when mirroring this
-        # representation.
-        if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            if pool and pool.presentation_edition and pool.presentation_edition.title:
-                title = pool.presentation_edition.title
-            else:
-                title = self.title or None
-            extension = representation.extension()
-            mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=title,
-                extension=extension
-            )
-        else:
-            filename = representation.default_filename(link_obj)
-            mirror_url = mirror.cover_image_url(
-                data_source, identifier, filename
-            )
-
-        representation.mirror_url = mirror_url
-        mirror.mirror_one(representation)
-
-        # If we couldn't mirror an open access link representation, suppress
-        # the license pool until someone fixes it manually.
-        if representation.mirror_exception and pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            pool.suppressed = True
-            pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
-
-        # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes
-        # precedence.
-        if representation.media_type:
-            link.media_type = representation.media_type
-
-        if link_obj.rel == Hyperlink.IMAGE:
-            # Create and mirror a thumbnail.
-            thumbnail_filename = representation.default_filename(
-                link_obj, Representation.PNG_MEDIA_TYPE
-            )
-            thumbnail_url = mirror.cover_image_url(
-                data_source, pool.identifier, thumbnail_filename,
-                Edition.MAX_THUMBNAIL_HEIGHT
-            )
-            thumbnail, is_new = representation.scale(
-                max_height=Edition.MAX_THUMBNAIL_HEIGHT,
-                max_width=Edition.MAX_THUMBNAIL_WIDTH,
-                destination_url=thumbnail_url,
-                destination_media_type=Representation.PNG_MEDIA_TYPE,
-                force=True
-            )
-            if is_new:
-                # A thumbnail was created distinct from the original
-                # image. Mirror it as well.
-                mirror.mirror_one(thumbnail)
-
-        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            # If we mirrored book content successfully, don't keep it in
-            # the database to save space. We do keep images in case we
-            # ever need to resize them.
-            if representation.mirrored_at and not representation.mirror_exception:
-                representation.content = None
-
-    def make_thumbnail(self, pool, data_source, link, link_obj):
+        
+    def make_thumbnail(self, data_source, link, link_obj, pool=None):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
         """
-
         thumbnail = link.thumbnail
         if not thumbnail:
             return None
@@ -1246,8 +1415,8 @@ class Metadata(object):
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
         thumbnail_obj, ignore = link_obj.identifier.add_link(
-            rel=thumbnail.rel, href=thumbnail.href,
-            data_source=data_source,
+            rel=thumbnail.rel, href=thumbnail.href, 
+            data_source=data_source, 
             license_pool=pool, media_type=thumbnail.media_type,
             content=thumbnail.content
         )
@@ -1256,6 +1425,7 @@ class Metadata(object):
         if thumbnail_obj.resource.representation:
             thumbnail_obj.resource.representation.thumbnail_of = link_obj.resource.representation
         return thumbnail_obj
+
 
     def update_contributions(self, _db, edition, metadata_client=None,
                              replace=True):

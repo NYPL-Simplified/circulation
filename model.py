@@ -796,9 +796,9 @@ class DataSource(Base):
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
-                (cls.OCLC, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.OCLC_LINKED_DATA, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.AMAZON, False, False, Identifier.ASIN, None),
+                (cls.OCLC, False, False, None, None),
+                (cls.OCLC_LINKED_DATA, False, False, None, None),
+                (cls.AMAZON, False, False, None, None),
                 (cls.OPEN_LIBRARY, False, False, Identifier.OPEN_LIBRARY_ID, None),
                 (cls.GUTENBERG_COVER_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
                 (cls.GUTENBERG_EPUB_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
@@ -807,14 +807,14 @@ class DataSource(Base):
                 (cls.CONTENT_CAFE, True, True, Identifier.ISBN, None),
                 (cls.MANUAL, False, False, None, None),
                 (cls.NYT, False, False, Identifier.ISBN, None),
-                (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
-                (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
+                (cls.LIBRARY_STAFF, False, False, None, None),
+                (cls.METADATA_WRANGLER, False, False, None, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
-                (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
         ):
@@ -1101,7 +1101,7 @@ class Identifier(Base):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = u' wr=%d ("%s")' % (records[0].id, records[0].title)
+            title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
         return (u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id,
@@ -1528,8 +1528,6 @@ class Identifier(Base):
         classifications = []
         subject, is_new = Subject.lookup(
             _db, subject_type, subject_identifier, subject_name)
-        #if is_new:
-        #    print repr(subject)
 
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
@@ -2184,7 +2182,6 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        # TODO: fix foreign key  presentation_edition_id
         "LicensePool", uselist=False, backref="presentation_edition"
     )
 
@@ -2209,11 +2206,11 @@ class Edition(Base):
     publisher = Column(Unicode, index=True)
     imprint = Column(Unicode, index=True)
 
-    # `published is the original publication date of the
-    # text. `issued` is when made available in this ebook edition. A
-    # Project Gutenberg text was likely `published` long before being
-    # `issued`.
+    # `issued` is the date the ebook edition was sent to the distributor by the publisher, 
+    # i.e. the date it became available for librarians to buy for their libraries
     issued = Column(Date)
+    # `published is the original publication date of the text.
+    # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
     BOOK_MEDIUM = u"Book"
@@ -3370,7 +3367,7 @@ class Work(Base):
 
         self.presentation_edition = new_presentation_edition
 
-        # Let the edition's license pool know it has a work.
+        # if the edition has a license pool, let the pool know it has a work.
         if self.presentation_edition.is_presentation_for:
             self.presentation_edition.is_presentation_for.work = self
 
@@ -3444,6 +3441,7 @@ class Work(Base):
         )
         return changed
 
+
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
@@ -3458,6 +3456,7 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
+        
         # Gather information up front so we can see if anything
         # actually changed.
         changed = False
@@ -3561,6 +3560,7 @@ class Work(Base):
                 changed = "changed"
                 representation = self.detailed_representation
             else:
+                # TODO: maybe change changed to a boolean, and return it as method result
                 changed = "unchanged"
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
@@ -3626,6 +3626,7 @@ class Work(Base):
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
+
 
     def update_external_index(self, client):
         args = dict(index=client.works_index,
@@ -3773,6 +3774,7 @@ class Work(Base):
         self.work_genres = workgenres
 
         return workgenres, changed
+
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4195,9 +4197,15 @@ class Hyperlink(Base):
     DESCRIPTION = u"http://schema.org/description"
     SHORT_DESCRIPTION = u"http://librarysimplified.org/terms/rel/short-description"
     AUTHOR = u"http://schema.org/author"
+    ALTERNATE = u"alternate"
 
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
+
+    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD]
+    METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
+        DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
+    MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
 
     id = Column(Integer, primary_key=True)
 
@@ -4258,8 +4266,11 @@ class Hyperlink(Base):
     def default_filename(self):
         return self._default_filename(self.rel)
 
+
 class Resource(Base):
-    """An external resource that may be mirrored locally."""
+    """An external resource that may be mirrored locally.
+    E.g: a cover image, an epub, a description.
+    """
 
     __tablename__ = 'resources'
 
@@ -5107,7 +5118,8 @@ class LicensePool(Base):
     # One LicensePool can be associated with many Complaints.
     complaints = relationship('Complaint', backref='license_pool')
 
-    # The date this LicensePool first became available.
+    # The date this LicensePool was first created in our db
+    # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
 
     # One LicensePool may have multiple DeliveryMechanisms, and vice
@@ -5171,7 +5183,8 @@ class LicensePool(Base):
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
-        if foreign_id_type != data_source.primary_identifier_type:
+        if (data_source.primary_identifier_type and 
+            foreign_id_type != data_source.primary_identifier_type):
             raise ValueError(
                 "License pools for data source '%s' are keyed to "
                 "identifier type '%s' (not '%s', which was provided)" % (
@@ -5313,6 +5326,7 @@ class LicensePool(Base):
                 return True
         return False
 
+
     def editions_in_priority_order(self):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
@@ -5339,6 +5353,7 @@ class LicensePool(Base):
                 return -2
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
+
 
     # TODO:  policy is not used in this method.  Removing argument
     # breaks many-many tests, and needs own branch.
@@ -5433,7 +5448,7 @@ class LicensePool(Base):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
-
+        changes_made = False
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
@@ -5452,6 +5467,7 @@ class LicensePool(Base):
                 continue
             if old_value == new_value:
                 continue
+            changes_made = True
 
             if old_value < new_value:
                 event_name = more_event
@@ -5475,6 +5491,9 @@ class LicensePool(Base):
         # Update the last update time of the Work.
         if self.work:
             self.work.last_update_time = as_of
+
+        return changes_made
+
 
     def set_rights_status(self, uri, name=None):
         _db = Session.object_session(self)
@@ -5532,6 +5551,7 @@ class LicensePool(Base):
             if a and not a % batch_size:
                 _db.commit()
         _db.commit()
+
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Find or create a Work for this LicensePool.
@@ -5686,6 +5706,7 @@ class LicensePool(Base):
         # All done!
         return work, is_new
 
+
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
@@ -5757,8 +5778,17 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
     def set_delivery_mechanism(
             self, content_type, drm_scheme, resource):
+        """
+        Additive, unless have more than one version of a book, in the same format, 
+        on the same license (ex.:  book with images and book without images in Gutenberg, 
+        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
+
+        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
+        so long as they have different resources.
+        """
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme)
@@ -5834,6 +5864,8 @@ class RightsStatus(Base):
     DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
         DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
         DataSource.PLYMPTON: CC_BY_NC,
+        # workaround for opds-imported license pools with 'content server' as data source
+        DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
     }
     
     __tablename__ = 'rightsstatus'
@@ -6348,7 +6380,12 @@ class Representation(Base):
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, fetch_exception:
+            # This indicates there was a problem with making the HTTP
+            # request, not that the HTTP request returned an error
+            # condition.
+            logging.error("Error making HTTP request to %s", url, exc_info=fetch_exception)
             exception_traceback = traceback.format_exc()
+
             status_code = None
             headers = None
             content = None
@@ -7358,3 +7395,10 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
+
+
+
+
+
+
+

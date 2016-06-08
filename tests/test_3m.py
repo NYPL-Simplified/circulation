@@ -141,6 +141,7 @@ class TestItemListParser(BaseThreeMTest):
              "Renaissance"], 
             f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
 
+
     def test_item_list(cls):
         data = cls.get_data("item_metadata_list_mini.xml")        
         data = list(ItemListParser().parse(data))

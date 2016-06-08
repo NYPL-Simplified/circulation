@@ -171,7 +171,15 @@ class TestMetadataImporter(DatabaseTest):
         sample_cover_path = os.path.join(resource_path, name)
         return sample_cover_path
 
+
     def test_image_scale_and_mirror(self):
+        # Make sure that open access material links are translated to our S3 buckets, and that 
+        # commercial material links are left as is.
+        # Note: mirroring links is now also CirculationData's job.  So the unit tests 
+        # that test for that have been changed to call to mirror cover images.
+        # However, updated tests passing does not guarantee that all code now 
+        # correctly calls on CirculationData, too.  This is a risk.
+
         mirror = DummyS3Uploader()
         edition, pool = self._edition(with_license_pool=True)
         content = open(self.sample_cover_path("test-book-cover.png")).read()
@@ -226,65 +234,6 @@ class TestMetadataImporter(DatabaseTest):
         assert thumbnail.mirror_url.endswith('cover.png')
 
 
-    def test_open_access_content_mirrored(self):
-        """
-        Make sure that open access material links are translated to our S3 buckets, and that 
-        commercial material links are left as is.
-        """
-        mirror = DummyS3Uploader()
-        # Here's a book.
-        edition, pool = self._edition(with_license_pool=True)
-
-        # Here's a link to the content of the book, which will be
-        # mirrored.
-        link_mirrored = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
-            media_type=Representation.EPUB_MEDIA_TYPE,
-            content="i am a tiny book"
-        )
-
-        # This link will not be mirrored.
-        link_unmirrored = LinkData(
-            rel=Hyperlink.SAMPLE, href="http://example.com/2",
-            media_type=Representation.TEXT_PLAIN,
-            content="i am a tiny (This is a sample. To read the rest of this book, please visit your local library.)"
-        )
-
-
-        # Apply the metadata.
-        policy = ReplacementPolicy(mirror=mirror)
-        metadata = Metadata(links=[link_mirrored, link_unmirrored], data_source=edition.data_source)
-        metadata.apply(edition, replace=policy)
-        
-
-        # Only the open-access link has been 'mirrored'.
-        [book] = mirror.uploaded
-
-        # It's remained an open-access link.
-        eq_(
-            [Hyperlink.OPEN_ACCESS_DOWNLOAD], 
-            [x.rel for x in book.resource.links]
-        )
-
-
-        # It's been 'mirrored' to the appropriate S3 bucket.
-        assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
-        expect = '/%s/%s.epub' % (
-            edition.primary_identifier.identifier,
-            edition.title
-        )
-        assert book.mirror_url.endswith(expect)
-
-        # make sure the mirrored link is safely on edition
-        sorted_edition_links = sorted(edition.license_pool.identifier.links, key=lambda x: x.rel)
-        mirrored_representation, unmirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
-        assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
-
-        # make sure the unmirrored link is safely on edition
-        eq_('http://example.com/2', unmirrored_representation.url)
-        # make sure the unmirrored link has not been translated to an S3 URL
-        eq_(None, unmirrored_representation.mirror_url)
-
     def test_mirror_open_access_link_fetch_failure(self):
         edition, pool = self._edition(with_license_pool=True)
 
@@ -297,9 +246,9 @@ class TestMetadataImporter(DatabaseTest):
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
         link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
-            media_type=Representation.EPUB_MEDIA_TYPE,
-            href=self._url,
+            rel=Hyperlink.IMAGE,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            href="http://example.com/",
         )
 
         link_obj, ignore = edition.primary_identifier.add_link(
@@ -309,7 +258,7 @@ class TestMetadataImporter(DatabaseTest):
         )
         h.queue_response(403)
         
-        m.mirror_link(pool, data_source, link, link_obj, policy)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -321,9 +270,14 @@ class TestMetadataImporter(DatabaseTest):
         assert representation.fetched_at != None
         eq_(None, representation.mirrored_at)
 
-        # The license pool is suppressed when fetch fails.
-        eq_(True, pool.suppressed)
-        assert representation.fetch_exception in pool.license_exception
+        # the edition's identifier-associated license pool should not be 
+        # suppressed just because fetch failed on getting image.
+        eq_(False, pool.suppressed)
+
+        # the license pool only gets its license_exception column filled in
+        # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
+        eq_(None, pool.license_exception)
+
 
     def test_mirror_open_access_link_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -336,10 +290,12 @@ class TestMetadataImporter(DatabaseTest):
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
+        content = open(self.sample_cover_path("test-book-cover.png")).read()
         link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
-            media_type=Representation.EPUB_MEDIA_TYPE,
-            href=self._url,
+            rel=Hyperlink.IMAGE,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            href="http://example.com/",
+            content=content
         )
 
         link_obj, ignore = edition.primary_identifier.add_link(
@@ -348,9 +304,9 @@ class TestMetadataImporter(DatabaseTest):
             content=link.content,
         )
 
-        h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
+        h.queue_response(200, media_type=Representation.JPEG_MEDIA_TYPE)
         
-        m.mirror_link(pool, data_source, link, link_obj, policy)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -366,14 +322,19 @@ class TestMetadataImporter(DatabaseTest):
 
         # The mirror url should still be set.
         assert "Gutenberg" in representation.mirror_url
-        assert representation.mirror_url.endswith("%s.epub" % edition.title)
+        assert representation.mirror_url.endswith("%s/cover.jpg" % edition.primary_identifier.identifier)
 
         # Book content is still there since it wasn't mirrored.
         assert representation.content != None
 
-        # The license pool is suppressed when mirroring fails.
-        eq_(True, pool.suppressed)
-        assert representation.mirror_exception in pool.license_exception
+        # the edition's identifier-associated license pool should not be 
+        # suppressed just because fetch failed on getting image.
+        eq_(False, pool.suppressed)
+
+        # the license pool only gets its license_exception column filled in
+        # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
+        eq_(None, pool.license_exception)
+
 
     def test_measurements(self):
         edition = self._edition()
@@ -387,70 +348,6 @@ class TestMetadataImporter(DatabaseTest):
         eq_(100, m.value)
 
 
-    def test_explicit_formatdata(self):
-        # Creating an edition with an open-access download will
-        # automatically create a delivery mechanism.
-        edition, pool = self._edition(with_open_access_download=True)
-
-        # Let's also add a DRM format.
-        drm_format = FormatData(
-            content_type=Representation.PDF_MEDIA_TYPE,
-            drm_scheme=DeliveryMechanism.ADOBE_DRM,
-        )
-
-        metadata = Metadata(formats=[drm_format],
-                            data_source=edition.data_source)
-        metadata.apply(edition)
-
-        [epub, pdf] = sorted(pool.delivery_mechanisms, 
-                             key=lambda x: x.delivery_mechanism.content_type)
-        eq_(epub.resource, edition.license_pool.best_open_access_link)
-
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
-
-        # If we tell Metadata to replace the list of formats, we only
-        # have the one format we manually created.
-        metadata.apply(edition, replace_formats=True)
-        [pdf] = pool.delivery_mechanisms
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
-
-    def test_implicit_format_for_open_access_link(self):
-        edition, pool = self._edition(with_license_pool=True)
-
-        # This is the delivery mechanism created by default when you
-        # create a book with _edition().
-        [epub] = pool.delivery_mechanisms
-        eq_(Representation.EPUB_MEDIA_TYPE, epub.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, epub.delivery_mechanism.drm_scheme)
-
-
-        link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
-            media_type=Representation.PDF_MEDIA_TYPE,
-            href=self._url
-        )
-        metadata = Metadata(
-            data_source=DataSource.GUTENBERG, 
-            links=[link]
-        )
-        metadata.apply(edition, replace_formats=True)
-
-        # We destroyed the default delivery format and added a new,
-        # open access delivery format.
-        [pdf] = pool.delivery_mechanisms
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
-
-        metadata = Metadata(
-            data_source=DataSource.GUTENBERG, 
-            links=[]
-        )
-        metadata.apply(edition, replace_links=True, replace_formats=True)
-
-        # Now we have no formats at all.
-        eq_([], pool.delivery_mechanisms)
-
     def test_coverage_record(self):
         edition, pool = self._edition(with_license_pool=True)
         data_source = edition.data_source
@@ -462,7 +359,7 @@ class TestMetadataImporter(DatabaseTest):
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", last_update_time=last_update)
+                     title=u"New title", data_source_last_updated=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
@@ -472,7 +369,7 @@ class TestMetadataImporter(DatabaseTest):
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
-                     last_update_time=older_last_update
+                     data_source_last_updated=older_last_update
         )
         m.apply(edition)
         eq_(u"New title", edition.title)
@@ -485,28 +382,6 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
 
-    def test_links_use_license_data_source(self):
-        edition, pool = self._edition(with_license_pool=True)
-
-        link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
-            media_type=Representation.PDF_MEDIA_TYPE,
-            href=self._url
-        )
-
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        oa_content_server = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        m = Metadata(data_source=oa_content_server,
-                     license_data_source=gutenberg,
-                     links=[link])
-
-        m.apply(edition)
-
-        links = edition.primary_identifier.links
-        eq_(1, len(links))
-        eq_(gutenberg, links[0].data_source)
-        eq_(gutenberg, links[0].resource.data_source)
 
 
 class TestContributorData(DatabaseTest):
@@ -670,6 +545,7 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
 
+
     def test_filter_recommendations(self):
         metadata = Metadata(DataSource.OVERDRIVE)
         known_identifier = self._identifier()
@@ -692,8 +568,8 @@ class TestMetadata(DatabaseTest):
         # The genuwine article.
         eq_(known_identifier, result)
 
-    def test_metadata_can_be_deepcopied(self):
 
+    def test_metadata_can_be_deepcopied(self):
         # Check that we didn't put something in the metadata that
         # will prevent it from being copied. (e.g., self.log)
 
@@ -702,8 +578,16 @@ class TestMetadata(DatabaseTest):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
         measurement = MeasurementData(Measurement.RATING, 5)
-        format = FormatData(Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
-        circulation = CirculationData(0, 0, 0, 0)
+        circulation = CirculationData(data_source=DataSource.GUTENBERG,
+            primary_identifier=identifier, 
+            licenses_owned=0, 
+            licenses_available=0, 
+            licenses_reserved=0, 
+            patrons_in_hold_queue=0)
+        primary_as_data = IdentifierData(
+            type=identifier.type, identifier=identifier.identifier
+        )
+        other_data = IdentifierData(type=u"abc", identifier=u"def")
 
         m = Metadata(
             DataSource.GUTENBERG,
@@ -712,11 +596,90 @@ class TestMetadata(DatabaseTest):
             primary_identifier=identifier,
             links=[link],
             measurements=[measurement],
-            formats=[format],
             circulation=circulation,
+
+            title="Hello Title",
+            subtitle="Subtle Hello",
+            sort_title="Sorting Howdy",
+            language="US English",
+            medium=Edition.BOOK_MEDIUM,
+            series="1",
+            series_position=1,
+            publisher="Hello World Publishing House",
+            imprint=u"Follywood",
+            issued=datetime.datetime.utcnow(),
+            published=datetime.datetime.utcnow(),
+            identifiers=[primary_as_data, other_data],
+            data_source_last_updated=datetime.datetime.utcnow(),
         )
 
         m_copy = deepcopy(m)
 
         # If deepcopy didn't throw an exception we're ok.
         assert m_copy is not None
+
+
+    def test_links_filtered(self):
+        # test that filter links to only metadata-relevant ones
+        link1 = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
+        link2 = LinkData(rel=Hyperlink.IMAGE, href="http://example.com/")
+        link3 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
+        link4 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        link5 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=link4,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        links = [link1, link2, link3, link4, link5]
+
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG,
+            primary_identifier=identifier,
+            links=links,
+        )
+
+        filtered_links = sorted(metadata.links, key=lambda x:x.rel)
+
+        eq_([link2, link5, link4, link3], filtered_links)
+
+
+    def test_make_thumbnail_assigns_pool(self):
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        #identifier = self._identifier()
+        #identifier = IdentifierData(type=Identifier.GUTENBERG_ID, identifier=edition.primary_identifier)
+        edition = self._edition(identifier_id=identifier.identifier)
+
+        link = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+
+        metadata = Metadata(data_source=edition.data_source, 
+            primary_identifier=identifier,
+            links=[link], 
+        )
+
+        circulation = CirculationData(data_source=edition.data_source, 
+            primary_identifier=identifier)
+
+        metadata.circulation = circulation
+
+        metadata.apply(edition)
+        thumbnail_link = edition.primary_identifier.links[0]
+
+        circulation_pool, is_new = circulation.license_pool(self._db)
+        eq_(thumbnail_link.license_pool, circulation_pool)
+
+
+
+
+
+
+
+
+
+
+
