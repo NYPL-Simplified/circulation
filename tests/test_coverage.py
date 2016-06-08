@@ -169,12 +169,12 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
     def test_process_batch(self):
         provider = self._provider()
 
-        edition = self._edition()
+        edition, pool = self._edition(with_license_pool=True)
 
         identifier = self._identifier()
         messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
 
-        provider.queue_import_results([edition], messages_by_id)
+        provider.queue_import_results([edition], [pool], [pool.work], messages_by_id)
 
         fake_batch = [object()]
         success, failure = provider.process_batch(fake_batch)

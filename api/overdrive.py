@@ -511,6 +511,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
             return None, None, False
 
+        #set_trace()
         book.update(json.loads(content))
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
@@ -541,7 +542,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
         )
-        circulation_changed = circulation.update(license_pool, is_new_pool)
+        license_pool, circulation_changed = circulation.apply(license_pool)
 
         edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,

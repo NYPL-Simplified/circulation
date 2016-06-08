@@ -141,6 +141,8 @@ class TestCirculationMonitor(DatabaseTest):
     )
 
     AVAILABILITY_DATA = CirculationData(
+        data_source=DataSource.AXIS_360,
+        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier, 
         licenses_owned=9,
         licenses_available=8,
         licenses_reserved=0,
