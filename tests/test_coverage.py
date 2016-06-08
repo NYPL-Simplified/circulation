@@ -689,7 +689,6 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         test_metadata.primary_identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID
         )
-        set_trace()
         result = provider.set_metadata_and_circulation_data(lp.identifier, test_metadata, test_circulationdata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
