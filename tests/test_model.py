@@ -42,6 +42,7 @@ from model import (
     Patron,
     Representation,
     Resource,
+    RightsStatus,
     SessionManager,
     Subject,
     Timestamp,
@@ -954,24 +955,6 @@ class TestLicensePool(DatabaseTest):
             eq_(count + 2, provider.count)
             eq_(CirculationEvent.HOLD_PLACE, provider.event_type)
 
-    def test_set_rights_status(self):
-        edition, pool = self._edition(with_license_pool=True)
-        uri = "http://foo"
-        name = "bar"
-        status = pool.set_rights_status(uri, name)
-        eq_(status, pool.rights_status)
-        eq_(uri, status.uri)
-        eq_(name, status.name)
-
-        status2 = pool.set_rights_status(uri)
-        eq_(status, status2)
-
-        uri2 = "http://baz"
-        status3 = pool.set_rights_status(uri2)
-        assert status != status3
-        eq_(uri2, status3.uri)
-        eq_(None, status3.name)
-
     def test_open_access_links(self):
         edition, pool = self._edition(with_open_access_download=True)
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1227,6 +1210,48 @@ class TestLicensePool(DatabaseTest):
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
+class TestLicensePoolDeliveryMechanism(DatabaseTest):
+
+    def test_set_rights_status(self):
+        edition, pool = self._edition(with_license_pool=True)
+        pool.open_access = False
+        lpdm = pool.delivery_mechanisms[0]
+        uri = "http://foo"
+        status = lpdm.set_rights_status(uri)
+        eq_(status, lpdm.rights_status)
+        eq_(uri, status.uri)
+        eq_(False, pool.open_access)
+
+        status2 = lpdm.set_rights_status(uri)
+        eq_(status, status2)
+
+        uri2 = "http://baz"
+        status3 = lpdm.set_rights_status(uri2)
+        assert status != status3
+        eq_(uri2, status3.uri)
+
+        open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
+        open_access_status = lpdm.set_rights_status(open_access_uri)
+        eq_(open_access_uri, open_access_status.uri)
+        eq_(True, pool.open_access)
+
+        non_open_access_status = lpdm.set_rights_status(uri)
+        eq_(False, pool.open_access)
+
+        # Add a second license pool, so the pool has one open-access
+        # and one commercial delivery mechanism.
+        lpdm2 = pool.set_delivery_mechanism(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            RightsStatus.CC_BY, None)
+        eq_(2, len(pool.delivery_mechanisms))
+
+        # Now the pool is open access again
+        eq_(True, pool.open_access)
+
+        # But if we change the new delivery mechanism to non-open
+        # access, the pool won't be open access anymore either.
+        lpdm2.set_rights_status(uri)
+        eq_(False, pool.open_access)
 
 class TestWork(DatabaseTest):
 

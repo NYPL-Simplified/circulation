@@ -176,6 +176,152 @@ class TestCirculationData(DatabaseTest):
         # Now we have no formats at all.
         eq_([], pool.delivery_mechanisms)
 
+    def test_rights_status_default_rights_passed_in(self):
+        identifier = IdentifierData(
+            Identifier.GUTENBERG_ID,
+            "abcd",
+        )
+        link = LinkData(
+            rel=Hyperlink.DRM_ENCRYPTED_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OA_CONTENT_SERVER,
+            primary_identifier=identifier,
+            default_rights_uri = RightsStatus.CC_BY,
+            links=[link],
+        )
+
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(True, pool.open_access)
+        eq_(1, len(pool.delivery_mechanisms))
+        # The rights status is the one that was passed in to CirculationData.
+        eq_(RightsStatus.CC_BY, pool.delivery_mechanisms[0].rights_status.uri)
+
+    def test_rights_status_default_rights_from_data_source(self):
+        identifier = IdentifierData(
+            Identifier.GUTENBERG_ID,
+            "abcd",
+        )
+        link = LinkData(
+            rel=Hyperlink.DRM_ENCRYPTED_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OA_CONTENT_SERVER,
+            primary_identifier=identifier,
+            links=[link],
+        )
+
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(True, pool.open_access)
+        eq_(1, len(pool.delivery_mechanisms))
+        # The rights status is the default for the OA content server.
+        eq_(RightsStatus.GENERIC_OPEN_ACCESS, pool.delivery_mechanisms[0].rights_status.uri)
+
+    def test_rights_status_open_access_link_no_rights(self):
+        identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID,
+            "abcd",
+        )
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            links=[link],
+        )
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(True, pool.open_access)
+        eq_(1, len(pool.delivery_mechanisms))
+        # Rights status is generic open access because there's an open access
+        # link but no other rights info.
+        eq_(RightsStatus.GENERIC_OPEN_ACCESS, pool.delivery_mechanisms[0].rights_status.uri)
+
+    def test_rights_status_open_access_link_with_rights(self):
+        identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID,
+            "abcd",
+        )
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url,
+            rights_uri=RightsStatus.CC_BY_ND,
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            links=[link],
+        )
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(True, pool.open_access)
+        eq_(1, len(pool.delivery_mechanisms))
+        eq_(RightsStatus.CC_BY_ND, pool.delivery_mechanisms[0].rights_status.uri)
+
+    def test_rights_status_commercial_link_with_rights(self):
+        identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID,
+            "abcd",
+        )
+        link = LinkData(
+            rel=Hyperlink.DRM_ENCRYPTED_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url,
+            rights_uri=RightsStatus.IN_COPYRIGHT,
+        )
+        format = FormatData(
+            content_type=link.media_type,
+            drm_scheme=DeliveryMechanism.ADOBE_DRM,
+            link=link,
+            rights_uri=RightsStatus.IN_COPYRIGHT,
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            links=[link],
+            formats=[format],
+        )
+
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(False, pool.open_access)
+        eq_(1, len(pool.delivery_mechanisms))
+        eq_(RightsStatus.IN_COPYRIGHT, pool.delivery_mechanisms[0].rights_status.uri)
 
 
 class TestMetaToModelUtility(DatabaseTest):
