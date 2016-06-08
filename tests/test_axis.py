@@ -185,6 +185,7 @@ class TestParsers(object):
         eq_("Eve, Mallory", c.sort_name)
         eq_([Contributor.UNKNOWN_ROLE], c.roles)
 
+
     def test_availability_parser(self):
         """Make sure the availability information gets properly
         collated in preparation for updating a LicensePool.
@@ -199,7 +200,9 @@ class TestParsers(object):
         eq_(None, bib1)
         eq_(None, bib2)
 
-        eq_("0003642860", av1.primary_identifier)
+        eq_("0003642860", av1.primary_identifier.identifier)
         eq_(9, av1.licenses_owned)
         eq_(9, av1.licenses_available)
         eq_(0, av1.patrons_in_hold_queue)
+
+

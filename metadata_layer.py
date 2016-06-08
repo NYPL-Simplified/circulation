@@ -11,10 +11,11 @@ from collections import defaultdict
 from sqlalchemy.orm.session import Session
 from nose.tools import set_trace
 from dateutil.parser import parse
-from sqlalchemy.sql.expression import and_
+from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from sqlalchemy.orm import aliased
 import csv
 import datetime
 import logging
@@ -29,6 +30,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    Equivalency,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -37,6 +39,7 @@ from model import (
     PresentationCalculationPolicy,
     RightsStatus,
     Representation,
+    Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
 
@@ -122,6 +125,7 @@ class ReplacementPolicy(object):
             formats=False,
             **args
         )
+
 
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
@@ -298,6 +302,7 @@ class IdentifierData(object):
             _db, self.type, self.identifier
         )
 
+
 class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, content=None,
                  thumbnail=None, rights_uri=None):
@@ -328,6 +333,7 @@ class LinkData(object):
             self.rel, self.href, self.media_type, thumbnail,
             content
         )
+
 
 class MeasurementData(object):
     def __init__(self,
@@ -380,9 +386,7 @@ class MetaToModelUtility(object):
         The model_object can be either a pool or an edition.
         """
 
-        if link_obj.rel not in (
-            Hyperlink.IMAGE, Hyperlink.OPEN_ACCESS_DOWNLOAD
-        ):
+        if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
             return
 
@@ -515,8 +519,6 @@ class MetaToModelUtility(object):
 
 
 
-
-
 class CirculationData(MetaToModelUtility):
     """Information about actual copies of a book that can be delivered to
     patrons.
@@ -527,7 +529,7 @@ class CirculationData(MetaToModelUtility):
     Basically,
         Metadata : Edition :: CirculationData : Licensepool
     """
-
+    
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
@@ -588,14 +590,13 @@ class CirculationData(MetaToModelUtility):
             return
 
         for link in arg_links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 # TODO:  what about Hyperlink.SAMPLE?
                 # only accept the types of links relevant to pools
                 self.__links.append(link)
 
                 # An open-access link or open-access rights implies a FormatData object.
-                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
-                                    and link.href)
+                open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href)
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
                 open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
                                            and link.href
@@ -666,7 +667,7 @@ class CirculationData(MetaToModelUtility):
                 _db, RightsStatus, uri=self.default_rights_uri
             )
 
-            last_checked = datetime.datetime.utcnow()
+            last_checked = self.last_checked or datetime.datetime.utcnow()
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
@@ -724,7 +725,7 @@ class CirculationData(MetaToModelUtility):
         """  Update the passed-in license pool with this CirculationData's information.
         """
         made_changes = False
-
+        
         if pool is None:
             raise ValueError("CirculationData.apply needs a pool.")
 
@@ -745,7 +746,7 @@ class CirculationData(MetaToModelUtility):
         link_objects = {}
 
         for link in self.links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=pool, media_type=link.media_type,
@@ -754,7 +755,7 @@ class CirculationData(MetaToModelUtility):
                 link_objects[link] = link_obj
 
         for link in self.links:
-            if link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
                 if replace.mirror:
                     # We need to mirror this resource. If it's an image, a
@@ -800,7 +801,7 @@ class CirculationData(MetaToModelUtility):
                 # CirculationData object in the bibliographic parser for a 3m log, then 
                 # check if that log update value is after the license pool's current knowledge, 
                 # and only update license infos if new information is really new.
-                if (pool.last_checked and (self.last_checked > pool.last_checked)):
+                if (pool.last_checked and (self.last_checked >= pool.last_checked)):
                     # Update availabily information. This may result in the issuance
                     # of additional events.
                     changed_licenses = pool.update_availability(
@@ -839,8 +840,6 @@ class CirculationData(MetaToModelUtility):
         return pool, made_changes
 
 
-        
-
 
 class Metadata(MetaToModelUtility):
 
@@ -870,11 +869,12 @@ class Metadata(MetaToModelUtility):
             published=None,
             primary_identifier=None,
             identifiers=None,
+            recommendations=None,
             subjects=None,
             contributors=None,
             measurements=None,
             links=None,
-            provider_entry_updated=None,
+            data_source_last_updated=None,
             # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
             circulation=None,  
     ):
@@ -907,14 +907,15 @@ class Metadata(MetaToModelUtility):
         if (self.primary_identifier
             and self.primary_identifier not in self.identifiers):
             self.identifiers.append(self.primary_identifier)
+        self.recommendations = recommendations or []
         self.subjects = subjects or []
         self.contributors = contributors or []
         self.measurements = measurements or []
 
         self.circulation = circulation
 
-        # renamed last_update_time to provider_entry_updated
-        self.provider_entry_updated = provider_entry_updated
+        # renamed last_update_time to data_source_last_updated
+        self.data_source_last_updated = data_source_last_updated
 
         self.__links = None
         self.links = links
@@ -935,7 +936,7 @@ class Metadata(MetaToModelUtility):
             return
 
         for link in arg_links:
-            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.METADATA_ALLOWED:
                 # only accept the types of links relevant to editions
                 self.__links.append(link)
                 
@@ -1154,7 +1155,6 @@ class Metadata(MetaToModelUtility):
         return success
 
 
-
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
@@ -1206,11 +1206,11 @@ class Metadata(MetaToModelUtility):
         # Check whether we should do any work at all.
         data_source = self.data_source(_db)
 
-        if self.provider_entry_updated and not replace.even_if_not_apparently_updated:
+        if self.data_source_last_updated and not replace.even_if_not_apparently_updated:
             coverage_record = CoverageRecord.lookup(edition, data_source)
             if coverage_record:
                 check_time = coverage_record.timestamp
-                last_time = self.provider_entry_updated
+                last_time = self.data_source_last_updated
                 if check_time >= last_time:
                     # The metadata has not changed since last time. Do nothing.
                     return edition, False
@@ -1306,17 +1306,11 @@ class Metadata(MetaToModelUtility):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
-
-
-        # TODO:  also, when we call apply() from test_metadata.py:TestMetadataImporter.test_open_access_content_mirrored, 
-        # pool gets set, but when we call apply() from test_metadata.py:TestMetadataImporter.test_measurements, 
-        # pool is not set.  If we're going to rely on the pool getting its edition set here, then 
-        # it's problematic that pool isn't always being set in this method.
         
         link_objects = {}
 
         for link in self.links:
-            if link.rel not in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.DRM_ENCRYPTED_DOWNLOAD]:
+            if link.rel in Hyperlink.METADATA_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     license_pool=None, media_type=link.media_type,
@@ -1351,6 +1345,18 @@ class Metadata(MetaToModelUtility):
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
 
+        # we updated the links.  but does the associated pool know?
+        pool = None
+        if self.circulation:
+            pool, is_new = self.circulation.license_pool(_db)
+            if (pool and not is_new):
+                self.circulation.apply(pool)
+
+            # we updated the pool.  but do the associated links know?
+            for link in self.links:
+                link_obj = link_objects[link]
+                link_obj.license_pool = pool
+
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             link_obj = link_objects[link]
@@ -1366,17 +1372,18 @@ class Metadata(MetaToModelUtility):
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
-                self.make_thumbnail(data_source, link, link_obj)
+                self.make_thumbnail(data_source, link, link_obj, pool)
+
 
         # Finally, update the coverage record for this edition
         # and data source.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.provider_entry_updated
+            edition, data_source, timestamp=self.data_source_last_updated
         )
         return edition, made_core_changes
 
         
-    def make_thumbnail(self, data_source, link, link_obj):
+    def make_thumbnail(self, data_source, link, link_obj, pool=None):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
         """
@@ -1396,7 +1403,7 @@ class Metadata(MetaToModelUtility):
         thumbnail_obj, ignore = link_obj.identifier.add_link(
             rel=thumbnail.rel, href=thumbnail.href, 
             data_source=data_source, 
-            license_pool=None, media_type=thumbnail.media_type,
+            license_pool=pool, media_type=thumbnail.media_type,
             content=thumbnail.content
         )
         # And make sure the thumbnail knows it's a thumbnail of the main
@@ -1443,9 +1450,29 @@ class Metadata(MetaToModelUtility):
                     contributor_data.display_name
                 )
 
+    def filter_recommendations(self, _db):
+        """Filters out recommended identifiers that don't exist in the db.
+        Any IdentifierData objects will be replaced with Identifiers.
+        """
+
+        by_type = defaultdict(list)
+        for identifier in self.recommendations:
+            by_type[identifier.type].append(identifier.identifier)
+
+        self.recommendations = []
+        for type, identifiers in by_type.items():
+            existing_identifiers = _db.query(Identifier).\
+                filter(Identifier.type==type).\
+                filter(Identifier.identifier.in_(identifiers))
+            self.recommendations += existing_identifiers.all()
+
+        if self.primary_identifier in self.recommendations:
+            self.recommendations.remove(identifier_data)
+
 
 class CSVFormatError(csv.Error):
     pass
+
 
 class CSVMetadataImporter(object):
 

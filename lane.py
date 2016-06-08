@@ -745,7 +745,6 @@ class Lane(object):
             list_ids = None
         return list_data_source_id, list_ids
 
-
     @classmethod
     def from_description(cls, _db, parent, description):
         genre = None
@@ -904,7 +903,9 @@ class Lane(object):
             q = q.filter(WorkGenre.genre_id.in_(self.genre_ids))
 
         q = self.apply_filters(q, facets, pagination, Work, Edition)
-
+        if not q:
+            # apply_filters may return None in subclasses of Lane
+            return None
         return q
 
     def materialized_works(self, facets=None, pagination=None):
@@ -933,7 +934,9 @@ class Lane(object):
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
         q = self.apply_filters(q, facets, pagination, mw, mw)
-
+        if not q:
+            # apply_filters may return None in subclasses of Lane
+            return None
         return q
 
     def apply_filters(self, q, facets=None, pagination=None, work_model=Work, edition_model=Edition):

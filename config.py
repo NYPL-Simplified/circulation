@@ -6,6 +6,7 @@ import json
 import logging
 import copy
 from facets import FacetConstants as Facets
+from analytics import Analytics
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -102,6 +103,8 @@ class Configuration(object):
     # Loan policies
     DEFAULT_LOAN_PERIOD = "default_loan_period"
     DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+
+    ANALYTICS_POLICY = "analytics"
 
     # Integrations
     URL = "url"
@@ -305,6 +308,11 @@ class Configuration(object):
     def show_staff_picks_on_top_level(cls):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
+    @classmethod
+    def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
+        cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(
+            _db, license_pool, event_type, time, **kwargs)
+
     # Methods for loading the configuration from disk.
 
     @classmethod
@@ -317,7 +325,7 @@ class Configuration(object):
         config_path = os.environ[cfv]
         try:
             cls.log.info("Loading configuration from %s", config_path)
-            configuration = cls._load(open(config_path))
+            configuration = cls._load(open(config_path).read())
         except Exception, e:
             raise CannotLoadConfiguration(
                 "Error loading configuration file %s: %s" % (
@@ -327,6 +335,11 @@ class Configuration(object):
         return configuration
 
     @classmethod
-    def _load(cls, fh):
-        lines = [x for x in fh if not x.strip().startswith("#")]
-        return json.loads("".join(lines))
+    def _load(cls, str):
+        lines = [x for x in str.split("\n") if not x.strip().startswith("#")]
+        config = json.loads("\n".join(lines))
+        if not config.get(cls.POLICIES):
+            config[cls.POLICIES] = {}
+        providers = config[cls.POLICIES].get(cls.ANALYTICS_POLICY, [])
+        config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(providers, config)
+        return config

@@ -202,7 +202,6 @@ class OverdriveAPI(object):
         expires_in = (overdrive_data['expires_in'] * 0.9)
         credential.expires = datetime.datetime.utcnow() + datetime.timedelta(
             seconds=expires_in)
-        self._db.commit()
 
     def get_library(self):
         url = self.LIBRARY_ENDPOINT % dict(library_id=self.library_id)
@@ -888,10 +887,12 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
 
-        result = self.set_metadata(
-            identifier, metadata, 
-            metadata_replacement_policy=self.metadata_replacement_policy
+        result = self.set_metadata_and_circulation_data(
+            identifier, metadata, metadata.circulation, 
+            metadata_replacement_policy=self.metadata_replacement_policy, 
+            circulationdata_replacement_policy=self.circulationdata_replacement_policy
         )
+
         if not isinstance(result, CoverageFailure):
             # Success!
             result = self.set_presentation_ready(result)

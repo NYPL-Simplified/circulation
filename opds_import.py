@@ -275,9 +275,6 @@ class OPDSImporter(object):
                 # clean up any edition might have created
                 if key in imported_editions:
                     del imported_editions[key]
-                # stop the import, something went terribly wrong
-                return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages, next_links
-
 
 
         for key, circulationdata in circulation_objs.iteritems():
@@ -312,11 +309,6 @@ class OPDSImporter(object):
                 except Exception, e:
                     message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                     status_messages[key] = message
-                    # If problem importing a Work, then rather than scratch the whole import, 
-                    # treat this as a failure that only applies to this item.
-                    # But if problem importing a pool, something is very wrong, and should stop the import.
-                    if not pool:
-                        return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages, next_links
             else:
                 self.log.debug(
                     "DataSource does not offer licenses.  No LicensePool created for CirculationData %r, not attempting to create Work.", 
@@ -339,7 +331,7 @@ class OPDSImporter(object):
 
         if (cutoff_date 
             and not is_new_edition
-            and metadata.provider_entry_updated < cutoff_date
+            and metadata.data_source_last_updated < cutoff_date
         ):
             # We've already imported this book, we've been told
             # not to bother with books that haven't changed since a
@@ -379,7 +371,7 @@ class OPDSImporter(object):
         if (cutoff_date 
             and not is_new_license_pool 
             and associated_metadata 
-            and associated_metadata.provider_entry_updated < cutoff_date):
+            and associated_metadata.data_source_last_updated < cutoff_date):
             # We've already imported this book, we've been told
             # not to bother with books that appeared before a
             # certain date, and this book did in fact appear
@@ -483,7 +475,8 @@ class OPDSImporter(object):
 
             circ_links_dict = {}
             # extract just the links to pass to CirculationData constructor
-            circ_links_dict['links'] = xml_data_dict['links']
+            if 'links' in xml_data_dict:
+                circ_links_dict['links'] = xml_data_dict['links']
             combined_circ = self.combine(c_data_dict, circ_links_dict)
             if combined_circ.get('data_source') is None:
                 combined_circ['data_source'] = self.data_source_name
@@ -666,7 +659,7 @@ class OPDSImporter(object):
             publisher=publisher,
             links=links,
             # refers to when was updated in opds feed, not our db
-            provider_entry_updated=last_opds_update,
+            data_source_last_updated=last_opds_update,
         )
 
         kwargs_circ = dict(

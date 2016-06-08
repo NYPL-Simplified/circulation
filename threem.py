@@ -289,8 +289,8 @@ class ItemListParser(XMLParser):
 
 
     def process_one(self, tag, namespaces):
-        """Turn an <item> tag into a Metadata and a CirculationData objects, 
-        and return them as a tuple."""
+        """Turn an <item> tag into a Metadata and an encompassed CirculationData 
+        objects, and return the Metadata."""
 
         def value(threem_key):
             return self.text_of_optional_subtag(tag, threem_key)

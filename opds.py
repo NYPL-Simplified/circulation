@@ -488,16 +488,15 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator, 
-               force_refresh=False,
-               use_materialized_works=True):
+               force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         # Find or create a CachedFeed.
         cached, usable = CachedFeed.fetch(
             _db,
-            lane=lane, 
-            type=CachedFeed.GROUPS_TYPE, 
+            lane=lane,
+            type=CachedFeed.GROUPS_TYPE,
             facets=None,
             pagination=None,
             annotator=annotator,
@@ -609,20 +608,21 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
              facets=None, pagination=None, 
-             force_refresh=False,
+             force_refresh=False, cache_type=None,
              use_materialized_works=True
     ):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
+        cache_type = cache_type or CachedFeed.PAGE_TYPE
 
         # Find or create a CachedFeed.
         cached, usable = CachedFeed.fetch(
             _db,
-            lane=lane, 
-            type=CachedFeed.PAGE_TYPE, 
-            facets=facets, 
-            pagination=pagination, 
+            lane=lane,
+            type=cache_type,
+            facets=facets,
+            pagination=pagination,
             annotator=annotator,
             force_refresh=force_refresh
         )
@@ -633,8 +633,11 @@ class AcquisitionFeed(OPDSFeed):
             works_q = lane.materialized_works(facets, pagination)
         else:
             works_q = lane.works(facets, pagination)
-        works = works_q.all()
 
+        if not works_q:
+            works = []
+        else:
+            works = works_q.all()
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
@@ -773,7 +776,7 @@ class AcquisitionFeed(OPDSFeed):
         return entry
 
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
-                     force_create=False):
+                     force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
         if isinstance(work, Edition):
             active_edition = work
@@ -807,15 +810,16 @@ class AcquisitionFeed(OPDSFeed):
             return None
 
         return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier, lane_link, force_create)
+                                  identifier, lane_link, force_create, 
+                                  use_cache)
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
-                      force_create=False):
+                      force_create=False, use_cache=True):
 
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
-        if field and work and not force_create:
+        if field and work and not force_create and use_cache:
             xml = getattr(work, field)
 
         if xml:
@@ -828,7 +832,7 @@ class AcquisitionFeed(OPDSFeed):
             xml = self._make_entry_xml(
                 work, license_pool, edition, identifier, lane_link)
             data = etree.tostring(xml)
-            if field:
+            if field and use_cache:
                 setattr(work, field, data)
 
         self.annotator.annotate_work_entry(
@@ -1189,11 +1193,10 @@ class AcquisitionFeed(OPDSFeed):
 
 
 class LookupAcquisitionFeed(AcquisitionFeed):
-
-    """Used when the work's primary identifier may be different
-    from the identifier we should use in the feed.
+    """Used when the user has requested a lookup of a specific identifier,
+    which may be different from the identifier used by the Work's
+    default LicensePool.
     """
-
     def __init__(self, _db, title, url, works, annotator=None,
                  messages_by_urn={}, precomposed_entries=[],
                  require_active_licensepool=True):
@@ -1205,17 +1208,41 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         )
 
     def create_entry(self, work, lane_link):
-        """Turn a work into an entry for an acquisition feed."""
+        """Turn an Identifier and a Work into an entry for an acquisition
+        feed.
+        """
         identifier, work = work
-        active_license_pool = self.annotator.active_licensepool_for(work)
 
-        if self.require_active_licensepool and not active_license_pool:
-            message = { identifier.urn : (404, "Identifier not found in collection")}
-            entry = list(self.render_messages(message))[0]
-            self.feed.append(entry)
-            return None
+        # Most of the time we can use the cached OPDS entry for the
+        # work.  However, that cached OPDS feed is designed around one
+        # specific LicensePool, and it's possible that the client is
+        # asking for a lookup centered around a different LicensePool.
+        default_licensepool = self.annotator.active_licensepool_for(work)
+        active_licensepool = identifier.licensed_through
 
-        edition = work.presentation_edition
+        # In that case, we can't use the cached OPDS entry. We need to
+        # create a new one (and not store it in the cache).
+        use_cache = (active_licensepool == default_licensepool)
+
+        error_status = error_message = None
+        if self.require_active_licensepool and not active_licensepool:
+            error_status = 404
+            error_message = "Identifier not found in collection"
+        
+        if (identifier.licensed_through and 
+            identifier.licensed_through.work != work):
+            error_status = 500
+            error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
+           
+        if error_status:
+            message = { identifier.urn : (error_status, error_message)}
+            return list(self.render_messages(message))[0]
+
+        if active_licensepool:
+            edition = active_licensepool.presentation_edition
+        else:
+            edition = work.presentation_edition
         return self._create_entry(
-            work, active_license_pool, edition, identifier, lane_link
+            work, active_licensepool, edition, identifier, lane_link,
+            use_cache=use_cache
         )

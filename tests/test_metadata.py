@@ -359,7 +359,7 @@ class TestMetadataImporter(DatabaseTest):
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", provider_entry_updated=last_update)
+                     title=u"New title", data_source_last_updated=last_update)
         m.apply(edition)
         
         coverage = CoverageRecord.lookup(edition, data_source)
@@ -369,7 +369,7 @@ class TestMetadataImporter(DatabaseTest):
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title=u"Another new title", 
-                     provider_entry_updated=older_last_update
+                     data_source_last_updated=older_last_update
         )
         m.apply(edition)
         eq_(u"New title", edition.title)
@@ -426,7 +426,6 @@ class TestMetadata(DatabaseTest):
         # make sure the metadata and the originating edition match 
         for field in Metadata.BASIC_EDITION_FIELDS:
             eq_(getattr(edition, field), getattr(metadata, field))
-
 
         e_contribution = edition.contributions[0]
         m_contributor_data = metadata.contributors[0]
@@ -547,6 +546,29 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.issued, edition_old.issued)
 
 
+    def test_filter_recommendations(self):
+        metadata = Metadata(DataSource.OVERDRIVE)
+        known_identifier = self._identifier()
+        unknown_identifier = IdentifierData(Identifier.ISBN, "hey there")
+
+        # Unknown identifiers are filtered out of the recommendations.
+        metadata.recommendations += [known_identifier, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        eq_([known_identifier], metadata.recommendations)
+
+        # It works with IdentifierData as well.
+        known_identifier_data = IdentifierData(
+            known_identifier.type, known_identifier.identifier
+        )
+        metadata.recommendations = [known_identifier_data, unknown_identifier]
+        metadata.filter_recommendations(self._db)
+        [result] = metadata.recommendations
+        # The IdentifierData has been replaced by a bonafide Identifier.
+        eq_(True, isinstance(result, Identifier))
+        # The genuwine article.
+        eq_(known_identifier, result)
+
+
     def test_metadata_can_be_deepcopied(self):
         # Check that we didn't put something in the metadata that
         # will prevent it from being copied. (e.g., self.log)
@@ -588,7 +610,7 @@ class TestMetadata(DatabaseTest):
             issued=datetime.datetime.utcnow(),
             published=datetime.datetime.utcnow(),
             identifiers=[primary_as_data, other_data],
-            provider_entry_updated=datetime.datetime.utcnow(),
+            data_source_last_updated=datetime.datetime.utcnow(),
         )
 
         m_copy = deepcopy(m)
@@ -614,7 +636,7 @@ class TestMetadata(DatabaseTest):
 
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         metadata = Metadata(
-            DataSource.GUTENBERG,
+            data_source=DataSource.GUTENBERG,
             primary_identifier=identifier,
             links=links,
         )
@@ -622,6 +644,35 @@ class TestMetadata(DatabaseTest):
         filtered_links = sorted(metadata.links, key=lambda x:x.rel)
 
         eq_([link2, link5, link4, link3], filtered_links)
+
+
+    def test_make_thumbnail_assigns_pool(self):
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        #identifier = self._identifier()
+        #identifier = IdentifierData(type=Identifier.GUTENBERG_ID, identifier=edition.primary_identifier)
+        edition = self._edition(identifier_id=identifier.identifier)
+
+        link = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+
+        metadata = Metadata(data_source=edition.data_source, 
+            primary_identifier=identifier,
+            links=[link], 
+        )
+
+        circulation = CirculationData(data_source=edition.data_source, 
+            primary_identifier=identifier)
+
+        metadata.circulation = circulation
+
+        metadata.apply(edition)
+        thumbnail_link = edition.primary_identifier.links[0]
+
+        circulation_pool, is_new = circulation.license_pool(self._db)
+        eq_(thumbnail_link.license_pool, circulation_pool)
+
 
 
 

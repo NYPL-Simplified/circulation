@@ -826,13 +826,13 @@ class TestOPDS(DatabaseTest):
 
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                False, False
+                force_refresh=False, use_materialized_works=False
             )
             eq_(CachedFeed.PAGE_TYPE, feed.type)
 
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                True, False
+                force_refresh=True, use_materialized_works=False
             )
             parsed = feedparser.parse(cached_groups.content)
             
@@ -894,7 +894,7 @@ class TestOPDS(DatabaseTest):
 
             feed = AcquisitionFeed.groups(
                 self._db, "test", self._url, test_lane, annotator,
-                True, False
+                force_refresh=True, use_materialized_works=False
             )
 
             # The feed is filed as a groups feed, even though in
@@ -1015,54 +1015,145 @@ class TestOPDS(DatabaseTest):
             assert work2.title in cached3.content
 
 
-class TestLookupAcquisitionFeed(DatabaseTest):
-
-    def test_lookup_feed_checks_licensepool_activeness(self):
-        """It doesn't matter whether a work has a licensepool or not in lookup
-        feeds.
-        """
-        work = self._work(title=u"Hello, World!", with_license_pool=True)
-        identifier = work.license_pools[0].identifier
-        feed = LookupAcquisitionFeed(
-            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
-            annotator=VerboseAnnotator
-        )
-        # By default, the work is ignored because its licensepool is inactive.
-        feed = feedparser.parse(unicode(feed))
-        eq_(1, len(feed.entries))
-        [entry] = feed.entries
-        eq_('404', entry['simplified_status_code'])
-        eq_('Identifier not found in collection', entry['simplified_message'])
-
-        feed = LookupAcquisitionFeed(
-            self._db, u"Feed Title", u"http://whatever.io", [(identifier, work)],
-            annotator=VerboseAnnotator, require_active_licensepool=False
-        )
-        # When an active licensepool isn't required, the work is returned.
-        feed = feedparser.parse(unicode(feed))
-        eq_(1, len(feed.entries))
-        [entry] = feed.entries
-        eq_("Hello, World!", entry.title)
-        eq_(identifier.urn, entry.id)
-
-
 class TestAcquisitionFeed(DatabaseTest):
 
     def test_single_entry(self):
 
+        # Here's a Work with two LicensePools.
         work = self._work(with_open_access_download=True)
-        pool = work.license_pools[0]
+        original_pool = work.license_pools[0]
+        edition, new_pool = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(new_pool)
 
-        # Create an <entry> tag for this work and its LicensePool.
-        feed1 = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator, pool
+        # The presentation edition of the Work is associated with
+        # the first LicensePool added to it.
+        eq_(work.presentation_edition, original_pool.presentation_edition)
+
+        # This is the edition used when we create an <entry> tag for
+        # this Work.
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator
+        )
+        entry = etree.tostring(entry)
+        assert original_pool.presentation_edition.title in entry
+        assert new_pool.presentation_edition.title not in entry
+
+    def test_cache_usage(self):
+        work = self._work(with_open_access_download=True)
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
         )
 
-        # If we don't pass in the license pool, it makes a guess to
-        # figure out which license pool we're talking about.
-        feed2 = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator, None
-        )
+        # Set the Work's cached OPDS entry to something that's clearly wrong.
+        tiny_entry = '<feed>cached entry</feed>'
+        work.simple_opds_entry = tiny_entry
 
-        # Both entries are identical.
-        eq_(etree.tostring(feed1), etree.tostring(feed2))
+        # If we pass in use_cache=True, the cached value is used.
+        entry = feed.create_entry(work, self._url, use_cache=True)
+        eq_(tiny_entry, work.simple_opds_entry)
+        eq_(tiny_entry, etree.tostring(entry))
+
+        # If we pass in use_cache=False, a new OPDS entry is created
+        # from scratch, but the cache is not updated.
+        entry = feed.create_entry(work, self._url, use_cache=False)
+        assert etree.tostring(entry) != tiny_entry
+        eq_(tiny_entry, work.simple_opds_entry)
+
+        # If we pass in force_create, a new OPDS entry is created
+        # and the cache is updated.
+        entry = feed.create_entry(work, self._url, force_create=True)
+        entry_string = etree.tostring(entry) 
+        assert entry_string != tiny_entry
+        eq_(entry_string, work.simple_opds_entry)
+
+class TestLookupAcquisitionFeed(DatabaseTest):
+
+    def entry(self, identifier, work, **kwargs):
+        """Helper method to create an entry."""
+        feed = LookupAcquisitionFeed(
+            self._db, u"Feed Title", "http://whatever.io", [],
+            annotator=VerboseAnnotator, **kwargs
+        )
+        entry = feed.create_entry((identifier, work), u"http://lane/")
+        if entry:
+            entry = etree.tostring(entry)
+        return feed, entry
+
+    def test_create_entry_uses_specified_identifier(self):
+
+        # Here's a Work with two LicensePools.
+        work = self._work(with_open_access_download=True)
+        original_pool = work.license_pools[0]
+        edition, new_pool = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(new_pool)
+
+        # We can generate two different OPDS feeds for a single work
+        # depending on which identifier we look up.
+        ignore, e1 = self.entry(original_pool.identifier, work)
+        ignore, e2 = self.entry(new_pool.identifier, work)
+        assert original_pool.identifier.urn in e1
+        assert original_pool.presentation_edition.title in e1
+        assert new_pool.identifier.urn not in e1
+        assert new_pool.presentation_edition.title not in e1
+
+        assert new_pool.identifier.urn in e2
+        assert new_pool.presentation_edition.title in e2
+        assert original_pool.identifier.urn not in e2
+        assert original_pool.presentation_edition.title not in e2
+
+    def test_error_on_mismatched_identifier(self):
+        """We get an error if we try to make it look like an Identifier lookup
+        retrieved a Work that's not actually associated with that Identifier.
+        """
+        work = self._work(with_open_access_download=True)
+
+        # Here's an identifier not associated with any LicensePool.
+        identifier = self._identifier()
+
+        feed, entry = self.entry(identifier, work)
+
+        # We were not successful at creating an <entry> for this
+        # lookup.
+        expect_status = '<simplified:status_code>404'
+        expect_message = '<simplified:message>Identifier not found in collection'
+        assert expect_status in entry
+        assert expect_message in entry
+
+        # We also get an error if we use an Identifier that is
+        # associated with a LicensePool, but that LicensePool is not
+        # associated with the Work.
+        edition, lp = self._edition(with_license_pool=True)
+        feed, entry = self.entry(lp.identifier, work)
+        expect_status = '<simplified:status_code>500'
+        expect_message = '<simplified:message>I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
+        assert expect_status in entry
+        assert (expect_message % lp.identifier.urn) in entry
+
+    def test_error_when_work_has_no_licensepool(self):
+        """Under most circumstances, a Work must have at least one
+        LicensePool for a lookup to succeed.
+        """
+
+        # Here's a work with no LicensePools.
+        work = self._work(title=u"Hello, World!", with_license_pool=False)
+        identifier = work.presentation_edition.primary_identifier
+        feed, entry = self.entry(identifier, work)
+
+        # By default, a work is treated as 'not in the collection' if
+        # there is no LicensePool for it.
+        eq_(True, feed.require_active_licensepool)
+        assert "Identifier not found in collection" in entry
+        assert work.title not in entry
+
+        # But if the LookupAcquisitionFeed is set up to allow a lookup
+        # even in the absense of a LicensePool (as might happen in the
+        # metadata wrangler), the same lookup succeeds.
+        feed, entry = self.entry(
+            identifier, work, require_active_licensepool = False
+        )
+        assert 'simplified:status_code' not in entry
+        assert work.title in entry

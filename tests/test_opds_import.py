@@ -543,6 +543,7 @@ class TestOPDSImporter(OPDSImporterTest):
                 else:
                     # Any other import fails.
                     raise Exception("Utter failure!")
+
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
@@ -550,8 +551,8 @@ class TestOPDSImporter(OPDSImporterTest):
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
-        # No books were imported.
-        eq_(0, len(imported_editions))
+        # Only one book was imported, the other failed.
+        eq_(1, len(imported_editions))
 
         # The other failed to import, and became a StatusMessage
         message = error_messages['http://www.gutenberg.org/ebooks/10441']

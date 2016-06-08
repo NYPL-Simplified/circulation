@@ -60,7 +60,7 @@ class CoverageProvider(object):
         self._db = Session.object_session(output_source)
         self.service_name = service_name
 
-        if not isinstance(input_identifier_types, list):
+        if input_identifier_types and not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
         self.output_source_name = output_source.name
@@ -195,6 +195,7 @@ class CoverageProvider(object):
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
+                    self.log.warn("Transient failure: %s", item.exception)
                     transient_failures += 1
                     record = item
                 else:
@@ -333,9 +334,7 @@ class CoverageProvider(object):
         if not license_pool:
             e = "No license pool available"
             return CoverageFailure(self, identifier, e, transient=True)
-        work, created = license_pool.calculate_work(
-            even_if_no_author=True, known_edition=self.edition(identifier)
-        )
+        work, created = license_pool.calculate_work(even_if_no_author=True)
         if not work:
             e = "Work could not be calculated"
             return CoverageFailure(self, identifier, e, transient=True)
@@ -487,7 +486,8 @@ class BibliographicCoverageProvider(CoverageProvider):
     CAN_CREATE_LICENSE_POOLS = True
 
     def __init__(self, _db, api, datasource, workset_size=10,
-                 metadata_replacement_policy=None, cutoff_time=None
+                 metadata_replacement_policy=None, circulationdata_replacement_policy=None, 
+                 cutoff_time=None
     ):
         self._db = _db
         self.api = api
@@ -497,7 +497,11 @@ class BibliographicCoverageProvider(CoverageProvider):
         metadata_replacement_policy = (
             metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
         )
+        circulationdata_replacement_policy = (
+            circulationdata_replacement_policy or ReplacementPolicy.from_license_source()
+        )
         self.metadata_replacement_policy = metadata_replacement_policy
+        self.circulationdata_replacement_policy = circulationdata_replacement_policy
         super(BibliographicCoverageProvider, self).__init__(
             service_name,
             input_identifier_types, output_source,
