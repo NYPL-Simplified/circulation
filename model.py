@@ -4191,6 +4191,17 @@ class LicensePoolDeliveryMechanism(Base):
         self.rights_status = status
         if status.uri in RightsStatus.OPEN_ACCESS:
             self.license_pool.open_access = True
+        elif self.license_pool.open_access:
+            # If we're setting the rights status to
+            # non-open access, we might have removed
+            # the last open-access delivery mechanism
+            # for the pool. We need to check all of them
+            # to see if there's an open-access one.
+            self.license_pool.open_access = False
+            for lpdm in self.license_pool.delivery_mechanisms:
+                if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                    self.license_pool.open_access = True
+                    break
         return status
 
     def __repr__(self):

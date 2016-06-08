@@ -1236,7 +1236,22 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(True, pool.open_access)
 
         non_open_access_status = lpdm.set_rights_status(uri)
+        eq_(False, pool.open_access)
+
+        # Add a second license pool, so the pool has one open-access
+        # and one commercial delivery mechanism.
+        lpdm2 = pool.set_delivery_mechanism(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            RightsStatus.CC_BY, None)
+        eq_(2, len(pool.delivery_mechanisms))
+
+        # Now the pool is open access again
         eq_(True, pool.open_access)
+
+        # But if we change the new delivery mechanism to non-open
+        # access, the pool won't be open access anymore either.
+        lpdm2.set_rights_status(uri)
+        eq_(False, pool.open_access)
 
 class TestWork(DatabaseTest):
 
