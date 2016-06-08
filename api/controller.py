@@ -82,6 +82,7 @@ from config import (
 from lanes import (
     make_lanes,
     RecommendationLane,
+    RelatedBooksLane,
     SeriesLane,
 )
 
@@ -820,6 +821,36 @@ class WorkController(CirculationManagerController):
             use_materialized_works=use_materialized_works
         )
 
+        return feed_response(unicode(feed.content))
+
+    def related(self, data_source, identifier_type, identifier, mock_api=None):
+        """Serve a groups feed of books related to a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+        try:
+            lane_name = "Books Related to %s by %s" % (
+                pool.work.title, pool.work.author
+            )
+            lane = RelatedBooksLane(self._db, pool, lane_name, mock_api=mock_api)
+        except ValueError, e:
+            # No related books were found.
+            return NO_SUCH_LANE.detailed(e.message)
+
+        use_materialized_works = not self.manager.testing
+        url = self.cdn_url_for(
+            'related_books', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.groups(
+            self._db, lane.DISPLAY_NAME, url, lane,
+            annotator=annotator,
+            ignore_feed_size=True,
+            cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
+            use_materialized_works=use_materialized_works
+        )
         return feed_response(unicode(feed.content))
 
     def report(self, data_source, identifier_type, identifier):

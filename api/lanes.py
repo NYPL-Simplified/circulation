@@ -490,18 +490,25 @@ class RecommendationLane(LicensePoolBasedLane):
         super(RecommendationLane, self).__init__(
             _db, license_pool, full_name, display_name=display_name
         )
+        self.recommendations = self.fetch_recommendations()
+
+    def fetch_recommendations(self):
+        """Get identifiers of recommendations for this LicensePool"""
+
+        metadata = self.api.lookup(self.license_pool.identifier)
+        if metadata:
+            metadata.filter_recommendations(self._db)
+            return metadata.recommendations
+        return []
 
     def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
             edition_model=Edition):
         identifier = self.license_pool.identifier
-        metadata = self.api.lookup(identifier)
 
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        if metadata:
-            metadata.filter_recommendations(self._db)
-            if metadata.recommendations:
-                qu = Work.from_identifiers(
-                    self._db, metadata.recommendations, base_query=qu
-                )
-                return qu
+        if self.recommendations:
+            qu = Work.from_identifiers(
+                self._db, self.recommendations, base_query=qu
+            )
+            return qu
         return None

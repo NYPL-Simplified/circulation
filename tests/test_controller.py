@@ -763,6 +763,46 @@ class TestWorkController(CirculationControllerTest):
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
+    def test_related_books(self):
+        # A book with no related books returns a ProblemDetail.
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            with self.app.test_request_context('/'):
+                response = self.manager.work_controller.related(
+                    self.datasource, self.identifier.type, self.identifier.identifier
+                )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        # Prep book with a book in its series and a recommendation.
+        self.lp.presentation_edition.series = "Around the World"
+        self.french_1.presentation_edition.series = "Around the World"
+        source = DataSource.lookup(self._db, self.datasource)
+        metadata = Metadata(source)
+        mock_api = MockNoveListAPI()
+        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        mock_api.setup(metadata)
+
+        # A grouped feed is returned with both of these related books
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.related(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                mock_api=mock_api
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+
+        # One book is in the recommendations feed.
+        [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
+        [collection_link] = [link for link in e1['links'] if link['rel']=='collection']
+        eq_("Recommended Books", collection_link['title'])
+
+        # One book is in the series feed.
+        [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
+        [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
+        eq_("Other Books in this Series", collection_link['title'])
+
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
             response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
