@@ -241,6 +241,7 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, "test", "url", works, CirculationManagerAnnotator(
                 None, Fantasy, test_mode=True))
+
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 

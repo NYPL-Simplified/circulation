@@ -35,6 +35,7 @@ from core.coverage import (
 from core.util.http import BadResponseException
 
 from api.coverage import (
+    ContentServerBibliographicCoverageProvider,
     MetadataWranglerCoverageProvider,
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
@@ -168,12 +169,12 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
     def test_process_batch(self):
         provider = self._provider()
 
-        edition = self._edition()
+        edition, pool = self._edition(with_license_pool=True)
 
         identifier = self._identifier()
         messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
 
-        provider.queue_import_results([edition], messages_by_id)
+        provider.queue_import_results([edition], [pool], [pool.work], messages_by_id)
 
         fake_batch = [object()]
         success, failure = provider.process_batch(fake_batch)
@@ -321,3 +322,24 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
         eq_([sync_cr, reaped_cr, doubly_reap_record], remaining_records)
+
+
+class TestContentServerBibliographicCoverageProvider(DatabaseTest):
+
+    def test_only_open_access_books_considered(self):
+
+        lookup = MockSimplifiedOPDSLookup(self._url)        
+        provider = ContentServerBibliographicCoverageProvider(
+            self._db, lookup=lookup
+        )
+
+        # Here's an open-access work.
+        w1 = self._work(with_license_pool=True, with_open_access_download=True)
+
+        # Here's a work that's not open-access.
+        w2 = self._work(with_license_pool=True, with_open_access_download=False)
+        w2.license_pools[0].open_access = False
+
+        # Only the open-access work needs coverage.
+        eq_([w1.license_pools[0].identifier],
+            provider.items_that_need_coverage.all())

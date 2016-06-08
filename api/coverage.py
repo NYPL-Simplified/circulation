@@ -60,20 +60,22 @@ class OPDSImportCoverageProvider(CoverageProvider):
         """By default, no identifier mapping is needed."""
         return None
 
+
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        imported, messages_by_id, next_links = self.lookup_and_import_batch(
+        imported_editions, imported_pools, imported_works, error_messages_by_id, next_links = self.lookup_and_import_batch(
             batch
         )
 
         results = []
-        for edition in imported:
+        for edition in imported_editions:
             self.finalize_edition(edition)
             results.append(edition.primary_identifier)
 
-        for failure in self.handle_import_messages(messages_by_id):
+        for failure in self.handle_import_messages(error_messages_by_id):
             results.append(failure)
         return results
+
 
     def process_item(self, identifier):
         """Handle an individual item (e.g. through ensure_coverage) as a very
@@ -135,11 +137,13 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
         This method is overridden by MockOPDSImportCoverageProvider.
         """
-
         # id_mapping maps our local identifiers to identifiers the
         # foreign data source will reocgnize.
         id_mapping = self.create_identifier_mapping(batch)
-        foreign_identifiers = id_mapping.keys()
+        if id_mapping:
+            foreign_identifiers = id_mapping.keys()
+        else:
+            foreign_identifiers = batch
 
         response = self.lookup.lookup(foreign_identifiers)
 
@@ -149,10 +153,11 @@ class OPDSImportCoverageProvider(CoverageProvider):
             response, id_mapping
         )
 
+
     def import_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and imports feed.
         """
-           
+        
         content_type = response.headers['content-type']
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise BadResponseException.from_response(
@@ -173,8 +178,8 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
         self.finalized = []
         self.import_results = []
 
-    def queue_import_results(self, editions, messages_by_id, next_links=None):
-        self.import_results.insert(0, (editions, messages_by_id, next_links or []))
+    def queue_import_results(self, editions, pools, works, messages_by_id, next_links=None):
+        self.import_results.insert(0, (editions, pools, works, messages_by_id, next_links or []))
 
     def finalize_edition(self, edition):
         self.finalized.append(edition)
@@ -344,7 +349,20 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             _db, DataSource.OA_CONTENT_SERVER
         )
         super(ContentServerBibliographicCoverageProvider, self).__init__(
-            service_name, lookup=lookup, output_source=output_source,
-            expect_license_pool=True, presentation_ready_on_success=True
+            service_name, input_identifier_types=None,
+            output_source=output_source, lookup=lookup,
+            expect_license_pool=True, presentation_ready_on_success=True,
             **kwargs
         )
+
+    @property
+    def items_that_need_coverage(self):
+        """Only identifiers associated with an open-access license
+        need coverage.
+        """
+        qu = super(ContentServerBibliographicCoverageProvider, 
+                   self).items_that_need_coverage
+        qu = qu.join(Identifier.licensed_through).filter(
+            LicensePool.open_access==True
+        )
+        return qu
