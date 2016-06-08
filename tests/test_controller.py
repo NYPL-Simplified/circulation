@@ -797,11 +797,16 @@ class TestWorkController(CirculationControllerTest):
         [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
         [collection_link] = [link for link in e1['links'] if link['rel']=='collection']
         eq_("Recommended Books", collection_link['title'])
+        work_url = "/works/%s/%s/%s/" % (self.datasource, self.identifier.type, self.identifier.identifier)
+        expected = urllib.quote(work_url + 'recommendations')
+        eq_(True, collection_link['href'].endswith(expected))
 
         # One book is in the series feed.
         [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
         [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
         eq_("Other Books in this Series", collection_link['title'])
+        expected = urllib.quote(work_url + 'series')
+        eq_(True, collection_link['href'].endswith(expected))
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
