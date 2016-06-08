@@ -32,6 +32,7 @@ from model import (
 
 from metadata_layer import (
     ContributorData,
+    CirculationData, 
     Metadata,
     LinkData,
     IdentifierData,
@@ -286,11 +287,14 @@ class ItemListParser(XMLParser):
             genres.append(SubjectData(Subject.THREEM, i, weight=15))
         return genres
 
+
     def process_one(self, tag, namespaces):
-        """Turn an <item> tag into a Metadata object."""
+        """Turn an <item> tag into a Metadata and an encompassed CirculationData 
+        objects, and return the Metadata."""
 
         def value(threem_key):
             return self.text_of_optional_subtag(tag, threem_key)
+
         links = dict()
         identifiers = dict()
         subjects = []
@@ -353,6 +357,7 @@ class ItemListParser(XMLParser):
             )
 
         medium = Edition.BOOK_MEDIUM
+
         book_format = value("BookFormat")
         format = None
         if book_format == 'EPUB':
@@ -374,7 +379,7 @@ class ItemListParser(XMLParser):
 
         formats = [format]
 
-        return Metadata(
+        metadata = Metadata(
             data_source=DataSource.THREEM,
             title=title,
             subtitle=subtitle,
@@ -386,11 +391,20 @@ class ItemListParser(XMLParser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            formats=formats,
             measurements=measurements,
             links=links,
         )
 
+        # Also make a CirculationData so we can write the formats, 
+        circulationdata = CirculationData(
+            data_source=DataSource.THREEM,
+            primary_identifier=primary_identifier,
+            formats=formats,
+            links=links,
+        )
+
+        metadata.circulation = circulationdata
+        return metadata
 
 
 class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
@@ -412,16 +426,11 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
             workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
-    def process_batch(self, identifiers):
-        batch_results = []
-        for identifier in identifiers:
-            metadata = self.api.bibliographic_lookup(identifier)
-            result = self.set_metadata(identifier, metadata)
-            if not isinstance(result, CoverageFailure):
-                # Success!
-                result = self.set_presentation_ready(result)
-            batch_results.append(result)
-        return batch_results
-
     def process_item(self, identifier):
-        return self.process_batch([identifier])[0]
+        metadata = self.api.bibliographic_lookup(identifier)
+        if not metadata:
+            return CoverageFailure(
+                self, identifier, "3M bibliographic lookup failed.",
+                transient=True
+            )
+        return self.set_metadata(identifier, metadata)

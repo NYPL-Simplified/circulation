@@ -303,6 +303,7 @@ class Axis360Parser(XMLParser):
             pass
         return datetime.datetime.strptime(value, self.FULL_DATE_FORMAT)
 
+
 class BibliographicParser(Axis360Parser):
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
@@ -332,7 +333,16 @@ class BibliographicParser(Axis360Parser):
                 string, "//axis:title", self.NS):
             yield i
 
-    def extract_availability(self, element, ns):
+    def extract_availability(self, circulation_data, element, ns):
+        identifier = self.text_of_subtag(element, 'axis:titleId', ns)
+        primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
+
+        if not circulation_data: 
+            circulation_data = CirculationData(
+                data_source=DataSource.AXIS_360, 
+                primary_identifier=primary_identifier, 
+            )
+
         availability = self._xpath1(element, 'axis:availability', ns)
         total_copies = self.int_of_subtag(availability, 'axis:totalCopies', ns)
         available_copies = self.int_of_subtag(
@@ -352,13 +362,13 @@ class BibliographicParser(Axis360Parser):
             availability_updated = datetime.datetime.strptime(
                     availability_updated, self.FULL_DATE_FORMAT)
 
-        return CirculationData(
-            licenses_owned=total_copies,
-            licenses_available=available_copies,
-            licenses_reserved=0,
-            patrons_in_hold_queue=size_of_hold_queue,
-            last_checked=availability_updated,
-        )
+        circulation_data.licenses_owned=total_copies
+        circulation_data.licenses_available=available_copies
+        circulation_data.licenses_reserved=0
+        circulation_data.patrons_in_hold_queue=size_of_hold_queue
+
+        return circulation_data
+
 
     # Axis authors with a special role have an abbreviation after their names,
     # e.g. "San Ruby (FRW)"
@@ -393,8 +403,10 @@ class BibliographicParser(Axis360Parser):
         return ContributorData(
             sort_name=author, roles=role)
 
+
     def extract_bibliographic(self, element, ns):
-        """Turn bibliographic metadata into a Metadata object."""
+        """Turn bibliographic metadata into a Metadata and a CirculationData objects, 
+        and return them as a tuple."""
 
         # TODO: These are consistently empty (some are clearly for
         # audiobooks) so I don't know what they do and/or what format
@@ -481,13 +493,14 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+        
         if not formats:
             self.log.error(
                 "No supported format for %s (%s)! Saw: %s", identifier,
                 title, ", ".join(seen_formats)
             )
 
-        data = Metadata(
+        metadata = Metadata(
             data_source=DataSource.AXIS_360,
             title=title,
             language=language,
@@ -500,17 +513,33 @@ class BibliographicParser(Axis360Parser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
+        )
+
+        circulationdata = CirculationData(
+            data_source=DataSource.AXIS_360,
+            primary_identifier=primary_identifier,
             formats=formats,
         )
-        return data
+
+        metadata.circulation = circulationdata
+        return metadata
+
 
     def process_one(self, element, ns):
         if self.include_bibliographic:
             bibliographic = self.extract_bibliographic(element, ns)
         else:
             bibliographic = None
+
+        passed_availability = None
+        if bibliographic and bibliographic.circulation:
+            passed_availability = bibliographic.circulation
+
         if self.include_availability:
-            availability = self.extract_availability(element, ns)
+            availability = self.extract_availability(circulation_data=passed_availability, element=element, ns=ns)
         else:
             availability = None
+
         return bibliographic, availability
+
+
