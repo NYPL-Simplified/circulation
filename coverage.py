@@ -341,6 +341,12 @@ class CoverageProvider(object):
         return work
 
 
+    def set_metadata(self, identifier, metadata, 
+                     metadata_replacement_policy=None):
+        return self.set_metadata_and_circulation_data(
+            identifier, metadata, None, metadata_replacement_policy,
+        )
+
     def set_metadata_and_circulation_data(self, identifier, metadata, circulationdata, 
         metadata_replacement_policy=None, 
         circulationdata_replacement_policy=None, 
@@ -358,13 +364,15 @@ class CoverageProvider(object):
         CoverageFailure (if not).
         """
 
-        result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
-        if isinstance(result, CoverageFailure):
-            return result
-        
-        result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
-        if isinstance(result, CoverageFailure):
-            return result
+        if metadata:
+            result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
+
+        if circulationdata:
+            result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
 
         # now that made sure that have an edition and a pool on the identifier, 
         # can try to make work

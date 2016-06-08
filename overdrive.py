@@ -877,12 +877,19 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
+        error = None
         if info.get('errorCode') == 'NotFound':
-            e = "ID not recognized by Overdrive"
-            return CoverageFailure(self, identifier, e, transient=False)
+            error = "ID %s not recognized by Overdrive" % identifier.identifier
+        elif info.get('errorCode') == 'InvalidGuid':
+            error = "Invalid Overdrive ID: %s" % identifier.identifier
+
+        if error:
+            return CoverageFailure(self, identifier, error, transient=False)
+
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
+
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
             return CoverageFailure(self, identifier, e, transient=True)
