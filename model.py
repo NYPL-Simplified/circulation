@@ -3086,6 +3086,26 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
+    def missing_coverage_from(
+            cls, _db, operation=None, count_as_missing_before=None
+    ):
+        """Find Works which have no WorkCoverageRecord for the given
+        `operation`.
+        """
+        clause = and_(Work.id==WorkCoverageRecord.work_id,
+                      WorkCoverageRecord.operation==operation)
+        q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
+
+        missing = WorkCoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, WorkCoverageRecord.timestamp < count_as_missing_before
+            )
+
+        q2 = q.filter(missing)
+        return q2
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
@@ -3626,7 +3646,7 @@ class Work(Base):
         )
 
 
-    def update_external_index(self, client):
+    def update_external_index(self, client, add_coverage_record=True):
         client = client or ExternalSearchIndex()
 
         args = dict(index=client.works_index,
@@ -3654,9 +3674,10 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-        WorkCoverageRecord.add_for(
-            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
-        )
+        if add_coverage_record:
+            WorkCoverageRecord.add_for(
+                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+            )
 
     def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()
