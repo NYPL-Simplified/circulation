@@ -216,7 +216,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             service_name=self.SERVICE_NAME,
             input_identifier_types=input_identifier_types,
             output_source=output_source,
-            operation=operation or self.OPERATION
+            operation=operation or self.OPERATION,
+            **kwargs
         )
 
         if not self.lookup.authenticated:

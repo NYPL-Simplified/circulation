@@ -1,3 +1,5 @@
+import datetime
+
 from nose.tools import (
     assert_raises_regexp,
     set_trace,
@@ -251,6 +253,33 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         assert relicensed_coverage_record in relicensed_licensepool.identifier.coverage_records
         self._db.commit()
         assert relicensed_coverage_record not in relicensed_licensepool.identifier.coverage_records
+
+    def test_items_that_need_coverage_respects_cutoff(self):
+        """Verify that this coverage provider respects the cutoff_time
+        argument.
+        """
+
+        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        edition = self._edition()
+        cr = self._coverage_record(edition, source, operation='sync')
+
+        # We have a coverage record already, so this book doesn't show
+        # up in items_that_need_coverage
+        items = self.provider.items_that_need_coverage.all()
+        eq_([], items)
+
+        # But if we send a cutoff_time that's later than the time
+        # associated with the coverage record...
+        one_hour_from_now = (
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+        )
+        provider_with_cutoff = MetadataWranglerCoverageProvider(
+            self._db, cutoff_time=one_hour_from_now
+        )
+
+        # The book starts showing up in items_that_need_coverage.
+        eq_([edition.primary_identifier], 
+            provider_with_cutoff.items_that_need_coverage.all())
 
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
