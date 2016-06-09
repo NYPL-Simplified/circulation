@@ -94,7 +94,7 @@ class BaseCoverageProvider(object):
 
     def run(self):
         self.log.info("%d items need coverage.", (
-            self.items_that_need_coverage.count())
+            self.items_that_need_coverage().count())
         )
         offset = 0
         while offset is not None:
@@ -106,9 +106,11 @@ class BaseCoverageProvider(object):
         self._db.commit()
         return offset
 
-    def run_on_specific_items(self, items):
-        """Split a specific set of items into batches and process one batch at
-        a time.
+    def run_on_specific_identifiers(self, identifiers):
+        """Split a specific set of Identifiers into batches and process one
+        batch at a time.
+
+        This is for use by IdentifierInputScript.
 
         :return: The same (counts, records) 2-tuple as
             process_batch_and_handle_results.
@@ -121,7 +123,7 @@ class BaseCoverageProvider(object):
 
         # Of all the items that need coverage, find the intersection
         # with the given list of items.
-        need_coverage = self.items_that_need_coverage(items)
+        need_coverage = self.items_that_need_coverage(identifiers).all()
 
         # Treat any items with up-to-date coverage records as
         # automatic successes.
@@ -183,7 +185,10 @@ class BaseCoverageProvider(object):
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
-                    self.log.warn("Transient failure: %s", item.exception)
+                    self.log.warn(
+                        "Transient failure covering %r: %s", 
+                        item, item.exception
+                    )
                     transient_failures += 1
                     record = item
                 else:
@@ -191,7 +196,7 @@ class BaseCoverageProvider(object):
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
                     persistent_failures += 1
-                    record = self.to_coverage_record(item)
+                    record = self.record_failure_as_coverage_record(item)
             else:
                 # Count this as a success and add a CoverageRecord for
                 # it. It won't show up anymore, on this run or
@@ -246,6 +251,8 @@ class BaseCoverageProvider(object):
             # create a CoverageRecord we never update it.
             return False
 
+        return self.cutoff_time > coverage_record.timestamp
+
     def finalize_batch(self):
         """Do whatever is necessary to complete this batch before moving on to
         the next one.
@@ -277,7 +284,7 @@ class BaseCoverageProvider(object):
         """
         raise NotImplementedError()
         
-    def failure_to_coverage_record(self, failure):
+    def record_failure_as_coverage_record(self, failure):
         """Convert the given CoverageFailure to a coverage record.
 
         Implemented in CoverageProvider and WorkCoverageProvider.
@@ -547,7 +554,7 @@ class CoverageProvider(BaseCoverageProvider):
     # Implementation of BaseCoverageProvider virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers):
+    def items_that_need_coverage(self, identifiers=None):
         """Find all items lacking coverage from this CoverageProvider.
 
         Items should be Identifiers, though Editions should also work.
@@ -564,24 +571,20 @@ class CoverageProvider(BaseCoverageProvider):
         return qu
 
     def add_coverage_record_for(self, item):
-        return CoverageRecord.add_for(item, self.operation)
+        return CoverageRecord.add_for(
+            item, data_source=self.output_source, operation=self.operation
+        )
 
-    def failure_to_coverage_record(self, failure):
-        failure.to_coverage_record(operation=self.operation_name)
+    def record_failure_as_coverage_record(self, failure):
+        return failure.to_coverage_record(operation=self.operation)
 
 class WorkCoverageProvider(BaseCoverageProvider):
-
-    def __init__(self, service_name, operation_name, batch_size=100, 
-                 cutoff_time=None):
-        self.service_name = service_name
-        self.operation_name = operation_name
-        self.batch_size = batch_size
 
     #
     # Implementation of BaseCoverageProvider virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers):
+    def items_that_need_coverage(self, identifiers=None):
         """Find all Works lacking coverage from this CoverageProvider.
 
         By default, all Works which don't already have coverage are
@@ -604,11 +607,11 @@ class WorkCoverageProvider(BaseCoverageProvider):
 
     def add_coverage_record_for(self, work):
         return WorkCoverageRecord.add_for(
-            work, operation=self.operation_name
+            work, operation=self.operation
         )
 
-    def failure_to_coverage_record(self, failure):
-        failure.to_work_coverage_record(operation=self.operation_name)
+    def record_failure_as_coverage_record(self, failure):
+        return failure.to_work_coverage_record(operation=self.operation)
 
 
 class BibliographicCoverageProvider(CoverageProvider):
@@ -623,7 +626,7 @@ class BibliographicCoverageProvider(CoverageProvider):
 
     CAN_CREATE_LICENSE_POOLS = True
 
-    def __init__(self, _db, api, datasource, workset_size=10,
+    def __init__(self, _db, api, datasource, batch_size=10,
                  metadata_replacement_policy=None, circulationdata_replacement_policy=None, 
                  cutoff_time=None
     ):
@@ -643,7 +646,7 @@ class BibliographicCoverageProvider(CoverageProvider):
         super(BibliographicCoverageProvider, self).__init__(
             service_name,
             input_identifier_types, output_source,
-            workset_size=workset_size,
+            batch_size=batch_size,
             cutoff_time=cutoff_time
         )
 

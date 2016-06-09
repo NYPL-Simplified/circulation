@@ -129,7 +129,7 @@ class TestCoverageProvider(DatabaseTest):
             "Always successful", self.input_identifier_types, 
             self.output_source, cutoff_time=cutoff_time
         )
-        eq_([], provider.items_that_need_coverage.all())
+        eq_([], provider.items_that_need_coverage().all())
 
         one_second_after = cutoff_time + datetime.timedelta(seconds=1)
         provider = AlwaysSuccessfulCoverageProvider(
@@ -137,13 +137,13 @@ class TestCoverageProvider(DatabaseTest):
             self.output_source, cutoff_time=one_second_after
         )
         eq_([self.edition.primary_identifier], 
-            provider.items_that_need_coverage.all())
+            provider.items_that_need_coverage().all())
 
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_identifier_types, 
             self.output_source
         )
-        eq_([], provider.items_that_need_coverage.all())
+        eq_([], provider.items_that_need_coverage().all())
 
     def test_items_that_need_coverage_respects_operation(self):
 
@@ -160,7 +160,7 @@ class TestCoverageProvider(DatabaseTest):
         # It is missing coverage for self.identifier, because the
         # CoverageRecord we created at the start of this test has no
         # operation.
-        eq_([self.identifier], provider.items_that_need_coverage.all())
+        eq_([self.identifier], provider.items_that_need_coverage().all())
 
         # Here's a provider that has no operation set.
         provider = AlwaysSuccessfulCoverageProvider(
@@ -171,7 +171,7 @@ class TestCoverageProvider(DatabaseTest):
         # It is not missing coverage for self.identifier, because the
         # CoverageRecord we created at the start of the test takes
         # care of it.
-        eq_([], provider.items_that_need_coverage.all())
+        eq_([], provider.items_that_need_coverage().all())
 
     def test_should_update(self):
         cutoff = datetime.datetime(2016, 1, 1)
@@ -211,14 +211,14 @@ class TestCoverageProvider(DatabaseTest):
         # Timestamp was not updated.
         eq_([], self._db.query(Timestamp).all())
 
-    def test_run_on_identifiers(self):
+    def test_run_on_specific_identifiers(self):
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful", self.input_identifier_types, self.output_source
         )
         provider.workset_size = 3
         to_be_tested = [self._identifier() for i in range(6)]
         not_to_be_tested = [self._identifier() for i in range(6)]
-        counts, records = provider.run_on_identifiers(to_be_tested)
+        counts, records = provider.run_on_specific_identifiers(to_be_tested)
 
         # Six identifiers were covered in two batches.
         eq_((6,0,0), counts)
@@ -232,7 +232,7 @@ class TestCoverageProvider(DatabaseTest):
         for i in not_to_be_tested:
             assert i not in provider.attempts
 
-    def test_run_on_identifiers_respects_cutoff_time(self):
+    def test_run_on_specific_identifiers_respects_cutoff_time(self):
 
         last_run = datetime.datetime(2016, 1, 1)
 
@@ -252,7 +252,7 @@ class TestCoverageProvider(DatabaseTest):
 
         # You might think this would result in a persistent failure...
         (success, transient_failure, persistent_failure), records = (
-            provider.run_on_identifiers([self.identifier])
+            provider.run_on_specific_identifiers([self.identifier])
         )
 
         # ...but we get an automatic success. We didn't even try to 
@@ -266,7 +266,7 @@ class TestCoverageProvider(DatabaseTest):
         # on self.identifier and fail.
         provider.cutoff_time = datetime.datetime(2016, 2, 1)
         (success, transient_failure, persistent_failure), records = (
-            provider.run_on_identifiers([self.identifier])
+            provider.run_on_specific_identifiers([self.identifier])
         )
         eq_(0, success)
         eq_(1, persistent_failure)
