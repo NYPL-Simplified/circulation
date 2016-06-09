@@ -194,14 +194,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
-    def setup(self):
-        super(TestMetadataWranglerCoverageProvider, self).setup()
-        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+    def create_provider(self, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
                 Configuration.URL : "http://url.gov"
             }
-            self.provider = MetadataWranglerCoverageProvider(self._db)
+            return MetadataWranglerCoverageProvider(self._db, **kwargs)
+
+    def setup(self):
+        super(TestMetadataWranglerCoverageProvider, self).setup()
+        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        self.provider = self.create_provider()
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -273,8 +276,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         one_hour_from_now = (
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
-        provider_with_cutoff = MetadataWranglerCoverageProvider(
-            self._db, cutoff_time=one_hour_from_now
+        provider_with_cutoff = self.create_provider(
+            cutoff_time=one_hour_from_now
         )
 
         # The book starts showing up in items_that_need_coverage.
