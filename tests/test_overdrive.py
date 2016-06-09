@@ -303,6 +303,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
 
 
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
+    """Test the code that looks up bibliographic information from Overdrive."""
 
     def setup(self):
         super(TestOverdriveBibliographicCoverageProvider, self).setup()
@@ -311,6 +312,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         )
 
     def test_invalid_or_unrecognized_guid(self):
+        """A bad or malformed GUID can't get coverage."""
         identifier = self._identifier()
         identifier.identifier = 'bad guid'
         
@@ -333,6 +335,9 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_("ID not recognized by Overdrive: bad guid", failure.exception)
 
     def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask Overdrive for data,
+        Overdrive provides it, and we create a presentation-ready work.
+        """
         raw, info = self.sample_json("overdrive_metadata.json")
         self.api.queue_response(200, content=raw)
 

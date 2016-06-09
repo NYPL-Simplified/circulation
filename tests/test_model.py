@@ -989,6 +989,16 @@ class TestLicensePool(DatabaseTest):
         eq_(None, work.last_update_time)
         eq_(None, pool.last_checked)
 
+        # If we pass a mix of good and null values...
+        pool.update_availability(5, None, None, None)
+
+        # Only the good values are changed.
+        eq_(5, pool.licenses_owned)
+        eq_(20, pool.licenses_available)
+        eq_(30, pool.licenses_reserved)
+        eq_(40, pool.patrons_in_hold_queue)
+
+
     def test_open_access_links(self):
         edition, pool = self._edition(with_open_access_download=True)
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
