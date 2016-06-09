@@ -15,7 +15,7 @@ class ExternalSearchIndex(object):
     work_document_type = 'work-type'
     __client = None
 
-    def __init__(self, url=None, works_index=None, setup=True):
+    def __init__(self, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
 
