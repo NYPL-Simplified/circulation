@@ -251,7 +251,9 @@ class BaseCoverageProvider(object):
             # create a CoverageRecord we never update it.
             return False
 
-        return self.cutoff_time > coverage_record.timestamp
+        # We update a CoverageRecord if it was last updated before
+        # cutoff_time.
+        return coverage_record.timestamp < self.cutoff_time
 
     def finalize_batch(self):
         """Do whatever is necessary to complete this batch before moving on to
@@ -359,10 +361,6 @@ class CoverageProvider(BaseCoverageProvider):
         else:
             coverage_record = None
         return coverage_record
-
-        # We update a CoverageRecord if it was last updated before
-        # cutoff_time.
-        return coverage_record.timestamp < self.cutoff_time
 
     @property
     def output_source(self):
