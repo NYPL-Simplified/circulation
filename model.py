@@ -3550,8 +3550,6 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
-            if not search_index_client:
-                search_index_client = ExternalSearchIndex()
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3629,6 +3627,8 @@ class Work(Base):
 
 
     def update_external_index(self, client):
+        client = ExternalSearchIndex.retrieve(client)
+
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -3658,14 +3658,15 @@ class Work(Base):
             self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
         )
 
-    def set_presentation_ready(self, as_of=None):
+    def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
+        self.update_external_index(search_index_client)
 
-    def set_presentation_ready_based_on_content(self):
+    def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3684,8 +3685,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
+            # This will remove the work from the search index.
+            self.update_external_index(search_index_client)
         else:
-            self.set_presentation_ready()
+            self.set_presentation_ready(search_index_client=search_index_client)
 
     def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)

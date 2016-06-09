@@ -22,6 +22,26 @@ from external_search import (
 )
 from classifier import Classifier
 
+class TestRetrieveExternalSearch(object):
+
+    def test_retrieve(self):
+        # If you pass any object into ExternalSearch, it returns that
+        # object.
+        dummy = object()
+        eq_(dummy, ExternalSearchIndex.retrieve(dummy))
+
+        # If you pass in nothing, it returns an ExternalSearch set up for your
+        # configuration.
+        with temp_config() as config:
+            
+            data = {}
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = data
+            data[Configuration.URL] = "http://localhost:9200"
+            data[Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index"
+            search = ExternalSearchIndex.retrieve(setup=False)
+            eq_("test_index", search.works_index)
+
+
 class TestExternalSearch(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
