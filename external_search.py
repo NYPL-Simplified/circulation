@@ -49,17 +49,8 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
-        if setup and not self.indices.exists(self.works_index):
+        if not self.indices.exists(self.works_index):
             self.setup_index()
-
-    @classmethod
-    def retrieve(self, obj=None, **kwargs):
-        """If the given object is None, construct a new ExternalSearchIndex.
-        Otherwise, return the given object.
-        """
-        if obj:
-            return obj
-        return ExternalSearchIndex(**kwargs)
 
     def setup_index(self):
         """

@@ -3627,7 +3627,7 @@ class Work(Base):
 
 
     def update_external_index(self, client):
-        client = ExternalSearchIndex.retrieve(client)
+        client = client or ExternalSearchIndex()
 
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
