@@ -120,7 +120,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
-        metadata, circulationdata, status_messages, next_link = importer.extract_feed_data(
+        metadata, status_messages, next_links = importer.extract_feed_data(
             self.content_server_mini_feed
         )
 
@@ -141,22 +141,23 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(202, message.status_code)
         eq_(u"I'm working to locate a source for this identifier.", message.message)
 
-        eq_("http://localhost:5000/?after=327&size=100", next_link[0])
+        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
 
 
     def test_extract_metadata_from_feedparser(self):
 
-        values_meta, values_circ, status_messages, next_link = OPDSImporter.extract_data_from_feedparser(
-            self.content_server_mini_feed, DataSource.OA_CONTENT_SERVER
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        values, status_messages, next_links = OPDSImporter.extract_data_from_feedparser(
+            self.content_server_mini_feed, data_source
         )
 
-        metadata = values_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        metadata = values['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         eq_("The Green Mouse", metadata['title'])
         eq_("A Tale of Mousy Terror", metadata['subtitle'])
         eq_('en', metadata['language'])
         eq_('Project Gutenberg', metadata['publisher'])
 
-        circulation = values_circ['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        circulation = metadata['circulation']
         eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
 
         message = status_messages['http://www.gutenberg.org/ebooks/1984']
@@ -242,7 +243,7 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -297,13 +298,13 @@ class TestOPDSImporter(OPDSImporterTest):
         classifier.classify(seven.subject)
 
         # If we import the same file again, we get the same list of Editions.
-        imported_editions_2, imported_pools_2, imported_works_2, error_messages_2, next_links_2 = (
+        imported_editions_2, pools_2, works_2, error_messages_2, next_links_2 = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
         # importing with a lendable data source makes license pools and works
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
@@ -329,8 +330,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
             mech.resource.url)
 
-
-
     def test_import_with_lendability(self):
         # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
         # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
@@ -340,30 +339,29 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # will create editions, but not license pools or works, because the 
         # metadata wrangler data source is not lendable
-        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
-        imported_editions_mw, imported_pools_mw, imported_works_mw, error_messages_mw, next_links_mw = (
-            importer_mw.import_from_feed(feed, cutoff_date=cutoff)
+        imported_editions_mw, pools_mw, works_mw, error_messages_mw, next_links_mw = (
+            importer_mw.import_from_feed(feed)
         )
 
-        # Despite the cutoff, both books were imported, because they were new.
+        # Both books were imported, because they were new.
         eq_(2, len(imported_editions_mw))
 
-        # but pools and works weren't, because we passed the wrong data source
+        # But pools and works weren't created, because the data source isn't lendable.
         # 1 error message, because correctly didn't even get to trying to create pools, 
         # so no messages there, but do have that entry stub at end of sample xml file, 
         # which should fail with a message.
         eq_(1, len(error_messages_mw))
-        eq_(0, len(imported_pools_mw))
-        eq_(0, len(imported_works_mw))
+        eq_(0, len(pools_mw))
+        eq_(0, len(works_mw))
 
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions_g, imported_pools_g, imported_works_g, error_messages_g, next_links_g = (
-            importer_g.import_from_feed(feed, cutoff_date=cutoff)
+        imported_editions_g, pools_g, works_g, error_messages_g, next_links_g = (
+            importer_g.import_from_feed(feed)
         )
 
         # we made new editions, because we're now creating edition per data source, not overwriting
@@ -372,12 +370,12 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # now pools and works are in, too
         eq_(1, len(error_messages_g))
-        eq_(2, len(imported_pools_g))
-        eq_(2, len(imported_works_g))        
+        eq_(2, len(pools_g))
+        eq_(2, len(works_g))        
 
         # assert that bibframe datasource from feed was correctly overwritten
         # with data source I passed into the importer.
-        for pool in imported_pools_g:
+        for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
 
@@ -387,40 +385,38 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # Despite the cutoff, both books were imported, because they were new.
         eq_(2, len(imported_editions))
-        eq_(2, len(imported_pools))
-        eq_(2, len(imported_works))        
+        eq_(2, len(pools))
+        eq_(2, len(works))        
 
         # But if we try it again...
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # None of the books were imported because they weren't updated
         # after the cutoff.
         eq_(0, len(imported_editions))
-        eq_(0, len(imported_pools))
-        eq_(0, len(imported_works))
+        eq_(0, len(pools))
+        eq_(0, len(works))
 
         # And if we change the cutoff...
-        # TODO:  we've messed with the cutoff date in import_editions_from_metadata, 
-        # and need to fix it before re-activating the assert.
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # Both books were imported again.
         eq_(2, len(imported_editions))
-        eq_(2, len(imported_pools))
-        eq_(2, len(imported_works))
+        eq_(2, len(pools))
+        eq_(2, len(works))
 
-        assert (datetime.datetime.utcnow() - imported_pools[0].last_checked) < datetime.timedelta(seconds=10)
+        assert (datetime.datetime.utcnow() - pools[0].last_checked) < datetime.timedelta(seconds=10)
 
 
     def test_import_updates_metadata(self):
@@ -521,7 +517,6 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        #imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
         imported_editions, imported_pools, imported_works, error_messages, next_links = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
@@ -616,15 +611,15 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         http = DummyHTTPClient()
         http.queue_response(
-            200, content='I am 10557.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE,
-        )
-        http.queue_response(
             200, content='I am 10441.epub.images',
             media_type=Representation.EPUB_MEDIA_TYPE
         )
         http.queue_response(
             200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+        )
+        http.queue_response(
+            200, content='I am 10557.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE,
         )
 
         s3 = DummyS3Uploader()
@@ -634,39 +629,44 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             mirror=s3, http_get=http.do_get
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
-        e1 = imported_editions[1]
-        e2 = imported_editions[0]
+        e1 = imported_editions[0]
+        e2 = imported_editions[1]
 
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
         # image was not requested, since we were going to make our own
         # thumbnail anyway.
         eq_(http.requests, [
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10441.epub.images',
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
         ])
 
-        [e1_oa_link] = e1.primary_identifier.links
-        [e2_oa_link, e2_image_link, e2_description_link] = sorted(
-            e2.primary_identifier.links, key=lambda x: x.rel
+        [e1_oa_link, e1_image_link, e1_description_link] = sorted(
+            e1.primary_identifier.links, key=lambda x: x.rel
         )
+        [e2_oa_link] = e2.primary_identifier.links
 
         # The two open-access links were mirrored to S3, as was the
         # original SVG image and its PNG thumbnail.
-        imported_representations = [e2_image_link.resource.representation,e2_image_link.resource.representation.thumbnails[0],e2_oa_link.resource.representation,e1_oa_link.resource.representation,]
+        imported_representations = [
+            e1_oa_link.resource.representation,
+            e1_image_link.resource.representation,
+            e1_image_link.resource.representation.thumbnails[0],
+            e2_oa_link.resource.representation,
+        ]
         eq_(imported_representations, s3.uploaded)
 
 
         eq_(4, len(s3.uploaded))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        url0 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url1 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url2 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
+        url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
         eq_([url0, url1, url2, url3], uploaded_urls)
@@ -689,21 +689,16 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
-        eq_([e2, e1], imported_editions)
+        eq_([e1, e2], imported_editions)
 
         # Nothing new has been uploaded
         eq_(4, len(s3.uploaded))
 
         # If the content has changed, it will be mirrored again.
-        http.queue_response(
-            200, content="I am a new version of 10557.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
-
         http.queue_response(
             200, content="I am a new version of 10441.epub.images",
             media_type=Representation.EPUB_MEDIA_TYPE
@@ -714,14 +709,18 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             media_type=Representation.SVG_MEDIA_TYPE
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        http.queue_response(
+            200, content="I am a new version of 10557.epub.images",
+            media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        imported_editions, pools, works, error_messages, next_links = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
-        eq_([e2, e1], imported_editions)
+        eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
 
-
-
+        
 
 

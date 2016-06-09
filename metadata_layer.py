@@ -606,14 +606,22 @@ class CirculationData(MetaToModelUtility):
                     rights_uri = link.rights_uri or self.default_rights_uri
                     if open_access_link and not rights_uri in RightsStatus.OPEN_ACCESS:
                         rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
-                    self.formats.append(
-                        FormatData(
-                            content_type=link.media_type,
-                            drm_scheme=DeliveryMechanism.NO_DRM,
-                            link=link,
-                            rights_uri=rights_uri,
+                    format_found = False
+                    for format in self.formats:
+                        if format.link.href == link.href:
+                            if not format.rights_uri:
+                                format.rights_uri = rights_uri
+                            format_found = True
+                            break
+                    if not format_found:
+                        self.formats.append(
+                            FormatData(
+                                content_type=link.media_type,
+                                drm_scheme=DeliveryMechanism.NO_DRM,
+                                link=link,
+                                rights_uri=rights_uri,
+                            )
                         )
-                )
 
 
     def __repr__(self):
@@ -1349,8 +1357,8 @@ class Metadata(MetaToModelUtility):
         pool = None
         if self.circulation:
             pool, is_new = self.circulation.license_pool(_db)
-            if (pool and not is_new):
-                self.circulation.apply(pool)
+            if pool:
+                self.circulation.apply(pool, replace)
 
             # we updated the pool.  but do the associated links know?
             for link in self.links:
