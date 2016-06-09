@@ -39,6 +39,7 @@ from core.model import (
     CachedFeed,
     Work,
     CirculationEvent,
+    RightsStatus,
     get_one,
     create,
 )
@@ -333,7 +334,7 @@ class TestLoanController(CirculationControllerTest):
         self.pool = self.english_1.license_pools[0]
         self.mech2 = self.pool.set_delivery_mechanism(
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
-            None
+            RightsStatus.CC_BY, None
         )
         self.edition = self.pool.presentation_edition
         self.data_source = self.edition.data_source
