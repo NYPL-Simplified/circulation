@@ -810,7 +810,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(True, monitor.check_for_new_data(feed))
 
         # If the CoverageRecord is a failure, it still works.
-        record.exception = "Faiure"
+        record.exception = "Failure"
         eq_(True, monitor.check_for_new_data(feed))
 
         # If only one CoverageRecord is before the entry's updated date, there's
