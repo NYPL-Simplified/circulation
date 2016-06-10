@@ -20,6 +20,7 @@ from psycopg2.extras import NumericRange
 
 from api.lanes import make_lanes
 from api.controller import CirculationManager
+from api.coverage import SearchIndexCoverageProvider
 from api.threem import ThreeMCirculationSweep
 from api.overdrive import OverdriveAPI
 from core import log
@@ -42,6 +43,7 @@ from core.model import (
 from core.scripts import (
     Script as CoreScript,
     RunCoverageProvidersScript,
+    RunCoverageProviderScript,
     IdentifierInputScript,
 )
 from core.lane import (
@@ -522,3 +524,23 @@ class LanguageListScript(Script):
 
         print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
         print json.dumps([l[0] for l in sorted_languages])
+
+
+class UpdateSearchIndexScript(RunCoverageProviderScript):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = RunCoverageProviderScript.arg_parser()
+        parser.add_argument(
+            '--works-index', 
+            help='The ElasticSearch index to update, if other than the default.'
+        )
+        return parser
+
+    def extract_additional_command_line_arguments(self, args):
+        return dict(index_name=args.works_index)
+
+    def __init__(self):
+        super(UpdateSearchIndexScript, self).__init__(
+            SearchIndexCoverageProvider
+        )
