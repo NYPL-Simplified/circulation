@@ -1483,10 +1483,22 @@ class TestWork(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_set_presentation_ready(self):
+
         work = self._work(with_license_pool=True)
+
+        search = DummyExternalSearchIndex()
+        # This is how the work will be represented in the dummy search
+        # index.
+        index_key = (search.works_index, 
+                     DummyExternalSearchIndex.work_document_type,
+                     work.id)
+
         presentation = work.presentation_edition
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
+
+        # The work has been added to the search index.
+        eq_([index_key], search.docs.keys())
         
         # This work is presentation ready because it has a title
         # and a fiction status.
@@ -1494,22 +1506,33 @@ class TestWork(DatabaseTest):
         # Remove the title, and the work stops being presentation
         # ready.
         presentation.title = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # The work has been removed from the search index.
+        eq_([], search.docs.keys())
+
+        # Restore the title, and everything is fixed.
         presentation.title = u"foo"
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)        
+        eq_([index_key], search.docs.keys())
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
         work.fiction = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # It's gone from the search index again.
+        eq_([], search.docs.keys())
+
+        # Restore the fiction status, and everything is fixed.
         work.fiction = False
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)        
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+
+        eq_(True, work.presentation_ready)
+        eq_([index_key], search.docs.keys())
 
     def test_assign_genres_from_weights(self):
         work = self._work()

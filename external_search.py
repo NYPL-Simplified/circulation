@@ -49,7 +49,6 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
-
         if not self.indices.exists(self.works_index):
             self.setup_index()
 
@@ -456,16 +455,19 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.docs = {}
         self.works_index = "works"
 
+    def _key(self, index, doc_type, id):
+        return (index, doc_type, id)
+
     def index(self, index, doc_type, id, body):
-        self.docs[(index, doc_type, id)] = body
+        self.docs[self._key(index, doc_type, id)] = body
 
     def delete(self, index, doc_type, id):
-        key = (index, doc_type, id)
+        key = self._key(index, doc_type, id)
         if key in self.docs:
             del self.docs[key]
 
     def exists(self, index, doc_type, id):
-        return id in self.docs
+        return self._key(index, doc_type, id) in self.docs
 
     def query_works(self, *args, **kwargs):
         doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
