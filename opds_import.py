@@ -896,7 +896,7 @@ class OPDSImportMonitor(Monitor):
         new_data = False
         for identifier, updated in last_update_dates:
 
-            identifier = get_one(self._db, Identifier, identifier=identifier)
+            identifier, ignore = Identifier.parse_urn(self._db, identifier)
             data_source = DataSource.lookup(self._db, self.importer.data_source_name)
             record = None
 
@@ -909,9 +909,11 @@ class OPDSImportMonitor(Monitor):
             # to import this book. But if we imported the book before we started creating CoverageRecords
             # for imports, we can still use the monitor's timestamp as the cutoff.
             if record:
-                cutoff_date = record.timestamp
+                cutoff = record.timestamp
+            else:
+                cutoff = cutoff_date
 
-            if cutoff_date:
+            if cutoff:
                 # We've imported this book before, so don't import it again unless it's changed.
 
                 if not updated:
@@ -919,7 +921,7 @@ class OPDSImportMonitor(Monitor):
                     new_data = True
                     break
 
-                if  updated >= cutoff_date:
+                if  updated >= cutoff:
                     # This book has been updated.
                     new_data = True
                     break

@@ -7,6 +7,7 @@ from nose.tools import (
     assert_raises
 )
 import feedparser
+import re
 
 from lxml import etree
 import pkgutil
@@ -23,6 +24,7 @@ from opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
+    OPDSImportMonitor,
     StatusMessage,
 )
 from metadata_layer import (
@@ -30,6 +32,7 @@ from metadata_layer import (
 )
 from model import (
     Contributor,
+    CoverageRecord,
     DataSource,
     DeliveryMechanism,
     Hyperlink,
@@ -268,9 +271,15 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(1, r3.weight)
 
 
+    def test_import_exception_if_unable_to_parse_feed(self):
+        feed = "I am not a feed."
+        importer = OPDSImporter(self._db)
+
+        assert_raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
+
+
     def test_import(self):
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
 
         imported_editions, pools, works, error_messages = (
             OPDSImporter(self._db).import_from_feed(feed)
@@ -368,8 +377,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # will create editions, but not license pools or works, because the 
         # metadata wrangler data source is not lendable
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
 
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
         imported_editions_mw, pools_mw, works_mw, error_messages_mw = (
@@ -411,8 +419,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_import_with_cutoff(self):
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
         imported_editions, pools, works, error_messages = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
@@ -480,8 +487,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # Instead of importing this data as though it came from the
         # metadata wrangler, let's import it as though it came from the
         # open-access content server.
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
@@ -527,8 +533,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_import_and_make_presentation_ready(self):
         # Now let's tell the OPDS importer to make works presentation-ready
         # as soon as they're imported.
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
@@ -568,8 +573,7 @@ class TestOPDSImporter(OPDSImporterTest):
                     # Any other import fails.
                     raise Exception("Utter failure!")
 
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
 
         imported_editions, imported_pools, imported_works, error_messages = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
@@ -750,6 +754,63 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
 
-        
 
+class TestOPDSImportMonitor(OPDSImporterTest):
 
+    def test_check_for_new_data(self):
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        feed = self.content_server_mini_feed
+        # Remove the last entry, since it's a mesage and will always be new.
+        last_entry_start = feed.rfind('<entry>')
+        last_entry_end = feed.rfind('</entry>') + len('</entry>')
+        feed = feed[0:last_entry_start] + feed[last_entry_end:]
+
+        # Nothing has been imported yet, so all data is new.
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # Now import the editions.
+        monitor.importer.import_from_feed(feed)
+        eq_(2, self._db.query(Edition).count())
+
+        # There's no cutoff date and no CoverageRecords,
+        # but the data has already been imported.
+        eq_(False, monitor.check_for_new_data(feed))
+
+        # If there's a cutoff date that's after the updated
+        # dates in the feed, the data still isn't new.
+        eq_(False, monitor.check_for_new_data(feed, datetime.datetime(2016, 1, 1, 1, 1, 1)))
+
+        # But if the cutoff is before the updated time...
+        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
+
+        editions = self._db.query(Edition).all()
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        # If there's a CoverageRecord, that's after the updated
+        # dates, there's nothing new.
+        record, ignore = CoverageRecord.add_for(
+            editions[0], data_source, CoverageRecord.IMPORT_OPERATION
+        )
+        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        eq_(False, monitor.check_for_new_data(feed))
+
+        # If only one of the entries has a CoverageRecord, the other
+        # uses the cutoff date.
+        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
+
+        # If the CoverageRecord is before the updated date, there's
+        # new data.
+        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # If the CoverageRecord is a failure, it still works.
+        record.exception = "Faiure"
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # If only one CoverageRecord is before the entry's updated date, there's
+        # still new data.
+        record, ignore = CoverageRecord.add_for(
+            editions[1], data_source, CoverageRecord.IMPORT_OPERATION
+        )
+        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
