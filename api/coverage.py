@@ -38,7 +38,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
     """
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 lookup=None, workset_size=25, expect_license_pool=False,
+                 lookup=None, batch_size=25, expect_license_pool=False,
                  presentation_ready_on_success=False, **kwargs):
         """Basic constructor.
 
@@ -54,7 +54,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
         self.expect_license_pool=expect_license_pool
         self.presentation_ready_on_success=presentation_ready_on_success
         super(OPDSImportCoverageProvider, self).__init__(
-            service_name, input_identifier_types, output_source, workset_size=workset_size, 
+            service_name, input_identifier_types, output_source, batch_size=batch_size, 
             **kwargs
         )
 
