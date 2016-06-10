@@ -3101,7 +3101,6 @@ class Work(Base):
             missing = or_(
                 missing, WorkCoverageRecord.timestamp < count_as_missing_before
             )
-
         q2 = q.filter(missing)
         return q2
 

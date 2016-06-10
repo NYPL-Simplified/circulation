@@ -557,11 +557,11 @@ class TestWorkCoverageProvider(DatabaseTest):
     def setup(self):
         super(TestWorkCoverageProvider, self).setup()
         self.work = self._work()
+        self.operation = 'the_operation'
 
     def test_success(self):
-        operation = "the_operation"
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==operation
+            WorkCoverageRecord.operation==self.operation
         )
         # We start with no relevant WorkCoverageRecord and no Timestamp.
         eq_([], qu.all())
@@ -569,14 +569,14 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = AlwaysSuccessfulWorkCoverageProvider(
-            self._db, "Always successful", operation
+            self._db, "Always successful", self.operation
         )
         provider.run()
 
         # There is now one relevant WorkCoverageRecord.
         [record] = qu.all()
         eq_(self.work, record.work)
-        eq_(operation, record.operation)
+        eq_(self.operation, record.operation)
 
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
@@ -584,14 +584,13 @@ class TestWorkCoverageProvider(DatabaseTest):
 
     def test_transient_failure(self):
         # We start with no relevant WorkCoverageRecords.
-        operation = "the_operation"
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==operation
+            WorkCoverageRecord.operation==self.operation
         )
         eq_([], qu.all())
 
         provider = TransientFailureWorkCoverageProvider(
-            self._db, "Transient failure", operation
+            self._db, "Transient failure", self.operation
         )
         provider.run()
 
@@ -604,14 +603,13 @@ class TestWorkCoverageProvider(DatabaseTest):
 
     def test_persistent_failure(self):
         # We start with no relevant WorkCoverageRecords.
-        operation = "the_operation"
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==operation
+            WorkCoverageRecord.operation==self.operation
         )
         eq_([], qu.all())
 
         provider = NeverSuccessfulWorkCoverageProvider(
-            self._db, "Persistent failure", operation
+            self._db, "Persistent failure", self.operation
         )
         provider.run()
 
@@ -623,6 +621,40 @@ class TestWorkCoverageProvider(DatabaseTest):
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Persistent failure", timestamp.service)
+
+
+    def test_items_that_need_coverage(self):
+        # Here are three works,
+        w1 = self.work
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        
+        # w2 has coverage, the other two do not.
+        record = self._work_coverage_record(w2, self.operation)
+
+        # Here's a WorkCoverageProvider.
+        provider = AlwaysSuccessfulWorkCoverageProvider(
+            self._db, "Success", self.operation,
+        )
+
+        # By default, items_that_need_coverage returns the two
+        # works that don't have coverage.
+        eq_(set([w1, w3]), set(provider.items_that_need_coverage().all()))
+
+        # If we pass in a list of Identifiers we further restrict
+        # items_that_need_coverage to Works whose LicensePools have an
+        # Identifier in that list.
+        i2 = w2.license_pools[0].identifier
+        i3 = w3.license_pools[0].identifier
+        eq_([w3], provider.items_that_need_coverage([i2, i3]).all())
+
+        # If we set a cutoff_time which is after the time the
+        # WorkCoverageRecord was created, then that work starts
+        # showing up again as needing coverage.
+        provider.cutoff_time = record.timestamp + datetime.timedelta(seconds=1)
+        eq_(set([w2, w3]),
+            set(provider.items_that_need_coverage([i2, i3]).all())
+        )
 
 class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
     """Simulates a BibliographicCoverageProvider that's never successful."""
