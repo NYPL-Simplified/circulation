@@ -375,6 +375,15 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
     """Make sure the search index is up-to-date for every Work."""
 
     def __init__(self, _db, index_name, index_client=None, **kwargs):
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                works_index=index_name
+            )
+            
+        index_name = self.search_index_client.works_index
         self.operation_name = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + '-' + index_name
         super(SearchIndexCoverageProvider, self).__init__(
             _db, 
@@ -383,13 +392,6 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
             **kwargs
         )
 
-        if index_client:
-            # This would only happen during a test.
-            self.search_index_client = index_client
-        else:
-            self.search_index_client = ExternalSearchIndex(
-                works_index=index_name
-            )
 
     def process_item(self, work):
         """Update the search index for one item.
