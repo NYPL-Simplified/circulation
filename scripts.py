@@ -153,20 +153,27 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        return cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+        stdin = [x.strip() for x in stdin.readlines()]
+        return cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
-    def look_up_identifiers(cls, _db, parsed, *args, **kwargs):
+    def look_up_identifiers(cls, _db, parsed, stdin_identifier_strings, *args, **kwargs):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
+            identifier_strings = parsed.identifier_strings
+            if stdin_identifier_strings:
+                identifier_strings = (
+                    identifier_strings + stdin_identifier_strings
+                )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, parsed.identifier_strings,
+                _db, parsed.identifier_type, identifier_strings,
                 *args, **kwargs
             )
         else:
@@ -259,10 +266,12 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parser
 
     @classmethod
-    def parse_command_line(cls, _db, cmd_args=None, *args, **kwargs):
+    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        parsed = cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+        stdin = [x.strip() for x in stdin.readlines()]
+        parsed = cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
         if parsed.cutoff_time:
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
@@ -719,3 +728,14 @@ class SubjectAssignmentScript(SubjectInputScript):
             self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
+
+
+class MockStdin(object):
+    """Mock a list of identifiers passed in on standard input."""
+    def __init__(self, *lines):
+        self.lines = lines
+
+    def readlines(self):
+        lines = self.lines
+        self.lines = []
+        return lines
