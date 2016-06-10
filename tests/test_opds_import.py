@@ -7,7 +7,6 @@ from nose.tools import (
     assert_raises
 )
 import feedparser
-import re
 
 from lxml import etree
 import pkgutil
