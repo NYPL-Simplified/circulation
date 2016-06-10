@@ -22,6 +22,7 @@ from external_search import (
 )
 from classifier import Classifier
 
+
 class TestExternalSearch(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's

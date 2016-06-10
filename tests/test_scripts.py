@@ -21,6 +21,7 @@ from scripts import (
     IdentifierInputScript,
     RunCoverageProviderScript,
     WorkProcessingScript,
+    MockStdin,
 )
 
 class TestScript(DatabaseTest):
@@ -68,10 +69,13 @@ class TestIdentifierInputScript(DatabaseTest):
     def test_parse_command_line(self):
         i1 = self._identifier()
         i2 = self._identifier()
+        # We pass in one identifier on the command line...
         cmd_args = ["--identifier-type",
-                    i1.type, i1.identifier, i2.identifier]
+                    i1.type, i1.identifier]
+        # ...and another one into standard input.
+        stdin = MockStdin(i2.identifier)
         parsed = IdentifierInputScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, stdin
         )
         eq_([i1, i2], parsed.identifiers)
         eq_(i1.type, parsed.identifier_type)
@@ -79,7 +83,7 @@ class TestIdentifierInputScript(DatabaseTest):
     def test_parse_command_line_no_identifiers(self):
         cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
         parsed = IdentifierInputScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, MockStdin()
         )
         eq_([], parsed.identifiers)
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
@@ -92,7 +96,7 @@ class TestRunCoverageProviderScript(DatabaseTest):
         cmd_args = ["--cutoff-time", "2016-05-01", "--identifier-type", 
                     identifier.type, identifier.identifier]
         parsed = RunCoverageProviderScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, MockStdin()
         )
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)

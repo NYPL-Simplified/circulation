@@ -652,14 +652,12 @@ class CirculationData(MetaToModelUtility):
             self.data_source_obj = obj
         return self.data_source_obj
 
-
     def license_pool(self, _db):
         """Find or create a LicensePool object for this CirculationData."""
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
             )
-
         license_pool = None
         is_new = False
         
@@ -669,7 +667,6 @@ class CirculationData(MetaToModelUtility):
             _db, LicensePool, data_source=data_source,
             identifier=identifier_obj
         )
-
         if not license_pool:
             rights_status = get_one(
                 _db, RightsStatus, uri=self.default_rights_uri

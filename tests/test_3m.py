@@ -7,16 +7,19 @@ import datetime
 import os
 from model import (
     Contributor,
+    DataSource,
     Resource,
     Hyperlink,
     Identifier,
     Edition,
     Subject,
     Measurement,
+    Work,
 )
 from threem import (
     ItemListParser,
     MockThreeMAPI,
+    ThreeMBibliographicCoverageProvider,
 )
 from . import DatabaseTest
 from util.http import BadResponseException
@@ -190,3 +193,46 @@ class TestItemListParser(BaseThreeMTest):
 
         eq_(Hyperlink.DESCRIPTION, description.rel)
         assert description.content.startswith("<b>Winner")
+
+
+class TestBibliographicCoverageProvider(TestThreeMAPI):
+
+    """Test the code that looks up bibliographic information from 3M."""
+
+    def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask 3M for data,
+        3M provides it, and we create a presentation-ready work.
+        """
+
+        data = self.get_data("item_metadata_single.xml")
+        self.api.queue_response(200, content=data)
+
+        identifier = self._identifier(identifier_type=Identifier.THREEM_ID)
+        identifier.identifier = 'ddf4gr9'
+
+        # This book has no LicensePool.
+        eq_(None, identifier.licensed_through)
+
+        # Run it through the ThreeMBibliographicCoverageProvider
+        provider = ThreeMBibliographicCoverageProvider(
+            self._db, threem_api=self.api
+        )
+        [result] = provider.process_batch([identifier])
+        eq_(identifier, result)
+
+        # A LicensePool was created, not because we know anything
+        # about how we've licensed this book, but to have a place to
+        # store the information about what formats the book is
+        # available in.
+        pool = identifier.licensed_through
+        eq_(0, pool.licenses_owned)
+        [lpdm] = pool.delivery_mechanisms
+        eq_(
+            'application/epub+zip (vnd.adobe/adept+xml)', 
+            lpdm.delivery_mechanism.name
+        )
+
+        # A Work was created and made presentation ready.
+        eq_("The Incense Game", pool.work.title)
+        eq_(True, pool.work.presentation_ready)
+       

@@ -42,6 +42,7 @@ from classifier import Classifier
 from coverage import (
     CoverageProvider,
     CoverageFailure,
+    WorkCoverageProvider,
 )
 from external_search import DummyExternalSearchIndex
 import mock
@@ -635,9 +636,17 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
 
-    def run_once(self, offset):
-        super(InstrumentedCoverageProvider, self).run_once(offset)
-        return None
+    def process_item(self, item):
+        self.attempts.append(item)
+        return item
+
+class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
+    """A CoverageProvider that keeps track of every item it tried
+    to cover.
+    """
+    def __init__(self, _db, *args, **kwargs):
+        super(InstrumentedWorkCoverageProvider, self).__init__(_db, *args, **kwargs)
+        self.attempts = []
 
     def process_item(self, item):
         self.attempts.append(item)
@@ -646,7 +655,15 @@ class InstrumentedCoverageProvider(CoverageProvider):
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
+class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    """A WorkCoverageProvider that does nothing and always succeeds."""
+
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(self, item, "What did you expect?", False)
+
+class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(self, item, "What did you expect?", False)
@@ -656,6 +673,11 @@ class BrokenCoverageProvider(InstrumentedCoverageProvider):
         raise Exception("I'm too broken to even return a CoverageFailure.")
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(self, item, "Oops!", True)
+
+class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(self, item, "Oops!", True)

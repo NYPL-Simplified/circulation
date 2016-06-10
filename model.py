@@ -3087,6 +3087,25 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
+    def missing_coverage_from(
+            cls, _db, operation=None, count_as_missing_before=None
+    ):
+        """Find Works which have no WorkCoverageRecord for the given
+        `operation`.
+        """
+        clause = and_(Work.id==WorkCoverageRecord.work_id,
+                      WorkCoverageRecord.operation==operation)
+        q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
+
+        missing = WorkCoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, WorkCoverageRecord.timestamp < count_as_missing_before
+            )
+        q2 = q.filter(missing)
+        return q2
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
@@ -3551,8 +3570,6 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
-            if not search_index_client:
-                search_index_client = ExternalSearchIndex()
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3629,13 +3646,16 @@ class Work(Base):
         )
 
 
-    def update_external_index(self, client):
+    def update_external_index(self, client, add_coverage_record=True):
+        client = client or ExternalSearchIndex()
+
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
         if not client.works_index:
             # There is no index set up on this instance.
             return
+        present_in_index = False
         if self.presentation_ready:
             doc = self.to_search_document()
             if doc:
@@ -3647,6 +3667,7 @@ class Work(Base):
                 else:
                     logging.info("Indexed work %d (%s)", self.id, self.title)
                 client.index(**args)
+                present_in_index = True
             else:
                 logging.warn(
                     "Could not generate a search document for allegedly presentation-ready work %d (%s).",
@@ -3655,18 +3676,21 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-        WorkCoverageRecord.add_for(
-            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
-        )
+        if add_coverage_record and present_in_index:
+            WorkCoverageRecord.add_for(
+                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+            )
+        return present_in_index
 
-    def set_presentation_ready(self, as_of=None):
+    def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
+        self.update_external_index(search_index_client)
 
-    def set_presentation_ready_based_on_content(self):
+    def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3685,8 +3709,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
+            # This will remove the work from the search index.
+            self.update_external_index(search_index_client)
         else:
-            self.set_presentation_ready()
+            self.set_presentation_ready(search_index_client=search_index_client)
 
     def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)
@@ -5232,6 +5258,15 @@ class LicensePool(Base):
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
+
+        if was_new:
+            # Set the LicensePool's initial values to indicate
+            # that we don't actually know how many copies we own.
+            license_pool.licenses_owned = 0
+            license_pool.licenses_available = 0
+            license_pool.licenses_reserved = 0
+            license_pool.patrons_in_hold_queue = 0
+
         return license_pool, was_new
 
     @classmethod
@@ -5475,7 +5510,6 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
-
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
                  CirculationEvent.HOLD_PLACE, CirculationEvent.HOLD_RELEASE], 
@@ -5505,15 +5539,28 @@ class LicensePool(Base):
                 old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
-        self.licenses_owned = new_licenses_owned
-        self.licenses_available = new_licenses_available
-        self.licenses_reserved = new_licenses_reserved
-        self.patrons_in_hold_queue = new_patrons_in_hold_queue
-        self.last_checked = as_of
+        any_data = False
+        if new_licenses_owned is not None:
+            self.licenses_owned = new_licenses_owned
+            any_data = True
+        if new_licenses_available is not None:
+            self.licenses_available = new_licenses_available
+            any_data = True
+        if new_licenses_reserved is not None:
+            self.licenses_reserved = new_licenses_reserved
+            any_data = True
+        if new_patrons_in_hold_queue is not None:
+            self.patrons_in_hold_queue = new_patrons_in_hold_queue
+            any_data = True
 
-        # Update the last update time of the Work.
-        if self.work:
-            self.work.last_update_time = as_of
+        if any_data or changes_made:
+            # Sometimes update_availability is called with no actual
+            # numbers, but that's not the case this time. We got
+            # numbers and they may have even changed our view of the
+            # LicensePool.
+            self.last_checked = as_of
+            if self.work:
+                self.work.last_update_time = as_of
 
         return changes_made
 
