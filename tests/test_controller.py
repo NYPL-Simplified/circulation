@@ -171,7 +171,7 @@ class TestBaseController(CirculationControllerTest):
         assert isinstance(value, Patron)
 
     def test_load_lane(self):
-        eq_(self.manager, self.controller.load_lane(None, None))
+        eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
         chinese = self.controller.load_lane('chi', None)
         eq_("Chinese", chinese.name)
         eq_("Chinese", chinese.display_name)

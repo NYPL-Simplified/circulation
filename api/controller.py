@@ -35,6 +35,7 @@ from core.external_search import (
 from core.lane import (
     Facets, 
     Pagination,
+    Lane,
     LaneList,
 )
 from core.model import (
@@ -100,15 +101,6 @@ from services import ServiceStatus
 
 class CirculationManager(object):
 
-    # The CirculationManager is treated as the top-level lane
-    name = 'All Books'
-    display_name = 'All Books'
-    languages = None
-    include_all_feed = False
-    url_name = None
-    parent = None
-    language_key = ""
-
     def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
@@ -123,10 +115,10 @@ class CirculationManager(object):
 
         self.testing = testing
         if isinstance(lanes, LaneList):
-            self.lanes = lanes
+            lanes = lanes
         else:
-            self.lanes = make_lanes(_db, lanes)
-        self.sublanes = self.lanes
+            lanes = make_lanes(_db, lanes)
+        self.top_level_lane = self.create_top_level_lane(lanes)
 
         self.auth = Authenticator.initialize(self._db, test=testing)
         self.setup_circulation()
@@ -145,6 +137,19 @@ class CirculationManager(object):
 
         self.opds_authentication_document = self.auth.create_authentication_document()
 
+    def create_top_level_lane(self, lanelist):
+        name = 'All Books'
+        return Lane(
+            self._db, name,
+            display_name=name,
+            parent=None,
+            sublanes=lanelist.lanes,
+            include_all=False,
+            languages=None,
+            searchable=True,
+            invisible=True
+        )
+
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
 
@@ -154,8 +159,8 @@ class CirculationManager(object):
 
     def log_lanes(self, lanelist=None, level=0):
         """Output information about the lane layout."""
-        lanelist = lanelist or self.lanes
-        for lane in lanelist.lanes:
+        lanelist = lanelist or self.top_level_lane.sublanes
+        for lane in lanelist:
             self.log.debug("%s%r", "-" * level, lane)
             if lane.sublanes:
                 self.log_lanes(lane.sublanes, level+1)
@@ -221,7 +226,8 @@ class CirculationManager(object):
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
-            self.circulation, lane, *args, top_level_title=self.display_name, **kwargs
+            self.circulation, lane, top_level_title='All Books',
+            *args, **kwargs
         )
 
 
@@ -302,10 +308,10 @@ class CirculationManagerController(object):
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
         if language_key is None and name is None:
-            # The top-level lane.
-            return self.manager
+            return self.manager.top_level_lane
 
-        if not language_key in self.manager.sublanes.by_languages:
+        lanelist = self.manager.top_level_lane.sublanes
+        if not language_key in lanelist.by_languages:
             return NO_SUCH_LANE.detailed(
                 "Unrecognized language key: %s" % language_key
             )
@@ -313,7 +319,7 @@ class CirculationManagerController(object):
         if name:
             name = name.replace("__", "/")
 
-        lanes = self.manager.sublanes.by_languages[language_key]
+        lanes = lanelist.by_languages[language_key]
 
         if not name:
             defaults = [x for x in lanes.values() if x.default_for_language]
