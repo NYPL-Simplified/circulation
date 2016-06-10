@@ -372,7 +372,7 @@ class NoveListCoverageProvider(CoverageProvider):
 
         super(NoveListCoverageProvider, self).__init__(
             "NoveList Coverage Provider", [Identifier.ISBN],
-            self.source, workset_size=25
+            self.source, batch_size=25
         )
 
     @property
