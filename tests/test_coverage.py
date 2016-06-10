@@ -328,7 +328,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = NeverSuccessfulCoverageProvider(
-            "Never successful", self.input_identifier_types, self.output_source
+            "Never successful", self.input_identifier_types, 
+            self.output_source
         )
         provider.run()
 
@@ -349,7 +350,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_([], self._db.query(Timestamp).all())
 
         provider = TransientFailureCoverageProvider(
-            "Transient failure", self.input_identifier_types, self.output_source
+            "Transient failure", self.input_identifier_types, 
+            self.output_source
         )
         provider.run()
 

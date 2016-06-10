@@ -325,10 +325,10 @@ class CoverageProvider(BaseCoverageProvider):
 
     def __init__(self, service_name, input_identifier_types, output_source,
                  batch_size=100, cutoff_time=None, operation=None):
+        _db = Session.object_session(output_source)
         super(CoverageProvider, self).__init__(
-            service_name, operation, batch_size, cutoff_time
+            _db, service_name, operation, batch_size, cutoff_time
         )
-        self._db = Session.object_session(output_source)
         if input_identifier_types and not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types

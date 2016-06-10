@@ -644,8 +644,8 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
-    def __init__(self, *args, **kwargs):
-        super(InstrumentedWorkCoverageProvider, self).__init__(*args, **kwargs)
+    def __init__(self, _db, *args, **kwargs):
+        super(InstrumentedWorkCoverageProvider, self).__init__(_db, *args, **kwargs)
         self.attempts = []
 
     def process_item(self, item):
