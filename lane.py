@@ -50,7 +50,6 @@ class Facets(FacetConstants):
             order=cls.ORDER_AUTHOR
         )
 
-
     def __init__(self, collection, availability, order,
                  order_ascending=None):
         
@@ -392,6 +391,8 @@ class Lane(object):
     AUDIENCE_YOUNG_ADULT = Classifier.AUDIENCE_YOUNG_ADULT
     AUDIENCE_CHILDREN = Classifier.AUDIENCE_CHILDREN
 
+    MINIMUM_SAMPLE_SIZE = None
+
     @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.
@@ -448,10 +449,6 @@ class Lane(object):
         print "%s%r" % ("-" * level, self)
         for lane in self.sublanes.lanes:
             lane.debug(level+1)
-
-        #self.log.debug("%s%r", "-" * level, self)
-        #for lane in self.sublanes.lanes:
-        #    lane.debug(level+1)
 
     def __init__(self, 
                  _db, 
@@ -578,7 +575,6 @@ class Lane(object):
         )
         self.genre_ids = [x.id for x in genres]
         self.genre_names = [x.name for x in genres]
-
         if sublanes and not isinstance(sublanes, list):
             sublanes = [sublanes]
         subgenre_sublanes = []
@@ -1201,8 +1197,22 @@ class Lane(object):
         else:
             return query.options(defer(work_model.simple_opds_entry))
 
-    def featured_works(self, size, use_materialized_works=True):
-        """Find a random sample of `size` featured books.
+    def sublane_samples(self, use_materialized_works=True):
+        """Generates a list of samples from each sublane for a groups feed"""
+
+        # This is a list rather than a dict because we want to
+        # preserve the ordering of the lanes.
+        works_and_lanes = []
+        for sublane in self.visible_sublanes:
+            works = sublane.featured_works(
+                use_materialized_works=use_materialized_works
+            )
+            for work in works:
+                works_and_lanes.append((work, sublane))
+        return works_and_lanes
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of featured books.
 
         It's semi-okay for this to be slow, since it will only be run to
         create cached feeds.
@@ -1223,42 +1233,56 @@ class Lane(object):
         ):
             facets = Facets(collection=collection, availability=availability,
                             order=Facets.ORDER_RANDOM)
-            desperate = (collection==Facets.COLLECTION_FULL
-                         and availability == Facets.AVAILABLE_ALL)
-            books = self.featured_works_for_facets(facets, size, desperate,
-                                                   use_materialized_works)
+            if use_materialized_works:
+                query = self.materialized_works(facets=facets)
+            else:
+                query = self.works(facets=facets)
+            if not query:
+                # apply_filters may return None in subclasses of Lane
+                continue
+
+            # This is the end of the line, so we're desperate
+            # to fill the lane, even if it's a little short.
+            use_min_size = (collection==Facets.COLLECTION_FULL and
+                            availability==Facets.AVAILABLE_ALL)
+
+            # Get a random sample of books to be featured.
+            books = self.randomized_sample_works(query, use_min_size=use_min_size)
             if books:
                 break
         return books
 
-    def featured_works_for_facets(
-            self, facets, size, desperate=False, use_materialized_works=True
-    ):
-        """Find a random sample of `size` featured books matching
-        the given facets.
-        """
-        if use_materialized_works:
-            query = self.materialized_works(facets)
-        else:
-            query = self.works(facets)
-        if not query:
-            return []
+    def randomized_sample_works(self, query, use_min_size=False):
+        """Find a random sample of works for a feed"""
+
+        offset = 0
+        target_size = Configuration.featured_lane_size()
+        smallest_sample_size = target_size
+
+        if use_min_size:
+            smallest_sample_size = self.MINIMUM_SAMPLE_SIZE or (target_size-5)
         total_size = query.count()
-        if total_size >= size:
-            # There are enough results that we can take a random
-            # sample.
-            offset = random.randint(0, total_size-size)
-        else:
-            if desperate:
-                # There are not enough results that we can take a
-                # random sample. But we're desperate. Use these books.
-                offset = 0
-            else:
-                # We're not desperate. Just return nothing.
-                return []
-        works = query.offset(offset).limit(size).all()
+
+        if total_size < smallest_sample_size:
+            # There aren't enough works here. Ignore the lane.
+            return []
+        if total_size > target_size:
+            # We have enough results to randomly offset the selection.
+            offset = random.randint(0, total_size-target_size)
+
+        works = query.offset(offset).limit(target_size).all()
         random.shuffle(works)
         return works
+
+    @property
+    def visible_sublanes(self):
+        visible_sublanes = []
+        for sublane in self.sublanes:
+            if not sublane.invisible:
+                visible_sublanes.append(sublane)
+            else:
+                visible_sublanes += sublane.visible_sublanes
+        return visible_sublanes
 
     def visible_parent(self):
         if self.parent == None:

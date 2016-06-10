@@ -234,7 +234,6 @@ class SessionManager(object):
                     self.works_id, self.sort_title, self.sort_author, self.language,
                     )).encode("utf8")
 
-
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine

@@ -487,7 +487,7 @@ class AcquisitionFeed(OPDSFeed):
     FACET_REL = "http://opds-spec.org/facet"
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator, ignore_feed_size=False,
+    def groups(cls, _db, title, url, lane, annotator,
                force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
@@ -505,64 +505,35 @@ class AcquisitionFeed(OPDSFeed):
         if usable:
             return cached
 
-        feed_size = Configuration.featured_lane_size()
-        if ignore_feed_size:
-            # This groups feed should return groups no matter how many
-            # books are found.
-            feed_size = 1
-       
-        # This is a list rather than a dict because we want to 
-        # preserve the ordering of the lanes.
-        works_and_lanes = []
-
-        def get_visible_sublanes(lane):
-            visible_sublanes = []
-            for sublane in lane.sublanes:
-                if not sublane.invisible:
-                    visible_sublanes.append(sublane)
-                else:
-                    visible_sublanes += get_visible_sublanes(sublane)
-            return visible_sublanes
-
-        for sublane in get_visible_sublanes(lane):
-            # .featured_works will try more and more desperately
-            # to find works to fill the 'featured' group.
-            works = sublane.featured_works(
-                feed_size, use_materialized_works=use_materialized_works)
-            if not works or len(works) < (feed_size-5):
-                # This is pathetic. Every single book in this
-                # lane won't fill up the 'featured' group. Don't
-                # show the lane at all.
-                pass
-            else:
-                for work in works:
-                    works_and_lanes.append((work, sublane))
-
+        works_and_lanes = lane.sublane_samples(
+            use_materialized_works=use_materialized_works
+        )
         if not works_and_lanes:
-            # We did not find any works whatsoever. The groups feed is
-            # useless. Instead we need to display a flat feed--the
+            # We did not find enough works for a groups feed.
+            # Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
             if not isinstance(lane, Lane):
                 # This is probably a top-level controller or
                 # application object.  Create a dummy lane that
                 # contains everything.
                 lane = Lane(_db, "Everything")
+            # Generate a page-type feed that is filed as a
+            # groups-type feed so it will show up when the client
+            # asks for it.
             cached = cls.page(
-                _db, title, url, lane, annotator, 
+                _db, title, url, lane, annotator,
+                cache_type=CachedFeed.GROUPS_TYPE,
                 force_refresh=force_refresh,
                 use_materialized_works=use_materialized_works
             )
-
-            # The feed was generated as a page-type feed. 
-            # File it as a groups-type feed so it will show up when
-            # a client asks for the feed.
-            cached.type = CachedFeed.GROUPS_TYPE
             return cached
 
         if lane.include_all_feed:
             # Create an 'all' group so that patrons can browse every
             # book in this lane.
-            works = lane.featured_works(feed_size)
+            works = lane.featured_works(
+                use_materialized_works=use_materialized_works
+            )
             for work in works:
                 works_and_lanes.append((work, None))
 
@@ -611,8 +582,8 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def page(cls, _db, title, url, lane, annotator=None,
-             facets=None, pagination=None, 
-             force_refresh=False, cache_type=None,
+             facets=None, pagination=None,
+             cache_type=None, force_refresh=False,
              use_materialized_works=True
     ):
         """Create a feed representing one page of works from a given lane."""
