@@ -1,4 +1,6 @@
 from nose.tools import set_trace
+from sqlalchemy.orm import aliased
+
 import core.classifier as genres
 from config import Configuration
 from core.classifier import (
@@ -13,8 +15,9 @@ from core.lane import (
     LaneList,
 )
 from core.model import (
-    Work,
     Edition,
+    LicensePool,
+    Work,
 )
 
 from core.util import LanguageCodes
@@ -476,17 +479,19 @@ class SeriesLane(LicensePoolBasedLane):
 
     DISPLAY_NAME = "Other Books in this Series"
 
-    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
-            edition_model=Edition):
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
         edition = self.license_pool.presentation_edition
         series = edition.series
         if not series:
             return None
-
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        qu = qu.filter(
-            Edition.series==series,
-            Edition.id!=edition.id
+
+        # Aliasing Edition here allows this query to function
+        # regardless of work_model and existing joins.
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).filter(
+            work_edition.series==series,
+            work_edition.id!=edition.id
         )
         return qu
 
@@ -524,14 +529,15 @@ class RecommendationLane(LicensePoolBasedLane):
             return metadata.recommendations
         return []
 
-    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
-            edition_model=Edition):
-        identifier = self.license_pool.identifier
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+
+        if not self.recommendations:
+            return None
 
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        if self.recommendations:
-            qu = Work.from_identifiers(
-                self._db, self.recommendations, base_query=qu
-            )
-            return qu
-        return None
+        if work_model != Work:
+            qu = qu.join(LicensePool.identifier)
+        qu = Work.from_identifiers(
+            self._db, self.recommendations, base_query=qu
+        )
+        return qu

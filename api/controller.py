@@ -809,7 +809,6 @@ class WorkController(CirculationManagerController):
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed("Recommendations not available: %r" % e)
 
-        use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
             'recommendations', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
@@ -817,8 +816,7 @@ class WorkController(CirculationManagerController):
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
             self._db, lane.DISPLAY_NAME, url, lane,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
-            use_materialized_works=use_materialized_works
+            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
 
         return feed_response(unicode(feed.content))
@@ -829,6 +827,7 @@ class WorkController(CirculationManagerController):
         pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
+
         try:
             lane_name = "Books Related to %s by %s" % (
                 pool.work.title, pool.work.author
@@ -838,15 +837,14 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        use_materialized_works = not self.manager.testing
+
         url = self.cdn_url_for(
             'related_books', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
         )
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
-            use_materialized_works=use_materialized_works
+            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
         )
         return feed_response(unicode(feed.content))
 
@@ -883,7 +881,6 @@ class WorkController(CirculationManagerController):
 
         feed_title = SeriesLane.lane_name_from_series_title(series)
         lane = SeriesLane(self._db, pool, feed_title)
-        use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
             'series', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
@@ -891,8 +888,7 @@ class WorkController(CirculationManagerController):
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
             self._db, feed_title, url, lane,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE,
-            use_materialized_works=use_materialized_works
+            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
 
         return feed_response(unicode(feed.content))

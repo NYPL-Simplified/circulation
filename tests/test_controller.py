@@ -726,6 +726,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api = MockNoveListAPI()
         mock_api.setup(metadata)
 
+        SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
@@ -741,6 +742,8 @@ class TestWorkController(CirculationControllerTest):
         self._db.delete(cached_empty_feed)
         metadata.recommendations = [self.english_2.license_pools[0].identifier]
         mock_api.setup(metadata)
+
+        SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
@@ -778,6 +781,8 @@ class TestWorkController(CirculationControllerTest):
         # Prep book with a book in its series and a recommendation.
         self.lp.presentation_edition.series = "Around the World"
         self.french_1.presentation_edition.series = "Around the World"
+        SessionManager.refresh_materialized_views(self._db)
+
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
         mock_api = MockNoveListAPI()
@@ -843,6 +848,7 @@ class TestWorkController(CirculationControllerTest):
         # If the edition is in a series without other volumes, an empty feed
         # is returned.
         self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
+        SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.series(
                 self.datasource, self.identifier.type, self.identifier.identifier
@@ -858,6 +864,7 @@ class TestWorkController(CirculationControllerTest):
         # When other volumes present themselves, the feed has entries.
         other_volume = self.english_2.license_pools[0].presentation_edition
         other_volume.series = "Like As If Whatever Mysteries"
+        SessionManager.refresh_materialized_views(self._db)
 
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.series(
@@ -963,7 +970,7 @@ class TestFeedController(CirculationControllerTest):
 
                 feed = feedparser.parse(response.data)
                 entries = feed['entries']
-                
+
                 counter = Counter()
                 for entry in entries:
                     links = [x for x in entry.links if x['rel'] == 'collection']
