@@ -848,6 +848,7 @@ class CoverageRecord(Base):
     CHOOSE_COVER_OPERATION = 'choose-cover'
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
+    IMPORT_OPERATION = 'import'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(

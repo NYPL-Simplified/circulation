@@ -35,6 +35,7 @@ from model import (
     get_one,
     get_one_or_create,
     Contributor,
+    CoverageRecord,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -249,16 +250,19 @@ class OPDSImporter(object):
         works = {}
         # status_messages notes business logic errors and non-success download statuses
         status_messages = {}
-        next_links = []
-        try:
-            metadata_objs, status_messages, next_links = self.extract_feed_data(feed)
-        except Exception, e:
-            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-            return imported_editions.values(), imported_pools.values(), imported_works.values(), status_messages, next_links
+
+        # If parsing the overall feed throws an exception, we should address that before
+        # moving on. Let the exception propagate.
+        metadata_objs, status_messages = self.extract_feed_data(feed)
 
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
+
+            # If there's a status message about this item, don't try to import it.
+            if key in status_messages.keys():
+                continue
+
             try:
                 # Create an edition. This will also create a pool if there's circulation data.
                 edition = self.import_edition_from_metadata(
@@ -310,7 +314,7 @@ class OPDSImporter(object):
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                 status_messages[key] = message
 
-        return imported_editions.values(), pools.values(), works.values(), status_messages, next_links
+        return imported_editions.values(), pools.values(), works.values(), status_messages
 
 
     def import_edition_from_metadata(
@@ -349,18 +353,41 @@ class OPDSImporter(object):
 
         return edition
 
+
+    @classmethod
+    def extract_next_links(self, feed):
+        parsed = feedparser.parse(feed)
+        feed = parsed['feed']
+        next_links = []
+        if feed and 'links' in feed:
+            next_links = [
+                link['href'] for link in feed['links'] 
+                if link['rel'] == 'next'
+            ]
+        return next_links
+        
+
+    @classmethod
+    def extract_last_update_dates(cls, feed):
+        parsed_feed = feedparser.parse(feed)
+        return [
+            cls.last_update_date_for_feedparser_entry(entry)
+            for entry in parsed_feed['entries']
+        ]
+
+
     def extract_feed_data(self, feed):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
         data_source = DataSource.lookup(self._db, self.data_source_name)
-        fp_metadata, status_messages, next_links = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
+        fp_metadata, fp_status_messages = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
-        xml_data_meta = self.extract_metadata_from_elementtree(feed)
+        xml_data_meta, xml_status_messages = self.extract_metadata_from_elementtree(feed)
 
         # translate the id in status_messages to identifier.urn
         identified_messages = {}
-        for id, message_data in status_messages.items():
+        for id, message_data in fp_status_messages.items() + xml_status_messages.items():
             external_identifier, ignore = Identifier.parse_urn(self._db, id)
             if self.identifier_mapping:
                 internal_identifier = self.identifier_mapping.get(
@@ -379,6 +406,10 @@ class OPDSImporter(object):
                     external_identifier, external_identifier)
             else:
                 internal_identifier = external_identifier
+
+            # Don't process this item if there was already an error
+            if internal_identifier.urn in identified_messages.keys():
+                continue
 
             identifier_obj = IdentifierData(
                 type=internal_identifier.type,
@@ -411,7 +442,7 @@ class OPDSImporter(object):
                 
                 metadata[internal_identifier.urn].circulation = CirculationData(**combined_circ)
 
-        return metadata, status_messages, next_links
+        return metadata, identified_messages
 
 
     @classmethod
@@ -447,15 +478,7 @@ class OPDSImporter(object):
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
 
-        feed = feedparser_parsed['feed']
-        next_links = []
-        if feed and 'links' in feed:
-            next_links = [
-                link['href'] for link in feed['links'] 
-                if link['rel'] == 'next'
-            ]
-
-        return values, status_messages, next_links
+        return values, status_messages
 
 
     @classmethod
@@ -470,6 +493,7 @@ class OPDSImporter(object):
         constructor.
         """
         values = {}
+        status_messages = {}
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(feed))
 
@@ -483,11 +507,26 @@ class OPDSImporter(object):
             feed_url = None
 
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail = cls.detail_for_elementtree_entry(parser, entry, feed_url)
+            identifier, detail, status_message = cls.detail_for_elementtree_entry(parser, entry, feed_url)
             if identifier:
+                if status_message:
+                    status_messages[identifier] = status_message
                 values[identifier] = detail
-        return values
+        return values, status_messages
 
+    @classmethod
+    def _datetime(cls, entry, key):
+        value = entry.get(key, None)
+        if not value:
+            return value
+        return datetime.datetime(*value[:6])
+
+
+    @classmethod
+    def last_update_date_for_feedparser_entry(cls, entry):
+        identifier = entry.get('id')
+        updated = cls._datetime(entry, 'updated_parsed')
+        return (identifier, updated)
 
     @classmethod
     def data_detail_for_feedparser_entry(cls, entry, data_source):
@@ -497,7 +536,7 @@ class OPDSImporter(object):
         :return: A 4-tuple (identifier, kwargs for Metadata constructor,  
             kwargs for CirculationData constructor, status message)
         """
-        identifier = entry['id']
+        identifier = entry.get('id')
         if not identifier:
             return None, None, None
 
@@ -516,77 +555,76 @@ class OPDSImporter(object):
         # Note: will ignore bibframe_distribution from feed, and use data source passed into the 
         # importer as license_data_source, too.
 
-        title = entry.get('title', None)
-        if title == OPDSFeed.NO_TITLE:
-            title = None
-        subtitle = entry.get('schema_alternativeheadline', None)
+        try:
+            title = entry.get('title', None)
+            if title == OPDSFeed.NO_TITLE:
+                title = None
+            subtitle = entry.get('schema_alternativeheadline', None)
 
-        def _datetime(key):
-            value = entry.get(key, None)
-            if not value:
-                return value
-            return datetime.datetime(*value[:6])
+            last_opds_update = cls._datetime(entry, 'updated_parsed')
+            added_to_collection_time = cls._datetime(entry, 'published_parsed')
+            
+            publisher = entry.get('publisher', None)
+            if not publisher:
+                publisher = entry.get('dcterms_publisher', None)
 
-        last_opds_update = _datetime('updated_parsed')
-        added_to_collection_time = _datetime('published_parsed')
+            language = entry.get('language', None)
+            if not language:
+                language = entry.get('dcterms_language', None)
 
-        publisher = entry.get('publisher', None)
-        if not publisher:
-            publisher = entry.get('dcterms_publisher', None)
+            links = []
 
-        language = entry.get('language', None)
-        if not language:
-            language = entry.get('dcterms_language', None)
+            def summary_to_linkdata(detail):
+                if not detail:
+                    return None
+                if not 'value' in detail or not detail['value']:
+                    return None
 
-        links = []
+                content = detail['value']
+                media_type = detail.get('type', 'text/plain')
+                return LinkData(
+                    rel=Hyperlink.DESCRIPTION,
+                    media_type=media_type,
+                    content=content
+                )
 
-        def summary_to_linkdata(detail):
-            if not detail:
-                return None
-            if not 'value' in detail or not detail['value']:
-                return None
-
-            content = detail['value']
-            media_type = detail.get('type', 'text/plain')
-            return LinkData(
-                rel=Hyperlink.DESCRIPTION,
-                media_type=media_type,
-                content=content
-            )
-
-        summary_detail = entry.get('summary_detail', None)
-        link = summary_to_linkdata(summary_detail)
-        if link:
-            links.append(link)
-
-        for content_detail in entry.get('content', []):
-            link = summary_to_linkdata(content_detail)
+            summary_detail = entry.get('summary_detail', None)
+            link = summary_to_linkdata(summary_detail)
             if link:
                 links.append(link)
 
-        rights = entry.get('rights', "")
-        rights_uri = RightsStatus.rights_uri_from_string(rights)
+            for content_detail in entry.get('content', []):
+                link = summary_to_linkdata(content_detail)
+                if link:
+                    links.append(link)
 
-        kwargs_meta = dict(
-            title=title,
-            subtitle=subtitle,
-            language=language,
-            publisher=publisher,
-            links=links,
-            # refers to when was updated in opds feed, not our db
-            data_source_last_updated=last_opds_update,
-        )
+            rights = entry.get('rights', "")
+            rights_uri = RightsStatus.rights_uri_from_string(rights)
 
-        # Only add circulation data if the data source is lendable.
-        if data_source.offers_licenses:
-            kwargs_circ = dict(
-                data_source=data_source.name,
-                links=list(links),
-                default_rights_uri=rights_uri,
+            kwargs_meta = dict(
+                title=title,
+                subtitle=subtitle,
+                language=language,
+                publisher=publisher,
+                links=links,
+                # refers to when was updated in opds feed, not our db
+                data_source_last_updated=last_opds_update,
             )
             
-            kwargs_meta['circulation'] = kwargs_circ
-        return identifier, kwargs_meta, status_message
+            # Only add circulation data if the data source is lendable.
+            if data_source.offers_licenses:
+                kwargs_circ = dict(
+                    data_source=data_source.name,
+                    links=list(links),
+                    default_rights_uri=rights_uri,
+                )
+                
+                kwargs_meta['circulation'] = kwargs_circ
+            return identifier, kwargs_meta, status_message
+
+        except Exception, e:
+            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
+            return identifier, None, message
 
 
     @classmethod
@@ -602,46 +640,51 @@ class OPDSImporter(object):
         if identifier is None or not identifier.text:
             # This <entry> tag doesn't identify a book so we 
             # can't derive any information from it.
-            return None, None
+            return None, None, None
         identifier = identifier.text
 
-        # We will fill this dictionary with all the information
-        # we can find.
-        data = dict()
+        try:
+            # We will fill this dictionary with all the information
+            # we can find.
+            data = dict()
 
-        alternate_identifiers = []
-        for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
-            v = cls.extract_identifier(id_tag)
-            if v:
-                alternate_identifiers.append(v)
-        data['identifiers'] = alternate_identifiers
+            alternate_identifiers = []
+            for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
+                v = cls.extract_identifier(id_tag)
+                if v:
+                    alternate_identifiers.append(v)
+            data['identifiers'] = alternate_identifiers
            
-        data['medium'] = cls.extract_medium(entry_tag)
+            data['medium'] = cls.extract_medium(entry_tag)
         
-        data['contributors'] = []
-        for author_tag in parser._xpath(entry_tag, 'atom:author'):
-            contributor = cls.extract_contributor(parser, author_tag)
-            if contributor is not None:
-                data['contributors'].append(contributor)
+            data['contributors'] = []
+            for author_tag in parser._xpath(entry_tag, 'atom:author'):
+                contributor = cls.extract_contributor(parser, author_tag)
+                if contributor is not None:
+                    data['contributors'].append(contributor)
 
-        data['subjects'] = [
-            cls.extract_subject(parser, category_tag)
-            for category_tag in parser._xpath(entry_tag, 'atom:category')
-        ]
+            data['subjects'] = [
+                cls.extract_subject(parser, category_tag)
+                for category_tag in parser._xpath(entry_tag, 'atom:category')
+            ]
 
-        ratings = []
-        for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
-            v = cls.extract_measurement(rating_tag)
-            if v:
-                ratings.append(v)
-        data['measurements'] = ratings
+            ratings = []
+            for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
+                v = cls.extract_measurement(rating_tag)
+                if v:
+                    ratings.append(v)
+            data['measurements'] = ratings
 
-        data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag, feed_url)
-            for link_tag in parser._xpath(entry_tag, 'atom:link')
-        ])
+            data['links'] = cls.consolidate_links([
+                cls.extract_link(link_tag, feed_url)
+                for link_tag in parser._xpath(entry_tag, 'atom:link')
+            ])
         
-        return identifier, data
+            return identifier, data, None
+
+        except Exception, e:
+            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
+            return identifier, None, message
 
     @classmethod
     def extract_identifier(cls, identifier_tag):
@@ -844,49 +887,102 @@ class OPDSImportMonitor(Monitor):
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         return HTTP.get_with_timeout(url, **kwargs)
 
+    def check_for_new_data(self, feed, cutoff_date=None):
+        """Check if the feed contains any entries that haven't been imported yet
+        or have been updated since the cutoff date.
+        """
+        last_update_dates = self.importer.extract_last_update_dates(feed)
+
+        new_data = False
+        for identifier, updated in last_update_dates:
+
+            identifier = get_one(self._db, Identifier, identifier=identifier)
+            data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+            record = None
+
+            if identifier:
+                record = CoverageRecord.lookup(
+                    identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
+                )
+
+            # If we have a CoverageRecord, that's the most reliable indicator of the last time we tried
+            # to import this book. But if we imported the book before we started creating CoverageRecords
+            # for imports, we can still use the monitor's timestamp as the cutoff.
+            if record:
+                cutoff_date = record.timestamp
+
+            if cutoff_date:
+                # We've imported this book before, so don't import it again unless it's changed.
+
+                if not updated:
+                    # If we don't know if the book has been updated, import it again to be safe.
+                    new_data = True
+                    break
+
+                if  updated >= cutoff_date:
+                    # This book has been updated.
+                    new_data = True
+                    break
+
+            if record and record.exception:
+                # We tried to import this book before and it failed. The book hasn't been updated,
+                # so it probably still won't work. Don't try again.
+                continue
+
+            # There's no record of a failure for this book. Has it been imported from this source already?
+            existing_edition = get_one(
+                self._db, Edition,
+                primary_identifier=identifier,
+                data_source=data_source,
+            )
+            if not existing_edition:
+                new_data = True
+                break
+
+        return new_data
+
     def follow_one_link(self, link, cutoff_date):
         self.log.info("Following next link: %s, cutoff=%s", link, cutoff_date)
         response = HTTP.get_with_timeout(link, allowed_response_codes=['2xx', '3xx'])
 
-        metadata_objs, messages, next_links = self.importer.extract_feed_data(response.content)
+        new_data = self.check_for_new_data(response.content, cutoff_date=cutoff_date)
 
-        # If there's a cutoff date and all the books in the feed have already been imported
-        # and haven't changed since the cutoff date, we can stop following links.
-        if cutoff_date:
-            needs_import = False
-            for metadata in metadata_objs.values():
-                if not metadata.data_source_last_updated:
-                    # If we don't know if the book has been updated, import it again to be safe.
-                    needs_import = True
-                    break
-
-                if  metadata.data_source_last_updated >= cutoff_date:
-                    # This book has been updated.
-                    needs_import = True
-                    break
-
-                # Has this book been imported already?
-                identifier, ignore = metadata.primary_identifier.load(self._db)
-                data_source = metadata.data_source_obj
-                existing_edition = get_one(
-                    self._db, Edition,
-                    primary_identifier=identifier,
-                    data_source=data_source,
-                )
-                if not existing_edition:
-                    needs_import = True
-                    break
-
-            if not needs_import:
-                next_links = []
-
-        return next_links, response.content
+        if new_data:
+            # There's something new on this page, so we need to check the next page as well.
+            next_links = self.importer.extract_next_links(response.content)
+            return next_links, response.content
+        else:
+            # There's nothing new, so we don't need to import this feed or check the next page.
+            return [], None
 
     def import_one_feed(self, feed, start):
-        imported_editions, imported_pools, imported_works, messages, next_links = self.importer.import_from_feed(
+        imported_editions, pools, works, messages = self.importer.import_from_feed(
             feed, even_if_no_author=True, cutoff_date=start,
             immediately_presentation_ready = self.immediately_presentation_ready
         )
+
+        data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+        
+        # Create CoverageRecords for the successful imports.
+        for edition in imported_editions:
+            CoverageRecord.add_for(
+                edition, data_source, CoverageRecord.IMPORT_OPERATION
+            )
+
+        # Create CoverageRecords for the failures.
+        for urn, message in messages.items():
+            if message.status_code == 500:
+                # This is a permanent failure. We shouldn't try again until something's
+                # changed.
+                identifier, ignore = Identifier.parse_urn(self._db, urn)
+                record, ignore = CoverageRecord.add_for(
+                    identifier, data_source, CoverageRecord.IMPORT_OPERATION
+                )
+                record.exception = message.message
+            else:
+                # This is a transient failure. A CoverageProvider will run again,
+                # so we should try to import next time we see this identifier.
+                self.log.info("Temporarily unable to import %s: %s" % (urn, message.message))
         
     def run_once(self, start, cutoff):
         feeds = []
@@ -903,7 +999,8 @@ class OPDSImportMonitor(Monitor):
                     continue
                 next_links, feed = self.follow_one_link(link, start)
                 new_queue.extend(next_links)
-                feeds.append((link, feed))
+                if feed:
+                    feeds.append((link, feed))
                 seen_links.add(link)
 
             queue = new_queue

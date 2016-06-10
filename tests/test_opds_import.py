@@ -118,9 +118,39 @@ class OPDSImporterTest(DatabaseTest):
 
 class TestOPDSImporter(OPDSImporterTest):
 
+    def test_extract_next_links(self):
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        next_links = importer.extract_next_links(
+            self.content_server_mini_feed
+        )
+
+        eq_(1, len(next_links))
+        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+
+    def test_extract_last_update_dates(self):
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        last_update_dates = importer.extract_last_update_dates(
+            self.content_server_mini_feed
+        )
+
+        eq_(3, len(last_update_dates))
+
+        identifier1, updated1 = last_update_dates[0]
+        identifier2, updated2 = last_update_dates[1]
+        identifier3, updated3 = last_update_dates[2]
+
+        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441", identifier1)
+        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated1)
+
+        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557", identifier2)
+        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated2)
+
+        eq_("http://www.gutenberg.org/ebooks/1984", identifier3)
+        eq_(None, updated3)
+
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
-        metadata, status_messages, next_links = importer.extract_feed_data(
+        metadata, status_messages = importer.extract_feed_data(
             self.content_server_mini_feed
         )
 
@@ -141,13 +171,11 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(202, message.status_code)
         eq_(u"I'm working to locate a source for this identifier.", message.message)
 
-        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
-
 
     def test_extract_metadata_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        values, status_messages, next_links = OPDSImporter.extract_data_from_feedparser(
+        values, status_messages = OPDSImporter.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
@@ -167,13 +195,14 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata_from_elementtree(self):
 
-        data = OPDSImporter.extract_metadata_from_elementtree(
+        data, status_messages = OPDSImporter.extract_metadata_from_elementtree(
             self.content_server_feed
         )
 
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
+        eq_(0, len(status_messages))
 
         # We're going to do spot checks on a book and a periodical.
 
@@ -243,7 +272,7 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -298,13 +327,13 @@ class TestOPDSImporter(OPDSImporterTest):
         classifier.classify(seven.subject)
 
         # If we import the same file again, we get the same list of Editions.
-        imported_editions_2, pools_2, works_2, error_messages_2, next_links_2 = (
+        imported_editions_2, pools_2, works_2, error_messages_2 = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
         # importing with a lendable data source makes license pools and works
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
@@ -343,7 +372,7 @@ class TestOPDSImporter(OPDSImporterTest):
         feed = open(path).read()
 
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
-        imported_editions_mw, pools_mw, works_mw, error_messages_mw, next_links_mw = (
+        imported_editions_mw, pools_mw, works_mw, error_messages_mw = (
             importer_mw.import_from_feed(feed)
         )
 
@@ -360,7 +389,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions_g, pools_g, works_g, error_messages_g, next_links_g = (
+        imported_editions_g, pools_g, works_g, error_messages_g = (
             importer_g.import_from_feed(feed)
         )
 
@@ -385,7 +414,7 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -395,7 +424,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(works))        
 
         # But if we try it again...
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -407,7 +436,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # And if we change the cutoff...
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -434,7 +463,7 @@ class TestOPDSImporter(OPDSImporterTest):
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages = (
             OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE).import_from_feed(feed)
         )
 
@@ -457,7 +486,7 @@ class TestOPDSImporter(OPDSImporterTest):
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages = (
             importer.import_from_feed(feed)
         )
 
@@ -503,7 +532,7 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        imported_editions, imported_pools, imported_works, error_messages, next_link = (
+        imported_editions, imported_pools, imported_works, error_messages = (
             importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
@@ -517,7 +546,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -542,7 +571,7 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "content_server_mini.opds")
         feed = open(path).read()
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, error_messages = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -629,7 +658,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             mirror=s3, http_get=http.do_get
         )
 
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
         e1 = imported_editions[0]
@@ -689,7 +718,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
@@ -714,7 +743,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, pools, works, error_messages, next_links = (
+        imported_editions, pools, works, error_messages = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
