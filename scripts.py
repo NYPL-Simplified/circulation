@@ -153,11 +153,22 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
+    def read_stdin_lines(self, stdin):
+        """Read lines from a (possibly mocked, possibly empty) standard input."""
+        if stdin is not sys.stdin or not os.isatty(0):
+            # A file has been redirected into standard input. Grab its
+            # lines.
+            lines = [x.strip() for x in stdin.readlines()]
+        else:
+            lines = []
+        return lines
+
+    @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
                            *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        stdin = [x.strip() for x in stdin.readlines()]
+        stdin = cls.read_stdin_lines(stdin)
         return cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
@@ -270,7 +281,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
                            *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        stdin = [x.strip() for x in stdin.readlines()]
+        stdin = cls.read_stdin_lines(stdin)
         parsed = cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
         if parsed.cutoff_time:
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
