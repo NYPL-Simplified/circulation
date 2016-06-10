@@ -194,7 +194,7 @@ class BaseCoverageProvider(object):
                     # on the next run.
                     self.log.warn(
                         "Transient failure covering %r: %s", 
-                        item, item.exception
+                        item.obj, item.exception
                     )
                     transient_failures += 1
                     record = item
