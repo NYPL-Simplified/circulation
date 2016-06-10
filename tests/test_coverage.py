@@ -8,10 +8,13 @@ from . import (
 )
 from testing import (
     AlwaysSuccessfulCoverageProvider,
+    AlwaysSuccessfulWorkCoverageProvider,
     DummyHTTPClient,
     TaskIgnoringCoverageProvider,
     NeverSuccessfulCoverageProvider,
+    NeverSuccessfulWorkCoverageProvider,
     TransientFailureCoverageProvider,
+    TransientFailureWorkCoverageProvider,
 )
 from model import (
     Contributor,
@@ -24,6 +27,7 @@ from model import (
     Representation,
     Subject,
     Timestamp,
+    WorkCoverageRecord,
 )
 from metadata_layer import (
     Metadata,
@@ -306,7 +310,7 @@ class TestCoverageProvider(DatabaseTest):
             "Always successful", self.input_identifier_types, self.output_source
         )
         new_offset = provider.run_once_and_update_timestamp(0)
-        eq_(None, new_offset)
+        eq_(0, new_offset)
 
         # There is now one CoverageRecord
         [record] = self._db.query(CoverageRecord).all()
@@ -548,6 +552,77 @@ class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
     def process_item(self, identifier):
         return identifier
 
+class TestWorkCoverageProvider(DatabaseTest):
+
+    def setup(self):
+        super(TestWorkCoverageProvider, self).setup()
+        self.work = self._work()
+
+    def test_success(self):
+        operation = "the_operation"
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==operation
+        )
+        # We start with no relevant WorkCoverageRecord and no Timestamp.
+        eq_([], qu.all())
+
+        eq_([], self._db.query(Timestamp).all())
+
+        provider = AlwaysSuccessfulWorkCoverageProvider(
+            self._db, "Always successful", operation
+        )
+        provider.run()
+
+        # There is now one relevant WorkCoverageRecord.
+        [record] = qu.all()
+        eq_(self.work, record.work)
+        eq_(operation, record.operation)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Always successful", timestamp.service)
+
+    def test_transient_failure(self):
+        # We start with no relevant WorkCoverageRecords.
+        operation = "the_operation"
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==operation
+        )
+        eq_([], qu.all())
+
+        provider = TransientFailureWorkCoverageProvider(
+            self._db, "Transient failure", operation
+        )
+        provider.run()
+
+        # We have no CoverageRecord, since the error was transient.
+        eq_([], qu.all())
+
+        # But the coverage provider did run, and the timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Transient failure", timestamp.service)
+
+    def test_persistent_failure(self):
+        # We start with no relevant WorkCoverageRecords.
+        operation = "the_operation"
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==operation
+        )
+        eq_([], qu.all())
+
+        provider = NeverSuccessfulWorkCoverageProvider(
+            self._db, "Persistent failure", operation
+        )
+        provider.run()
+
+        # We have a WorkCoverageRecord, since the error was persistent.
+        [record] = qu.all()
+        eq_(self.work, record.work)
+        eq_("What did you expect?", record.exception)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Persistent failure", timestamp.service)
 
 class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
     """Simulates a BibliographicCoverageProvider that's never successful."""

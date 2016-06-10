@@ -14,6 +14,8 @@ from model import (
     Identifier,
     LicensePool,
     Timestamp,
+    Work,
+    WorkCoverageRecord,
 )
 from metadata_layer import (
     ReplacementPolicy
@@ -26,12 +28,16 @@ class CoverageFailure(object):
 
     def __init__(self, provider, obj, exception, transient=True):
         self.obj = obj
-        self.output_source = provider.output_source
+        self.output_source = getattr(provider, 'output_source', None)
         self.exception = exception
         self.transient = transient
 
     def to_coverage_record(self, operation=None):
         """Convert this failure into a CoverageRecord."""
+        if not self.output_source:
+            raise Exception(
+                "Cannot convert coverage failure to CoverageRecord because original coverage provider has no output source."
+            )
         if not self.transient:
             # This is a persistent error. Turn it into a CoverageRecord
             # so we don't keep trying to provide coverage that isn't
@@ -68,7 +74,7 @@ class BaseCoverageProvider(object):
     coverage records are WorkCoverageRecord objects.
     """
 
-    def __init__(self, service_name, operation, batch_size=100, 
+    def __init__(self, _db, service_name, operation, batch_size=100, 
                  cutoff_time=None):
         """Constructor.
 
@@ -81,6 +87,7 @@ class BaseCoverageProvider(object):
         :param cutoff_time: Coverage records created before this time
         will be treated as though they did not exist.
         """
+        self._db = _db
         self.service_name = service_name
         self.operation = operation
         self.batch_size = batch_size
@@ -569,11 +576,15 @@ class CoverageProvider(BaseCoverageProvider):
         return qu
 
     def add_coverage_record_for(self, item):
+        """Record this CoverageProvider's coverage for the given
+        Edition/Identifier, as a CoverageRecord.
+        """
         return CoverageRecord.add_for(
             item, data_source=self.output_source, operation=self.operation
         )
 
     def record_failure_as_coverage_record(self, failure):
+        """Turn a CoverageFailure into a CoverageRecord object."""
         return failure.to_coverage_record(operation=self.operation)
 
 class WorkCoverageProvider(BaseCoverageProvider):
@@ -604,11 +615,15 @@ class WorkCoverageProvider(BaseCoverageProvider):
 
 
     def add_coverage_record_for(self, work):
+        """Record this CoverageProvider's coverage for the given
+        Edition/Identifier, as a WorkCoverageRecord.
+        """
         return WorkCoverageRecord.add_for(
             work, operation=self.operation
         )
 
     def record_failure_as_coverage_record(self, failure):
+        """Turn a CoverageFailure into a WorkCoverageRecord object."""
         return failure.to_work_coverage_record(operation=self.operation)
 
 
