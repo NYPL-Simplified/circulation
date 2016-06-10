@@ -47,6 +47,17 @@ from model import (
 from s3 import DummyS3Uploader
 from testing import DummyHTTPClient
 
+
+class DoomedOPDSImporter(OPDSImporter):
+    def import_edition_from_metadata(self, metadata, *args):
+        if metadata.title == "Johnny Crow's Party":
+            # This import succeeds.
+            return super(DoomedOPDSImporter, self).import_edition_from_metadata(metadata, *args)
+        else:
+            # Any other import fails.
+            raise Exception("Utter failure!")
+
+
 class TestStatusMessage(object):
 
     def test_constructor(self):
@@ -564,15 +575,6 @@ class TestOPDSImporter(OPDSImporterTest):
         # Make sure that an exception during import stops the import process, 
         # and generates a meaningful error message.
 
-        class DoomedOPDSImporter(OPDSImporter):
-            def import_edition_from_metadata(self, metadata, *args):
-                if metadata.title == "Johnny Crow's Party":
-                    # This import succeeds.
-                    return super(DoomedOPDSImporter, self).import_edition_from_metadata(metadata, *args)
-                else:
-                    # Any other import fails.
-                    raise Exception("Utter failure!")
-
         feed = self.content_server_mini_feed
 
         imported_editions, imported_pools, imported_works, error_messages = (
@@ -757,13 +759,18 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 class TestOPDSImportMonitor(OPDSImporterTest):
 
-    def test_check_for_new_data(self):
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+    def setup(self):
+        super(TestOPDSImportMonitor, self).setup()
         feed = self.content_server_mini_feed
-        # Remove the last entry, since it's a mesage and will always be new.
+        # Remove the last entry, since it's a message and will always be new.
         last_entry_start = feed.rfind('<entry>')
         last_entry_end = feed.rfind('</entry>') + len('</entry>')
-        feed = feed[0:last_entry_start] + feed[last_entry_end:]
+        self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
+
+
+    def test_check_for_new_data(self):
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        feed = self.content_server_mini_feed_without_message
 
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.check_for_new_data(feed))
@@ -814,3 +821,96 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
+
+
+    def test_follow_one_link(self):
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        feed = self.content_server_mini_feed_without_message
+
+        # If there's new data, follow_one_link extracts the next links.
+
+        http = DummyHTTPClient()
+        http.queue_response(200, content=feed)
+
+        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
+        
+        eq_(1, len(next_links))
+        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+
+        eq_(feed, content)
+
+        # Now import the editions.
+        monitor.importer.import_from_feed(feed)
+        eq_(2, self._db.query(Edition).count())
+
+        # If there's no new data, follow_one_link returns no next links and no content.
+        http.queue_response(200, content=feed)
+
+        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
+
+        eq_(0, len(next_links))
+        eq_(None, content)
+
+
+    def test_import_one_feed(self):
+        # Check coverage records are created.
+
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, DoomedOPDSImporter)
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        feed = self.content_server_mini_feed
+
+        monitor.import_one_feed(feed, None)
+        
+        editions = self._db.query(Edition).all()
+        
+        # One edition has been imported
+        eq_(1, len(editions))
+
+        # That edition has a CoverageRecord.
+        record = CoverageRecord.lookup(
+            editions[0].primary_identifier, data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
+        eq_(None, record.exception)
+
+        # The other entry has a CoverageRecord for the failure.
+        # The 202 status message in the feed was transient and did
+        # not create a CoverageRecord.
+
+        eq_(2, self._db.query(CoverageRecord).filter(CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION).count())
+    
+        identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
+        failure = CoverageRecord.lookup(
+            identifier, data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
+        assert "Utter failure!" in failure.exception
+
+
+    def test_run_once(self):
+        class MockOPDSImportMonitor(OPDSImportMonitor):
+            def __init__(self, *args, **kwargs):
+                super(MockOPDSImportMonitor, self).__init__(*args, **kwargs)
+                self.responses = []
+                self.imports = []
+
+            def queue_response(self, response):
+                self.responses.append(response)
+
+            def follow_one_link(self, link, cutoff_date=None, do_get=None):
+                return self.responses.pop()
+
+            def import_one_feed(self, feed, start):
+                self.imports.append(feed)
+
+        monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        
+        monitor.queue_response([[], "last page"])
+        monitor.queue_response([["second next link"], "second page"])
+        monitor.queue_response([["next link"], "first page"])
+
+        monitor.run_once(None, None)
+
+        # Feeds are imported in reverse order
+        eq_(["last page", "second page", "first page"], monitor.imports)

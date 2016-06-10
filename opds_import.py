@@ -879,13 +879,14 @@ class OPDSImportMonitor(Monitor):
             keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER
         )
     
-    def _get(self, url):
+    def _get(self, url, headers):
         """Make the sort of HTTP request that's normal for an OPDS feed.
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
-        return HTTP.get_with_timeout(url, **kwargs)
+        response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
+        return response.status_code, response.content_type, response.content
 
     def check_for_new_data(self, feed, cutoff_date=None):
         """Check if the feed contains any entries that haven't been imported yet
@@ -943,16 +944,17 @@ class OPDSImportMonitor(Monitor):
 
         return new_data
 
-    def follow_one_link(self, link, cutoff_date):
+    def follow_one_link(self, link, cutoff_date=None, do_get=None):
         self.log.info("Following next link: %s, cutoff=%s", link, cutoff_date)
-        response = HTTP.get_with_timeout(link, allowed_response_codes=['2xx', '3xx'])
+        get = do_get or self._get
+        status_code, content_type, feed = get(link, None)
 
-        new_data = self.check_for_new_data(response.content, cutoff_date=cutoff_date)
+        new_data = self.check_for_new_data(feed, cutoff_date=cutoff_date)
 
         if new_data:
             # There's something new on this page, so we need to check the next page as well.
-            next_links = self.importer.extract_next_links(response.content)
-            return next_links, response.content
+            next_links = self.importer.extract_next_links(feed)
+            return next_links, feed
         else:
             # There's nothing new, so we don't need to import this feed or check the next page.
             return [], None
