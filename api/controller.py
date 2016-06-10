@@ -845,9 +845,7 @@ class WorkController(CirculationManagerController):
         )
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane,
-            annotator=annotator,
-            ignore_feed_size=True,
+            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
             use_materialized_works=use_materialized_works
         )
         return feed_response(unicode(feed.content))

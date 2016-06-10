@@ -380,8 +380,12 @@ class LicensePoolBasedLane(Lane):
     DISPLAY_NAME = None
     MAX_CACHE_AGE = 14*24*60*60      # two weeks
 
+    # Inside of groups feeds, we want to return a sample
+    # even if there's only a single result.
+    MINIMUM_SAMPLE_SIZE = 1
+
     def __init__(self, _db, license_pool, full_name,
-                 display_name=None, sublanes=[]):
+                 display_name=None, sublanes=[], invisible=False):
         self.license_pool = license_pool
         display_name = display_name or self.DISPLAY_NAME
         super(LicensePoolBasedLane, self).__init__(
@@ -397,6 +401,24 @@ class LicensePoolBasedLane(Lane):
         :return: query
         """
         raise NotImplementedError()
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of books for the feed"""
+
+        # Lane.featured_works searches for books along a variety of facets.
+        # Because LicensePoolBasedLanes are created for individual works as
+        # needed (instead of at app start), we need to avoid the relative
+        # slowness of those queries.
+        #
+        # We'll just ignore facets and return whatever we find.
+        if not use_materialized_works:
+            query = self.works()
+        else:
+            query = self.materialized_works()
+        if not query:
+            return []
+
+        return self.randomized_sample_works(query, use_min_size=True)
 
 
 class RelatedBooksLane(LicensePoolBasedLane):
@@ -415,8 +437,9 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 "No related books for %s by %s" % (edition.title, edition.author)
             )
         super(RelatedBooksLane, self).__init__(
-            _db, license_pool, full_name, display_name=display_name,
-            sublanes=sublanes
+            _db, license_pool, full_name,
+            display_name=display_name, sublanes=sublanes,
+            invisible=True
         )
 
     def _get_sublanes(self, _db, license_pool, mock_api=None):
@@ -442,9 +465,9 @@ class RelatedBooksLane(LicensePoolBasedLane):
 
         return sublanes
 
-    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
-            edition_model=Edition):
-        # This lane is composed entirely of sublanes.
+    def apply_filters(self, qu, *args, **kwargs):
+        # This lane is composed entirely of sublanes and
+        # should only be used to create groups feeds.
         return None
 
 
