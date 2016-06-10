@@ -237,7 +237,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(
             _db, axis_360_api, DataSource.AXIS_360,
-            workset_size=25, 
+            batch_size=25, 
             metadata_replacement_policy=metadata_replacement_policy,
             **kwargs
         )
