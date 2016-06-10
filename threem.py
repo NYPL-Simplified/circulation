@@ -423,7 +423,7 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         threem_api = threem_api or ThreeMAPI(_db)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, threem_api, DataSource.THREEM,
-            workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            batch_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_item(self, identifier):

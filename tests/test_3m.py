@@ -197,7 +197,13 @@ class TestItemListParser(BaseThreeMTest):
 
 class TestBibliographicCoverageProvider(TestThreeMAPI):
 
+    """Test the code that looks up bibliographic information from 3M."""
+
     def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask 3M for data,
+        3M provides it, and we create a presentation-ready work.
+        """
+
         data = self.get_data("item_metadata_single.xml")
         self.api.queue_response(200, content=data)
 

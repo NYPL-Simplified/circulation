@@ -989,6 +989,16 @@ class TestLicensePool(DatabaseTest):
         eq_(None, work.last_update_time)
         eq_(None, pool.last_checked)
 
+        # If we pass a mix of good and null values...
+        pool.update_availability(5, None, None, None)
+
+        # Only the good values are changed.
+        eq_(5, pool.licenses_owned)
+        eq_(20, pool.licenses_available)
+        eq_(30, pool.licenses_reserved)
+        eq_(40, pool.patrons_in_hold_queue)
+
+
     def test_open_access_links(self):
         edition, pool = self._edition(with_open_access_download=True)
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1473,10 +1483,22 @@ class TestWork(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_set_presentation_ready(self):
+
         work = self._work(with_license_pool=True)
+
+        search = DummyExternalSearchIndex()
+        # This is how the work will be represented in the dummy search
+        # index.
+        index_key = (search.works_index, 
+                     DummyExternalSearchIndex.work_document_type,
+                     work.id)
+
         presentation = work.presentation_edition
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
+
+        # The work has been added to the search index.
+        eq_([index_key], search.docs.keys())
         
         # This work is presentation ready because it has a title
         # and a fiction status.
@@ -1484,22 +1506,33 @@ class TestWork(DatabaseTest):
         # Remove the title, and the work stops being presentation
         # ready.
         presentation.title = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # The work has been removed from the search index.
+        eq_([], search.docs.keys())
+
+        # Restore the title, and everything is fixed.
         presentation.title = u"foo"
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)        
+        eq_([index_key], search.docs.keys())
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
         work.fiction = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # It's gone from the search index again.
+        eq_([], search.docs.keys())
+
+        # Restore the fiction status, and everything is fixed.
         work.fiction = False
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)        
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+
+        eq_(True, work.presentation_ready)
+        eq_([index_key], search.docs.keys())
 
     def test_assign_genres_from_weights(self):
         work = self._work()
@@ -1724,6 +1757,31 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+    def test_missing_coverage_from(self):
+        operation = 'the_operation'
+
+        # Here's a work with a coverage record.
+        work = self._work(with_license_pool=True)
+
+        # It needs coverage.
+        eq_([work], Work.missing_coverage_from(self._db, operation).all())
+
+        # Let's give it coverage.
+        record = self._work_coverage_record(work, operation)
+
+        # It no longer needs coverage!
+        eq_([], Work.missing_coverage_from(self._db, operation).all())
+
+        # But if we disqualify coverage records created before a 
+        # certain time, it might need coverage again.
+        cutoff = record.timestamp + datetime.timedelta(seconds=1)
+
+        eq_(
+            [work], Work.missing_coverage_from(
+                self._db, operation, count_as_missing_before=cutoff
+            ).all()
+        )
 
 
 class TestCirculationEvent(DatabaseTest):

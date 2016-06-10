@@ -228,14 +228,16 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     bibliographic and availability data.
     """
     def __init__(self, _db, input_identifier_types=None, 
-                 metadata_replacement_policy=None, **kwargs):
+                 metadata_replacement_policy=None, axis_360_api=None,
+                 **kwargs):
         # We ignore the value of input_identifier_types, but it's
         # passed in by RunCoverageProviderScript, so we accept it as
         # part of the signature.
         self.parser = BibliographicParser()
+        axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(
-            _db, Axis360API(_db), DataSource.AXIS_360,
-            workset_size=25, 
+            _db, axis_360_api, DataSource.AXIS_360,
+            batch_size=25, 
             metadata_replacement_policy=metadata_replacement_policy,
             **kwargs
         )
@@ -247,6 +249,11 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         batch_results = []
         for metadata, availability in self.parser.process_all(response.content):
             identifier, is_new = metadata.primary_identifier.load(self._db)
+            if not identifier in identifiers:
+                # Axis 360 told us about a book we didn't ask
+                # for. This shouldn't happen, but if it does we should
+                # do nothing further.
+                continue
             seen_identifiers.add(identifier.identifier)
             result = self.set_metadata(identifier, metadata)
             if not isinstance(result, CoverageFailure):
@@ -541,5 +548,4 @@ class BibliographicParser(Axis360Parser):
             availability = None
 
         return bibliographic, availability
-
 
