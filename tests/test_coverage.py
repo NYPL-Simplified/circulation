@@ -656,6 +656,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             set(provider.items_that_need_coverage([i2, i3]).all())
         )
 
+
 class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
     """Simulates a BibliographicCoverageProvider that's never successful."""
 

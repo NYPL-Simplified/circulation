@@ -3654,6 +3654,7 @@ class Work(Base):
         if not client.works_index:
             # There is no index set up on this instance.
             return
+        present_in_index = False
         if self.presentation_ready:
             doc = self.to_search_document()
             if doc:
@@ -3665,6 +3666,7 @@ class Work(Base):
                 else:
                     logging.info("Indexed work %d (%s)", self.id, self.title)
                 client.index(**args)
+                present_in_index = True
             else:
                 logging.warn(
                     "Could not generate a search document for allegedly presentation-ready work %d (%s).",
@@ -3673,10 +3675,11 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-        if add_coverage_record:
+        if add_coverage_record and present_in_index:
             WorkCoverageRecord.add_for(
                 self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
             )
+        return present_in_index
 
     def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()

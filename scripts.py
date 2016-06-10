@@ -276,17 +276,32 @@ class RunCoverageProviderScript(IdentifierInputScript):
             else:
                 self.identifier_type = None
                 self.identifier_types = []
+            kwargs = self.extract_additional_command_line_arguments(args)
             provider = provider(
-                self._db, input_identifier_types=self.identifier_types, 
-                cutoff_time=args.cutoff_time
+                self._db, 
+                cutoff_time=args.cutoff_time,
+                **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
         self.identifiers = args.identifiers
 
+    def extract_additional_command_line_arguments(self, args):
+        """A hook method for subclasses.
+        
+        Turns command-line arguments into additional keyword arguments
+        to the CoverageProvider constructor.
+
+        By default, pass in a value used only by CoverageProvider
+        (as opposed to WorkCoverageProvider).
+        """
+        return {
+            "input_identifier_types" : self.identifier_types, 
+        }
+
     def do_run(self):
         if self.identifiers:
-            self.provider.run_on_identifiers(self.identifiers)
+            self.provider.run_on_specific_identifiers(self.identifiers)
         else:
             self.provider.run()
 
