@@ -11,6 +11,7 @@ from . import (
     sample_data,
 )
 
+from core.external_search import DummyExternalSearchIndex
 from core.testing import MockRequestsResponse
 
 from core.config import (
@@ -24,6 +25,7 @@ from core.model import (
     Identifier,
     LicensePool,
     Work,
+    WorkCoverageRecord,
 )
 from core.opds import OPDSFeed
 from core.opds_import import (
@@ -42,6 +44,7 @@ from api.coverage import (
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
     MockOPDSImportCoverageProvider,
+    SearchIndexCoverageProvider,
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
@@ -375,3 +378,83 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Only the open-access work needs coverage.
         eq_([w1.license_pools[0].identifier],
             provider.items_that_need_coverage.all())
+
+
+class TestSeachIndexCoverageProvider(DatabaseTest):
+
+    def test_run(self):
+        index = DummyExternalSearchIndex()
+
+        # Here's a work.
+        work = self._work()
+        work.presentation_ready = True
+
+        # Here's a CoverageProvider that can index it.
+        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
+
+        # Let's run the provider.
+        provider.run()
+
+        # We've got a coverage record.
+        [record] = [x for x in work.coverage_records if
+                    x.operation == provider.operation_name]
+
+        eq_(record.work, work)
+        timestamp = record.timestamp
+
+        # And the work was actually added to the search index.
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # Running the provider again does nothing -- does not create
+        # a new WorkCoverageRecord and does not update the timestamp.
+        provider.run()
+        [record2] = [x for x in work.coverage_records if
+                     x.operation == provider.operation_name]
+        eq_(record2, record)
+        eq_(timestamp, record2.timestamp)
+
+        # However, if we create a CoverageProvider that updates a
+        # different index (e.g. because the index format has changed
+        # and we're recreating the search index), we can get a second
+        # WorkCoverageRecord for _that_ index.
+        provider2 = SearchIndexCoverageProvider(self._db, "works-index-2", index)
+        provider2.run()
+
+        [record3] = [x for x in work.coverage_records if
+                     x.operation == provider2.operation_name]
+
+        eq_(record3.work, work)
+        assert record3.timestamp > timestamp
+
+
+    def test_process_item(self):
+        """Test the indexing of an individual Work."""
+
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
+
+        # This work is not presentation-ready.
+        work = self._work()
+
+        # Calling process_item() on the WorkCoverageProvider will
+        # give us nothing but a CoverageFailure.
+
+        failure = provider.process_item(work)
+        assert isinstance(failure, CoverageFailure)
+        eq_('Work not indexed because not presentation-ready.', 
+            failure.exception)
+        eq_(True, failure.transient)
+
+        # But make the work presentation-ready, and it succeeds.
+        work.presentation_ready = True
+        result = provider.process_item(work)
+        eq_(work, result)
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # A CoverageRecord has not been created for the Work, even
+        # though that normally happens when you index a Work, because
+        # the WorkCoverageProvider code that calls process_item() is
+        # supposed to handle the creation of CoverageRecords.
+        assert provider.operation_name not in [
+            x.operation for x in work.coverage_records
+        ]

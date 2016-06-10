@@ -4,6 +4,7 @@ from config import Configuration
 from core.coverage import (
     CoverageFailure,
     CoverageProvider,
+    WorkCoverageProvider,
 )
 from sqlalchemy import and_
 from sqlalchemy.orm import contains_eager
@@ -13,6 +14,7 @@ from core.model import (
     Edition,
     Identifier,
     LicensePool,
+    WorkCoverageRecord,
 )
 from core.opds import (
     OPDSFeed
@@ -367,3 +369,44 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             LicensePool.open_access==True
         )
         return qu
+
+
+class SearchIndexCoverageProvider(WorkCoverageProvider):
+    """Make sure the search index is up-to-date for every Work."""
+
+    def __init__(self, _db, index_name, index_client=None, **kwargs):
+        self.operation_name = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + '-' + index_name
+        super(SearchIndexCoverageProvider, self).__init__(
+            _db, 
+            service_name="Search index update (%s)" % index_name,
+            operation=self.operation_name,
+            **kwargs
+        )
+
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                works_index=index_name
+            )
+
+    def process_item(self, work):
+        """Update the search index for one item.
+
+        TODO: It would be more efficient to override process_batch() to do a
+        bulk upload.
+        """
+
+        # We pass add_coverage_record=False because the CoverageProvider
+        # mechanisms will take care of adding the WorkCoverageRecord.
+        present_in_index = work.update_external_index(
+            self.search_index_client, add_coverage_record=False
+        )
+        if not present_in_index:
+            if not work.presentation_ready:
+                error = "Work not indexed because not presentation-ready."
+            else:
+                error = "Work not indexed"
+            return CoverageFailure(self, work, error, transient=True)
+        return work
