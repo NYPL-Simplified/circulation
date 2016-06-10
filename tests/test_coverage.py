@@ -245,7 +245,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         relicensed_licensepool.update_availability(1, 0, 0, 0)
 
-        items = self.provider.items_that_need_coverage.all()
+        items = self.provider.items_that_need_coverage().all()
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
         assert reaper_cr.identifier not in items
@@ -271,7 +271,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
         # We have a coverage record already, so this book doesn't show
         # up in items_that_need_coverage
-        items = self.provider.items_that_need_coverage.all()
+        items = self.provider.items_that_need_coverage().all()
         eq_([], items)
 
         # But if we send a cutoff_time that's later than the time
@@ -285,7 +285,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
         # The book starts showing up in items_that_need_coverage.
         eq_([edition.primary_identifier], 
-            provider_with_cutoff.items_that_need_coverage.all())
+            provider_with_cutoff.items_that_need_coverage().all())
 
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
@@ -317,7 +317,7 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         # An open access license pool
         open_access_lp = self._licensepool(None)
 
-        items = self.reaper.items_that_need_coverage.all()
+        items = self.reaper.items_that_need_coverage().all()
         eq_(1, len(items))
         # Items that are licensed are ignored.
         assert licensed_lp.identifier not in items
@@ -377,7 +377,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
         # Only the open-access work needs coverage.
         eq_([w1.license_pools[0].identifier],
-            provider.items_that_need_coverage.all())
+            provider.items_that_need_coverage().all())
 
 
 class TestSeachIndexCoverageProvider(DatabaseTest):
@@ -417,6 +417,7 @@ class TestSeachIndexCoverageProvider(DatabaseTest):
         # different index (e.g. because the index format has changed
         # and we're recreating the search index), we can get a second
         # WorkCoverageRecord for _that_ index.
+        index.works_index = 'works-index-2'
         provider2 = SearchIndexCoverageProvider(self._db, "works-index-2", index)
         provider2.run()
 

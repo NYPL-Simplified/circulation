@@ -229,10 +229,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 "it will not know which collection you're asking about."
             )
 
-    @property
-    def items_that_need_coverage(self):
+    def items_that_need_coverage(self, identifiers=None):
         """Returns items that are licensed and have not been covered"""
-        uncovered = super(MetadataWranglerCoverageProvider, self).items_that_need_coverage
+        uncovered = super(MetadataWranglerCoverageProvider, self).items_that_need_coverage(identifiers)
         reaper_covered = self._db.query(Identifier).\
                 join(Identifier.coverage_records).\
                 filter(CoverageRecord.data_source==self.output_source).\
@@ -273,15 +272,17 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
     SERVICE_NAME = "Metadata Wrangler Reaper"
     OPERATION = CoverageRecord.REAP_OPERATION
 
-    @property
-    def items_that_need_coverage(self):
+    def items_that_need_coverage(self, identifiers=None):
         """Retreives Identifiers that have been synced and are no longer licensed"""
 
-        return self._db.query(Identifier).select_from(LicensePool).\
+        qu = self._db.query(Identifier).select_from(LicensePool).\
             join(LicensePool.identifier).join(CoverageRecord).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
             filter(CoverageRecord.data_source==self.output_source).\
             filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION)
+        if identifiers:
+            qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+        return qu
 
     def process_batch(self, batch):
         id_mapping = self.create_identifier_mapping(batch)
@@ -358,13 +359,12 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             **kwargs
         )
 
-    @property
-    def items_that_need_coverage(self):
+    def items_that_need_coverage(self, identifiers=None):
         """Only identifiers associated with an open-access license
         need coverage.
         """
         qu = super(ContentServerBibliographicCoverageProvider, 
-                   self).items_that_need_coverage
+                   self).items_that_need_coverage(identifiers)
         qu = qu.join(Identifier.licensed_through).filter(
             LicensePool.open_access==True
         )
