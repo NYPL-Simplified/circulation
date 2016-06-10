@@ -1758,6 +1758,31 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
+    def test_missing_coverage_from(self):
+        operation = 'the_operation'
+
+        # Here's a work with a coverage record.
+        work = self._work(with_license_pool=True)
+
+        # It needs coverage.
+        eq_([work], Work.missing_coverage_from(self._db, operation).all())
+
+        # Let's give it coverage.
+        record = self._work_coverage_record(work, operation)
+
+        # It no longer needs coverage!
+        eq_([], Work.missing_coverage_from(self._db, operation).all())
+
+        # But if we disqualify coverage records created before a 
+        # certain time, it might need coverage again.
+        cutoff = record.timestamp + datetime.timedelta(seconds=1)
+
+        eq_(
+            [work], Work.missing_coverage_from(
+                self._db, operation, count_as_missing_before=cutoff
+            ).all()
+        )
+
 
 class TestCirculationEvent(DatabaseTest):
 

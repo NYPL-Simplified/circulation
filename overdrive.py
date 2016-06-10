@@ -868,7 +868,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         # part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, overdrive_api, DataSource.OVERDRIVE,
-            workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            batch_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_item(self, identifier):

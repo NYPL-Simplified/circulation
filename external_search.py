@@ -35,7 +35,10 @@ class ExternalSearchIndex(object):
 
             url = integration[Configuration.URL]
             use_ssl = url and url.startswith('https://')
-            self.log.info("Connecting to Elasticsearch cluster at %s", url)
+            self.log.info(
+                "Connecting to index %s in Elasticsearch cluster at %s", 
+                works_index, url
+            )
             ExternalSearchIndex.__client = Elasticsearch(
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
