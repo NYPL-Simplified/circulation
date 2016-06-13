@@ -1,27 +1,31 @@
-from nose.tools import set_trace, eq_
+from nose.tools import set_trace, eq_, assert_raises
 
 from . import (
     DatabaseTest,
 )
 
+from core.lane import (
+    Lane,
+    LaneList,
+)
+from core.metadata_layer import Metadata
+
 from api.config import (
     Configuration,
     temp_config,
 )
-
-from core.lane import (
-    LaneList,
-)
-
 from api.lanes import (
     make_lanes,
     make_lanes_default,
     lanes_for_large_collection,
     lane_for_small_collection,
     lane_for_other_languages,
+    RecommendationLane,
+    RelatedBooksLane,
+    SeriesLane,
 )
+from api.novelist import MockNoveListAPI
 
-from core.lane import Lane
 
 class TestLaneCreation(DatabaseTest):
 
@@ -121,7 +125,6 @@ class TestLaneCreation(DatabaseTest):
             lane = lane_for_other_languages(self._db, exclude)
             eq_(None, lane)
 
-
     def test_make_lanes_default(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -152,3 +155,44 @@ class TestLaneCreation(DatabaseTest):
                 [x.display_name for x in english_lane.sublanes.lanes]
             )
 
+
+class TestRelatedBooksLane(DatabaseTest):
+
+    def test_initialization(self):
+        """Asserts that a RelatedBooksLane won't be initialized for a work
+        without related books
+        """
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
+        with temp_config() as config:
+            # A book without a series on a circ manager without
+            # NoveList recommendations raises an error.
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            assert_raises(
+                ValueError, RelatedBooksLane, self._db, lp, ""
+            )
+
+            # But a book from a series initializes a RelatedBooksLane just fine.
+            lp.presentation_edition.series = "All By Myself"
+            result = RelatedBooksLane(self._db, lp, "")
+            eq_(lp, result.license_pool)
+            [sublane] = result.sublanes
+            eq_(True, isinstance(sublane, SeriesLane))
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
+                Configuration.NOVELIST_PROFILE : 'library',
+                Configuration.NOVELIST_PASSWORD : 'sure'
+            }
+            # When NoveList is configured and recommendations are available,
+            # a RecommendationLane will be included.
+            mock_api = MockNoveListAPI()
+            response = Metadata(
+                lp.data_source, recommendations=[self._identifier()]
+            )
+            mock_api.setup(response)
+            result = RelatedBooksLane(self._db, lp, "", novelist_api=mock_api)
+            eq_(2, len(result.sublanes))
+            recommendations, series = result.sublanes
+            eq_(True, isinstance(recommendations, RecommendationLane))
+            eq_(True, isinstance(series, SeriesLane))

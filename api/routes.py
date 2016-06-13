@@ -181,10 +181,20 @@ def permalink(data_source, identifier_type, identifier):
 def recommendations(data_source, identifier_type, identifier):
     return app.manager.work_controller.recommendations(data_source, identifier_type, identifier)
 
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/related_books')
+@returns_problem_detail
+def related_books(data_source, identifier_type, identifier):
+    return app.manager.work_controller.related(data_source, identifier_type, identifier)
+
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
 @returns_problem_detail
 def report(data_source, identifier_type, identifier):
     return app.manager.work_controller.report(data_source, identifier_type, identifier)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/series')
+@returns_problem_detail
+def series(data_source, identifier_type, identifier):
+    return app.manager.work_controller.series(data_source, identifier_type, identifier)
 
 @app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
 @returns_problem_detail

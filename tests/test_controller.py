@@ -171,7 +171,7 @@ class TestBaseController(CirculationControllerTest):
         assert isinstance(value, Patron)
 
     def test_load_lane(self):
-        eq_(self.manager, self.controller.load_lane(None, None))
+        eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
         chinese = self.controller.load_lane('chi', None)
         eq_("Chinese", chinese.name)
         eq_("Chinese", chinese.display_name)
@@ -726,14 +726,15 @@ class TestWorkController(CirculationControllerTest):
         mock_api = MockNoveListAPI()
         mock_api.setup(metadata)
 
+        SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                mock_api=mock_api
+                novelist_api=mock_api
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Related Works', feed['feed']['title'])
+        eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
         # Delete the cache and prep a recommendation result.
@@ -742,14 +743,16 @@ class TestWorkController(CirculationControllerTest):
         metadata.recommendations = [self.english_2.license_pools[0].identifier]
         mock_api.setup(metadata)
 
+        SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                mock_api=mock_api
+                novelist_api=mock_api
             )
+        # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Related Works', feed['feed']['title'])
+        eq_('Recommended Books', feed['feed']['title'])
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
         eq_(self.english_2.title, entry['title'])
@@ -763,6 +766,60 @@ class TestWorkController(CirculationControllerTest):
                 )
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+    def test_related_books(self):
+        # A book with no related books returns a ProblemDetail.
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            with self.app.test_request_context('/'):
+                response = self.manager.work_controller.related(
+                    self.datasource, self.identifier.type, self.identifier.identifier
+                )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        # Prep book with a book in its series and a recommendation.
+        self.lp.presentation_edition.series = "Around the World"
+        self.french_1.presentation_edition.series = "Around the World"
+        SessionManager.refresh_materialized_views(self._db)
+
+        source = DataSource.lookup(self._db, self.datasource)
+        metadata = Metadata(source)
+        mock_api = MockNoveListAPI()
+        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        mock_api.setup(metadata)
+
+        # A grouped feed is returned with both of these related books
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.related(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(3, len(feed['entries']))
+
+        # One book is in the recommendations feed.
+        [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
+        [collection_link] = [link for link in e1['links'] if link['rel']=='collection']
+        eq_("Recommended Books", collection_link['title'])
+        work_url = "/works/%s/%s/%s/" % (self.datasource, self.identifier.type, self.identifier.identifier)
+        expected = urllib.quote(work_url + 'recommendations')
+        eq_(True, collection_link['href'].endswith(expected))
+
+        # Two books are in the series feed. The original work and its companion
+        [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
+        [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
+        eq_("Around the World", collection_link['title'])
+        expected = urllib.quote(work_url + 'series')
+        eq_(True, collection_link['href'].endswith(expected))
+
+        [e3] = [e for e in feed['entries'] if e['title'] == self.english_1.title]
+        [collection_link] = [link for link in e3['links'] if link['rel']=='collection']
+        eq_("Around the World", collection_link['title'])
+        expected = urllib.quote(work_url + 'series')
+        eq_(True, collection_link['href'].endswith(expected))
+
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
@@ -785,6 +842,69 @@ class TestWorkController(CirculationControllerTest):
         eq_(error_type, complaint.type)
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
+
+    def test_series(self):
+        # If the work doesn't have a series, a ProblemDetail is returned.
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        # If the work is in a series without other volumes, a feed is
+        # returned containing only that work.
+        self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
+        self.lp.presentation_edition.series_position = 8
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_("Like As If Whatever Mysteries", feed['feed']['title'])
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
+
+        # Remove cache.
+        [cached_empty_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_empty_feed)
+        # When other volumes present themselves, the feed has more entries.
+        other_volume = self.english_2.license_pools[0].presentation_edition
+        other_volume.series = "Like As If Whatever Mysteries"
+        other_volume.series_position = 1
+        SessionManager.refresh_materialized_views(self._db)
+
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [e1, e2] = feed['entries']
+        # The entries are sorted according to their series_position.
+        eq_(self.english_2.title, e1['title'])
+        eq_(self.english_1.title, e2['title'])
+
+        # Remove cache.
+        [cached_empty_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_empty_feed)
+        # Barring series_position, the entries are sorted according to their
+        # titles.
+        self.lp.presentation_edition.series_position = None
+        other_volume.series_position = None
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.series(
+                self.datasource, self.identifier.type, self.identifier.identifier
+            )
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [e1, e2] = feed['entries']
+        eq_(self.english_1.title, e1['title'])
+        eq_(self.english_2.title, e2['title'])
 
 
 class TestFeedController(CirculationControllerTest):
@@ -880,7 +1000,7 @@ class TestFeedController(CirculationControllerTest):
 
                 feed = feedparser.parse(response.data)
                 entries = feed['entries']
-                
+
                 counter = Counter()
                 for entry in entries:
                     links = [x for x in entry.links if x['rel'] == 'collection']
@@ -888,7 +1008,6 @@ class TestFeedController(CirculationControllerTest):
                         counter[link['title']] += 1
                 eq_(2, counter['Nonfiction'])
                 eq_(2, counter['Fiction'])
-
 
     def test_search(self):
         # Put two works into the search index
