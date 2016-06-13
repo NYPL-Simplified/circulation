@@ -25,6 +25,7 @@ from config import (
 )
 
 from model import (
+    BaseCoverageRecord,
     CirculationEvent,
     Classification,
     Collection,
@@ -3392,6 +3393,83 @@ class TestPatron(DatabaseTest):
             config[Configuration.POLICIES][key] = "(not a valid regexp"
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
+
+
+class TestBaseCoverageRecord(DatabaseTest):
+
+    def test_not_covered(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+
+        # Here are four identifiers with four relationships to a
+        # certain coverage provider: no coverage at all, successful
+        # coverage, a transient failure and a permanent failure.
+
+        no_coverage = self._identifier()
+
+        success = self._identifier()
+        success_record = self._coverage_record(success, source)
+        success_record.timestamp = (
+            datetime.datetime.now() - datetime.timedelta(seconds=3600)
+        )
+        eq_(CoverageRecord.SUCCESS, success_record.status)
+
+        transient = self._identifier()
+        transient_record = self._coverage_record(
+            transient, source, status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        eq_(CoverageRecord.TRANSIENT_FAILURE, transient_record.status)
+
+        persistent = self._identifier()
+        persistent_record = self._coverage_record(
+            persistent, source, status = BaseCoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(CoverageRecord.PERSISTENT_FAILURE, persistent_record.status)
+        
+        # Here's a query that finds all four.
+        qu = self._db.query(Identifier).outerjoin(CoverageRecord)
+        eq_(4, qu.count())
+
+        def check_not_covered(expect, **kwargs):
+            missing = CoverageRecord.not_covered(**kwargs)
+            eq_(sorted(expect), sorted(qu.filter(missing).all()))
+
+        # By default, not_covered() only finds the identifier with no
+        # coverage and the one with a transient failure.
+        check_not_covered([no_coverage, transient])
+
+        # If we pass in different values for covered_status, we change what
+        # counts as 'coverage'. In this case, we allow transient failures
+        # to count as 'coverage'.
+        check_not_covered(
+            [no_coverage],
+            covered_statuses=[CoverageRecord.PERSISTENT_FAILURE, 
+                              CoverageRecord.TRANSIENT_FAILURE,
+                              CoverageRecord.SUCCESS]
+        )
+
+        # Here, only success counts as 'coverage'.
+        check_not_covered(
+            [no_coverage, transient, persistent],
+            covered_statuses=CoverageRecord.SUCCESS
+        )
+
+        # We can also say that coverage doesn't count if it was achieved before
+        # a certain time. Here, we'll show that passing in the timestamp
+        # of the 'success' record means that record still counts as covered.
+        check_not_covered(
+            [no_coverage, transient],
+            count_as_not_covered_if_covered_before=success_record.timestamp
+        )
+
+        # But if we pass in a time one second later, the 'success'
+        # record no longer counts as covered.
+        one_second_after = (
+            success_record.timestamp + datetime.timedelta(seconds=1)
+        )
+        check_not_covered(
+            [success, no_coverage, transient],
+            count_as_not_covered_if_covered_before=one_second_after
+        )        
 
 
 class TestCoverageRecord(DatabaseTest):

@@ -294,21 +294,34 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
         return work
 
-    def _coverage_record(self, edition, coverage_source, operation=None):
+    def _coverage_record(self, edition, coverage_source, operation=None,
+                         status=CoverageRecord.SUCCESS):
+        if isinstance(edition, Identifier):
+            identifier = edition
+        else:
+            identifier = edition.primary_identifier
         record, ignore = get_one_or_create(
             self._db, CoverageRecord,
-            identifier=edition.primary_identifier,
+            identifier=identifier,
             data_source=coverage_source,
             operation=operation,
-            create_method_kwargs = dict(timestamp=datetime.utcnow()))
+            create_method_kwargs = dict(
+                timestamp=datetime.utcnow(),
+                status=status,
+            )
+        )
         return record
 
-    def _work_coverage_record(self, work, operation=None):
+    def _work_coverage_record(self, work, operation=None, 
+                              status=CoverageRecord.SUCCESS):
         record, ignore = get_one_or_create(
             self._db, WorkCoverageRecord,
             work=work,
             operation=operation,
-            create_method_kwargs = dict(timestamp=datetime.utcnow())
+            create_method_kwargs = dict(
+                timestamp=datetime.utcnow(),
+                status=status,
+            )
         )
         return record
 

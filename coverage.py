@@ -38,15 +38,19 @@ class CoverageFailure(object):
             raise Exception(
                 "Cannot convert coverage failure to CoverageRecord because original coverage provider has no output source."
             )
-        if not self.transient:
-            # This is a persistent error. Turn it into a CoverageRecord
-            # so we don't keep trying to provide coverage that isn't
-            # gonna happen.
-            record, ignore = CoverageRecord.add_for(
-                self.obj, self.output_source, operation=operation
-            )
-            record.exception = self.exception
-            return record
+
+        # This is a persistent error. Turn it into a CoverageRecord
+        # so we don't keep trying to provide coverage that isn't
+        # gonna happen.
+        record, ignore = CoverageRecord.add_for(
+            self.obj, self.output_source, operation=operation
+        )
+        record.exception = self.exception
+        if self.transient:
+            record.status == CoverageRecord.TRANSIENT_FAILURE
+        else:
+            record.status == CoverageRecord.PERSISTENT_FAILURE
+        return record
 
     def to_work_coverage_record(self, operation):
         """Convert this failure into a WorkCoverageRecord."""
