@@ -234,7 +234,6 @@ class SessionManager(object):
                     self.works_id, self.sort_title, self.sort_author, self.language,
                     )).encode("utf8")
 
-
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
@@ -5016,6 +5015,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
 
     log = logging.getLogger("CachedFeed")
 
