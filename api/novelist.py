@@ -402,10 +402,13 @@ class NoveListCoverageProvider(CoverageProvider):
 
         if edition.series or edition.series_position:
             metadata.primary_identifier = identifier
-            # Series data from NoveList is appealing, but we want to avoid
+            # Series data from NoveList is appealing, but we need to avoid
             # creating any potentially-inaccurate ISBN equivalencies on the
             # license source identifier.
+            #
+            # So just remove the identifiers from the metadata object entirely.
             metadata.identifiers = []
+            # Before creating an edition for the original identifier.
             novelist_edition, ignore = metadata.edition(self._db)
             metadata.apply(novelist_edition)
 
