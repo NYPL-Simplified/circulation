@@ -453,9 +453,11 @@ class RelatedBooksLane(LicensePoolBasedLane):
             lane_name = "Recommendations for %s by %s" % (
                 license_pool.work.title, license_pool.work.author
             )
-            sublanes.append(RecommendationLane(
+            recommendation_lane = RecommendationLane(
                 _db, license_pool, lane_name, novelist_api=novelist_api
-            ))
+            )
+            if recommendation_lane.recommendations:
+                sublanes.append(recommendation_lane)
         except ValueError, e:
             # NoveList isn't configured.
             pass
