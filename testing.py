@@ -661,12 +661,12 @@ class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "What did you expect?", False)
+        return CoverageFailure(item, "What did you expect?", self.output_source, False)
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "What did you expect?", False)
+        return CoverageFailure(item, "What did you expect?", None, False)
 
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
@@ -675,12 +675,12 @@ class BrokenCoverageProvider(InstrumentedCoverageProvider):
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "Oops!", True)
+        return CoverageFailure(item, "Oops!", self.output_source, True)
 
 class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "Oops!", True)
+        return CoverageFailure(item, "Oops!", None, True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""

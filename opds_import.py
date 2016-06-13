@@ -48,6 +48,7 @@ from model import (
     Subject,
     RightsStatus,
 )
+from coverage import CoverageFailure
 from util.http import HTTP
 from opds import OPDSFeed
 from s3 import S3Uploader
@@ -183,28 +184,6 @@ class OPDSXMLParser(XMLParser):
     }
 
 
-class StatusMessage(object):
-
-    def __init__(self, status_code, message):
-        try:
-            status_code = int(status_code)
-            success = (status_code == 200)
-            transient = not success and status_code / 100 in (2, 3, 5)
-        except ValueError, e:
-            # The status code isn't a number. Leave it alone.
-            success = False
-            transient = False
-        self.status_code = status_code
-        self.message = message
-        self.success = success
-        self.transient = transient
-
-    def __repr__(self):
-        return '<StatusMessage: code=%s message="%s">' % (
-            self.status_code, self.message
-        )
-
-
 class OPDSImporter(object):
     """ Imports editions and license pools from an OPDS feed.
     Creates Edition, LicensePool and Work rows in the database, if those 
@@ -243,19 +222,19 @@ class OPDSImporter(object):
         imported_editions = {}
         pools = {}
         works = {}
-        # status_messages notes business logic errors and non-success download statuses
-        status_messages = {}
+        # CoverageFailures that note business logic errors and non-success download statuses
+        failures = {}
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, status_messages = self.extract_feed_data(feed)
+        metadata_objs, failures = self.extract_feed_data(feed)
 
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
 
             # If there's a status message about this item, don't try to import it.
-            if key in status_messages.keys():
+            if key in failures.keys():
                 continue
 
             try:
@@ -268,14 +247,15 @@ class OPDSImporter(object):
             except Exception, e:
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
-                message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-                status_messages[key] = message
+                identifier, ignore = Identifier.parse_urn(self._db, key)
+                data_source = DataSource.lookup(self._db, self.data_source_name)
+                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
+                failures[key] = failure
                 # clean up any edition might have created
                 if key in imported_editions:
                     del imported_editions[key]
                 # Move on to the next item, don't create a work.
                 continue
-
 
             try:
                 pool, work = self.update_work_for_edition(
@@ -286,10 +266,12 @@ class OPDSImporter(object):
                 if work:
                     works[key] = work
             except Exception, e:
-                message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-                status_messages[key] = message
+                identifier, ignore = Identifier.parse_urn(self._db, key)
+                data_source = DataSource.lookup(self._db, self.data_source_name)
+                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
+                failures[key] = failure
 
-        return imported_editions.values(), pools.values(), works.values(), status_messages
+        return imported_editions.values(), pools.values(), works.values(), failures
 
 
     def import_edition_from_metadata(
@@ -378,20 +360,20 @@ class OPDSImporter(object):
         with associated messages and next_links.
         """
         data_source = DataSource.lookup(self._db, self.data_source_name)
-        fp_metadata, fp_status_messages = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
+        fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
-        xml_data_meta, xml_status_messages = self.extract_metadata_from_elementtree(feed)
+        xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(feed, data_source=data_source)
 
-        # translate the id in status_messages to identifier.urn
-        identified_messages = {}
-        for id, message_data in fp_status_messages.items() + xml_status_messages.items():
+        # translate the id in failures to identifier.urn
+        identified_failures = {}
+        for id, failure in fp_failures.items() + xml_failures.items():
             external_identifier, ignore = Identifier.parse_urn(self._db, id)
             if self.identifier_mapping:
                 internal_identifier = self.identifier_mapping.get(
                     external_identifier, external_identifier)
             else:
                 internal_identifier = external_identifier
-            identified_messages[internal_identifier.urn] = message_data
+            identified_failures[internal_identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
         metadata = {}
@@ -405,7 +387,7 @@ class OPDSImporter(object):
                 internal_identifier = external_identifier
 
             # Don't process this item if there was already an error
-            if internal_identifier.urn in identified_messages.keys():
+            if internal_identifier.urn in identified_failures.keys():
                 continue
 
             identifier_obj = IdentifierData(
@@ -439,7 +421,7 @@ class OPDSImporter(object):
                 
                 metadata[internal_identifier.urn].circulation = CirculationData(**combined_circ)
 
-        return metadata, identified_messages
+        return metadata, identified_failures
 
 
     @classmethod
@@ -460,13 +442,13 @@ class OPDSImporter(object):
     def extract_data_from_feedparser(cls, feed, data_source):
         feedparser_parsed = feedparser.parse(feed)
         values = {}
-        status_messages = {}
+        failures = {}
         for entry in feedparser_parsed['entries']:
-            identifier, detail, status_message = cls.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
+            identifier, detail, failure = cls.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
 
             if identifier:
-                if status_message:
-                    status_messages[identifier] = status_message
+                if failure:
+                    failures[identifier] = failure
                 else:
                     if detail:
                         values[identifier] = detail
@@ -475,11 +457,11 @@ class OPDSImporter(object):
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
 
-        return values, status_messages
+        return values, failures
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed):
+    def extract_metadata_from_elementtree(cls, feed, data_source):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
@@ -490,7 +472,7 @@ class OPDSImporter(object):
         constructor.
         """
         values = {}
-        status_messages = {}
+        failures = {}
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(feed))
 
@@ -504,13 +486,13 @@ class OPDSImporter(object):
             feed_url = None
 
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail, status_message = cls.detail_for_elementtree_entry(parser, entry, feed_url)
+            identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
             if identifier:
-                if status_message:
-                    status_messages[identifier] = status_message
+                if failure:
+                    failures[identifier] = failure
                 if detail:
                     values[identifier] = detail
-        return values, status_messages
+        return values, failures
 
     @classmethod
     def _datetime(cls, entry, key):
@@ -531,21 +513,22 @@ class OPDSImporter(object):
         """Turn an entry dictionary created by feedparser into dictionaries of data
         that can be used as keyword arguments to the Metadata and CirculationData constructors.
 
-        :return: A 4-tuple (identifier, kwargs for Metadata constructor,  
-            kwargs for CirculationData constructor, status message)
+        :return: A 3-tuple (identifier, kwargs for Metadata constructor, failure)
         """
         identifier = entry.get('id')
         if not identifier:
             return None, None, None
 
-        status_message = None
+        failure = None
         status_code = entry.get('simplified_status_code', None)
         message = entry.get('simplified_message', None)
-        if status_code is not None:
-            status_message = StatusMessage(status_code, message)
+        if status_code is not None and status_code != 200:
+            _db = Session.object_session(data_source)
+            identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
+            failure = CoverageFailure(identifier_obj, message, data_source, transient=True)
 
-        if status_message and not status_message.success:
-            return identifier, None, status_message
+        if failure:
+            return identifier, None, failure
 
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
@@ -555,10 +538,12 @@ class OPDSImporter(object):
 
         try:
             kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
-            return identifier, kwargs_meta, status_message
+            return identifier, kwargs_meta, failure
         except Exception, e:
-            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-            return identifier, None, message
+            _db = Session.object_session(data_source)
+            identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
+            failure = CoverageFailure(identifier_obj, traceback.format_exc(), data_source, transient=True)
+            return identifier, None, failure
 
     @classmethod
     def _data_detail_for_feedparser_entry(cls, entry, data_source):
@@ -633,7 +618,7 @@ class OPDSImporter(object):
         return kwargs_meta
 
     @classmethod
-    def detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def detail_for_elementtree_entry(cls, parser, entry_tag, data_source, feed_url=None):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
         used as keyword arguments to the Metadata contructor.
@@ -653,8 +638,10 @@ class OPDSImporter(object):
             return identifier, data, None
 
         except Exception, e:
-            message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
-            return identifier, None, message
+            _db = Session.object_session(data_source)
+            identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
+            failure = CoverageFailure(identifier_obj, traceback.format_exc(), data_source, transient=True)
+            return identifier, None, failure
 
     @classmethod
     def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
@@ -973,7 +960,7 @@ class OPDSImportMonitor(Monitor):
             return [], None
 
     def import_one_feed(self, feed, start):
-        imported_editions, pools, works, messages = self.importer.import_from_feed(
+        imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True, cutoff_date=start,
             immediately_presentation_ready = self.immediately_presentation_ready
         )
@@ -987,19 +974,9 @@ class OPDSImportMonitor(Monitor):
             )
 
         # Create CoverageRecords for the failures.
-        for urn, message in messages.items():
-            if message.status_code == 500:
-                # This is a permanent failure. We shouldn't try again until something's
-                # changed.
-                identifier, ignore = Identifier.parse_urn(self._db, urn)
-                record, ignore = CoverageRecord.add_for(
-                    identifier, data_source, CoverageRecord.IMPORT_OPERATION
-                )
-                record.exception = message.message
-            else:
-                # This is a transient failure. A CoverageProvider will run again,
-                # so we should try to import next time we see this identifier.
-                self.log.info("Temporarily unable to import %s: %s" % (urn, message.message))
+        for urn, failure in failures.items():
+            failure.to_coverage_record(operation=CoverageRecord.IMPORT_OPERATION)
+
         
     def run_once(self, start, cutoff):
         feeds = []

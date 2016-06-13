@@ -24,7 +24,6 @@ from opds_import import (
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
-    StatusMessage,
 )
 from metadata_layer import (
     LinkData
@@ -42,6 +41,7 @@ from model import (
     RightsStatus,
     Subject,
 )
+from coverage import CoverageFailure
 
 from s3 import DummyS3Uploader
 from testing import DummyHTTPClient
@@ -65,28 +65,6 @@ class DoomedWorkOPDSImporter(OPDSImporter):
         else:
             # Any other import fails.
             raise Exception("Utter work failure!")
-        
-
-class TestStatusMessage(object):
-
-    def test_constructor(self):
-
-        message = StatusMessage(200, "success")
-        eq_(True, message.success)
-        eq_(False, message.transient)
-
-        message = StatusMessage(201, "try later")
-        eq_(False, message.success)
-        eq_(True, message.transient)
-
-        message = StatusMessage(500, "oops")
-        eq_(False, message.success)
-        eq_(True, message.transient)
-
-        message = StatusMessage(404, "nope")
-        eq_(False, message.success)
-        eq_(False, message.transient)
-
 
 class TestSimplifiedOPDSLookup(object):
 
@@ -173,7 +151,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
-        metadata, status_messages = importer.extract_feed_data(
+        metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
 
@@ -190,15 +168,14 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.NYT, c1._data_source)
         eq_(DataSource.NYT, c2._data_source)
 
-        [message] = status_messages.values()
-        eq_(202, message.status_code)
-        eq_(u"I'm working to locate a source for this identifier.", message.message)
+        [failure] = failures.values()
+        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
 
 
     def test_extract_metadata_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        values, status_messages = OPDSImporter.extract_data_from_feedparser(
+        values, failures = OPDSImporter.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
@@ -211,9 +188,8 @@ class TestOPDSImporter(OPDSImporterTest):
         circulation = metadata['circulation']
         eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
 
-        message = status_messages['http://www.gutenberg.org/ebooks/1984']
-        eq_(202, message.status_code)
-        eq_(u"I'm working to locate a source for this identifier.", message.message)
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
 
 
     def test_extract_metadata_from_feedparser_handles_exception(self):
@@ -225,41 +201,40 @@ class TestOPDSImporter(OPDSImporterTest):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        values, status_messages = DoomedFeedparserOPDSImporter.extract_data_from_feedparser(
+        values, failures = DoomedFeedparserOPDSImporter.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
         # No metadata was extracted.
         eq_(0, len(values.keys()))
 
-        # There are 3 messages, the 202 in the feed and 2 from exceptions.
-        eq_(3, len(status_messages))
+        # There are 3 failures, the 202 in the feed and 2 from exceptions.
+        eq_(3, len(failures))
 
         # The regular status message is there.
-        message = status_messages['http://www.gutenberg.org/ebooks/1984']
-        eq_(202, message.status_code)
-        eq_(u"I'm working to locate a source for this identifier.", message.message)
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
 
         # The first error message is there.
-        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
-        eq_(500, error.status_code)
-        assert "Utter failure!" in error.message
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert "Utter failure!" in failure.exception
 
         # The second error message is there.
-        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
-        eq_(500, error.status_code)
-        assert "Utter failure!" in error.message
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert "Utter failure!" in failure.exception
 
     def test_extract_metadata_from_elementtree(self):
 
-        data, status_messages = OPDSImporter.extract_metadata_from_elementtree(
-            self.content_server_feed
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        data, failures = OPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_feed, data_source
         )
 
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
-        eq_(0, len(status_messages))
+        eq_(0, len(failures))
 
         # We're going to do spot checks on a book and a periodical.
 
@@ -331,29 +306,28 @@ class TestOPDSImporter(OPDSImporterTest):
             def _detail_for_elementtree_entry(cls, *args, **kwargs):
                 raise Exception("Utter failure!")
 
-        values, status_messages = DoomedElementtreeOPDSImporter.extract_metadata_from_elementtree(
-            self.content_server_mini_feed
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        values, failures = DoomedElementtreeOPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_mini_feed, data_source
         )
 
         # No metadata was extracted.
         eq_(0, len(values.keys()))
 
         # There are 3 messages - every entry threw an exception.
-        eq_(3, len(status_messages))
+        eq_(3, len(failures))
 
         # The entry with the 202 message threw an exception.
-        error = status_messages['http://www.gutenberg.org/ebooks/1984']
-        eq_(500, error.status_code)
-        assert "Utter failure!" in error.message
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        assert "Utter failure!" in failure.exception
 
         # And so did the other entries.
-        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
-        eq_(500, error.status_code)
-        assert "Utter failure!" in error.message
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert "Utter failure!" in failure.exception
 
-        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
-        eq_(500, error.status_code)
-        assert "Utter failure!" in error.message
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert "Utter failure!" in failure.exception
 
     def test_import_exception_if_unable_to_parse_feed(self):
         feed = "I am not a feed."
@@ -365,7 +339,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_import(self):
         feed = self.content_server_mini_feed
 
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -420,13 +394,13 @@ class TestOPDSImporter(OPDSImporterTest):
         classifier.classify(seven.subject)
 
         # If we import the same file again, we get the same list of Editions.
-        imported_editions_2, pools_2, works_2, error_messages_2 = (
+        imported_editions_2, pools_2, works_2, failures_2 = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
         # importing with a lendable data source makes license pools and works
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
@@ -464,7 +438,7 @@ class TestOPDSImporter(OPDSImporterTest):
         feed = self.content_server_mini_feed
 
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
-        imported_editions_mw, pools_mw, works_mw, error_messages_mw = (
+        imported_editions_mw, pools_mw, works_mw, failures_mw = (
             importer_mw.import_from_feed(feed)
         )
 
@@ -475,13 +449,13 @@ class TestOPDSImporter(OPDSImporterTest):
         # 1 error message, because correctly didn't even get to trying to create pools, 
         # so no messages there, but do have that entry stub at end of sample xml file, 
         # which should fail with a message.
-        eq_(1, len(error_messages_mw))
+        eq_(1, len(failures_mw))
         eq_(0, len(pools_mw))
         eq_(0, len(works_mw))
 
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions_g, pools_g, works_g, error_messages_g = (
+        imported_editions_g, pools_g, works_g, failures_g = (
             importer_g.import_from_feed(feed)
         )
 
@@ -490,7 +464,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # TODO: and we also created presentation editions, with author and title set
 
         # now pools and works are in, too
-        eq_(1, len(error_messages_g))
+        eq_(1, len(failures_g))
         eq_(2, len(pools_g))
         eq_(2, len(works_g))        
 
@@ -505,7 +479,7 @@ class TestOPDSImporter(OPDSImporterTest):
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
         feed = self.content_server_mini_feed
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -515,7 +489,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(works))        
 
         # But if we try it again...
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -527,7 +501,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # And if we change the cutoff...
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
@@ -554,7 +528,7 @@ class TestOPDSImporter(OPDSImporterTest):
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
-        imported_editions, imported_pools, imported_works, error_messages = (
+        imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE).import_from_feed(feed)
         )
 
@@ -576,7 +550,7 @@ class TestOPDSImporter(OPDSImporterTest):
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
 
-        imported_editions, imported_pools, imported_works, error_messages = (
+        imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
 
@@ -621,7 +595,7 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        imported_editions, imported_pools, imported_works, error_messages = (
+        imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
@@ -635,42 +609,39 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        imported_editions, imported_pools, imported_works, error_messages = (
+        imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
-        [message] = error_messages.values()
-        eq_(404, message.status_code)
-        eq_("I've never heard of this work.", message.message)
+        [failure] = failures.values()
+        eq_("I've never heard of this work.", failure.exception)
 
 
-    def test_import_edition_failure_becomes_status_message(self):
+    def test_import_edition_failure_becomes_coverage_failure(self):
         # Make sure that an exception during import generates a
         # meaningful error message.
 
         feed = self.content_server_mini_feed
 
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
         # Only one book was imported, the other failed.
         eq_(1, len(imported_editions))
 
-        # The other failed to import, and became a StatusMessage
-        message = error_messages['http://www.gutenberg.org/ebooks/10441']
-        eq_(500, message.status_code)
-        assert "Utter failure!" in message.message
+        # The other failed to import, and became a CoverageFailure
+        failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert "Utter failure!" in failure.exception
 
-    def test_import_work_failure_becomes_status_message(self):
+    def test_import_work_failure_becomes_coverage_failure(self):
         # Make sure that an exception while updating a work for an
         # imported edition generates a meaningful error message.
 
         feed = self.content_server_mini_feed
         importer = DoomedWorkOPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER)
 
-
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed)
         )
 
@@ -678,9 +649,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(1, len(works))
 
         # There's an error message for the work that failed. 
-        message = error_messages['http://www.gutenberg.org/ebooks/10441']
-        eq_(500, message.status_code)
-        assert "Utter work failure!" in message.message
+        failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
 
@@ -756,7 +726,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             mirror=s3, http_get=http.do_get
         )
 
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
         e1 = imported_editions[0]
@@ -819,7 +789,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
@@ -844,7 +814,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, pools, works, error_messages = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
