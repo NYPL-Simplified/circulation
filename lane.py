@@ -1214,8 +1214,9 @@ class Lane(object):
     def featured_works(self, use_materialized_works=True):
         """Find a random sample of featured books.
 
-        It's semi-okay for this to be slow, since it will only be run to
-        create cached feeds.
+        While it's semi-okay for this request to be slow for default Lanes,
+        subclass implementations such as LicensePoolBasedLane may require
+        improved performance.
 
         :return: A list of MaterializedWork or MaterializedWorkWithGenre
         objects.
