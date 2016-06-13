@@ -810,13 +810,13 @@ class TestWorkController(CirculationControllerTest):
         # Two books are in the series feed. The original work and its companion
         [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
         [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
-        eq_("Other Books in this Series", collection_link['title'])
+        eq_("Around the World", collection_link['title'])
         expected = urllib.quote(work_url + 'series')
         eq_(True, collection_link['href'].endswith(expected))
 
         [e3] = [e for e in feed['entries'] if e['title'] == self.english_1.title]
         [collection_link] = [link for link in e3['links'] if link['rel']=='collection']
-        eq_("Other Books in this Series", collection_link['title'])
+        eq_("Around the World", collection_link['title'])
         expected = urllib.quote(work_url + 'series')
         eq_(True, collection_link['href'].endswith(expected))
 
@@ -863,7 +863,7 @@ class TestWorkController(CirculationControllerTest):
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Other Books in the Like As If Whatever Mysteries series', feed['feed']['title'])
+        eq_("Like As If Whatever Mysteries", feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 

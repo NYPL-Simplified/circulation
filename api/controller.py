@@ -891,15 +891,14 @@ class WorkController(CirculationManagerController):
         if not series:
             return NO_SUCH_LANE.detailed("%s is not in a series" % edition.title)
 
-        feed_title = SeriesLane.lane_name_from_series_title(series)
-        lane = SeriesLane(self._db, pool, feed_title)
+        lane = SeriesLane(self._db, pool)
         url = self.cdn_url_for(
             'series', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
         )
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
-            self._db, feed_title, url, lane,
+            self._db, lane.display_name, url, lane,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
 
@@ -915,6 +914,7 @@ class AnalyticsController(CirculationManagerController):
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
+
 
 class ServiceStatusController(CirculationManagerController):
 

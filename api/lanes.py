@@ -465,8 +465,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
         # Create a series sublane.
         series = license_pool.presentation_edition.series
         if series:
-            lane_name = SeriesLane.lane_name_from_series_title(series)
-            sublanes.append(SeriesLane(_db, license_pool, lane_name))
+            sublanes.append(SeriesLane(_db, license_pool))
 
         return sublanes
 
@@ -479,7 +478,12 @@ class RelatedBooksLane(LicensePoolBasedLane):
 class SeriesLane(LicensePoolBasedLane):
     """A lane of Works in a series based on a particular LicensePool"""
 
-    DISPLAY_NAME = "Other Books in this Series"
+    def __init__(self, _db, license_pool):
+        series_name = license_pool.presentation_edition.series
+        full_name = display_name = series_name
+        super(SeriesLane, self).__init__(
+            _db, license_pool, full_name, display_name=display_name
+        )
 
     def apply_filters(self, qu, work_model=Work, *args, **kwargs):
         edition = self.license_pool.presentation_edition
@@ -494,16 +498,6 @@ class SeriesLane(LicensePoolBasedLane):
         qu = qu.join(work_edition).filter(work_edition.series==series)
         qu = qu.order_by(work_edition.series_position, work_edition.title)
         return qu
-
-    @classmethod
-    def lane_name_from_series_title(cls, series_title):
-        feed_title = "Other Books in "
-        if series_title[:3].lower() != 'the':
-            feed_title += "the "
-        feed_title += series_title
-        if series_title.lower().endswith(' series'):
-            return feed_title
-        return feed_title + ' series'
 
 
 class RecommendationLane(LicensePoolBasedLane):
