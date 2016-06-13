@@ -186,6 +186,7 @@ class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
     def __init__(self, fail=False, *args, **kwargs):
         self.uploaded = []
+        self.content = []
         self.fail = fail
 
     @classmethod
@@ -202,6 +203,7 @@ class DummyS3Uploader(S3Uploader):
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)
+        self.content.extend([r.content for r in representations])
         for representation in representations:
             if self.fail:
                 representation.mirror_exception = "Exception"

@@ -645,15 +645,15 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         http = DummyHTTPClient()
         http.queue_response(
-            200, content='I am 10441.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE
+            200, content='I am 10557.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE,
         )
         http.queue_response(
             200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
         )
         http.queue_response(
-            200, content='I am 10557.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE,
+            200, content='I am 10441.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE
         )
 
         s3 = DummyS3Uploader()
@@ -696,6 +696,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 
         eq_(4, len(s3.uploaded))
+        eq_("I am 10441.epub.images", s3.content[0])
+        eq_(svg, s3.content[1])
+        eq_("I am 10557.epub.images", s3.content[3])
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
         url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
@@ -734,7 +737,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         # If the content has changed, it will be mirrored again.
         http.queue_response(
-            200, content="I am a new version of 10441.epub.images",
+            200, content="I am a new version of 10557.epub.images",
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -744,7 +747,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         http.queue_response(
-            200, content="I am a new version of 10557.epub.images",
+            200, content="I am a new version of 10441.epub.images",
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -754,6 +757,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
+        eq_("I am a new version of 10441.epub.images", s3.content[4])
+        eq_(svg, s3.content[5])
+        eq_("I am a new version of 10557.epub.images", s3.content[7])
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
