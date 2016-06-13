@@ -216,6 +216,40 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(u"I'm working to locate a source for this identifier.", message.message)
 
 
+    def test_extract_metadata_from_feedparser_handles_exception(self):
+        class DoomedFeedparserOPDSImporter(OPDSImporter):
+            """An importer that can't extract metadata from feedparser."""
+            @classmethod
+            def _data_detail_for_feedparser_entry(cls, entry, data_source):
+                raise Exception("Utter failure!")
+
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        values, status_messages = DoomedFeedparserOPDSImporter.extract_data_from_feedparser(
+            self.content_server_mini_feed, data_source
+        )
+
+        # No metadata was extracted.
+        eq_(0, len(values.keys()))
+
+        # There are 3 messages, the 202 in the feed and 2 from exceptions.
+        eq_(3, len(status_messages))
+
+        # The regular status message is there.
+        message = status_messages['http://www.gutenberg.org/ebooks/1984']
+        eq_(202, message.status_code)
+        eq_(u"I'm working to locate a source for this identifier.", message.message)
+
+        # The first error message is there.
+        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        eq_(500, error.status_code)
+        assert "Utter failure!" in error.message
+
+        # The second error message is there.
+        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        eq_(500, error.status_code)
+        assert "Utter failure!" in error.message
+
     def test_extract_metadata_from_elementtree(self):
 
         data, status_messages = OPDSImporter.extract_metadata_from_elementtree(
@@ -290,6 +324,36 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
 
+    def test_extract_metadata_from_elementtree_handles_exception(self):
+        class DoomedElementtreeOPDSImporter(OPDSImporter):
+            """An importer that can't extract metadata from elementttree."""
+            @classmethod
+            def _detail_for_elementtree_entry(cls, *args, **kwargs):
+                raise Exception("Utter failure!")
+
+        values, status_messages = DoomedElementtreeOPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_mini_feed
+        )
+
+        # No metadata was extracted.
+        eq_(0, len(values.keys()))
+
+        # There are 3 messages - every entry threw an exception.
+        eq_(3, len(status_messages))
+
+        # The entry with the 202 message threw an exception.
+        error = status_messages['http://www.gutenberg.org/ebooks/1984']
+        eq_(500, error.status_code)
+        assert "Utter failure!" in error.message
+
+        # And so did the other entries.
+        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        eq_(500, error.status_code)
+        assert "Utter failure!" in error.message
+
+        error = status_messages['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        eq_(500, error.status_code)
+        assert "Utter failure!" in error.message
 
     def test_import_exception_if_unable_to_parse_feed(self):
         feed = "I am not a feed."

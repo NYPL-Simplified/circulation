@@ -508,7 +508,8 @@ class OPDSImporter(object):
             if identifier:
                 if status_message:
                     status_messages[identifier] = status_message
-                values[identifier] = detail
+                if detail:
+                    values[identifier] = detail
         return values, status_messages
 
     @classmethod
@@ -553,76 +554,83 @@ class OPDSImporter(object):
         # importer as license_data_source, too.
 
         try:
-            title = entry.get('title', None)
-            if title == OPDSFeed.NO_TITLE:
-                title = None
-            subtitle = entry.get('schema_alternativeheadline', None)
-
-            last_opds_update = cls._datetime(entry, 'updated_parsed')
-            added_to_collection_time = cls._datetime(entry, 'published_parsed')
-            
-            publisher = entry.get('publisher', None)
-            if not publisher:
-                publisher = entry.get('dcterms_publisher', None)
-
-            language = entry.get('language', None)
-            if not language:
-                language = entry.get('dcterms_language', None)
-
-            links = []
-
-            def summary_to_linkdata(detail):
-                if not detail:
-                    return None
-                if not 'value' in detail or not detail['value']:
-                    return None
-
-                content = detail['value']
-                media_type = detail.get('type', 'text/plain')
-                return LinkData(
-                    rel=Hyperlink.DESCRIPTION,
-                    media_type=media_type,
-                    content=content
-                )
-
-            summary_detail = entry.get('summary_detail', None)
-            link = summary_to_linkdata(summary_detail)
-            if link:
-                links.append(link)
-
-            for content_detail in entry.get('content', []):
-                link = summary_to_linkdata(content_detail)
-                if link:
-                    links.append(link)
-
-            rights = entry.get('rights', "")
-            rights_uri = RightsStatus.rights_uri_from_string(rights)
-
-            kwargs_meta = dict(
-                title=title,
-                subtitle=subtitle,
-                language=language,
-                publisher=publisher,
-                links=links,
-                # refers to when was updated in opds feed, not our db
-                data_source_last_updated=last_opds_update,
-            )
-            
-            # Only add circulation data if the data source is lendable.
-            if data_source.offers_licenses:
-                kwargs_circ = dict(
-                    data_source=data_source.name,
-                    links=list(links),
-                    default_rights_uri=rights_uri,
-                )
-                
-                kwargs_meta['circulation'] = kwargs_circ
+            kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
             return identifier, kwargs_meta, status_message
-
         except Exception, e:
             message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
             return identifier, None, message
 
+    @classmethod
+    def _data_detail_for_feedparser_entry(cls, entry, data_source):
+        """Helper method that extracts metadata and circulation data from a feedparser
+        entry. This method can be overridden in tests to check that callers handle things
+        properly when it throws an exception.
+        """
+        title = entry.get('title', None)
+        if title == OPDSFeed.NO_TITLE:
+            title = None
+        subtitle = entry.get('schema_alternativeheadline', None)
+        
+        last_opds_update = cls._datetime(entry, 'updated_parsed')
+        added_to_collection_time = cls._datetime(entry, 'published_parsed')
+            
+        publisher = entry.get('publisher', None)
+        if not publisher:
+            publisher = entry.get('dcterms_publisher', None)
+
+        language = entry.get('language', None)
+        if not language:
+            language = entry.get('dcterms_language', None)
+        
+        links = []
+
+        def summary_to_linkdata(detail):
+            if not detail:
+                return None
+            if not 'value' in detail or not detail['value']:
+                return None
+
+            content = detail['value']
+            media_type = detail.get('type', 'text/plain')
+            return LinkData(
+                rel=Hyperlink.DESCRIPTION,
+                media_type=media_type,
+                content=content
+            )
+
+        summary_detail = entry.get('summary_detail', None)
+        link = summary_to_linkdata(summary_detail)
+        if link:
+            links.append(link)
+
+        for content_detail in entry.get('content', []):
+            link = summary_to_linkdata(content_detail)
+            if link:
+                links.append(link)
+
+        rights = entry.get('rights', "")
+        rights_uri = RightsStatus.rights_uri_from_string(rights)
+
+        kwargs_meta = dict(
+            title=title,
+            subtitle=subtitle,
+            language=language,
+            publisher=publisher,
+            links=links,
+            # refers to when was updated in opds feed, not our db
+            data_source_last_updated=last_opds_update,
+        )
+            
+        # Only add circulation data if the data source is lendable.
+        if data_source.offers_licenses:
+            kwargs_circ = dict(
+                data_source=data_source.name,
+                links=list(links),
+                default_rights_uri=rights_uri,
+            )
+                
+            kwargs_meta['circulation'] = kwargs_circ
+        return kwargs_meta
 
     @classmethod
     def detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
@@ -641,47 +649,55 @@ class OPDSImporter(object):
         identifier = identifier.text
 
         try:
-            # We will fill this dictionary with all the information
-            # we can find.
-            data = dict()
-
-            alternate_identifiers = []
-            for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
-                v = cls.extract_identifier(id_tag)
-                if v:
-                    alternate_identifiers.append(v)
-            data['identifiers'] = alternate_identifiers
-           
-            data['medium'] = cls.extract_medium(entry_tag)
-        
-            data['contributors'] = []
-            for author_tag in parser._xpath(entry_tag, 'atom:author'):
-                contributor = cls.extract_contributor(parser, author_tag)
-                if contributor is not None:
-                    data['contributors'].append(contributor)
-
-            data['subjects'] = [
-                cls.extract_subject(parser, category_tag)
-                for category_tag in parser._xpath(entry_tag, 'atom:category')
-            ]
-
-            ratings = []
-            for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
-                v = cls.extract_measurement(rating_tag)
-                if v:
-                    ratings.append(v)
-            data['measurements'] = ratings
-
-            data['links'] = cls.consolidate_links([
-                cls.extract_link(link_tag, feed_url)
-                for link_tag in parser._xpath(entry_tag, 'atom:link')
-            ])
-        
+            data = cls._detail_for_elementtree_entry(parser, entry_tag, feed_url)
             return identifier, data, None
 
         except Exception, e:
             message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
             return identifier, None, message
+
+    @classmethod
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+        """Helper method that extracts metadata and circulation data from an elementtree
+        entry. This method can be overridden in tests to check that callers handle things
+        properly when it throws an exception.
+        """
+        # We will fill this dictionary with all the information
+        # we can find.
+        data = dict()
+        
+        alternate_identifiers = []
+        for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
+            v = cls.extract_identifier(id_tag)
+            if v:
+                alternate_identifiers.append(v)
+        data['identifiers'] = alternate_identifiers
+           
+        data['medium'] = cls.extract_medium(entry_tag)
+        
+        data['contributors'] = []
+        for author_tag in parser._xpath(entry_tag, 'atom:author'):
+            contributor = cls.extract_contributor(parser, author_tag)
+            if contributor is not None:
+                data['contributors'].append(contributor)
+
+        data['subjects'] = [
+            cls.extract_subject(parser, category_tag)
+            for category_tag in parser._xpath(entry_tag, 'atom:category')
+        ]
+
+        ratings = []
+        for rating_tag in parser._xpath(entry_tag, 'schema:Rating'):
+            v = cls.extract_measurement(rating_tag)
+            if v:
+                ratings.append(v)
+        data['measurements'] = ratings
+
+        data['links'] = cls.consolidate_links([
+            cls.extract_link(link_tag, feed_url)
+            for link_tag in parser._xpath(entry_tag, 'atom:link')
+        ])
+        return data
 
     @classmethod
     def extract_identifier(cls, identifier_tag):
