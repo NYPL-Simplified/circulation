@@ -47,6 +47,7 @@ from core.opds import (
 )
 
 from core.util.cdn import cdnify
+from api.novelist import NoveListAPI
 
 class TestCirculationManagerAnnotator(DatabaseTest):
 
@@ -256,6 +257,7 @@ class TestOPDS(DatabaseTest):
         # If there are no related works, there's no related books link.
         work = self._work(with_open_access_download=True)
         with temp_config() as config:
+            NoveListAPI.IS_CONFIGURED = None
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
             feed = AcquisitionFeed(
                 self._db, "test", "url", [work],
@@ -269,6 +271,7 @@ class TestOPDS(DatabaseTest):
         # If NoveList is configured (and thus recommendations are available),
         # there's is a related books link.
         with temp_config() as config:
+            NoveListAPI.IS_CONFIGURED = None
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
                 Configuration.NOVELIST_PROFILE : "library",
                 Configuration.NOVELIST_PASSWORD : "yep"

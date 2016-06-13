@@ -29,6 +29,7 @@ from core.util import TitleProcessor
 
 class NoveListAPI(object):
 
+    IS_CONFIGURED = None
     log = logging.getLogger("NoveList API")
     version = "2.2"
 
@@ -58,8 +59,10 @@ class NoveListAPI(object):
 
     @classmethod
     def is_configured(cls):
-        profile, password = cls.values()
-        return bool(profile and password)
+        if cls.IS_CONFIGURED is None:
+            profile, password = cls.values()
+            cls.IS_CONFIGURED = bool(profile and password)
+        return cls.IS_CONFIGURED
 
     def __init__(self, _db, profile, password):
         self._db = _db
