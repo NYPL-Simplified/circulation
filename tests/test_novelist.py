@@ -13,8 +13,10 @@ from core.config import (
 )
 from core.metadata_layer import Metadata
 from core.model import (
+    get_one,
     get_one_or_create,
     DataSource,
+    Edition,
     Identifier,
     Representation,
 )
@@ -248,16 +250,17 @@ class TestNoveListCoverageProvider(DatabaseTest):
             self.novelist = NoveListCoverageProvider(self._db)
         self.novelist.api = MockNoveListAPI()
 
-    def test_process_item(self):
-        identifier = self._identifier()
-        metadata = Metadata(
+        self.metadata = Metadata(
             data_source = self.novelist.source,
             primary_identifier=self._identifier(
                 identifier_type=Identifier.NOVELIST_ID
             ),
             title=u"The Great American Novel"
         )
-        self.novelist.api.setup((None, None), (metadata, None))
+
+    def test_process_item(self):
+        identifier = self._identifier()
+        self.novelist.api.setup(None, self.metadata)
 
         # When the response is None, the identifier is returned.
         eq_(identifier, self.novelist.process_item(identifier))
@@ -265,41 +268,38 @@ class TestNoveListCoverageProvider(DatabaseTest):
         # When the response is a Metadata object, the identifiers are set
         # as equivalent and the metadata identifier's edition is updated.
         eq_(identifier, self.novelist.process_item(identifier))
-        [edition] = metadata.primary_identifier.primarily_identifies
+        [edition] = self.metadata.primary_identifier.primarily_identifies
         eq_(u"The Great American Novel", edition.title)
         equivalents = [eq.output for eq in identifier.equivalencies]
-        eq_(True, metadata.primary_identifier in equivalents)
+        eq_(True, self.metadata.primary_identifier in equivalents)
 
-    def test_apply_series_data(self):
+    def test_process_item_creates_edition_for_series_info(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        series = "A Series of Unfortunate Events"
 
-        # With no series information, an edition is updated with a series.
-        self.novelist._apply_series_data(identifier, series, 6)
-        eq_(work.presentation_edition.series, series)
-        eq_(work.presentation_edition.series_position, 6)
+        # Without series information, a NoveList-source edition is not
+        # created for the original identifier.
+        self.metadata.series = self.metadata.series_position = None
+        self.novelist.api.setup(self.metadata)
+        eq_(identifier, self.novelist.process_item(identifier))
+        novelist_edition = get_one(
+            self._db, Edition, data_source=self.novelist.source,
+            primary_identifier=identifier
+        )
+        eq_(None, novelist_edition)
 
-        # If the edition already has series information, no changes are made.
-        self.novelist._apply_series_data(identifier, "Just Books", 8)
-        eq_(work.presentation_edition.series, series)
-        eq_(work.presentation_edition.series_position, 6)
-
-        # If only one field is empty, that field will be updated.
-        work.presentation_edition.series = "Like Whatever As If Mysteries"
-        work.presentation_edition.series_position = None
-        self.novelist._apply_series_data(identifier, "HI", 22)
-        eq_(work.presentation_edition.series, "Like Whatever As If Mysteries")
-        eq_(work.presentation_edition.series_position, 22)
-
-        work.presentation_edition.series = None
-        work.presentation_edition.series_position = 13
-        self.novelist._apply_series_data(identifier, series, 1)
-        eq_(work.presentation_edition.series, series)
-        eq_(work.presentation_edition.series_position, 13)
-
-        # If no series information is passed, nothing happens and everything
-        # is fine.
-        self.novelist._apply_series_data(identifier, None, None)
-        eq_(work.presentation_edition.series, series)
-        eq_(work.presentation_edition.series_position, 13)
+        # When series information exists, an edition is created for the
+        # licensed identifier.
+        self.metadata.series = "A Series of Unfortunate Events"
+        self.metadata.series_position = 6
+        self.novelist.api.setup(self.metadata)
+        self.novelist.process_item(identifier)
+        novelist_edition = get_one(
+            self._db, Edition, data_source=self.novelist.source,
+            primary_identifier=identifier
+        )
+        assert novelist_edition
+        eq_(self.metadata.series, novelist_edition.series)
+        eq_(self.metadata.series_position, novelist_edition.series_position)
+        # Other basic metadata is also stored.
+        eq_(self.metadata.title, novelist_edition.title)

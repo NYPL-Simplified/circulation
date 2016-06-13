@@ -380,7 +380,7 @@ class NoveListCoverageProvider(CoverageProvider):
         return DataSource.lookup(self._db, DataSource.NOVELIST)
 
     def process_item(self, identifier):
-        metadata, ignore = self.api.lookup(identifier)
+        metadata = self.api.lookup(identifier)
         if not metadata:
             # Either NoveList didn't recognize the identifier or
             # no interesting data came of this. Consider it covered.
@@ -391,23 +391,19 @@ class NoveListCoverageProvider(CoverageProvider):
             self.output_source, metadata.primary_identifier,
             strength=1
         )
-        # Create an edition with the NoveList metadata and identifier
+        # Create an edition with the NoveList metadata & NoveList identifier.
+        # This will capture equivalent ISBNs and less appealing metadata in
+        # its unfettered state on the NoveList identifier alone.
         edition, ignore = metadata.edition(self._db)
         metadata.apply(edition)
+
         if edition.series or edition.series_position:
-            # Place any missing series data that NoveList gathered into this
-            # identifier's edition.
-            self._apply_series_data(
-                identifier, edition.series, edition.series_position
-            )
+            metadata.primary_identifier = identifier
+            # Series data from NoveList is appealing, but we want to avoid
+            # creating any potentially-inaccurate ISBN equivalencies on the
+            # license source identifier.
+            metadata.identifiers = []
+            novelist_edition, ignore = metadata.edition(self._db)
+            metadata.apply(novelist_edition)
 
         return identifier
-
-    def _apply_series_data(self, identifier, series, series_position):
-        """Provides series data on the given identifier"""
-        licensed_edition = self.edition(identifier)
-        if licensed_edition:
-            if series and not licensed_edition.series:
-                licensed_edition.series = series
-            if series_position and not licensed_edition.series_position:
-                licensed_edition.series_position = series_position
