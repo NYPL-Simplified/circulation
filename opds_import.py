@@ -57,11 +57,6 @@ class AccessNotAuthenticated(Exception):
     pass
 
 
-class DBImportException(Exception):
-    """Problem creating SQLAlchemy object."""
-    pass
-
-
 class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
@@ -282,34 +277,14 @@ class OPDSImporter(object):
                 continue
 
 
-            pool = None
-            work = None
             try:
-                # Find a pool for this edition. If we have CirculationData, a pool was created
-                # when we imported the edition. If there was already a pool from a different data
-                # source, that's fine too.
-                pool = get_one(self._db, LicensePool, identifier=edition.primary_identifier)
-
+                pool, work = self.update_work_for_edition(
+                    edition, even_if_no_author, immediately_presentation_ready
+                )
                 if pool:
                     pools[key] = pool
-                        
-                    # Note: pool.calculate_work will call self.set_presentation_edition(), 
-                    # which will find editions attached to same Identifier.
-                    work, is_new_work = pool.calculate_work(even_if_no_author=even_if_no_author)
-                    # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
-                    if work:
-                        if immediately_presentation_ready:
-                            # We want this book to be presentation-ready
-                            # immediately upon import. As long as no crucial
-                            # information is missing (like language or title),
-                            # this will do it.
-                            work.set_presentation_ready_based_on_content()
-
-                        works[key] = work
-                    else:
-                        error_message = "No Work created for Edition %r, for an unknown reason." % edition
-                        self.log.warn(error_message)
-                        raise DBImportException(error_message)
+                if work:
+                    works[key] = work
             except Exception, e:
                 message = StatusMessage(500, "Local exception during import:\n%s" % traceback.format_exc())
                 status_messages[key] = message
@@ -353,6 +328,28 @@ class OPDSImporter(object):
 
         return edition
 
+    def update_work_for_edition(self, edition, even_if_no_author=False, immediately_presentation_ready=False):
+        work = None
+
+        # Find a pool for this edition. If we have CirculationData, a pool was created
+        # when we imported the edition. If there was already a pool from a different data
+        # source, that's fine too.
+        pool = get_one(self._db, LicensePool, identifier=edition.primary_identifier)
+
+        if pool:
+            # Note: pool.calculate_work will call self.set_presentation_edition(), 
+            # which will find editions attached to same Identifier.
+            work, is_new_work = pool.calculate_work(even_if_no_author=even_if_no_author)
+            # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
+            if work:
+                if immediately_presentation_ready:
+                    # We want this book to be presentation-ready
+                    # immediately upon import. As long as no crucial
+                    # information is missing (like language or title),
+                    # this will do it.
+                    work.set_presentation_ready_based_on_content()
+
+        return pool, work
 
     @classmethod
     def extract_next_links(self, feed):

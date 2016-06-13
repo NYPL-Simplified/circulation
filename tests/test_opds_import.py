@@ -56,6 +56,16 @@ class DoomedOPDSImporter(OPDSImporter):
             # Any other import fails.
             raise Exception("Utter failure!")
 
+class DoomedWorkOPDSImporter(OPDSImporter):
+    """An OPDS Importer that imports editions but can't create works."""
+    def update_work_for_edition(self, edition, *args, **kwargs):
+        if edition.title == "Johnny Crow's Party":
+            # This import succeeds.
+            return super(DoomedWorkOPDSImporter, self).update_work_for_edition(edition, *args, **kwargs)
+        else:
+            # Any other import fails.
+            raise Exception("Utter work failure!")
+        
 
 class TestStatusMessage(object):
 
@@ -570,13 +580,13 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("I've never heard of this work.", message.message)
 
 
-    def test_import_failure_becomes_status_message(self):
-        # Make sure that an exception during import stops the import process, 
-        # and generates a meaningful error message.
+    def test_import_edition_failure_becomes_status_message(self):
+        # Make sure that an exception during import generates a
+        # meaningful error message.
 
         feed = self.content_server_mini_feed
 
-        imported_editions, imported_pools, imported_works, error_messages = (
+        imported_editions, pools, works, error_messages = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -588,6 +598,25 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(500, message.status_code)
         assert "Utter failure!" in message.message
 
+    def test_import_work_failure_becomes_status_message(self):
+        # Make sure that an exception while updating a work for an
+        # imported edition generates a meaningful error message.
+
+        feed = self.content_server_mini_feed
+        importer = DoomedWorkOPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER)
+
+
+        imported_editions, pools, works, error_messages = (
+            importer.import_from_feed(feed)
+        )
+
+        # One work was created, the other failed.
+        eq_(1, len(works))
+
+        # There's an error message for the work that failed. 
+        message = error_messages['http://www.gutenberg.org/ebooks/10441']
+        eq_(500, message.status_code)
+        assert "Utter work failure!" in message.message
 
     def test_consolidate_links(self):
 
