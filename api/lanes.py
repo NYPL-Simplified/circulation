@@ -432,8 +432,8 @@ class RelatedBooksLane(LicensePoolBasedLane):
     DISPLAY_NAME = "Related Books"
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-                 mock_api=None):
-        sublanes = self._get_sublanes(_db, license_pool, mock_api=mock_api)
+                 novelist_api=None):
+        sublanes = self._get_sublanes(_db, license_pool, novelist_api=novelist_api)
         if not sublanes:
             edition = license_pool.presentation_edition
             raise ValueError(
@@ -445,7 +445,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
             invisible=True
         )
 
-    def _get_sublanes(self, _db, license_pool, mock_api=None):
+    def _get_sublanes(self, _db, license_pool, novelist_api=None):
         sublanes = []
 
         # Create a recommendations sublane.
@@ -454,7 +454,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 license_pool.work.title, license_pool.work.author
             )
             sublanes.append(RecommendationLane(
-                _db, license_pool, lane_name, mock_api=mock_api
+                _db, license_pool, lane_name, novelist_api=novelist_api
             ))
         except ValueError, e:
             # NoveList isn't configured.
@@ -513,8 +513,8 @@ class RecommendationLane(LicensePoolBasedLane):
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-            mock_api=None):
-        self.api = mock_api or NoveListAPI.from_config(_db)
+            novelist_api=None):
+        self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
             _db, license_pool, full_name, display_name=display_name
         )

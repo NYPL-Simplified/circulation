@@ -730,7 +730,7 @@ class TestWorkController(CirculationControllerTest):
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                mock_api=mock_api
+                novelist_api=mock_api
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -747,7 +747,7 @@ class TestWorkController(CirculationControllerTest):
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                mock_api=mock_api
+                novelist_api=mock_api
             )
         # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
@@ -793,7 +793,7 @@ class TestWorkController(CirculationControllerTest):
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.related(
                 self.datasource, self.identifier.type, self.identifier.identifier,
-                mock_api=mock_api
+                novelist_api=mock_api
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)

@@ -801,7 +801,8 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, data_source, identifier_type, identifier, mock_api=None):
+    def recommendations(self, data_source, identifier_type, identifier,
+                        novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -810,7 +811,9 @@ class WorkController(CirculationManagerController):
 
         lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
         try:
-            lane = RecommendationLane(self._db, pool, lane_name, mock_api=mock_api)
+            lane = RecommendationLane(
+                self._db, pool, lane_name, novelist_api=novelist_api
+            )
         except ValueError, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed("Recommendations not available: %r" % e)
@@ -827,7 +830,8 @@ class WorkController(CirculationManagerController):
 
         return feed_response(unicode(feed.content))
 
-    def related(self, data_source, identifier_type, identifier, mock_api=None):
+    def related(self, data_source, identifier_type, identifier,
+                novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -838,7 +842,9 @@ class WorkController(CirculationManagerController):
             lane_name = "Books Related to %s by %s" % (
                 pool.work.title, pool.work.author
             )
-            lane = RelatedBooksLane(self._db, pool, lane_name, mock_api=mock_api)
+            lane = RelatedBooksLane(
+                self._db, pool, lane_name, novelist_api=novelist_api
+            )
         except ValueError, e:
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
