@@ -863,3 +863,54 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         [result] = provider.process_batch([identifier])
         assert isinstance(result, CoverageFailure)
         eq_(False, work.presentation_ready)
+
+
+class TestCoverageFailure(DatabaseTest):
+
+    def test_to_coverage_record(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        provider = NeverSuccessfulCoverageProvider(
+            "Never successful", [], source
+        )
+        identifier = self._identifier()
+
+        transient_failure = CoverageFailure(
+            provider, identifier, "Bah!", transient=True
+        )
+        rec = transient_failure.to_coverage_record(operation="the_operation")
+        assert isinstance(rec, CoverageRecord)
+        eq_(identifier, rec.identifier)
+        eq_(source, rec.data_source)
+        eq_("the_operation", rec.operation)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
+        eq_("Bah!", rec.exception)
+
+        persistent_failure = CoverageFailure(
+            provider, identifier, "Bah forever!", transient=False
+        )
+        rec = persistent_failure.to_coverage_record(operation="the_operation")
+        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
+        eq_("Bah forever!", rec.exception)        
+
+    def test_to_work_coverage_record(self):
+        provider = None
+        work = self._work()
+
+        transient_failure = CoverageFailure(
+            provider, work, "Bah!", transient=True
+        )
+        rec = transient_failure.to_work_coverage_record("the_operation")
+        assert isinstance(rec, WorkCoverageRecord)
+        eq_(work, rec.work)
+        eq_("the_operation", rec.operation)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
+        eq_("Bah!", rec.exception)
+
+        persistent_failure = CoverageFailure(
+            provider, work, "Bah forever!", transient=False
+        )
+        rec = persistent_failure.to_work_coverage_record(
+            operation="the_operation"
+        )
+        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
+        eq_("Bah forever!", rec.exception)        
