@@ -491,10 +491,8 @@ class SeriesLane(LicensePoolBasedLane):
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
         work_edition = aliased(Edition)
-        qu = qu.join(work_edition).filter(
-            work_edition.series==series,
-            work_edition.id!=edition.id
-        )
+        qu = qu.join(work_edition).filter(work_edition.series==series)
+        qu = qu.order_by(work_edition.series_position, work_edition.title)
         return qu
 
     @classmethod
