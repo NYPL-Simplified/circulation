@@ -65,7 +65,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        imported_editions, imported_pools, imported_works, error_messages_by_id, next_links = self.lookup_and_import_batch(
+        imported_editions, pools, works, error_messages_by_id = self.lookup_and_import_batch(
             batch
         )
 
@@ -180,8 +180,8 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
         self.finalized = []
         self.import_results = []
 
-    def queue_import_results(self, editions, pools, works, messages_by_id, next_links=None):
-        self.import_results.insert(0, (editions, pools, works, messages_by_id, next_links or []))
+    def queue_import_results(self, editions, pools, works, messages_by_id):
+        self.import_results.insert(0, (editions, pools, works, messages_by_id))
 
     def finalize_edition(self, edition):
         self.finalized.append(edition)
@@ -288,7 +288,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         id_mapping = self.create_identifier_mapping(batch)
         batch = id_mapping.keys()
         response = self.lookup.remove(batch)
-        removed, messages_by_id, next_links = self.import_feed_response(
+        removed, messages_by_id = self.import_feed_response(
             response, id_mapping
         )
 
