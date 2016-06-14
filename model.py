@@ -852,17 +852,17 @@ class BaseCoverageRecord(object):
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
     # as present if it ended in transient failure.
-    DEFAULT_COUNTS_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
+    DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
 
     status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
                        name='coverage_status')
 
     @classmethod
-    def not_covered(cls, covered_statuses=None, 
+    def not_covered(cls, count_as_covered=None, 
                     count_as_not_covered_if_covered_before=None):
         """Filter a query to find only items without coverage records.
 
-        :param covered_statuses: A list of constants that indicate
+        :param count_as_covered: A list of constants that indicate
            types of coverage records that should count as 'coverage'
            for purposes of this query.
 
@@ -872,10 +872,10 @@ class BaseCoverageRecord(object):
 
         :return: A clause that can be passed in to Query.filter().
         """
-        if not covered_statuses:
-            covered_statuses = cls.DEFAULT_COUNTS_AS_COVERED
-        elif isinstance(covered_statuses, basestring):
-            covered_statuses = [covered_statuses]
+        if not count_as_covered:
+            count_as_covered = cls.DEFAULT_COUNT_AS_COVERED
+        elif isinstance(count_as_covered, basestring):
+            count_as_covered = [count_as_covered]
 
         # If there is no coverage record, then of course the item is
         # not covered.
@@ -884,7 +884,7 @@ class BaseCoverageRecord(object):
         # If we're looking for specific coverage statuses, then a
         # record does not count if it has some other status.
         missing = or_(
-            missing, ~cls.status.in_(covered_statuses)
+            missing, ~cls.status.in_(count_as_covered)
         )
 
         # If the record's timestamp is before the cutoff time, we
@@ -1733,10 +1733,13 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            covered_statuses=None, count_as_missing_before=None
+            count_as_covered=None, count_as_missing_before=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
+
+        :param count_as_covered: Identifiers will be counted as
+        covered if their CoverageRecords have a status in this list.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
@@ -1745,7 +1748,7 @@ class Identifier(Base):
         if identifier_types:
             qu = qu.filter(Identifier.type.in_(identifier_types))
         missing = CoverageRecord.not_covered(
-            covered_statuses, count_as_missing_before
+            count_as_covered, count_as_missing_before
         )
         return qu.filter(missing)
 
@@ -3150,7 +3153,7 @@ class Work(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, operation=None, covered_statuses=None,
+            cls, _db, operation=None, count_as_covered=None,
             count_as_missing_before=None
     ):
         """Find Works which have no WorkCoverageRecord for the given
@@ -3162,7 +3165,7 @@ class Work(Base):
         q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
 
         missing = WorkCoverageRecord.not_covered(
-            covered_statuses, count_as_missing_before
+            count_as_covered, count_as_missing_before
         )
         q2 = q.filter(missing)
         return q2

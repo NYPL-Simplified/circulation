@@ -111,7 +111,7 @@ class BaseCoverageProvider(object):
         offset = 0
         while offset is not None:
             offset = self.run_once(
-                offset, covered_statuses=BaseCoverageRecord.ALL_STATUSES
+                offset, count_as_covered=BaseCoverageRecord.ALL_STATUSES
             )
 
         # Next, cover items that failed with a transient failure
@@ -119,10 +119,8 @@ class BaseCoverageProvider(object):
         offset = 0
         while offset is not None:
             offset = self.run_once(
-                offset, covered_statuses=[
-                    BaseCoverageRecord.SUCCESS, 
-                    BaseCoverageRecord.PERSISTENT_FAILURE
-                ]
+                offset, 
+                count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
             )
         
         Timestamp.stamp(self._db, self.service_name)
@@ -171,15 +169,15 @@ class BaseCoverageProvider(object):
             index += self.batch_size
         return (successes, transient_failures, persistent_failures), records
 
-    def run_once(self, offset, covered_statuses=None):
-        covered_statuses = covered_statuses or BaseCoverageRecord.DEFAULT_COUNTS_AS_COVERED
+    def run_once(self, offset, count_as_covered=None):
+        count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
         # run.
-        covered_statuses_message = '(covered statuses=%s)' % (', '.join(covered_statuses))
+        count_as_covered_message = '(counting %s as covered)' % (', '.join(covered_statuses))
 
-        qu = self.items_that_need_coverage(covered_statuses=covered_statuses)
+        qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(), 
-                      covered_statuses_message)
+                      count_as_covered_message)
         batch = qu.limit(self.batch_size).offset(offset)
 
         if not batch.count():
@@ -189,19 +187,19 @@ class BaseCoverageProvider(object):
             self.process_batch_and_handle_results(batch)
         )
 
-        if BaseCoverageRecord.SUCCESS not in covered_statuses:
+        if BaseCoverageRecord.SUCCESS not in count_as_covered:
             # If any successes happened in this batch, increase the
             # offset to ignore them, or they will just show up again
             # the next time we run this batch.
             offset += successes
 
-        if BaseCoverageRecord.TRANSIENT_FAILURE not in covered_statuses:
+        if BaseCoverageRecord.TRANSIENT_FAILURE not in count_as_covered:
             # If any transient failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
             offset += transient_failures
 
-        if BaseCoverageRecord.PERSISTENT_FAILURE not in covered_statuses:
+        if BaseCoverageRecord.PERSISTENT_FAILURE not in count_as_covered:
             # If any persistent failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.

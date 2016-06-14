@@ -3442,7 +3442,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         # to count as 'coverage'.
         check_not_covered(
             [no_coverage],
-            covered_statuses=[CoverageRecord.PERSISTENT_FAILURE, 
+            count_as_covered=[CoverageRecord.PERSISTENT_FAILURE, 
                               CoverageRecord.TRANSIENT_FAILURE,
                               CoverageRecord.SUCCESS]
         )
@@ -3450,7 +3450,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         # Here, only success counts as 'coverage'.
         check_not_covered(
             [no_coverage, transient, persistent],
-            covered_statuses=CoverageRecord.SUCCESS
+            count_as_covered=CoverageRecord.SUCCESS
         )
 
         # We can also say that coverage doesn't count if it was achieved before
