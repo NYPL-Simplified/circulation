@@ -1,8 +1,0 @@
-import json
-def problem(type, title, status, detail=None, instance=None):
-    d = dict(type=type, title=title, status=status)
-    if detail:
-        d['detail'] = detail
-    if instance:
-        d['instance'] = instance
-    return json.dumps(d)

@@ -7,6 +7,7 @@ import logging
 import copy
 from facets import FacetConstants as Facets
 from analytics import Analytics
+from util import LanguageCodes
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -105,6 +106,8 @@ class Configuration(object):
     DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
 
     ANALYTICS_POLICY = "analytics"
+
+    LOCALIZATION_LANGUAGES = "localization_languages"
 
     # Integrations
     URL = "url"
@@ -308,6 +311,11 @@ class Configuration(object):
     def show_staff_picks_on_top_level(cls):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
+    @classmethod
+    def localization_languages(cls):
+        languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
+        return [LanguageCodes.three_to_two[l] for l in languages]
+    
     @classmethod
     def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
         cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(

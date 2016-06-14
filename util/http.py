@@ -1,13 +1,14 @@
 from nose.tools import set_trace
 import requests
 import urlparse
+from flask.ext.babel import lazy_gettext as _
 from problem_detail import ProblemDetail as pd
 
 INTEGRATION_ERROR = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
       502,
-      "Third-party service failed.",
-      "A third-party service has failed.",
+      _("Third-party service failed."),
+      _("A third-party service has failed."),
 )
 
 class RemoteIntegrationException(Exception):
@@ -15,8 +16,8 @@ class RemoteIntegrationException(Exception):
     """An exception that happens when communicating with a third-party
     service.
     """
-    title = "Failure contacting external service"
-    detail = "The server tried to access %s but the third-party service experienced an error."
+    title = _("Failure contacting external service")
+    detail = _("The server tried to access %(service)s but the third-party service experienced an error.")
     internal_message = "Error accessing %s: %s"
 
     def __init__(self, url_or_service, message, debug_message=None):
@@ -38,12 +39,12 @@ class RemoteIntegrationException(Exception):
 
     def document_detail(self, debug=True):
         if debug:
-            return self.detail % self.url
-        return self.detail % self.service
+            return _(unicode(self.detail), service=self.url)
+        return _(unicode(self.detail), service=self.service)
 
     def document_debug_message(self, debug=True):
         if debug:
-            return self.detail % self.url
+            return _(unicode(self.detail), service=self.url)
         return None
 
     def as_problem_detail_document(self, debug):
@@ -54,8 +55,8 @@ class RemoteIntegrationException(Exception):
 
 class BadResponseException(RemoteIntegrationException):
     """The request seemingly went okay, but we got a bad response."""
-    title = "Bad response"
-    detail = "The server made a request to %s, and got an unexpected or invalid response."
+    title = _("Bad response")
+    detail = _("The server made a request to %(service)s, and got an unexpected or invalid response.")
     internal_message = "Bad response from %s: %s"
 
     BAD_STATUS_CODE_MESSAGE = "Got status code %s from external server, cannot continue."
@@ -104,8 +105,8 @@ class RequestNetworkException(RemoteIntegrationException,
     """An exception from the requests module that can be represented as
     a problem detail document.
     """
-    title = "Network failure contacting third-party service"
-    detail = "The server experienced a network error while contacting %s."
+    title = _("Network failure contacting third-party service")
+    detail = _("The server experienced a network error while contacting %(service)s.")
     internal_message = "Network error contacting %s: %s"
 
 
@@ -114,8 +115,8 @@ class RequestTimedOut(RequestNetworkException, requests.exceptions.Timeout):
     detail document.
     """
 
-    title = "Timeout"
-    detail = "The server made a request to %s, and that request timed out."
+    title = _("Timeout")
+    detail = _("The server made a request to %(service)s, and that request timed out.")
     internal_message = "Timeout accessing %s: %s"
 
 
