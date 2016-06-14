@@ -173,7 +173,7 @@ class BaseCoverageProvider(object):
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
         # run.
-        count_as_covered_message = '(counting %s as covered)' % (', '.join(covered_statuses))
+        count_as_covered_message = '(counting %s as covered)' % (', '.join(count_as_covered))
 
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(), 
