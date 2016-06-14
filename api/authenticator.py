@@ -10,6 +10,7 @@ import uuid
 import json
 import jwt
 from flask import Response
+from flask.ext.babel import lazy_gettext as _
 import importlib
 
 
@@ -166,8 +167,8 @@ class Authenticator(object):
                 links[rel] = dict(href=value, type="text/html")
 
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, auth_type, "Library", opds_id, None, "Barcode",
-            "PIN", links=links
+            base_opds_document, auth_type, unicode(_("Library")), opds_id, None, unicode(_("Barcode")),
+            unicode(_("PIN")), links=links
             )
 
         for type, provider in custom_auth_types.items():
