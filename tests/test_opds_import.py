@@ -958,13 +958,21 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             editions[0].primary_identifier, data_source,
             operation=CoverageRecord.IMPORT_OPERATION
         )
+        eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
 
-        # The other entry has a CoverageRecord for the failure.
-        # The 202 status message in the feed was transient and did
-        # not create a CoverageRecord.
+        # The 202 status message in the feed caused a transient failure.
+        # The exception caused a persistent failure.
 
-        eq_(2, self._db.query(CoverageRecord).filter(CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION).count())
+        coverage_records = self._db.query(CoverageRecord).filter(
+            CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION,
+            CoverageRecord.status != CoverageRecord.SUCCESS
+        )
+        eq_(
+            sorted([CoverageRecord.TRANSIENT_FAILURE, 
+                    CoverageRecord.PERSISTENT_FAILURE]),
+            sorted([x.status for x in coverage_records])
+        )
     
         identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
         failure = CoverageRecord.lookup(

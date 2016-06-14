@@ -838,8 +838,67 @@ class DataSource(Base):
 
             yield obj
 
+class BaseCoverageRecord(object):
+    """Contains useful constants used by both CoverageRecord and 
+    WorkCoverageRecord.
+    """
+    
+    SUCCESS = 'success'
+    TRANSIENT_FAILURE = 'transient failure'
+    PERSISTENT_FAILURE = 'persistent failure'    
 
-class CoverageRecord(Base):
+    ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
+    # By default, count coverage as present if it ended in
+    # success or in persistent failure. Do not count coverage
+    # as present if it ended in transient failure.
+    DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
+
+    status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
+                       name='coverage_status')
+
+    @classmethod
+    def not_covered(cls, count_as_covered=None, 
+                    count_as_not_covered_if_covered_before=None):
+        """Filter a query to find only items without coverage records.
+
+        :param count_as_covered: A list of constants that indicate
+           types of coverage records that should count as 'coverage'
+           for purposes of this query.
+
+        :param count_as_not_covered_if_covered_before: If a coverage record
+           exists, but is older than the given date, do not count it as
+           covered.
+
+        :return: A clause that can be passed in to Query.filter().
+        """
+        if not count_as_covered:
+            count_as_covered = cls.DEFAULT_COUNT_AS_COVERED
+        elif isinstance(count_as_covered, basestring):
+            count_as_covered = [count_as_covered]
+
+        # If there is no coverage record, then of course the item is
+        # not covered.
+        missing = cls.id==None
+
+        # If we're looking for specific coverage statuses, then a
+        # record does not count if it has some other status.
+        missing = or_(
+            missing, ~cls.status.in_(count_as_covered)
+        )
+
+        # If the record's timestamp is before the cutoff time, we
+        # don't count it as covered, regardless of which status it
+        # has.
+        if count_as_not_covered_if_covered_before:
+            missing = or_(
+                missing, cls.timestamp < count_as_not_covered_if_covered_before
+            )
+
+        return missing
+
+
+class CoverageRecord(Base, BaseCoverageRecord):
     """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
@@ -860,7 +919,10 @@ class CoverageRecord(Base):
     operation = Column(String(255), default=None)
         
     timestamp = Column(DateTime, index=True)
+
+    status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
+    
 
     __table_args__ = (
         UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
@@ -904,7 +966,8 @@ class CoverageRecord(Base):
         )
 
     @classmethod
-    def add_for(self, edition, data_source, operation=None, timestamp=None):
+    def add_for(self, edition, data_source, operation=None, timestamp=None,
+                status=BaseCoverageRecord.SUCCESS):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -921,12 +984,13 @@ class CoverageRecord(Base):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
 Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
 
-class WorkCoverageRecord(Base):
+class WorkCoverageRecord(Base, BaseCoverageRecord):
     """A record of some operation that was performed on a Work.
 
     This is similar to CoverageRecord, which operates on Identifiers,
@@ -949,6 +1013,8 @@ class WorkCoverageRecord(Base):
     operation = Column(String(255), index=True, default=None)
         
     timestamp = Column(DateTime, index=True)
+
+    status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
 
     __table_args__ = (
@@ -978,7 +1044,8 @@ class WorkCoverageRecord(Base):
         )
 
     @classmethod
-    def add_for(self, work, operation, timestamp=None):
+    def add_for(self, work, operation, timestamp=None, 
+                status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
         timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
@@ -987,6 +1054,7 @@ class WorkCoverageRecord(Base):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
@@ -1665,26 +1733,24 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            count_as_missing_before=None
+            count_as_covered=None, count_as_missing_before=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
+
+        :param count_as_covered: Identifiers will be counted as
+        covered if their CoverageRecords have a status in this list.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
                       CoverageRecord.operation==operation)
-        q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
+        qu = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
-            q = q.filter(Identifier.type.in_(identifier_types))
-
-        missing = CoverageRecord.id==None
-        if count_as_missing_before:
-            missing = or_(
-                missing, CoverageRecord.timestamp < count_as_missing_before
-            )
-
-        q2 = q.filter(missing)
-        return q2
+            qu = qu.filter(Identifier.type.in_(identifier_types))
+        missing = CoverageRecord.not_covered(
+            count_as_covered, count_as_missing_before
+        )
+        return qu.filter(missing)
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly
@@ -3087,20 +3153,20 @@ class Work(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, operation=None, count_as_missing_before=None
+            cls, _db, operation=None, count_as_covered=None,
+            count_as_missing_before=None
     ):
         """Find Works which have no WorkCoverageRecord for the given
         `operation`.
         """
+
         clause = and_(Work.id==WorkCoverageRecord.work_id,
                       WorkCoverageRecord.operation==operation)
         q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
 
-        missing = WorkCoverageRecord.id==None
-        if count_as_missing_before:
-            missing = or_(
-                missing, WorkCoverageRecord.timestamp < count_as_missing_before
-            )
+        missing = WorkCoverageRecord.not_covered(
+            count_as_covered, count_as_missing_before
+        )
         q2 = q.filter(missing)
         return q2
 

@@ -8,6 +8,7 @@ from sqlalchemy.sql.functions import func
 from model import (
     get_one,
     get_one_or_create,
+    BaseCoverageRecord,
     CoverageRecord,
     DataSource,
     Edition,
@@ -38,27 +39,28 @@ class CoverageFailure(object):
             raise Exception(
                 "Cannot convert coverage failure to CoverageRecord because it has no output source."
             )
-        if not self.transient:
-            # This is a persistent error. Turn it into a CoverageRecord
-            # so we don't keep trying to provide coverage that isn't
-            # gonna happen.
-            record, ignore = CoverageRecord.add_for(
-                self.obj, self.data_source, operation=operation
-            )
-            record.exception = self.exception
-            return record
+
+        record, ignore = CoverageRecord.add_for(
+            self.obj, self.data_source, operation=operation
+        )
+        record.exception = self.exception
+        if self.transient:
+            record.status = CoverageRecord.TRANSIENT_FAILURE
+        else:
+            record.status = CoverageRecord.PERSISTENT_FAILURE
+        return record
 
     def to_work_coverage_record(self, operation):
         """Convert this failure into a WorkCoverageRecord."""
-        if not self.transient:
-            # This is a persistent error. Turn it into a CoverageRecord
-            # so we don't keep trying to provide coverage that isn't
-            # gonna happen.
-            record, ignore = WorkCoverageRecord.add_for(
-                self.obj, operation=operation
-            )
-            record.exception = self.exception
-            return record
+        record, ignore = WorkCoverageRecord.add_for(
+            self.obj, operation=operation
+        )
+        record.exception = self.exception
+        if self.transient:
+            record.status = CoverageRecord.TRANSIENT_FAILURE
+        else:
+            record.status = CoverageRecord.PERSISTENT_FAILURE
+        return record
 
 class BaseCoverageProvider(object):
 
@@ -100,18 +102,29 @@ class BaseCoverageProvider(object):
         return self._log        
 
     def run(self):
-        self.log.info("%d items need coverage.", (
-            self.items_that_need_coverage().count())
-        )
+        self.run_once_and_update_timestamp()
+
+    def run_once_and_update_timestamp(self):
+
+        # First cover items that have never had a coverage attempt
+        # before.
         offset = 0
         while offset is not None:
-            offset = self.run_once_and_update_timestamp(offset)
+            offset = self.run_once(
+                offset, count_as_covered=BaseCoverageRecord.ALL_STATUSES
+            )
 
-    def run_once_and_update_timestamp(self, offset):
-        offset = self.run_once(offset)
+        # Next, cover items that failed with a transient failure
+        # on a previous attempt.
+        offset = 0
+        while offset is not None:
+            offset = self.run_once(
+                offset, 
+                count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+            )
+        
         Timestamp.stamp(self._db, self.service_name)
         self._db.commit()
-        return offset
 
     def run_on_specific_identifiers(self, identifiers):
         """Split a specific set of Identifiers into batches and process one
@@ -156,9 +169,16 @@ class BaseCoverageProvider(object):
             index += self.batch_size
         return (successes, transient_failures, persistent_failures), records
 
-    def run_once(self, offset):
-        batch = self.items_that_need_coverage().limit(
-            self.batch_size).offset(offset)
+    def run_once(self, offset, count_as_covered=None):
+        count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+        # Make it clear which class of items we're covering on this
+        # run.
+        count_as_covered_message = '(counting %s as covered)' % (', '.join(count_as_covered))
+
+        qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
+        self.log.info("%d items need coverage%s", qu.count(), 
+                      count_as_covered_message)
+        batch = qu.limit(self.batch_size).offset(offset)
 
         if not batch.count():
             # The batch is empty. We're done.
@@ -167,8 +187,25 @@ class BaseCoverageProvider(object):
             self.process_batch_and_handle_results(batch)
         )
 
-        # Ignore transient failures.
-        return offset + transient_failures
+        if BaseCoverageRecord.SUCCESS not in count_as_covered:
+            # If any successes happened in this batch, increase the
+            # offset to ignore them, or they will just show up again
+            # the next time we run this batch.
+            offset += successes
+
+        if BaseCoverageRecord.TRANSIENT_FAILURE not in count_as_covered:
+            # If any transient failures happened in this batch,
+            # increase the offset to ignore them, or they will
+            # just show up again the next time we run this batch.
+            offset += transient_failures
+
+        if BaseCoverageRecord.PERSISTENT_FAILURE not in count_as_covered:
+            # If any persistent failures happened in this batch,
+            # increase the offset to ignore them, or they will
+            # just show up again the next time we run this batch.
+            offset += persistent_failures
+        
+        return offset
 
     def process_batch_and_handle_results(self, batch):
         """:return: A 2-tuple (counts, records). 
@@ -186,39 +223,51 @@ class BaseCoverageProvider(object):
         successes = 0
         transient_failures = 0
         persistent_failures = 0
+        num_ignored = 0
         records = []
+
+        unhandled_items = set(batch)
         for item in results:
             if isinstance(item, CoverageFailure):
+                if item.obj in unhandled_items:
+                    unhandled_items.remove(item.obj)
+                record = self.record_failure_as_coverage_record(item)
                 if item.transient:
-                    # Ignore this error for now, but come back to it
-                    # on the next run.
                     self.log.warn(
                         "Transient failure covering %r: %s", 
                         item.obj, item.exception
                     )
+                    record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
-                    record = item
                 else:
-                    # Create a CoverageRecord memorializing this
-                    # failure. It won't show up anymore, on this 
-                    # run or subsequent runs.
+                    self.log.error(
+                        "Persistent failure covering %r: %s", 
+                        item.obj, item.exception
+                    )
+                    record.status = BaseCoverageRecord.PERSISTENT_FAILURE
                     persistent_failures += 1
-                    record = self.record_failure_as_coverage_record(item)
             else:
                 # Count this as a success and add a CoverageRecord for
                 # it. It won't show up anymore, on this run or
                 # subsequent runs.
+                if item in unhandled_items:
+                    unhandled_items.remove(item)
                 successes += 1
                 record, ignore = self.add_coverage_record_for(item)
+                record.status = BaseCoverageRecord.SUCCESS
             records.append(record)
 
         # Perhaps some records were ignored--they neither succeeded nor
-        # failed. Ignore them on this run and try them again later.
-        if isinstance(batch, list):
-            batch_size = len(batch)
-        else:
-            batch_size = batch.count()
-        num_ignored = max(0, batch_size - len(results))
+        # failed. Treat them as transient failures.
+        for item in unhandled_items:
+            self.log.warn(
+                "%r was ignored by a coverage provider that was supposed to cover it.", item
+            )
+            failure = self.failure_for_ignored_item(item)
+            record = self.record_failure_as_coverage_record(failure)
+            record.status = BaseCoverageRecord.TRANSIENT_FAILURE
+            records.append(record)
+            num_ignored += 1
 
         self.log.info(
             "Batch processed with %d successes, %d transient failures, %d persistent failures, %d ignored.",
@@ -274,7 +323,7 @@ class BaseCoverageProvider(object):
     # Subclasses must implement these virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers):
+    def items_that_need_coverage(self, identifiers, **kwargs):
         """Create a database query returning only those items that
         need coverage.
 
@@ -295,6 +344,14 @@ class BaseCoverageProvider(object):
         
     def record_failure_as_coverage_record(self, failure):
         """Convert the given CoverageFailure to a coverage record.
+
+        Implemented in CoverageProvider and WorkCoverageProvider.
+        """
+        raise NotImplementedError()
+
+    def failure_for_ignored_item(self, work):
+        """Create a CoverageFailure recording the coverage provider's
+        failure to even try to process an item.
 
         Implemented in CoverageProvider and WorkCoverageProvider.
         """
@@ -559,7 +616,7 @@ class CoverageProvider(BaseCoverageProvider):
     # Implementation of BaseCoverageProvider virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers=None):
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all items lacking coverage from this CoverageProvider.
 
         Items should be Identifiers, though Editions should also work.
@@ -569,7 +626,8 @@ class CoverageProvider(BaseCoverageProvider):
         """
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.output_source,
-            count_as_missing_before=self.cutoff_time, operation=self.operation
+            count_as_missing_before=self.cutoff_time, operation=self.operation,
+            **kwargs
         )
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
@@ -587,13 +645,23 @@ class CoverageProvider(BaseCoverageProvider):
         """Turn a CoverageFailure into a CoverageRecord object."""
         return failure.to_coverage_record(operation=self.operation)
 
+    def failure_for_ignored_item(self, item):
+        """Create a CoverageFailure recording the CoverageProvider's
+        failure to even try to process an item.
+        """
+        return CoverageFailure(
+            item, "Was ignored by CoverageProvider.", 
+            data_source=self.output_source, transient=True
+        )
+
+
 class WorkCoverageProvider(BaseCoverageProvider):
 
     #
     # Implementation of BaseCoverageProvider virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers=None):
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Works lacking coverage from this CoverageProvider.
 
         By default, all Works which don't already have coverage are
@@ -604,7 +672,8 @@ class WorkCoverageProvider(BaseCoverageProvider):
         """
         qu = Work.missing_coverage_from(
             self._db, operation=self.operation, 
-            count_as_missing_before=self.cutoff_time
+            count_as_missing_before=self.cutoff_time,
+            **kwargs
         )
         if identifiers:
             ids = [x.id for x in identifiers]
@@ -613,6 +682,13 @@ class WorkCoverageProvider(BaseCoverageProvider):
             )
         return qu
 
+    def failure_for_ignored_item(self, work):
+        """Create a CoverageFailure recording the WorkCoverageProvider's
+        failure to even try to process a Work.
+        """
+        return CoverageFailure(
+            work, "Was ignored by WorkCoverageProvider.", transient=True
+        )
 
     def add_coverage_record_for(self, work):
         """Record this CoverageProvider's coverage for the given
