@@ -177,6 +177,11 @@ def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
+@app.route('/works/series/<series_name>')
+@returns_problem_detail
+def series(series_name):
+    return app.manager.work_controller.series(series_name)
+
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>')
 @returns_problem_detail
 def permalink(data_source, identifier_type, identifier):
@@ -196,11 +201,6 @@ def related_books(data_source, identifier_type, identifier):
 @returns_problem_detail
 def report(data_source, identifier_type, identifier):
     return app.manager.work_controller.report(data_source, identifier_type, identifier)
-
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/series')
-@returns_problem_detail
-def series(data_source, identifier_type, identifier):
-    return app.manager.work_controller.series(data_source, identifier_type, identifier)
 
 @app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
 @returns_problem_detail
