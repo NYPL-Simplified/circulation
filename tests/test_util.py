@@ -33,20 +33,27 @@ class TestLanguageCodes(object):
         eq_("en", c.three_to_two['eng'])
         eq_(["English"], c.english_names['en'])
         eq_(["English"], c.english_names['eng'])
+        eq_(["English"], c.native_names['en'])
+        eq_(["English"], c.native_names['eng'])
 
         eq_("spa", c.two_to_three['es'])
         eq_("es", c.three_to_two['spa'])
         eq_(["Spanish", "Castilian"], c.english_names['es'])
         eq_(["Spanish", "Castilian"], c.english_names['spa'])
+        eq_([unicode("español", "utf-8"), "castellano"], c.native_names['es'])
+        eq_([unicode("español", "utf-8"), "castellano"], c.native_names['spa'])
 
         eq_("chi", c.two_to_three['zh'])
         eq_("zh", c.three_to_two['chi'])
         eq_(["Chinese"], c.english_names['zh'])
         eq_(["Chinese"], c.english_names['chi'])
+        eq_([unicode("äæ (Zhōngwén)", "utf-8"), unicode("æè", "utf-8"), unicode("æè", "utf-8")], c.native_names['zh'])
+        eq_([unicode("äæ (Zhōngwén)", "utf-8"), unicode("æè", "utf-8"), unicode("æè", "utf-8")], c.native_names['chi'])
 
         eq_(None, c.two_to_three['nosuchlanguage'])
         eq_(None, c.three_to_two['nosuchlanguage'])
         eq_([], c.english_names['nosuchlanguage'])
+        eq_([], c.native_names['nosuchlanguage'])
 
     def test_locale(self):
         m = LanguageCodes.iso_639_2_for_locale
@@ -71,9 +78,10 @@ class TestLanguageCodes(object):
         eq_("", m([]))
         eq_("English", m(["en"]))
         eq_("English", m(["eng"]))
-        eq_("English & Spanish", m(["eng", "spa"]))
-        eq_("Spanish & English", m("spa,eng"))
-        eq_("Spanish, English, & Chinese", m(["spa","eng","chi"]))
+        eq_(unicode("español", "utf-8"), m(['es']))
+        eq_(unicode("English & español", "utf-8"), m(["eng", "spa"]))
+        eq_(unicode("español & English", "utf-8"), m("spa,eng"))
+        eq_(unicode("español, English, & äæ (Zhōngwén)", "utf-8"), m(["spa","eng","chi"]))
         assert_raises(ValueError(m, ["eng, nxx"]))
 
 class DummyAuthor(object):
