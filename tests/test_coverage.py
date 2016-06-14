@@ -319,7 +319,8 @@ class TestCoverageProvider(DatabaseTest):
         eq_("Always successful", timestamp.service)
 
         # The identifier with no coverage and the identifier with a
-        # persistent failure now have coverage records.
+        # transient failure now have coverage records that indicate
+        # success.
 
         [transient_failure_has_gone] = self.identifier.coverage_records
         eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
@@ -329,8 +330,9 @@ class TestCoverageProvider(DatabaseTest):
 
         # The identifier that had the transient failure was processed
         # second, even though it was created first in the
-        # database. That's because we prioritize identifiers where
-        # coverage has never been attempted.
+        # database. That's because we do the work in two passes: first
+        # we process identifiers where coverage has never been
+        # attempted, then we process identifiers with transient failures.
         eq_([no_coverage, self.identifier], provider.attempts)
 
     def test_never_successful(self):

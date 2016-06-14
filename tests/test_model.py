@@ -3521,6 +3521,13 @@ class TestCoverageRecord(DatabaseTest):
         record4 = CoverageRecord.lookup(edition.primary_identifier, source)
         eq_(record3, record4)
 
+        # We can change the status.
+        record5, is_new = CoverageRecord.add_for(
+            edition, source, operation, 
+            status=CoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(record5, record)
+        eq_(CoverageRecord.PERSISTENT_FAILURE, record.status)
 
 class TestWorkCoverageRecord(DatabaseTest):
 
@@ -3566,6 +3573,12 @@ class TestWorkCoverageRecord(DatabaseTest):
         record4 = WorkCoverageRecord.lookup(work, None)
         eq_(record3, record4)
 
+        # We can change the status.
+        record5, is_new = WorkCoverageRecord.add_for(
+            work, operation, status=WorkCoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(record5, record)
+        eq_(WorkCoverageRecord.PERSISTENT_FAILURE, record.status)
 
 class TestComplaint(DatabaseTest):
 

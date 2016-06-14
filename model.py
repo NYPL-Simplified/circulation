@@ -966,7 +966,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def add_for(self, edition, data_source, operation=None, timestamp=None):
+    def add_for(self, edition, data_source, operation=None, timestamp=None,
+                status=BaseCoverageRecord.SUCCESS):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -983,6 +984,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
@@ -1004,10 +1006,6 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     QUALITY_OPERATION = 'quality'
     GENERATE_OPDS_OPERATION = 'generate-opds'
     UPDATE_SEARCH_INDEX_OPERATION = 'update-search-index'
-
-    SUCCESS = CoverageRecord.SUCCESS
-    TRANSIENT_FAILURE = CoverageRecord.TRANSIENT_FAILURE
-    PERSISTENT_FAILURE = CoverageRecord.PERSISTENT_FAILURE
 
     id = Column(Integer, primary_key=True)
     work_id = Column(
@@ -1046,7 +1044,8 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def add_for(self, work, operation, timestamp=None):
+    def add_for(self, work, operation, timestamp=None, 
+                status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
         timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
@@ -1055,6 +1054,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)

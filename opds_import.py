@@ -970,8 +970,9 @@ class OPDSImportMonitor(Monitor):
         
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:
-            CoverageRecord.add_for(
-                edition, data_source, CoverageRecord.IMPORT_OPERATION
+            record = CoverageRecord.add_for(
+                edition, data_source, CoverageRecord.IMPORT_OPERATION,
+                status=CoverageRecord.SUCCESS
             )
 
         # Create CoverageRecords for the failures.
