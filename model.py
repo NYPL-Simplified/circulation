@@ -874,7 +874,7 @@ class BaseCoverageRecord(object):
         :return: A clause that can be passed in to Query.filter().
         """
         if not covered_statuses:
-            covered_statuses = DEFAULT_COUNTS_AS_COVERED
+            covered_statuses = cls.DEFAULT_COUNTS_AS_COVERED
         elif isinstance(covered_statuses, basestring):
             covered_statuses = [covered_statuses]
 
