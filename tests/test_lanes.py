@@ -10,6 +10,10 @@ from core.lane import (
     LaneList,
 )
 from core.metadata_layer import Metadata
+from core.model import (
+    SessionManager,
+    DataSource,
+)
 
 from api.config import (
     Configuration,
@@ -159,24 +163,27 @@ class TestLaneCreation(DatabaseTest):
 
 class TestRelatedBooksLane(DatabaseTest):
 
+    def setup(self):
+        super(TestRelatedBooksLane, self).setup()
+        self.work = self._work(with_license_pool=True)
+        [self.lp] = self.work.license_pools
+
     def test_initialization(self):
         """Asserts that a RelatedBooksLane won't be initialized for a work
         without related books
         """
-        work = self._work(with_license_pool=True)
-        [lp] = work.license_pools
         with temp_config() as config:
             # A book without a series on a circ manager without
             # NoveList recommendations raises an error.
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
             assert_raises(
-                ValueError, RelatedBooksLane, self._db, lp, ""
+                ValueError, RelatedBooksLane, self._db, self.lp, ""
             )
 
             # But a book from a series initializes a RelatedBooksLane just fine.
-            lp.presentation_edition.series = "All By Myself"
-            result = RelatedBooksLane(self._db, lp, "")
-            eq_(lp, result.license_pool)
+            self.lp.presentation_edition.series = "All By Myself"
+            result = RelatedBooksLane(self._db, self.lp, "")
+            eq_(self.lp, result.license_pool)
             [sublane] = result.sublanes
             eq_(True, isinstance(sublane, SeriesLane))
 
@@ -189,11 +196,95 @@ class TestRelatedBooksLane(DatabaseTest):
             # a RecommendationLane will be included.
             mock_api = MockNoveListAPI()
             response = Metadata(
-                lp.data_source, recommendations=[self._identifier()]
+                self.lp.data_source, recommendations=[self._identifier()]
             )
             mock_api.setup(response)
-            result = RelatedBooksLane(self._db, lp, "", novelist_api=mock_api)
+            result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
             eq_(2, len(result.sublanes))
             recommendations, series = result.sublanes
             eq_(True, isinstance(recommendations, RecommendationLane))
             eq_(True, isinstance(series, SeriesLane))
+
+    def test_works_query(self):
+        """RelatedBooksLane is an invisible, groups lane without works."""
+
+        self.work.presentation_edition.series = "All By Myself"
+        lane = RelatedBooksLane(self._db, self.lp, "")
+        eq_(None, lane.works())
+        eq_(None, lane.materialized_works())
+
+
+class LaneTest(DatabaseTest):
+
+    def assert_works_queries(self, lane, expected):
+        """Tests resulting Lane.works() and Lane.materialized_works() results"""
+
+        query = lane.works()
+        eq_(expected, query.all())
+
+        materialized_expected = expected
+        if expected:
+            materialized_expected = [work.id for work in expected]
+        results = lane.materialized_works().all()
+        materialized_results = [work.works_id for work in results]
+        eq_(materialized_expected, materialized_results)
+
+
+class TestRecommendationLane(LaneTest):
+
+    def test_works_query(self):
+        # Prep an empty result.
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        metadata = Metadata(source)
+        mock_api = MockNoveListAPI()
+        mock_api.setup(metadata)
+
+        # With an empty result, the lane is empty.
+        work = self._work(with_license_pool=True)
+        lp = work.license_pools[0]
+        lane = RecommendationLane(self._db, lp, '', novelist_api=mock_api)
+        eq_(None, lane.works())
+        eq_(None, lane.materialized_works())
+
+        result = self._work(with_license_pool=True)
+        lane.recommendations = [result.license_pools[0].identifier]
+        SessionManager.refresh_materialized_views(self._db)
+        self.assert_works_queries(lane, [result])
+
+class TestSeriesLane(LaneTest):
+
+    def test_initialization(self):
+        # An error is raised if SeriesLane is created with an empty string.
+        assert_raises(
+            ValueError, SeriesLane, self._db, ''
+        )
+
+        lane = SeriesLane(self._db, 'Alrighty Then')
+        eq_('Alrighty Then', lane.series)
+
+    def test_works_query(self):
+        # If there are no works with the series name, no works are returned.
+        series_name = "Like As If Whatever Mysteries"
+        lane = SeriesLane(self._db, series_name)
+        self.assert_works_queries(lane, [])
+
+        # Works in the series are returned as expected.
+        w1 = self._work(with_license_pool=True)
+        w1.presentation_edition.series = series_name
+        SessionManager.refresh_materialized_views(self._db)
+        self.assert_works_queries(lane, [w1])
+
+        # When there are two works without series_position, they're
+        # returned in alphabetical order by title.
+        w1.presentation_edition.title = "Zoology"
+        w2 = self._work(with_license_pool=True)
+        w2.presentation_edition.title = "Anthropology"
+        w2.presentation_edition.series = series_name
+        SessionManager.refresh_materialized_views(self._db)
+        self.assert_works_queries(lane, [w2, w1])
+
+        # If a series_position is added, they're ordered in numerical order.
+        w1.presentation_edition.series_position = 6
+        w2.presentation_edition.series_position = 13
+        SessionManager.refresh_materialized_views(self._db)
+        self.assert_works_queries(lane, [w1, w2])
