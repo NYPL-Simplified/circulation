@@ -430,7 +430,7 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         metadata = self.api.bibliographic_lookup(identifier)
         if not metadata:
             return CoverageFailure(
-                self, identifier, "3M bibliographic lookup failed.",
-                transient=True
+                identifier, "3M bibliographic lookup failed.",
+                data_source=self.output_source, transient=True
             )
         return self.set_metadata(identifier, metadata)

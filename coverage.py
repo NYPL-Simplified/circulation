@@ -27,21 +27,21 @@ import log # This sets the appropriate log format.
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
 
-    def __init__(self, provider, obj, exception, transient=True):
+    def __init__(self, obj, exception, data_source=None, transient=True):
         self.obj = obj
-        self.output_source = getattr(provider, 'output_source', None)
+        self.data_source = data_source
         self.exception = exception
         self.transient = transient
 
     def to_coverage_record(self, operation=None):
         """Convert this failure into a CoverageRecord."""
-        if not self.output_source:
+        if not self.data_source:
             raise Exception(
-                "Cannot convert coverage failure to CoverageRecord because original coverage provider has no output source."
+                "Cannot convert coverage failure to CoverageRecord because it has no output source."
             )
 
         record, ignore = CoverageRecord.add_for(
-            self.obj, self.output_source, operation=operation
+            self.obj, self.data_source, operation=operation
         )
         record.exception = self.exception
         if self.transient:
@@ -441,7 +441,7 @@ class CoverageProvider(BaseCoverageProvider):
         license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         edition, ignore = Edition.for_foreign_id(
             self._db, license_pool.data_source, identifier.type,
@@ -458,11 +458,11 @@ class CoverageProvider(BaseCoverageProvider):
         license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
         work, created = license_pool.calculate_work(even_if_no_author=True)
         if not work:
             e = "Work could not be calculated"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
         return work
 
 
@@ -491,7 +491,7 @@ class CoverageProvider(BaseCoverageProvider):
 
         if not metadata and not circulationdata:
             e = "Received neither metadata nor circulation data from input source"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
 
         if metadata:
@@ -532,7 +532,7 @@ class CoverageProvider(BaseCoverageProvider):
 
         if not metadata:
             e = "Did not receive metadata from input source"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         try:
             metadata.apply(
@@ -543,7 +543,7 @@ class CoverageProvider(BaseCoverageProvider):
                 "Error applying metadata to edition %d: %s",
                 edition.id, e, exc_info=e
             )
-            return CoverageFailure(self, identifier, repr(e), transient=True)
+            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
 
         return identifier
 
@@ -570,7 +570,7 @@ class CoverageProvider(BaseCoverageProvider):
 
         if not circulationdata:
             e = "Did not receive circulationdata from input source"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         try:
             circulationdata.apply(
@@ -581,7 +581,7 @@ class CoverageProvider(BaseCoverageProvider):
                 "Error applying circulationdata to pool %d: %s",
                 pool.id, e, exc_info=e
             )
-            return CoverageFailure(self, identifier, repr(e), transient=True)
+            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
 
         return identifier
 

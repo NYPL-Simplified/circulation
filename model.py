@@ -234,7 +234,6 @@ class SessionManager(object):
                     self.works_id, self.sort_title, self.sort_author, self.language,
                     )).encode("utf8")
 
-
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
@@ -907,6 +906,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     CHOOSE_COVER_OPERATION = 'choose-cover'
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
+    IMPORT_OPERATION = 'import'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -5079,6 +5079,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
 
     log = logging.getLogger("CachedFeed")
 

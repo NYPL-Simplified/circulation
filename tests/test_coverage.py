@@ -11,8 +11,8 @@ from testing import (
     AlwaysSuccessfulWorkCoverageProvider,
     DummyHTTPClient,
     TaskIgnoringCoverageProvider,
-    NeverSuccessfulCoverageProvider,
     NeverSuccessfulWorkCoverageProvider,
+    NeverSuccessfulCoverageProvider,
     TransientFailureCoverageProvider,
     TransientFailureWorkCoverageProvider,
 )
