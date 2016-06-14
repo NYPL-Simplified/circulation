@@ -36,6 +36,7 @@ from core.external_search import (
 from core.lane import (
     Facets, 
     Pagination,
+    Lane,
     LaneList,
 )
 from core.model import (
@@ -83,6 +84,8 @@ from config import (
 from lanes import (
     make_lanes,
     RecommendationLane,
+    RelatedBooksLane,
+    SeriesLane,
 )
 
 from adobe_vendor_id import AdobeVendorIDController
@@ -99,15 +102,6 @@ from services import ServiceStatus
 
 class CirculationManager(object):
 
-    # The CirculationManager is treated as the top-level lane
-    name = 'All Books'
-    display_name = 'All Books'
-    languages = None
-    include_all_feed = False
-    url_name = None
-    parent = None
-    language_key = ""
-
     def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
@@ -122,10 +116,10 @@ class CirculationManager(object):
 
         self.testing = testing
         if isinstance(lanes, LaneList):
-            self.lanes = lanes
+            lanes = lanes
         else:
-            self.lanes = make_lanes(_db, lanes)
-        self.sublanes = self.lanes
+            lanes = make_lanes(_db, lanes)
+        self.top_level_lane = self.create_top_level_lane(lanes)
 
         self.auth = Authenticator.initialize(self._db, test=testing)
         self.setup_circulation()
@@ -144,6 +138,19 @@ class CirculationManager(object):
 
         self.opds_authentication_document = self.auth.create_authentication_document()
 
+    def create_top_level_lane(self, lanelist):
+        name = 'All Books'
+        return Lane(
+            self._db, name,
+            display_name=name,
+            parent=None,
+            sublanes=lanelist.lanes,
+            include_all=False,
+            languages=None,
+            searchable=True,
+            invisible=True
+        )
+
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
 
@@ -153,8 +160,8 @@ class CirculationManager(object):
 
     def log_lanes(self, lanelist=None, level=0):
         """Output information about the lane layout."""
-        lanelist = lanelist or self.lanes
-        for lane in lanelist.lanes:
+        lanelist = lanelist or self.top_level_lane.sublanes
+        for lane in lanelist:
             self.log.debug("%s%r", "-" * level, lane)
             if lane.sublanes:
                 self.log_lanes(lane.sublanes, level+1)
@@ -220,7 +227,8 @@ class CirculationManager(object):
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
-            self.circulation, lane, *args, top_level_title=self.display_name, **kwargs
+            self.circulation, lane, top_level_title='All Books',
+            *args, **kwargs
         )
 
 
@@ -301,10 +309,10 @@ class CirculationManagerController(object):
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
         if language_key is None and name is None:
-            # The top-level lane.
-            return self.manager
+            return self.manager.top_level_lane
 
-        if not language_key in self.manager.sublanes.by_languages:
+        lanelist = self.manager.top_level_lane.sublanes
+        if not language_key in lanelist.by_languages:
             return NO_SUCH_LANE.detailed(
                 _("Unrecognized language key: %(language_key)s", language_key=language_key)
             )
@@ -312,7 +320,7 @@ class CirculationManagerController(object):
         if name:
             name = name.replace("__", "/")
 
-        lanes = self.manager.sublanes.by_languages[language_key]
+        lanes = lanelist.by_languages[language_key]
 
         if not name:
             defaults = [x for x in lanes.values() if x.default_for_language]
@@ -796,7 +804,8 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, data_source, identifier_type, identifier, mock_api=None):
+    def recommendations(self, data_source, identifier_type, identifier,
+                        novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -805,23 +814,53 @@ class WorkController(CirculationManagerController):
 
         lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
         try:
-            lane = RecommendationLane(self._db, pool, lane_name, mock_api=mock_api)
+            lane = RecommendationLane(
+                self._db, pool, lane_name, novelist_api=novelist_api
+            )
         except ValueError, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        use_materialized_works = not self.manager.testing
         url = self.cdn_url_for(
             'recommendations', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier
         )
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
-            self._db, 'Related Works', url, lane,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE,
-            use_materialized_works=use_materialized_works
+            self._db, lane.DISPLAY_NAME, url, lane,
+            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
 
+        return feed_response(unicode(feed.content))
+
+    def related(self, data_source, identifier_type, identifier,
+                novelist_api=None):
+        """Serve a groups feed of books related to a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        try:
+            lane_name = "Books Related to %s by %s" % (
+                pool.work.title, pool.work.author
+            )
+            lane = RelatedBooksLane(
+                self._db, pool, lane_name, novelist_api=novelist_api
+            )
+        except ValueError, e:
+            # No related books were found.
+            return NO_SUCH_LANE.detailed(e.message)
+
+
+        url = self.cdn_url_for(
+            'related_books', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.groups(
+            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
+        )
         return feed_response(unicode(feed.content))
 
     def report(self, data_source, identifier_type, identifier):
@@ -843,6 +882,31 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
+    def series(self, data_source, identifier_type, identifier):
+        """Serve a feed of books in the same series as a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        edition = pool.presentation_edition
+        series = edition.series
+        if not series:
+            return NO_SUCH_LANE.detailed("%s is not in a series" % edition.title)
+
+        lane = SeriesLane(self._db, pool)
+        url = self.cdn_url_for(
+            'series', data_source=data_source,
+            identifier_type=identifier_type, identifier=identifier
+        )
+        annotator = self.manager.annotator(lane)
+        feed = AcquisitionFeed.page(
+            self._db, lane.display_name, url, lane,
+            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
+        )
+
+        return feed_response(unicode(feed.content))
+
 
 class AnalyticsController(CirculationManagerController):
 
@@ -853,6 +917,7 @@ class AnalyticsController(CirculationManagerController):
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
+
 
 class ServiceStatusController(CirculationManagerController):
 

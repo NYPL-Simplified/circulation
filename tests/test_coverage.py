@@ -1,3 +1,5 @@
+import datetime
+
 from nose.tools import (
     assert_raises_regexp,
     set_trace,
@@ -9,6 +11,7 @@ from . import (
     sample_data,
 )
 
+from core.external_search import DummyExternalSearchIndex
 from core.testing import MockRequestsResponse
 
 from core.config import (
@@ -22,10 +25,10 @@ from core.model import (
     Identifier,
     LicensePool,
     Work,
+    WorkCoverageRecord,
 )
 from core.opds import OPDSFeed
 from core.opds_import import (
-    StatusMessage,
     MockSimplifiedOPDSLookup,
 )
 from core.coverage import (
@@ -35,40 +38,15 @@ from core.coverage import (
 from core.util.http import BadResponseException
 
 from api.coverage import (
+    ContentServerBibliographicCoverageProvider,
     MetadataWranglerCoverageProvider,
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
     MockOPDSImportCoverageProvider,
+    SearchIndexCoverageProvider,
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
-
-    def test_handle_import_messages(self):
-        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        provider = OPDSImportCoverageProvider("name", [], data_source)
-
-        message = StatusMessage(201, "try again later")
-        message2 = StatusMessage(404, "we're doomed")
-        message3 = StatusMessage(200, "everything's fine")
-
-        identifier = self._identifier()
-        identifier2 = self._identifier()
-        identifier3 = self._identifier()
-
-        messages_by_id = { identifier.urn: message,
-                           identifier2.urn: message2,
-                           identifier3.urn: message3,
-        }
-
-        [f1, f2] = sorted(list(provider.handle_import_messages(messages_by_id)),
-                          key=lambda x: x.exception)
-        eq_(identifier, f1.obj)
-        eq_("201: try again later", f1.exception)
-        eq_(True, f1.transient)
-
-        eq_(identifier2, f2.obj)
-        eq_("404: we're doomed", f2.exception)
-        eq_(False, f2.transient)
 
     def _provider(self, presentation_ready_on_success=True):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
@@ -168,12 +146,12 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
     def test_process_batch(self):
         provider = self._provider()
 
-        edition = self._edition()
+        edition, pool = self._edition(with_license_pool=True)
 
         identifier = self._identifier()
-        messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
+        messages_by_id = {identifier.urn : CoverageFailure(identifier, "201: try again later")}
 
-        provider.queue_import_results([edition], messages_by_id)
+        provider.queue_import_results([edition], [pool], [pool.work], messages_by_id)
 
         fake_batch = [object()]
         success, failure = provider.process_batch(fake_batch)
@@ -184,21 +162,24 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # The edition was finalized.
         eq_([success], [e.primary_identifier for e in provider.finalized])
 
-        # The failure was converted to a CoverageFailure object.
+        # The failure stayed a CoverageFailure object.
         eq_(identifier, failure.obj)
         eq_(True, failure.transient)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
-    def setup(self):
-        super(TestMetadataWranglerCoverageProvider, self).setup()
-        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+    def create_provider(self, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
                 Configuration.URL : "http://url.gov"
             }
-            self.provider = MetadataWranglerCoverageProvider(self._db)
+            return MetadataWranglerCoverageProvider(self._db, **kwargs)
+
+    def setup(self):
+        super(TestMetadataWranglerCoverageProvider, self).setup()
+        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        self.provider = self.create_provider()
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -236,7 +217,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         relicensed_licensepool.update_availability(1, 0, 0, 0)
 
-        items = self.provider.items_that_need_coverage.all()
+        items = self.provider.items_that_need_coverage().all()
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
         assert reaper_cr.identifier not in items
@@ -250,6 +231,33 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         assert relicensed_coverage_record in relicensed_licensepool.identifier.coverage_records
         self._db.commit()
         assert relicensed_coverage_record not in relicensed_licensepool.identifier.coverage_records
+
+    def test_items_that_need_coverage_respects_cutoff(self):
+        """Verify that this coverage provider respects the cutoff_time
+        argument.
+        """
+
+        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        edition = self._edition()
+        cr = self._coverage_record(edition, source, operation='sync')
+
+        # We have a coverage record already, so this book doesn't show
+        # up in items_that_need_coverage
+        items = self.provider.items_that_need_coverage().all()
+        eq_([], items)
+
+        # But if we send a cutoff_time that's later than the time
+        # associated with the coverage record...
+        one_hour_from_now = (
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+        )
+        provider_with_cutoff = self.create_provider(
+            cutoff_time=one_hour_from_now
+        )
+
+        # The book starts showing up in items_that_need_coverage.
+        eq_([edition.primary_identifier], 
+            provider_with_cutoff.items_that_need_coverage().all())
 
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
@@ -281,7 +289,7 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         # An open access license pool
         open_access_lp = self._licensepool(None)
 
-        items = self.reaper.items_that_need_coverage.all()
+        items = self.reaper.items_that_need_coverage().all()
         eq_(1, len(items))
         # Items that are licensed are ignored.
         assert licensed_lp.identifier not in items
@@ -321,3 +329,105 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
         eq_([sync_cr, reaped_cr, doubly_reap_record], remaining_records)
+
+
+class TestContentServerBibliographicCoverageProvider(DatabaseTest):
+
+    def test_only_open_access_books_considered(self):
+
+        lookup = MockSimplifiedOPDSLookup(self._url)        
+        provider = ContentServerBibliographicCoverageProvider(
+            self._db, lookup=lookup
+        )
+
+        # Here's an open-access work.
+        w1 = self._work(with_license_pool=True, with_open_access_download=True)
+
+        # Here's a work that's not open-access.
+        w2 = self._work(with_license_pool=True, with_open_access_download=False)
+        w2.license_pools[0].open_access = False
+
+        # Only the open-access work needs coverage.
+        eq_([w1.license_pools[0].identifier],
+            provider.items_that_need_coverage().all())
+
+
+class TestSeachIndexCoverageProvider(DatabaseTest):
+
+    def test_run(self):
+        index = DummyExternalSearchIndex()
+
+        # Here's a work.
+        work = self._work()
+        work.presentation_ready = True
+
+        # Here's a CoverageProvider that can index it.
+        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
+
+        # Let's run the provider.
+        provider.run()
+
+        # We've got a coverage record.
+        [record] = [x for x in work.coverage_records if
+                    x.operation == provider.operation_name]
+
+        eq_(record.work, work)
+        timestamp = record.timestamp
+
+        # And the work was actually added to the search index.
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # Running the provider again does nothing -- does not create
+        # a new WorkCoverageRecord and does not update the timestamp.
+        provider.run()
+        [record2] = [x for x in work.coverage_records if
+                     x.operation == provider.operation_name]
+        eq_(record2, record)
+        eq_(timestamp, record2.timestamp)
+
+        # However, if we create a CoverageProvider that updates a
+        # different index (e.g. because the index format has changed
+        # and we're recreating the search index), we can get a second
+        # WorkCoverageRecord for _that_ index.
+        index.works_index = 'works-index-2'
+        provider2 = SearchIndexCoverageProvider(self._db, "works-index-2", index)
+        provider2.run()
+
+        [record3] = [x for x in work.coverage_records if
+                     x.operation == provider2.operation_name]
+
+        eq_(record3.work, work)
+        assert record3.timestamp > timestamp
+
+
+    def test_process_item(self):
+        """Test the indexing of an individual Work."""
+
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
+
+        # This work is not presentation-ready.
+        work = self._work()
+
+        # Calling process_item() on the WorkCoverageProvider will
+        # give us nothing but a CoverageFailure.
+
+        failure = provider.process_item(work)
+        assert isinstance(failure, CoverageFailure)
+        eq_('Work not indexed because not presentation-ready.', 
+            failure.exception)
+        eq_(True, failure.transient)
+
+        # But make the work presentation-ready, and it succeeds.
+        work.presentation_ready = True
+        result = provider.process_item(work)
+        eq_(work, result)
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # A CoverageRecord has not been created for the Work, even
+        # though that normally happens when you index a Work, because
+        # the WorkCoverageProvider code that calls process_item() is
+        # supposed to handle the creation of CoverageRecords.
+        assert provider.operation_name not in [
+            x.operation for x in work.coverage_records
+        ]
