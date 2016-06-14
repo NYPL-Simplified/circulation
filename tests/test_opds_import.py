@@ -861,14 +861,6 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.check_for_new_data(feed))
 
-        # Now import the editions.
-        monitor.importer.import_from_feed(feed)
-        eq_(2, self._db.query(Edition).count())
-
-        # There's no cutoff date and no CoverageRecords,
-        # but the data has already been imported.
-        eq_(False, monitor.check_for_new_data(feed))
-
         # If there's a cutoff date that's after the updated
         # dates in the feed, the data still isn't new.
         eq_(False, monitor.check_for_new_data(feed, datetime.datetime(2016, 1, 1, 1, 1, 1)))
@@ -876,36 +868,40 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # But if the cutoff is before the updated time...
         eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
 
+        # Now import the editions.
+        monitor.importer.import_from_feed(feed)
+        eq_(2, self._db.query(Edition).count())
+
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        # If there's a CoverageRecord, that's after the updated
+        # If there are CoverageRecords, that are after the updated
         # dates, there's nothing new.
         record, ignore = CoverageRecord.add_for(
             editions[0], data_source, CoverageRecord.IMPORT_OPERATION
         )
         record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+
+        record2, ignore = CoverageRecord.add_for(
+            editions[1], data_source, CoverageRecord.IMPORT_OPERATION
+        )
+        record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+
         eq_(False, monitor.check_for_new_data(feed))
+
+        # If a CoverageRecord is before the updated date, there's
+        # new data.
+        record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
 
         # If only one of the entries has a CoverageRecord, the other
         # uses the cutoff date.
-        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
-
-        # If the CoverageRecord is before the updated date, there's
-        # new data.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.check_for_new_data(feed))
+        self._db.delete(record2)
+        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
 
         # If the CoverageRecord is a failure, it still works.
         record.exception = "Failure"
-        eq_(True, monitor.check_for_new_data(feed))
-
-        # If only one CoverageRecord is before the entry's updated date, there's
-        # still new data.
-        record, ignore = CoverageRecord.add_for(
-            editions[1], data_source, CoverageRecord.IMPORT_OPERATION
-        )
-        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
 
 
@@ -925,9 +921,19 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         eq_(feed, content)
 
-        # Now import the editions.
+        # Now import the editions and add coverage records.
         monitor.importer.import_from_feed(feed)
         eq_(2, self._db.query(Edition).count())
+
+        editions = self._db.query(Edition).all()
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        for edition in editions:
+            record, ignore = CoverageRecord.add_for(
+                edition, data_source, CoverageRecord.IMPORT_OPERATION
+            )
+            record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+
 
         # If there's no new data, follow_one_link returns no next links and no content.
         http.queue_response(200, content=feed)

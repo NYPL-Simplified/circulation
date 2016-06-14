@@ -928,18 +928,8 @@ class OPDSImportMonitor(Monitor):
                     new_data = True
                     break
 
-            if record and record.exception:
-                # We tried to import this book before and it failed. The book hasn't been updated,
-                # so it probably still won't work. Don't try again.
-                continue
-
-            # There's no record of a failure for this book. Has it been imported from this source already?
-            existing_edition = get_one(
-                self._db, Edition,
-                primary_identifier=identifier,
-                data_source=data_source,
-            )
-            if not existing_edition:
+            else:
+                # There's no record of an attempt to import this book.
                 new_data = True
                 break
 
