@@ -958,7 +958,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             editions[0].primary_identifier, data_source,
             operation=CoverageRecord.IMPORT_OPERATION
         )
-        eq_(CoverageRecord.SUCCESS, status)
+        eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
 
         # The 202 status message in the feed caused a transient failure.
