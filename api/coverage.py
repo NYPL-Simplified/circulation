@@ -74,7 +74,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
             self.finalize_edition(edition)
             results.append(edition.primary_identifier)
 
-        for failure in self.handle_import_messages(error_messages_by_id):
+        for failure in error_messages_by_id.values():
             results.append(failure)
         return results
 
@@ -85,27 +85,6 @@ class OPDSImportCoverageProvider(CoverageProvider):
         """
         [result] = self.process_batch([identifier])
         return result
-
-    def handle_import_messages(self, messages_by_id):
-        """Turn OPDS messages from the lookup protocol into CoverageFailure
-        objects.
-        """
-        for identifier, message in messages_by_id.items():
-            # If the message indicates success but we didn't actually
-            # get the data, treat it as a transient error.
-            #
-            # If the message does not indicate success, create a
-            # CoverageRecord with the error so we stop trying this
-            # book.
-            if message.success:
-                continue
-                
-            exception = str(message.status_code)
-            if message.message:
-                exception += ": %s" % message.message
-            transient = message.transient
-            identifier_obj, ignore = Identifier.parse_urn(self._db, identifier)
-            yield CoverageFailure(self, identifier_obj, exception, transient)
 
     def finalize_edition(self, edition):
         """An OPDS entry has become an Edition. This method may (depending on
@@ -410,5 +389,5 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
                 error = "Work not indexed because not presentation-ready."
             else:
                 error = "Work not indexed"
-            return CoverageFailure(self, work, error, transient=True)
+            return CoverageFailure(work, error, data_source=None, transient=True)
         return work
