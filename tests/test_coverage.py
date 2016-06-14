@@ -62,7 +62,7 @@ class TestCoverageProvider(DatabaseTest):
         )
         record = provider.ensure_coverage(self.edition)
         assert isinstance(record, CoverageRecord)
-        eq_(self.edition.primary_identifier, record.identifier)
+        eq_(self.identifier, record.identifier)
         eq_(self.output_source, record.data_source)
         eq_(None, record.exception)
 
@@ -140,7 +140,7 @@ class TestCoverageProvider(DatabaseTest):
             "Always successful", self.input_identifier_types, 
             self.output_source, cutoff_time=one_second_after
         )
-        eq_([self.edition.primary_identifier], 
+        eq_([self.identifier], 
             provider.items_that_need_coverage().all())
 
         provider = AlwaysSuccessfulCoverageProvider(
@@ -280,10 +280,35 @@ class TestCoverageProvider(DatabaseTest):
         eq_(records[0], record)
         eq_("What did you expect?", record.exception)
 
-    def test_always_successful(self):
+    def test_run_once_and_update_timestamp(self):
+        """Test run_once_and_update_timestamp. It should cover items that have
+        no CoverageRecord at all, then items whose previous coverage
+        attempt resulted in a transient failure.
 
-        # We start with no CoverageRecords and no Timestamp.
+        This doubles as a test of AlwaysSuccessfulCoverageProvider's
+        ability to always create a CoverageRecord.
+        """
+
+        # We start with no Timestamp.
         eq_([], self._db.query(CoverageRecord).all())
+
+        # We previously tried to coverage the identifier we normally
+        # use in these tests, but got a transient failure.
+        self._coverage_record(
+            self.identifier, self.output_source, 
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+
+        # Here's a new identifier that has no coverage at all.
+        no_coverage = self._identifier()
+
+        # And here's an identifier that has a persistent failure.
+        persistent_failure = self._identifier()
+        self._coverage_record(
+            persistent_failure, self.output_source, 
+            status=CoverageRecord.PERSISTENT_FAILURE
+        )        
+
         eq_([], self._db.query(Timestamp).all())
 
         provider = AlwaysSuccessfulCoverageProvider(
@@ -291,35 +316,24 @@ class TestCoverageProvider(DatabaseTest):
         )
         provider.run()
 
-        # There is now one CoverageRecord
-        [record] = self._db.query(CoverageRecord).all()
-        eq_(self.edition.primary_identifier, record.identifier)
-        eq_(self.output_source, self.output_source)
-
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Always successful", timestamp.service)
 
-    def test_run_once_and_update_timestamp(self):
+        # The identifier with no coverage and the identifier with a
+        # persistent failure now have coverage records.
 
-        # We start with no CoverageRecords and no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        [transient_failure_has_gone] = self.identifier.coverage_records
+        eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
 
-        provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful", self.input_identifier_types, self.output_source
-        )
-        new_offset = provider.run_once_and_update_timestamp(0)
-        eq_(0, new_offset)
+        [now_has_coverage] = no_coverage.coverage_records
+        eq_(CoverageRecord.SUCCESS, now_has_coverage.status)
 
-        # There is now one CoverageRecord
-        [record] = self._db.query(CoverageRecord).all()
-        eq_(self.edition.primary_identifier, record.identifier)
-        eq_(self.output_source, self.output_source)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
+        # The identifier that had the transient failure was processed
+        # second, even though it was created first in the
+        # database. That's because we prioritize identifiers where
+        # coverage has never been attempted.
+        eq_([no_coverage, self.identifier], provider.attempts)
 
     def test_never_successful(self):
 
@@ -335,7 +349,7 @@ class TestCoverageProvider(DatabaseTest):
 
         # We have a CoverageRecord that signifies failure.
         [record] = self._db.query(CoverageRecord).all()
-        eq_(self.edition.primary_identifier, record.identifier)
+        eq_(self.identifier, record.identifier)
         eq_(self.output_source, self.output_source)
         eq_("What did you expect?", record.exception)
 
@@ -438,6 +452,42 @@ class TestCoverageProvider(DatabaseTest):
         # triggered.
         eq_(True, presentation_calculation_policy.tripped)
 
+
+    def test_ensure_coverage_changes_status(self):
+        """Verify that processing an item that has a preexisting 
+        CoverageRecord can change the status of that CoverageRecord.
+        """
+        always = AlwaysSuccessfulCoverageProvider(
+            "Always successful", self.input_identifier_types,
+            self.output_source
+        )
+        persistent = NeverSuccessfulCoverageProvider(
+            "Persistent failures", self.input_identifier_types,
+            self.output_source
+        )
+        transient = TransientFailureCoverageProvider(
+            "Persistent failures", self.input_identifier_types,
+            self.output_source
+        )
+
+        # Cover the same identifier multiple times, simulating all
+        # possible states of a CoverageRecord. The same CoverageRecord
+        # is used every time and the status is changed appropriately
+        # after every run.
+        c1 = persistent.ensure_coverage(self.identifier, force=True)
+        eq_(CoverageRecord.PERSISTENT_FAILURE, c1.status)
+
+        c2 = transient.ensure_coverage(self.identifier, force=True)
+        eq_(c2, c1)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, c1.status)
+
+        c3 = always.ensure_coverage(self.identifier, force=True)
+        eq_(c3, c1)
+        eq_(CoverageRecord.SUCCESS, c1.status)
+
+        c4 = persistent.ensure_coverage(self.identifier, force=True)
+        eq_(c4, c1)
+        eq_(CoverageRecord.PERSISTENT_FAILURE, c1.status)
 
     def test_operation_included_in_records(self):
         provider = AlwaysSuccessfulCoverageProvider(

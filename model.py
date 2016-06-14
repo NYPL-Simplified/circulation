@@ -847,6 +847,14 @@ class BaseCoverageRecord(object):
     SUCCESS = 'success'
     TRANSIENT_FAILURE = 'transient failure'
     PERSISTENT_FAILURE = 'persistent failure'    
+
+    ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
+    # By default, count coverage as present if it ended in
+    # success or in persistent failure. Do not count coverage
+    # as present if it ended in transient failure.
+    DEFAULT_COUNTS_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
+
     status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
                        name='coverage_status')
 
@@ -866,11 +874,7 @@ class BaseCoverageRecord(object):
         :return: A clause that can be passed in to Query.filter().
         """
         if not covered_statuses:
-            # By default, count coverage as present if it ended in
-            # success or in persistent failure. Do not count coverage
-            # as present if it ended in transient failure.
-            covered_statuses = [WorkCoverageRecord.SUCCESS, 
-                                WorkCoverageRecord.PERSISTENT_FAILURE]
+            covered_statuses = DEFAULT_COUNTS_AS_COVERED
         elif isinstance(covered_statuses, basestring):
             covered_statuses = [covered_statuses]
 
