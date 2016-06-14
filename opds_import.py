@@ -525,7 +525,8 @@ class OPDSImporter(object):
         if status_code is not None and status_code != 200:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
-            failure = CoverageFailure(identifier_obj, message, data_source, transient=True)
+            error_message = "%s: %s" % (status_code, message)
+            failure = CoverageFailure(identifier_obj, error_message, data_source, transient=True)
 
         if failure:
             return identifier, None, failure

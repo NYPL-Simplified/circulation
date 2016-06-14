@@ -169,7 +169,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.NYT, c2._data_source)
 
         [failure] = failures.values()
-        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
 
     def test_extract_metadata_from_feedparser(self):
@@ -189,7 +189,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
 
         failure = failures['http://www.gutenberg.org/ebooks/1984']
-        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
 
     def test_extract_metadata_from_feedparser_handles_exception(self):
@@ -213,7 +213,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The regular status message is there.
         failure = failures['http://www.gutenberg.org/ebooks/1984']
-        eq_(u"I'm working to locate a source for this identifier.", failure.exception)
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
         # The first error message is there.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
@@ -614,7 +614,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         [failure] = failures.values()
-        eq_("I've never heard of this work.", failure.exception)
+        eq_("404: I've never heard of this work.", failure.exception)
 
 
     def test_import_edition_failure_becomes_coverage_failure(self):
