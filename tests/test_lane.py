@@ -542,6 +542,28 @@ class TestLanes(DatabaseTest):
         eq_(True, invisible_parent.has_visible_sublane())
         eq_(False, sublane.has_visible_sublane())
 
+    def test_visible_sublanes(self):
+        fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
+        urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
+        humorous, ig = Genre.lookup(self._db, classifier.Humorous_Fiction)
+
+        visible_sublane = Lane(self._db, "Humorous Fiction", genres=humorous)
+
+        visible_grandchild = Lane(
+            self._db, "Urban Fantasy", genres=urban_fantasy)
+
+        invisible_sublane = Lane(
+            self._db, "Fantasy", invisible=True, genres=fantasy,
+            sublanes=[visible_grandchild], subgenre_behavior=Lane.IN_SAME_LANE)
+
+        lane = Lane(
+            self._db, "English", sublanes=[visible_sublane, invisible_sublane],
+            subgenre_behavior=Lane.IN_SAME_LANE)
+
+        eq_(2, len(lane.visible_sublanes))
+        assert visible_sublane in lane.visible_sublanes
+        assert visible_grandchild in lane.visible_sublanes
+
 
 class TestLanesQuery(DatabaseTest):
 
@@ -652,7 +674,7 @@ class TestLanesQuery(DatabaseTest):
         self.spanish.simple_opds_entry = '<entry>'
 
         # Refresh the materialized views so that all these books are present
-        # in the 
+        # in them.
         SessionManager.refresh_materialized_views(self._db)
 
     def test_lanes(self):

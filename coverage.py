@@ -14,6 +14,8 @@ from model import (
     Identifier,
     LicensePool,
     Timestamp,
+    Work,
+    WorkCoverageRecord,
 )
 from metadata_layer import (
     ReplacementPolicy
@@ -24,61 +26,72 @@ import log # This sets the appropriate log format.
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
 
-    def __init__(self, provider, obj, exception, transient=True):
+    def __init__(self, obj, exception, data_source=None, transient=True):
         self.obj = obj
-        self.output_source = provider.output_source
+        self.data_source = data_source
         self.exception = exception
         self.transient = transient
 
     def to_coverage_record(self, operation=None):
+        """Convert this failure into a CoverageRecord."""
+        if not self.data_source:
+            raise Exception(
+                "Cannot convert coverage failure to CoverageRecord because it has no output source."
+            )
         if not self.transient:
             # This is a persistent error. Turn it into a CoverageRecord
             # so we don't keep trying to provide coverage that isn't
             # gonna happen.
             record, ignore = CoverageRecord.add_for(
-                self.obj, self.output_source, operation=operation
+                self.obj, self.data_source, operation=operation
             )
             record.exception = self.exception
             return record
 
+    def to_work_coverage_record(self, operation):
+        """Convert this failure into a WorkCoverageRecord."""
+        if not self.transient:
+            # This is a persistent error. Turn it into a CoverageRecord
+            # so we don't keep trying to provide coverage that isn't
+            # gonna happen.
+            record, ignore = WorkCoverageRecord.add_for(
+                self.obj, operation=operation
+            )
+            record.exception = self.exception
+            return record
 
-class CoverageProvider(object):
+class BaseCoverageProvider(object):
 
-    """Run Identifiers of certain types (the input_identifier_types)
-    through code associated with a DataSource (the
-    `output_source`). If the code returns success, add a
-    CoverageRecord for the Edition and the output DataSource, so that
-    the record doesn't get processed next time.
+    """Run certain objects through an algorithm. If the algorithm returns
+    success, add a coverage record for that object, so the object
+    doesn't need to be processed again. If the algorithm returns a
+    CoverageFailure, that failure may itself be memorialized as a
+    coverage record.
+
+    In CoverageProvider the 'objects' are Identifier objects and the
+    coverage records are CoverageRecord objects. In
+    WorkCoverageProvider the 'objects' are Work objects and the
+    coverage records are WorkCoverageRecord objects.
     """
 
-    # Does this CoverageProvider get its data from a source that also
-    # provides licenses for books?
-    CAN_CREATE_LICENSE_POOLS = False
+    def __init__(self, _db, service_name, operation, batch_size=100, 
+                 cutoff_time=None):
+        """Constructor.
 
-    def __init__(self, service_name, input_identifier_types, output_source,
-                 workset_size=100, cutoff_time=None, operation=None):
-        self._db = Session.object_session(output_source)
-        self.service_name = service_name
+        :param service_name: The name of the coverage provider. Used in
+        log messages and Timestamp objects.
 
-        if not isinstance(input_identifier_types, list):
-            input_identifier_types = [input_identifier_types]
-        self.input_identifier_types = input_identifier_types
-        self.output_source_name = output_source.name
-        self.workset_size = workset_size
-        self.cutoff_time = cutoff_time
-        self.operation = operation
+        :batch_size: The maximum number of objects that will be processed
+        at once.
 
-    @property
-    def output_source(self):
-        """Look up the DataSource object corresponding to the
-        service we're running this data through.
-
-        Out of an excess of caution, we look up the DataSource every
-        time, rather than storing it, in case a CoverageProvider is
-        ever used in an environment where the database session is
-        scoped (e.g. the circulation manager).
+        :param cutoff_time: Coverage records created before this time
+        will be treated as though they did not exist.
         """
-        return DataSource.lookup(self._db, self.output_source_name)
+        self._db = _db
+        self.service_name = service_name
+        self.operation = operation
+        self.batch_size = batch_size
+        self.cutoff_time = cutoff_time
 
     @property
     def log(self):
@@ -86,26 +99,9 @@ class CoverageProvider(object):
             self._log = logging.getLogger(self.service_name)
         return self._log        
 
-    @property
-    def items_that_need_coverage(self):
-        """Find all items lacking coverage from this CoverageProvider.
-
-        Items should be Identifiers, though Editions should also work.
-
-        By default, all identifiers of the `input_identifier_types` which
-        don't already have coverage are chosen.
-
-        Items are selected randomly to reduce the effect of
-        persistent errors.
-        """
-        return Identifier.missing_coverage_from(
-            self._db, self.input_identifier_types, self.output_source,
-            count_as_missing_before=self.cutoff_time, operation=self.operation
-        )
-
     def run(self):
         self.log.info("%d items need coverage.", (
-            self.items_that_need_coverage.count())
+            self.items_that_need_coverage().count())
         )
         offset = 0
         while offset is not None:
@@ -117,9 +113,11 @@ class CoverageProvider(object):
         self._db.commit()
         return offset
 
-    def run_on_identifiers(self, identifiers):
-        """Split a specific set of identifiers into batches and
-        process one batch at a time.
+    def run_on_specific_identifiers(self, identifiers):
+        """Split a specific set of Identifiers into batches and process one
+        batch at a time.
+
+        This is for use by IdentifierInputScript.
 
         :return: The same (counts, records) 2-tuple as
             process_batch_and_handle_results.
@@ -130,12 +128,11 @@ class CoverageProvider(object):
         persistent_failures = 0
         records = []
 
-        original_ids = [x.id for x in identifiers]
-        need_coverage = self.items_that_need_coverage.filter(
-            Identifier.id.in_(original_ids)
-        ).all()
+        # Of all the items that need coverage, find the intersection
+        # with the given list of items.
+        need_coverage = self.items_that_need_coverage(identifiers).all()
 
-        # Treat any identifiers with up-to-date coverage records as
+        # Treat any items with up-to-date coverage records as
         # automatic successes.
         #
         # NOTE: We won't actually be returning those coverage records
@@ -146,22 +143,22 @@ class CoverageProvider(object):
         successes += automatic_successes
         self.log.info("%d automatic successes.", successes)
 
-        # Iterate over any identifiers that were not automatic
+        # Iterate over any items that were not automatic
         # successes.
         while index < len(need_coverage):
-            batch = need_coverage[index:index+self.workset_size]
+            batch = need_coverage[index:index+self.batch_size]
             (s, t, p), r = self.process_batch_and_handle_results(batch)
             successes += s
             transient_failures += t
             persistent_failures += p
             records += r
             self._db.commit()
-            index += self.workset_size
+            index += self.batch_size
         return (successes, transient_failures, persistent_failures), records
 
     def run_once(self, offset):
-        batch = self.items_that_need_coverage.limit(
-            self.workset_size).offset(offset)
+        batch = self.items_that_need_coverage().limit(
+            self.batch_size).offset(offset)
 
         if not batch.count():
             # The batch is empty. We're done.
@@ -195,7 +192,10 @@ class CoverageProvider(object):
                 if item.transient:
                     # Ignore this error for now, but come back to it
                     # on the next run.
-                    self.log.warn("Transient failure: %s", item.exception)
+                    self.log.warn(
+                        "Transient failure covering %r: %s", 
+                        item.obj, item.exception
+                    )
                     transient_failures += 1
                     record = item
                 else:
@@ -203,7 +203,7 @@ class CoverageProvider(object):
                     # failure. It won't show up anymore, on this 
                     # run or subsequent runs.
                     persistent_failures += 1
-                    record = item.to_coverage_record(operation=self.operation)
+                    record = self.record_failure_as_coverage_record(item)
             else:
                 # Count this as a success and add a CoverageRecord for
                 # it. It won't show up anymore, on this run or
@@ -221,7 +221,7 @@ class CoverageProvider(object):
         num_ignored = max(0, batch_size - len(results))
 
         self.log.info(
-            "Batch processed with %d successes, %d transient failures, %d ignored, %d persistent failures.",
+            "Batch processed with %d successes, %d transient failures, %d persistent failures, %d ignored.",
             successes, transient_failures, persistent_failures, num_ignored
         )
 
@@ -262,14 +262,88 @@ class CoverageProvider(object):
         # cutoff_time.
         return coverage_record.timestamp < self.cutoff_time
 
+    def finalize_batch(self):
+        """Do whatever is necessary to complete this batch before moving on to
+        the next one.
+        
+        e.g. uploading a bunch of assets to S3.
+        """
+        pass
+
+    #
+    # Subclasses must implement these virtual methods.
+    #
+
+    def items_that_need_coverage(self, identifiers):
+        """Create a database query returning only those items that
+        need coverage.
+
+        :param subset: A list of Identifier objects. If present, return
+        only items that need coverage *and* are associated with one
+        of these identifiers.
+
+        Implemented in CoverageProvider and WorkCoverageProvider.
+        """
+        raise NotImplementedError()
+
+    def add_coverage_record_for(self, item):
+        """Add a coverage record for the given item.
+
+        Implemented in CoverageProvider and WorkCoverageProvider.
+        """
+        raise NotImplementedError()
+        
+    def record_failure_as_coverage_record(self, failure):
+        """Convert the given CoverageFailure to a coverage record.
+
+        Implemented in CoverageProvider and WorkCoverageProvider.
+        """
+        raise NotImplementedError()
+
+    def process_item(self, item):
+        """Do the work necessary to give coverage to one specific item.
+
+        Since this is where the actual work happens, this is not
+        implemented in CoverageProvider or WorkCoverageProvider, and
+        must be handled in a subclass.
+        """
+        raise NotImplementedError()
+
+
+class CoverageProvider(BaseCoverageProvider):
+
+    """Run Identifiers of certain types (the input_identifier_types)
+    through code associated with a DataSource (the
+    `output_source`). If the code returns success, add a
+    CoverageRecord for the Edition and the output DataSource, so that
+    the record doesn't get processed next time.
+    """
+
+    # Does this CoverageProvider get its data from a source that also
+    # provides licenses for books?
+    CAN_CREATE_LICENSE_POOLS = False
+
+    def __init__(self, service_name, input_identifier_types, output_source,
+                 batch_size=100, cutoff_time=None, operation=None):
+        _db = Session.object_session(output_source)
+        super(CoverageProvider, self).__init__(
+            _db, service_name, operation, batch_size, cutoff_time
+        )
+        if input_identifier_types and not isinstance(input_identifier_types, list):
+            input_identifier_types = [input_identifier_types]
+        self.input_identifier_types = input_identifier_types
+        self.output_source_name = output_source.name
+
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
+        TODO: Could potentially be moved into BaseCoverageProvider.
+
         :param force: Run the coverage code even if an existing
-           CoverageRecord for this item was created after
+           covreage record for this item was created after
            `self.cutoff_time`.
 
-        :return: Either a CoverageRecord or a CoverageFailure.
+        :return: Either a coverage record or a CoverageFailure.
 
         """
         if isinstance(item, Identifier):
@@ -295,6 +369,18 @@ class CoverageProvider(object):
             coverage_record = None
         return coverage_record
 
+    @property
+    def output_source(self):
+        """Look up the DataSource object corresponding to the
+        service we're running this data through.
+
+        Out of an excess of caution, we look up the DataSource every
+        time, rather than storing it, in case a CoverageProvider is
+        ever used in an environment where the database session is
+        scoped (e.g. the circulation manager).
+        """
+        return DataSource.lookup(self._db, self.output_source_name)
+
     def license_pool(self, identifier):
         """Finds or creates the LicensePool for a given Identifier."""
         license_pool = identifier.licensed_through
@@ -316,7 +402,7 @@ class CoverageProvider(object):
         license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         edition, ignore = Edition.for_foreign_id(
             self._db, license_pool.data_source, identifier.type,
@@ -333,18 +419,66 @@ class CoverageProvider(object):
         license_pool = self.license_pool(identifier)
         if not license_pool:
             e = "No license pool available"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
         work, created = license_pool.calculate_work(even_if_no_author=True)
         if not work:
             e = "Work could not be calculated"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
         return work
 
+
     def set_metadata(self, identifier, metadata, 
+                     metadata_replacement_policy=None):
+        return self.set_metadata_and_circulation_data(
+            identifier, metadata, None, metadata_replacement_policy,
+        )
+
+    def set_metadata_and_circulation_data(self, identifier, metadata, circulationdata, 
+        metadata_replacement_policy=None, 
+        circulationdata_replacement_policy=None, 
+    ):
+        """
+        Performs the function of the old set_metadata.  Finds or creates the Edition 
+        and the LicensePool for the passed-in Identifier, updates them, 
+        then finds or creates a Work for them.
+
+        TODO:  Makes assumption of one license pool per identifier.  In a 
+        later branch, this will change.
+        TODO:  Update doc string removing reference to past function.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+
+        if not metadata and not circulationdata:
+            e = "Received neither metadata nor circulation data from input source"
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+
+        if metadata:
+            result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
+
+        if circulationdata:
+            result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
+            if isinstance(result, CoverageFailure):
+                return result
+
+        # now that made sure that have an edition and a pool on the identifier, 
+        # can try to make work
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+
+        return identifier
+
+
+    def _set_metadata(self, identifier, metadata, 
                      metadata_replacement_policy=None
     ):
         """Finds or creates the Edition for an Identifier, updates it
-        with the given metadata, then creates a Work for the book.
+        with the given metadata.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
@@ -359,7 +493,7 @@ class CoverageProvider(object):
 
         if not metadata:
             e = "Did not receive metadata from input source"
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         try:
             metadata.apply(
@@ -370,13 +504,48 @@ class CoverageProvider(object):
                 "Error applying metadata to edition %d: %s",
                 edition.id, e, exc_info=e
             )
-            return CoverageFailure(self, identifier, repr(e), transient=True)
-
-        work = self.work(identifier)
-        if isinstance(work, CoverageFailure):
-            return work
+            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
 
         return identifier
+
+
+    def _set_circulationdata(self, identifier, circulationdata, 
+                     circulationdata_replacement_policy=None
+    ):
+        """Finds or creates the LicensePool for an Identifier, updates it
+        with the given circulationdata, then creates a Work for the book.
+
+        TODO:  Makes assumption of one license pool per identifier.  In a 
+        later branch, this will change.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+        circulationdata_replacement_policy = circulationdata_replacement_policy or (
+            ReplacementPolicy.from_license_source()
+        )
+
+        pool = self.license_pool(identifier)
+        if isinstance(pool, CoverageFailure):
+            return pool
+
+        if not circulationdata:
+            e = "Did not receive circulationdata from input source"
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        try:
+            circulationdata.apply(
+                pool, replace=circulationdata_replacement_policy,
+            )
+        except Exception as e:
+            self.log.warn(
+                "Error applying circulationdata to pool %d: %s",
+                pool.id, e, exc_info=e
+            )
+            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
+
+        return identifier
+
 
     def set_presentation_ready(self, identifier):
         """Set a Work presentation-ready."""
@@ -386,21 +555,76 @@ class CoverageProvider(object):
         work.set_presentation_ready()
         return identifier
 
-    def add_coverage_record_for(self, identifier):
+    #
+    # Implementation of BaseCoverageProvider virtual methods.
+    #
+
+    def items_that_need_coverage(self, identifiers=None):
+        """Find all items lacking coverage from this CoverageProvider.
+
+        Items should be Identifiers, though Editions should also work.
+
+        By default, all identifiers of the `input_identifier_types` which
+        don't already have coverage are chosen.
+        """
+        qu = Identifier.missing_coverage_from(
+            self._db, self.input_identifier_types, self.output_source,
+            count_as_missing_before=self.cutoff_time, operation=self.operation
+        )
+        if identifiers:
+            qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+        return qu
+
+    def add_coverage_record_for(self, item):
+        """Record this CoverageProvider's coverage for the given
+        Edition/Identifier, as a CoverageRecord.
+        """
         return CoverageRecord.add_for(
-            identifier, self.output_source, operation=self.operation
+            item, data_source=self.output_source, operation=self.operation
         )
 
-    def process_item(self, identifier):
-        raise NotImplementedError()
+    def record_failure_as_coverage_record(self, failure):
+        """Turn a CoverageFailure into a CoverageRecord object."""
+        return failure.to_coverage_record(operation=self.operation)
 
-    def finalize_batch(self):
-        """Do whatever is necessary to complete this batch before moving on to
-        the next one.
-        
-        e.g. uploading a bunch of assets to S3.
+class WorkCoverageProvider(BaseCoverageProvider):
+
+    #
+    # Implementation of BaseCoverageProvider virtual methods.
+    #
+
+    def items_that_need_coverage(self, identifiers=None):
+        """Find all Works lacking coverage from this CoverageProvider.
+
+        By default, all Works which don't already have coverage are
+        chosen.
+
+        :param: Only Works connected with one of the given identifiers
+        are chosen.
         """
-        pass
+        qu = Work.missing_coverage_from(
+            self._db, operation=self.operation, 
+            count_as_missing_before=self.cutoff_time
+        )
+        if identifiers:
+            ids = [x.id for x in identifiers]
+            qu = qu.join(Work.license_pools).filter(
+                LicensePool.identifier_id.in_(ids)
+            )
+        return qu
+
+
+    def add_coverage_record_for(self, work):
+        """Record this CoverageProvider's coverage for the given
+        Edition/Identifier, as a WorkCoverageRecord.
+        """
+        return WorkCoverageRecord.add_for(
+            work, operation=self.operation
+        )
+
+    def record_failure_as_coverage_record(self, failure):
+        """Turn a CoverageFailure into a WorkCoverageRecord object."""
+        return failure.to_work_coverage_record(operation=self.operation)
 
 
 class BibliographicCoverageProvider(CoverageProvider):
@@ -415,8 +639,9 @@ class BibliographicCoverageProvider(CoverageProvider):
 
     CAN_CREATE_LICENSE_POOLS = True
 
-    def __init__(self, _db, api, datasource, workset_size=10,
-                 metadata_replacement_policy=None, cutoff_time=None
+    def __init__(self, _db, api, datasource, batch_size=10,
+                 metadata_replacement_policy=None, circulationdata_replacement_policy=None, 
+                 cutoff_time=None
     ):
         self._db = _db
         self.api = api
@@ -426,14 +651,27 @@ class BibliographicCoverageProvider(CoverageProvider):
         metadata_replacement_policy = (
             metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
         )
+        circulationdata_replacement_policy = (
+            circulationdata_replacement_policy or ReplacementPolicy.from_license_source()
+        )
         self.metadata_replacement_policy = metadata_replacement_policy
+        self.circulationdata_replacement_policy = circulationdata_replacement_policy
         super(BibliographicCoverageProvider, self).__init__(
             service_name,
             input_identifier_types, output_source,
-            workset_size=workset_size,
+            batch_size=batch_size,
             cutoff_time=cutoff_time
         )
 
-    def process_batch(self):
+    def process_batch(self, identifiers):
         """Returns a list of successful identifiers and CoverageFailures"""
-        raise NotImplementedError
+        results = []
+        for identifier in identifiers:
+            result = self.process_item(identifier)
+            if not isinstance(result, CoverageFailure):
+                self.handle_success(identifier)
+            results.append(result)
+        return results
+
+    def handle_success(self, identifier):
+        self.set_presentation_ready(identifier)

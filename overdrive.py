@@ -527,8 +527,12 @@ class OverdriveRepresentationExtractor(object):
                 processed.append(cls.overdrive_role_to_simplified_role[x])
         return processed
 
+
     @classmethod
     def book_info_to_circulation(cls, book):
+        """ Note:  The json data passed into this method is from a different file/stream 
+        from the json data that goes into the book_info_to_metadata() method.
+        """
         # In Overdrive, 'reserved' books show up as books on
         # hold. There is no separate notion of reserved books.
         licenses_reserved = 0
@@ -536,6 +540,13 @@ class OverdriveRepresentationExtractor(object):
         licenses_owned = None
         licenses_available = None
         patrons_in_hold_queue = None
+
+        if not 'id' in book:
+            return None
+        overdrive_id = book['id']
+        primary_identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID, overdrive_id
+        )
 
         if (book.get('isOwnedByCollections') is not False):
             # We own this book.
@@ -553,6 +564,8 @@ class OverdriveRepresentationExtractor(object):
                         patrons_in_hold_queue = 0
                     patrons_in_hold_queue += collection['numberOfHolds']
         return CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary_identifier,
             licenses_owned=licenses_owned,
             licenses_available=licenses_available,
             licenses_reserved=licenses_reserved,
@@ -567,10 +580,14 @@ class OverdriveRepresentationExtractor(object):
         media_type = link.get('type', None)
         return LinkData(rel=rel, href=href, media_type=media_type)
 
+
     @classmethod
     def book_info_to_metadata(cls, book):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
+
+        Note:  The json data passed into this method is from a different file/stream 
+        from the json data that goes into the book_info_to_circulation() method.
         """
         if not 'id' in book:
             return None
@@ -806,7 +823,7 @@ class OverdriveRepresentationExtractor(object):
                 )
             )
 
-        return Metadata(
+        metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
             title=title,
             subtitle=subtitle,
@@ -821,10 +838,21 @@ class OverdriveRepresentationExtractor(object):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
-            formats=formats,
             measurements=measurements,
             links=links,
         )
+
+        # Also make a CirculationData so we can write the formats, 
+        circulationdata = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary_identifier,
+            formats=formats,
+            links=links,
+        )
+
+        metadata.circulation = circulationdata
+
+        return metadata
 
 
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
@@ -840,30 +868,30 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         # part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, overdrive_api, DataSource.OVERDRIVE,
-            workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            batch_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
-
-    def process_batch(self, identifiers):
-        return [self.process_item(identifier) for identifier in identifiers]
-
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
+        error = None
         if info.get('errorCode') == 'NotFound':
-            e = "ID not recognized by Overdrive"
-            return CoverageFailure(self, identifier, e, transient=False)
+            error = "ID not recognized by Overdrive: %s" % identifier.identifier
+        elif info.get('errorCode') == 'InvalidGuid':
+            error = "Invalid Overdrive ID: %s" % identifier.identifier
+
+        if error:
+            return CoverageFailure(identifier, error, data_source=self.output_source, transient=False)
+
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
         )
+
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
-        result = self.set_metadata(
+        return self.set_metadata(
             identifier, metadata, 
             metadata_replacement_policy=self.metadata_replacement_policy
         )
-        if not isinstance(result, CoverageFailure):
-            # Success!
-            result = self.set_presentation_ready(result)
-        return result
+

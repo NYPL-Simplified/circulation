@@ -8,6 +8,8 @@ import datetime
 import json
 import os
 
+from coverage import CoverageFailure
+
 from model import (
     Edition,
     Identifier,
@@ -22,6 +24,7 @@ from axis import (
     Axis360API,
     MockAxis360API,
     BibliographicParser,
+    Axis360BibliographicCoverageProvider,
 )
 
 from util.http import (
@@ -32,7 +35,15 @@ from util.http import (
 from . import DatabaseTest
 from testing import MockRequestsResponse
 
-class TestAxis360API(DatabaseTest):
+class AxisTest(DatabaseTest):
+
+    def get_data(self, filename):
+        path = os.path.join(
+            os.path.split(__file__)[0], "files/axis/", filename)
+        return open(path).read()
+
+
+class TestAxis360API(AxisTest):
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
@@ -89,12 +100,7 @@ class TestAxis360API(DatabaseTest):
         # The fourth request never got made.
         eq_([301], [x.status_code for x in api.responses])
 
-class TestParsers(object):
-
-    def get_data(self, filename):
-        path = os.path.join(
-            os.path.split(__file__)[0], "files/axis/", filename)
-        return open(path).read()
+class TestParsers(AxisTest):
 
     def test_bibliographic_parser(self):
         """Make sure the bibliographic information gets properly
@@ -149,6 +155,8 @@ class TestParsers(object):
         eq_(u'FICTION / Romance / Suspense', romantic_suspense)
         eq_(u'General Adult', adult)
 
+        '''
+        TODO:  Perhaps want to test formats separately.
         [format] = bib1.formats
         eq_(Representation.EPUB_MEDIA_TYPE, format.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, format.drm_scheme)
@@ -156,6 +164,8 @@ class TestParsers(object):
         # The second book is only available in 'Blio' format, which
         # we can't use.
         eq_([], bib2.formats)
+        '''
+
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
@@ -181,6 +191,7 @@ class TestParsers(object):
         eq_("Eve, Mallory", c.sort_name)
         eq_([Contributor.UNKNOWN_ROLE], c.roles)
 
+
     def test_availability_parser(self):
         """Make sure the availability information gets properly
         collated in preparation for updating a LicensePool.
@@ -195,8 +206,80 @@ class TestParsers(object):
         eq_(None, bib1)
         eq_(None, bib2)
 
-        eq_(datetime.datetime(2015, 5, 20, 14, 9, 8),
-            av1.last_checked)
+        eq_("0003642860", av1.primary_identifier.identifier)
         eq_(9, av1.licenses_owned)
         eq_(9, av1.licenses_available)
         eq_(0, av1.patrons_in_hold_queue)
+
+
+class TestAxis360BibliographicCoverageProvider(AxisTest):
+    """Test the code that looks up bibliographic information from Axis 360."""
+
+    def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask Axis for data,
+        Axis provides it, and we create a presentation-ready work.
+        """
+        api = MockAxis360API(self._db)
+        data = self.get_data("single_item.xml")
+        api.queue_response(200, content=data)
+        
+        # Here's the book mentioned in single_item.xml.
+        identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        identifier.identifier = '0003642860'
+
+        # This book has no LicensePool.
+        eq_(None, identifier.licensed_through)
+
+        # Run it through the Axis360BibliographicCoverageProvider
+        provider = Axis360BibliographicCoverageProvider(
+            self._db, axis_360_api=api
+        )
+        [result] = provider.process_batch([identifier])
+        eq_(identifier, result)
+
+        # A LicensePool was created. We know both how many copies of this
+        # book are available, and what formats it's available in.
+        pool = identifier.licensed_through
+        eq_(9, pool.licenses_owned)
+        [lpdm] = pool.delivery_mechanisms
+        eq_('application/epub+zip (vnd.adobe/adept+xml)', 
+            lpdm.delivery_mechanism.name)
+
+        # A Work was created and made presentation ready.
+        eq_('Faith of My Fathers : A Family Memoir', pool.work.title)
+        eq_(True, pool.work.presentation_ready)
+       
+    def test_transient_failure_if_requested_book_not_mentioned(self):
+        """Test an unrealistic case where we ask Axis 360 about one book and
+        it tells us about a totally different book.
+        """
+        api = MockAxis360API(self._db)
+
+        # We're going to ask about abcdef
+        identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        identifier.identifier = 'abcdef'
+
+        # But we're going to get told about 0003642860.
+        data = self.get_data("single_item.xml")
+        api.queue_response(200, content=data)
+        
+        # Run abcdef through the Axis360BibliographicCoverageProvider.
+        provider = Axis360BibliographicCoverageProvider(
+            self._db, axis_360_api=api
+        )
+        [result] = provider.process_batch([identifier])
+
+        # Coverage failed for the book we asked about.
+        assert isinstance(result, CoverageFailure)
+        eq_(identifier, result.obj)
+        eq_("Book not in collection", result.exception)
+        
+        # And nothing major was done about the book we were told
+        # about. We created an Identifier record for its identifier,
+        # but no LicensePool or Edition.
+        wrong_identifier = Identifier.for_foreign_id(
+            self._db, Identifier.AXIS_360_ID, "0003642860"
+        )
+        eq_(None, identifier.licensed_through)
+        eq_([], identifier.primarily_identifies)
+

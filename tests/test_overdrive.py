@@ -12,6 +12,11 @@ from overdrive import (
     OverdriveAPI,
     MockOverdriveAPI,
     OverdriveRepresentationExtractor,
+    OverdriveBibliographicCoverageProvider,
+)
+
+from coverage import (
+    CoverageFailure,
 )
 
 from model import (
@@ -33,11 +38,21 @@ from util.http import (
 from . import DatabaseTest
 
 
-class TestOverdriveAPI(DatabaseTest):
+class OverdriveTest(DatabaseTest):
 
     def setup(self):
-        super(TestOverdriveAPI, self).setup()
+        super(OverdriveTest, self).setup()
         self.api = MockOverdriveAPI(self._db)
+        base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "overdrive")
+
+    def sample_json(self, filename):
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+
+class TestOverdriveAPI(OverdriveTest):
 
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
@@ -143,16 +158,7 @@ class TestOverdriveAPI(DatabaseTest):
         )
 
 
-class TestOverdriveRepresentationExtractor(object):
-
-    def setup(self):
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "files", "overdrive")
-
-    def sample_json(self, filename):
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data, json.loads(data)
+class TestOverdriveRepresentationExtractor(OverdriveTest):
 
     def test_availability_info(self):
         data, raw = self.sample_json("overdrive_book_list.json")
@@ -167,7 +173,20 @@ class TestOverdriveRepresentationExtractor(object):
         expect = OverdriveAPI.make_link_safe("http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open")
         eq_(expect, OverdriveRepresentationExtractor.link(raw, "first"))
 
+
+    def test_book_info_with_circulationdata(self):
+        # Tests that can convert an overdrive json block into a CirculationData object.
+
+        raw, info = self.sample_json("overdrive_availability_information.json")
+        circulationdata = OverdriveRepresentationExtractor.book_info_to_circulation(info)
+
+        # Related IDs.
+        eq_((Identifier.OVERDRIVE_ID, '2a005d55-a417-4053-b90d-7a38ca6d2065'),
+            (circulationdata.primary_identifier.type, circulationdata.primary_identifier.identifier))
+
+
     def test_book_info_with_metadata(self):
+        # Tests that can convert an overdrive json block into a Metadata object.
 
         raw, info = self.sample_json("overdrive_metadata.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
@@ -215,12 +234,12 @@ class TestOverdriveRepresentationExtractor(object):
             sorted(ids)
         )
 
-        # Available formats.
-        [kindle, pdf] = sorted(metadata.formats, key=lambda x: x.content_type)
-        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)
-        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)
+        # Available formats.      
+        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
+        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)       
+        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)      
 
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)      
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
         # Links to various resources.
@@ -254,6 +273,7 @@ class TestOverdriveRepresentationExtractor(object):
                   if x.quantity_measured==Measurement.RATING][0]
         eq_(1, rating.value)
 
+
     def test_book_info_with_sample(self):
         raw, info = self.sample_json("has_sample.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
@@ -280,3 +300,73 @@ class TestOverdriveRepresentationExtractor(object):
         ]
         eq_(1, awards.value)
         eq_(1, awards.weight)
+
+
+class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
+    """Test the code that looks up bibliographic information from Overdrive."""
+
+    def setup(self):
+        super(TestOverdriveBibliographicCoverageProvider, self).setup()
+        self.provider = OverdriveBibliographicCoverageProvider(
+            self._db, overdrive_api=self.api
+        )
+
+    def test_invalid_or_unrecognized_guid(self):
+        """A bad or malformed GUID can't get coverage."""
+        identifier = self._identifier()
+        identifier.identifier = 'bad guid'
+        
+        error = '{"errorCode": "InvalidGuid", "message": "An invalid guid was given.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
+        self.api.queue_response(200, content=error)
+
+        failure = self.provider.process_item(identifier)
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        eq_("Invalid Overdrive ID: bad guid", failure.exception)
+
+        # This is for when the GUID is well-formed but doesn't
+        # correspond to any real Overdrive book.
+        error = '{"errorCode": "NotFound", "message": "Not found in Overdrive collection.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
+        self.api.queue_response(200, content=error)
+
+        failure = self.provider.process_item(identifier)
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        eq_("ID not recognized by Overdrive: bad guid", failure.exception)
+
+    def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask Overdrive for data,
+        Overdrive provides it, and we create a presentation-ready work.
+        """
+        raw, info = self.sample_json("overdrive_metadata.json")
+        self.api.queue_response(200, content=raw)
+
+        # Here's the book mentioned in overdrive_metadata.json.
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        identifier.identifier = '3896665d-9d81-4cac-bd43-ffc5066de1f5'
+
+        # This book has no LicensePool.
+        eq_(None, identifier.licensed_through)
+
+        # Run it through the OverdriveBibliographicCoverageProvider
+        provider = OverdriveBibliographicCoverageProvider(
+            self._db, overdrive_api=self.api
+        )
+        [result] = provider.process_batch([identifier])
+        eq_(identifier, result)
+
+        # A LicensePool was created, not because we know anything
+        # about how we've licensed this book, but to have a place to
+        # store the information about what formats the book is
+        # available in.
+        pool = identifier.licensed_through
+        eq_(0, pool.licenses_owned)
+        [lpdm1, lpdm2] = pool.delivery_mechanisms
+        names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
+        eq_(sorted([u'application/pdf (vnd.adobe/adept+xml)', 
+                    u'Kindle via Amazon (Kindle DRM)']), sorted(names))
+
+        # A Work was created and made presentation ready.
+        eq_("Agile Documentation", pool.work.title)
+        eq_(True, pool.work.presentation_ready)
+       

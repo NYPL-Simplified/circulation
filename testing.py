@@ -29,6 +29,7 @@ from model import (
     Patron,
     Representation,
     Resource,
+    RightsStatus,
     SessionManager,
     Subject,
     Work,
@@ -41,6 +42,7 @@ from classifier import Classifier
 from coverage import (
     CoverageProvider,
     CoverageFailure,
+    WorkCoverageProvider,
 )
 from external_search import DummyExternalSearchIndex
 import mock
@@ -341,6 +343,7 @@ class DatabaseTest(object):
             pool.set_delivery_mechanism(
                 Representation.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.NO_DRM,
+                RightsStatus.GENERIC_OPEN_ACCESS,
                 link.resource,
             )
 
@@ -353,6 +356,7 @@ class DatabaseTest(object):
             pool.set_delivery_mechanism(
                 Representation.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.ADOBE_DRM,
+                RightsStatus.UNKNOWN,
                 None
             )
             pool.licenses_owned = pool.licenses_available = 1
@@ -520,6 +524,8 @@ class DatabaseTest(object):
         identifiers = db_connection.query(Identifier).all()
         license_pools = db_connection.query(LicensePool).all()
         editions = db_connection.query(Edition).all()
+        data_sources = db_connection.query(DataSource).all()
+        representations = db_connection.query(Representation).all()
 
         if (not works):
             print "NO Work found"
@@ -534,12 +540,14 @@ class DatabaseTest(object):
 
             print "    Work.presentation_edition=%s|" % work.presentation_edition
 
+        print "__________________________________________________________________\n"
         if (not identifiers):
             print "NO Identifier found"
         for iCount, identifier in enumerate(identifiers):
             print "Identifier[%s]=%s|" % (iCount, identifier)
             print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
 
+        print "__________________________________________________________________\n"
         if (not license_pools):
             print "NO LicensePool found"
         for index, license_pool in enumerate(license_pools):
@@ -551,21 +559,53 @@ class DatabaseTest(object):
             print "    LicensePool.superceded=%s|" % license_pool.superceded
             print "    LicensePool.suppressed=%s|" % license_pool.suppressed
 
+        print "__________________________________________________________________\n"
         if (not editions):
             print "NO Edition found"
         for index, edition in enumerate(editions):
             # pipe character at end of line helps see whitespace issues
             print "Edition[%s]=%s|" % (index, edition)
-            print "    Edition.work_id=%s|" % edition.work_id
             print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
             print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
-            print "    Edition.author=%s|" % edition.author
-            print "    Edition.title=%s|" % edition.title
+            if (edition.data_source):
+                print "    Edition.data_source.id=%s|" % edition.data_source.id
+                print "    Edition.data_source.name=%s|" % edition.data_source.name
+            else:
+                print "    No Edition.data_source."
+            if (edition.license_pool):
+                print "    Edition.license_pool.id=%s|" % edition.license_pool.id
+            else:
+                print "    No Edition.license_pool."
 
+            print "    Edition.title=%s|" % edition.title
+            print "    Edition.author=%s|" % edition.author
             if (not edition.author_contributors):
                 print "    NO Edition.author_contributor found"
             for acCount, author_contributor in enumerate(edition.author_contributors):
                 print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
+
+        print "__________________________________________________________________\n"
+        if (not data_sources):
+            print "NO DataSource found"
+        for index, data_source in enumerate(data_sources):
+            print "DataSource[%s]=%s|" % (index, data_source)
+            print "    DataSource.id=%s|" % data_source.id
+            print "    DataSource.name=%s|" % data_source.name
+            print "    DataSource.offers_licenses=%s|" % data_source.offers_licenses
+            print "    DataSource.editions=%s|" % data_source.editions            
+            print "    DataSource.license_pools=%s|" % data_source.license_pools
+            print "    DataSource.links=%s|" % data_source.links
+
+        print "__________________________________________________________________\n"
+        if (not representations):
+            print "NO Representation found"
+        for index, representation in enumerate(representations):
+            print "Representation[%s]=%s|" % (index, representation)
+            print "    Representation.id=%s|" % representation.id
+            print "    Representation.url=%s|" % representation.url
+            print "    Representation.mirror_url=%s|" % representation.mirror_url
+            print "    Representation.fetch_exception=%s|" % representation.fetch_exception   
+            print "    Representation.mirror_exception=%s|" % representation.mirror_exception
 
         return
 
@@ -596,9 +636,17 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
 
-    def run_once(self, offset):
-        super(InstrumentedCoverageProvider, self).run_once(offset)
-        return None
+    def process_item(self, item):
+        self.attempts.append(item)
+        return item
+
+class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
+    """A CoverageProvider that keeps track of every item it tried
+    to cover.
+    """
+    def __init__(self, _db, *args, **kwargs):
+        super(InstrumentedWorkCoverageProvider, self).__init__(_db, *args, **kwargs)
+        self.attempts = []
 
     def process_item(self, item):
         self.attempts.append(item)
@@ -607,10 +655,18 @@ class InstrumentedCoverageProvider(CoverageProvider):
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
+class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    """A WorkCoverageProvider that does nothing and always succeeds."""
+
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "What did you expect?", False)
+        return CoverageFailure(item, "What did you expect?", self.output_source, False)
+
+class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(item, "What did you expect?", None, False)
 
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
@@ -619,7 +675,12 @@ class BrokenCoverageProvider(InstrumentedCoverageProvider):
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "Oops!", True)
+        return CoverageFailure(item, "Oops!", self.output_source, True)
+
+class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(item, "Oops!", None, True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""
@@ -689,3 +750,5 @@ class MockRequestsResponse(object):
     @property
     def text(self):
         return self.content.decode("utf8")
+
+

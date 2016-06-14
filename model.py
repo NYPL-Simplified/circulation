@@ -234,7 +234,6 @@ class SessionManager(object):
                     self.works_id, self.sort_title, self.sort_author, self.language,
                     )).encode("utf8")
 
-
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
@@ -796,9 +795,9 @@ class DataSource(Base):
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
-                (cls.OCLC, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.OCLC_LINKED_DATA, False, False, Identifier.OCLC_NUMBER, None),
-                (cls.AMAZON, False, False, Identifier.ASIN, None),
+                (cls.OCLC, False, False, None, None),
+                (cls.OCLC_LINKED_DATA, False, False, None, None),
+                (cls.AMAZON, False, False, None, None),
                 (cls.OPEN_LIBRARY, False, False, Identifier.OPEN_LIBRARY_ID, None),
                 (cls.GUTENBERG_COVER_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
                 (cls.GUTENBERG_EPUB_GENERATOR, False, False, Identifier.GUTENBERG_ID, None),
@@ -807,14 +806,14 @@ class DataSource(Base):
                 (cls.CONTENT_CAFE, True, True, Identifier.ISBN, None),
                 (cls.MANUAL, False, False, None, None),
                 (cls.NYT, False, False, Identifier.ISBN, None),
-                (cls.LIBRARY_STAFF, False, False, Identifier.ISBN, None),
-                (cls.METADATA_WRANGLER, False, False, Identifier.URI, None),
+                (cls.LIBRARY_STAFF, False, False, None, None),
+                (cls.METADATA_WRANGLER, False, False, None, None),
                 (cls.PROJECT_GITENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.STANDARD_EBOOKS, True, False, Identifier.URI, None),
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
-                (cls.OA_CONTENT_SERVER, True, False, Identifier.URI, None),
+                (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
         ):
@@ -848,6 +847,7 @@ class CoverageRecord(Base):
     CHOOSE_COVER_OPERATION = 'choose-cover'
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
+    IMPORT_OPERATION = 'import'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1101,7 +1101,7 @@ class Identifier(Base):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = u' wr=%d ("%s")' % (records[0].id, records[0].title)
+            title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
         return (u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id,
@@ -1528,8 +1528,6 @@ class Identifier(Base):
         classifications = []
         subject, is_new = Subject.lookup(
             _db, subject_type, subject_identifier, subject_name)
-        #if is_new:
-        #    print repr(subject)
 
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
@@ -2184,7 +2182,6 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        # TODO: fix foreign key  presentation_edition_id
         "LicensePool", uselist=False, backref="presentation_edition"
     )
 
@@ -2209,11 +2206,11 @@ class Edition(Base):
     publisher = Column(Unicode, index=True)
     imprint = Column(Unicode, index=True)
 
-    # `published is the original publication date of the
-    # text. `issued` is when made available in this ebook edition. A
-    # Project Gutenberg text was likely `published` long before being
-    # `issued`.
+    # `issued` is the date the ebook edition was sent to the distributor by the publisher, 
+    # i.e. the date it became available for librarians to buy for their libraries
     issued = Column(Date)
+    # `published is the original publication date of the text.
+    # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
     BOOK_MEDIUM = u"Book"
@@ -3089,6 +3086,25 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
+    def missing_coverage_from(
+            cls, _db, operation=None, count_as_missing_before=None
+    ):
+        """Find Works which have no WorkCoverageRecord for the given
+        `operation`.
+        """
+        clause = and_(Work.id==WorkCoverageRecord.work_id,
+                      WorkCoverageRecord.operation==operation)
+        q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
+
+        missing = WorkCoverageRecord.id==None
+        if count_as_missing_before:
+            missing = or_(
+                missing, WorkCoverageRecord.timestamp < count_as_missing_before
+            )
+        q2 = q.filter(missing)
+        return q2
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
@@ -3138,8 +3154,19 @@ class Work(Base):
                 # earlier.  (This is why we chose the work with the
                 # most LicensePools--it minimizes the disruption
                 # here.)
+
+                # First, make sure this Work is the exclusive
+                # open-access work for its permanent work ID. 
+                # Otherwise the merge may fail.
+                work.make_exclusive_open_access_for_permanent_work_id(pwid)
                 for needs_merge in licensepools_for_work.keys():
                     if needs_merge != work:
+
+                        # Make sure that Work we're about to merge has
+                        # nothing but LicensePools whose permanent
+                        # work ID matches the permanent work ID of the
+                        # Work we're about to merge into.
+                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid)
                         needs_merge.merge_into(work)
             
         # At this point we have one, and only one, Work for this
@@ -3156,6 +3183,11 @@ class Work(Base):
         to a different Work. LicensePools with no presentation edition
         and no PWID are left alone. (TODO: although maybe they should
         be kicked out.)
+
+        In most cases this Work will be the _only_ work for this PWID,
+        but inside open_access_for_permanent_work_id this is called as
+        a preparatory step for merging two Works, and after the call
+        (but before the merge) there may be two Works for a given PWID.
         """
         _db = Session.object_session(self)
         for pool in list(self.license_pools):
@@ -3208,17 +3240,18 @@ class Work(Base):
             for pool in w.license_pools:
                 if not pool.open_access:
                     raise ValueError(
+
                         "Refusing to merge %r into %r because it would put an open-access LicensePool into the same work as a non-open-access LicensePool." %
                         (self, other_work)
                         )
 
         my_pwids = self.pwids
         other_pwids = other_work.pwids
-        if not my_pwids.issubset(other_pwids):
-            difference = my_pwids.difference(other_pwids)
+        if not my_pwids == other_pwids:
             raise ValueError(
-                "Refusing to merge %r into %r because it has permanent work IDs not present in the target work: %s" % (
-                    self, other_work, ",".join(difference)
+                "Refusing to merge %r into %r because permanent work IDs don't match: %s vs. %s" % (
+                    self, other_work, ",".join(sorted(my_pwids)),
+                    ",".join(sorted(other_pwids))
                 )
             )
 
@@ -3353,7 +3386,7 @@ class Work(Base):
 
         self.presentation_edition = new_presentation_edition
 
-        # Let the edition's license pool know it has a work.
+        # if the edition has a license pool, let the pool know it has a work.
         if self.presentation_edition.is_presentation_for:
             self.presentation_edition.is_presentation_for.work = self
 
@@ -3427,6 +3460,7 @@ class Work(Base):
         )
         return changed
 
+
     def calculate_presentation(self, policy=None, search_index_client=None):
         """Make a Work ready to show to patrons.
 
@@ -3441,6 +3475,7 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
+        
         # Gather information up front so we can see if anything
         # actually changed.
         changed = False
@@ -3534,8 +3569,6 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
-            if not search_index_client:
-                search_index_client = ExternalSearchIndex()
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3544,6 +3577,7 @@ class Work(Base):
                 changed = "changed"
                 representation = self.detailed_representation
             else:
+                # TODO: maybe change changed to a boolean, and return it as method result
                 changed = "unchanged"
                 representation = repr(self)                
             logging.info("Presentation %s for work: %s", changed, representation)
@@ -3610,13 +3644,17 @@ class Work(Base):
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
 
-    def update_external_index(self, client):
+
+    def update_external_index(self, client, add_coverage_record=True):
+        client = client or ExternalSearchIndex()
+
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
         if not client.works_index:
             # There is no index set up on this instance.
             return
+        present_in_index = False
         if self.presentation_ready:
             doc = self.to_search_document()
             if doc:
@@ -3628,6 +3666,7 @@ class Work(Base):
                 else:
                     logging.info("Indexed work %d (%s)", self.id, self.title)
                 client.index(**args)
+                present_in_index = True
             else:
                 logging.warn(
                     "Could not generate a search document for allegedly presentation-ready work %d (%s).",
@@ -3636,18 +3675,21 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-        WorkCoverageRecord.add_for(
-            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
-        )
+        if add_coverage_record and present_in_index:
+            WorkCoverageRecord.add_for(
+                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+            )
+        return present_in_index
 
-    def set_presentation_ready(self, as_of=None):
+    def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
+        self.update_external_index(search_index_client)
 
-    def set_presentation_ready_based_on_content(self):
+    def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3666,8 +3708,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
+            # This will remove the work from the search index.
+            self.update_external_index(search_index_client)
         else:
-            self.set_presentation_ready()
+            self.set_presentation_ready(search_index_client=search_index_client)
 
     def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)
@@ -3756,6 +3800,7 @@ class Work(Base):
         self.work_genres = workgenres
 
         return workgenres, changed
+
 
     def assign_appeals(self, character, language, setting, story,
                        cutoff=0.20):
@@ -4159,6 +4204,32 @@ class LicensePoolDeliveryMechanism(Base):
     # One LicensePoolDeliveryMechanism may fulfill many Loans.
     fulfills = relationship("Loan", backref="fulfillment")
 
+    # One LicensePoolDeliveryMechanism may be associated with one RightsStatus.
+    rightsstatus_id = Column(
+        Integer, ForeignKey('rightsstatus.id'), index=True)
+
+
+    def set_rights_status(self, uri, name=None):
+        _db = Session.object_session(self)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=dict(name=name))
+        self.rights_status = status
+        if status.uri in RightsStatus.OPEN_ACCESS:
+            self.license_pool.open_access = True
+        elif self.license_pool.open_access:
+            # If we're setting the rights status to
+            # non-open access, we might have removed
+            # the last open-access delivery mechanism
+            # for the pool. We need to check all of them
+            # to see if there's an open-access one.
+            self.license_pool.open_access = False
+            for lpdm in self.license_pool.delivery_mechanisms:
+                if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                    self.license_pool.open_access = True
+                    break
+        return status
+
     def __repr__(self):
         return "%r %r" % (self.license_pool, self.delivery_mechanism)
 
@@ -4178,9 +4249,15 @@ class Hyperlink(Base):
     DESCRIPTION = u"http://schema.org/description"
     SHORT_DESCRIPTION = u"http://librarysimplified.org/terms/rel/short-description"
     AUTHOR = u"http://schema.org/author"
+    ALTERNATE = u"alternate"
 
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
+
+    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD]
+    METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
+        DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
+    MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
 
     id = Column(Integer, primary_key=True)
 
@@ -4241,8 +4318,11 @@ class Hyperlink(Base):
     def default_filename(self):
         return self._default_filename(self.rel)
 
+
 class Resource(Base):
-    """An external resource that may be mirrored locally."""
+    """An external resource that may be mirrored locally.
+    E.g: a cover image, an epub, a description.
+    """
 
     __tablename__ = 'resources'
 
@@ -4936,6 +5016,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
 
     log = logging.getLogger("CachedFeed")
 
@@ -5066,10 +5147,6 @@ class LicensePool(Base):
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
-    # One LicensePool may be associated with one RightsStatus.
-    rightsstatus_id = Column(
-        Integer, ForeignKey('rightsstatus.id'), index=True)
-
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
 
@@ -5090,7 +5167,8 @@ class LicensePool(Base):
     # One LicensePool can be associated with many Complaints.
     complaints = relationship('Complaint', backref='license_pool')
 
-    # The date this LicensePool first became available.
+    # The date this LicensePool was first created in our db
+    # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
 
     # One LicensePool may have multiple DeliveryMechanisms, and vice
@@ -5154,7 +5232,8 @@ class LicensePool(Base):
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
-        if foreign_id_type != data_source.primary_identifier_type:
+        if (data_source.primary_identifier_type and 
+            foreign_id_type != data_source.primary_identifier_type):
             raise ValueError(
                 "License pools for data source '%s' are keyed to "
                 "identifier type '%s' (not '%s', which was provided)" % (
@@ -5179,6 +5258,15 @@ class LicensePool(Base):
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
+
+        if was_new:
+            # Set the LicensePool's initial values to indicate
+            # that we don't actually know how many copies we own.
+            license_pool.licenses_owned = 0
+            license_pool.licenses_available = 0
+            license_pool.licenses_reserved = 0
+            license_pool.patrons_in_hold_queue = 0
+
         return license_pool, was_new
 
     @classmethod
@@ -5296,6 +5384,7 @@ class LicensePool(Base):
                 return True
         return False
 
+
     def editions_in_priority_order(self):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
@@ -5322,6 +5411,7 @@ class LicensePool(Base):
                 return -2
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
+
 
     # TODO:  policy is not used in this method.  Removing argument
     # breaks many-many tests, and needs own branch.
@@ -5416,11 +5506,10 @@ class LicensePool(Base):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
-
+        changes_made = False
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
-
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
                  CirculationEvent.HOLD_PLACE, CirculationEvent.HOLD_RELEASE], 
@@ -5435,6 +5524,7 @@ class LicensePool(Base):
                 continue
             if old_value == new_value:
                 continue
+            changes_made = True
 
             if old_value < new_value:
                 event_name = more_event
@@ -5449,27 +5539,30 @@ class LicensePool(Base):
                 old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
-        self.licenses_owned = new_licenses_owned
-        self.licenses_available = new_licenses_available
-        self.licenses_reserved = new_licenses_reserved
-        self.patrons_in_hold_queue = new_patrons_in_hold_queue
-        self.last_checked = as_of
+        any_data = False
+        if new_licenses_owned is not None:
+            self.licenses_owned = new_licenses_owned
+            any_data = True
+        if new_licenses_available is not None:
+            self.licenses_available = new_licenses_available
+            any_data = True
+        if new_licenses_reserved is not None:
+            self.licenses_reserved = new_licenses_reserved
+            any_data = True
+        if new_patrons_in_hold_queue is not None:
+            self.patrons_in_hold_queue = new_patrons_in_hold_queue
+            any_data = True
 
-        # Update the last update time of the Work.
-        if self.work:
-            self.work.last_update_time = as_of
+        if any_data or changes_made:
+            # Sometimes update_availability is called with no actual
+            # numbers, but that's not the case this time. We got
+            # numbers and they may have even changed our view of the
+            # LicensePool.
+            self.last_checked = as_of
+            if self.work:
+                self.work.last_update_time = as_of
 
-    def set_rights_status(self, uri, name=None):
-        _db = Session.object_session(self)
-        status, ignore = get_one_or_create(
-            _db, RightsStatus, uri=uri,
-            create_method_kwargs=dict(name=name))
-        self.rights_status = status
-        if status.uri in RightsStatus.OPEN_ACCESS:
-            self.open_access = True
-        else:
-            self.open_access = False
-        return status
+        return changes_made
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
         _db = Session.object_session(patron)
@@ -5515,6 +5608,7 @@ class LicensePool(Base):
             if a and not a % batch_size:
                 _db.commit()
         _db.commit()
+
 
     def calculate_work(self, even_if_no_author=False, known_edition=None):
         """Find or create a Work for this LicensePool.
@@ -5669,6 +5763,7 @@ class LicensePool(Base):
         # All done!
         return work, is_new
 
+
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
@@ -5740,17 +5835,35 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
+
     def set_delivery_mechanism(
-            self, content_type, drm_scheme, resource):
+            self, content_type, drm_scheme, rights_uri, resource):
+        """
+        Additive, unless have more than one version of a book, in the same format, 
+        on the same license (ex.:  book with images and book without images in Gutenberg, 
+        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
+
+        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
+        so long as they have different resources.
+        """
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme)
+        rights_status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=rights_uri)
         lpdm, ignore = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
             license_pool=self,
-            delivery_mechanism=delivery_mechanism
+            delivery_mechanism=delivery_mechanism,
+            rights_status=rights_status,
         )
         lpdm.resource = resource
+        # If we're adding an open access lpdm, it makes the pool
+        # open access. If we're adding a non-open access lpdm, it
+        # doesn't change anything because the pool might have another
+        # lpdm that is open access.
+        if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+            self.open_access = True
         return lpdm
 
 
@@ -5817,6 +5930,8 @@ class RightsStatus(Base):
     DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
         DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
         DataSource.PLYMPTON: CC_BY_NC,
+        # workaround for opds-imported license pools with 'content server' as data source
+        DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
     }
     
     __tablename__ = 'rightsstatus'
@@ -5829,8 +5944,8 @@ class RightsStatus(Base):
     # Human-readable name of the license.
     name = Column(String, index=True)
 
-    # One RightsStatus may apply to many LicensePools.
-    licensepools = relationship("LicensePool", backref="rights_status")
+    # One RightsStatus may apply to many LicensePoolDeliveryMechanisms.
+    licensepooldeliverymechanisms = relationship("LicensePoolDeliveryMechanism", backref="rights_status")
 
     @classmethod
     def rights_uri_from_string(cls, rights):
@@ -6331,7 +6446,12 @@ class Representation(Base):
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, fetch_exception:
+            # This indicates there was a problem with making the HTTP
+            # request, not that the HTTP request returned an error
+            # condition.
+            logging.error("Error making HTTP request to %s", url, exc_info=fetch_exception)
             exception_traceback = traceback.format_exc()
+
             status_code = None
             headers = None
             content = None
@@ -7341,3 +7461,10 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
+
+
+
+
+
+
+

@@ -153,20 +153,38 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
-        parser = cls.arg_parser()
-        parsed = parser.parse_args(cmd_args)
-        return cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+    def read_stdin_lines(self, stdin):
+        """Read lines from a (possibly mocked, possibly empty) standard input."""
+        if stdin is not sys.stdin or not os.isatty(0):
+            # A file has been redirected into standard input. Grab its
+            # lines.
+            lines = [x.strip() for x in stdin.readlines()]
+        else:
+            lines = []
+        return lines
 
     @classmethod
-    def look_up_identifiers(cls, _db, parsed, *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        stdin = cls.read_stdin_lines(stdin)
+        return cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
+
+    @classmethod
+    def look_up_identifiers(cls, _db, parsed, stdin_identifier_strings, *args, **kwargs):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
+            identifier_strings = parsed.identifier_strings
+            if stdin_identifier_strings:
+                identifier_strings = (
+                    identifier_strings + stdin_identifier_strings
+                )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, parsed.identifier_strings,
+                _db, parsed.identifier_type, identifier_strings,
                 *args, **kwargs
             )
         else:
@@ -259,10 +277,12 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parser
 
     @classmethod
-    def parse_command_line(cls, _db, cmd_args=None, *args, **kwargs):
+    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        parsed = cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+        stdin = cls.read_stdin_lines(stdin)
+        parsed = cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
         if parsed.cutoff_time:
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
@@ -276,17 +296,32 @@ class RunCoverageProviderScript(IdentifierInputScript):
             else:
                 self.identifier_type = None
                 self.identifier_types = []
+            kwargs = self.extract_additional_command_line_arguments(args)
             provider = provider(
-                self._db, input_identifier_types=self.identifier_types, 
-                cutoff_time=args.cutoff_time
+                self._db, 
+                cutoff_time=args.cutoff_time,
+                **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
         self.identifiers = args.identifiers
 
+    def extract_additional_command_line_arguments(self, args):
+        """A hook method for subclasses.
+        
+        Turns command-line arguments into additional keyword arguments
+        to the CoverageProvider constructor.
+
+        By default, pass in a value used only by CoverageProvider
+        (as opposed to WorkCoverageProvider).
+        """
+        return {
+            "input_identifier_types" : self.identifier_types, 
+        }
+
     def do_run(self):
         if self.identifiers:
-            self.provider.run_on_identifiers(self.identifiers)
+            self.provider.run_on_specific_identifiers(self.identifiers)
         else:
             self.provider.run()
 
@@ -704,3 +739,14 @@ class SubjectAssignmentScript(SubjectInputScript):
             self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
+
+
+class MockStdin(object):
+    """Mock a list of identifiers passed in on standard input."""
+    def __init__(self, *lines):
+        self.lines = lines
+
+    def readlines(self):
+        lines = self.lines
+        self.lines = []
+        return lines
