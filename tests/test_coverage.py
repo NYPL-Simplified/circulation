@@ -206,7 +206,7 @@ class TestCoverageProvider(DatabaseTest):
             "Transient failure", self.input_identifier_types, self.output_source
         )
         failure = provider.ensure_coverage(self.edition)
-        eq_(True, failure.transient)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
         eq_("Oops!", failure.exception)
 
         # Because the error is transient we have no coverage record.

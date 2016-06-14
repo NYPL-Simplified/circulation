@@ -178,7 +178,8 @@ class BaseCoverageProvider(object):
         covered_statuses_message = '(covered statuses=%s)' % (', '.join(covered_statuses))
 
         qu = self.items_that_need_coverage(covered_statuses=covered_statuses)
-        self.log.info("%d items need coverage%s", qu.count(), kwargs_message)
+        self.log.info("%d items need coverage%s", qu.count(), 
+                      covered_statuses_message)
         batch = qu.limit(self.batch_size).offset(offset)
 
         if not batch.count():
