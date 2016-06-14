@@ -357,6 +357,7 @@ class BaseCoverageProvider(object):
 
         Implemented in CoverageProvider and WorkCoverageProvider.
         """
+        raise NotImplementedError()
 
     def process_item(self, item):
         """Do the work necessary to give coverage to one specific item.
