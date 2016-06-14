@@ -54,7 +54,7 @@ class GoogleAuthService(object):
         # components were translated already. Space is a variable so it doesn't
         # end up in the translation template.
         space = " "
-        error_detail = _(str(GOOGLE_OAUTH_FAILURE.detail) + space + str(error_detail))
+        error_detail = _(unicode(GOOGLE_OAUTH_FAILURE.detail) + space + unicode(error_detail))
 
         return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 

@@ -542,9 +542,7 @@ class CompileTranslationsScript(Script):
                 continue
 
             os.system("rm %(path)s/messages.po" % dict(path=base_path))
-            os.system("cp %(path)s/circulation.po %(path)s/messages.po" % dict(path=base_path))
-            os.system("pybabel update -i %(path)s/core.po -o %(path)s/messages.po -l %(lang)s" % dict(path=base_path, lang=language))
-            os.system("pybabel update -i %(path)s/circulation-admin.po -o %(path)s/messages.po -l %(lang)s" % dict(path=base_path, lang=language))
+            os.system("cat %(path)s/*.po > %(path)s/messages.po" % dict(path=base_path))
         
         os.system("pybabel compile -f -d translations")
 
