@@ -703,7 +703,7 @@ class AcquisitionFeed(OPDSFeed):
             entry.append(status_tag)
 
             message_tag = E._makeelement("{%s}message" % simplified_ns)
-            message_tag.text = str(message)
+            message_tag.text = unicode(message)
             entry.append(message_tag)
             yield entry
 

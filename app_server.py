@@ -224,7 +224,7 @@ class ErrorHandler(object):
                 body = tb
             else:
                 body = _('An internal error occured')
-            response = make_response(str(body), 500, {"Content-Type": "text/plain"})
+            response = make_response(unicode(body), 500, {"Content-Type": "text/plain"})
 
         log_method("Exception in web app: %s", exception, exc_info=exception)
         return response
@@ -481,4 +481,4 @@ class ComplaintController(object):
                 None, 400, _("Error registering complaint: %(error)s", error=str(e))
             )
 
-        return make_response(str(_("Success")), 201, {"Content-Type": "text/plain"})
+        return make_response(unicode(_("Success")), 201, {"Content-Type": "text/plain"})

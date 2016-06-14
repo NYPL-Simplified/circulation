@@ -10,9 +10,9 @@ JSON_MEDIA_TYPE = "application/api-problem+json"
 
 
 def json(type, status, title, detail=None, instance=None, debug_message=None):
-    d = dict(type=type, title=str(title), status=status)
+    d = dict(type=type, title=unicode(title), status=status)
     if detail:
-        d['detail'] = str(detail)
+        d['detail'] = unicode(detail)
     if instance:
         d['instance'] = instance
     if debug_message:
