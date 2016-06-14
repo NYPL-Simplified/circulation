@@ -29,7 +29,6 @@ from core.model import (
 )
 from core.opds import OPDSFeed
 from core.opds_import import (
-    StatusMessage,
     MockSimplifiedOPDSLookup,
 )
 from core.coverage import (
@@ -48,33 +47,6 @@ from api.coverage import (
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
-
-    def test_handle_import_messages(self):
-        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        provider = OPDSImportCoverageProvider("name", [], data_source)
-
-        message = StatusMessage(201, "try again later")
-        message2 = StatusMessage(404, "we're doomed")
-        message3 = StatusMessage(200, "everything's fine")
-
-        identifier = self._identifier()
-        identifier2 = self._identifier()
-        identifier3 = self._identifier()
-
-        messages_by_id = { identifier.urn: message,
-                           identifier2.urn: message2,
-                           identifier3.urn: message3,
-        }
-
-        [f1, f2] = sorted(list(provider.handle_import_messages(messages_by_id)),
-                          key=lambda x: x.exception)
-        eq_(identifier, f1.obj)
-        eq_("201: try again later", f1.exception)
-        eq_(True, f1.transient)
-
-        eq_(identifier2, f2.obj)
-        eq_("404: we're doomed", f2.exception)
-        eq_(False, f2.transient)
 
     def _provider(self, presentation_ready_on_success=True):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
@@ -177,7 +149,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
 
         identifier = self._identifier()
-        messages_by_id = {identifier.urn : StatusMessage(201, "try again later")}
+        messages_by_id = {identifier.urn : CoverageFailure(identifier, "201: try again later")}
 
         provider.queue_import_results([edition], [pool], [pool.work], messages_by_id)
 
@@ -190,7 +162,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # The edition was finalized.
         eq_([success], [e.primary_identifier for e in provider.finalized])
 
-        # The failure was converted to a CoverageFailure object.
+        # The failure stayed a CoverageFailure object.
         eq_(identifier, failure.obj)
         eq_(True, failure.transient)
 
