@@ -213,14 +213,20 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The regular status message is there.
         failure = failures['http://www.gutenberg.org/ebooks/1984']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
         # The first error message is there.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
         # The second error message is there.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
     def test_extract_metadata_from_elementtree(self):
@@ -320,13 +326,19 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The entry with the 202 message threw an exception.
         failure = failures['http://www.gutenberg.org/ebooks/1984']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
         # And so did the other entries.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
     def test_import_exception_if_unable_to_parse_feed(self):
@@ -614,6 +626,8 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         [failure] = failures.values()
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
         eq_("404: I've never heard of this work.", failure.exception)
 
 
@@ -632,6 +646,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The other failed to import, and became a CoverageFailure
         failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
         assert "Utter failure!" in failure.exception
 
     def test_import_work_failure_becomes_coverage_failure(self):
@@ -650,6 +666,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # There's an error message for the work that failed. 
         failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
         assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
